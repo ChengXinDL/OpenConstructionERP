@@ -38,6 +38,13 @@ interface ChangelogEntry {
 // date, title and meaning intact; trim the prose, not the facts.
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '12.0.0',
+    date: '2026-07-19',
+    tag: 'NEW',
+    summary:
+      'Model review now runs twenty more automatic checks over an imported model, from missing element properties and dimensions to duplicate marks and classification coverage, all shown in the review panel and folded into the completeness score. New screens surface analytics that were computed but never shown: a physical progress page with an actual against planned S-curve and quantity variance, contract gain share, security coverage and milestone schedule panels, and a finance retention ledger, each translated into every language.',
+  },
+  {
     version: '11.18.0',
     date: '2026-07-18',
     tag: 'NEW',
