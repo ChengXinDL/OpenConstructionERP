@@ -1,8 +1,7 @@
 // DDC-CWICR-OE: DataDrivenConstruction · OpenConstructionERP
 // Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
-import { useState } from 'react';
 import clsx from 'clsx';
-import { RoleAvatar } from './RoleAvatar';
+import { ROLE_BY_ID } from './roles';
 import type { ProfessionalRole } from './types';
 
 interface RoleArtProps {
@@ -13,43 +12,29 @@ interface RoleArtProps {
 }
 
 /**
- * The line-art portrait for a professional role, in a circular always-light tile
- * so the slate linework reads in both themes. Falls back to the drawn SVG persona
- * ({@link RoleAvatar}) if the picture is missing.
+ * The icon for a professional role: the role's own glyph centred in a soft
+ * tinted disc, drawn in the role's accent colour. A flat, clear vector mark -
+ * no raster portrait, no brand asset - in the same iconographic language as
+ * the case tiles, so a role reads at a glance and resolves in both light and
+ * dark themes. Keeps the same props as before so every call site is unchanged.
  */
 export function RoleArt({ role, className, title }: RoleArtProps) {
-  const [broken, setBroken] = useState(false);
-  const [lastRole, setLastRole] = useState(role);
-  // Reset the fallback during render when reused for another role (the persona
-  // strip swaps role in place), so the portrait never flashes the old avatar.
-  if (role !== lastRole) {
-    setLastRole(role);
-    setBroken(false);
-  }
-
-  if (broken) {
-    return <RoleAvatar role={role} className={className} title={title} />;
-  }
-
+  const meta = ROLE_BY_ID[role];
+  if (!meta) return null;
+  const Glyph = meta.badge;
   return (
     <span
       title={title}
+      aria-hidden="true"
       className={clsx(
-        'inline-flex shrink-0 overflow-hidden rounded-full bg-white ring-1 ring-inset ring-border-light dark:bg-slate-100',
+        // `tint.tile` carries the soft background, the accent text colour the
+        // glyph inherits through currentColor, and the ring - all theme-aware.
+        'inline-flex shrink-0 items-center justify-center rounded-full ring-1 ring-inset',
+        meta.tint.tile,
         className,
       )}
     >
-      <img
-        src={`/cases-art/roles/${role}.webp`}
-        alt=""
-        loading="lazy"
-        decoding="async"
-        width={384}
-        height={384}
-        draggable={false}
-        onError={() => setBroken(true)}
-        className="h-full w-full object-cover"
-      />
+      <Glyph className="h-1/2 w-1/2" strokeWidth={2} aria-hidden="true" />
     </span>
   );
 }
