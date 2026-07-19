@@ -488,7 +488,7 @@ function CasesList() {
                       <span className="min-w-0 flex-1">
                         <span
                           className={clsx(
-                            "block truncate text-xs font-semibold leading-tight",
+                            "block text-xs font-semibold leading-tight",
                             !active && "text-content-primary",
                           )}
                         >
@@ -581,7 +581,7 @@ function CasesList() {
                       title={t(c.labelKey, { defaultValue: c.labelDefault })}
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-xs font-semibold leading-tight">
+                      <span className="block text-xs font-semibold leading-tight">
                         {t(c.labelKey, { defaultValue: c.labelDefault })}
                       </span>
                       <span className="mt-0.5 block text-2xs tabular-nums text-content-tertiary">
@@ -664,7 +664,7 @@ function CasesList() {
                       title={t(r.labelKey, { defaultValue: r.labelDefault })}
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-xs font-semibold leading-tight">
+                      <span className="block text-xs font-semibold leading-tight">
                         {t(r.labelKey, { defaultValue: r.labelDefault })}
                       </span>
                       <span className="mt-0.5 block text-2xs tabular-nums text-content-tertiary">
