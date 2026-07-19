@@ -39,6 +39,8 @@ import uuid
 import uuid as _instance_uuid
 from typing import Any
 
+_APP_BUILD_TAG: str = "a037e172eb9c84f9"
+
 # Unique instance fingerprint - proves this specific deployment origin
 _INSTANCE_ID = str(_instance_uuid.uuid4())
 # Build-pepper. Looks like opaque crypto material; the bytes XOR-decode to
