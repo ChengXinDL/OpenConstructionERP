@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [12.0.1] - 2026-07-19
+
+Patch release. Corrects a frontend type-build error introduced in 12.0.0 that stopped the container image from building. There is no functional or behavioural change.
+
 ## [12.0.0] - 2026-07-19
 
 Model review gets a much deeper set of automatic checks. Twenty new model-checking functions now run over an imported model. Per element they look for missing wall thickness and fire rating, door and window dimensions, MEP size and system, storey and name, a classification code, a host relationship for hosted elements, a type name and a phase, a minimum clear door width, and negative quantities. Across the whole model they check for duplicate marks within a category, classification and discipline coverage and a sound spatial structure. Every result is surfaced in the model review panel and folded into the property completeness score, so a modeller sees exactly what is missing and where.

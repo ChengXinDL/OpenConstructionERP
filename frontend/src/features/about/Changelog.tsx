@@ -38,6 +38,13 @@ interface ChangelogEntry {
 // date, title and meaning intact; trim the prose, not the facts.
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '12.0.1',
+    date: '2026-07-19',
+    tag: 'NEW',
+    summary:
+      'Patch release. Corrects a frontend type-build error introduced in 12.0.0 that stopped the container image from building, with no functional or behavioural change.',
+  },
+  {
     version: '12.0.0',
     date: '2026-07-19',
     tag: 'NEW',
