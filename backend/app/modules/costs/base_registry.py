@@ -1,3 +1,5 @@
+# DDC-CWICR-OE: DataDrivenConstruction · OpenConstructionERP
+# Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
 """Single source of truth for the CWICR cost-base catalog.
 
 The public DDC CWICR data repository publishes nine cost-base families. One of
