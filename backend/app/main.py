@@ -2611,6 +2611,18 @@ def create_app() -> FastAPI:
             # without DDL rights (or any other failure) just logs a warning and
             # leaves schema management to the operator's `alembic upgrade head`,
             # exactly as before.
+            # Collapse any duplicate from-source takeoff documents before the
+            # index heal below adds their unique index (issue #369). A leftover
+            # duplicate makes CREATE UNIQUE INDEX fail, so the merge must run
+            # first. Idempotent and cheap when clean; non-fatal like the heal.
+            try:
+                from app.modules.takeoff.dedup import collapse_duplicate_source_documents
+
+                async with engine.begin() as conn:
+                    await collapse_duplicate_source_documents(conn)
+            except Exception:
+                logger.warning("Takeoff duplicate-document heal skipped (non-fatal)", exc_info=True)
+
             from app.core.postgres_migrator import postgres_auto_migrate
 
             try:
