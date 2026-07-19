@@ -435,7 +435,7 @@ function CasesList() {
                 the who/role filters below. */}
             <div className="rounded-2xl border border-border-light bg-surface-secondary/40 p-2.5 dark:bg-white/[0.03]">
               <div
-                className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4"
+                className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"
                 role="group"
                 aria-label={t("cases.stage_selector.heading", {
                   defaultValue: "Project lifecycle",
@@ -542,7 +542,7 @@ function CasesList() {
               </span>
             </div>
             <div
-              className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4"
+              className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"
               role="group"
               aria-label={t("cases.company_selector.heading", {
                 defaultValue: "My company",
@@ -629,7 +629,7 @@ function CasesList() {
               </span>
             </div>
             <div
-              className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4"
+              className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6"
               role="group"
               aria-label={t("cases.role_selector.heading", {
                 defaultValue: "Your role",
