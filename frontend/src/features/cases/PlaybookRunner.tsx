@@ -813,8 +813,8 @@ export function PlaybookRunner({ playbook, onBack }: PlaybookRunnerProps) {
             {playbook.steps.map((step, i) => {
               const done = isStepDone(progress, step.id);
               const isCurrent = i === currentIndex;
-              const prevDone =
-                i > 0 && isStepDone(progress, playbook.steps[i - 1].id);
+              const prevStep = i > 0 ? playbook.steps[i - 1] : undefined;
+              const prevDone = prevStep ? isStepDone(progress, prevStep.id) : false;
               const isLast = i === playbook.steps.length - 1;
               const stepTitle = t(step.titleKey, { defaultValue: step.titleDefault });
               return (
