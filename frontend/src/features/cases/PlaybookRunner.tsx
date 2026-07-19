@@ -141,22 +141,6 @@ function ConnectorChip({ down = false }: { down?: boolean }): ReactElement {
   );
 }
 
-/** A short vertical connector: a down chip between two stacked flow blocks. Used
- *  in the step block, where In -> Action -> Out always reads top to bottom. */
-function FlowConnector(): ReactElement {
-  return (
-    <div className="flex items-center justify-center" aria-hidden="true">
-      <span className="flex flex-col items-center">
-        <span className="h-2 w-px bg-border" />
-        <span className="my-0.5">
-          <ConnectorChip down />
-        </span>
-        <span className="h-2 w-px bg-border" />
-      </span>
-    </div>
-  );
-}
-
 /** The thumbnail for one step in the process card row: the step's bespoke
  *  process scene when it has one, otherwise its icon scene, framed so the row
  *  reads as a strip of pictures of the actual work. */
@@ -287,8 +271,9 @@ function StepBlock({
         </div>
       </div>
 
-      {/* Body: text on the left, the In -> Action -> Out flow on the right */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,19rem)] lg:gap-6">
+      {/* Body: the description on the left (~40%), the data flow on the
+          right (~60%) as three equal-height blocks read left to right. */}
+      <div className="grid gap-4 lg:grid-cols-[2fr_3fr] lg:gap-6">
         <div className="min-w-0 space-y-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-oe-blue-text">
@@ -320,18 +305,32 @@ function StepBlock({
           </div>
         </div>
 
-        {/* Data flow: In -> module action -> Out, stacked top to bottom. */}
+        {/* Data flow: what goes in, the module you open, what comes out - three
+            equal-height blocks read left to right so the hand-off is obvious.
+            Stacks on narrow screens. */}
         <div className="min-w-0">
           {hasFlow ? (
-            <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-1 items-stretch gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-2.5">
               <FlowSide
                 label={t("cases.flow.in", { defaultValue: "Goes in" })}
                 items={inputs}
                 tone="in"
               />
-              <FlowConnector />
-              {sceneButton}
-              <FlowConnector />
+              <div
+                className="hidden items-center justify-center sm:flex"
+                aria-hidden="true"
+              >
+                <ConnectorChip />
+              </div>
+              <div className="flex flex-col items-center justify-center rounded-xl border border-border-light bg-surface-secondary/40 p-3">
+                {sceneButton}
+              </div>
+              <div
+                className="hidden items-center justify-center sm:flex"
+                aria-hidden="true"
+              >
+                <ConnectorChip />
+              </div>
               <FlowSide
                 label={t("cases.flow.out", { defaultValue: "Comes out" })}
                 items={outputs}
@@ -339,7 +338,9 @@ function StepBlock({
               />
             </div>
           ) : (
-            sceneButton
+            <div className="rounded-xl border border-border-light bg-surface-secondary/40 p-3">
+              {sceneButton}
+            </div>
           )}
         </div>
       </div>
@@ -805,22 +806,47 @@ export function PlaybookRunner({ playbook, onBack }: PlaybookRunnerProps) {
               })}
             </p>
           </div>
-          {/* One row of step cards on wide screens (2 up on the narrowest). For
-              longer cases this wraps to a second row rather than shrinking the
-              cards past readable. */}
-          <ol
-            className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-6"
-            aria-label={title}
-          >
+          {/* A compact horizontal stepper: small cards under numbered nodes,
+              joined by a progress line that is dashed between steps still to do
+              and turns solid once the earlier step is done. */}
+          <ol className="flex items-start" aria-label={title}>
             {playbook.steps.map((step, i) => {
               const done = isStepDone(progress, step.id);
               const isCurrent = i === currentIndex;
+              const prevDone =
+                i > 0 && isStepDone(progress, playbook.steps[i - 1].id);
+              const isLast = i === playbook.steps.length - 1;
               const stepTitle = t(step.titleKey, { defaultValue: step.titleDefault });
-              const stepModule = step.moduleLabelKey
-                ? t(step.moduleLabelKey, { defaultValue: step.moduleLabel })
-                : step.moduleLabel;
               return (
-                <li key={step.id} className="min-w-0">
+                <li
+                  key={step.id}
+                  className="relative flex min-w-0 flex-1 flex-col items-center"
+                >
+                  {/* Progress line into this node from the previous step: solid
+                      once that step is done, dashed while it is still open. */}
+                  {i > 0 && (
+                    <span
+                      aria-hidden="true"
+                      className={clsx(
+                        "absolute left-0 right-1/2 top-3 h-0 border-t-2",
+                        prevDone
+                          ? "border-solid border-semantic-success"
+                          : "border-dashed border-border",
+                      )}
+                    />
+                  )}
+                  {/* Progress line out of this node toward the next step. */}
+                  {!isLast && (
+                    <span
+                      aria-hidden="true"
+                      className={clsx(
+                        "absolute left-1/2 right-0 top-3 h-0 border-t-2",
+                        done
+                          ? "border-solid border-semantic-success"
+                          : "border-dashed border-border",
+                      )}
+                    />
+                  )}
                   <button
                     type="button"
                     ref={(el) => {
@@ -832,43 +858,42 @@ export function PlaybookRunner({ playbook, onBack }: PlaybookRunnerProps) {
                     }}
                     onKeyDown={(e) => onCardKeyDown(e, i)}
                     aria-current={isCurrent ? "step" : undefined}
-                    className={clsx(
-                      "group flex h-full w-full flex-col gap-2 rounded-xl border p-2 text-left transition-all",
-                      "focus:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40",
-                      isCurrent
-                        ? "border-oe-blue bg-oe-blue-subtle shadow-sm ring-1 ring-inset ring-oe-blue/30"
-                        : done
-                          ? "border-semantic-success/30 bg-semantic-success/10 hover:border-semantic-success/50"
-                          : "border-border-light bg-surface-primary hover:border-oe-blue/40 hover:bg-surface-secondary/40",
-                    )}
+                    title={stepTitle}
+                    className="group flex w-full max-w-[150px] flex-col items-center gap-1.5 rounded-xl px-1 pb-1 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40"
                   >
-                    <span className="relative">
+                    {/* The numbered node sits on the connecting line. */}
+                    <span
+                      className={clsx(
+                        "relative z-10 flex h-6 w-6 items-center justify-center rounded-full text-2xs font-bold shadow-sm",
+                        done
+                          ? "bg-semantic-success text-white"
+                          : isCurrent
+                            ? "bg-oe-blue text-white"
+                            : "bg-surface-primary text-content-secondary ring-1 ring-inset ring-border-light",
+                      )}
+                      aria-hidden="true"
+                    >
+                      {done ? <Check size={13} strokeWidth={2.5} /> : i + 1}
+                    </span>
+                    {/* Smaller card: the picture of the work plus its title. */}
+                    <span
+                      className={clsx(
+                        "flex w-full flex-col gap-1 rounded-lg border p-1.5 transition-all",
+                        isCurrent
+                          ? "border-oe-blue bg-oe-blue-subtle shadow-sm ring-1 ring-inset ring-oe-blue/30"
+                          : done
+                            ? "border-semantic-success/30 bg-semantic-success/10 group-hover:border-semantic-success/50"
+                            : "border-border-light bg-surface-primary group-hover:border-oe-blue/40 group-hover:bg-surface-secondary/40",
+                      )}
+                    >
                       <StepThumb step={step} className="aspect-[16/9] w-full" />
                       <span
                         className={clsx(
-                          "absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full text-2xs font-bold shadow-sm",
-                          done
-                            ? "bg-semantic-success text-white"
-                            : isCurrent
-                              ? "bg-oe-blue text-white"
-                              : "bg-surface-primary text-content-secondary ring-1 ring-inset ring-border-light",
-                        )}
-                        aria-hidden="true"
-                      >
-                        {done ? <Check size={13} strokeWidth={2.5} /> : i + 1}
-                      </span>
-                    </span>
-                    <span className="min-w-0">
-                      <span
-                        className={clsx(
-                          "block text-xs font-semibold leading-snug line-clamp-2",
+                          "block line-clamp-2 text-2xs font-semibold leading-snug",
                           isCurrent ? "text-oe-blue-text" : "text-content-primary",
                         )}
                       >
                         {stepTitle}
-                      </span>
-                      <span className="mt-1 inline-block max-w-full truncate rounded border border-border-light bg-surface-secondary px-1.5 py-px text-2xs font-medium text-content-tertiary">
-                        {stepModule}
                       </span>
                     </span>
                   </button>
