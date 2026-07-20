@@ -135,6 +135,10 @@ class RouteResponse(BaseModel):
     target_kind: str
     is_active: bool
     created_by: UUID | None
+    # Set only on platform-seeded presets (tenant-wide read-only review flows);
+    # NULL for every user-created route. The UI flags a preset from this and the
+    # API rejects edits / deletes of a route that carries it.
+    system_key: str | None = None
     created_at: datetime
     updated_at: datetime
     steps: list[StepResponse] = Field(default_factory=list)

@@ -77,6 +77,19 @@ def _safe_user_uuid(user_id: str | None) -> uuid.UUID | None:
         return None
 
 
+def _reject_if_system_preset(route: object) -> None:
+    """Block edits / deletes of a platform-seeded preset route.
+
+    Presets are read-only, tenant-wide starting points; a team customises by
+    creating their own route rather than mutating the shared template.
+    """
+    if getattr(route, "system_key", None) is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This is a read-only system preset. Create your own route to customise it.",
+        )
+
+
 async def _route_to_response(
     route: object,
     service: ApprovalRouteService,
@@ -223,6 +236,7 @@ async def update_route(
     row = await service.get_route(route_id)
     if row.project_id is not None:
         await verify_project_access(row.project_id, user_id, session)
+    _reject_if_system_preset(row)
     updated = await service.update_route(
         route_id,
         payload,
@@ -245,6 +259,7 @@ async def delete_route(
     row = await service.get_route(route_id)
     if row.project_id is not None:
         await verify_project_access(row.project_id, user_id, session)
+    _reject_if_system_preset(row)
     await service.delete_route(route_id, actor_id=_safe_user_uuid(user_id))
 
 
