@@ -245,6 +245,42 @@ class FunctionalRolesResponse(BaseModel):
     matrix: dict[str, dict[str, str]] = Field(default_factory=dict)
 
 
+# ── Go-live readiness ─────────────────────────────────────────────────────
+
+
+class ReadinessSignalStatus(BaseModel):
+    """One readiness milestone and whether the project has satisfied it."""
+
+    key: str
+    label: str
+    weight: int
+    hint: str
+    done: bool
+
+
+class ReadinessNextAction(BaseModel):
+    """An unmet milestone surfaced as the next thing to do."""
+
+    key: str
+    label: str
+    hint: str
+
+
+class CDEReadinessResponse(BaseModel):
+    """A project's CDE go-live readiness picture.
+
+    ``score`` is a weighted percent in ``[0, 100]``; ``level`` is a coarse band
+    (not_started / forming / operational / mature). ``signals`` is the full
+    checklist; ``next_actions`` is the leading unmet milestones to nudge.
+    """
+
+    score: int
+    level: str
+    total_containers: int
+    signals: list[ReadinessSignalStatus] = Field(default_factory=list)
+    next_actions: list[ReadinessNextAction] = Field(default_factory=list)
+
+
 # ── Audit / history ──────────────────────────────────────────────────────
 
 

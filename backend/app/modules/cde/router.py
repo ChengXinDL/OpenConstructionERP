@@ -34,6 +34,7 @@ from app.modules.cde.roles import (
     RESPONSIBILITY_MATRIX,
 )
 from app.modules.cde.schemas import (
+    CDEReadinessResponse,
     CDEStatsResponse,
     ContainerCreate,
     ContainerResponse,
@@ -194,6 +195,37 @@ async def cde_stats(
     """
     await verify_project_access(project_id, user_id, session)
     return await service.get_stats(project_id)
+
+
+# ── Go-live readiness ─────────────────────────────────────────────────────────
+
+
+@router.get(
+    "/readiness",
+    response_model=CDEReadinessResponse,
+    dependencies=[Depends(RequirePermission("cde.read"))],
+    include_in_schema=False,
+)
+@router.get(
+    "/readiness/",
+    response_model=CDEReadinessResponse,
+    dependencies=[Depends(RequirePermission("cde.read"))],
+)
+async def cde_readiness(
+    user_id: CurrentUserId,
+    session: SessionDep,
+    project_id: uuid.UUID = Query(...),
+    service: CDEService = Depends(_get_service),
+) -> CDEReadinessResponse:
+    """Score how ready a project's CDE is to go live.
+
+    Returns a weighted readiness score and level plus a checklist of the ISO
+    19650 go-live milestones - containers created, structured naming, suitability
+    discipline, work shared and published, gates signed, revisions versioned -
+    each marked done or not, with the leading unmet ones as next actions.
+    """
+    await verify_project_access(project_id, user_id, session)
+    return await service.compute_readiness(project_id)
 
 
 # ── Container List ────────────────────────────────────────────────────────────
