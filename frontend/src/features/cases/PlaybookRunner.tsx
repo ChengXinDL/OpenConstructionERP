@@ -72,18 +72,6 @@ function isDemoProject(p: Project): boolean {
   return Boolean((p.metadata as Record<string, unknown> | null)?.demo_id);
 }
 
-/** Large-screen column count for the process row, capped at six per row so a
- *  long case wraps to a second row instead of squashing. Kept as static class
- *  strings so Tailwind emits them at build time. */
-const PROC_COLS_LG: Record<number, string> = {
-  1: "lg:grid-cols-1",
-  2: "lg:grid-cols-2",
-  3: "lg:grid-cols-3",
-  4: "lg:grid-cols-4",
-  5: "lg:grid-cols-5",
-  6: "lg:grid-cols-6",
-};
-
 /** One side (In / Out) of a step's data flow: a titled column of chips. The In
  *  dots are quiet (raw material); the Out dots are green (the payoff), so the
  *  eye reads from what you start with to what you end up with. */
@@ -839,11 +827,11 @@ export function PlaybookRunner({ playbook, onBack }: PlaybookRunnerProps) {
             })}
           </p>
         </div>
+        {/* Six across from the small breakpoint up so the strip stays a compact
+            journey map (three across on the narrowest screens); more steps just
+            wrap to a second row of six. */}
         <ol
-          className={clsx(
-            "grid grid-cols-2 gap-2.5 sm:grid-cols-3",
-            PROC_COLS_LG[Math.min(total, 6)],
-          )}
+          className="grid grid-cols-3 gap-2 sm:grid-cols-6"
           aria-label={title}
         >
           {playbook.steps.map((step, i) => {
@@ -865,7 +853,7 @@ export function PlaybookRunner({ playbook, onBack }: PlaybookRunnerProps) {
                   aria-current={isCurrent ? "step" : undefined}
                   title={stepTitle}
                   className={clsx(
-                    "group flex h-full w-full flex-col gap-1.5 rounded-xl border p-1.5 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40",
+                    "group flex h-full w-full flex-col gap-1 rounded-lg border p-1 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40",
                     isCurrent
                       ? "border-oe-blue bg-oe-blue-subtle ring-1 ring-inset ring-oe-blue/30"
                       : done
@@ -877,7 +865,7 @@ export function PlaybookRunner({ playbook, onBack }: PlaybookRunnerProps) {
                     <StepThumb step={step} className="aspect-[16/9] w-full" />
                     <span
                       className={clsx(
-                        "absolute start-1 top-1 flex h-5 w-5 items-center justify-center rounded-full text-2xs font-bold shadow-sm",
+                        "absolute start-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full text-2xs font-bold shadow-sm",
                         done
                           ? "bg-semantic-success text-white"
                           : isCurrent
@@ -891,7 +879,7 @@ export function PlaybookRunner({ playbook, onBack }: PlaybookRunnerProps) {
                   </div>
                   <span
                     className={clsx(
-                      "line-clamp-2 px-0.5 text-xs font-semibold leading-snug",
+                      "line-clamp-2 px-0.5 text-2xs font-semibold leading-snug",
                       isCurrent ? "text-oe-blue-text" : "text-content-primary",
                     )}
                   >
