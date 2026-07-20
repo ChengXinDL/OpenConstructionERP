@@ -173,6 +173,8 @@ function StepBlock({
   why,
   inputs,
   outputs,
+  inputsHint,
+  outputsHint,
   scene,
   done,
   isCurrent,
@@ -190,6 +192,8 @@ function StepBlock({
   why: string;
   inputs: string[];
   outputs: string[];
+  inputsHint?: string;
+  outputsHint?: string;
   scene: ReactElement;
   done: boolean;
   isCurrent: boolean;
@@ -228,7 +232,7 @@ function StepBlock({
       id={id}
       aria-current={isCurrent ? "step" : undefined}
       className={clsx(
-        "scroll-mt-4 rounded-2xl border bg-surface-primary p-3.5 shadow-xs transition-colors sm:p-4",
+        "relative scroll-mt-4 rounded-2xl border bg-surface-primary p-3.5 shadow-xs transition-colors sm:p-4",
         isCurrent
           ? "border-oe-blue/50 ring-1 ring-inset ring-oe-blue/20"
           : done
@@ -236,45 +240,46 @@ function StepBlock({
             : "border-border-light",
       )}
     >
-      {/* Header: number/status, step counter + module, title */}
-      <div className="mb-3 flex items-start gap-2.5">
-        <span
-          className={clsx(
-            "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold",
-            done
-              ? "bg-semantic-success text-white"
-              : isCurrent
-                ? "bg-oe-blue text-white"
-                : "bg-surface-secondary text-content-secondary ring-1 ring-inset ring-border-light",
-          )}
-          aria-hidden="true"
-        >
-          {done ? <Check size={16} strokeWidth={2.5} /> : index + 1}
+      {/* Step number / status, pinned to the top-right corner so the counter,
+          title, "What you do" and "Why" below all share one clean left edge. */}
+      <span
+        className={clsx(
+          "absolute end-3 top-3 flex h-7 w-7 items-center justify-center rounded-full text-sm font-bold",
+          done
+            ? "bg-semantic-success text-white"
+            : isCurrent
+              ? "bg-oe-blue text-white"
+              : "bg-surface-secondary text-content-secondary ring-1 ring-inset ring-border-light",
+        )}
+        aria-hidden="true"
+      >
+        {done ? <Check size={16} strokeWidth={2.5} /> : index + 1}
+      </span>
+
+      {/* Step counter + module tag: a left-aligned row, padded to clear the
+          corner badge. */}
+      <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 pe-9">
+        <span className="text-2xs font-semibold uppercase tracking-wide text-content-tertiary">
+          {t("cases.step_counter", {
+            defaultValue: "Step {{n}} of {{total}}",
+            n: index + 1,
+            total,
+          })}
         </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-2xs font-semibold uppercase tracking-wide text-content-tertiary">
-              {t("cases.step_counter", {
-                defaultValue: "Step {{n}} of {{total}}",
-                n: index + 1,
-                total,
-              })}
-            </span>
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border-light bg-surface-secondary px-2 py-0.5 text-2xs font-medium text-content-secondary">
-              <Icon size={12} strokeWidth={2} aria-hidden="true" />
-              {moduleLabel}
-            </span>
-          </div>
-          <h3 className="mt-1 text-base font-semibold leading-snug text-content-primary sm:text-lg">
-            {title}
-          </h3>
-        </div>
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border-light bg-surface-secondary px-2 py-0.5 text-2xs font-medium text-content-secondary">
+          <Icon size={12} strokeWidth={2} aria-hidden="true" />
+          {moduleLabel}
+        </span>
       </div>
 
-      {/* Body: the description on the left (~40%), the data flow on the
-          right (~60%) as three equal-height blocks read left to right. */}
-      <div className="grid gap-4 lg:grid-cols-[2fr_3fr] lg:gap-6">
+      {/* Title + detail on the left, the data flow on the right. `items-start`
+          keeps the In / Out cards' top aligned with the step title, and every
+          left-column line shares one left edge. */}
+      <div className="grid gap-4 lg:grid-cols-[2fr_3fr] lg:items-start lg:gap-6">
         <div className="min-w-0 space-y-3">
+          <h3 className="text-base font-semibold leading-snug text-content-primary sm:text-lg">
+            {title}
+          </h3>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-oe-blue-text">
               {t("cases.step.what", { defaultValue: "What you do" })}
@@ -315,6 +320,7 @@ function StepBlock({
                 label={t("cases.flow.in", { defaultValue: "Goes in" })}
                 items={inputs}
                 tone="in"
+                hint={inputsHint}
               />
               <div
                 className="hidden items-center justify-center sm:flex"
@@ -335,6 +341,7 @@ function StepBlock({
                 label={t("cases.flow.out", { defaultValue: "Comes out" })}
                 items={outputs}
                 tone="out"
+                hint={outputsHint}
               />
             </div>
           ) : (
@@ -600,6 +607,18 @@ export function PlaybookRunner({ playbook, onBack }: PlaybookRunnerProps) {
     [t],
   );
 
+  // Resolve the optional one-line hint that sits above an In / Out list and
+  // explains, in a sentence, what the estimator is bringing in or getting out.
+  const resolveHint = useCallback(
+    (step: PlaybookStep, side: "inputs" | "outputs"): string | undefined => {
+      const key = side === "inputs" ? step.inputsHintKey : step.outputsHintKey;
+      const def = side === "inputs" ? step.inputsHintDefault : step.outputsHintDefault;
+      if (key) return t(key, { defaultValue: def ?? "" }) || undefined;
+      return def || undefined;
+    },
+    [t],
+  );
+
   const title = t(playbook.titleKey, { defaultValue: playbook.titleDefault });
   const desc = t(playbook.descKey, { defaultValue: playbook.descDefault });
   const longDesc =
@@ -671,11 +690,13 @@ export function PlaybookRunner({ playbook, onBack }: PlaybookRunnerProps) {
       </button>
 
       <header className="rounded-2xl border border-border-light bg-gradient-to-br from-oe-blue/[0.08] via-oe-blue/[0.03] to-transparent p-5 sm:p-6">
-        {/* Two columns on wide screens: the case identity and purpose on the
-            left, a compact control panel (progress, the primary action, reset
-            and the sample-project picker) on the right. They stack on narrow
-            screens. This keeps the header short instead of one tall stack. */}
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-8">
+        {/* Two columns on wide screens: the case identity, purpose AND the
+            process step list on the left, a compact control panel (progress,
+            the primary action, reset and the sample-project picker) on the
+            right. They stack on narrow screens. `items-stretch` makes both
+            columns share one height so the panel fills the same space as the
+            taller left column. */}
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-stretch lg:gap-8">
           {/* Left: what this case is and why */}
           <div className="min-w-0">
             <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -711,11 +732,89 @@ export function PlaybookRunner({ playbook, onBack }: PlaybookRunnerProps) {
                 {longDesc}
               </p>
             )}
+
+            {/* The process: a left-aligned vertical list of steps, directly
+                under the case identity so the whole path reads at a glance.
+                Each row opens that step below. */}
+            <section
+              className="mt-5"
+              aria-label={t("cases.the_process", { defaultValue: "The process" })}
+            >
+              <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                <p className="text-2xs font-semibold uppercase tracking-wide text-content-tertiary">
+                  {t("cases.the_process", { defaultValue: "The process" })}
+                </p>
+                <p className="text-xs text-content-tertiary">
+                  {t("cases.process_help", {
+                    defaultValue: "Choose a step to see what happens and why",
+                  })}
+                </p>
+              </div>
+              <ol className="space-y-1.5" aria-label={title}>
+                {playbook.steps.map((step, i) => {
+                  const done = isStepDone(progress, step.id);
+                  const isCurrent = i === currentIndex;
+                  const stepTitle = t(step.titleKey, { defaultValue: step.titleDefault });
+                  return (
+                    <li key={step.id}>
+                      <button
+                        type="button"
+                        ref={(el) => {
+                          cardRefs.current[i] = el;
+                        }}
+                        onClick={() => {
+                          selectStep(i);
+                          scrollToStep(step.id);
+                        }}
+                        onKeyDown={(e) => onCardKeyDown(e, i)}
+                        aria-current={isCurrent ? "step" : undefined}
+                        title={stepTitle}
+                        className={clsx(
+                          "group flex w-full items-center gap-2.5 rounded-xl border p-2 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40",
+                          isCurrent
+                            ? "border-oe-blue bg-oe-blue-subtle ring-1 ring-inset ring-oe-blue/30"
+                            : done
+                              ? "border-semantic-success/30 bg-semantic-success/10 group-hover:border-semantic-success/50"
+                              : "border-border-light bg-surface-primary group-hover:border-oe-blue/40 group-hover:bg-surface-secondary/40",
+                        )}
+                      >
+                        <span
+                          className={clsx(
+                            "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-2xs font-bold shadow-sm",
+                            done
+                              ? "bg-semantic-success text-white"
+                              : isCurrent
+                                ? "bg-oe-blue text-white"
+                                : "bg-surface-primary text-content-secondary ring-1 ring-inset ring-border-light",
+                          )}
+                          aria-hidden="true"
+                        >
+                          {done ? <Check size={13} strokeWidth={2.5} /> : i + 1}
+                        </span>
+                        <StepThumb
+                          step={step}
+                          className="aspect-[16/9] w-16 shrink-0 rounded-md"
+                        />
+                        <span
+                          className={clsx(
+                            "min-w-0 flex-1 line-clamp-2 text-xs font-semibold leading-snug",
+                            isCurrent ? "text-oe-blue-text" : "text-content-primary",
+                          )}
+                        >
+                          {stepTitle}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
           </div>
 
           {/* Right: a compact control panel - progress, primary action, reset
-              and the sample-project picker, stacked in one tidy card. */}
-          <div className="rounded-xl border border-border-light/70 bg-surface-primary/60 p-4">
+              and the sample-project picker, stacked in one tidy card that
+              stretches to the full column height. */}
+          <div className="flex h-full flex-col rounded-xl border border-border-light/70 bg-surface-primary/60 p-4">
             <div
               className="flex flex-col gap-1.5"
               role="progressbar"
@@ -757,7 +856,7 @@ export function PlaybookRunner({ playbook, onBack }: PlaybookRunnerProps) {
               </Button>
               <div className="flex justify-center">{resetButton}</div>
             </div>
-            <div className="mt-4 border-t border-border-light/70 pt-3">
+            <div className="mt-auto border-t border-border-light/70 pt-3">
               <label
                 htmlFor={selectId}
                 className="block text-2xs font-semibold uppercase tracking-wide text-content-tertiary"
@@ -794,115 +893,6 @@ export function PlaybookRunner({ playbook, onBack }: PlaybookRunnerProps) {
         </div>
       </header>
 
-        {/* The process: a compact, full-width row of step cards below the header. */}
-        <section aria-label={t("cases.the_process", { defaultValue: "The process" })}>
-          <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-            <p className="text-2xs font-semibold uppercase tracking-wide text-content-tertiary">
-              {t("cases.the_process", { defaultValue: "The process" })}
-            </p>
-            <p className="text-xs text-content-tertiary">
-              {t("cases.process_help", {
-                defaultValue: "Choose a step to see what happens and why",
-              })}
-            </p>
-          </div>
-          {/* A compact horizontal stepper: small cards under numbered nodes,
-              joined by a progress line that is dashed between steps still to do
-              and turns solid once the earlier step is done. */}
-          <ol className="flex items-start" aria-label={title}>
-            {playbook.steps.map((step, i) => {
-              const done = isStepDone(progress, step.id);
-              const isCurrent = i === currentIndex;
-              const prevStep = i > 0 ? playbook.steps[i - 1] : undefined;
-              const prevDone = prevStep ? isStepDone(progress, prevStep.id) : false;
-              const isLast = i === playbook.steps.length - 1;
-              const stepTitle = t(step.titleKey, { defaultValue: step.titleDefault });
-              return (
-                <li
-                  key={step.id}
-                  className="relative flex min-w-0 flex-1 flex-col items-center"
-                >
-                  {/* Progress line into this node from the previous step: solid
-                      once that step is done, dashed while it is still open. */}
-                  {i > 0 && (
-                    <span
-                      aria-hidden="true"
-                      className={clsx(
-                        "absolute left-0 right-1/2 top-3 h-0 border-t-2",
-                        prevDone
-                          ? "border-solid border-semantic-success"
-                          : "border-dashed border-border",
-                      )}
-                    />
-                  )}
-                  {/* Progress line out of this node toward the next step. */}
-                  {!isLast && (
-                    <span
-                      aria-hidden="true"
-                      className={clsx(
-                        "absolute left-1/2 right-0 top-3 h-0 border-t-2",
-                        done
-                          ? "border-solid border-semantic-success"
-                          : "border-dashed border-border",
-                      )}
-                    />
-                  )}
-                  <button
-                    type="button"
-                    ref={(el) => {
-                      cardRefs.current[i] = el;
-                    }}
-                    onClick={() => {
-                      selectStep(i);
-                      scrollToStep(step.id);
-                    }}
-                    onKeyDown={(e) => onCardKeyDown(e, i)}
-                    aria-current={isCurrent ? "step" : undefined}
-                    title={stepTitle}
-                    className="group flex w-full max-w-[150px] flex-col items-center gap-1.5 rounded-xl px-1 pb-1 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40"
-                  >
-                    {/* The numbered node sits on the connecting line. */}
-                    <span
-                      className={clsx(
-                        "relative z-10 flex h-6 w-6 items-center justify-center rounded-full text-2xs font-bold shadow-sm",
-                        done
-                          ? "bg-semantic-success text-white"
-                          : isCurrent
-                            ? "bg-oe-blue text-white"
-                            : "bg-surface-primary text-content-secondary ring-1 ring-inset ring-border-light",
-                      )}
-                      aria-hidden="true"
-                    >
-                      {done ? <Check size={13} strokeWidth={2.5} /> : i + 1}
-                    </span>
-                    {/* Smaller card: the picture of the work plus its title. */}
-                    <span
-                      className={clsx(
-                        "flex w-full flex-col gap-1 rounded-lg border p-1.5 transition-all",
-                        isCurrent
-                          ? "border-oe-blue bg-oe-blue-subtle shadow-sm ring-1 ring-inset ring-oe-blue/30"
-                          : done
-                            ? "border-semantic-success/30 bg-semantic-success/10 group-hover:border-semantic-success/50"
-                            : "border-border-light bg-surface-primary group-hover:border-oe-blue/40 group-hover:bg-surface-secondary/40",
-                      )}
-                    >
-                      <StepThumb step={step} className="aspect-[16/9] w-full" />
-                      <span
-                        className={clsx(
-                          "block line-clamp-2 text-2xs font-semibold leading-snug",
-                          isCurrent ? "text-oe-blue-text" : "text-content-primary",
-                        )}
-                      >
-                        {stepTitle}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ol>
-        </section>
-
       {/* ── Every step, in full, one under the other ─────────────────────── */}
       <div className="space-y-3">
         {playbook.steps.map((step, i) => {
@@ -923,6 +913,8 @@ export function PlaybookRunner({ playbook, onBack }: PlaybookRunnerProps) {
               why={t(step.whyKey, { defaultValue: step.whyDefault })}
               inputs={resolveFlow(step, "inputs")}
               outputs={resolveFlow(step, "outputs")}
+              inputsHint={resolveHint(step, "inputs")}
+              outputsHint={resolveHint(step, "outputs")}
               scene={sceneFor(step, stepTitle)}
               done={isStepDone(progress, step.id)}
               isCurrent={i === currentIndex}
