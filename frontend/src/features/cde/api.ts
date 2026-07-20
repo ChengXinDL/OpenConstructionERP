@@ -97,6 +97,25 @@ export interface SuitabilityCodesResponse {
   by_state: Record<CDEState, SuitabilityCodeEntry[]>;
 }
 
+export interface FunctionalRoleEntry {
+  key: string;
+  name: string;
+  /** State-machine role this maps to (viewer / task_team_manager / lead_ap ...). */
+  cde_role: string;
+  /** Gate this role is accountable for (A / B), or null. */
+  gate: string | null;
+  acts_on: CDEState[];
+  permissions: string[];
+  summary: string;
+}
+
+export interface FunctionalRolesResponse {
+  roles: FunctionalRoleEntry[];
+  states: CDEState[];
+  /** state -> role key -> short action label ("-" when the role is idle). */
+  matrix: Record<string, Record<string, string>>;
+}
+
 export interface StateTransitionEntry {
   id: string;
   container_id: string;
@@ -172,6 +191,10 @@ export async function createContainerRevision(
 
 export async function fetchSuitabilityCodes(): Promise<SuitabilityCodesResponse> {
   return apiGet<SuitabilityCodesResponse>('/v1/cde/suitability-codes/');
+}
+
+export async function fetchFunctionalRoles(): Promise<FunctionalRolesResponse> {
+  return apiGet<FunctionalRolesResponse>('/v1/cde/functional-roles/');
 }
 
 export interface CDEStats {

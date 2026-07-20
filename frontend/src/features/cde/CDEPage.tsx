@@ -21,6 +21,7 @@ import {
   File,
   Network,
   Archive,
+  Users,
 } from 'lucide-react';
 import { Button, Card, Badge, EmptyState, Breadcrumb, DateDisplay, ConfirmDialog, RecoveryCard, SkeletonTable, ModuleGuideButton } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
@@ -38,6 +39,7 @@ import {
   fetchContainerRevisions,
   createContainerRevision,
   fetchSuitabilityCodes,
+  fetchFunctionalRoles,
   fetchCDEStats,
   type CDEContainer,
   type CDEState,
@@ -1233,6 +1235,131 @@ function HowCdeWorks() {
   );
 }
 
+/* ── Functional roles (ISO 19650) ──────────────────────────────────────── */
+
+/** Accent per functional role, following the workflow (author -> reviewer ->
+ *  approver, viewer throughout). Initial-badge colours, no extra icon imports. */
+const ROLE_ACCENT: Record<string, string> = {
+  author: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  reviewer: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  approver: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+  viewer: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
+};
+
+/**
+ * The four ISO 19650 functional roles (Author / Reviewer / Approver / Viewer)
+ * and what each one does at every CDE state. Agreeing these responsibilities
+ * once, up front, is what keeps a CDE a live source of truth instead of a dead
+ * document dump - so the model is shown here as reference, driven by
+ * GET /v1/cde/functional-roles. Static reference data (no project needed).
+ */
+function CdeFunctionalRoles() {
+  const { t } = useTranslation();
+  const { data } = useQuery({
+    queryKey: ['cde-functional-roles'],
+    queryFn: fetchFunctionalRoles,
+    staleTime: Infinity,
+  });
+  if (!data) return null;
+  const { roles, states, matrix } = data;
+
+  return (
+    <Card padding="md">
+      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
+        <Users size={15} className="text-oe-blue" />
+        {t('cde.roles_title', { defaultValue: 'Roles and responsibilities' })}
+      </h2>
+      <p className="mt-1 text-xs text-content-tertiary">
+        {t('cde.roles_intro', {
+          defaultValue:
+            'ISO 19650 organises information work around four functional roles. Agree who does what once and reuse it on every discipline - the same person can author their own package and only view another.',
+        })}
+      </p>
+
+      {/* Role cards */}
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {roles.map((role) => {
+          const name = t(`cde.role_${role.key}_name`, { defaultValue: role.name });
+          return (
+            <div
+              key={role.key}
+              className="rounded-lg border border-border-light bg-surface-secondary/40 p-3"
+            >
+              <div className="flex items-center gap-2">
+                <span
+                  className={clsx(
+                    'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-2xs font-bold',
+                    ROLE_ACCENT[role.key] ?? ROLE_ACCENT.viewer,
+                  )}
+                  aria-hidden="true"
+                >
+                  {name.charAt(0)}
+                </span>
+                <span className="text-xs font-semibold text-content-primary">{name}</span>
+                {role.gate && (
+                  <Badge variant="blue" size="sm" className="ml-auto">
+                    {t('cde.roles_gate', { defaultValue: 'Gate {{gate}}', gate: role.gate })}
+                  </Badge>
+                )}
+              </div>
+              <p className="mt-1.5 text-2xs leading-relaxed text-content-tertiary">
+                {t(`cde.role_${role.key}_summary`, { defaultValue: role.summary })}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Responsibility matrix: what each role does in each state */}
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full min-w-[34rem] border-collapse text-2xs">
+          <thead>
+            <tr className="text-content-tertiary">
+              <th className="px-2 py-1.5 text-left font-medium uppercase tracking-wide">
+                {t('cde.roles_matrix_state', { defaultValue: 'State' })}
+              </th>
+              {roles.map((role) => (
+                <th key={role.key} className="px-2 py-1.5 text-left font-medium">
+                  {t(`cde.role_${role.key}_name`, { defaultValue: role.name })}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {states.map((state) => {
+              const cfg = STATE_CONFIG[state] ?? STATE_CONFIG.wip;
+              return (
+                <tr key={state} className="border-t border-border-light">
+                  <td className="px-2 py-1.5">
+                    <Badge variant={cfg.variant} size="sm" className={cfg.cls}>
+                      {t(`cde.state_${state}`, { defaultValue: cfg.label })}
+                    </Badge>
+                  </td>
+                  {roles.map((role) => {
+                    const action = matrix[state]?.[role.key] ?? '-';
+                    const idle = action === '-';
+                    return (
+                      <td
+                        key={role.key}
+                        className={clsx(
+                          'px-2 py-1.5',
+                          idle ? 'text-content-quaternary' : 'text-content-secondary',
+                        )}
+                      >
+                        {idle ? '·' : action}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
 /* ── Main Page ─────────────────────────────────────────────────────────── */
 
 export function CDEPage() {
@@ -1582,6 +1709,8 @@ export function CDEPage() {
       </DismissibleInfo>
 
       <HowCdeWorks />
+
+      <CdeFunctionalRoles />
 
       {/* Summary cards — fed by the /cde/stats aggregate endpoint. Shows the
           full ISO 19650 lifecycle (Total + every state) so users can see how

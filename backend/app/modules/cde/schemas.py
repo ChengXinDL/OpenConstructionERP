@@ -222,6 +222,29 @@ class SuitabilityCodesResponse(BaseModel):
     by_state: dict[str, list[SuitabilityCodeEntry]] = Field(default_factory=dict)
 
 
+# ── Functional roles (ISO 19650) ─────────────────────────────────────────
+
+
+class FunctionalRoleEntry(BaseModel):
+    """One ISO 19650 functional role and how it maps onto the CDE workflow."""
+
+    key: str
+    name: str
+    cde_role: str
+    gate: str | None = None
+    acts_on: list[str] = Field(default_factory=list)
+    permissions: list[str] = Field(default_factory=list)
+    summary: str
+
+
+class FunctionalRolesResponse(BaseModel):
+    """The four functional roles plus the responsibility matrix by CDE state."""
+
+    roles: list[FunctionalRoleEntry] = Field(default_factory=list)
+    states: list[str] = Field(default_factory=list)
+    matrix: dict[str, dict[str, str]] = Field(default_factory=dict)
+
+
 # ── Audit / history ──────────────────────────────────────────────────────
 
 

@@ -28,12 +28,19 @@ from app.dependencies import (
     SessionDep,
     verify_project_access,
 )
+from app.modules.cde.roles import (
+    CDE_STATE_ORDER,
+    FUNCTIONAL_ROLES,
+    RESPONSIBILITY_MATRIX,
+)
 from app.modules.cde.schemas import (
     CDEStatsResponse,
     ContainerCreate,
     ContainerResponse,
     ContainerTransmittalLink,
     ContainerUpdate,
+    FunctionalRoleEntry,
+    FunctionalRolesResponse,
     RevisionCreate,
     RevisionResponse,
     StateTransitionEntry,
@@ -133,6 +140,31 @@ async def list_suitability_codes() -> SuitabilityCodesResponse:
             all_entries.append(entry)
         by_state[state] = bucket
     return SuitabilityCodesResponse(codes=all_entries, by_state=by_state)
+
+
+# ── Functional roles (ISO 19650) ─────────────────────────────────────────────
+
+
+@router.get(
+    "/functional-roles",
+    response_model=FunctionalRolesResponse,
+    include_in_schema=False,
+)
+@router.get("/functional-roles/", response_model=FunctionalRolesResponse)
+async def list_functional_roles() -> FunctionalRolesResponse:
+    """Return the four ISO 19650 functional roles and the responsibility matrix.
+
+    Reference data (Author / Reviewer / Approver / Viewer) with the CDE state each
+    role acts on and the gate it is accountable for. Labels are English defaults;
+    the frontend i18n-keys them by role key (``cde.role_<key>_*``). Mirrors the
+    suitability-codes endpoint - static ISO reference, no tenant data, no auth.
+    """
+    roles = [FunctionalRoleEntry(**role) for role in FUNCTIONAL_ROLES]
+    return FunctionalRolesResponse(
+        roles=roles,
+        states=list(CDE_STATE_ORDER),
+        matrix={state: dict(cols) for state, cols in RESPONSIBILITY_MATRIX.items()},
+    )
 
 
 # ── Stats ────────────────────────────────────────────────────────────────────
