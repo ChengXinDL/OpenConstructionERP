@@ -52,11 +52,14 @@ from app.modules.approval_routes.schemas import (
     ReassignInstance,
     RouteCreate,
     RouteResponse,
+    RouteSimulationResponse,
     RouteUpdate,
+    SimulateRequest,
     StepResponse,
     StepStateResponse,
 )
 from app.modules.approval_routes.service import ApprovalRouteService
+from app.modules.approval_routes.simulate import simulate_route
 
 router = APIRouter(tags=["approval_routes"])
 
@@ -243,6 +246,39 @@ async def delete_route(
     if row.project_id is not None:
         await verify_project_access(row.project_id, user_id, session)
     await service.delete_route(route_id, actor_id=_safe_user_uuid(user_id))
+
+
+@router.post(
+    "/routes/{route_id}/simulate",
+    response_model=RouteSimulationResponse,
+    dependencies=[Depends(RequirePermission("approval_routes.read"))],
+)
+async def simulate_route_template(
+    route_id: uuid.UUID,
+    session: SessionDep,
+    user_id: CurrentUserId,
+    payload: SimulateRequest | None = None,
+    service: ApprovalRouteService = Depends(_get_service),
+) -> RouteSimulationResponse:
+    """Dry-run a route template without starting a real workflow.
+
+    Read-only. Reports, per step, how many approvals clear it and whether it
+    can ever clear, plus a happy-path walk to confirm the template reaches
+    ``approved``. Post a body with ``decisions`` to add a what-if walk (for
+    example, "what happens if step 2 is rejected"). Handy for checking a
+    preset or a hand-built route before anyone routes real work through it.
+    """
+    row = await service.get_route(route_id)
+    if row.project_id is not None:
+        await verify_project_access(row.project_id, user_id, session)
+    steps = await service.list_steps(route_id)
+    request = payload or SimulateRequest()
+    return simulate_route(
+        route_id=row.id,
+        target_kind=row.target_kind,
+        steps=list(steps),
+        decisions=request.decisions,
+    )
 
 
 # ── Instances (running workflows) ────────────────────────────────────
