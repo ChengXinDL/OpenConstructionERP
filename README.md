@@ -630,18 +630,18 @@ Plan your project timeline and track costs over time:
 Complete your estimation workflow:
 
 ```
-   BOQ           Bid Package        Distribute         Compare           Award
- ┌────────┐    ┌────────────┐    ┌────────────┐    ┌────────────┐    ┌──────────┐
- │ priced │───▶│ subset +   │───▶│ Subs (mail │───▶│ side-by-   │───▶│ winner   │
- │ sections    │ instructions    │ + portal)  │    │ side mirror│    │ + change │
- │        │    │ + scope    │    │            │    │ + anomalies│    │   orders │
- └────────┘    └────────────┘    └────────────┘    └────────────┘    └──────────┘
-                                                          │                │
-                                                          ▼                ▼
-                                                   ┌─────────────────────────┐
-                                                   │ Reports · GAEB X83      │
-                                                   │ Risk Register · EAC     │
-                                                   └─────────────────────────┘
+     BOQ           Bid Package         Distribute          Compare           Award
+ ┌──────────┐    ┌──────────────┐    ┌────────────┐    ┌─────────────┐    ┌──────────┐
+ │ priced   │    │ subset +     │    │ Subs (mail │    │ side-by-    │    │ winner   │
+ │ sections │───▶│ instructions │───▶│ + portal)  │───▶│ side mirror │───▶│ + change │
+ │          │    │ + scope      │    │            │    │ + anomalies │    │ orders   │
+ └──────────┘    └──────────────┘    └────────────┘    └─────────────┘    └──────────┘
+                                                              │                 │
+                                                              ▼                 ▼
+                                                            ┌─────────────────────┐
+                                                            │ Reports · GAEB X83  │
+                                                            │ Risk Register · EAC │
+                                                            └─────────────────────┘
 ```
 
 
