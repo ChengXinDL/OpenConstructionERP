@@ -72,6 +72,18 @@ function isDemoProject(p: Project): boolean {
   return Boolean((p.metadata as Record<string, unknown> | null)?.demo_id);
 }
 
+/** Large-screen column count for the process row, capped at six per row so a
+ *  long case wraps to a second row instead of squashing. Kept as static class
+ *  strings so Tailwind emits them at build time. */
+const PROC_COLS_LG: Record<number, string> = {
+  1: "lg:grid-cols-1",
+  2: "lg:grid-cols-2",
+  3: "lg:grid-cols-3",
+  4: "lg:grid-cols-4",
+  5: "lg:grid-cols-5",
+  6: "lg:grid-cols-6",
+};
+
 /** One side (In / Out) of a step's data flow: a titled column of chips. The In
  *  dots are quiet (raw material); the Out dots are green (the payoff), so the
  *  eye reads from what you start with to what you end up with. */
@@ -690,13 +702,11 @@ export function PlaybookRunner({ playbook, onBack }: PlaybookRunnerProps) {
       </button>
 
       <header className="rounded-2xl border border-border-light bg-gradient-to-br from-oe-blue/[0.08] via-oe-blue/[0.03] to-transparent p-5 sm:p-6">
-        {/* Two columns on wide screens: the case identity, purpose AND the
-            process step list on the left, a compact control panel (progress,
-            the primary action, reset and the sample-project picker) on the
-            right. They stack on narrow screens. `items-stretch` makes both
-            columns share one height so the panel fills the same space as the
-            taller left column. */}
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-stretch lg:gap-8">
+        {/* Two columns on wide screens: the case identity and purpose on the
+            left, a compact control panel (progress, the primary action, reset
+            and the sample-project picker) on the right. They stack on narrow
+            screens; the panel sits at its natural height, top-aligned. */}
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-8">
           {/* Left: what this case is and why */}
           <div className="min-w-0">
             <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -732,89 +742,11 @@ export function PlaybookRunner({ playbook, onBack }: PlaybookRunnerProps) {
                 {longDesc}
               </p>
             )}
-
-            {/* The process: a left-aligned vertical list of steps, directly
-                under the case identity so the whole path reads at a glance.
-                Each row opens that step below. */}
-            <section
-              className="mt-5"
-              aria-label={t("cases.the_process", { defaultValue: "The process" })}
-            >
-              <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-                <p className="text-2xs font-semibold uppercase tracking-wide text-content-tertiary">
-                  {t("cases.the_process", { defaultValue: "The process" })}
-                </p>
-                <p className="text-xs text-content-tertiary">
-                  {t("cases.process_help", {
-                    defaultValue: "Choose a step to see what happens and why",
-                  })}
-                </p>
-              </div>
-              <ol className="space-y-1.5" aria-label={title}>
-                {playbook.steps.map((step, i) => {
-                  const done = isStepDone(progress, step.id);
-                  const isCurrent = i === currentIndex;
-                  const stepTitle = t(step.titleKey, { defaultValue: step.titleDefault });
-                  return (
-                    <li key={step.id}>
-                      <button
-                        type="button"
-                        ref={(el) => {
-                          cardRefs.current[i] = el;
-                        }}
-                        onClick={() => {
-                          selectStep(i);
-                          scrollToStep(step.id);
-                        }}
-                        onKeyDown={(e) => onCardKeyDown(e, i)}
-                        aria-current={isCurrent ? "step" : undefined}
-                        title={stepTitle}
-                        className={clsx(
-                          "group flex w-full items-center gap-2.5 rounded-xl border p-2 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40",
-                          isCurrent
-                            ? "border-oe-blue bg-oe-blue-subtle ring-1 ring-inset ring-oe-blue/30"
-                            : done
-                              ? "border-semantic-success/30 bg-semantic-success/10 group-hover:border-semantic-success/50"
-                              : "border-border-light bg-surface-primary group-hover:border-oe-blue/40 group-hover:bg-surface-secondary/40",
-                        )}
-                      >
-                        <span
-                          className={clsx(
-                            "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-2xs font-bold shadow-sm",
-                            done
-                              ? "bg-semantic-success text-white"
-                              : isCurrent
-                                ? "bg-oe-blue text-white"
-                                : "bg-surface-primary text-content-secondary ring-1 ring-inset ring-border-light",
-                          )}
-                          aria-hidden="true"
-                        >
-                          {done ? <Check size={13} strokeWidth={2.5} /> : i + 1}
-                        </span>
-                        <StepThumb
-                          step={step}
-                          className="aspect-[16/9] w-16 shrink-0 rounded-md"
-                        />
-                        <span
-                          className={clsx(
-                            "min-w-0 flex-1 line-clamp-2 text-xs font-semibold leading-snug",
-                            isCurrent ? "text-oe-blue-text" : "text-content-primary",
-                          )}
-                        >
-                          {stepTitle}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ol>
-            </section>
           </div>
 
           {/* Right: a compact control panel - progress, primary action, reset
-              and the sample-project picker, stacked in one tidy card that
-              stretches to the full column height. */}
-          <div className="flex h-full flex-col rounded-xl border border-border-light/70 bg-surface-primary/60 p-4">
+              and the sample-project picker, stacked in one tidy card. */}
+          <div className="rounded-xl border border-border-light/70 bg-surface-primary/60 p-4">
             <div
               className="flex flex-col gap-1.5"
               role="progressbar"
@@ -856,7 +788,7 @@ export function PlaybookRunner({ playbook, onBack }: PlaybookRunnerProps) {
               </Button>
               <div className="flex justify-center">{resetButton}</div>
             </div>
-            <div className="mt-auto border-t border-border-light/70 pt-3">
+            <div className="mt-4 border-t border-border-light/70 pt-3">
               <label
                 htmlFor={selectId}
                 className="block text-2xs font-semibold uppercase tracking-wide text-content-tertiary"
@@ -892,6 +824,85 @@ export function PlaybookRunner({ playbook, onBack }: PlaybookRunnerProps) {
           </div>
         </div>
       </header>
+
+      {/* ── The process: a full-width row of step cards, up to six across and
+          wrapping after that. Each card is a picture of the work and its title;
+          clicking one jumps to that step below and marks it current. ──────── */}
+      <section aria-label={t("cases.the_process", { defaultValue: "The process" })}>
+        <div className="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+          <p className="text-2xs font-semibold uppercase tracking-wide text-content-tertiary">
+            {t("cases.the_process", { defaultValue: "The process" })}
+          </p>
+          <p className="text-xs text-content-tertiary">
+            {t("cases.process_help", {
+              defaultValue: "Choose a step to see what happens and why",
+            })}
+          </p>
+        </div>
+        <ol
+          className={clsx(
+            "grid grid-cols-2 gap-2.5 sm:grid-cols-3",
+            PROC_COLS_LG[Math.min(total, 6)],
+          )}
+          aria-label={title}
+        >
+          {playbook.steps.map((step, i) => {
+            const done = isStepDone(progress, step.id);
+            const isCurrent = i === currentIndex;
+            const stepTitle = t(step.titleKey, { defaultValue: step.titleDefault });
+            return (
+              <li key={step.id} className="min-w-0">
+                <button
+                  type="button"
+                  ref={(el) => {
+                    cardRefs.current[i] = el;
+                  }}
+                  onClick={() => {
+                    selectStep(i);
+                    scrollToStep(step.id);
+                  }}
+                  onKeyDown={(e) => onCardKeyDown(e, i)}
+                  aria-current={isCurrent ? "step" : undefined}
+                  title={stepTitle}
+                  className={clsx(
+                    "group flex h-full w-full flex-col gap-1.5 rounded-xl border p-1.5 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40",
+                    isCurrent
+                      ? "border-oe-blue bg-oe-blue-subtle ring-1 ring-inset ring-oe-blue/30"
+                      : done
+                        ? "border-semantic-success/30 bg-semantic-success/10 hover:border-semantic-success/50"
+                        : "border-border-light bg-surface-primary hover:border-oe-blue/40 hover:bg-surface-secondary/40",
+                  )}
+                >
+                  <div className="relative">
+                    <StepThumb step={step} className="aspect-[16/9] w-full" />
+                    <span
+                      className={clsx(
+                        "absolute start-1 top-1 flex h-5 w-5 items-center justify-center rounded-full text-2xs font-bold shadow-sm",
+                        done
+                          ? "bg-semantic-success text-white"
+                          : isCurrent
+                            ? "bg-oe-blue text-white"
+                            : "bg-surface-primary/95 text-content-secondary ring-1 ring-inset ring-border-light",
+                      )}
+                      aria-hidden="true"
+                    >
+                      {done ? <Check size={12} strokeWidth={2.5} /> : i + 1}
+                    </span>
+                  </div>
+                  <span
+                    className={clsx(
+                      "line-clamp-2 px-0.5 text-xs font-semibold leading-snug",
+                      isCurrent ? "text-oe-blue-text" : "text-content-primary",
+                    )}
+                  >
+                    {stepTitle}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      </section>
 
       {/* ── Every step, in full, one under the other ─────────────────────── */}
       <div className="space-y-3">
