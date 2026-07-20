@@ -116,6 +116,35 @@ export interface FunctionalRolesResponse {
   matrix: Record<string, Record<string, string>>;
 }
 
+export interface ReadinessSignalStatus {
+  key: string;
+  label: string;
+  weight: number;
+  hint: string;
+  done: boolean;
+}
+
+export interface ReadinessNextAction {
+  key: string;
+  label: string;
+  hint: string;
+}
+
+export type CDEReadinessLevel =
+  | 'not_started'
+  | 'forming'
+  | 'operational'
+  | 'mature';
+
+export interface CDEReadiness {
+  /** Weighted percent in [0, 100]. */
+  score: number;
+  level: CDEReadinessLevel;
+  total_containers: number;
+  signals: ReadinessSignalStatus[];
+  next_actions: ReadinessNextAction[];
+}
+
 export interface StateTransitionEntry {
   id: string;
   container_id: string;
@@ -206,6 +235,12 @@ export interface CDEStats {
 
 export async function fetchCDEStats(projectId: string): Promise<CDEStats> {
   return apiGet<CDEStats>(`/v1/cde/stats/?project_id=${encodeURIComponent(projectId)}`);
+}
+
+export async function fetchCDEReadiness(projectId: string): Promise<CDEReadiness> {
+  return apiGet<CDEReadiness>(
+    `/v1/cde/readiness/?project_id=${encodeURIComponent(projectId)}`,
+  );
 }
 
 export async function fetchContainerHistory(
