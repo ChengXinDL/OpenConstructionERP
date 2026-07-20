@@ -2679,11 +2679,15 @@ def create_app() -> FastAPI:
             # databases; a no-op that never touches the database while
             # settings.rls_enforce is off, so it is inert on a default install.
             try:
-                from app.core.rls_setup import provision_rls
+                from app.core.rls_setup import provision_rls, verify_rls_role
 
                 rls_stats = await provision_rls(engine, Base)
                 if rls_stats.get("tables"):
                     logger.info("RLS enforcement active: %d tenant tables policied", rls_stats["tables"])
+                # With the flag on, every request downgrades to oe_app; if that
+                # role is absent (external PG without CREATEROLE) requests 500.
+                # Surface it once at boot instead of on every request. No-op off.
+                await verify_rls_role(engine)
             except Exception:
                 logger.warning("RLS provisioning skipped (non-fatal)", exc_info=True)
         else:
