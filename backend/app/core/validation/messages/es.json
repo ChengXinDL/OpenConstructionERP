@@ -2,6 +2,10 @@
   "common": {
     "ok": "OK"
   },
+  "export": {
+    "generated": "Generado",
+    "content_digest": "Resumen del contenido"
+  },
   "field_time": {
     "hours_per_day_max": {
       "fail": "El trabajador {worker} tiene {hours} h registradas este día, por encima del límite de {max} h",

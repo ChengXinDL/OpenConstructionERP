@@ -2,6 +2,10 @@
   "common": {
     "ok": "OK"
   },
+  "export": {
+    "generated": "Сформировано",
+    "content_digest": "Контрольная сумма содержимого"
+  },
   "field_time": {
     "hours_per_day_max": {
       "fail": "Работник {worker} за этот день имеет {hours} ч, что превышает предел {max} ч",

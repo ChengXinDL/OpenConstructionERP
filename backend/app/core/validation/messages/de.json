@@ -2,6 +2,10 @@
   "common": {
     "ok": "OK"
   },
+  "export": {
+    "generated": "Erstellt",
+    "content_digest": "Inhalts-Prüfsumme"
+  },
   "field_time": {
     "hours_per_day_max": {
       "fail": "Arbeiter {worker} ist an diesem Tag mit {hours} h gebucht, über dem Limit von {max} h",

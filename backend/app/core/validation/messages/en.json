@@ -2,6 +2,10 @@
   "common": {
     "ok": "OK"
   },
+  "export": {
+    "generated": "Generated",
+    "content_digest": "Content digest"
+  },
   "field_time": {
     "hours_per_day_max": {
       "fail": "Worker {worker} is booked {hours} h on this day, over the {max} h limit",

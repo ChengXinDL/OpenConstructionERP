@@ -64,12 +64,40 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from app.core.csv_safety import neutralise_formula
+from app.core.evidence import evidence_header
 
 __all__ = [
     "ExportFormatError",
     "SUPPORTED_FORMATS",
     "export_report",
 ]
+
+
+def _evidence_rows(
+    *,
+    report_type: str,
+    title: str,
+    project_name: str,
+    currency: str,
+    generated_at: str,
+    data_snapshot: dict[str, Any] | None,
+) -> list[tuple[str, str]]:
+    """Tamper-evident header rows: generation time + content digest.
+
+    The digest fingerprints the report content (type, title, project,
+    currency, section snapshot) but not the timestamp, so re-exporting the
+    same data reproduces the same digest for verification. Rendered by each
+    format's own header block. See :mod:`app.core.evidence`.
+    """
+    payload = {
+        "report_type": report_type,
+        "title": title,
+        "project_name": project_name,
+        "currency": currency,
+        "data": data_snapshot or {},
+    }
+    return evidence_header(generated_at=generated_at, payload=payload)
+
 
 # Formats this module can produce. ``html`` is included so the download
 # endpoint can serve the existing HTML body through the same code path and
@@ -292,7 +320,15 @@ def _export_csv(
     writer.writerow(["Type", neutralise_formula(report_type)])
     if currency:
         writer.writerow(["Currency", neutralise_formula(currency)])
-    writer.writerow(["Generated", neutralise_formula(generated_at)])
+    for label, value in _evidence_rows(
+        report_type=report_type,
+        title=title,
+        project_name=project_name,
+        currency=currency,
+        generated_at=generated_at,
+        data_snapshot=data_snapshot,
+    ):
+        writer.writerow([neutralise_formula(label), neutralise_formula(value)])
 
     rendered_any = False
     for section in _resolve_sections(report_type, template_data):
@@ -372,7 +408,16 @@ def _export_xlsx(
     ]
     if currency:
         meta_rows.append(("Currency", currency))
-    meta_rows.append(("Generated", generated_at))
+    meta_rows.extend(
+        _evidence_rows(
+            report_type=report_type,
+            title=title,
+            project_name=project_name,
+            currency=currency,
+            generated_at=generated_at,
+            data_snapshot=data_snapshot,
+        )
+    )
     for label, value in meta_rows:
         lbl = ws.cell(row=row, column=1, value=label)
         lbl.font = bold
@@ -563,7 +608,15 @@ def _export_pdf(
     if currency:
         meta_line += f"  -  Currency: {currency}"
     flowables.append(_p(meta_line, "meta"))
-    flowables.append(_p(f"Generated: {generated_at}", "meta"))
+    for label, value in _evidence_rows(
+        report_type=report_type,
+        title=title,
+        project_name=project_name,
+        currency=currency,
+        generated_at=generated_at,
+        data_snapshot=data_snapshot,
+    ):
+        flowables.append(_p(f"{label}: {value}", "meta"))
     flowables.append(Spacer(1, 4 * mm))
 
     usable_width = A4[0] - 40 * mm
