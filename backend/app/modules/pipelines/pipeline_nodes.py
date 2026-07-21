@@ -845,6 +845,312 @@ async def _run_action_export_csv(ctx: NodeContext) -> dict[str, Any]:
     }
 
 
+# ── transform.compute ────────────────────────────────────────────────────
+
+
+async def _run_transform_compute(ctx: NodeContext) -> dict[str, Any]:
+    """Add a derived numeric column computed from two operands per row.
+
+    Params: ``target`` (new field name), ``left`` (a row field name),
+    ``op`` (add|subtract|multiply|divide), ``right`` (a row field name OR a
+    numeric literal - resolved as a field first, then parsed as a number).
+    Arithmetic uses Decimal; a divide-by-zero (or any unparseable operand)
+    leaves the target ``None`` for that row rather than crashing. A what-if
+    transform: it changes the rows in place (``mutated``) for preview and
+    downstream totals, it does not write back to the BOQ.
+    """
+    upstream = ctx.first_input()
+    rows = list(upstream.get("rows") or [])
+    target = ctx.params.get("target")
+    left = ctx.params.get("left")
+    op = (ctx.params.get("op") or "add").strip().lower()
+    right = ctx.params.get("right")
+
+    def _operand(row: dict[str, Any], spec: Any) -> Decimal | None:
+        """Resolve an operand as a row field first, else a numeric literal."""
+        if isinstance(spec, str):
+            field_val = _row_value(row, spec)
+            if field_val is not None:
+                return _to_decimal(field_val)
+        return _to_decimal(spec)
+
+    out: list[dict[str, Any]] = []
+    computed = 0
+    for r in rows:
+        new = dict(r)
+        a = _operand(r, left) if left else None
+        b = _operand(r, right)
+        result: Decimal | None = None
+        if a is not None and b is not None:
+            if op == "add":
+                result = a + b
+            elif op == "subtract":
+                result = a - b
+            elif op == "multiply":
+                result = a * b
+            elif op == "divide":
+                result = a / b if b != 0 else None
+        if target:
+            new[target] = str(result) if result is not None else None
+        if result is not None:
+            computed += 1
+        out.append(new)
+
+    return {
+        "rows": out[:_SAMPLE_LIMIT],
+        "row_ids": upstream.get("row_ids") or [],
+        "count": upstream.get("count", len(out)),
+        "mutated": True,
+        "summary": (f"Computed '{target}' = {left} {op} {right} for {computed} of {len(out)} rows"),
+    }
+
+
+# ── transform.group ──────────────────────────────────────────────────────
+
+
+async def _run_transform_group(ctx: NodeContext) -> dict[str, Any]:
+    """Group rows by a field and emit one summary row per group.
+
+    Params: ``by`` (a row field, dotted allowed), ``sum_field`` (optional
+    numeric field to total per group). Each output row is
+    ``{id, group, count, sum}`` where ``sum`` is the group total (or None
+    when no ``sum_field`` is given). Computes over the FULL row set (re-reads
+    the BOQ when the envelope carries ids). A summarising transform, so it
+    marks the envelope ``mutated``.
+    """
+    upstream = ctx.first_input()
+    rows = await _resolve_full_rows(ctx, upstream)
+    by = ctx.params.get("by")
+    sum_field = ctx.params.get("sum_field")
+
+    buckets: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        key = _row_value(r, by) if by else None
+        key_str = "(none)" if key in (None, "") else str(key)
+        bucket = buckets.setdefault(key_str, {"group": key_str, "count": 0, "_sum": Decimal(0)})
+        bucket["count"] += 1
+        if sum_field:
+            val = _to_decimal(_row_value(r, sum_field))
+            if val is not None:
+                bucket["_sum"] += val
+
+    out_rows = [
+        {
+            "id": b["group"],
+            "group": b["group"],
+            "count": b["count"],
+            "sum": (str(b["_sum"]) if sum_field else None),
+        }
+        for b in buckets.values()
+    ]
+    return {
+        "rows": out_rows[:_SAMPLE_LIMIT],
+        "count": len(out_rows),
+        "group_by": by,
+        "row_count": len(rows),
+        "mutated": True,
+        "summary": f"Grouped into {len(out_rows)} groups by {by!r}",
+    }
+
+
+# ── transform.rename ─────────────────────────────────────────────────────
+
+
+async def _run_transform_rename(ctx: NodeContext) -> dict[str, Any]:
+    """Copy or rename a field on every row.
+
+    Params: ``from`` (source field name), ``to`` (destination field name),
+    ``keep_original`` (bool, default false - drop the source field after the
+    copy). Missing source values copy through as-is (None). A what-if
+    transform: it changes the rows in place (``mutated``).
+    """
+    upstream = ctx.first_input()
+    rows = list(upstream.get("rows") or [])
+    src = ctx.params.get("from")
+    dst = ctx.params.get("to")
+    keep_original = bool(ctx.params.get("keep_original", False))
+
+    out: list[dict[str, Any]] = []
+    renamed = 0
+    for r in rows:
+        new = dict(r)
+        if src and dst:
+            new[dst] = new.get(src)
+            if not keep_original and src != dst and src in new:
+                del new[src]
+            renamed += 1
+        out.append(new)
+
+    return {
+        "rows": out[:_SAMPLE_LIMIT],
+        "row_ids": upstream.get("row_ids") or [],
+        "count": upstream.get("count", len(out)),
+        "mutated": True,
+        "summary": (
+            f"Renamed '{src}' to '{dst}' on {renamed} rows"
+            if src and dst
+            else f"No rename fields given ({len(out)} rows)"
+        ),
+    }
+
+
+# ── gate.threshold ───────────────────────────────────────────────────────
+
+
+async def _run_gate_threshold(ctx: NodeContext) -> dict[str, Any]:
+    """Aggregate a numeric field across rows and stop when a limit is broken.
+
+    Params: ``field`` (a row field; when empty the envelope ``count`` is
+    used), ``agg`` (sum|avg|max|min|count, default sum), ``op`` (lt|lte|gt|
+    gte - the ALLOWED condition), ``value`` (the comparison number). The
+    aggregate is computed over the FULL row set; when the aggregate FAILS the
+    allowed condition the gate raises, so the run records an error and every
+    downstream node is skipped - the same "human confirms" contract as the
+    budget gate. Rows pass through unchanged on success.
+    """
+    upstream = ctx.first_input()
+    rows = await _resolve_full_rows(ctx, upstream)
+    field = ctx.params.get("field")
+    agg = (ctx.params.get("agg") or "sum").strip().lower()
+    op = (ctx.params.get("op") or "gte").strip().lower()
+    limit = _to_decimal(ctx.params.get("value"))
+
+    if not field:
+        aggregate = Decimal(int(upstream.get("count") or len(rows)))
+    else:
+        nums = [n for n in (_to_decimal(_row_value(r, field)) for r in rows) if n is not None]
+        if agg == "count":
+            aggregate = Decimal(len(rows))
+        elif not nums:
+            aggregate = Decimal(0)
+        elif agg == "avg":
+            aggregate = sum(nums, Decimal(0)) / Decimal(len(nums))
+        elif agg == "max":
+            aggregate = max(nums)
+        elif agg == "min":
+            aggregate = min(nums)
+        else:  # sum (default)
+            aggregate = sum(nums, Decimal(0))
+
+    field_label = field or "count"
+    if limit is not None:
+        allowed = {
+            "lt": aggregate < limit,
+            "lte": aggregate <= limit,
+            "gt": aggregate > limit,
+            "gte": aggregate >= limit,
+        }.get(op, True)
+        if not allowed:
+            raise ValueError(
+                f"Threshold gate failed: {agg}({field_label}) = {aggregate} is not {op} {limit} (over {len(rows)} rows)"
+            )
+
+    return {
+        "rows": (upstream.get("rows") or [])[:_SAMPLE_LIMIT],
+        "row_ids": upstream.get("row_ids") or [],
+        "count": upstream.get("count", len(rows)),
+        "aggregate": str(aggregate),
+        "summary": (
+            f"Threshold OK: {agg}({field_label}) = {aggregate}" + (f" {op} {limit}" if limit is not None else "")
+        ),
+    }
+
+
+# ── source.validation_findings ───────────────────────────────────────────
+
+
+async def _run_source_validation_findings(ctx: NodeContext) -> dict[str, Any]:
+    """Load the latest validation report's findings for the project as rows.
+
+    Reads the most recent :class:`ValidationReport` for the bound project and
+    emits each stored result as a row ``{id, rule_id, status, message}`` so a
+    pipeline can filter, count or export the outstanding findings. The report
+    ``results`` column already holds the per-rule outcomes, so no re-run of
+    the validation engine is needed. Returns an empty set (never raises) when
+    the project has no report yet.
+    """
+    from app.modules.validation.models import ValidationReport
+
+    pid = _resolve_project_id(ctx)
+    if pid is None:
+        return {"rows": [], "row_ids": [], "count": 0, "summary": "No project bound"}
+
+    report = (
+        await ctx.db.execute(
+            select(ValidationReport)
+            .where(ValidationReport.project_id == pid)
+            .order_by(ValidationReport.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if report is None:
+        return {"rows": [], "row_ids": [], "count": 0, "summary": "No validation report yet"}
+
+    rows: list[dict[str, Any]] = []
+    for idx, result in enumerate(report.results or []):
+        if not isinstance(result, dict):
+            continue
+        rows.append(
+            {
+                "id": str(result.get("element_ref") or f"finding-{idx}"),
+                "rule_id": result.get("rule_id"),
+                "status": result.get("status"),
+                "message": result.get("message"),
+            }
+        )
+    all_ids = [r["id"] for r in rows]
+    return {
+        "rows": rows[:_SAMPLE_LIMIT],
+        "row_ids": all_ids[:_ROW_IDS_CAP],
+        "count": len(rows),
+        "sample_truncated": len(rows) > _SAMPLE_LIMIT,
+        "summary": (f"{len(rows)} findings from the latest {report.status} report"),
+    }
+
+
+# ── flow.tee ─────────────────────────────────────────────────────────────
+
+
+async def _run_flow_tee(ctx: NodeContext) -> dict[str, Any]:
+    """Pass rows straight through unchanged (an explicit fan-out marker).
+
+    A documentation / branching node: it does nothing to the rows but makes a
+    template's intent clear when one source feeds two downstream chains.
+    """
+    upstream = ctx.first_input()
+    rows = list(upstream.get("rows") or [])
+    count = int(upstream.get("count") or len(rows))
+    return {
+        "rows": rows[:_SAMPLE_LIMIT],
+        "row_ids": upstream.get("row_ids") or [],
+        "count": count,
+        "mutated": False,
+        "summary": f"Passed {count} rows through",
+    }
+
+
+# ── gate.non_empty ───────────────────────────────────────────────────────
+
+
+async def _run_gate_non_empty(ctx: NodeContext) -> dict[str, Any]:
+    """Stop the run when there are zero rows; pass through otherwise.
+
+    A common guard so a downstream action never fires on an empty result.
+    Uses the envelope's full ``count`` (not just the preview), then raises
+    when it is zero - the same stop mechanism as the other gates.
+    """
+    upstream = ctx.first_input()
+    count = int(upstream.get("count") or len(upstream.get("rows") or []))
+    if count == 0:
+        raise ValueError("Non-empty gate failed: the upstream produced 0 rows")
+    return {
+        "rows": (upstream.get("rows") or [])[:_SAMPLE_LIMIT],
+        "row_ids": upstream.get("row_ids") or [],
+        "count": count,
+        "summary": f"Non-empty OK: {count} rows",
+    }
+
+
 # ── Registration (import-time, autodiscovered by the module loader) ──────
 
 
@@ -1121,6 +1427,121 @@ def register_pipeline_nodes() -> None:
             "filename": {"type": "string", "title": "File name"},
             "columns": {"type": "array", "title": "Columns", "items": {"type": "string"}},
         },
+        side_effecting=False,
+    )
+    register_node(
+        type="transform.compute",
+        module=MODULE,
+        category="transform",
+        label="Compute a column",
+        description="Add a new number column from two fields (or a field and a number).",
+        runner=_run_transform_compute,
+        inputs=["rows"],
+        outputs=["rows"],
+        params_schema={
+            "target": {"type": "string", "title": "New column name"},
+            "left": {"type": "string", "title": "Left field"},
+            "op": {
+                "type": "string",
+                "title": "Operation",
+                "enum": ["add", "subtract", "multiply", "divide"],
+                "default": "add",
+            },
+            "right": {"type": "string", "title": "Right field or number"},
+        },
+        side_effecting=False,
+    )
+    register_node(
+        type="transform.group",
+        module=MODULE,
+        category="transform",
+        label="Group rows",
+        description="Group rows by a field and count (and optionally total) each group.",
+        runner=_run_transform_group,
+        inputs=["rows"],
+        outputs=["rows"],
+        params_schema={
+            "by": {"type": "string", "title": "Group by field"},
+            "sum_field": {"type": "string", "title": "Field to total (optional)"},
+        },
+        side_effecting=False,
+    )
+    register_node(
+        type="transform.rename",
+        module=MODULE,
+        category="transform",
+        label="Rename a field",
+        description="Copy or rename a field on every row.",
+        runner=_run_transform_rename,
+        inputs=["rows"],
+        outputs=["rows"],
+        params_schema={
+            "from": {"type": "string", "title": "From field"},
+            "to": {"type": "string", "title": "To field"},
+            "keep_original": {"type": "boolean", "title": "Keep the original", "default": False},
+        },
+        side_effecting=False,
+    )
+    register_node(
+        type="gate.threshold",
+        module=MODULE,
+        category="gate",
+        label="Threshold gate",
+        description="Total or average a field across the rows and stop when it breaks a limit.",
+        runner=_run_gate_threshold,
+        inputs=["rows"],
+        outputs=["rows"],
+        params_schema={
+            "field": {"type": "string", "title": "Field (blank = row count)"},
+            "agg": {
+                "type": "string",
+                "title": "How to combine",
+                "enum": ["sum", "avg", "max", "min", "count"],
+                "default": "sum",
+            },
+            "op": {
+                "type": "string",
+                "title": "Allowed when",
+                "enum": ["lt", "lte", "gt", "gte"],
+            },
+            "value": {"type": "number", "title": "Limit"},
+        },
+        side_effecting=False,
+    )
+    register_node(
+        type="source.validation_findings",
+        module=MODULE,
+        category="source",
+        label="Get validation findings",
+        description="Load the latest validation report's findings for the project as rows.",
+        runner=_run_source_validation_findings,
+        inputs=["trigger", "project"],
+        outputs=["rows"],
+        params_schema={"project_id": {"type": "string", "title": "Project id (optional)"}},
+        side_effecting=False,
+    )
+    register_node(
+        type="flow.tee",
+        module=MODULE,
+        category="flow",
+        label="Tee (fan-out)",
+        description="Pass the rows straight through so one source can feed two branches.",
+        runner=_run_flow_tee,
+        inputs=["rows"],
+        outputs=["rows"],
+        params_schema={},
+        side_effecting=False,
+    )
+    register_node(
+        type="gate.non_empty",
+        module=MODULE,
+        category="gate",
+        label="Not-empty gate",
+        description="Stop the run when there are no rows; pass through otherwise.",
+        runner=_run_gate_non_empty,
+        inputs=["rows"],
+        outputs=["rows"],
+        params_schema={},
         side_effecting=False,
     )
 
