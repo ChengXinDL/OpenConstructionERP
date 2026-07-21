@@ -12,6 +12,7 @@ Endpoints (auto-mounted at ``/api/v1/approval-routes/``)::
     GET    /instances                         - list workflows (filterable)
     POST   /instances                         - start a workflow
     GET    /instances/{instance_id}           - single workflow + step states
+    GET    /instances/{instance_id}/timeline  - held-days / timeline analytics
     POST   /instances/{instance_id}/decide    - submit a decision
     POST   /instances/{instance_id}/cancel    - cancel a pending workflow
 
@@ -423,6 +424,29 @@ async def get_instance(
     if route.project_id is not None:
         await verify_project_access(route.project_id, user_id, session)
     return await _instance_to_response(instance, service)
+
+
+@router.get(
+    "/instances/{instance_id}/timeline",
+    dependencies=[Depends(RequirePermission("approval_routes.read"))],
+)
+async def get_instance_timeline(
+    instance_id: uuid.UUID,
+    session: SessionDep,
+    user_id: CurrentUserId,
+    service: ApprovalRouteService = Depends(_get_service),
+) -> dict:
+    """Held-days / approval-timeline analytics for one instance.
+
+    Returns per-step held time, total cycle time and SLA breaches so a report
+    can show who held the approval and for how long. Jurisdiction-neutral: the
+    windows are hours, not any national rule.
+    """
+    instance = await service.get_instance(instance_id)
+    route = await service.get_route(instance.route_id)
+    if route.project_id is not None:
+        await verify_project_access(route.project_id, user_id, session)
+    return await service.instance_timeline(instance_id)
 
 
 @router.post(

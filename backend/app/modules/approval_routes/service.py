@@ -57,6 +57,7 @@ from app.modules.approval_routes.schemas import (
     RouteUpdate,
 )
 from app.modules.approval_routes.simulate import step_cleared
+from app.modules.approval_routes.timeline import compute_timeline
 
 logger = logging.getLogger(__name__)
 
@@ -346,6 +347,49 @@ class ApprovalRouteService:
     ) -> dict[uuid.UUID, list[StepState]]:
         """Batched accessor - kills the per-instance N+1 in :get:`/instances`."""
         return await self.repo.list_step_states_for_instances(instance_ids)
+
+    async def instance_timeline(self, instance_id: uuid.UUID) -> dict:
+        """Held-days / approval-timeline analytics for one instance.
+
+        Assembles the per-step held time, total cycle time and SLA breaches
+        from the instance timestamps, its route steps (for ordinal + SLA) and
+        the recorded decisions. Pure computation lives in
+        :func:`app.modules.approval_routes.timeline.compute_timeline`; this
+        method only loads the rows and maps step ids to ordinals.
+        """
+        instance = await self.get_instance(instance_id)
+        steps = await self.list_steps(instance.route_id)
+        states = await self.list_step_states(instance_id)
+
+        ordinal_by_step: dict[uuid.UUID, int] = {s.id: s.ordinal for s in steps}
+        sla_by_ordinal: dict[int, int | None] = {s.ordinal: s.sla_hours for s in steps}
+
+        # A step (one ordinal) may collect several decision rows when it needs
+        # multiple approvers; the step is "decided" at the last decision on it.
+        decided_by_ordinal: dict[int, datetime] = {}
+        for st in states:
+            if st.decided_at is None:
+                continue
+            ordinal = ordinal_by_step.get(st.step_id)
+            if ordinal is None:
+                continue
+            prev = decided_by_ordinal.get(ordinal)
+            if prev is None or st.decided_at > prev:
+                decided_by_ordinal[ordinal] = st.decided_at
+
+        decisions: list[tuple[int, datetime | None]] = [
+            (s.ordinal, decided_by_ordinal.get(s.ordinal)) for s in steps
+        ]
+
+        timeline = compute_timeline(
+            status=instance.status,
+            started_at=instance.started_at,
+            completed_at=instance.completed_at,
+            reference=datetime.now(UTC),
+            decisions=decisions,
+            sla_hours_by_ordinal=sla_by_ordinal,
+        )
+        return timeline.as_dict()
 
     async def list_instances(
         self,
