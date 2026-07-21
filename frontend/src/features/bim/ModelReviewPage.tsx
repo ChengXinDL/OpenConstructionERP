@@ -188,7 +188,19 @@ function ModelReviewInner({ projectId }: { projectId: string }) {
   );
 
   return (
-    <div className="flex h-full flex-col">
+    // Full-bleed, DEFINITE height. The page lives inside the app shell's
+    // `min-h-screen` main, which only sets a height FLOOR - so a plain
+    // `h-full` here resolves to content height and the BIMViewer canvas
+    // (sized to its parent by a ResizeObserver) balloons the whole column
+    // to tens of thousands of px the moment a tall checks report renders.
+    // Pinning the root to `100vh - 56px` (the header offset, same as the
+    // main BIM workspace) gives the flex chain a real ceiling, so `flex-1`
+    // + `min-h-0` on the body row distribute correctly and the canvas stays
+    // bounded. The negative margins negate the padded `main` to go edge-to-edge.
+    <div
+      className="flex flex-col -mx-4 -mt-6 -mb-4 sm:-mx-7"
+      style={{ height: 'calc(100vh - 56px)' }}
+    >
       {/* Header: title + model picker + issues toggle */}
       <div className="flex items-center gap-3 border-b border-border-light px-4 py-2.5">
         <Cuboid size={18} className="shrink-0 text-oe-blue" />
@@ -236,10 +248,15 @@ function ModelReviewInner({ projectId }: { projectId: string }) {
         </button>
       </div>
 
-      {/* Body: checks dock + viewer + issues dock */}
+      {/* Body: checks dock + viewer + issues dock.
+          Every column carries ``min-h-0 overflow-hidden`` so a tall dock (a long
+          checks-findings list) scrolls INSIDE its own panel instead of
+          stretching the flex row. Without it the row grows to the dock's content
+          height and the viewer's ``h-full`` canvas balloons to thousands of px
+          tall, pushing the model off-screen the moment checks are run. */}
       <div className="flex min-h-0 flex-1">
         {checksOpen && (
-          <aside className="flex w-[340px] shrink-0 flex-col border-e border-border-light bg-surface-primary">
+          <aside className="flex w-[340px] shrink-0 flex-col border-e border-border-light bg-surface-primary min-h-0 overflow-hidden">
             <ModelChecksPanel
               // Re-key per model so the run/report state is scoped to it.
               key={activeModelId ?? 'none'}
@@ -251,7 +268,7 @@ function ModelReviewInner({ projectId }: { projectId: string }) {
             />
           </aside>
         )}
-        <div className="relative min-w-0 flex-1">
+        <div className="relative min-h-0 min-w-0 flex-1">
           {activeModelId ? (
             <BIMViewer
               modelId={activeModelId}
@@ -283,7 +300,7 @@ function ModelReviewInner({ projectId }: { projectId: string }) {
         </div>
 
         {issuesOpen && (
-          <div className="flex w-[380px] shrink-0 flex-col border-s border-border-light bg-surface-primary">
+          <div className="flex w-[380px] shrink-0 flex-col border-s border-border-light bg-surface-primary min-h-0 overflow-hidden">
             <BcfIssuesPanel
               projectId={projectId}
               bimModelId={activeModelId}
