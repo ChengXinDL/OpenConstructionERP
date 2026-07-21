@@ -11,6 +11,7 @@
 import clsx from 'clsx';
 import {
   EyeOff,
+  FolderOpen,
   Maximize2,
   Redo2,
   Save,
@@ -36,6 +37,8 @@ export interface PipelineToolbarProps {
   onRun?: () => void;
   onStop?: () => void;
   onExplain?: () => void;
+  /** Open the pipeline library (templates + saved workflows). */
+  onOpenLibrary?: () => void;
   /** True while a save / run request is in flight. */
   busy?: boolean;
   /** True while a run is live (swaps Run for Stop affordance). */
@@ -90,6 +93,7 @@ export function PipelineToolbar({
   onRun,
   onStop,
   onExplain,
+  onOpenLibrary,
   busy = false,
   running = false,
   issueCount = 0,
@@ -145,6 +149,18 @@ export function PipelineToolbar({
         onClick={onExplain}
       />
       <ModuleGuideButton content={pipelinesGuide} />
+
+      {onOpenLibrary && (
+        <TBtn
+          label={t('pipeline.toolbar.open', { defaultValue: 'Open' })}
+          title={t('pipeline.toolbar.open_hint', {
+            defaultValue: 'Open a saved workflow or start from a template',
+          })}
+          testId="pipeline-open-library"
+          icon={<FolderOpen size={14} aria-hidden="true" />}
+          onClick={onOpenLibrary}
+        />
+      )}
 
       {issueCount > 0 && (
         <span

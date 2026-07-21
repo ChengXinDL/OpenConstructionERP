@@ -18,7 +18,7 @@
  * store. Live run = polling `GET /runs/{run_id}` (no websocket).
  * Empty canvas → `EmptyState`. Onboarding via the shared `OnboardingTour`.
  */
-import { Info, Workflow } from 'lucide-react';
+import { FolderOpen, Info, LayoutTemplate, Workflow } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
@@ -29,11 +29,14 @@ import type { TourStep } from '@/shared/ui';
 import { getErrorMessage } from '@/shared/lib/api';
 import { useToastStore } from '@/stores/useToastStore';
 
+import type { PipelineGraph } from './api';
 import { PipelineCanvas } from './canvas/PipelineCanvas';
 import { PipelineToolbar } from './canvas/PipelineToolbar';
 import { InspectorPanel } from './components/InspectorPanel';
 import { NodePalette } from './components/NodePalette';
+import { PipelineLibraryModal } from './components/PipelineLibraryModal';
 import { RunDock } from './components/RunDock';
+import type { PipelineTemplate } from './templates';
 import {
   isTerminalRunStatus,
   pipelineKeys,
@@ -50,7 +53,7 @@ import { usePipelineStore } from './usePipelineStore';
 
 export function PipelinesPage() {
   const { t } = useTranslation();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const projectId = searchParams.get('project');
   const pipelineIdParam = searchParams.get('id') ?? undefined;
   const addToast = useToastStore((s) => s.addToast);
@@ -62,6 +65,12 @@ export function PipelinesPage() {
   const [activeRunId, setActiveRunId] = useState<string | undefined>(undefined);
   const [loadToken, setLoadToken] = useState(0);
   const [explainSummary, setExplainSummary] = useState<string | null>(null);
+  // The graph currently being hydrated onto the canvas. Unifies two sources -
+  // a fetched saved pipeline and a chosen starter template - so both flow
+  // through the canvas's single `loadGraph`+`loadToken` hydration path.
+  const [graphToHydrate, setGraphToHydrate] = useState<PipelineGraph | null>(null);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [libraryTab, setLibraryTab] = useState<'templates' | 'saved'>('templates');
   const fitViewRef = useRef<(() => void) | null>(null);
 
   // ── Server state ────────────────────────────────────────────────────────
@@ -125,7 +134,6 @@ export function PipelinesPage() {
   }, [projectId]);
 
   // Hydrate a loaded pipeline (canvas does the actual graph rebuild).
-  const loadedGraph = pipelineQuery.data?.graph ?? null;
   useEffect(() => {
     if (!pipelineQuery.data) return;
     const p = pipelineQuery.data;
@@ -136,6 +144,7 @@ export function PipelinesPage() {
       projectId: p.project_id ?? projectId ?? null,
       isPublished: Boolean(p.is_published),
     });
+    setGraphToHydrate(p.graph ?? null);
     setLoadToken((n) => n + 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pipelineQuery.data]);
@@ -184,8 +193,22 @@ export function PipelinesPage() {
     const edges = usePipelineStore.getState().edges;
     const nodes = usePipelineStore.getState().nodes;
     const defByType = new Map(nodeTypes.map((d) => [d.type, d]));
+    // Nodes touched by at least one edge - used to spot "islands" (a step with
+    // no wire at all), which silently never run, the classic "not all the logic
+    // works" trap when a graph is half-wired.
+    const connected = new Set<string>();
+    for (const e of edges) {
+      connected.add(e.source);
+      connected.add(e.target);
+    }
     let count = 0;
     for (const n of nodes) {
+      // An island in a multi-node graph is always an issue, regardless of its
+      // port requirements: nothing feeds it and it feeds nothing.
+      if (nodes.length > 1 && !connected.has(n.id)) {
+        count += 1;
+        continue;
+      }
       const required = requiredInputIds(defByType.get(n.type));
       if (required.length === 0) continue;
       const incoming = edges.filter((e) => e.target === n.id);
@@ -382,7 +405,7 @@ export function PipelinesPage() {
       lines.push(
         t('pipeline.explain.issues_line', {
           defaultValue:
-            '{{count}} step(s) still need an input connected before this can run.',
+            '{{count}} step(s) still need connecting before this can run.',
           count: issueCount,
         }),
       );
@@ -392,6 +415,59 @@ export function PipelinesPage() {
     clearSelection();
     setInspectorCollapsed(false);
   }, [clearSelection, issueCount, nodeTypes, t, toGraphJSON]);
+
+  // Load a starter template as a fresh, unsaved draft (id cleared) so the first
+  // Save creates a new pipeline rather than overwriting whatever was open.
+  const applyTemplate = useCallback(
+    (tpl: PipelineTemplate) => {
+      loadGraphMeta(tpl.graph, {
+        id: null,
+        name: tpl.name,
+        description: tpl.description,
+        projectId: projectId ?? null,
+        isPublished: false,
+      });
+      setGraphToHydrate(tpl.graph);
+      setLoadToken((n) => n + 1);
+      // Drop any ?id= so the URL no longer points at a saved pipeline.
+      if (pipelineIdParam) {
+        const next = new URLSearchParams(searchParams);
+        next.delete('id');
+        setSearchParams(next, { replace: true });
+      }
+      addToast({
+        type: 'success',
+        title: t('pipeline.toast.template_loaded', {
+          defaultValue: 'Template loaded - review, then Save or Run',
+        }),
+      });
+    },
+    [
+      addToast,
+      loadGraphMeta,
+      pipelineIdParam,
+      projectId,
+      searchParams,
+      setSearchParams,
+      t,
+    ],
+  );
+
+  // Reopen a saved workflow: point the URL at it so the existing fetch effect
+  // hydrates the graph + meta (id set), turning Save into an update.
+  const openSaved = useCallback(
+    (id: string) => {
+      const next = new URLSearchParams(searchParams);
+      next.set('id', id);
+      setSearchParams(next, { replace: false });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  const openLibrary = useCallback((tab: 'templates' | 'saved') => {
+    setLibraryTab(tab);
+    setLibraryOpen(true);
+  }, []);
 
   // The shared OnboardingTour resolves `title`/`description` via its internal
   // STEP_DEFAULTS map and falls back to the raw value when a key is unknown —
@@ -466,6 +542,7 @@ export function PipelinesPage() {
           onRun={handleRun}
           onStop={handleStop}
           onExplain={handleExplain}
+          onOpenLibrary={() => openLibrary('saved')}
           busy={busy}
           running={isRunning}
           issueCount={issueCount}
@@ -490,7 +567,40 @@ export function PipelinesPage() {
                     'A pipeline is a few steps wired together. Follow these steps to build your first one.',
                 })}
                 action={
-                  <div className="w-full max-w-md rounded-xl border border-border bg-surface-secondary/60 p-4 text-start">
+                  // The empty-state overlay is pointer-events-none so a first
+                  // drag falls through to the canvas; re-enable events on the
+                  // card itself so its buttons remain clickable.
+                  <div className="pointer-events-auto w-full max-w-md rounded-xl border border-border bg-surface-secondary/60 p-4 text-start">
+                    {/* Fast path: start from a ready-made automation instead of
+                        building from scratch, or reopen a saved workflow. */}
+                    <div className="mb-4 flex flex-col gap-2 sm:flex-row">
+                      <button
+                        type="button"
+                        data-testid="pipeline-browse-templates"
+                        onClick={() => openLibrary('templates')}
+                        className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-oe-blue bg-oe-blue px-3 py-2 text-sm font-medium text-white hover:bg-oe-blue/90"
+                      >
+                        <LayoutTemplate size={15} aria-hidden="true" />
+                        {t('pipeline.empty.browse_templates', {
+                          defaultValue: 'Browse templates',
+                        })}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openLibrary('saved')}
+                        className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-surface-primary px-3 py-2 text-sm font-medium text-content-secondary hover:bg-surface-secondary"
+                      >
+                        <FolderOpen size={15} aria-hidden="true" />
+                        {t('pipeline.empty.open_saved', {
+                          defaultValue: 'Open saved',
+                        })}
+                      </button>
+                    </div>
+                    <p className="mb-2 text-xs font-medium uppercase tracking-wide text-content-tertiary">
+                      {t('pipeline.empty.or_build', {
+                        defaultValue: 'Or build your own',
+                      })}
+                    </p>
                     <ol className="space-y-2.5">
                       {[
                         t('pipeline.empty.step_trigger', {
@@ -538,7 +648,7 @@ export function PipelinesPage() {
           ) : null}
           <PipelineCanvas
             nodeTypes={nodeTypes}
-            loadGraph={loadedGraph}
+            loadGraph={graphToHydrate}
             loadToken={loadToken}
             onFitViewReady={(fit) => {
               fitViewRef.current = fit;
@@ -561,6 +671,15 @@ export function PipelinesPage() {
         summary={explainSummary}
       />
       </div>
+
+      <PipelineLibraryModal
+        open={libraryOpen}
+        onClose={() => setLibraryOpen(false)}
+        projectId={projectId}
+        initialTab={libraryTab}
+        onPickTemplate={applyTemplate}
+        onOpenSaved={openSaved}
+      />
 
       <OnboardingTour steps={tourSteps} />
     </div>
