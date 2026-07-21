@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [12.1.0] - 2026-07-21
+
+Approval workflows get a preset library of tenant-wide review routes and a dry-run simulator that shows who would approve a document before the route is committed. Interface management now links each interface to its RFI and schedule activity, and the composed estimate total is surfaced directly in the UI. The CDE gains ISO 19650 functional roles with a responsibility matrix and a go-live readiness score per project. National cost bases translate into the market language when it is switched, and carry a per-row revision id and source attribution. Cases pages lay their process steps out as a compact horizontal row, BOQ positions can be renumbered freely, links open in a new tab per app type, and the multi-tenant RLS policy is hardened with a cast-safe predicate and a startup role check. The remaining untranslated UI strings are filled in every language.
+
 ## [12.0.1] - 2026-07-19
 
 Patch release. Corrects a frontend type-build error introduced in 12.0.0 that stopped the container image from building. There is no functional or behavioural change.

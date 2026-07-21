@@ -38,6 +38,13 @@ interface ChangelogEntry {
 // date, title and meaning intact; trim the prose, not the facts.
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '12.1.0',
+    date: '2026-07-21',
+    tag: 'NEW',
+    summary:
+      'Approval routes get a tenant-wide preset library and a dry-run simulator, interface management links to RFIs and schedule activities, and the CDE adds ISO 19650 roles with a per-project go-live readiness score. National cost bases translate into the market language with a per-row revision id, cases show a compact process row, BOQ positions renumber freely, and the multi-tenant RLS policy is hardened.',
+  },
+  {
     version: '12.0.1',
     date: '2026-07-19',
     tag: 'NEW',
