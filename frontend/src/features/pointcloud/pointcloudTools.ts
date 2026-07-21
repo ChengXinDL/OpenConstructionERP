@@ -199,6 +199,68 @@ export function scaleClipBox(
   return { min, max };
 }
 
+/** Minimal read-only view of a loaded cloud for the pure point-counting
+ *  helpers below: the centre-relative XYZ triples and how many points they
+ *  hold. Deliberately structural (ArrayLike) so a THREE.BufferAttribute array,
+ *  a Float32Array or a plain number[] all satisfy it without a dependency. */
+export interface CloudPointsView {
+  positions: ArrayLike<number>;
+  pointCount: number;
+}
+
+/** Count how many cloud points fall inside an axis-aligned WORLD-space box.
+ *  Positions arrive in the centre-relative LOCAL frame (x, y, z); the viewer
+ *  rotates them -90 deg about X, so a local point maps to world (x, z, -y) -
+ *  the same mapping every other "world space" helper here uses. Degenerate
+ *  input (no points, a positions buffer shorter than 3N) yields 0. */
+export function countPointsInBox(cloud: CloudPointsView, box: BoxExtent): number {
+  const n = cloud.pointCount;
+  const pos = cloud.positions;
+  if (!(n > 0) || pos.length < n * 3) return 0;
+  const { min, max } = box;
+  let count = 0;
+  for (let i = 0; i < n; i++) {
+    const lx = pos[i * 3] ?? 0;
+    const ly = pos[i * 3 + 1] ?? 0;
+    const lz = pos[i * 3 + 2] ?? 0;
+    // local (x, y, z) -> world (x, z, -y).
+    const wx = lx;
+    const wy = lz;
+    const wz = -ly;
+    if (
+      wx >= min.x &&
+      wx <= max.x &&
+      wy >= min.y &&
+      wy <= max.y &&
+      wz >= min.z &&
+      wz <= max.z
+    ) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+/** Linear extents + derived plan area / bounding volume of a world-space box,
+ *  in metres. `width` is the world-X span, `depth` the world-Z span (the two
+ *  ground axes), `height` the world-Y (vertical) span. Spans floor at 0 so an
+ *  inverted or zero-extent box never yields negative quantities. Used for the
+ *  Groups panel readout and its BOQ hand-off (plan area m2, volume m3). */
+export interface BoxMetrics {
+  width: number;
+  depth: number;
+  height: number;
+  planArea: number;
+  volume: number;
+}
+
+export function boxMetrics(box: BoxExtent): BoxMetrics {
+  const width = Math.max(0, box.max.x - box.min.x);
+  const depth = Math.max(0, box.max.z - box.min.z);
+  const height = Math.max(0, box.max.y - box.min.y);
+  return { width, depth, height, planArea: width * depth, volume: width * depth * height };
+}
+
 /** Turn a free-text scan label into a filesystem/URL-safe filename fragment
  *  for the PNG snapshot download; falls back to "scan" when nothing usable
  *  survives (e.g. a label that is entirely punctuation/CJK-only would still

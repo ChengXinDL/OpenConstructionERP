@@ -44,15 +44,20 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {
   AlertCircle,
   ArrowDownToLine,
+  Boxes,
   Camera,
   Clock,
   CloudFog,
+  Copy,
   Crop,
   Crosshair,
   Download,
+  Eye,
+  EyeOff,
   Gauge,
   Grid3x3,
   Layers,
+  ListPlus,
   Loader2,
   MapPin,
   Maximize,
@@ -75,14 +80,19 @@ import {
   X,
 } from 'lucide-react';
 import { useThemeStore } from '@/stores/useThemeStore';
+import { useProjectContextStore } from '@/stores/useProjectContextStore';
+import { useToastStore } from '@/stores/useToastStore';
+import { boqApi } from '@/features/boq/api';
 import { fetchScanPoints, ScanPointsError } from './api';
 import { parseOepc, OepcParseError, type OepcCloud } from './oepc';
 import {
   angleAtVertex,
   annotationsToCsv,
+  boxMetrics,
   boxPlanes,
   chooseScaleBar,
   computePolylineMetrics,
+  countPointsInBox,
   decimationStride,
   deriveCloudBounds,
   estimateVolumeVsPlane,
@@ -126,6 +136,33 @@ interface Annotation {
   scan: Vec3;
   note: string;
 }
+
+/** A named, colored segment of the cloud: an axis-aligned world-space region
+ *  (captured from the clip box) plus the count of cloud points inside it.
+ *  In-session only, like annotations - it feeds the BOQ hand-off and the
+ *  isolate/hide visibility toggle. */
+interface PointGroup {
+  id: string;
+  name: string;
+  /** CSS hex, e.g. '#22c55e' - drives the swatch and the scene box wireframe. */
+  color: string;
+  /** Bounds in the rotated WORLD frame (same frame the clip box uses). */
+  box: BoxExtent;
+  /** Cloud points inside `box`, counted once at capture. */
+  pointCount: number;
+}
+
+/** Distinct, high-contrast swatches cycled as groups are captured. */
+const GROUP_COLORS = [
+  '#22c55e',
+  '#3b82f6',
+  '#f97316',
+  '#ec4899',
+  '#a855f7',
+  '#eab308',
+  '#06b6d4',
+  '#ef4444',
+];
 
 /** Density presets: the server evenly decimates to at most this many points. */
 const DENSITY_OPTIONS = [
@@ -327,12 +364,22 @@ interface ToolToggleButtonProps {
   icon: typeof Layers;
   label: string;
   testId?: string;
+  /** Optional count pill (e.g. captured groups) shown after the label. */
+  badge?: number;
 }
 
 /** Toggle-style button for the inspection-tools row - mirrors the "View"
  *  button styling already used for scan rows in PointCloudPage.tsx so the
  *  active/inactive states read consistently across the feature. */
-function ToolToggleButton({ active, disabled, onClick, icon: Icon, label, testId }: ToolToggleButtonProps) {
+function ToolToggleButton({
+  active,
+  disabled,
+  onClick,
+  icon: Icon,
+  label,
+  testId,
+  badge,
+}: ToolToggleButtonProps) {
   return (
     <button
       type="button"
@@ -349,6 +396,15 @@ function ToolToggleButton({ active, disabled, onClick, icon: Icon, label, testId
     >
       <Icon size={14} />
       {label}
+      {badge != null && badge > 0 && (
+        <span
+          className={`ml-0.5 inline-flex min-w-[1.1rem] items-center justify-center rounded-full px-1 text-2xs font-semibold tabular-nums ${
+            active ? 'bg-oe-blue/20 text-oe-blue' : 'bg-surface-tertiary text-content-secondary'
+          }`}
+        >
+          {badge}
+        </span>
+      )}
     </button>
   );
 }
@@ -362,6 +418,10 @@ interface PointCloudViewerProps {
 export function PointCloudViewer({ scanId, scanLabel }: PointCloudViewerProps) {
   const { t } = useTranslation();
   const resolvedTheme = useThemeStore((s) => s.resolved);
+  // Quantity hand-off targets the active project's BOQ (mirrors the DWG
+  // Takeoff flow); toasts confirm the add or the clipboard fallback.
+  const activeProjectId = useProjectContextStore((s) => s.activeProjectId);
+  const addToast = useToastStore((s) => s.addToast);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -394,6 +454,11 @@ export function PointCloudViewer({ scanId, scanLabel }: PointCloudViewerProps) {
   // Annotation pins: id -> marker mesh, reconciled against the annotations
   // state by an effect below.
   const annotationMarkersRef = useRef<Map<string, THREE.Mesh>>(new Map());
+  // Point groups: id -> colored box wireframe, reconciled against the groups
+  // state by an effect below. Ever-increasing counter for auto-numbered names
+  // so a name stays unique even after earlier groups are deleted.
+  const groupHelpersRef = useRef<Map<string, THREE.Box3Helper>>(new Map());
+  const groupCounterRef = useRef(0);
   // Angle tool (three-point): the picked vertices + their line / markers.
   const anglePointsRef = useRef<THREE.Vector3[]>([]);
   const angleLineRef = useRef<THREE.Line | null>(null);
@@ -451,6 +516,13 @@ export function PointCloudViewer({ scanId, scanLabel }: PointCloudViewerProps) {
   const [volumeResult, setVolumeResult] = useState<VolumeEstimate | null>(null);
   const [inspectResult, setInspectResult] = useState<{ world: Vec3; scan: Vec3 } | null>(null);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  // Groups tool: the captured groups, whether the tool panel is open, and which
+  // group (if any) is currently isolated (only its points shown). Plus a flag
+  // so the BOQ hand-off can disable its buttons while a request is in flight.
+  const [groups, setGroups] = useState<PointGroup[]>([]);
+  const [groupsEnabled, setGroupsEnabled] = useState(false);
+  const [isolatedGroupId, setIsolatedGroupId] = useState<string | null>(null);
+  const [boqSending, setBoqSending] = useState(false);
   // Angle tool readout: the picked-vertex count (0-3) + the measured interior
   // angle at the middle vertex once all three are down.
   const [angleVertexCount, setAngleVertexCount] = useState(0);
@@ -616,6 +688,11 @@ export function PointCloudViewer({ scanId, scanLabel }: PointCloudViewerProps) {
       }
       for (const marker of annotationMarkersRef.current.values()) disposeMesh(marker);
       annotationMarkersRef.current.clear();
+      for (const helper of groupHelpersRef.current.values()) {
+        scene.remove(helper);
+        helper.dispose();
+      }
+      groupHelpersRef.current.clear();
       // forceContextLoss() before dispose() so the browser reclaims the GL
       // context slot immediately; dispose() alone leaks the live context and
       // the ~8-16 context cap is hit after a few mounts (3D view unavailable).
@@ -879,8 +956,37 @@ export function PointCloudViewer({ scanId, scanLabel }: PointCloudViewerProps) {
     if (clipEnabled && clipBox) {
       eqs.push(...boxPlanes(clipBox));
     }
+    // Isolating a group crops the cloud to that group's box, reusing the exact
+    // same clip-plane path so "isolate" composes with any active slice / clip.
+    if (isolatedGroupId) {
+      const iso = groups.find((g) => g.id === isolatedGroupId);
+      if (iso) eqs.push(...boxPlanes(iso.box));
+    }
     return eqs;
-  }, [bounds, sliceEnabled, sliceMin, sliceMax, clipEnabled, clipBox]);
+  }, [bounds, sliceEnabled, sliceMin, sliceMax, clipEnabled, clipBox, isolatedGroupId, groups]);
+
+  // Points currently surviving the active slice / clip / isolation, estimated
+  // by sampling so it stays instant on multi-million-point clouds. With no
+  // crop active this is just the full count. Feeds the toolbar readout so the
+  // effect of a slice / clip box / group isolation is visible at a glance.
+  const visiblePointCount = useMemo(() => {
+    if (!cloud || cloud.pointCount === 0) return 0;
+    if (activePlaneEqs.length === 0) return cloud.pointCount;
+    const n = cloud.pointCount;
+    const step = Math.max(1, Math.ceil(n / 200_000));
+    const pos = cloud.positions;
+    let seen = 0;
+    let inside = 0;
+    for (let i = 0; i < n; i += step) {
+      const lx = pos[i * 3] ?? 0;
+      const ly = pos[i * 3 + 1] ?? 0;
+      const lz = pos[i * 3 + 2] ?? 0;
+      // local (x, y, z) -> world (x, z, -y).
+      seen += 1;
+      if (isWithinPlanes({ x: lx, y: lz, z: -ly }, activePlaneEqs)) inside += 1;
+    }
+    return seen === 0 ? 0 : Math.round((inside / seen) * n);
+  }, [cloud, activePlaneEqs]);
 
   // ── Shared scene-object builders ─────────────────────────────────────────
   const makeMarker = useCallback(
@@ -1171,6 +1277,10 @@ export function PointCloudViewer({ scanId, scanLabel }: PointCloudViewerProps) {
     disposeInspectMarker();
     setInspectResult(null);
     setAnnotations([]);
+    setGroups([]);
+    setGroupsEnabled(false);
+    setIsolatedGroupId(null);
+    groupCounterRef.current = 0;
   }, [cloud, bounds, disposeMeasureScene, disposeAreaScene, disposeAngleScene, disposeInspectMarker]);
 
   // ── Sync annotation pin markers to the annotations state ─────────────────
@@ -1195,6 +1305,43 @@ export function PointCloudViewer({ scanId, scanLabel }: PointCloudViewerProps) {
       }
     }
   }, [annotations, makeMarker]);
+
+  // ── Sync group box wireframes to the groups state ────────────────────────
+  // One colored Box3Helper per captured group, so every group is visible in
+  // the scene at once. Reconciled like the annotation markers: drop helpers
+  // for removed groups, add helpers for new ones, and re-point every live
+  // helper at its (possibly edited) box + color. The isolated group is drawn
+  // a touch bolder so it stands out while its points are cropped in.
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    const map = groupHelpersRef.current;
+    const liveIds = new Set(groups.map((g) => g.id));
+    for (const [id, helper] of map) {
+      if (!liveIds.has(id)) {
+        scene.remove(helper);
+        helper.dispose();
+        map.delete(id);
+      }
+    }
+    for (const g of groups) {
+      let helper = map.get(g.id);
+      if (!helper) {
+        helper = new THREE.Box3Helper(new THREE.Box3(), new THREE.Color(g.color));
+        const material = helper.material as THREE.LineBasicMaterial;
+        material.transparent = true;
+        material.depthTest = false;
+        helper.renderOrder = 995;
+        scene.add(helper);
+        map.set(g.id, helper);
+      }
+      helper.box.min.set(g.box.min.x, g.box.min.y, g.box.min.z);
+      helper.box.max.set(g.box.max.x, g.box.max.y, g.box.max.z);
+      const material = helper.material as THREE.LineBasicMaterial;
+      material.color.set(g.color);
+      material.opacity = isolatedGroupId === g.id ? 1 : 0.7;
+    }
+  }, [groups, isolatedGroupId]);
 
   // ── Default the clip box to the full cloud bounds the first time it's
   //    enabled; later toggles keep whatever region the user set. ───────────
@@ -1431,6 +1578,172 @@ export function PointCloudViewer({ scanId, scanLabel }: PointCloudViewerProps) {
   const clearAnnotations = useCallback(() => {
     setAnnotations([]);
   }, []);
+
+  // ── Groups handlers ──────────────────────────────────────────────────────
+  // Opening the Groups tool turns on the adjustable clip box so the user has a
+  // region to size and capture; closing it leaves the box as-is (they may be
+  // using it as its own tool).
+  const toggleGroups = useCallback(() => {
+    setGroupsEnabled((prev) => {
+      const next = !prev;
+      if (next) setClipEnabled(true);
+      return next;
+    });
+  }, []);
+
+  /** Snapshot the current clip-box bounds into a new named, colored group,
+   *  counting the cloud points inside it. No-op when nothing is loaded or no
+   *  box is defined yet. */
+  const captureGroup = useCallback(() => {
+    if (!cloud || !clipBox) return;
+    const box: BoxExtent = {
+      min: { ...clipBox.min },
+      max: { ...clipBox.max },
+    };
+    const pointCount = countPointsInBox(cloud, box);
+    groupCounterRef.current += 1;
+    const n = groupCounterRef.current;
+    const color = GROUP_COLORS[(n - 1) % GROUP_COLORS.length] as string;
+    const id = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+    setGroups((prev) => [
+      ...prev,
+      {
+        id,
+        name: t('pointcloud.group_default_name', { defaultValue: 'Group {{n}}', n }),
+        color,
+        box,
+        pointCount,
+      },
+    ]);
+  }, [cloud, clipBox, t]);
+
+  const renameGroup = useCallback((id: string, name: string) => {
+    setGroups((prev) => prev.map((g) => (g.id === id ? { ...g, name } : g)));
+  }, []);
+
+  const removeGroup = useCallback((id: string) => {
+    setGroups((prev) => prev.filter((g) => g.id !== id));
+    setIsolatedGroupId((cur) => (cur === id ? null : cur));
+  }, []);
+
+  const toggleIsolateGroup = useCallback((id: string) => {
+    setIsolatedGroupId((cur) => (cur === id ? null : id));
+  }, []);
+
+  const clearGroups = useCallback(() => {
+    setGroups([]);
+    setIsolatedGroupId(null);
+  }, []);
+
+  // ── Quantity hand-off to the estimate (BOQ) ──────────────────────────────
+  /** Copy a tab-separated quantity summary to the clipboard - the graceful
+   *  fallback when there is no active project to add a BOQ position to. */
+  const copyQuantitySummary = useCallback(
+    async (description: string, unit: string, quantity: number) => {
+      const summary = `${description}\t${quantity} ${unit}`;
+      try {
+        await navigator.clipboard.writeText(summary);
+        addToast({
+          type: 'success',
+          title: t('pointcloud.qty_copied_title', { defaultValue: 'Quantity copied' }),
+          message: summary,
+        });
+      } catch {
+        addToast({
+          type: 'error',
+          title: t('pointcloud.qty_copy_failed_title', { defaultValue: 'Could not copy' }),
+          message: t('pointcloud.qty_copy_failed_msg', {
+            defaultValue: 'Clipboard access was blocked by the browser.',
+          }),
+        });
+      }
+    },
+    [addToast, t],
+  );
+
+  /** Add a measured quantity to the active project's BOQ as a new position,
+   *  reusing the same resolve-or-create-BOQ + addPosition path as DWG Takeoff
+   *  (boqApi). Falls back to the clipboard when no project is active. */
+  const addQuantityToBoq = useCallback(
+    async (description: string, unit: 'm2' | 'm3', quantity: number) => {
+      const roundedQty = Math.round(quantity * 1000) / 1000;
+      if (!Number.isFinite(roundedQty) || roundedQty <= 0) {
+        addToast({
+          type: 'error',
+          title: t('pointcloud.boq_nothing_title', { defaultValue: 'Nothing to add' }),
+          message: t('pointcloud.boq_nothing_msg', {
+            defaultValue: 'Measure or capture a non-zero quantity first.',
+          }),
+        });
+        return;
+      }
+      if (!activeProjectId) {
+        // No project context - degrade to the clipboard instead of guessing.
+        await copyQuantitySummary(description, unit, roundedQty);
+        return;
+      }
+      setBoqSending(true);
+      try {
+        // Resolve a destination BOQ without a picker: first existing, else a
+        // fresh "Point cloud takeoff" BOQ for this project.
+        const boqs = await boqApi.list(activeProjectId);
+        let boqId = boqs[0]?.id ?? '';
+        if (!boqId) {
+          const created = await boqApi.create({
+            project_id: activeProjectId,
+            name: t('pointcloud.boq_default_name', { defaultValue: 'Point cloud takeoff' }),
+          });
+          boqId = created.id;
+        }
+        const boqData = await boqApi.get(boqId);
+        const positions = boqData.positions || [];
+        // Auto-number a PC.### ordinal so successive adds do not collide.
+        const pcNums = positions
+          .map((p) => {
+            const m = /^PC\.(\d+)$/.exec(p.ordinal || '');
+            return m ? parseInt(m[1] as string, 10) : 0;
+          })
+          .filter((v) => v > 0);
+        const nextNum = (pcNums.length ? Math.max(...pcNums) : 0) + 1;
+        const ordinal = `PC.${String(nextNum).padStart(3, '0')}`;
+        const newPos = await boqApi.addPosition({
+          boq_id: boqId,
+          ordinal,
+          description,
+          unit,
+          quantity: roundedQty,
+          unit_rate: 0,
+        });
+        try {
+          await boqApi.updatePosition(newPos.id, {
+            metadata: {
+              source: 'pointcloud',
+              source_scan_id: scanId,
+              pointcloud_quantity: roundedQty,
+              pointcloud_unit: unit,
+            },
+          });
+        } catch {
+          /* metadata is non-critical */
+        }
+        addToast({
+          type: 'success',
+          title: t('pointcloud.boq_added_title', { defaultValue: 'Added to BOQ' }),
+          message: `${boqData.name || 'BOQ'} · ${ordinal} - ${roundedQty} ${unit}`,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        addToast({
+          type: 'error',
+          title: t('pointcloud.boq_failed_title', { defaultValue: 'Could not add to BOQ' }),
+          message: msg,
+        });
+      } finally {
+        setBoqSending(false);
+      }
+    },
+    [activeProjectId, scanId, addToast, copyQuantitySummary, t],
+  );
 
   const handleClipReset = useCallback(() => {
     if (!bounds) return;
@@ -1884,11 +2197,12 @@ export function PointCloudViewer({ scanId, scanLabel }: PointCloudViewerProps) {
         </button>
       </div>
 
-      {/* ── Inspection tools ───────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-2xs font-semibold uppercase tracking-wider text-content-tertiary">
+      {/* ── Inspection tools: region tools · pick tools · live readout ─────── */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="mr-0.5 text-2xs font-semibold uppercase tracking-wider text-content-tertiary">
           {t('pointcloud.tools_label', { defaultValue: 'Tools' })}
         </span>
+        {/* Region tools: crop / segment the cloud. */}
         <ToolToggleButton
           active={sliceEnabled}
           disabled={toolsDisabled}
@@ -1897,6 +2211,27 @@ export function PointCloudViewer({ scanId, scanLabel }: PointCloudViewerProps) {
           label={t('pointcloud.tool_slice', { defaultValue: 'Cross-section' })}
           testId="pointcloud-tool-slice"
         />
+        <ToolToggleButton
+          active={clipEnabled}
+          disabled={toolsDisabled}
+          onClick={() => setClipEnabled((v) => !v)}
+          icon={Crop}
+          label={t('pointcloud.tool_clip', { defaultValue: 'Clip box' })}
+          testId="pointcloud-tool-clip"
+        />
+        <ToolToggleButton
+          active={groupsEnabled}
+          disabled={toolsDisabled}
+          onClick={toggleGroups}
+          icon={Boxes}
+          label={t('pointcloud.tool_groups', { defaultValue: 'Groups' })}
+          testId="pointcloud-tool-groups"
+          badge={groups.length}
+        />
+
+        <span className="mx-0.5 hidden h-6 w-px self-center bg-border-light sm:inline-block" aria-hidden="true" />
+
+        {/* Pick tools: click points to measure / mark. */}
         <ToolToggleButton
           active={pickMode === 'measure'}
           disabled={toolsDisabled}
@@ -1937,14 +2272,43 @@ export function PointCloudViewer({ scanId, scanLabel }: PointCloudViewerProps) {
           label={t('pointcloud.tool_annotate', { defaultValue: 'Annotate' })}
           testId="pointcloud-tool-annotate"
         />
-        <ToolToggleButton
-          active={clipEnabled}
-          disabled={toolsDisabled}
-          onClick={() => setClipEnabled((v) => !v)}
-          icon={Crop}
-          label={t('pointcloud.tool_clip', { defaultValue: 'Clip box' })}
-          testId="pointcloud-tool-clip"
-        />
+
+        {/* Live readout - fills the row's trailing space with real numbers:
+            visible / total points (shows the effect of any active crop) and
+            the captured-group count. */}
+        {!toolsDisabled && cloud && (
+          <div
+            className="ml-auto flex items-center gap-2 text-2xs tabular-nums text-content-tertiary"
+            data-testid="pointcloud-tools-readout"
+          >
+            <span
+              className="inline-flex items-center gap-1"
+              title={t('pointcloud.readout_points_title', {
+                defaultValue: 'Points currently visible after any active crop, of the total loaded',
+              })}
+            >
+              <Boxes size={12} className="text-content-quaternary" />
+              {activePlaneEqs.length > 0
+                ? t('pointcloud.readout_points_visible', {
+                    defaultValue: '{{visible}} / {{total}} pts',
+                    visible: formatPoints(visiblePointCount),
+                    total: formatPoints(cloud.pointCount),
+                  })
+                : t('pointcloud.readout_points_total', {
+                    defaultValue: '{{total}} pts',
+                    total: formatPoints(cloud.pointCount),
+                  })}
+            </span>
+            {groups.length > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-surface-tertiary px-1.5 py-0.5 font-medium text-content-secondary">
+                {t('pointcloud.readout_groups', {
+                  defaultValue: '{{count}} groups',
+                  count: groups.length,
+                })}
+              </span>
+            )}
+          </div>
+        )}
       </div>
       </div>
 
@@ -2155,6 +2519,22 @@ export function PointCloudViewer({ scanId, scanLabel }: PointCloudViewerProps) {
               <div className="ml-auto flex items-center gap-3">
                 <button
                   type="button"
+                  onClick={() =>
+                    addQuantityToBoq(
+                      t('pointcloud.boq_desc_area', { defaultValue: 'Point cloud plan area' }),
+                      'm2',
+                      areaPlanArea,
+                    )
+                  }
+                  disabled={areaVertexCount < 3 || boqSending}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-oe-blue hover:text-oe-blue-dark disabled:cursor-not-allowed disabled:opacity-40"
+                  data-testid="pointcloud-area-add-boq"
+                >
+                  <ListPlus size={12} />
+                  {t('pointcloud.add_area_boq', { defaultValue: 'Add area to BOQ' })}
+                </button>
+                <button
+                  type="button"
                   onClick={exportArea}
                   disabled={areaVertexCount < 3}
                   className="inline-flex items-center gap-1 text-xs text-content-tertiary hover:text-oe-blue disabled:cursor-not-allowed disabled:opacity-40"
@@ -2254,6 +2634,40 @@ export function PointCloudViewer({ scanId, scanLabel }: PointCloudViewerProps) {
                       cell: volumeResult.cellSize.toFixed(2),
                     })}
                   </span>
+                  <div className="ml-auto flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        addQuantityToBoq(
+                          t('pointcloud.boq_desc_fill', { defaultValue: 'Point cloud fill volume' }),
+                          'm3',
+                          volumeResult.fill,
+                        )
+                      }
+                      disabled={volumeResult.fill <= 0 || boqSending}
+                      className="inline-flex items-center gap-1 font-medium text-oe-blue hover:text-oe-blue-dark disabled:cursor-not-allowed disabled:opacity-40"
+                      data-testid="pointcloud-volume-add-fill-boq"
+                    >
+                      <ListPlus size={12} />
+                      {t('pointcloud.add_fill_boq', { defaultValue: 'Add fill to BOQ' })}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        addQuantityToBoq(
+                          t('pointcloud.boq_desc_cut', { defaultValue: 'Point cloud cut volume' }),
+                          'm3',
+                          volumeResult.cut,
+                        )
+                      }
+                      disabled={volumeResult.cut <= 0 || boqSending}
+                      className="inline-flex items-center gap-1 font-medium text-oe-blue hover:text-oe-blue-dark disabled:cursor-not-allowed disabled:opacity-40"
+                      data-testid="pointcloud-volume-add-cut-boq"
+                    >
+                      <ListPlus size={12} />
+                      {t('pointcloud.add_cut_boq', { defaultValue: 'Add cut to BOQ' })}
+                    </button>
+                  </div>
                 </div>
               )}
               <p className="text-2xs text-content-quaternary">
@@ -2417,6 +2831,196 @@ export function PointCloudViewer({ scanId, scanLabel }: PointCloudViewerProps) {
               <RotateCcw size={14} />
             </button>
           </div>
+        </div>
+      )}
+
+      {groupsEnabled && (
+        <div
+          className="space-y-3 rounded-lg border border-border-light bg-surface-secondary/60 p-3"
+          data-testid="pointcloud-groups-panel"
+        >
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span className="inline-flex items-center gap-1 text-2xs font-semibold uppercase tracking-wider text-content-tertiary">
+              <Boxes size={12} />
+              {t('pointcloud.groups_title', { defaultValue: 'Point groups' })}
+            </span>
+            <span className="text-xs text-content-tertiary">
+              {t('pointcloud.groups_hint', {
+                defaultValue:
+                  'Size the box over a room, storey or stockpile, then capture it as a named group.',
+              })}
+            </span>
+            {/* Reuse the clip-box sizing so groups need no second control. */}
+            <div className="ml-auto flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => handleClipScale(1 / 1.15)}
+                disabled={!clipBox}
+                aria-label={t('pointcloud.clip_shrink', { defaultValue: 'Shrink' })}
+                title={t('pointcloud.clip_shrink', { defaultValue: 'Shrink' })}
+                className="inline-flex items-center justify-center rounded-lg border border-border-light bg-surface-secondary p-1.5 text-content-secondary transition-colors hover:bg-surface-tertiary hover:text-content-primary disabled:cursor-not-allowed disabled:opacity-40"
+                data-testid="pointcloud-groups-shrink"
+              >
+                <Minus size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleClipScale(1.15)}
+                disabled={!clipBox}
+                aria-label={t('pointcloud.clip_grow', { defaultValue: 'Grow' })}
+                title={t('pointcloud.clip_grow', { defaultValue: 'Grow' })}
+                className="inline-flex items-center justify-center rounded-lg border border-border-light bg-surface-secondary p-1.5 text-content-secondary transition-colors hover:bg-surface-tertiary hover:text-content-primary disabled:cursor-not-allowed disabled:opacity-40"
+                data-testid="pointcloud-groups-grow"
+              >
+                <Plus size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={handleClipReset}
+                disabled={!bounds}
+                aria-label={t('pointcloud.clip_reset', { defaultValue: 'Reset' })}
+                title={t('pointcloud.clip_reset', { defaultValue: 'Reset' })}
+                className="inline-flex items-center justify-center rounded-lg border border-border-light bg-surface-secondary p-1.5 text-content-secondary transition-colors hover:bg-surface-tertiary hover:text-content-primary disabled:cursor-not-allowed disabled:opacity-40"
+                data-testid="pointcloud-groups-box-reset"
+              >
+                <RotateCcw size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={captureGroup}
+                disabled={!clipBox}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-oe-blue/40 bg-oe-blue/10 px-3 py-1.5 text-sm font-medium text-oe-blue transition-colors hover:bg-oe-blue/20 disabled:cursor-not-allowed disabled:opacity-40"
+                data-testid="pointcloud-groups-capture"
+              >
+                <Plus size={14} />
+                {t('pointcloud.groups_capture', { defaultValue: 'Capture as group' })}
+              </button>
+            </div>
+          </div>
+
+          {clipBox && (
+            <p className="text-2xs text-content-quaternary" data-testid="pointcloud-groups-box-extent">
+              {(() => {
+                const m = boxMetrics(clipBox);
+                return t('pointcloud.groups_box_extent', {
+                  defaultValue: 'Current box {{w}} × {{d}} × {{h}} m · {{vol}} · {{area}}',
+                  w: m.width.toFixed(2),
+                  d: m.depth.toFixed(2),
+                  h: m.height.toFixed(2),
+                  vol: formatVolumeM3(m.volume),
+                  area: formatAreaM2(m.planArea),
+                });
+              })()}
+            </p>
+          )}
+
+          {groups.length > 0 ? (
+            <ul className="space-y-1.5 border-t border-border-light pt-2">
+              {groups.map((g) => {
+                const m = boxMetrics(g.box);
+                const isolated = isolatedGroupId === g.id;
+                return (
+                  <li
+                    key={g.id}
+                    className="flex flex-wrap items-center gap-2"
+                    data-testid="pointcloud-group-row"
+                  >
+                    <span
+                      className="h-4 w-4 shrink-0 rounded border border-black/10 dark:border-white/20"
+                      style={{ backgroundColor: g.color }}
+                      aria-hidden="true"
+                    />
+                    <input
+                      type="text"
+                      value={g.name}
+                      onChange={(e) => renameGroup(g.id, e.target.value)}
+                      aria-label={t('pointcloud.group_name_label', { defaultValue: 'Group name' })}
+                      className="min-w-[7rem] max-w-[12rem] flex-1 rounded border border-border-light bg-surface-secondary px-2 py-1 text-xs text-content-primary focus:outline-none focus:ring-1 focus:ring-oe-blue"
+                      data-testid="pointcloud-group-name"
+                    />
+                    <span className="shrink-0 text-2xs tabular-nums text-content-tertiary">
+                      {t('pointcloud.group_points', {
+                        defaultValue: '{{pts}} pts',
+                        pts: formatPoints(g.pointCount),
+                      })}
+                    </span>
+                    <span className="hidden shrink-0 text-2xs tabular-nums text-content-quaternary md:inline">
+                      {formatVolumeM3(m.volume)} · {formatAreaM2(m.planArea)}
+                    </span>
+                    <div className="ml-auto flex shrink-0 items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => toggleIsolateGroup(g.id)}
+                        aria-pressed={isolated}
+                        title={
+                          isolated
+                            ? t('pointcloud.group_show_all', { defaultValue: 'Show whole cloud' })
+                            : t('pointcloud.group_isolate', { defaultValue: 'Isolate this group' })
+                        }
+                        className={`inline-flex items-center justify-center rounded-lg border p-1.5 transition-colors ${
+                          isolated
+                            ? 'border-oe-blue/40 bg-oe-blue/10 text-oe-blue'
+                            : 'border-border-light bg-surface-secondary text-content-tertiary hover:bg-surface-tertiary hover:text-content-primary'
+                        }`}
+                        data-testid="pointcloud-group-isolate"
+                      >
+                        {isolated ? <EyeOff size={13} /> : <Eye size={13} />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addQuantityToBoq(g.name, 'm3', m.volume)}
+                        disabled={boqSending || m.volume <= 0}
+                        title={t('pointcloud.group_add_boq', {
+                          defaultValue: 'Add volume (m3) to BOQ',
+                        })}
+                        className="inline-flex items-center justify-center rounded-lg border border-border-light bg-surface-secondary p-1.5 text-content-tertiary transition-colors hover:border-oe-blue/40 hover:bg-oe-blue/10 hover:text-oe-blue disabled:cursor-not-allowed disabled:opacity-40"
+                        data-testid="pointcloud-group-add-boq"
+                      >
+                        <ListPlus size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => copyQuantitySummary(g.name, 'm3', Math.round(m.volume * 1000) / 1000)}
+                        title={t('pointcloud.group_copy', { defaultValue: 'Copy quantity' })}
+                        className="inline-flex items-center justify-center rounded-lg border border-border-light bg-surface-secondary p-1.5 text-content-tertiary transition-colors hover:bg-surface-tertiary hover:text-content-primary"
+                        data-testid="pointcloud-group-copy"
+                      >
+                        <Copy size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeGroup(g.id)}
+                        aria-label={t('pointcloud.group_remove', { defaultValue: 'Delete group' })}
+                        title={t('pointcloud.group_remove', { defaultValue: 'Delete group' })}
+                        className="inline-flex items-center justify-center rounded-lg p-1.5 text-content-tertiary transition-colors hover:bg-danger/10 hover:text-danger"
+                        data-testid="pointcloud-group-remove"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+              <li className="flex items-center justify-end pt-0.5">
+                <button
+                  type="button"
+                  onClick={clearGroups}
+                  className="inline-flex items-center gap-1 text-2xs text-content-tertiary underline hover:text-danger"
+                  data-testid="pointcloud-groups-clear"
+                >
+                  <X size={11} />
+                  {t('pointcloud.groups_clear_all', { defaultValue: 'Clear all groups' })}
+                </button>
+              </li>
+            </ul>
+          ) : (
+            <p className="border-t border-border-light pt-2 text-2xs text-content-quaternary">
+              {t('pointcloud.groups_empty', {
+                defaultValue:
+                  'No groups yet. Position the box and press Capture as group to record a named region with its point count and volume.',
+              })}
+            </p>
+          )}
         </div>
       )}
 

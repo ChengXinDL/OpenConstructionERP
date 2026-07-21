@@ -8,7 +8,9 @@ import { describe, expect, it } from 'vitest';
 import {
   angleAtVertex,
   annotationsToCsv,
+  boxMetrics,
   boxPlanes,
+  countPointsInBox,
   buildCsv,
   chooseScaleBar,
   computeMeasurement3D,
@@ -565,5 +567,57 @@ describe('chooseScaleBar', () => {
     expect(chooseScaleBar(-1, 100)).toEqual({ meters: 0, pixels: 0, label: '-' });
     expect(chooseScaleBar(0.05, 0)).toEqual({ meters: 0, pixels: 0, label: '-' });
     expect(chooseScaleBar(Number.NaN, 100)).toEqual({ meters: 0, pixels: 0, label: '-' });
+  });
+});
+
+describe('countPointsInBox', () => {
+  // Three local points; local (x, y, z) -> world (x, z, -y).
+  //   P0 local (0, 0, 0)   -> world (0, 0, 0)
+  //   P1 local (1, -2, 3)  -> world (1, 3, 2)
+  //   P2 local (5, 5, 5)   -> world (5, 5, -5)
+  const positions = [0, 0, 0, 1, -2, 3, 5, 5, 5];
+  const cloud = { positions, pointCount: 3 };
+
+  it('counts points whose WORLD coordinate lands inside the box', () => {
+    // A box around world (0..2, 0..4, 0..3) contains P0 and P1, not P2.
+    const box = { min: { x: -0.5, y: -0.5, z: -0.5 }, max: { x: 2, y: 4, z: 3 } };
+    expect(countPointsInBox(cloud, box)).toBe(2);
+  });
+
+  it('is inclusive on the box boundary', () => {
+    // P1 sits exactly on world (1, 3, 2); a box whose max touches it keeps it.
+    const box = { min: { x: 1, y: 3, z: 2 }, max: { x: 1, y: 3, z: 2 } };
+    expect(countPointsInBox(cloud, box)).toBe(1);
+  });
+
+  it('returns 0 for an empty cloud or a positions buffer shorter than 3N', () => {
+    const box = { min: { x: -10, y: -10, z: -10 }, max: { x: 10, y: 10, z: 10 } };
+    expect(countPointsInBox({ positions: [], pointCount: 0 }, box)).toBe(0);
+    expect(countPointsInBox({ positions: [0, 0], pointCount: 1 }, box)).toBe(0);
+  });
+
+  it('excludes everything for a box outside the cloud', () => {
+    const box = { min: { x: 100, y: 100, z: 100 }, max: { x: 200, y: 200, z: 200 } };
+    expect(countPointsInBox(cloud, box)).toBe(0);
+  });
+});
+
+describe('boxMetrics', () => {
+  it('derives width/depth/height and the plan area + volume in metres', () => {
+    const m = boxMetrics({ min: { x: 0, y: 0, z: 0 }, max: { x: 2, y: 3, z: 4 } });
+    expect(m.width).toBeCloseTo(2, 9);
+    expect(m.depth).toBeCloseTo(4, 9); // world-Z span
+    expect(m.height).toBeCloseTo(3, 9); // world-Y span
+    expect(m.planArea).toBeCloseTo(8, 9);
+    expect(m.volume).toBeCloseTo(24, 9);
+  });
+
+  it('floors negative spans of an inverted box to zero quantities', () => {
+    const m = boxMetrics({ min: { x: 5, y: 5, z: 5 }, max: { x: 1, y: 1, z: 1 } });
+    expect(m.width).toBe(0);
+    expect(m.depth).toBe(0);
+    expect(m.height).toBe(0);
+    expect(m.planArea).toBe(0);
+    expect(m.volume).toBe(0);
   });
 });
