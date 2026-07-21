@@ -786,16 +786,13 @@ const navGroups: NavGroup[] = [
 // a single Governance tile sits right after Modules in the flow.
 // Integrations is intentionally absent: it lives under Settings →
 // Integrations, so a tile would duplicate it.
+// Modules (/modules) and Governance (/governance) intentionally no longer
+// appear as their own sidebar tiles - they are reached from inside Settings
+// (Settings -> Modules / Governance links), which declutters the left menu.
+// Their routes stay live, so any deep link or the Settings entries still work.
 const adminGridItems: NavItem[] = [
   { labelKey: 'sidebar.admin_grid.settings', to: '/settings', icon: Settings },
   { labelKey: 'sidebar.admin_grid.users', to: '/users', icon: Users },
-  { labelKey: 'sidebar.admin_grid.modules', to: '/modules', icon: Package },
-  {
-    labelKey: 'sidebar.admin_grid.governance',
-    to: '/governance',
-    icon: Scale,
-    roleGate: ['admin', 'manager'],
-  },
   {
     labelKey: 'sidebar.admin_grid.audit',
     to: '/admin/audit-log',

@@ -39,6 +39,8 @@ import {
   ListChecks,
   // Interoperability: dashboard <- estimate (2026-07-09)
   Package,
+  // Learn-by-example cases card, folded into the registry 2026-07-21
+  GraduationCap,
 } from 'lucide-react';
 
 export interface DashboardWidgetMeta {
@@ -55,6 +57,17 @@ export interface DashboardWidgetMeta {
 }
 
 export const DASHBOARD_WIDGETS: readonly DashboardWidgetMeta[] = [
+  // "Start here - learn by example" cases gallery. Folded into the registry so
+  // it can be hidden or narrowed like any other widget (it used to be pinned
+  // full-width and could not be removed). Defaults to full width at the top.
+  {
+    id: 'cases_learn',
+    labelKey: 'dashboard.layout.w_cases_learn',
+    labelDefault: 'Start here - learn by example',
+    descKey: 'dashboard.layout.w_cases_learn_desc',
+    descDefault: 'Guided real-world example workflows to learn the platform',
+    icon: GraduationCap,
+  },
   // ── Core (existing 12) ────────────────────────────────────────────────
   {
     id: 'continue_work',

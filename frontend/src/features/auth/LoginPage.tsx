@@ -18,6 +18,7 @@ import { useBrandingStore } from '@/stores/useBrandingStore';
 import { BrandingEditorModal } from '@/app/layout/CustomBranding';
 import { extractErrorMessageFromBody } from '@/shared/lib/api';
 import { isTauri } from '@/shared/lib/desktop';
+import { APP_VERSION } from '@/shared/lib/version';
 import { AuthBackground } from './AuthBackground';
 import {
   shouldAttemptDesktopBootstrap,
@@ -1009,6 +1010,12 @@ export function LoginPage() {
               <span>·</span>
               <a href="https://github.com/datadrivenconstruction/OpenConstructionERP" target="_blank" rel="noopener noreferrer" className="hover:text-content-secondary transition-colors">GitHub</a>
             </div>
+          </div>
+          {/* Running build version - always visible so it's obvious which
+              version is live on a fresh open. Matches the Sidebar / About
+              treatment (v{APP_VERSION}). */}
+          <div className="mt-3 text-center text-2xs font-mono text-content-quaternary/80 tabular-nums">
+            v{APP_VERSION}
           </div>
         </div>
       </div>

@@ -2263,6 +2263,7 @@ function DashboardPageInner() {
   }));
 
   const widgetNodes: Record<string, ReactNode> = {
+    cases_learn: <DashboardCasesCard />,
     continue_work: lastBoq ? (
       <button
         type="button"
@@ -2622,12 +2623,9 @@ function DashboardPageInner() {
         <SystemStatusSummary projects={projects} boqs={allBoqs} boqsLoading={rollup.isLoading} />
       </div>
 
-      {/* ─── Start here: Cases (learn by example) ─────────────────────────
-          A discoverable entry into the guided, cross-module playbooks at
-          /cases, with quick-launch into resumable and role-matched cases.
-          Always visible, not part of the customizable widget grid so it never
-          gets hidden. */}
-      <DashboardCasesCard />
+      {/* Start here: Cases (learn by example) is now a registry widget
+          (id 'cases_learn') rendered inside the grid loop below, so it can be
+          hidden or narrowed from Customize like every other card. */}
 
       {/* ─── Customize panel (collapsible) - same manager as Settings ─── */}
       {customizing && (

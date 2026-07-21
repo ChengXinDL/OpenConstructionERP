@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   XCircle,
   Package,
+  Scale,
   AlertCircle,
   ExternalLink,
   Loader2,
@@ -891,6 +892,21 @@ function InterfaceModeCard() {
             </span>
             <p className="text-xs text-content-tertiary mt-0.5">
               {t('settings.modules_link_desc', { defaultValue: 'Enable, disable, and configure individual modules in the Modules section.' })}
+            </p>
+          </div>
+          <ChevronRight size={16} className="ml-auto shrink-0 text-content-quaternary" />
+        </Link>
+        <Link
+          to="/governance"
+          className="mt-2 flex items-center gap-2.5 rounded-lg border border-border-light bg-surface-secondary/40 px-4 py-3 text-left transition-all hover:bg-surface-secondary hover:border-border"
+        >
+          <Scale size={16} className="shrink-0 text-oe-blue" />
+          <div className="min-w-0">
+            <span className="text-sm font-medium text-content-primary">
+              {t('settings.governance_link_title', { defaultValue: 'Governance' })}
+            </span>
+            <p className="text-xs text-content-tertiary mt-0.5">
+              {t('settings.governance_link_desc', { defaultValue: 'Permissions, approval routes and validation rules in the Governance section.' })}
             </p>
           </div>
           <ChevronRight size={16} className="ml-auto shrink-0 text-content-quaternary" />
