@@ -88,7 +88,6 @@ import {
   BarChart3,
   LineChart,
   Radar,
-  ScrollText,
   Network,
   CalendarRange,
   Gauge,
@@ -157,6 +156,11 @@ interface NavItem {
    *  sidebar. */
   adminOnly?: boolean;
 }
+
+/** An admin-grid tile. Extends NavItem with an optional `onClick`: when set,
+ *  the tile runs that action in place instead of navigating to `to`. Used for
+ *  the "Edit menu" tile, whose `to` is a non-routable sentinel. */
+type AdminGridItem = NavItem & { onClick?: () => void };
 
 interface NavGroup {
   id: string;
@@ -790,15 +794,15 @@ const navGroups: NavGroup[] = [
 // appear as their own sidebar tiles - they are reached from inside Settings
 // (Settings -> Modules / Governance links), which declutters the left menu.
 // Their routes stay live, so any deep link or the Settings entries still work.
+// Audit Log used to sit here as a role-gated tile. It moved into Settings
+// (Settings -> Audit log, Manager+ only) so the admin grid stays short and
+// the security surfaces live together under Settings. Its route
+// (`/admin/audit-log`) stays live for deep links. The slot it vacated now
+// holds the "Edit menu" action tile (see `editMenuGridItem` below), which
+// opens the sidebar customiser in place.
 const adminGridItems: NavItem[] = [
   { labelKey: 'sidebar.admin_grid.settings', to: '/settings', icon: Settings },
   { labelKey: 'sidebar.admin_grid.users', to: '/users', icon: Users },
-  {
-    labelKey: 'sidebar.admin_grid.audit',
-    to: '/admin/audit-log',
-    icon: ScrollText,
-    roleGate: ['admin', 'manager'],
-  },
   { labelKey: 'sidebar.admin_grid.about', to: '/about', icon: Info },
 ];
 
@@ -1262,6 +1266,31 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   const visibleAdminGridItems = editMode
     ? roleVisibleAdminGridItems
     : roleVisibleAdminGridItems.filter((item) => !hiddenModules.includes(item.to));
+
+  // "Edit menu" action tile — fills the slot the Audit Log tile vacated when
+  // it moved into Settings. Clicking it opens the sidebar customiser in place
+  // (the same edit gesture whose Save / Cancel controls appear below the nav
+  // list). It is an action, not a route, so it carries `onClick` and a
+  // non-routable `to` sentinel, and it is dropped in edit mode (you are
+  // already editing). Slotted just before the About tile so the grid reads
+  // Settings · Users · Edit menu · About.
+  const editMenuGridItem: AdminGridItem = {
+    labelKey: 'sidebar.edit_menu',
+    to: '__edit_menu__',
+    icon: Pencil,
+    onClick: enterEditMode,
+  };
+  const adminGridWithEdit: AdminGridItem[] = useMemo(() => {
+    if (editMode) return visibleAdminGridItems;
+    const aboutIdx = visibleAdminGridItems.findIndex((item) => item.to === '/about');
+    if (aboutIdx === -1) return [...visibleAdminGridItems, editMenuGridItem];
+    return [
+      ...visibleAdminGridItems.slice(0, aboutIdx),
+      editMenuGridItem,
+      ...visibleAdminGridItems.slice(aboutIdx),
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editMode, visibleAdminGridItems, enterEditMode]);
 
   // Custom-module request dialog — opens from the "Request a custom
   // module" CTA at the bottom of the nav (below the "+ Add module"
@@ -1794,14 +1823,14 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
             </Fragment>
           );
         })}
-        {/* Menu editor controls — sit just above the add-module tiles so
-             users see them after scanning their actual menu. Iconified
-             mode hides this row entirely (no room for text and the
-             editor is mouse-driven on the visible labels anyway). In
-             normal mode: a small "Edit menu" ghost button + a "{N}
-             hidden" badge when applicable. In edit mode the buttons
-             flip to Save / Cancel. */}
-        {!iconified && (
+        {/* Menu editor controls — sit just above the add-module tiles.
+             Iconified mode hides this row entirely (no room for text and the
+             editor is mouse-driven on the visible labels anyway). The "Edit
+             menu" entry point now lives in the admin grid tile below, so in
+             normal mode this row only surfaces a "{N} hidden — show" restore
+             chip when the user has hidden something; otherwise it renders
+             nothing. In edit mode the row holds the Save / Cancel controls. */}
+        {!iconified && (editMode || hiddenModules.length + hiddenGroups.length > 0) && (
           <div className="pt-3 pb-1 px-3">
             {editMode ? (
               <div className="flex items-center gap-1.5 w-full">
@@ -1831,30 +1860,23 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
                 )}
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 w-full">
-                <button
-                  type="button"
-                  onClick={enterEditMode}
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-light bg-surface-secondary/30 px-2.5 py-2 text-xs font-medium text-content-secondary hover:border-content-tertiary hover:bg-surface-secondary hover:text-content-primary transition-colors"
-                  title={t('sidebar.edit_menu_hint', {
-                    defaultValue: "Hide items you don't use",
+              // Normal mode: a single "{N} hidden — show" restore chip that
+              // reopens the editor so hidden items can be switched back on.
+              // The primary "Edit menu" entry point is the admin-grid tile.
+              <button
+                type="button"
+                onClick={enterEditMode}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-light bg-surface-secondary/30 px-2.5 py-1.5 text-[11px] font-medium text-content-secondary hover:border-content-tertiary hover:bg-surface-secondary hover:text-content-primary transition-colors"
+                title={t('sidebar.show_hidden', { defaultValue: 'Show hidden' })}
+              >
+                <Eye size={12} strokeWidth={2} />
+                <span>
+                  {t('sidebar.hidden_count', {
+                    defaultValue: '{{count}} hidden',
+                    count: hiddenModules.length + hiddenGroups.length,
                   })}
-                >
-                  <Pencil size={12} strokeWidth={2} />
-                  <span>{t('sidebar.edit_menu', { defaultValue: 'Edit menu' })}</span>
-                </button>
-                {hiddenModules.length + hiddenGroups.length > 0 && (
-                  <span
-                    className="shrink-0 rounded-full bg-surface-tertiary/70 px-1.5 py-px text-[10px] font-medium text-content-tertiary tabular-nums"
-                    title={t('sidebar.show_hidden', { defaultValue: 'Show hidden' })}
-                  >
-                    {t('sidebar.hidden_count', {
-                      defaultValue: '{{count}} hidden',
-                      count: hiddenModules.length + hiddenGroups.length,
-                    })}
-                  </span>
-                )}
-              </div>
+                </span>
+              </button>
             )}
           </div>
         )}
@@ -1960,7 +1982,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
           )}
         />
         <AdminGrid
-          items={visibleAdminGridItems}
+          items={adminGridWithEdit}
           activeRoute={activeRoute}
           iconified={iconified}
           onNavigate={onClose}
@@ -2561,7 +2583,10 @@ function AdminGrid({
   hiddenSet,
   onToggleHidden,
 }: {
-  items: NavItem[];
+  /** Admin-grid tiles. Most are plain routes (`to`); a tile may instead
+   *  carry an `onClick` to run an in-place action (e.g. the "Edit menu"
+   *  tile that opens the sidebar customiser) rather than navigate. */
+  items: AdminGridItem[];
   activeRoute?: string | null;
   iconified?: boolean;
   onNavigate?: () => void;
@@ -2585,6 +2610,29 @@ function AdminGrid({
           const Icon = item.icon;
           const isActive = activeRoute === item.to;
           const label = t(item.labelKey);
+          const tileClass = clsx(
+            'relative flex h-9 w-9 items-center justify-center rounded-md transition-colors duration-fast ease-oe',
+            isActive
+              ? 'bg-oe-blue/[0.14] text-oe-blue shadow-[inset_0_0_0_1px_rgba(0,122,255,0.18)] dark:bg-oe-blue/25'
+              : 'text-content-secondary hover:bg-surface-secondary hover:text-content-primary',
+          );
+          // Action tiles (e.g. "Edit menu") run in place — render a button so
+          // they never navigate and don't close the drawer.
+          if (item.onClick) {
+            return (
+              <li key={item.to}>
+                <button
+                  type="button"
+                  onClick={item.onClick}
+                  title={label}
+                  aria-label={label}
+                  className={tileClass}
+                >
+                  <Icon size={16} strokeWidth={1.75} aria-hidden />
+                </button>
+              </li>
+            );
+          }
           return (
             <li key={item.to}>
               <NavLink
@@ -2592,14 +2640,7 @@ function AdminGrid({
                 onClick={onNavigate}
                 title={label}
                 aria-label={label}
-                className={() =>
-                  clsx(
-                    'relative flex h-9 w-9 items-center justify-center rounded-md transition-colors duration-fast ease-oe',
-                    isActive
-                      ? 'bg-oe-blue/[0.14] text-oe-blue shadow-[inset_0_0_0_1px_rgba(0,122,255,0.18)] dark:bg-oe-blue/25'
-                      : 'text-content-secondary hover:bg-surface-secondary hover:text-content-primary',
-                  )
-                }
+                className={() => tileClass}
               >
                 <Icon size={16} strokeWidth={isActive ? 2 : 1.75} aria-hidden />
               </NavLink>
@@ -2635,6 +2676,12 @@ function AdminGrid({
               onClick={() => {
                 if (editable) {
                   onToggleHidden!(item.to);
+                  return;
+                }
+                // Action tile (e.g. "Edit menu") runs in place; keep the
+                // drawer open so the customiser it toggles stays visible.
+                if (item.onClick) {
+                  item.onClick();
                   return;
                 }
                 navigate(item.to);

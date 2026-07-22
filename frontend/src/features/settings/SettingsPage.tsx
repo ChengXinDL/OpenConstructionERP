@@ -1,6 +1,6 @@
 // DDC-CWICR-OE: DataDrivenConstruction · OpenConstructionERP
 // Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, lazy, Suspense } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { getIntlLocale } from '@/shared/lib/formatters';
@@ -41,6 +41,7 @@ import {
   Wrench,
   LayoutGrid,
   Users,
+  ScrollText,
 } from 'lucide-react';
 import { Card, CardHeader, CardContent, CardFooter, Button, Badge, InfoHint, Skeleton, Breadcrumb, DismissibleInfo, IntroRichText, ConfirmDialog, ModuleGuideButton, CountryFlag } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
@@ -58,6 +59,13 @@ import { aiApi, type AIProvider, type AIConnectionStatus, type AISettings } from
 import { BIMConverterStatusBanner } from '@/features/bim/BIMConverterStatusBanner';
 import { DataSecurityPanel } from '@/features/data-security';
 import { DeleteAccountDialog } from './DeleteAccountDialog';
+
+// Audit log now lives as a Settings section (moved out of the sidebar admin
+// grid). We reuse the exact same page component - lazy-loaded so its filter /
+// table code only enters the bundle when an admin actually opens the tab.
+const AuditLogPanel = lazy(() =>
+  import('@/features/admin/AuditLogPage').then((m) => ({ default: m.AuditLogPage })),
+);
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -1233,7 +1241,7 @@ function DemoLoginAdminRow() {
 
 // ── Tab definitions ──────────────────────────────────────────────────────────
 
-type SettingsTab = 'general' | 'dashboard' | 'team' | 'account' | 'regional' | 'converters' | 'ai' | 'security' | 'integrations' | 'advanced';
+type SettingsTab = 'general' | 'dashboard' | 'team' | 'account' | 'regional' | 'converters' | 'ai' | 'security' | 'integrations' | 'audit' | 'advanced';
 
 interface TabDef {
   id: SettingsTab;
@@ -1263,6 +1271,10 @@ const TABS: readonly TabDef[] = [
   { id: 'ai',           labelKey: 'settings.tab_ai',           defaultLabel: 'AI',           icon: Sparkles, descKey: 'settings.tab_ai_desc',           descDefault: 'AI provider and semantic search' },
   { id: 'security',     labelKey: 'settings.tab_security',     defaultLabel: 'Data & Security', icon: ShieldCheck, descKey: 'settings.tab_security_desc', descDefault: 'Where your data lives and what leaves this instance' },
   { id: 'integrations', labelKey: 'settings.tab_integrations', defaultLabel: 'Integrations', icon: Plug,     descKey: 'settings.tab_integrations_desc', descDefault: 'Slack, Teams, Telegram, webhooks' },
+  // Audit log — moved here from the sidebar admin grid. Manager+ only; the
+  // page component enforces `audit.view` on the backend, and we role-gate the
+  // tab itself in the component so it never shows for viewers/editors.
+  { id: 'audit',        labelKey: 'settings.tab_audit',        defaultLabel: 'Audit log',    icon: ScrollText, descKey: 'settings.tab_audit_desc',      descDefault: 'Read-only timeline of every recorded change' },
   { id: 'advanced',     labelKey: 'settings.tab_advanced',     defaultLabel: 'Advanced',     icon: Wrench,   descKey: 'settings.tab_advanced_desc',     descDefault: 'Backup, databases, setup wizard' },
 ];
 
@@ -1381,9 +1393,19 @@ export function SettingsPage() {
     'bim_cad': 'converters',
     cad: 'converters',
   };
+  // Audit log is Manager+ only. Hide the tab for everyone else so a viewer
+  // never lands on a section that 403s on load. The backend `audit.view`
+  // permission stays authoritative; this just keeps the strip tidy.
+  const userRole = useAuthStore((s) => s.userRole);
+  const canViewAudit = userRole === 'admin' || userRole === 'manager';
+  const visibleTabs = useMemo(
+    () => TABS.filter((tab) => tab.id !== 'audit' || canViewAudit),
+    [canViewAudit],
+  );
+
   const rawTab = searchParams.get('tab') ?? '';
   const initialTab = (TAB_ALIASES[rawTab] ?? (rawTab as SettingsTab)) || 'general';
-  const validTabIds = useMemo(() => TABS.map((t) => t.id), []);
+  const validTabIds = useMemo(() => visibleTabs.map((t) => t.id), [visibleTabs]);
   const [activeTab, setActiveTab] = useState<SettingsTab>(
     validTabIds.includes(initialTab) ? initialTab : 'general',
   );
@@ -1410,7 +1432,7 @@ export function SettingsPage() {
     orientation: 'both',
   });
 
-  const activeTabDef: TabDef = TABS.find((tab) => tab.id === activeTab) ?? DEFAULT_TAB;
+  const activeTabDef: TabDef = visibleTabs.find((tab) => tab.id === activeTab) ?? DEFAULT_TAB;
   const ActiveIcon = activeTabDef.icon;
 
   return (
@@ -1476,7 +1498,7 @@ export function SettingsPage() {
             onKeyDown={onTabKeyDown}
             className="lg:hidden -mx-4 px-4 flex gap-2 overflow-x-auto pb-2 scrollbar-thin"
           >
-            {TABS.map((tab) => {
+            {visibleTabs.map((tab) => {
               const isActive = activeTab === tab.id;
               const Icon = tab.icon;
               return (
@@ -1511,7 +1533,7 @@ export function SettingsPage() {
             onKeyDown={onTabKeyDown}
             className="hidden lg:flex flex-col gap-1 rounded-xl border border-border-light bg-surface-elevated p-2 shadow-xs"
           >
-            {TABS.map((tab) => {
+            {visibleTabs.map((tab) => {
               const isActive = activeTab === tab.id;
               const Icon = tab.icon;
               return (
@@ -1908,6 +1930,22 @@ export function SettingsPage() {
                 </CardContent>
               </Card>
               <WebhookLeads />
+            </div>
+          )}
+
+          {/* ── AUDIT LOG ────────────────────────────────────────── */}
+          {activeTab === 'audit' && canViewAudit && (
+            <div className="lg:col-span-2">
+              <Suspense
+                fallback={
+                  <div className="space-y-3" aria-busy="true">
+                    <Skeleton className="h-24 w-full rounded-2xl" />
+                    <Skeleton className="h-64 w-full rounded-2xl" />
+                  </div>
+                }
+              >
+                <AuditLogPanel />
+              </Suspense>
             </div>
           )}
 
