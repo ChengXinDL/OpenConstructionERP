@@ -23602,9 +23602,10 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
         for (var g = 0; g < NG; g++) {
           var el = buildGroup(g); if (!el.childNodes.length) continue; layer.appendChild(el);
           groups.push({ el: el, w: el._w, h: el._h, cx: el._cx, cy: el._cy,
-            // compact vertical spread on the left (small x variation, not a diagonal
-            // line), even lanes down the side; equal speed = they travel right together
-            lane: g, gx: -0.05 + (g % 3) * 0.04, v: 0.125,
+            // even spacing along the conveyor so it reads as one continuous left->right
+            // river: a group always enters compact on the left as another exits on the
+            // right, never a pack that bunches up and wraps back all at once
+            lane: g, gx: -0.12 + g * (1.24 / NG), v: 0.16,
             side: (g % 2 ? 1 : -1), slot: Math.floor(g / 2) });
         }
       }
