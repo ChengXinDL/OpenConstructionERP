@@ -74,6 +74,12 @@ export interface Measurement {
   /** Typical-multiplier: this measurement stands for N identical repeats
    *  (typical floors / bays). Effective qty = base x multiplier. Undefined = 1. */
   multiplier?: number;
+  /** Explicit paint (z) order key (issue #379). Higher = painted later = on
+   *  top; drives the canvas paint pass, the click hit-test, the sidebar list
+   *  and the PDF export. Undefined = fall back to array (creation) order, so
+   *  measurements the user never reordered are unchanged. Round-trips via the
+   *  measurement metadata blob. */
+  order?: number;
   /** Free-form notes entered via the properties panel. */
   notes?: string;
   /** Opening deduction: an `area` measurement representing a void (door,

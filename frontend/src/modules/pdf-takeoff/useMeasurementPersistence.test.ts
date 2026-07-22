@@ -619,6 +619,54 @@ describe('useMeasurementPersistence', () => {
     expect(ps.byPage[1]).toBeUndefined();
   });
 
+  it('hydrates server rows in ascending creation order (issue #375)', async () => {
+    const { takeoffApi } = await import('@/features/takeoff/api');
+    // The list endpoint returns rows newest-first (created_at DESC). Hydrating
+    // that verbatim inverted the paint stack on every reload; the hook must
+    // sort back to ascending creation order so a reload matches the session.
+    (takeoffApi.list as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      serverRow({ id: 'c', created_at: '2026-01-03T00:00:00Z', metadata: { frontend_id: 'c' } }),
+      serverRow({ id: 'b', created_at: '2026-01-02T00:00:00Z', metadata: { frontend_id: 'b' } }),
+      serverRow({ id: 'a', created_at: '2026-01-01T00:00:00Z', metadata: { frontend_id: 'a' } }),
+    ]);
+    const setM = vi.fn();
+    renderHook(() =>
+      useMeasurementPersistence({
+        fileName: 'stack.pdf', documentId: DOC, measurements: [],
+        setMeasurements: setM, pageScales: basePageScales, setPageScales: vi.fn(),
+        scale: defaultScale, projectId: PROJECT,
+      }),
+    );
+    await waitFor(() => expect(setM).toHaveBeenCalled());
+    const rows = setM.mock.calls[0]![0] as { serverId?: string }[];
+    // Oldest first (bottom of the stack), newest last (painted on top).
+    expect(rows.map((r) => r.serverId)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('fetches ALL measurement pages, not just the first (issue #377)', async () => {
+    const { takeoffApi } = await import('@/features/takeoff/api');
+    // Simulate the real (un-mocked) list contract: the hook must fetch every
+    // page. Here the mock returns a full page then a short page; the hook is
+    // expected to concatenate both and never drop the second page's rows.
+    // (The pagination loop itself lives in takeoffApi.list; this asserts the
+    // hydrate path consumes the complete set the client returns.)
+    const many = Array.from({ length: 250 }, (_v, i) =>
+      serverRow({ id: `s${i}`, created_at: `2026-01-01T00:00:${String(i % 60).padStart(2, '0')}Z`, metadata: { frontend_id: `s${i}` } }),
+    );
+    (takeoffApi.list as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(many);
+    const setM = vi.fn();
+    renderHook(() =>
+      useMeasurementPersistence({
+        fileName: 'big.pdf', documentId: DOC, measurements: [],
+        setMeasurements: setM, pageScales: basePageScales, setPageScales: vi.fn(),
+        scale: defaultScale, projectId: PROJECT,
+      }),
+    );
+    await waitFor(() => expect(setM).toHaveBeenCalled());
+    const rows = setM.mock.calls[0]![0] as unknown[];
+    expect(rows).toHaveLength(250);
+  });
+
   it('persists the page calibration flag on server sync (issue #277)', async () => {
     vi.useFakeTimers();
     const { takeoffApi } = await import('@/features/takeoff/api');

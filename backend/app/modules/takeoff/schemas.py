@@ -308,7 +308,14 @@ class TakeoffMeasurementCreate(BaseModel):
         ),
     )
     group_name: str = Field(default="General", max_length=100)
-    group_color: str = Field(default="#3B82F6", max_length=20)
+    # Empty = "no per-measurement colour override" (issue #378). Since #299 a
+    # stored ``group_color`` means the user explicitly recoloured THIS
+    # measurement; the client omits the field when they never did. Defaulting to
+    # the blue hex here re-stamped that override onto every uncoloured row, so a
+    # cache-less load painted blue instead of following the group colour. An
+    # empty default keeps the conflation out of new rows (the client reads ``""``
+    # back as unset, exactly like an absent value) with no schema migration.
+    group_color: str = Field(default="", max_length=20)
     annotation: str | None = Field(default=None, max_length=500)
     points: list[PointSchema] = Field(
         default_factory=list,

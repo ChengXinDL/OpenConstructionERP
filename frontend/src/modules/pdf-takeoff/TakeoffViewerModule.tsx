@@ -60,6 +60,8 @@ import {
   AlertTriangle,
   Search,
   Boxes,
+  ArrowUpToLine,
+  ArrowDownToLine,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useToastStore } from '../../stores/useToastStore';
@@ -149,6 +151,10 @@ import {
   computeGroupSummaries,
   formatGroupTotal,
 } from '../../features/takeoff/lib/takeoff-groups';
+import {
+  sortByPaintOrder,
+  orderKeyForEdge,
+} from '../../features/takeoff/lib/takeoff-order';
 import {
   effectiveQuantity,
   hasQuantityFactor,
@@ -317,6 +323,13 @@ interface Measurement {
    *  metadata blob (like fillAlpha/strokeWidth) instead of being localStorage-
    *  only. Distinct from `color`, which is a per-measurement override. */
   groupColor?: string;
+  /** Explicit paint (z) order key (issue #379). Higher = painted later = on
+   *  top; drives the canvas paint pass, the click hit-test precedence and the
+   *  PDF export. Undefined on a measurement the user never reordered: it then
+   *  falls back to its position in the measurements array (creation order,
+   *  #375), so existing measurements are unchanged. Round-trips via the metadata
+   *  blob like the other per-measurement overrides. */
+  order?: number;
   /** Free-form notes entered via the properties panel. */
   notes?: string;
   /** Opening deduction: an `area` measurement that represents a void
@@ -401,7 +414,12 @@ type UndoOperation =
   // In-canvas geometry edit (#194 Feature 1). Both kinds snapshot the
   // pre-edit measurement so undo restores the exact prior geometry +
   // derived value; redo replays the post-edit snapshot.
-  | { kind: 'edit_geometry'; measurementId: string; previousMeasurement: Measurement; nextMeasurement: Measurement };
+  | { kind: 'edit_geometry'; measurementId: string; previousMeasurement: Measurement; nextMeasurement: Measurement }
+  // Paint-order change (issue #379: bring-to-front / send-to-back). Stores the
+  // previous and next `order` keys (undefined = "no explicit order") so undo
+  // restores the persisted key rather than a remembered list index, keeping the
+  // stack correct under concurrent edits.
+  | { kind: 'reorder_measurement'; measurementId: string; previousOrder: number | undefined; nextOrder: number };
 
 /* ── Component ─────────────────────────────────────────────────────── */
 
@@ -543,6 +561,16 @@ export default function TakeoffViewerModule({
   // Measurement state
   const [activeTool, setActiveTool] = useState<MeasureTool>('select');
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
+  // Single ordered projection (issue #379): every paint-order consumer - the
+  // canvas paint pass, the click hit-test, the sidebar list and the PDF export
+  // - reads measurements through this so they always agree on which shape is on
+  // top. A measurement with an explicit `order` sorts by it; one without falls
+  // back to its array position (creation order, the stable #375 baseline), so
+  // rows the user never reordered paint exactly as before.
+  const orderedMeasurements = useMemo(
+    () => sortByPaintOrder(measurements),
+    [measurements],
+  );
   const [activePoints, setActivePoints] = useState<Point[]>([]);
   const [countLabel, setCountLabel] = useState(t('takeoff_viewer.default_count_label', { defaultValue: 'Element' }));
   // Focused/selected by Enter while the Count tool is armed, so the user can
@@ -1604,8 +1632,10 @@ export default function TakeoffViewerModule({
       };
     })();
 
-    // Draw completed measurements on current page (respecting group visibility)
-    for (const rawM of measurements.filter((m) => m.page === currentPage && !hiddenGroups.has(m.group) && !hiddenMeasurements.has(m.id) && !(isAnnotationType(m.type) && hiddenGroups.has('__annotations__')))) {
+    // Draw completed measurements on current page (respecting group visibility).
+    // Iterate the ordered projection (issue #379) so an explicit z-order drives
+    // which shape paints on top; un-ordered rows keep creation order (#375).
+    for (const rawM of orderedMeasurements.filter((m) => m.page === currentPage && !hiddenGroups.has(m.group) && !hiddenMeasurements.has(m.id) && !(isAnnotationType(m.type) && hiddenGroups.has('__annotations__')))) {
       // Repoint the dragged measurement to its live geometry (#357); the rest of
       // the loop then draws the band / labels / dots from the cursor position.
       const m = previewMeasurement && previewMeasurement.id === rawM.id ? previewMeasurement : rawM;
@@ -2275,7 +2305,7 @@ export default function TakeoffViewerModule({
       ctx.stroke();
       ctx.restore();
     }
-  }, [measurements, activePoints, currentPage, zoom, settingScale, scalePoints, activeTool, hiddenGroups, hiddenMeasurements, scale, pageScales, annotationColor, rectStartPoint, isDraggingRect, selectedMeasurementId, dragPreview, liveCursor, panning, searchMatches, activeMatchIdx, measurementSystem, snapPoint, showLabels, showDimensions, renderNonce, groupColorMap]);
+  }, [measurements, orderedMeasurements, activePoints, currentPage, zoom, settingScale, scalePoints, activeTool, hiddenGroups, hiddenMeasurements, scale, pageScales, annotationColor, rectStartPoint, isDraggingRect, selectedMeasurementId, dragPreview, liveCursor, panning, searchMatches, activeMatchIdx, measurementSystem, snapPoint, showLabels, showDimensions, renderNonce, groupColorMap]);
 
   /* ── Canvas click handler ────────────────────────────────────────── */
 
@@ -2973,7 +3003,10 @@ export default function TakeoffViewerModule({
     const page = currentPageRef.current;
     const hidden = hiddenGroupsRef.current;
     const hiddenM = hiddenMeasurementsRef.current;
-    return measurementsRef.current.filter(
+    // Return in paint (z) order (issue #379) so the caller's reverse scan
+    // ("top-to-bottom") selects the measurement drawn on top when shapes
+    // overlap, matching the canvas paint pass.
+    return sortByPaintOrder(measurementsRef.current).filter(
       (m) =>
         m.page === page &&
         !m.suggested &&
@@ -3844,8 +3877,10 @@ export default function TakeoffViewerModule({
   /* ── Measurement summary ─────────────────────────────────────────── */
 
   const pageMeasurements = useMemo(
-    () => measurements.filter((m) => m.page === currentPage),
-    [measurements, currentPage],
+    // Derive from the ordered projection (issue #379) so the sidebar list and
+    // the group blocks list measurements in the same z-order they paint in.
+    () => orderedMeasurements.filter((m) => m.page === currentPage),
+    [orderedMeasurements, currentPage],
   );
 
   /** Measurement count per 1-indexed page, for the thumbnail badge and the
@@ -4193,6 +4228,35 @@ export default function TakeoffViewerModule({
     // edit overlay stops drawing handles over a now-hidden shape.
     if (!wasHidden) setSelectedMeasurementId((cur) => (cur === id ? null : cur));
   }, []);
+
+  /** Bring a measurement to the front / send it to the back of the paint stack
+   *  (issue #379). Sets only the moved row's `order` key (max+1 for front,
+   *  min-1 for back among the page's measurements), so a reorder is a single
+   *  one-row edit that re-PATCHes through the persistence signature and drives
+   *  the canvas paint, hit-test, sidebar and export via the shared ordered
+   *  projection. Undoable; the key round-trips via metadata so it survives a
+   *  reload. */
+  const reorderMeasurement = useCallback((id: string, edge: 'front' | 'back') => {
+    const all = measurementsRef.current;
+    const target = all.find((m) => m.id === id);
+    if (!target) return;
+    // Compute the edge key over the WHOLE array (not just this page): the
+    // shared ordered projection uses full-array indices for un-ordered rows as
+    // the fallback, so the new key must be derived on the same basis to land
+    // strictly at the top / bottom. A global max/min still sits at the page's
+    // edge, so bring-to-front / send-to-back reads correctly on the page too.
+    const nextOrder = orderKeyForEdge(all, edge);
+    if (nextOrder === null || nextOrder === target.order) return;
+    pushUndo({
+      kind: 'reorder_measurement',
+      measurementId: id,
+      previousOrder: target.order,
+      nextOrder,
+    });
+    setMeasurements((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, order: nextOrder } : m)),
+    );
+  }, [pushUndo]);
 
   /** Toggle collapse of a measurement group in sidebar */
   const toggleGroupCollapse = useCallback((groupName: string) => {
@@ -5699,6 +5763,16 @@ export default function TakeoffViewerModule({
           ),
         );
         break;
+
+      case 'reorder_measurement':
+        // Restore the previous paint-order key (issue #379). forwardOp stays the
+        // same op, so a redo re-applies nextOrder.
+        setMeasurements((prev) =>
+          prev.map((m) =>
+            m.id === op.measurementId ? { ...m, order: op.previousOrder } : m,
+          ),
+        );
+        break;
     }
 
     // Push the (possibly-adjusted) forward op onto redo.
@@ -5797,6 +5871,15 @@ export default function TakeoffViewerModule({
             m.id === op.measurementId
               ? { ...op.nextMeasurement, points: [...op.nextMeasurement.points] }
               : m,
+          ),
+        );
+        break;
+
+      case 'reorder_measurement':
+        // Re-apply the paint-order key (issue #379).
+        setMeasurements((prev) =>
+          prev.map((m) =>
+            m.id === op.measurementId ? { ...m, order: op.nextOrder } : m,
           ),
         );
         break;
@@ -8656,7 +8739,11 @@ export default function TakeoffViewerModule({
                               <div className="flex items-center gap-2 leading-tight">
                                 <span
                                   className="h-2 w-2 rounded-full shrink-0"
-                                  style={{ backgroundColor: groupColor }}
+                                  // Resolve the per-measurement colour first, the
+                                  // same way the canvas paint pass does (issue #376);
+                                  // fall back to the group colour when the user never
+                                  // recoloured this individual measurement.
+                                  style={{ backgroundColor: m.color || groupColor }}
                                 />
                                 <div className="flex-1 min-w-0 flex items-center gap-1.5">
                                   {editingAnnotationId === m.id ? (
@@ -8778,6 +8865,34 @@ export default function TakeoffViewerModule({
                                   >
                                     {hiddenMeasurements.has(m.id) ? <EyeOff size={12} /> : <Eye size={12} />}
                                   </button>
+                                  {/* Paint order (issue #379): bring this
+                                      measurement to the front / send it to the
+                                      back of the z-stack so it draws on top of /
+                                      beneath overlapping shapes, on both the
+                                      canvas and the exported PDF. Hidden for
+                                      unsaved AI suggestions (not persisted). */}
+                                  {!m.suggested && (
+                                    <>
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); reorderMeasurement(m.id, 'front'); }}
+                                        className="opacity-0 group-hover/item:opacity-100 p-0.5 rounded text-content-tertiary hover:text-content-primary hover:bg-surface-secondary transition-all shrink-0"
+                                        aria-label={t('takeoff_viewer.bring_to_front', { defaultValue: 'Bring to front' })}
+                                        title={t('takeoff_viewer.bring_to_front', { defaultValue: 'Bring to front' })}
+                                        data-testid="bring-to-front"
+                                      >
+                                        <ArrowUpToLine size={12} />
+                                      </button>
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); reorderMeasurement(m.id, 'back'); }}
+                                        className="opacity-0 group-hover/item:opacity-100 p-0.5 rounded text-content-tertiary hover:text-content-primary hover:bg-surface-secondary transition-all shrink-0"
+                                        aria-label={t('takeoff_viewer.send_to_back', { defaultValue: 'Send to back' })}
+                                        title={t('takeoff_viewer.send_to_back', { defaultValue: 'Send to back' })}
+                                        data-testid="send-to-back"
+                                      >
+                                        <ArrowDownToLine size={12} />
+                                      </button>
+                                    </>
+                                  )}
                                   <button
                                     onClick={(e) => { e.stopPropagation(); deleteMeasurement(m.id); }}
                                     className="opacity-40 group-hover/item:opacity-100 text-content-tertiary hover:text-semantic-error transition-all shrink-0"

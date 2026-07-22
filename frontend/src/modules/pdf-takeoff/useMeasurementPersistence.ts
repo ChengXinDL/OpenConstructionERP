@@ -66,6 +66,10 @@ interface Measurement {
    *  same way `fillAlpha` / `strokeWidth` do, so a re-coloured group survives a
    *  server sync and is visible to other users (not localStorage-only). */
   groupColor?: string;
+  /** Explicit paint (z) order key (issue #379). Round-trips via the metadata
+   *  blob like the appearance overrides so a bring-to-front / send-to-back
+   *  survives a server sync. Undefined = fall back to array (creation) order. */
+  order?: number;
   /** Opening deduction (area void). Stored as positive gross area; the
    *  rollup subtracts it. Round-trips so a void survives a server sync. */
   isDeduction?: boolean;
@@ -337,6 +341,9 @@ function toApiFormat(
       // Group colour (issue #313): mirrored onto each measurement so the group
       // colour scheme round-trips server-side like the per-measurement styles.
       group_custom_color: m.groupColor,
+      // Paint (z) order key (issue #379); round-trips so a reorder survives a
+      // server sync and a cache-less reload.
+      order: m.order,
       area: areaValue ?? undefined,
       frontend_id: m.id,
       // Per-page calibration intent (issue #277): distinguishes a real
@@ -393,6 +400,9 @@ function syncSignature(m: Measurement): string {
     // Group colour (issue #313): a group re-colour restyles every measurement
     // in the group, so include it here to trigger the PATCH that persists it.
     gc: m.groupColor ?? null,
+    // Paint (z) order (issue #379): a bring-to-front / send-to-back changes
+    // only this key, so include it here or the reorder would never re-sync.
+    ord: m.order ?? null,
     a: m.annotation || m.label || null,
     n: m.text ?? null,
   });
@@ -455,6 +465,9 @@ function toApiUpdate(
     // Group colour (issue #313): re-sent on PATCH so a group re-colour /
     // rename persists server-side (the server replaces metadata wholesale).
     group_custom_color: m.groupColor,
+    // Paint (z) order key (issue #379): re-sent on PATCH so a bring-to-front /
+    // send-to-back persists (the server replaces the metadata blob wholesale).
+    order: m.order,
     area: areaValue ?? undefined,
     frontend_id: m.id,
     linked_boq_id: m.linkedBoqId,
@@ -526,6 +539,7 @@ function fromApiFormat(r: MeasurementResponse): Measurement {
     wastagePct: (meta.wastage_pct as number) ?? undefined,
     multiplier: (meta.multiplier as number) ?? undefined,
     groupColor: (meta.group_custom_color as string) ?? undefined,
+    order: (meta.order as number) ?? undefined,
     isDeduction: r.is_deduction ?? undefined,
     linkedPositionId: r.linked_boq_position_id ?? undefined,
     linkedBoqId: (meta.linked_boq_id as string) ?? undefined,
@@ -823,7 +837,20 @@ export function useMeasurementPersistence({
             setSyncedToServer(true);
             // Drop rows we have locally deleted but not yet synced (#282).
             const pending = pendingDeletesRef.current;
-            const mapped = serverData
+            // Array order is the implicit paint / hit-test / list z-order, and
+            // in-session new draws are APPENDED (newest on top). The list
+            // endpoint returns rows newest-first (created_at DESC), so hydrating
+            // it verbatim inverted the stacking on every reload (issue #375).
+            // Sort back to ascending creation order (id as a deterministic
+            // tie-break for rows sharing an exact timestamp) so a reload paints
+            // in the same order the session drew.
+            const ordered = [...serverData].sort((a, b) => {
+              const ta = Date.parse(a.created_at) || 0;
+              const tb = Date.parse(b.created_at) || 0;
+              if (ta !== tb) return ta - tb;
+              return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+            });
+            const mapped = ordered
               .map(fromApiFormat)
               .filter((m) => !(m.serverId && pending.has(m.serverId)));
 

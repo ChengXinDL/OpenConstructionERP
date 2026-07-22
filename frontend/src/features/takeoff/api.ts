@@ -290,14 +290,45 @@ export interface CreateVariationFromCompareResult {
 /* ── API functions ────────────────────────────────────────────────────── */
 
 export const takeoffApi = {
-  /** List measurements for a project, optionally filtered by document.
+  /** List ALL measurements for a project, optionally filtered by document.
    *  /markups page calls this on mount; returns empty when oe_takeoff
-   *  is disabled so the request never 404-logs to the network panel. */
+   *  is disabled so the request never 404-logs to the network panel.
+   *
+   *  The endpoint is paginated (default/max page size 500) and the client
+   *  used to fetch a single page, so a document past the page size silently
+   *  lost its oldest rows on reload and the hydrate path then erased their
+   *  local copies (issue #377). This pages to exhaustion - looping
+   *  ``offset += limit`` until a short page arrives - and concatenates, so
+   *  every consumer (takeoff hydrate, quantity summary, unified markups)
+   *  sees the complete set. The result is de-duplicated by ``id`` because a
+   *  row created mid-fetch can shift later pages and repeat across a page
+   *  boundary. It is all-or-nothing: any page request that fails rejects the
+   *  whole call rather than returning a partial set, because the hydrate path
+   *  treats the returned list as the complete server state. */
   list: async (projectId: string, documentId?: string): Promise<MeasurementResponse[]> => {
     if (!(await isModuleLoaded('oe_takeoff'))) return [];
-    let url = `/v1/takeoff/measurements/?project_id=${projectId}`;
-    if (documentId) url += `&document_id=${encodeURIComponent(documentId)}`;
-    return apiGet<MeasurementResponse[]>(url);
+    const base = `/v1/takeoff/measurements/?project_id=${projectId}`
+      + (documentId ? `&document_id=${encodeURIComponent(documentId)}` : '');
+    // ``le=500`` is the endpoint's hard cap; a large page keeps the
+    // mid-fetch shift window (a row deleted between pages) small.
+    const pageSize = 500;
+    const seen = new Set<string>();
+    const all: MeasurementResponse[] = [];
+    for (let offset = 0; ; offset += pageSize) {
+      const page = await apiGet<MeasurementResponse[]>(
+        `${base}&limit=${pageSize}&offset=${offset}`,
+      );
+      for (const row of page) {
+        if (seen.has(row.id)) continue;
+        seen.add(row.id);
+        all.push(row);
+      }
+      // A page shorter than the requested size is the last one (the endpoint
+      // returns a bare list with no total, so a short page is the only
+      // termination signal; an exact multiple just costs one empty request).
+      if (page.length < pageSize) break;
+    }
+    return all;
   },
 
   /** Create a single measurement. */

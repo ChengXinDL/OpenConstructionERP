@@ -30,6 +30,7 @@ import type { jsPDF as JsPDF } from 'jspdf';
 import type * as ExcelJS from 'exceljs';
 import type * as PdfJsLib from 'pdfjs-dist';
 import type { Measurement } from './takeoff-types';
+import { sortByPaintOrder } from './takeoff-order';
 import type { ScaleConfig } from '../../../modules/pdf-takeoff/data/scale-helpers';
 import {
   pixelDistance,
@@ -253,7 +254,10 @@ export function renderMeasurementsOnCanvas(
     ctx.lineWidth = 2 * dpr;
   };
 
-  const visible = measurements.filter(
+  // Paint in the same z-order the on-screen canvas uses (issue #379) so the
+  // exported PDF matches the screen: an explicit `order` decides which shape
+  // draws on top; un-ordered rows keep array (creation) order.
+  const visible = sortByPaintOrder(measurements).filter(
     (m) =>
       m.page === pageNumber &&
       !hiddenGroups.has(m.group) &&

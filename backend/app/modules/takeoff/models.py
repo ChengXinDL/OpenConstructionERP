@@ -192,7 +192,13 @@ class TakeoffMeasurement(Base):
     page: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     type: Mapped[str] = mapped_column(String(50), nullable=False)  # distance, area, count, polyline, volume
     group_name: Mapped[str] = mapped_column(String(100), nullable=False, default="General")
-    group_color: Mapped[str] = mapped_column(String(20), nullable=False, default="#3B82F6")
+    # Empty = "no per-measurement colour override" (issue #378). The old blue
+    # default stamped an override onto every uncoloured measurement, so a
+    # cache-less load ignored the group colour. The create schema now defaults
+    # to "" and every create path passes the value through; the empty default
+    # here matches so any writer that skips the field cannot reintroduce the
+    # stamp. Column stays NOT NULL (no migration): "" is a value, not NULL.
+    group_color: Mapped[str] = mapped_column(String(20), nullable=False, default="")
     annotation: Mapped[str | None] = mapped_column(String(500), nullable=True)
     points: Mapped[list] = mapped_column(  # type: ignore[assignment]
         JSON, nullable=False, default=list, server_default="[]"
