@@ -23387,5 +23387,252 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
   setTimeout(tick, 1500);
 })();
 </script>
+  <!--oce:integr-flux - drifting module hexes wiring to the orbiting integration logos with electric arcs. Self-contained, theme-aware, respects reduced-motion. Canvas is pointer-events:none and appended behind the logos so it never blocks clicks. -->
+  <style>
+    .oce-flux-canvas {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 0;
+    }
+    @media (max-width: 520px) { .oce-flux-canvas { display: none; } }
+  </style>
+  <script>
+  (function () {
+    function boot() {
+      var stage = document.querySelector('#integrations .oce-rhub-stage');
+      if (!stage || stage.querySelector('.oce-flux-canvas')) return;
+
+      var canvas = document.createElement('canvas');
+      canvas.className = 'oce-flux-canvas';
+      canvas.setAttribute('aria-hidden', 'true');
+      // paint behind the orbiting logos: first child of the positioned stage
+      stage.insertBefore(canvas, stage.firstChild);
+      var ctx = canvas.getContext('2d');
+
+      var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      var MODS = ['BOQ', 'Takeoff', 'CAD', 'Costs', 'Tender', 'Validation',
+                  'Schedule', 'Reporting', 'AI', 'Field', 'Docs', '4D/5D'];
+
+      var W = 0, H = 0, DPR = 1;
+      function accent() {
+        var v = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+        return v || '#0284c7';
+      }
+      var ACC = accent();
+
+      function resize() {
+        var r = stage.getBoundingClientRect();
+        W = r.width; H = r.height;
+        DPR = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.round(W * DPR);
+        canvas.height = Math.round(H * DPR);
+        ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+        ACC = accent();
+      }
+
+      // orbiting logo centres, in stage-local coords, refreshed each frame
+      var logoEls = [];
+      function collectLogos() {
+        logoEls = Array.prototype.slice.call(stage.querySelectorAll('.oce-rhub-node .oce-lg'));
+      }
+      function logoCenters() {
+        var sr = stage.getBoundingClientRect();
+        var out = [];
+        for (var i = 0; i < logoEls.length; i++) {
+          var b = logoEls[i].getBoundingClientRect();
+          out.push({ x: b.left - sr.left + b.width / 2, y: b.top - sr.top + b.height / 2, r: b.width / 2 });
+        }
+        return out;
+      }
+
+      // hex particles flowing left -> right
+      var hexes = [];
+      var R = 21;               // hex radius
+      var THRESH = 118;         // lightning proximity radius
+      var MAXARCS = 4;          // simultaneous arcs cap
+      var seedTimer = 0;
+
+      function spawn(atX) {
+        var midTop = H * 0.16, midBot = H * 0.84;
+        hexes.push({
+          x: atX != null ? atX : -R * 1.5,
+          y: midTop + Math.random() * (midBot - midTop),
+          vx: 0.34 + Math.random() * 0.22,   // px per frame, calm
+          drift: (Math.random() - 0.5) * 0.14,
+          label: MODS[(Math.random() * MODS.length) | 0],
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+
+      function bandOpacity(x) {
+        // 0 at edges, 1 across the middle of the band
+        var fade = W * 0.20;
+        if (x < fade) return Math.max(0, x / fade);
+        if (x > W - fade) return Math.max(0, (W - x) / fade);
+        return 1;
+      }
+
+      function drawHex(x, y, a, label) {
+        ctx.save();
+        ctx.globalAlpha = a;
+        ctx.beginPath();
+        for (var k = 0; k < 6; k++) {
+          var ang = Math.PI / 6 + k * Math.PI / 3; // flat-top
+          var px = x + R * Math.cos(ang), py = y + R * Math.sin(ang);
+          if (k === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fillStyle = withAlpha(ACC, 0.10);
+        ctx.fill();
+        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = withAlpha(ACC, 0.85);
+        ctx.stroke();
+        ctx.fillStyle = withAlpha(ACC, 0.95);
+        ctx.font = '600 8.5px ui-monospace, "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, x, y + 0.5);
+        ctx.restore();
+      }
+
+      // parse the accent (hex or rgb) once into rgba helper
+      var accRGB = null;
+      function parseAcc(str) {
+        var c = document.createElement('canvas').getContext('2d');
+        c.fillStyle = '#000'; c.fillStyle = str;
+        var s = c.fillStyle;
+        if (s[0] === '#') {
+          var h = s.slice(1);
+          if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+          return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+        }
+        var m = s.match(/(\d+(?:\.\d+)?)/g);
+        return m ? [ +m[0], +m[1], +m[2] ] : [2, 132, 199];
+      }
+      function withAlpha(str, a) {
+        if (!accRGB || accRGB._src !== str) { accRGB = parseAcc(str); accRGB._src = str; }
+        return 'rgba(' + accRGB[0] + ',' + accRGB[1] + ',' + accRGB[2] + ',' + a + ')';
+      }
+
+      function boltPath(x1, y1, x2, y2, intensity, t) {
+        var dx = x2 - x1, dy = y2 - y1;
+        var len = Math.hypot(dx, dy) || 1;
+        var nx = -dy / len, ny = dx / len; // perpendicular
+        var segs = 7;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        for (var s = 1; s < segs; s++) {
+          var f = s / segs;
+          var amp = (1 - Math.abs(0.5 - f) * 2) * 11 * intensity;
+          var jitter = (Math.sin((f * 9 + t * 0.9 + x1 * 0.03)) + Math.sin(f * 21 + t * 1.7)) * 0.5;
+          ctx.lineTo(x1 + dx * f + nx * amp * jitter, y1 + dy * f + ny * amp * jitter);
+        }
+        ctx.lineTo(x2, y2);
+      }
+      // source-over passes so the arc reads on both light and dark grounds:
+      // a soft glow, a crisp accent core, and a thin bright filament.
+      function drawBolt(x1, y1, x2, y2, intensity, t) {
+        ctx.save();
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        boltPath(x1, y1, x2, y2, intensity, t);
+        ctx.strokeStyle = withAlpha(ACC, 0.42 * intensity);
+        ctx.lineWidth = 3.4;
+        ctx.shadowColor = withAlpha(ACC, 0.85);
+        ctx.shadowBlur = 9 * intensity;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        boltPath(x1, y1, x2, y2, intensity, t);
+        ctx.strokeStyle = withAlpha(ACC, 0.95 * intensity);
+        ctx.lineWidth = 1.3;
+        ctx.stroke();
+        boltPath(x1, y1, x2, y2, intensity, t);
+        ctx.strokeStyle = 'rgba(255,255,255,' + (0.55 * intensity) + ')';
+        ctx.lineWidth = 0.6;
+        ctx.stroke();
+        // spark at the logo end
+        ctx.beginPath();
+        ctx.arc(x2, y2, 2.4 * intensity + 0.6, 0, Math.PI * 2);
+        ctx.fillStyle = withAlpha(ACC, 0.92 * intensity);
+        ctx.shadowColor = withAlpha(ACC, 0.9);
+        ctx.shadowBlur = 6 * intensity;
+        ctx.fill();
+        ctx.restore();
+      }
+
+      var frame = 0, running = false, raf = 0;
+      function tick() {
+        frame++;
+        ctx.clearRect(0, 0, W, H);
+        var centers = logoCenters();
+
+        // spawn cadence
+        seedTimer--;
+        if (seedTimer <= 0 && hexes.length < 6) { spawn(); seedTimer = 150 + (Math.random() * 90 | 0); }
+
+        // collect candidate arcs, keep the strongest few
+        var arcs = [];
+        for (var i = 0; i < hexes.length; i++) {
+          var h = hexes[i];
+          h.x += h.vx;
+          h.y += h.drift + Math.sin(frame * 0.02 + h.phase) * 0.12;
+          var op = bandOpacity(h.x);
+          for (var j = 0; j < centers.length; j++) {
+            var d = Math.hypot(h.x - centers[j].x, h.y - centers[j].y);
+            if (d < THRESH) {
+              var inten = (1 - d / THRESH) * op;
+              if (inten > 0.06) arcs.push({ h: h, c: centers[j], inten: inten });
+            }
+          }
+        }
+        arcs.sort(function (a, b) { return b.inten - a.inten; });
+        var shown = Math.min(arcs.length, MAXARCS);
+        for (var a = 0; a < shown; a++) {
+          drawBolt(arcs[a].h.x, arcs[a].h.y, arcs[a].c.x, arcs[a].c.y, arcs[a].inten, frame);
+        }
+
+        // draw hexes on top of their own arcs
+        for (var m = hexes.length - 1; m >= 0; m--) {
+          var hx = hexes[m];
+          var o = bandOpacity(hx.x);
+          if (hx.x > W + R * 2) { hexes.splice(m, 1); continue; }
+          if (o > 0.01) drawHex(hx.x, hx.y, o, hx.label);
+        }
+
+        raf = requestAnimationFrame(tick);
+      }
+
+      function start() { if (running) return; running = true; raf = requestAnimationFrame(tick); }
+      function stop() { running = false; cancelAnimationFrame(raf); }
+
+      function staticFrame() {
+        ctx.clearRect(0, 0, W, H);
+        var xs = [W * 0.32, W * 0.5, W * 0.68];
+        for (var i = 0; i < xs.length; i++) drawHex(xs[i], H * (0.4 + i * 0.1), 0.5, MODS[i]);
+      }
+
+      resize();
+      collectLogos();
+
+      if (reduce) { staticFrame(); }
+      else {
+        var io = ('IntersectionObserver' in window) ? new IntersectionObserver(function (en) {
+          en.forEach(function (e) { e.isIntersecting ? start() : stop(); });
+        }, { threshold: 0.05 }) : null;
+        if (io) io.observe(stage); else start();
+      }
+
+      var rt;
+      window.addEventListener('resize', function () {
+        clearTimeout(rt);
+        rt = setTimeout(function () { resize(); collectLogos(); if (reduce) staticFrame(); }, 160);
+      });
+    }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+    else boot();
+  })();
+  </script>
+  <!--/oce:integr-flux-->
 </body>
 </html>
