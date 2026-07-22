@@ -22,6 +22,7 @@ import { GraduationCap } from 'lucide-react';
 import clsx from 'clsx';
 
 import { ModuleGuide, type ModuleGuideContent } from './ModuleGuide';
+import { ModuleCasesButton } from '@/features/cases/ModuleCasesButton';
 
 export interface ModuleGuideButtonProps {
   /** The guide content to teach when the button is clicked. */
@@ -51,6 +52,11 @@ export function ModuleGuideButton({
 
   return (
     <>
+      {/* Sibling "Cases for this module" pill, sitting to the LEFT of the
+          How-it-works button. It is route-derived and self-hides when no
+          playbook touches the current module, so it costs nothing on pages
+          without cases. */}
+      <ModuleCasesButton />
       <button
         type="button"
         onClick={() => setOpen(true)}
