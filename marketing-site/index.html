@@ -23503,27 +23503,15 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
           var lg = n.querySelector('.oce-lg'); if (lg) lg.setAttribute('title', lab);
           paintIcon(n, lab); ring.appendChild(n);
         });
-        // vertical stack (a single column) instead of an orbit around the circle.
-        // the ring itself spins (oce-rhub-orbit) and each node counter-rotates, so
-        // stop the ring rotation and neutralise the inner wrappers, then place the
-        // nodes on a static vertical line.
-        ring.style.setProperty('animation', 'none', 'important');
-        ring.style.setProperty('transform', 'none', 'important');
+        // distribute all nodes evenly around the full circumference (keep the
+        // orbiting ring layout)
         var nodes = [].slice.call(ring.querySelectorAll('.oce-rhub-node'));
-        var srect = stage.getBoundingClientRect();
-        var gapY = Math.min(42, (srect.height * 1.02) / Math.max(1, nodes.length));
-        var offX = -srect.width * 0.18; // sit the column left of the core label so text stays clear
+        var srect = stage.getBoundingClientRect(), cx = srect.left + srect.width / 2, cy = srect.top + srect.height / 2;
+        var r0n = nodes0[0].getBoundingClientRect();
+        var r0 = Math.hypot((r0n.left + r0n.width / 2) - cx, (r0n.top + r0n.height / 2) - cy) || srect.width * 0.4;
         for (var i = 0; i < nodes.length; i++) {
-          var inner = nodes[i].querySelectorAll('*');
-          for (var q = 0; q < inner.length; q++) {
-            if (inner[q].querySelector('svg') || inner[q].tagName === 'svg' || /counter|node-in|inner/i.test(inner[q].className || '')) {
-              inner[q].style.setProperty('transform', 'none', 'important');
-              inner[q].style.setProperty('animation', 'none', 'important');
-            }
-          }
-          var y = (i - (nodes.length - 1) / 2) * gapY;
-          nodes[i].style.setProperty('transform', 'translate(-50%,-50%) translate(' + offX.toFixed(1) + 'px,' + y.toFixed(1) + 'px)', 'important');
-          nodes[i].style.setProperty('animation', 'none', 'important');
+          var a = (i / nodes.length) * Math.PI * 2, x = Math.sin(a) * r0, y = -Math.cos(a) * r0;
+          nodes[i].style.setProperty('transform', 'translate(-50%,-50%) translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px)', 'important');
         }
       })();
       // block-2 integration logo set (marquee) gets Telegram + WhatsApp
@@ -23614,7 +23602,9 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
         for (var g = 0; g < NG; g++) {
           var el = buildGroup(g); if (!el.childNodes.length) continue; layer.appendChild(el);
           groups.push({ el: el, w: el._w, h: el._h, cx: el._cx, cy: el._cy,
-            lane: g, gx: -0.14 + g * 0.075, v: 0.125, // all queued on the left, equal speed = spaced train
+            // compact vertical spread on the left (small x variation, not a diagonal
+            // line), even lanes down the side; equal speed = they travel right together
+            lane: g, gx: -0.05 + (g % 3) * 0.04, v: 0.125,
             side: (g % 2 ? 1 : -1), slot: Math.floor(g / 2) });
         }
       }
