@@ -23416,9 +23416,9 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
     .oce-mixer-rig {
       position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
       width: 94%; height: 94%; z-index: 0; pointer-events: none;
-      color: color-mix(in oklab, var(--accent) 58%, var(--ink-2)); opacity: .19;
+      color: color-mix(in oklab, var(--accent) 58%, var(--ink-2)); opacity: .095;
     }
-    :root[data-theme="dark"] .oce-mixer-rig, [data-theme="dark"] .oce-mixer-rig { opacity: .27; }
+    :root[data-theme="dark"] .oce-mixer-rig, [data-theme="dark"] .oce-mixer-rig { opacity: .14; }
     @keyframes oce-drum-turn { to { stroke-dashoffset: -280; } }
     .oce-mixer-rig .oce-drum-band { animation: oce-drum-turn 11s linear infinite; }
     @media (prefers-reduced-motion: reduce) { .oce-mixer-rig .oce-drum-band { animation: none; } }
@@ -23503,13 +23503,27 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
           var lg = n.querySelector('.oce-lg'); if (lg) lg.setAttribute('title', lab);
           paintIcon(n, lab); ring.appendChild(n);
         });
+        // vertical stack (a single column) instead of an orbit around the circle.
+        // the ring itself spins (oce-rhub-orbit) and each node counter-rotates, so
+        // stop the ring rotation and neutralise the inner wrappers, then place the
+        // nodes on a static vertical line.
+        ring.style.setProperty('animation', 'none', 'important');
+        ring.style.setProperty('transform', 'none', 'important');
         var nodes = [].slice.call(ring.querySelectorAll('.oce-rhub-node'));
-        var srect = stage.getBoundingClientRect(), cx = srect.left + srect.width / 2, cy = srect.top + srect.height / 2;
-        var r0n = nodes0[0].getBoundingClientRect();
-        var r0 = Math.hypot((r0n.left + r0n.width / 2) - cx, (r0n.top + r0n.height / 2) - cy) || srect.width * 0.4;
+        var srect = stage.getBoundingClientRect();
+        var gapY = Math.min(42, (srect.height * 1.02) / Math.max(1, nodes.length));
+        var offX = -srect.width * 0.18; // sit the column left of the core label so text stays clear
         for (var i = 0; i < nodes.length; i++) {
-          var a = (i / nodes.length) * Math.PI * 2, x = Math.sin(a) * r0, y = -Math.cos(a) * r0;
-          nodes[i].style.setProperty('transform', 'translate(-50%,-50%) translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px)', 'important');
+          var inner = nodes[i].querySelectorAll('*');
+          for (var q = 0; q < inner.length; q++) {
+            if (inner[q].querySelector('svg') || inner[q].tagName === 'svg' || /counter|node-in|inner/i.test(inner[q].className || '')) {
+              inner[q].style.setProperty('transform', 'none', 'important');
+              inner[q].style.setProperty('animation', 'none', 'important');
+            }
+          }
+          var y = (i - (nodes.length - 1) / 2) * gapY;
+          nodes[i].style.setProperty('transform', 'translate(-50%,-50%) translate(' + offX.toFixed(1) + 'px,' + y.toFixed(1) + 'px)', 'important');
+          nodes[i].style.setProperty('animation', 'none', 'important');
         }
       })();
       // block-2 integration logo set (marquee) gets Telegram + WhatsApp
@@ -23545,7 +23559,7 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
 
       var HCW = 80, COL = HCW * 0.78, HEXH = HCW * 0.866, ZIG = HEXH * 0.5;
       var TEMPLATES = [ [[0, 0], [1, 1]], [[0, 0], [1, 1], [0, 2]], [[0, 0], [1, -1], [1, 1]],
-        [[0, 0], [1, 1], [2, 0], [1, -1]], [[0, 0], [1, 1], [0, 2], [1, 3], [2, 2]] ];
+        [[0, 0], [1, 1], [2, 0]], [[0, 0], [1, 1], [0, 2], [1, 3]] ];
       function buildGroup(kind) {
         var tpl = TEMPLATES[kind % TEMPLATES.length];
         var el = document.createElement('div'); el.className = 'oce-hexgrp'; el.setAttribute('aria-hidden', 'true');
@@ -23600,7 +23614,7 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
         for (var g = 0; g < NG; g++) {
           var el = buildGroup(g); if (!el.childNodes.length) continue; layer.appendChild(el);
           groups.push({ el: el, w: el._w, h: el._h, cx: el._cx, cy: el._cy,
-            lane: g, gx: (g / NG), v: 0.10 + (g % 3) * 0.015,
+            lane: g, gx: -0.14 + g * 0.075, v: 0.125, // all queued on the left, equal speed = spaced train
             side: (g % 2 ? 1 : -1), slot: Math.floor(g / 2) });
         }
       }
@@ -23661,10 +23675,15 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
             var fy = gbr.top + 8 + gp.slot * ((gbr.height - 16) / settleRows) + (gbr.height / settleRows - gp.h) * 0.5;
             var roomL = gbr.left, roomR = W - gbr.right;
             var fits = (gp.side < 0 ? roomL : roomR) > gp.w + gap + 8;
+            // scroll-linked fade: in as the cards enter, out as they leave
+            var gcy = gbr.top + gbr.height / 2;
+            var fade = 1 - clamp01(Math.abs(gcy - window.innerHeight * 0.5) / (window.innerHeight * 0.92));
             var e = easeIO(Psettle);
             gxPx = gxPx + (fx - gxPx) * e;
             laneY = laneY + (fy - laneY) * e;
-            op = op + ((fits ? 0.15 : 0) - op) * e;
+            op = op + ((fits ? 0.16 : 0) * fade - op) * e;
+            // once settled, snap to whole pixels so they sit rock-steady (no tremble)
+            if (Psettle > 0.55) { gxPx = Math.round(gxPx); laneY = Math.round(laneY); }
           }
 
           gp.el.style.opacity = op.toFixed(3);
