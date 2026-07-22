@@ -286,6 +286,13 @@ a.hc-cell:focus-visible .hc-face{ box-shadow: 0 0 0 2px var(--card, #fff), 0 0 0
 }
 
 /* ---- (gallery) hero: balanced blocks + decorative honeycomb ----- */
+/* The page canvas matches the sticky nav and the toolbar (both sit on the
+   --bg-0 surface). The hero has no panel of its own, so on a pure-white body
+   it used to read as a white band wedged between the two grey bars; tinting
+   the canvas to --bg-0 lets the hero blend cleanly into the sections above
+   and below while the white cards below still pop against it. */
+body{ background: var(--bg-0); }
+
 /* The hero reads as evenly balanced, equal-height blocks - eyebrow +
    headline, description, stats - with a decorative module-hex motif on the
    right. No panel background or border: it sits on the plain page canvas and
