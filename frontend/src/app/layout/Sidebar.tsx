@@ -1103,6 +1103,9 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { isModuleEnabled } = useModuleStore();
+  // Subscribed separately so the module-count summary at the foot of the nav
+  // recomputes whenever a module is switched on or off.
+  const enabledModules = useModuleStore((s) => s.enabledModules);
   // Hidden whole-sections (nav groups) the user has switched off via the
   // "Edit menu". Persisted in useModuleStore alongside module state; here we
   // read the list and the bulk setter the Save action commits to.
@@ -1291,6 +1294,54 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editMode, visibleAdminGridItems, enterEditMode]);
+
+  // Module counter shown at the foot of the nav (before the "Add module"
+  // tile): how many module rows are visible in the menu right now versus how
+  // many the platform offers this user. "Total" counts every leaf menu row
+  // (static + dynamically registered module rows) the user is allowed to see
+  // (admin-only dev surfaces excluded for non-admins), regardless of whether
+  // it is currently switched on or hidden. "Shown" applies the same normal-mode
+  // visibility filter the nav render uses, so the pair updates live as modules
+  // are enabled/disabled or hidden/shown via Edit menu. It intentionally
+  // mirrors the predicate in the `navGroups.map` below; keep the two in step.
+  const moduleCounts = useMemo(() => {
+    let total = 0;
+    let shown = 0;
+    for (const group of navGroups) {
+      const groupHidden = hiddenGroups.includes(group.id);
+      const groupHiddenInSimple = Boolean(group.hideInSimple) && !isAdvanced;
+      const dynamicItems = getModuleNavItems(group.dynamicGroupKey ?? group.id).map((mi) => ({
+        to: mi.to,
+        moduleKey: mi.to.slice(1),
+        advancedOnly: mi.advancedOnly,
+        adminOnly: false,
+      }));
+      const staticItems = group.items.map((it) => ({
+        to: it.to,
+        moduleKey: it.moduleKey,
+        advancedOnly: it.advancedOnly,
+        adminOnly: it.adminOnly,
+      }));
+      for (const item of [...staticItems, ...dynamicItems]) {
+        // Admin-only rows are internal/dev surfaces, not product modules, so
+        // they do not count toward the platform total for a regular user.
+        if (item.adminOnly && userRole !== 'admin') continue;
+        total += 1;
+        const visible =
+          !groupHidden &&
+          !groupHiddenInSimple &&
+          (!item.moduleKey || isModuleEnabled(item.moduleKey)) &&
+          (!item.advancedOnly || isAdvanced) &&
+          !isRouteBackendDisabled(item.to) &&
+          !hiddenModules.includes(item.to);
+        if (visible) shown += 1;
+      }
+    }
+    return { total, shown };
+    // `enabledModules` is a dep so the count reacts to enable/disable; it feeds
+    // `isModuleEnabled` even though that function reference is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdvanced, userRole, hiddenModules, hiddenGroups, enabledModules, isRouteBackendDisabled]);
 
   // Custom-module request dialog — opens from the "Request a custom
   // module" CTA at the bottom of the nav (below the "+ Add module"
@@ -1854,6 +1905,43 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
             </button>
           </div>
         )}
+        {/* Module counter — a small live "{shown} of {total} modules" chip
+             right before the Add-module tile, so a user can see at a glance
+             how many modules are open in this menu and how many the platform
+             offers in total. Updates automatically as modules are enabled /
+             disabled or hidden / shown. Iconified mode shows a compact
+             "shown/total" so the number is never lost. */}
+        <div className={clsx('pt-2 pb-0.5', iconified ? 'px-1' : 'px-3')}>
+          <div
+            className={clsx(
+              'flex items-center justify-center rounded-lg bg-surface-secondary/40 text-content-secondary',
+              iconified ? 'px-1 py-1 gap-0.5' : 'gap-1.5 px-2.5 py-1.5',
+            )}
+            title={t('sidebar.module_count_title', {
+              defaultValue: '{{shown}} of {{total}} modules are shown in this menu',
+              shown: moduleCounts.shown,
+              total: moduleCounts.total,
+            })}
+          >
+            <Boxes
+              size={iconified ? 13 : 12}
+              strokeWidth={2}
+              className="shrink-0 text-content-tertiary"
+              aria-hidden
+            />
+            {iconified ? (
+              <span className="text-[9px] font-semibold tabular-nums leading-none text-content-secondary">
+                {moduleCounts.shown}/{moduleCounts.total}
+              </span>
+            ) : (
+              <span className="text-[11px] font-medium tabular-nums">
+                <span className="font-semibold text-content-primary">{moduleCounts.shown}</span>
+                <span className="text-content-tertiary"> / {moduleCounts.total} </span>
+                {t('sidebar.module_count_label', { defaultValue: 'modules' })}
+              </span>
+            )}
+          </div>
+        </div>
         {/* Add-a-module CTA — dashed-border tile with a plus icon. Sits at
              the very end of the main nav groups so it reads as "keep going,
              there's more — build your own". Navigates into the in-app
