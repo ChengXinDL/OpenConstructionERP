@@ -23634,5 +23634,88 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
   })();
   </script>
   <!--/oce:integr-flux-->
+    <!--oce:cb-hexflank - decorative honeycomb hexes flanking the cost-bases block. Reads as platform modules the resource/cost data feeds into. Semi-transparent, edge-faded, theme-aware, hidden on narrow widths, pointer-events none, behind the content. -->
+    <style>
+      /* keep the real content above the decoration */
+      #costbases > .section-head, #costbases > .cb-wrap { position: relative; z-index: 1; }
+      .cb-hexflank {
+        position: absolute; inset: 0; overflow: hidden;
+        pointer-events: none; z-index: 0;
+      }
+      .cb-hexflank-svg {
+        position: absolute; top: 50%; width: 158px; height: auto;
+        transform: translateY(-50%); opacity: .5;
+        -webkit-mask-image: linear-gradient(to right, transparent, #000 46%, transparent);
+                mask-image: linear-gradient(to right, transparent, #000 46%, transparent);
+      }
+      .cb-hexflank-l { left: clamp(-24px, 1vw, 20px); }
+      .cb-hexflank-r { right: clamp(-24px, 1vw, 20px); transform: translateY(-50%) scaleX(-1); }
+      /* faint inward glow hinting the cost data feeds into the module hexes */
+      .cb-hexflank::before, .cb-hexflank::after {
+        content: ""; position: absolute; top: 50%; width: 150px; height: 220px;
+        transform: translateY(-50%); pointer-events: none; opacity: .5;
+        background: radial-gradient(60% 50% at 50% 50%,
+          color-mix(in oklab, var(--cb-mat, var(--accent)) 12%, transparent), transparent 70%);
+      }
+      .cb-hexflank::before { left: -30px; }
+      .cb-hexflank::after  { right: -30px; }
+      /* every hex outline inherits fill/stroke from its <use> */
+      .cb-hexflank-svg use { fill: none; stroke-width: 1.4; stroke: var(--accent); }
+      .cb-hexflank .h-lab { stroke: var(--cb-lab, #d97706); }
+      .cb-hexflank .h-mat { stroke: var(--cb-mat, #2d5e8e); }
+      .cb-hexflank .h-mac { stroke: var(--cb-mac, #7c5cbf); }
+      .cb-hexflank .h-op  { stroke: var(--cb-op,  #0f9d8c); }
+      .cb-hexflank .hx-fill { fill: color-mix(in oklab, var(--accent) 8%, transparent); }
+      .cb-hexflank .hx-fill.h-mat { fill: color-mix(in oklab, var(--cb-mat, #2d5e8e) 10%, transparent); }
+      .cb-hexflank .hx-fill.h-op  { fill: color-mix(in oklab, var(--cb-op, #0f9d8c) 10%, transparent); }
+      .cb-hexflank .hx-lbl {
+        fill: color-mix(in oklab, var(--accent) 80%, var(--ink-2, #667));
+        font: 700 8px 'JetBrains Mono', ui-monospace, monospace; letter-spacing: .04em;
+        text-anchor: middle; dominant-baseline: middle;
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        .cb-hexflank-svg { animation: cbHexBreath 7.5s ease-in-out infinite; }
+        .cb-hexflank-r  { animation-delay: -3.4s; }
+      }
+      @keyframes cbHexBreath { 0%, 100% { opacity: .42; } 50% { opacity: .6; } }
+      @media (max-width: 1180px) { .cb-hexflank { display: none; } }
+    </style>
+    <div class="cb-hexflank" aria-hidden="true">
+      <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <defs><path id="cbHx" d="M30,0 15,26 -15,26 -30,0 -15,-26 15,-26 Z"/></defs>
+      </svg>
+
+      <svg class="cb-hexflank-svg cb-hexflank-l" viewBox="-34 -32 158 224" aria-hidden="true">
+        <use href="#cbHx" x="0"  y="0"/>
+        <use href="#cbHx" x="0"  y="52"  class="h-mat hx-fill"/>
+        <use href="#cbHx" x="0"  y="104"/>
+        <use href="#cbHx" x="0"  y="156"/>
+        <use href="#cbHx" x="45" y="26"  class="h-lab"/>
+        <use href="#cbHx" x="45" y="78"/>
+        <use href="#cbHx" x="45" y="130" class="h-op hx-fill"/>
+        <use href="#cbHx" x="90" y="0"/>
+        <use href="#cbHx" x="90" y="52"  class="h-mac"/>
+        <use href="#cbHx" x="90" y="104"/>
+        <use href="#cbHx" x="90" y="156"/>
+        <text class="hx-lbl" x="0"  y="52">BOQ</text>
+        <text class="hx-lbl" x="45" y="130">Est</text>
+        <text class="hx-lbl" x="90" y="52">Bid</text>
+      </svg>
+
+      <svg class="cb-hexflank-svg cb-hexflank-r" viewBox="-34 -32 158 224" aria-hidden="true">
+        <use href="#cbHx" x="0"  y="0"/>
+        <use href="#cbHx" x="0"  y="52"/>
+        <use href="#cbHx" x="0"  y="104" class="h-op hx-fill"/>
+        <use href="#cbHx" x="0"  y="156"/>
+        <use href="#cbHx" x="45" y="26"/>
+        <use href="#cbHx" x="45" y="78"  class="h-mac"/>
+        <use href="#cbHx" x="45" y="130"/>
+        <use href="#cbHx" x="90" y="0"   class="h-lab"/>
+        <use href="#cbHx" x="90" y="52"  class="h-mat hx-fill"/>
+        <use href="#cbHx" x="90" y="104"/>
+        <use href="#cbHx" x="90" y="156"/>
+      </svg>
+    </div>
+    <!--/oce:cb-hexflank-->
 </body>
 </html>
