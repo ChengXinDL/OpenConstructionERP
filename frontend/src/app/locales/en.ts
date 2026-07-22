@@ -1253,6 +1253,7 @@ const resource = {
     "sidebar.video_news.subtitle": "Open data, transparency, and the idea behind the platform",
     "sidebar.video_news.watch": "Watch",
     "sidebar.video_news.read": "Read the article",
+    "sidebar.video_news.dismiss": "Dismiss",
     "journey.button.default": "Project journey",
     "journey.button.title": "Project journey - see where you are and what comes next",
     "journey.button.prefix": "Step",

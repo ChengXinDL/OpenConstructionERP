@@ -1830,54 +1830,28 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
              normal mode this row only surfaces a "{N} hidden — show" restore
              chip when the user has hidden something; otherwise it renders
              nothing. In edit mode the row holds the Save / Cancel controls. */}
-        {!iconified && (editMode || hiddenModules.length + hiddenGroups.length > 0) && (
+        {/* Normal-mode restore chip: a single "{N} hidden — show" control that
+             reopens the editor so hidden items can be switched back on. The
+             Save / Cancel controls for edit mode are NOT here - they live in a
+             pinned bar directly beneath the "Edit menu" tile below (see the
+             admin grid), so the user always finds them without scrolling to
+             the end of the module list. */}
+        {!iconified && !editMode && hiddenModules.length + hiddenGroups.length > 0 && (
           <div className="pt-3 pb-1 px-3">
-            {editMode ? (
-              <div className="flex items-center gap-1.5 w-full">
-                <button
-                  type="button"
-                  onClick={saveEditMode}
-                  className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-oe-blue/30 bg-oe-blue/10 px-2.5 py-2 text-xs font-medium text-oe-blue hover:bg-oe-blue/15 transition-colors"
-                >
-                  <Check size={12} strokeWidth={2.25} />
-                  <span>{t('sidebar.save', { defaultValue: 'Save' })}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={cancelEditMode}
-                  className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-border-light bg-surface-secondary/60 px-2.5 py-2 text-xs font-medium text-content-secondary hover:bg-surface-secondary hover:text-content-primary transition-colors"
-                >
-                  <X size={12} strokeWidth={2.25} />
-                  <span>{t('sidebar.cancel', { defaultValue: 'Cancel' })}</span>
-                </button>
-                {editingHidden.length + editingHiddenGroups.length > 0 && (
-                  <span className="shrink-0 text-2xs text-content-tertiary tabular-nums">
-                    {t('sidebar.hidden_count', {
-                      defaultValue: '{{count}} hidden',
-                      count: editingHidden.length + editingHiddenGroups.length,
-                    })}
-                  </span>
-                )}
-              </div>
-            ) : (
-              // Normal mode: a single "{N} hidden — show" restore chip that
-              // reopens the editor so hidden items can be switched back on.
-              // The primary "Edit menu" entry point is the admin-grid tile.
-              <button
-                type="button"
-                onClick={enterEditMode}
-                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-light bg-surface-secondary/30 px-2.5 py-1.5 text-[11px] font-medium text-content-secondary hover:border-content-tertiary hover:bg-surface-secondary hover:text-content-primary transition-colors"
-                title={t('sidebar.show_hidden', { defaultValue: 'Show hidden' })}
-              >
-                <Eye size={12} strokeWidth={2} />
-                <span>
-                  {t('sidebar.hidden_count', {
-                    defaultValue: '{{count}} hidden',
-                    count: hiddenModules.length + hiddenGroups.length,
-                  })}
-                </span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={enterEditMode}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-light bg-surface-secondary/30 px-2.5 py-1.5 text-[11px] font-medium text-content-secondary hover:border-content-tertiary hover:bg-surface-secondary hover:text-content-primary transition-colors"
+              title={t('sidebar.show_hidden', { defaultValue: 'Show hidden' })}
+            >
+              <Eye size={12} strokeWidth={2} />
+              <span>
+                {t('sidebar.hidden_count', {
+                  defaultValue: '{{count}} hidden',
+                  count: hiddenModules.length + hiddenGroups.length,
+                })}
+              </span>
+            </button>
           </div>
         )}
         {/* Add-a-module CTA — dashed-border tile with a plus icon. Sits at
@@ -1990,6 +1964,40 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
           hiddenSet={editingHidden}
           onToggleHidden={toggleItemHidden}
         />
+
+        {/* Menu-editor action bar - pinned directly beneath the "Edit menu"
+            tile so Save / Cancel stay in view the whole time the user is
+            editing, instead of being buried at the end of the scrolling
+            module list where they were easy to miss. Expanded sidebar only;
+            iconified mode has no room and the editor needs the labels. */}
+        {!iconified && editMode && (
+          <div className="mt-2.5 flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={saveEditMode}
+              className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-oe-blue/30 bg-oe-blue/10 px-2.5 py-2 text-xs font-medium text-oe-blue hover:bg-oe-blue/15 transition-colors"
+            >
+              <Check size={12} strokeWidth={2.25} />
+              <span>{t('sidebar.save', { defaultValue: 'Save' })}</span>
+            </button>
+            <button
+              type="button"
+              onClick={cancelEditMode}
+              className="flex-1 flex items-center justify-center gap-1 rounded-lg border border-border-light bg-surface-secondary/60 px-2.5 py-2 text-xs font-medium text-content-secondary hover:bg-surface-secondary hover:text-content-primary transition-colors"
+            >
+              <X size={12} strokeWidth={2.25} />
+              <span>{t('sidebar.cancel', { defaultValue: 'Cancel' })}</span>
+            </button>
+            {editingHidden.length + editingHiddenGroups.length > 0 && (
+              <span className="shrink-0 text-2xs text-content-tertiary tabular-nums">
+                {t('sidebar.hidden_count', {
+                  defaultValue: '{{count}} hidden',
+                  count: editingHidden.length + editingHiddenGroups.length,
+                })}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Update notification — compact clickable card in the sidebar; the
             whole card opens a full-screen modal with highlights + install
