@@ -570,3 +570,39 @@ export const CHROME = {
     navUberization: 'Uberización',
   },
 };
+
+/* ================================================================
+ * NAV_PILL - the two right-hand nav pill labels (Demo, Download) that
+ * the homepage header carries. The GitHub pill keeps its brand name in
+ * every language, so it is not listed here. English pages fall back to
+ * the literals 'Demo' / 'Download'. Kept in step with the LANGS list.
+ * ================================================================ */
+export const NAV_PILL = {
+  de: { demo: 'Demo', download: 'Herunterladen' },
+  fr: { demo: 'Démo', download: 'Télécharger' },
+  es: { demo: 'Demo', download: 'Descargar' },
+  it: { demo: 'Demo', download: 'Scarica' },
+  pt: { demo: 'Demo', download: 'Baixar' },
+  nl: { demo: 'Demo', download: 'Downloaden' },
+  pl: { demo: 'Demo', download: 'Pobierz' },
+  cs: { demo: 'Demo', download: 'Stáhnout' },
+  ru: { demo: 'Демо', download: 'Скачать' },
+  bg: { demo: 'Демо', download: 'Изтегляне' },
+  tr: { demo: 'Demo', download: 'İndir' },
+  sv: { demo: 'Demo', download: 'Ladda ner' },
+  no: { demo: 'Demo', download: 'Last ned' },
+  fi: { demo: 'Demo', download: 'Lataa' },
+  da: { demo: 'Demo', download: 'Download' },
+  ar: { demo: 'عرض تجريبي', download: 'تنزيل' },
+  zh: { demo: '演示', download: '下载' },
+  ja: { demo: 'デモ', download: 'ダウンロード' },
+  ko: { demo: '데모', download: '다운로드' },
+  hi: { demo: 'डेमो', download: 'डाउनलोड' },
+  hr: { demo: 'Demo', download: 'Preuzmi' },
+  id: { demo: 'Demo', download: 'Unduh' },
+  mn: { demo: 'Демо', download: 'Татах' },
+  ro: { demo: 'Demo', download: 'Descarcă' },
+  th: { demo: 'เดโม', download: 'ดาวน์โหลด' },
+  vi: { demo: 'Demo', download: 'Tải xuống' },
+  'es-mx': { demo: 'Demo', download: 'Descargar' },
+};

@@ -41,6 +41,12 @@
  * re-run replaces it in place: the generator is deterministic and
  * idempotent.
  *
+ * Header: the template's own header is replaced on every page with a clone
+ * of the homepage top navigation (see cases-nav.css + buildHeader), with
+ * its labels and link targets baked per language - no runtime i18n. The
+ * theme toggle and mobile burger get a small inline script; all header
+ * assets carry markers so re-runs strip and re-inject them cleanly.
+ *
  * Usage:
  *   node generate-cases.mjs                 # write all languages
  *   node generate-cases.mjs --dry-run       # report, write nothing
@@ -54,13 +60,27 @@ import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { tmpdir } from 'node:os';
-import { CHROME } from './cases-chrome.mjs';
+import { CHROME, NAV_PILL } from './cases-chrome.mjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const MARKETING_ROOT = resolve(SCRIPT_DIR, '..');
 const REPO_ROOT = resolve(MARKETING_ROOT, '..');
 
 const DEFAULT_BASE = 'https://openconstructionerp.com';
+
+// The homepage top-navigation CSS, lifted verbatim (+ a sticky adaptation and
+// a dark-theme token block) so every case page renders the same header. See
+// cases-nav.css for the two deliberate differences from the landing page.
+const NAV_CSS = readFileSync(join(SCRIPT_DIR, 'cases-nav.css'), 'utf8');
+
+// Languages with a localized home snapshot (/<lang>/) AND a localized
+// uberization whitepaper (/uberization-of-construction/<lang>). For every
+// other language the header points its logo / section links / whitepaper
+// link at the English home and English whitepaper instead.
+const HOME_LANGS = new Set([
+  'de', 'fr', 'es', 'it', 'pt', 'nl', 'pl', 'cs', 'ru', 'bg', 'tr', 'sv', 'no',
+  'fi', 'da', 'ar', 'zh', 'ja', 'ko',
+]);
 
 // ---- languages -------------------------------------------------
 // One row per fully translated app locale. `code` is the URL directory
@@ -249,6 +269,151 @@ function seoBlock(base, slug, lang, T, pb) {
   return out.join('');
 }
 
+// ---- header (homepage nav clone) ------------------------------
+
+// Per-language link targets for the header. The logo and the in-page section
+// links resolve to the localized home when one exists, else the English home;
+// Cases / Docs / News / Demo / Download are shared paths; the whitepaper link
+// picks the localized whitepaper when one exists.
+function headerLinks(code) {
+  const home = HOME_LANGS.has(code) ? `/${code}/` : '/';
+  const uber = HOME_LANGS.has(code)
+    ? `/uberization-of-construction/${code}`
+    : '/uberization-of-construction/';
+  return {
+    home,
+    tour: `${home}#tour`,
+    compare: `${home}#compare`,
+    pricing: `${home}#pricing`,
+    cases: '/cases',
+    docs: '/docs',
+    news: '/news',
+    uber,
+    demo: '/demo',
+    download: '/download',
+    github: 'https://github.com/datadrivenconstruction/openconstructionerp',
+  };
+}
+
+// A verbatim clone of the homepage header, fully baked for one language:
+// labels come from the chrome table + nav.* locale keys, links from
+// headerLinks(). The brand and the GitHub pill keep their names in every
+// language. The whole thing is wrapped in a <header> so a re-run re-matches
+// and replaces it in place (idempotent). Language-agnostic runtime (theme
+// toggle + burger) is injected separately by injectNavAssets().
+function buildHeader(lang, T, ch) {
+  const code = lang.code;
+  const isEn = code === 'en';
+  const pill = NAV_PILL[code] || {};
+  const L = {
+    tour: escText(ch ? ch.navTour : 'Tour'),
+    compare: escText(ch ? ch.navCompare : 'Compare'),
+    cases: escText(isEn ? 'Cases' : T('nav.cases', 'Cases')),
+    pricing: escText(ch ? ch.navPricing : 'Pricing'),
+    docs: escText(isEn ? 'Docs' : T('nav.docs', 'Docs')),
+    news: escText(ch ? ch.navNews : 'News'),
+    uber: escText(ch ? ch.navUberization : 'Uberization'),
+    demo: escText(pill.demo || 'Demo'),
+    download: escText(pill.download || 'Download'),
+  };
+  const H = headerLinks(code);
+  const arrow =
+    '<svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+  return `<header class="oce-hd"><nav class="nav" id="nav" aria-label="Primary">
+    <div class="nav-inner">
+      <div class="nav-left">
+        <a class="brand" href="${H.home}">
+          <span class="brand-name">
+            <span class="brand-seg brand-seg-1">Open</span><span class="brand-seg brand-seg-2">Construction</span><span class="brand-seg brand-seg-3">ERP</span>
+          </span>
+        </a>
+
+        <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79Z" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="nav-links nav-links-slot">
+        <a href="${H.tour}">${L.tour}</a>
+        <a href="${H.compare}">${L.compare}</a>
+        <a href="${H.cases}">${L.cases}</a>
+        <a href="${H.pricing}">${L.pricing}</a>
+        <a href="${H.docs}">${L.docs}</a>
+        <a href="${H.news}">${L.news}</a>
+        <a class="nav-wp" href="${H.uber}" style="display:inline-flex;align-items:center;gap:5px"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;opacity:.8"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 13h6M9 17h4"/></svg>${L.uber}</a>
+      </div>
+
+      <div class="nav-right">
+        <a class="demo-pill" href="${H.demo}" aria-label="Try the live demo">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+          <span>${L.demo}</span>
+        </a>
+
+        <a class="github-pill" href="${H.github}" target="_blank" rel="noopener" aria-label="Star us on GitHub">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M12 0.5C5.65 0.5 0.5 5.65 0.5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.87-1.36-3.87-1.36-.52-1.32-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.18-3.1-.12-.29-.51-1.47.11-3.05 0 0 .97-.31 3.18 1.18A11 11 0 0 1 12 6.8a11 11 0 0 1 2.9.39c2.2-1.5 3.17-1.18 3.17-1.18.63 1.58.24 2.76.12 3.05.74.81 1.18 1.84 1.18 3.1 0 4.43-2.7 5.4-5.27 5.69.42.36.78 1.07.78 2.15v3.19c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+          <span>GitHub</span>
+        </a>
+
+        <a class="install-pill" href="${H.download}">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>${L.download}</span>
+        </a>
+
+        <button type="button" class="nav-burger" id="nav-burger" aria-label="Toggle menu" aria-expanded="false" aria-controls="mobile-menu">
+          <svg class="icon-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="4" y1="7" x2="20" y2="7"/>
+            <line x1="4" y1="12" x2="20" y2="12"/>
+            <line x1="4" y1="17" x2="20" y2="17"/>
+          </svg>
+          <svg class="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="6" y1="6" x2="18" y2="18"/>
+            <line x1="6" y1="18" x2="18" y2="6"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+  <div class="mobile-menu" id="mobile-menu" role="dialog" aria-label="Mobile navigation" aria-modal="true">
+    <a href="${H.demo}"><span>${L.demo}</span>${arrow}</a>
+    <a href="${H.tour}"><span>${L.tour}</span>${arrow}</a>
+    <a href="${H.compare}"><span>${L.compare}</span>${arrow}</a>
+    <a href="${H.cases}"><span>${L.cases}</span>${arrow}</a>
+    <a href="${H.pricing}"><span>${L.pricing}</span>${arrow}</a>
+    <a href="${H.docs}"><span>${L.docs}</span>${arrow}</a>
+    <a href="${H.news}"><span>${L.news}</span>${arrow}</a>
+    <a href="${H.uber}"><span>${L.uber}</span>${arrow}</a>
+    <div class="cta-row">
+      <a class="btn btn-primary" href="${H.download}"><span>${L.download}</span></a>
+    </div>
+  </div>
+  </header>`;
+}
+
+// One-time page assets the cloned header needs: its CSS, a tiny sync theme
+// initializer in <head> (applies the stored oce-theme before first paint so
+// there is no flash), and the theme-toggle + burger interaction script before
+// </body>. All three carry stable markers so a re-run strips and re-injects
+// them cleanly.
+const NAV_CSS_BLOCK = `<style id="oce-cases-nav-css">\n${NAV_CSS}\n</style>`;
+const NAV_THEME_INIT = `<!--oce:nav-theme-init--><script>(function(){try{var t=localStorage.getItem('oce-theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t;}catch(e){}})();</script><!--/oce:nav-theme-init-->`;
+const NAV_JS = `<!--oce:nav-js--><script>(function(){var root=document.documentElement,body=document.body;var tt=document.getElementById('theme-toggle');if(tt)tt.addEventListener('click',function(){var d=root.dataset.theme==='dark'?'light':'dark';root.dataset.theme=d;try{localStorage.setItem('oce-theme',d);}catch(e){}});var burger=document.getElementById('nav-burger'),menu=document.getElementById('mobile-menu');function setOpen(o){body.classList.toggle('nav-open',o);if(burger)burger.setAttribute('aria-expanded',o?'true':'false');body.style.overflow=o?'hidden':'';}if(burger)burger.addEventListener('click',function(){setOpen(!body.classList.contains('nav-open'));});if(menu)menu.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){setOpen(false);});});document.addEventListener('keydown',function(e){if(e.key==='Escape')setOpen(false);});})();</script><!--/oce:nav-js-->`;
+
+function injectNavAssets(html) {
+  html = html.replace('</head>', `${NAV_CSS_BLOCK}${NAV_THEME_INIT}</head>`);
+  html = html.replace('</body>', `${NAV_JS}</body>`);
+  return html;
+}
+
 // ---- page builder ---------------------------------------------
 
 function buildPage({ rawEnglish, pb, lang, base, locales, catById, compById, stats }) {
@@ -265,8 +430,14 @@ function buildPage({ rawEnglish, pb, lang, base, locales, catById, compById, sta
     return v;
   };
 
-  // Always start from a clean template (strip any previously injected block).
-  let html = rawEnglish.replace(/<!--oce:cases-seo-->[\s\S]*?<!--\/oce:cases-seo-->/, '');
+  // Always start from a clean template (strip any previously injected blocks:
+  // the SEO head cluster and the header's CSS / theme-init / interaction JS).
+  // The header itself is replaced in place below, so it needs no strip here.
+  let html = rawEnglish
+    .replace(/<!--oce:cases-seo-->[\s\S]*?<!--\/oce:cases-seo-->/, '')
+    .replace(/<style id="oce-cases-nav-css">[\s\S]*?<\/style>/, '')
+    .replace(/<!--oce:nav-theme-init-->[\s\S]*?<!--\/oce:nav-theme-init-->/, '')
+    .replace(/<!--oce:nav-js-->[\s\S]*?<!--\/oce:nav-js-->/, '');
   const slug = pb.id;
 
   const ch = !isEn ? CHROME[lang.code] : null;
@@ -432,14 +603,9 @@ function buildPage({ rawEnglish, pb, lang, base, locales, catById, compById, sta
       html = html.split('<a href="/cases">Cases</a>').join(`<a href="/cases">${casesTr}</a>`);
       const docsTr = R(T('nav.docs', 'Docs'));
       html = html.split('<a href="/docs">Docs</a>').join(`<a href="/docs">${docsTr}</a>`);
-      // Top-nav labels with no nav.* key (from the chrome table).
-      html = html.split('<a href="/#tour">Tour</a>').join(`<a href="/#tour">${R(ch.navTour)}</a>`);
-      html = html.split('<a href="/#compare">Compare</a>').join(`<a href="/#compare">${R(ch.navCompare)}</a>`);
-      html = html.split('<a href="/#pricing">Pricing</a>').join(`<a href="/#pricing">${R(ch.navPricing)}</a>`);
-      html = html.split('<a href="/news">News</a>').join(`<a href="/news">${R(ch.navNews)}</a>`);
-      html = html
-        .split('<a href="/uberization-of-construction/">Uberization</a>')
-        .join(`<a href="/uberization-of-construction/">${R(ch.navUberization)}</a>`);
+      // (The top-nav Tour/Compare/Pricing/News/Uberization labels live only in
+      // the header, which is replaced wholesale by the cloned homepage nav
+      // below, so they are baked there rather than substituted here.)
       // "More in <category>" related heading (category label already translated).
       if (catLabelT != null) {
         html = html.replace(
@@ -460,6 +626,16 @@ function buildPage({ rawEnglish, pb, lang, base, locales, catById, compById, sta
     // Localize detail links (leave the /cases index link untouched).
     html = html.split('href="/cases/').join(`href="/${lang.code}/cases/`);
   }
+
+  // Replace the template header with a per-language clone of the homepage nav
+  // (labels + link targeting baked in). Done for every language, as the last
+  // structural edit so no earlier substitution touches it. A function
+  // replacement keeps `$` sequences in the markup literal.
+  const header = buildHeader(lang, T, ch);
+  html = html.replace(/<header\b[\s\S]*?<\/header>/, () => header);
+
+  // The header's CSS + theme-init + interaction JS (one-time, marked blocks).
+  html = injectNavAssets(html);
 
   // Inject the SEO head cluster just before </head>, for every language.
   html = html.replace('</head>', `${seoBlock(base, slug, lang, T, pb)}</head>`);
