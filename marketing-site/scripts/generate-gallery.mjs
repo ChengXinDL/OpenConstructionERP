@@ -257,14 +257,15 @@ const HIVE_SCRIPT = `<script>
     var t=card.querySelector('h3'); var title=t?t.textContent.trim():'';
     var bar=card.querySelector('.cbar'); var color=(bar&&bar.style.background)||'var(--accent)';
 
-    // Ghost pool: the platform's OTHER modules (exclude this case's).
+    // Ghost pool: just 1-2 rings of the platform's OTHER modules around
+    // the case's own hexes - enough to say "a few of many", not a field.
     var own={}; mods.forEach(function(m){ own[m.toLowerCase()]=1; });
     var ghosts=ALL.filter(function(m){ return !own[m.toLowerCase()]; });
-    var ghostCount=Math.min(ghosts.length, Math.max(0, CELLS.length-n));
+    var ghostCount=Math.min(ghosts.length, Math.max(0, CELLS.length-n), Math.max(5, 11-n));
     var used=CELLS.slice(0, n+ghostCount);
 
     var vw=window.innerWidth||1200;
-    var w = vw<1100 ? 40 : 46;
+    var w = vw<1100 ? 56 : 64;
     var h=w*0.866, col=w*0.75;
     stage.style.setProperty('--hc-w',w+'px');
     stage.style.setProperty('--hc-h',h+'px');
