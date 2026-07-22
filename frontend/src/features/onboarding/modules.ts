@@ -3,12 +3,12 @@
 /**
  * Module catalogue for the OpenConstructionERP onboarding wizard.
  *
- * Each entry mirrors one of the 112 backend module manifests in
+ * Each entry mirrors one of the 153 backend module manifests in
  * ``backend/app/modules/<mod>/manifest.py``. Keys follow the backend ``name``
  * minus the ``oe_`` prefix (snake_case). The wizard hands the key list to
  * ``useModuleStore.setModuleEnabled`` on finish.
  *
- * Groups partition the 112 modules into 19 user-facing buckets. The v3.0
+ * Groups partition the 153 modules into 19 user-facing buckets. The v3.0
  * 18-Modules Wave is broken across the new groups (sustainability_esg,
  * qms_compliance, bi_analytics, operations, commercial, bim_advanced).
  *
@@ -60,8 +60,8 @@ export const MODULE_GROUPS: ModuleGroup[] = [
   { id: 'platform', labelKey: 'onboarding.mod_group_platform' },
 ];
 
-/* ── 112-module catalogue ───────────────────────────────────────────────── */
-/* One entry per backend manifest. Total: 112. */
+/* ── 153-module catalogue ───────────────────────────────────────────────── */
+/* One entry per backend manifest. Total: 153. */
 
 export const ALL_MODULES: ModuleDef[] = [
   // ── Core (always on) ─────────────────────────────────────────────────
@@ -214,10 +214,76 @@ export const ALL_MODULES: ModuleDef[] = [
   { key: 'i18n_foundation', labelKey: 'onboarding.mod_i18n_foundation', descriptionKey: 'onboarding.mod_i18n_foundation_desc', group: 'platform', core: true },
   { key: 'collaboration_locks', labelKey: 'onboarding.mod_collaboration_locks', descriptionKey: 'onboarding.mod_collaboration_locks_desc', group: 'platform', core: true },
   { key: 'architecture_map', labelKey: 'onboarding.mod_architecture_map', descriptionKey: 'onboarding.mod_architecture_map_desc', group: 'platform', core: true },
+
+  // ── Estimation (extended) ────────────────────────────────────────────
+  { key: 'allowances', labelKey: 'onboarding.mod_allowances', descriptionKey: 'onboarding.mod_allowances_desc', group: 'estimation' },
+  { key: 'cost_explorer', labelKey: 'onboarding.mod_cost_explorer', descriptionKey: 'onboarding.mod_cost_explorer_desc', group: 'estimation' },
+  { key: 'estimate_basis', labelKey: 'onboarding.mod_estimate_basis', descriptionKey: 'onboarding.mod_estimate_basis_desc', group: 'estimation' },
+  { key: 'estimate_rollup', labelKey: 'onboarding.mod_estimate_rollup', descriptionKey: 'onboarding.mod_estimate_rollup_desc', group: 'estimation' },
+  { key: 'formwork', labelKey: 'onboarding.mod_formwork', descriptionKey: 'onboarding.mod_formwork_desc', group: 'estimation' },
+  { key: 'labor_rates', labelKey: 'onboarding.mod_labor_rates', descriptionKey: 'onboarding.mod_labor_rates_desc', group: 'estimation' },
+  { key: 'methodology', labelKey: 'onboarding.mod_methodology', descriptionKey: 'onboarding.mod_methodology_desc', group: 'estimation' },
+  { key: 'norm_expansion', labelKey: 'onboarding.mod_norm_expansion', descriptionKey: 'onboarding.mod_norm_expansion_desc', group: 'estimation' },
+  { key: 'preliminaries', labelKey: 'onboarding.mod_preliminaries', descriptionKey: 'onboarding.mod_preliminaries_desc', group: 'estimation' },
+  { key: 'rom_estimate', labelKey: 'onboarding.mod_rom_estimate', descriptionKey: 'onboarding.mod_rom_estimate_desc', group: 'estimation' },
+  { key: 'waste_factors', labelKey: 'onboarding.mod_waste_factors', descriptionKey: 'onboarding.mod_waste_factors_desc', group: 'estimation' },
+
+  // ── BIM Advanced (extended) ──────────────────────────────────────────
+  { key: 'bcf', labelKey: 'onboarding.mod_bcf', descriptionKey: 'onboarding.mod_bcf_desc', group: 'bim_advanced' },
+  { key: 'bimlv', labelKey: 'onboarding.mod_bimlv', descriptionKey: 'onboarding.mod_bimlv_desc', group: 'bim_advanced' },
+  { key: 'clash_ai_triage', labelKey: 'onboarding.mod_clash_ai_triage', descriptionKey: 'onboarding.mod_clash_ai_triage_desc', group: 'bim_advanced' },
+  { key: 'clash_cost_impact', labelKey: 'onboarding.mod_clash_cost_impact', descriptionKey: 'onboarding.mod_clash_cost_impact_desc', group: 'bim_advanced' },
+
+  // ── AI (extended) ────────────────────────────────────────────────────
+  { key: 'ai_estimator', labelKey: 'onboarding.mod_ai_estimator', descriptionKey: 'onboarding.mod_ai_estimator_desc', group: 'ai' },
+  { key: 'voice', labelKey: 'onboarding.mod_voice', descriptionKey: 'onboarding.mod_voice_desc', group: 'ai' },
+
+  // ── Planning (extended) ──────────────────────────────────────────────
+  { key: 'interface_management', labelKey: 'onboarding.mod_interface_management', descriptionKey: 'onboarding.mod_interface_management_desc', group: 'planning' },
+  { key: 'progress', labelKey: 'onboarding.mod_progress', descriptionKey: 'onboarding.mod_progress_desc', group: 'planning' },
+  { key: 'timeline', labelKey: 'onboarding.mod_timeline', descriptionKey: 'onboarding.mod_timeline_desc', group: 'planning' },
+
+  // ── Finance (extended) ───────────────────────────────────────────────
+  { key: 'fx', labelKey: 'onboarding.mod_fx', descriptionKey: 'onboarding.mod_fx_desc', group: 'finance' },
+  { key: 'postcalc', labelKey: 'onboarding.mod_postcalc', descriptionKey: 'onboarding.mod_postcalc_desc', group: 'finance' },
+  { key: 'price_index', labelKey: 'onboarding.mod_price_index', descriptionKey: 'onboarding.mod_price_index_desc', group: 'finance' },
+  { key: 'reconciliation', labelKey: 'onboarding.mod_reconciliation', descriptionKey: 'onboarding.mod_reconciliation_desc', group: 'finance' },
+
+  // ── Commercial (extended) ────────────────────────────────────────────
+  { key: 'change_intelligence', labelKey: 'onboarding.mod_change_intelligence', descriptionKey: 'onboarding.mod_change_intelligence_desc', group: 'commercial' },
+  { key: 'claims_evidence', labelKey: 'onboarding.mod_claims_evidence', descriptionKey: 'onboarding.mod_claims_evidence_desc', group: 'commercial' },
+  { key: 'cost_recovery', labelKey: 'onboarding.mod_cost_recovery', descriptionKey: 'onboarding.mod_cost_recovery_desc', group: 'commercial' },
+  { key: 'value', labelKey: 'onboarding.mod_value', descriptionKey: 'onboarding.mod_value_desc', group: 'commercial' },
+
+  // ── Operations (extended) ────────────────────────────────────────────
+  { key: 'approval_routes', labelKey: 'onboarding.mod_approval_routes', descriptionKey: 'onboarding.mod_approval_routes_desc', group: 'operations' },
+
+  // ── Communication (extended) ─────────────────────────────────────────
+  { key: 'phonelog', labelKey: 'onboarding.mod_phonelog', descriptionKey: 'onboarding.mod_phonelog_desc', group: 'communication' },
+
+  // ── Documents (extended) ─────────────────────────────────────────────
+  { key: 'plan_room', labelKey: 'onboarding.mod_plan_room', descriptionKey: 'onboarding.mod_plan_room_desc', group: 'documents' },
+  { key: 'signing', labelKey: 'onboarding.mod_signing', descriptionKey: 'onboarding.mod_signing_desc', group: 'documents' },
+
+  // ── Quality & Safety (extended) ──────────────────────────────────────
+  { key: 'defects_liability', labelKey: 'onboarding.mod_defects_liability', descriptionKey: 'onboarding.mod_defects_liability_desc', group: 'quality' },
+
+  // ── QMS & Compliance (extended) ──────────────────────────────────────
+  { key: 'authority_submission', labelKey: 'onboarding.mod_authority_submission', descriptionKey: 'onboarding.mod_authority_submission_desc', group: 'qms_compliance' },
+
+  // ── Field (extended) ─────────────────────────────────────────────────
+  { key: 'site_inventory', labelKey: 'onboarding.mod_site_inventory', descriptionKey: 'onboarding.mod_site_inventory_desc', group: 'field' },
+  { key: 'site_prep', labelKey: 'onboarding.mod_site_prep', descriptionKey: 'onboarding.mod_site_prep_desc', group: 'field' },
+  { key: 'site_supervision', labelKey: 'onboarding.mod_site_supervision', descriptionKey: 'onboarding.mod_site_supervision_desc', group: 'field' },
+  { key: 'temporary_works', labelKey: 'onboarding.mod_temporary_works', descriptionKey: 'onboarding.mod_temporary_works_desc', group: 'field' },
+
+  // ── Regional Packs (extended) ────────────────────────────────────────
+  { key: 'mexico_pack', labelKey: 'onboarding.mod_mexico_pack', descriptionKey: 'onboarding.mod_mexico_pack_desc', group: 'regional' },
+  { key: 'sa_pack', labelKey: 'onboarding.mod_sa_pack', descriptionKey: 'onboarding.mod_sa_pack_desc', group: 'regional' },
 ];
 
 export const CORE_MODULE_KEYS = new Set(ALL_MODULES.filter((m) => m.core).map((m) => m.key));
 
-/** Total count of modules surfaced in the wizard. Mirrors the 112 backend
+/** Total count of modules surfaced in the wizard. Mirrors the 153 backend
  *  manifests in ``backend/app/modules/<mod>/manifest.py``. */
 export const TOTAL_MODULE_COUNT = ALL_MODULES.length;
