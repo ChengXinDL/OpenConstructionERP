@@ -4766,6 +4766,7 @@ const resource = {
     "sidebar.show_hidden": "Show hidden",
     "sidebar.module_count_label": "modules",
     "sidebar.module_count_title": "{{shown}} of {{total}} modules are shown in this menu",
+    "sidebar.manage_modules": "Manage modules",
     "sidebar.hide_item": "Hide {{label}}",
     "sidebar.show_item": "Show {{label}}",
     "sidebar.group.overview": "Overview",

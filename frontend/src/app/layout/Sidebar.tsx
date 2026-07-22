@@ -1940,6 +1940,21 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
                 {t('sidebar.module_count_label', { defaultValue: 'modules' })}
               </span>
             )}
+            {/* Manage-modules shortcut — a small gear button immediately to the
+                 right of the "{shown} / {total} modules" count that jumps to the
+                 Modules settings page, where modules can be switched on / off.
+                 Hidden in iconified mode where horizontal room is tight. */}
+            {!iconified && (
+              <NavLink
+                to="/modules"
+                onClick={onClose}
+                title={t('sidebar.manage_modules', { defaultValue: 'Manage modules' })}
+                aria-label={t('sidebar.manage_modules', { defaultValue: 'Manage modules' })}
+                className="ml-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-content-tertiary hover:bg-surface-secondary hover:text-content-primary transition-colors"
+              >
+                <Settings size={12} strokeWidth={2} aria-hidden />
+              </NavLink>
+            )}
           </div>
         </div>
         {/* Add-a-module CTA — dashed-border tile with a plus icon. Sits at
