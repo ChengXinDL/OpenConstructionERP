@@ -61,6 +61,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { tmpdir } from 'node:os';
 import { CHROME, NAV_PILL } from './cases-chrome.mjs';
+import { buildSwitcher, detailHref, SWITCHER_JS } from './cases-switcher.mjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const MARKETING_ROOT = resolve(SCRIPT_DIR, '..');
@@ -72,6 +73,188 @@ const DEFAULT_BASE = 'https://openconstructionerp.com';
 // a dark-theme token block) so every case page renders the same header. See
 // cases-nav.css for the two deliberate differences from the landing page.
 const NAV_CSS = readFileSync(join(SCRIPT_DIR, 'cases-nav.css'), 'utf8');
+
+// ---- module honeycomb (shared with the gallery) ----------------
+// Each detail page renders its own case's modules as solid hexes ringed by
+// ghost hexes for the platform's other modules. The visual rules are the
+// @hive-core block of cases-hive.css (the exact component the gallery uses);
+// here we bake static positions + the case's module list per page.
+const HIVE_CSS_FULL = readFileSync(join(SCRIPT_DIR, 'cases-hive.css'), 'utf8');
+const HIVE_CORE_CSS = (() => {
+  const m = HIVE_CSS_FULL.match(/\/\*\s*@hive-core:start[\s\S]*?@hive-core:end[\s\S]*?\*\//);
+  if (!m) throw new Error('cases-hive.css: @hive-core block not found');
+  return m[0];
+})();
+
+// The in-flow container the detail band wraps the shared hexes in.
+const CASE_HIVE_CSS = `
+.case-hive{
+  margin: 34px auto 6px;
+  padding: 28px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  border-top: 1px solid var(--line-1);
+}
+.case-hive .ch-eyebrow{
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: .68rem;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+.case-hive .ch-eyebrow::before{
+  content: "";
+  width: 24px;
+  height: 2px;
+  background: var(--band-accent, var(--accent));
+  display: inline-block;
+}
+.case-hive .ch-title{
+  font-family: 'Inter Tight', 'Inter', sans-serif;
+  font-weight: 680;
+  font-size: clamp(1.1rem, 1.9vw, 1.4rem);
+  letter-spacing: -.02em;
+  line-height: 1.18;
+  color: var(--ink-0);
+  margin: 10px 0 0;
+  max-width: 30ch;
+  text-wrap: balance;
+}
+.case-hive-stage{ position: relative; margin: 34px auto 4px; }
+.case-hive .ch-note{
+  margin: 16px 0 0;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: .66rem;
+  letter-spacing: .05em;
+  color: var(--ink-3);
+}
+.case-hive .ch-note b{ color: var(--ink-1); font-weight: 700; }
+@media (max-width: 600px){ .case-hive-stage{ transform: scale(.82); margin: 20px auto 0; } }
+@media (max-width: 420px){ .case-hive-stage{ transform: scale(.64); } }
+`;
+
+const CASE_HIVE_CSS_BLOCK =
+  `<!--oce:case-hive-css--><style id="oce-case-hive-css">\n${HIVE_CORE_CSS}\n${CASE_HIVE_CSS}\n</style><!--/oce:case-hive-css-->`;
+
+// Per-case module lists + the global module vocabulary (the ghost pool),
+// the same source the gallery reads, so a case shows identical modules on
+// both surfaces. Module names stay English on every language.
+const MODULES_RAW = JSON.parse(readFileSync(join(SCRIPT_DIR, 'case-modules.json'), 'utf8'));
+
+const HIVE_CANON = {
+  'take-off': 'Takeoff', 'takeoff': 'Takeoff', 'daily diary': 'Daily Diary',
+  'rfi': 'RFIs', 'rfis': 'RFIs', 'bim viewer': 'BIM Viewer',
+  'advanced schedule': 'Advanced Schedule', 'advanced scheduling': 'Advanced Schedule',
+  'schedule advanced': 'Advanced Schedule', 'non-conformance': 'Non-conformances',
+  'non-conformances': 'Non-conformances', 'project files': 'Project Files',
+};
+const hiveCanon = (label) => HIVE_CANON[String(label).trim().toLowerCase()] || String(label).trim();
+function normModules(list) {
+  const out = [];
+  const seen = new Set();
+  for (const raw of list || []) {
+    const c = hiveCanon(raw);
+    const k = c.toLowerCase();
+    if (!seen.has(k)) { seen.add(k); out.push(c); }
+  }
+  return out;
+}
+const HIVE_ALL = (() => {
+  const seen = new Set();
+  const all = [];
+  for (const slug of Object.keys(MODULES_RAW)) {
+    for (const m of normModules(MODULES_RAW[slug])) {
+      const k = m.toLowerCase();
+      if (!seen.has(k)) { seen.add(k); all.push(m); }
+    }
+  }
+  return all;
+})();
+
+const HIVE_ICONS = {
+  'boq': '☰', 'cost explorer': '€', 'costs': '€', 'finance': '€', 'payroll': '€', 'value': '◇',
+  'assemblies': '❏', 'labour rates': '€', 'resources': '▦', 'resource summary': '▦', 'production norms': '∑',
+  'validation': '✓', 'quality': '✓', 'quality management': '✓', 'qms': '✓', 'inspections': '☑', 'forms': '▤',
+  'reports': '▤', 'report': '▤', 'portal': '◧', 'contracts': '§', 'reconciliation': '⇄', 'procurement': '⛟',
+  'tendering': '⎙', 'bid management': '⚖', 'subcontractors': '⛏', 'allowances': '◇', 'preliminaries': '▦',
+  'schedule': '◷', 'advanced schedule': '◷', 'progress': '◔', 'portfolio': '▦', 'capacity planning': '▤',
+  'bim': '◈', '3d model': '◈', 'bim viewer': '◈', 'federations': '⬡', 'clash detection': '✷', 'coordination': '⬡',
+  'model issues': '❈', 'model review': '◈', 'carbon': '♻', 'point cloud': '⁙', 'takeoff': '✶', 'documents': '▦',
+  'files': '▦', 'project files': '▤', 'correspondence': '✉', 'rfis': '?', 'rfi': '?', 'markups': '✎', 'compare': '⇆',
+  'safety': '⛑', 'ncr': '⚠', 'non-conformances': '⚠', 'punch list': '☑', 'close-out': '⚑', 'handover': '⚑',
+  'assets': '⚙', 'service': '⚙', 'field time': '⏱', 'daily diary': '✎', 'site diary': '✎', 'projects': '◫',
+  'risk register': '⚠', 'meetings': '☷', 'tasks': '☑', 'crm': '☎', 'contacts': '☎', 'change orders': '⇄',
+  'change intelligence': '✷', 'equipment': '⚙', 'catalog': '▦',
+};
+function hiveIcon(name) {
+  const k = String(name).toLowerCase().trim();
+  if (HIVE_ICONS[k]) return HIVE_ICONS[k];
+  for (const key of Object.keys(HIVE_ICONS)) { if (k.indexOf(key) >= 0) return HIVE_ICONS[key]; }
+  const m = String(name).replace(/[^A-Za-z0-9]/g, '');
+  return m ? m.charAt(0).toUpperCase() : '◆';
+}
+// Flat-top hex spiral of axial coords: centre first, then rings out.
+function hiveSpiral(radius) {
+  const out = [{ q: 0, r: 0 }];
+  const dirs = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
+  for (let k = 1; k <= radius; k++) {
+    let q = dirs[4][0] * k, r = dirs[4][1] * k;
+    for (let s = 0; s < 6; s++) {
+      for (let step = 0; step < k; step++) { out.push({ q, r }); q += dirs[s][0]; r += dirs[s][1]; }
+    }
+  }
+  return out;
+}
+
+// Build the static honeycomb band for one case. Solid hexes are the case's
+// own modules; ghosts are one to two rings of the platform's other modules.
+// Positions are baked so the band needs no runtime JS. Labels come from the
+// module vocabulary (English); heading text is passed in (localized).
+function buildCaseHive({ mods, color, eyebrow, title, noteTpl }) {
+  const n = mods.length;
+  if (!n) return '';
+  const own = new Set(mods.map((m) => m.toLowerCase()));
+  const ghosts = HIVE_ALL.filter((m) => !own.has(m.toLowerCase()));
+  const CELLS = hiveSpiral(2);
+  const ghostCount = Math.min(ghosts.length, CELLS.length - n, Math.max(8, 14 - n));
+  const used = CELLS.slice(0, n + ghostCount);
+  const w = 80, h = w * 0.866, col = w * 0.75;
+  const pos = used.map((c) => ({ x: c.q * col, y: h * (c.r + c.q / 2) }));
+  const xs = pos.map((p) => p.x), ys = pos.map((p) => p.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs) + w;
+  const minY = Math.min(...ys), maxY = Math.max(...ys) + h;
+  const cw = Math.round(maxX - minX), chh = Math.round(maxY - minY);
+  const r2 = (v) => Math.round(v * 100) / 100;
+  let hex = '';
+  used.forEach((c, i) => {
+    const x = Math.round(pos[i].x - minX), y = Math.round(pos[i].y - minY);
+    if (i < n) {
+      const name = mods[i];
+      hex += `<span class="hc-cell" style="left:${x}px;top:${y}px;--tint:${color};animation-delay:${r2(i * 0.04)}s">` +
+        `<span class="hc-face"><span class="hc-ico" aria-hidden="true">${hiveIcon(name)}</span>` +
+        `<span class="hc-title">${escText(name)}</span></span></span>`;
+    } else {
+      const name = ghosts[i - n];
+      hex += `<span class="hc-ghost" style="left:${x}px;top:${y}px;--tint:${color};animation-delay:${r2(0.1 + (i - n) * 0.018)}s">` +
+        `<span class="hc-gface"><span class="hc-gico" aria-hidden="true">${hiveIcon(name)}</span></span></span>`;
+    }
+  });
+  const note = escText(noteTpl)
+    .replace('{n}', `<b>${n}</b>`)
+    .replace('{total}', `<b>${HIVE_ALL.length}</b>`);
+  const stageStyle = `width:${cw}px;height:${chh}px;--hc-w:${w}px;--hc-h:${Math.round(h)}px`;
+  return `<!--oce:case-hive--><section class="case-hive" style="--band-accent:${color}" aria-label="Modules this playbook uses">` +
+    `<span class="ch-eyebrow">${escText(eyebrow)}</span>` +
+    `<h2 class="ch-title">${escText(title)}</h2>` +
+    `<div class="case-hive-stage" style="${stageStyle}">${hex}</div>` +
+    `<p class="ch-note">${note}</p>` +
+    `</section><!--/oce:case-hive-->`;
+}
 
 // Languages with a localized home snapshot (/<lang>/) AND a localized
 // uberization whitepaper (/uberization-of-construction/<lang>). For every
@@ -301,10 +484,13 @@ function headerLinks(code) {
 // language. The whole thing is wrapped in a <header> so a re-run re-matches
 // and replaces it in place (idempotent). Language-agnostic runtime (theme
 // toggle + burger) is injected separately by injectNavAssets().
-function buildHeader(lang, T, ch) {
+function buildHeader(lang, T, ch, slug) {
   const code = lang.code;
   const isEn = code === 'en';
   const pill = NAV_PILL[code] || {};
+  // URL-based language switcher: each item navigates to this same case in
+  // the chosen language (/<lang>/cases/<slug>, English at /cases/<slug>).
+  const langSwitch = '<!--oce:lang-switch-->' + buildSwitcher(code, detailHref(slug)) + '<!--/oce:lang-switch-->';
   const L = {
     tour: escText(ch ? ch.navTour : 'Tour'),
     compare: escText(ch ? ch.navCompare : 'Compare'),
@@ -369,6 +555,8 @@ function buildHeader(lang, T, ch) {
           <span>${L.download}</span>
         </a>
 
+        ${langSwitch}
+
         <button type="button" class="nav-burger" id="nav-burger" aria-label="Toggle menu" aria-expanded="false" aria-controls="mobile-menu">
           <svg class="icon-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <line x1="4" y1="7" x2="20" y2="7"/>
@@ -407,10 +595,14 @@ function buildHeader(lang, T, ch) {
 const NAV_CSS_BLOCK = `<style id="oce-cases-nav-css">\n${NAV_CSS}\n</style>`;
 const NAV_THEME_INIT = `<!--oce:nav-theme-init--><script>(function(){try{var t=localStorage.getItem('oce-theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t;}catch(e){}})();</script><!--/oce:nav-theme-init-->`;
 const NAV_JS = `<!--oce:nav-js--><script>(function(){var root=document.documentElement,body=document.body;var tt=document.getElementById('theme-toggle');if(tt)tt.addEventListener('click',function(){var d=root.dataset.theme==='dark'?'light':'dark';root.dataset.theme=d;try{localStorage.setItem('oce-theme',d);}catch(e){}});var burger=document.getElementById('nav-burger'),menu=document.getElementById('mobile-menu');function setOpen(o){body.classList.toggle('nav-open',o);if(burger)burger.setAttribute('aria-expanded',o?'true':'false');body.style.overflow=o?'hidden':'';}if(burger)burger.addEventListener('click',function(){setOpen(!body.classList.contains('nav-open'));});if(menu)menu.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){setOpen(false);});});document.addEventListener('keydown',function(e){if(e.key==='Escape')setOpen(false);});})();</script><!--/oce:nav-js-->`;
+const SWITCHER_JS_BLOCK = `<!--oce:lang-switch-js--><script>${SWITCHER_JS}</script><!--/oce:lang-switch-js-->`;
 
 function injectNavAssets(html) {
   html = html.replace('</head>', `${NAV_CSS_BLOCK}${NAV_THEME_INIT}</head>`);
-  html = html.replace('</body>', `${NAV_JS}</body>`);
+  // Strip a prior switcher script, then inject it with the nav wiring so the
+  // language menu opens/closes. Idempotent via its sentinel markers.
+  html = html.replace(/<!--oce:lang-switch-js-->[\s\S]*?<!--\/oce:lang-switch-js-->/, '');
+  html = html.replace('</body>', `${NAV_JS}${SWITCHER_JS_BLOCK}</body>`);
   return html;
 }
 
@@ -437,7 +629,9 @@ function buildPage({ rawEnglish, pb, lang, base, locales, catById, compById, sta
     .replace(/<!--oce:cases-seo-->[\s\S]*?<!--\/oce:cases-seo-->/, '')
     .replace(/<style id="oce-cases-nav-css">[\s\S]*?<\/style>/, '')
     .replace(/<!--oce:nav-theme-init-->[\s\S]*?<!--\/oce:nav-theme-init-->/, '')
-    .replace(/<!--oce:nav-js-->[\s\S]*?<!--\/oce:nav-js-->/, '');
+    .replace(/<!--oce:nav-js-->[\s\S]*?<!--\/oce:nav-js-->/, '')
+    .replace(/<!--oce:case-hive-css-->[\s\S]*?<!--\/oce:case-hive-css-->/, '')
+    .replace(/<!--oce:case-hive-->[\s\S]*?<!--\/oce:case-hive-->/, '');
   const slug = pb.id;
 
   const ch = !isEn ? CHROME[lang.code] : null;
@@ -631,7 +825,7 @@ function buildPage({ rawEnglish, pb, lang, base, locales, catById, compById, sta
   // (labels + link targeting baked in). Done for every language, as the last
   // structural edit so no earlier substitution touches it. A function
   // replacement keeps `$` sequences in the markup literal.
-  const header = buildHeader(lang, T, ch);
+  const header = buildHeader(lang, T, ch, slug);
   html = html.replace(/<header\b[\s\S]*?<\/header>/, () => header);
 
   // The header's CSS + theme-init + interaction JS (one-time, marked blocks).
@@ -639,6 +833,30 @@ function buildPage({ rawEnglish, pb, lang, base, locales, catById, compById, sta
 
   // Inject the SEO head cluster just before </head>, for every language.
   html = html.replace('</head>', `${seoBlock(base, slug, lang, T, pb)}</head>`);
+
+  // Module honeycomb: this case's modules as solid hexes ringed by ghosts.
+  // Same component + data as the gallery; module names stay English, the
+  // heading text is localized (English default when a language is absent).
+  const hiveMods = MODULES_RAW[slug]
+    ? normModules(MODULES_RAW[slug])
+    : normModules((pb.steps || []).map((s) => s.moduleLabel).filter(Boolean));
+  const catAccent = catById[pb.category] && catById[pb.category].accent;
+  const hiveColor = (catAccent && (catAccent.base || catAccent)) || '#0284c7';
+  const hiveBand = buildCaseHive({
+    mods: hiveMods,
+    color: hiveColor,
+    eyebrow: (ch && ch.modulesEyebrow) || 'Modules',
+    title: (ch && ch.modulesTitle) || 'Modules in this playbook',
+    noteTpl: (ch && ch.modulesNote) || '{n} / {total} platform modules',
+  });
+  // The shared core CSS carries the hex component, the language-switcher
+  // styling and the white page canvas, so inject it on every page (not only
+  // when the band lands). The band itself lands when the steps section is
+  // present.
+  html = html.replace('</head>', `${CASE_HIVE_CSS_BLOCK}</head>`);
+  if (hiveBand) {
+    html = html.replace('</section><section class="steps">', `</section>${hiveBand}<section class="steps">`);
+  }
 
   if (!isEn && stats) {
     if (missing > 0) {

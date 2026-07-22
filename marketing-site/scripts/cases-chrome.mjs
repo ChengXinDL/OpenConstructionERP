@@ -606,3 +606,46 @@ export const NAV_PILL = {
   vi: { demo: 'Demo', download: 'Tải xuống' },
   'es-mx': { demo: 'Demo', download: 'Descargar' },
 };
+
+/* ================================================================
+ * Module-honeycomb band (case detail pages). The band shows the case's
+ * own modules as solid hexes ringed by the platform's other modules.
+ * Only the heading text is localized here; the module names themselves
+ * stay English (product names). {n} = this case's module count, {total}
+ * = the platform module count. English pages use the generator defaults.
+ * ================================================================ */
+const MODULE_BAND = {
+  de: { eyebrow: 'Module', title: 'Module in diesem Playbook', note: '{n} / {total} Plattform-Modulen' },
+  fr: { eyebrow: 'Modules', title: 'Modules de ce playbook', note: '{n} / {total} modules de la plateforme' },
+  es: { eyebrow: 'Módulos', title: 'Módulos de este playbook', note: '{n} / {total} módulos de la plataforma' },
+  it: { eyebrow: 'Moduli', title: 'Moduli di questo playbook', note: '{n} / {total} moduli della piattaforma' },
+  pt: { eyebrow: 'Módulos', title: 'Módulos deste playbook', note: '{n} / {total} módulos da plataforma' },
+  nl: { eyebrow: 'Modules', title: 'Modules in dit playbook', note: '{n} / {total} platformmodules' },
+  pl: { eyebrow: 'Moduły', title: 'Moduły w tym playbooku', note: '{n} / {total} modułów platformy' },
+  cs: { eyebrow: 'Moduly', title: 'Moduly v tomto playbooku', note: '{n} / {total} modulů platformy' },
+  ru: { eyebrow: 'Модули', title: 'Модули этого плейбука', note: '{n} / {total} модулей платформы' },
+  bg: { eyebrow: 'Модули', title: 'Модули в този наръчник', note: '{n} / {total} модула на платформата' },
+  tr: { eyebrow: 'Modüller', title: 'Bu senaryodaki modüller', note: '{n} / {total} platform modülü' },
+  sv: { eyebrow: 'Moduler', title: 'Moduler i denna playbook', note: '{n} / {total} plattformsmoduler' },
+  no: { eyebrow: 'Moduler', title: 'Moduler i denne playbooken', note: '{n} / {total} plattformmoduler' },
+  fi: { eyebrow: 'Moduulit', title: 'Tämän playbookin moduulit', note: '{n} / {total} alustan moduulia' },
+  da: { eyebrow: 'Moduler', title: 'Moduler i denne playbook', note: '{n} / {total} platformmoduler' },
+  ar: { eyebrow: 'الوحدات', title: 'وحدات هذا الدليل', note: '{n} / {total} من وحدات المنصة' },
+  zh: { eyebrow: '模块', title: '此方案使用的模块', note: '{total} 个平台模块中的 {n} 个' },
+  ja: { eyebrow: 'モジュール', title: 'このプレイブックのモジュール', note: 'プラットフォーム {total} モジュール中 {n} 個' },
+  ko: { eyebrow: '모듈', title: '이 플레이북의 모듈', note: '플랫폼 {total}개 모듈 중 {n}개' },
+  hi: { eyebrow: 'मॉड्यूल', title: 'इस प्लेबुक के मॉड्यूल', note: 'प्लेटफ़ॉर्म के {total} में से {n} मॉड्यूल' },
+  hr: { eyebrow: 'Moduli', title: 'Moduli u ovom playbooku', note: '{n} / {total} modula platforme' },
+  id: { eyebrow: 'Modul', title: 'Modul dalam playbook ini', note: '{n} / {total} modul platform' },
+  mn: { eyebrow: 'Модулиуд', title: 'Энэ тоглолтын модулиуд', note: 'Платформын {total} модулиас {n}' },
+  ro: { eyebrow: 'Module', title: 'Modulele acestui playbook', note: '{n} / {total} module ale platformei' },
+  th: { eyebrow: 'โมดูล', title: 'โมดูลในเพลย์บุคนี้', note: '{n} / {total} โมดูลของแพลตฟอร์ม' },
+  vi: { eyebrow: 'Mô-đun', title: 'Các mô-đun trong playbook này', note: '{n} / {total} mô-đun nền tảng' },
+  'es-mx': { eyebrow: 'Módulos', title: 'Módulos de este playbook', note: '{n} / {total} módulos de la plataforma' },
+};
+for (const [code, m] of Object.entries(MODULE_BAND)) {
+  if (!CHROME[code]) continue;
+  CHROME[code].modulesEyebrow = m.eyebrow;
+  CHROME[code].modulesTitle = m.title;
+  CHROME[code].modulesNote = m.note;
+}

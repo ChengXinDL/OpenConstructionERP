@@ -1,35 +1,32 @@
 /* ================================================================
  * cases-hive.css  (generated asset, committed)
  *
- * Two things live here, both injected into /cases (cases/index.html)
- * inside a marked <style> block by generate-gallery.mjs:
+ * The module-honeycomb component, shared by two surfaces:
  *
- *  1. HEADER ADAPTATION. The gallery lifts the homepage nav from a case
- *     detail page, where it is pinned with position:sticky inside a
- *     <header class="oce-hd"> wrapper. That wrapper is only as tall as
- *     the nav itself, so the sticky element has no room to travel and
- *     scrolls away with its parent - the nav vanishes on scroll and the
- *     sticky toolbar then floats with a gap above it. The homepage nav is
- *     position:fixed. These rules restore that exact behaviour on the
- *     gallery only (the detail-page pipeline is untouched): pin the nav
- *     fixed, reserve a 64px gap so nothing hides under it, and tuck the
- *     toolbar right beneath it.
+ *  - The GALLERY (/cases, cases/index.html) injects this whole file via
+ *    generate-gallery.mjs. On hover a fixed, click-through overlay blooms
+ *    the hovered case's modules beside its card.
+ *  - Each CASE DETAIL PAGE (/cases/<slug>, plus localized copies) injects
+ *    only the shared core block below (marked @hive-core) via
+ *    generate-cases.mjs, wrapped in its own in-flow band. There is one
+ *    case per page, so it renders statically with baked positions.
  *
- *  2. CONTEXTUAL HONEYCOMB. No more detached hero band above the grid.
- *     A single fixed, click-through overlay follows the pointer: hover or
- *     focus a card and that case's modules bloom as solid hexes right
- *     beside THAT card, ringed by fainter ghost hexes standing in for the
- *     platform's other modules - so a playbook reads as a few picks out of
- *     many. Positions + colours are set by the inline runtime in
- *     generate-gallery.mjs from each card's baked data-modules list.
+ * The @hive-core region is the visual heart (hex cells, ghost cells, the
+ * soft white glow, keyframes). It is container-agnostic: a cell sizes from
+ * --hc-w/--hc-h and positions from inline left/top, tinted by --tint. Keep
+ * both surfaces consistent by editing the core once.
+ *
+ * The rules OUTSIDE the core are gallery-only: the fixed-nav header fix,
+ * the full-width card grid, the click-through overlay, the moving stage
+ * and its caption pill.
  * ================================================================ */
 
-/* ---- (1) header: match the homepage - fixed nav, reserved gap ---- */
+/* ---- (gallery) header: match the homepage - fixed nav, reserved gap - */
 .nav{ position: fixed; }
 body{ padding-top: 64px; }
 .toolbar{ top: 64px; }
 
-/* ---- full-width card grid (no side panel) ---------------------- */
+/* ---- (gallery) full-width card grid (no side panel) ------------- */
 .cases-grid-wide{ min-width: 0; }
 .cases-grid-wide .count{ padding-top: 14px; }
 .cases-grid-wide .grid{
@@ -47,7 +44,7 @@ body{ padding-top: 64px; }
   .cases-grid-wide .grid{ grid-template-columns: 1fr; }
 }
 
-/* ---- (2) the contextual honeycomb overlay ---------------------- */
+/* ---- (gallery) the contextual honeycomb overlay ----------------- */
 /* A fixed, full-viewport, click-through layer. The cluster + caption
    are positioned inside it (in viewport coordinates) next to whatever
    card the visitor is pointing at. z-index sits above the board and the
@@ -62,19 +59,22 @@ body{ padding-top: 64px; }
   transition: opacity .22s ease;
 }
 .hive-overlay.is-on{ opacity: 1; }
-
-/* Soft focus backdrop behind the cluster so it reads as a deliberate,
-   floating element rather than debris over the grid. */
 .hive-stage{
   position: absolute;
   transition: left .28s cubic-bezier(.22,.61,.36,1),
               top  .28s cubic-bezier(.22,.61,.36,1);
 }
 .hive-stage.no-anim{ transition: none; }
+
+/* @hive-core:start  ============================================== */
+/* Shared hex component: injected into the gallery (whole file) and into
+   every case detail page (this block only). */
+
 /* A tight, soft white glow that radiates from the cluster centre and
-   fades to fully transparent, so labels and icons sit on a legible base
-   while the whole thing still reads as a floating popover. */
-.hive-stage::before{
+   fades to fully transparent, so labels and icons sit on a legible base.
+   Applies to the gallery stage and the detail-page stage alike. */
+.hive-stage::before,
+.case-hive-stage::before{
   content: '';
   position: absolute;
   left: 50%; top: 50%;
@@ -91,45 +91,15 @@ body{ padding-top: 64px; }
   z-index: -1;
   pointer-events: none;
 }
-[data-theme="dark"] .hive-stage::before{
+[data-theme="dark"] .hive-stage::before,
+[data-theme="dark"] .case-hive-stage::before{
   background: radial-gradient(closest-side,
     rgba(224,234,248,.22) 0%,
     rgba(224,234,248,.11) 42%,
     transparent 100%);
 }
 
-/* The caption pill, anchored above the cluster. */
-.hive-cap{
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  top: -30px;
-  white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 11px;
-  border-radius: 999px;
-  background: color-mix(in oklab, var(--card) 88%, transparent);
-  border: 1px solid var(--line-1);
-  box-shadow: 0 8px 22px -12px rgba(15,23,42,.4);
-  -webkit-backdrop-filter: blur(8px);
-          backdrop-filter: blur(8px);
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: .64rem;
-  letter-spacing: .04em;
-  color: var(--ink-2);
-}
-.hive-cap b{ color: var(--ink-0); font-weight: 700; }
-.hive-cap .dot{
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--cap-accent, var(--accent));
-  flex: none;
-}
-
 /* ---- solid hex cells (the case's own modules) ------------------ */
-/* Flat-top glassy hex, front face only (the overlay is click-through,
-   so there is nothing to flip against). */
 .hc-cell{
   position: absolute;
   width: var(--hc-w);
@@ -211,7 +181,8 @@ body{ padding-top: 64px; }
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 /* ---- ghost hex cells (the platform's OTHER modules) ------------ */
@@ -245,11 +216,97 @@ body{ padding-top: 64px; }
 @keyframes hc-in { to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes hc-ghost-in { to { opacity: .42; transform: scale(1); } }
 
+@media (prefers-reduced-motion: reduce){
+  .hc-cell, .hc-ghost{ animation: none !important; opacity: 1 !important; transform: none !important; }
+  .hc-ghost{ opacity: .42 !important; }
+}
+
+/* ---- white page canvas in light theme (both surfaces) ---------- */
+/* The founder wants a plain white page; dark theme keeps its own bg. */
+:root:not([data-theme="dark"]) body{ background: #ffffff; }
+
+/* ---- language switcher (shared: gallery + detail) -------------- */
+/* Matches the homepage picker (flag + code button, flag + code + native
+   name menu) but every item is a real link: selecting a language just
+   navigates to the same page under its /<lang>/ URL. */
+.oce-lang{ position: relative; display: inline-flex; }
+.oce-lang-btn{
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  border: 1px solid var(--line-2, rgba(15,23,42,.14));
+  background: var(--card, #fff); color: var(--ink-1, #1e293b);
+  border-radius: 9px; padding: 6px 9px; font: inherit; font-size: 13px; line-height: 1;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.oce-lang-btn:hover{ border-color: var(--accent, #0284c7); }
+.oce-lang-btn img{ display: block; border-radius: 2px; }
+.oce-lang-code{ font-weight: 600; letter-spacing: .02em; }
+.oce-lang-chev{ opacity: .55; }
+.oce-lang-menu{
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 70;
+  max-height: 72vh; overflow: auto;
+  background: var(--card, #fff);
+  border: 1px solid var(--line-2, rgba(15,23,42,.14));
+  border-radius: 12px; box-shadow: 0 14px 44px rgba(2,8,23,.24);
+  padding: 6px; min-width: 214px;
+}
+.oce-lang-menu[hidden]{ display: none; }
+.oce-lang-item{
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  text-decoration: none; border-radius: 8px; padding: 8px 10px;
+  color: var(--ink-1, #1e293b); font-size: 13.5px; line-height: 1.2;
+  transition: background .12s ease, color .12s ease;
+}
+.oce-lang-item:hover{ background: var(--accent, #0284c7); color: #fff; }
+.oce-lang-item.is-current{ background: color-mix(in oklab, var(--accent, #0284c7) 12%, transparent); }
+.oce-lang-item.is-current:hover{ color: #fff; }
+.oce-lang-item img{ flex: 0 0 auto; border-radius: 2px; }
+.oce-lang-mc{ font-weight: 600; width: 26px; flex: 0 0 auto; }
+.oce-lang-mn{ color: var(--ink-2, #475569); }
+.oce-lang-item:hover .oce-lang-mn{ color: rgba(255,255,255,.85); }
+[data-theme="dark"] .oce-lang-btn{ background: color-mix(in oklab, #ffffff 6%, transparent); }
+@media (max-width: 560px){ .oce-lang-mn{ display: none; } .oce-lang-menu{ min-width: 120px; } }
+/* @hive-core:end  ================================================ */
+
 @media (max-width: 560px){
   .hive-overlay{ display: none; } /* honeycomb is a desktop delight; keep mobile lean */
 }
 @media (prefers-reduced-motion: reduce){
-  .hc-cell, .hc-ghost{ animation: none !important; opacity: 1 !important; transform: none !important; }
-  .hc-ghost{ opacity: .42 !important; }
   .hive-overlay, .hive-stage{ transition: none !important; }
+}
+
+/* ---- (gallery) hero decorative honeycomb ----------------------- */
+/* A polished module-hex motif to the right of the headline. Same hex
+   styling as the hover cluster, but it drifts and shimmers gently on a
+   loop instead of blooming once. It shrinks on tablet and hides on
+   narrow screens so it never pushes the card grid down on mobile. */
+.hero{ display: flex; align-items: center; gap: 34px; }
+.hero-copy{ flex: 1 1 auto; min-width: 0; }
+.hero-hive{
+  flex: 0 0 auto;
+  position: relative;
+  width: 300px;
+  height: 236px;
+  align-self: center;
+  pointer-events: none;
+}
+.hero-hive .hc-cell,
+.hero-hive .hc-ghost{
+  opacity: 1;
+  animation: hero-float var(--dur, 7s) ease-in-out var(--del, 0s) infinite alternate;
+}
+.hero-hive .hc-ghost{ opacity: .42; }
+@keyframes hero-float{
+  from{ transform: translateY(2px) scale(.992); }
+  to{ transform: translateY(-4px) scale(1.014); }
+}
+@media (max-width: 1100px){
+  .hero-hive{ width: 220px; height: 180px; }
+}
+@media (max-width: 820px){
+  .hero{ gap: 0; }
+  .hero-hive{ display: none; }
+}
+@media (prefers-reduced-motion: reduce){
+  .hero-hive .hc-cell,
+  .hero-hive .hc-ghost{ animation: none; }
 }

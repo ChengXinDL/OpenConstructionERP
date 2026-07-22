@@ -30,9 +30,15 @@
  * Plain Node ESM, no dependencies beyond node:fs / node:path.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import {
+  buildSwitcher,
+  galleryHref,
+  SWITCHER_JS,
+  SWITCH_LANGS,
+} from './cases-switcher.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SITE = join(here, '..');
@@ -85,6 +91,87 @@ function slice(src, re, label) {
   return m[0];
 }
 
+// Place the language switcher just before the burger inside .nav-right, so
+// it sits with the demo / GitHub / install pills like the homepage picker.
+function injectSwitcher(navHtml, switchBlock) {
+  if (navHtml.includes('<button type="button" class="nav-burger"')) {
+    return navHtml.replace(
+      '<button type="button" class="nav-burger"',
+      switchBlock + '\n        <button type="button" class="nav-burger"',
+    );
+  }
+  // Fallback: append inside the first nav-right container.
+  return navHtml.replace('</div>\n      </div>\n    </div>\n  </nav>', switchBlock + '</div>\n      </div>\n    </div>\n  </nav>');
+}
+
+/* ---- hero decorative honeycomb (baked, static) ---------------------- */
+// A small icon set mirroring the runtime hover map, so the hero motif reads
+// with the same glyphs. Unknown names fall back to a first letter.
+const HERO_ICONS = {
+  boq: '☰', costs: '€', takeoff: '✶', validation: '✓',
+  schedule: '◷', 'advanced schedule': '◷', bim: '◈', 'bim viewer': '◈',
+  'production norms': '∑', 'resource summary': '▦', tendering: '⎙',
+  procurement: '⛟', handover: '⚑', projects: '◫', reports: '▤',
+  portal: '◧', assemblies: '❏', 'daily diary': '✎', rfis: '?',
+  'non-conformances': '⚠', 'punch list': '☑', files: '▦',
+};
+function heroIcon(name) {
+  const k = String(name).toLowerCase().trim();
+  if (HERO_ICONS[k]) return HERO_ICONS[k];
+  for (const key of Object.keys(HERO_ICONS)) if (k.indexOf(key) >= 0) return HERO_ICONS[key];
+  const m = String(name).replace(/[^A-Za-z0-9]/g, '');
+  return m ? m.charAt(0).toUpperCase() : '◆';
+}
+function heroSpiral(radius) {
+  const out = [{ q: 0, r: 0 }];
+  const dirs = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
+  for (let k = 1; k <= radius; k++) {
+    let q = dirs[4][0] * k, r = dirs[4][1] * k;
+    for (let s = 0; s < 6; s++) {
+      for (let step = 0; step < k; step++) { out.push({ q, r }); q += dirs[s][0]; r += dirs[s][1]; }
+    }
+  }
+  return out;
+}
+function escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Build the hero aside: a radius-2 hex cluster of representative modules
+// (a few solid picks ringed by ghost hexes), tinted the gallery accent.
+function buildHeroHive() {
+  const solids = ['BOQ', 'Takeoff', 'Schedule', 'BIM Viewer', 'Costs', 'Validation'];
+  const ghosts = ['Tendering', 'Procurement', 'Handover', 'Projects', 'Reports',
+    'Production Norms', 'Assemblies', 'Daily Diary', 'RFIs', 'Punch List',
+    'Portal', 'Resource Summary', 'Files'];
+  const cells = heroSpiral(2); // 19 seats
+  const tint = '#0284c7';
+  const w = 60, h = w * 0.866, col = w * 0.75;
+  const seats = cells.map((c) => ({ x: c.q * col, y: h * (c.r + c.q / 2) }));
+  const xs = seats.map((s) => s.x), ys = seats.map((s) => s.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs) + w;
+  const minY = Math.min(...ys), maxY = Math.max(...ys) + h;
+  const cw = maxX - minX, chh = maxY - minY;
+  const n = solids.length;
+  const parts = seats.map((s, i) => {
+    const x = (s.x - minX).toFixed(1), y = (s.y - minY).toFixed(1);
+    const dur = (6 + ((i * 7) % 5) * 0.6).toFixed(1);
+    const del = ((i % 6) * 0.35).toFixed(2);
+    const style = `left:${x}px;top:${y}px;--tint:${tint};--dur:${dur}s;--del:${del}s`;
+    if (i < n) {
+      const nm = solids[i];
+      return `<span class="hc-cell" style="${style}" title="${escHtml(nm)}">` +
+        `<span class="hc-face"><span class="hc-ico" aria-hidden="true">${heroIcon(nm)}</span>` +
+        `<span class="hc-title">${escHtml(nm)}</span></span></span>`;
+    }
+    const nm = ghosts[i - n] || '';
+    return `<span class="hc-ghost" style="${style}" title="${escHtml(nm)}">` +
+      `<span class="hc-gface"><span class="hc-gico" aria-hidden="true">${heroIcon(nm)}</span></span></span>`;
+  }).join('');
+  return `<aside class="hero-hive" aria-hidden="true" style="width:${cw.toFixed(0)}px;height:${chh.toFixed(0)}px;` +
+    `--hc-w:${w}px;--hc-h:${h.toFixed(1)}px">${parts}</aside>`;
+}
+
 /* ==================================================================== */
 function main() {
   let html = readFileSync(GALLERY, 'utf8');
@@ -103,6 +190,13 @@ function main() {
     '<a href="/cases">Cases</a>',
     '<a href="/cases" class="is-active" aria-current="page">Cases</a>',
   );
+
+  // Drop any switcher lifted from the detail page and inject the gallery's
+  // own (its links point at /<lang>/cases, not a detail slug). English page:
+  // the button reads EN; every menu item navigates to that language's gallery.
+  navHtml = navHtml.replace(/<!--oce:lang-switch-->[\s\S]*?<!--\/oce:lang-switch-->/, '');
+  const gallerySwitch = '<!--oce:lang-switch-->' + buildSwitcher('en', galleryHref()) + '<!--/oce:lang-switch-->';
+  navHtml = injectSwitcher(navHtml, gallerySwitch);
 
   /* ---- (1) head block: nav CSS + theme init + hive CSS ------------- */
   const headBlock =
@@ -163,8 +257,9 @@ function main() {
     '<!--/oce:gallery-hive--></main>',
   );
 
-  /* ---- (4) hover script + nav wiring before </body> --------------- */
-  const jsBlock = '<!--oce:gallery-js-->' + HIVE_SCRIPT + navJs + '<!--/oce:gallery-js-->';
+  /* ---- (4) hover script + nav wiring + switcher before </body> ---- */
+  const switchJs = '<script>' + SWITCHER_JS + '</script>';
+  const jsBlock = '<!--oce:gallery-js-->' + HIVE_SCRIPT + navJs + switchJs + '<!--/oce:gallery-js-->';
   html = html.replace(
     /<!--oce:gallery-js-->[\s\S]*?<!--\/oce:gallery-js-->\s*<\/body>|<\/body>/,
     jsBlock + '</body>',
@@ -172,9 +267,38 @@ function main() {
 
   writeFileSync(GALLERY, html);
 
+  /* ---- (5) localized gallery snapshots (/<lang>/cases/index.html) --- */
+  // The switcher navigates to /<lang>/cases; emit those pages so the links
+  // resolve. Each is the English gallery with the page language set, the
+  // card + switcher links retargeted to that language, and the switcher
+  // showing that language as current. Card copy stays English (product and
+  // module names are English everywhere); the localized detail pages a card
+  // opens are fully translated.
+  let localized = 0;
+  for (const l of SWITCH_LANGS) {
+    if (l.code === 'en') continue;
+    let lp = html;
+    // Page language (and direction for Arabic).
+    lp = lp.replace(/<html lang="[^"]*"/, `<html lang="${l.code}"${l.code === 'ar' ? ' dir="rtl"' : ''}`);
+    // Retarget every case-card link to the localized detail page.
+    lp = lp.replace(/href="\/cases\/([a-z0-9-]+)"/g, `href="/${l.code}/cases/$1"`);
+    // Rebuild the switcher for this language (current = l.code).
+    lp = lp.replace(
+      /<!--oce:lang-switch-->[\s\S]*?<!--\/oce:lang-switch-->/,
+      '<!--oce:lang-switch-->' + buildSwitcher(l.code, galleryHref()) + '<!--/oce:lang-switch-->',
+    );
+    // The active "Cases" nav link points at this language's gallery.
+    lp = lp.replace('<a href="/cases" class="is-active"', `<a href="/${l.code}/cases" class="is-active"`);
+    const outDir = join(SITE, l.code, 'cases');
+    mkdirSync(outDir, { recursive: true });
+    writeFileSync(join(outDir, 'index.html'), lp);
+    localized += 1;
+  }
+
   console.log(`Cards with data-modules: ${carded}`);
   if (missing.length) console.log(`Slugs missing from case-modules.json (${missing.length}): ${missing.join(', ')}`);
   else console.log('All card slugs matched an entry in case-modules.json.');
+  console.log(`Localized gallery snapshots written: ${localized} (/<lang>/cases/index.html)`);
 }
 
 /* ---- the runtime honeycomb script (inlined into the page) ----------- */
@@ -231,9 +355,9 @@ const HIVE_SCRIPT = `<script>
   }
   var CELLS=spiral(2); // 19 positions -> a compact cluster beside the card
 
-  // The floating cluster + its caption live inside the fixed overlay.
+  // The floating cluster lives inside the fixed overlay (no caption: the
+  // card already names the case right beside it).
   var stage=document.createElement('div'); stage.className='hive-stage';
-  var cap=document.createElement('div'); cap.className='hive-cap';
   overlay.appendChild(stage);
 
   var activeCard=null, lastW=0, lastH=0, raf=0;
@@ -305,9 +429,7 @@ const HIVE_SCRIPT = `<script>
       }
     });
 
-    cap.innerHTML='<span class="dot"></span><b>'+esc(title)+'</b> \\u00b7 '+n+' of '+ALL.length+' modules';
     stage.innerHTML='';
-    stage.appendChild(cap);
     stage.appendChild(frag);
 
     lastW=cw; lastH=ch;
