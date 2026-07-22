@@ -23717,5 +23717,141 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
       </svg>
     </div>
     <!--/oce:cb-hexflank-->
+  <!--oce:hero-cases - hover/focus a hero module hex to see the playbooks it can run, each a direct link to its case page. Popover is appended to <body> so it is never clipped, theme-aware, keyboard and touch friendly. Does not alter the existing hex flip. -->
+  <style>
+    .oce-hcpop {
+      position: fixed; z-index: 3000; left: 0; top: 0; display: none;
+      width: min(280px, 86vw); box-sizing: border-box;
+      padding: 12px 12px 10px; border-radius: 14px;
+      background: color-mix(in oklab, var(--bg-0, #fff) 92%, var(--accent) 4%);
+      border: 1px solid color-mix(in oklab, var(--accent) 26%, var(--line-1, #dde3e8));
+      box-shadow: 0 18px 44px -18px color-mix(in oklab, var(--accent) 55%, transparent),
+                  0 2px 8px -4px rgba(0,0,0,.25);
+      -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+      pointer-events: auto; color: var(--ink-0, #10151b);
+    }
+    .oce-hcpop[data-show="1"] { display: block; }
+    .oce-hcpop-h {
+      display: flex; align-items: center; gap: 7px; margin: 0 0 8px;
+      font: 700 10px 'JetBrains Mono', ui-monospace, monospace; letter-spacing: .1em;
+      text-transform: uppercase; color: color-mix(in oklab, var(--accent) 82%, var(--ink-2, #667));
+    }
+    .oce-hcpop-h .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: none; }
+    .oce-hcpop-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+    .oce-hcpop-list a {
+      display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px;
+      font-size: 13px; line-height: 1.25; text-decoration: none;
+      color: var(--ink-0, #10151b); transition: background .12s ease, color .12s ease;
+    }
+    .oce-hcpop-list a .arw { margin-left: auto; opacity: 0; transition: opacity .12s ease, transform .12s ease; flex: none; }
+    .oce-hcpop-list a:hover, .oce-hcpop-list a:focus-visible {
+      background: color-mix(in oklab, var(--accent) 12%, transparent);
+      color: color-mix(in oklab, var(--accent) 90%, var(--ink-0));
+      outline: none;
+    }
+    .oce-hcpop-list a:hover .arw, .oce-hcpop-list a:focus-visible .arw { opacity: .9; transform: translateX(2px); }
+    .oce-hcpop-list a .bul { width: 5px; height: 5px; border-radius: 1.5px; flex: none;
+      background: color-mix(in oklab, var(--accent) 55%, transparent); transform: rotate(45deg); }
+    .oce-hcpop-more {
+      display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 5px 8px;
+      font: 600 12px/1 inherit; text-decoration: none; border-radius: 8px;
+      color: var(--accent); border: 1px dashed color-mix(in oklab, var(--accent) 40%, transparent);
+    }
+    .oce-hcpop-more:hover { background: color-mix(in oklab, var(--accent) 10%, transparent); }
+    @media (prefers-reduced-motion: no-preference) {
+      .oce-hcpop { animation: oceHcPop .14s ease-out; }
+      @keyframes oceHcPop { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    }
+  </style>
+  <script>
+  (function () {
+    var HERO_CASES = {"hero.mod_projects_title":{"n":9,"c":["assemble-the-om-handover-manual","balance-the-portfolio-and-level-resources","manage-the-drawing-register-and-transmittals","prepare-a-method-statement-and-risk-assessment","project-end-to-end","set-up-a-new-project","set-up-the-asset-register-for-fm","set-up-the-common-data-environment","track-an-opportunity-from-enquiry-to-tender"]},"BOQ":{"n":35,"c":["assess-and-price-a-variation","build-a-5d-cost-loaded-model","build-an-all-in-labour-rate","build-an-assembly-recipe-rate","build-the-baseline-programme","build-the-resource-library-and-rates","control-cost-against-budget","cost-risk-and-contingency","draft-an-estimate-with-ai-element-matching","elemental-cost-plan-and-classification","escalate-an-estimate-with-price-indices","estimate-from-cost-database"]},"hero.mod_schedules_title":{"n":20,"c":["assess-an-extension-of-time-with-programme-impact","balance-the-portfolio-and-level-resources","build-a-4d-construction-sequence","build-a-5d-cost-loaded-model","build-a-milestone-payment-schedule","build-the-baseline-programme","build-the-resource-library-and-rates","compile-weekly-progress-report","crew-and-plant-lookahead-balance","earned-value-and-forecast","forecast-project-cash-flow","import-a-programme-and-set-the-baseline"]},"CRM":{"n":1,"c":["give-the-client-a-project-portal"]},"hero.mod_takeoff_title":{"n":7,"c":["coordinate-and-resolve-model-clashes","draft-an-estimate-with-ai-element-matching","expand-production-norms-into-resource-quantities","manage-the-drawing-register-and-transmittals","measure-from-a-point-cloud-survey","price-from-pdf","verify-as-built-against-the-model-with-a-scan"]},"CAD / BIM":{"n":15,"c":["build-a-4d-construction-sequence","carbon-from-bim-6d","check-a-model-against-the-eir-and-raise-issues","check-the-asset-data-drop-before-handover","coordinate-and-resolve-model-clashes","coordinate-models-and-clashes","design-query-from-bim-coordination","federate-discipline-models-for-coordination","manage-the-drawing-register-and-transmittals","model-quality-audit-before-issue","quantities-from-bim","run-a-clash-profile-audit"]},"hero.mod_costs_title":{"n":18,"c":["appraise-a-development-scheme","build-a-5d-cost-loaded-model","build-an-assembly-recipe-rate","cost-risk-and-contingency","draft-the-first-year-maintenance-budget","escalate-an-estimate-with-price-indices","estimate-from-cost-database","feasibility-budget-before-design","independent-cost-check-on-a-design","issue-an-electronic-invoice","localize-an-estimate-to-a-region","manage-retention-across-the-supply-chain"]},"hero.mod_validation_title":{"n":11,"c":["draft-an-estimate-with-ai-element-matching","elemental-cost-plan-and-classification","estimate-from-cost-database","import-a-gaeb-tender-into-a-priced-boq","localize-an-estimate-to-a-region","manage-provisional-sums-and-allowances","model-quality-audit-before-issue","price-from-pdf","quantities-from-bim","sense-check-an-estimate-with-benchmarks","validate-estimate"]},"hero.mod_tenders_title":{"n":19,"c":["compare-bids-and-award","import-a-gaeb-tender-into-a-priced-boq","issue-a-procurement-and-buying-schedule","issue-a-tender-addendum-and-reissue","level-bids-to-a-common-scope","maintain-supplier-catalogs-and-buy-from-them","manage-retention-across-the-supply-chain","material-submittal-and-approval","procure-from-boq","protect-the-programme-from-a-long-lead-item","raise-a-subcontract-order-from-the-award","receive-and-reconcile-material-deliveries"]},"Carbon":{"n":1,"c":["carbon-from-bim-6d"]},"Variations":{"n":9,"c":["assess-an-extension-of-time-with-programme-impact","assess-and-price-a-variation","build-a-delay-and-disruption-claim-with-evidence","change-register-and-impact","change-to-paid-variation","manage-an-engineering-change","record-a-verbal-instruction-for-the-record","track-a-design-change-to-site-record","update-the-programme-and-reforecast"]},"hero.mod_contracts_title":{"n":20,"c":["agree-the-final-account-and-release-retention","assess-an-extension-of-time-with-programme-impact","assess-and-price-a-variation","build-a-delay-and-disruption-claim-with-evidence","build-a-milestone-payment-schedule","capture-daywork-and-time-and-materials","change-to-paid-variation","cost-value-reconciliation","earned-value-and-forecast","issue-a-procurement-and-buying-schedule","issue-an-electronic-invoice","manage-retention-across-the-supply-chain"]},"hero.mod_inventory_title":{"n":3,"c":["import-a-gaeb-tender-into-a-priced-boq","maintain-supplier-catalogs-and-buy-from-them","receive-and-reconcile-material-deliveries"]},"hero.mod_safety_title":{"n":9,"c":["issue-a-permit-to-work","manage-an-engineering-change","manage-hse-performance-and-statutory-registers","prepare-a-method-statement-and-risk-assessment","report-and-action-a-near-miss","run-a-toolbox-talk-and-record-attendance","run-the-site-day","subcontractor-prequalification-and-onboarding","toolbox-talk-and-safety"]},"hero.mod_documents_title":{"n":28,"c":["answer-an-rfi","as-built-and-om-handover","assemble-the-om-handover-manual","build-and-run-an-itp","close-out-permits-and-statutory-approvals","federate-discipline-models-for-coordination","handover-and-closeout","import-a-gaeb-tender-into-a-priced-boq","issue-a-controlled-drawing-revision","issue-a-tender-addendum-and-reissue","manage-interfaces-between-work-packages","manage-the-drawing-register-and-transmittals"]},"hero.mod_site_tasks_title":{"n":30,"c":["build-a-delay-and-disruption-claim-with-evidence","build-and-run-an-itp","capture-daywork-and-time-and-materials","clear-the-snag-list-before-handover","close-out-permits-and-statutory-approvals","compile-weekly-progress-report","crew-and-plant-lookahead-balance","defects-liability-period-tracking","handover-and-closeout","inspect-and-close-ncr","issue-a-controlled-drawing-revision","issue-a-permit-to-work"]},"Daily log":{"n":12,"c":["build-a-delay-and-disruption-claim-with-evidence","capture-daywork-and-time-and-materials","compile-weekly-progress-report","crew-and-plant-lookahead-balance","issue-a-permit-to-work","manage-the-plant-and-equipment-register","project-end-to-end","run-a-toolbox-talk-and-record-attendance","run-the-site-day","schedule-and-track","turn-field-time-into-payroll-and-labour-cost","update-the-programme-and-reforecast"]},"hero.mod_equipment_title":{"n":7,"c":["check-the-asset-data-drop-before-handover","draft-the-first-year-maintenance-budget","plan-preventive-maintenance-from-the-asset-register","raise-and-close-a-warranty-claim","register-warranties-and-guarantees-at-handover","run-a-soft-landings-performance-handover","run-reactive-fm-service-after-handover"]},"hero.mod_quality_title":{"n":26,"c":["as-built-and-om-handover","assemble-the-om-handover-manual","build-and-run-an-itp","check-the-asset-data-drop-before-handover","clear-the-snag-list-before-handover","close-out-permits-and-statutory-approvals","coordinate-models-and-clashes","defects-liability-period-tracking","handover-and-closeout","inspect-and-close-ncr","issue-a-controlled-drawing-revision","manage-temporary-works-and-inspections"]},"hero.mod_cashflow_title":{"n":18,"c":["agree-the-final-account-and-release-retention","assess-and-price-a-variation","build-a-milestone-payment-schedule","control-cost-against-budget","cost-value-reconciliation","earned-value-and-forecast","forecast-project-cash-flow","give-the-client-a-project-portal","issue-an-electronic-invoice","manage-retention-across-the-supply-chain","milestone-progress-before-drawdown","payment-application-and-reconciliation"]},"hero.mod_reporting_title":{"n":41,"c":["agree-the-final-account-and-release-retention","appraise-a-development-scheme","assemble-the-om-handover-manual","assess-and-price-a-variation","build-a-delay-and-disruption-claim-with-evidence","build-the-baseline-programme","change-register-and-impact","compare-bids-and-award","compile-weekly-progress-report","control-cost-against-budget","coordinate-and-resolve-model-clashes","cost-risk-and-contingency"]},"hero.mod_users_title":{"n":1,"c":["give-the-client-a-project-portal"]}};
+    function boot() {
+      var cells = document.querySelectorAll('.hc-cell');
+      if (!cells.length || document.querySelector('.oce-hcpop')) return;
+      var pop = document.createElement('div');
+      pop.className = 'oce-hcpop';
+      pop.setAttribute('role', 'dialog');
+      document.body.appendChild(pop);
+
+      var hideT = null, current = null;
+      function pretty(slug) {
+        var s = slug.replace(/-/g, ' ');
+        return s.charAt(0).toUpperCase() + s.slice(1);
+      }
+      function cellId(cell) {
+        var t = cell.querySelector('.hc-title');
+        if (!t) return null;
+        return t.getAttribute('data-i18n') || t.textContent.trim();
+      }
+      function cellName(cell) {
+        var t = cell.querySelector('.hc-title');
+        return t ? t.textContent.trim() : '';
+      }
+      function build(cell, data) {
+        var shown = data.c.slice(0, 6);
+        var rows = shown.map(function (slug) {
+          return '<li><a href="/cases/' + slug + '"><span class="bul"></span><span>' + pretty(slug) +
+            '</span><svg class="arw" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></li>';
+        }).join('');
+        var more = data.n > shown.length
+          ? '<a class="oce-hcpop-more" href="/cases">+' + (data.n - shown.length) + ' more playbooks<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>'
+          : '';
+        pop.innerHTML = '<div class="oce-hcpop-h"><span class="dot"></span>' +
+          (cellName(cell) || 'Module') + ' &middot; playbooks</div>' +
+          '<ul class="oce-hcpop-list">' + rows + '</ul>' + more;
+      }
+      function place(cell) {
+        var r = cell.getBoundingClientRect();
+        pop.style.visibility = 'hidden'; pop.setAttribute('data-show', '1');
+        var pw = pop.offsetWidth, ph = pop.offsetHeight;
+        var left = r.left + r.width / 2 - pw / 2;
+        left = Math.max(10, Math.min(left, window.innerWidth - pw - 10));
+        var top = r.bottom + 10;
+        if (top + ph > window.innerHeight - 10) top = r.top - ph - 10;
+        if (top < 10) top = 10;
+        pop.style.left = Math.round(left) + 'px';
+        pop.style.top = Math.round(top) + 'px';
+        pop.style.visibility = 'visible';
+      }
+      function show(cell) {
+        var id = cellId(cell);
+        var data = id && HERO_CASES[id];
+        if (!data || !data.c || !data.c.length) { hideNow(); return; }
+        clearTimeout(hideT);
+        current = cell;
+        build(cell, data);
+        place(cell);
+      }
+      function hideNow() { pop.removeAttribute('data-show'); current = null; }
+      function hideSoon() { clearTimeout(hideT); hideT = setTimeout(hideNow, 140); }
+
+      cells.forEach(function (cell) {
+        cell.addEventListener('mouseenter', function () { show(cell); });
+        cell.addEventListener('mouseleave', hideSoon);
+        cell.addEventListener('focusin', function () { show(cell); });
+        cell.addEventListener('blur', hideSoon, true);
+        // touch: first tap opens the popover instead of following the hex action
+        cell.addEventListener('pointerdown', function (e) {
+          if (e.pointerType === 'touch') {
+            if (current === cell) { hideNow(); }
+            else { e.preventDefault(); show(cell); }
+          }
+        });
+      });
+      pop.addEventListener('mouseenter', function () { clearTimeout(hideT); });
+      pop.addEventListener('mouseleave', hideSoon);
+      window.addEventListener('scroll', function () { if (current) hideNow(); }, { passive: true });
+      window.addEventListener('resize', function () { if (current) hideNow(); });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hideNow(); });
+      document.addEventListener('pointerdown', function (e) {
+        if (current && !pop.contains(e.target) && !current.contains(e.target)) hideNow();
+      });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+    else boot();
+  })();
+  </script>
+  <!--/oce:hero-cases-->
 </body>
 </html>
