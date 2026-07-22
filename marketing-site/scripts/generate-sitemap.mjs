@@ -52,6 +52,23 @@ const LANG_CODES = [
   'tr', 'sv', 'no', 'fi', 'da', 'ar', 'zh', 'ja', 'ko',
 ];
 
+// Languages the case (playbook) pages are published in. This is a
+// superset of LANG_CODES: the /cases pages are generated from the app
+// locales (see generate-cases.mjs), which cover more languages than the
+// home / whitepaper snapshots. `code` is the URL directory; `hreflang`
+// overrides the alternate code when it differs (es-mx -> es-MX). Only
+// languages whose file actually exists on disk end up in a cluster, so
+// this list is safe to keep broad.
+const CASE_LANGS = [
+  { code: 'de' }, { code: 'fr' }, { code: 'es' }, { code: 'it' }, { code: 'pt' },
+  { code: 'nl' }, { code: 'pl' }, { code: 'cs' }, { code: 'ru' }, { code: 'bg' },
+  { code: 'tr' }, { code: 'sv' }, { code: 'no' }, { code: 'fi' }, { code: 'da' },
+  { code: 'ar' }, { code: 'zh' }, { code: 'ja' }, { code: 'ko' }, { code: 'hi' },
+  { code: 'hr' }, { code: 'id' }, { code: 'mn' }, { code: 'ro' }, { code: 'th' },
+  { code: 'vi' }, { code: 'es-mx', hreflang: 'es-MX' },
+];
+const CASE_LANG_DIRS = new Set(CASE_LANGS.map((l) => l.code));
+
 // Directories never scanned (relative to web root, matched by name
 // at any depth). Assets, runtime i18n, locale JSON, backups.
 const DENY_DIRS = new Set([
@@ -105,6 +122,15 @@ function seoHints(pathname) {
   // A cornerstone content cluster - rank it above the generic 0.5 default.
   if (/^\/uberization-of-construction\/([a-z]{2})?$/.test(pathname)) {
     return { changefreq: 'monthly', priority: '0.7' };
+  }
+  // Cases hub index (English gallery) and its localized variants.
+  if (pathname === '/cases/' || /^\/[a-z-]+\/cases\/$/.test(pathname)) {
+    return { changefreq: 'weekly', priority: '0.7' };
+  }
+  // Case (playbook) detail pages, English and per-language. A large
+  // evergreen content cluster, ranked above the generic default.
+  if (/^\/cases\/[^/]+$/.test(pathname) || /^\/[a-z-]+\/cases\/[^/]+$/.test(pathname)) {
+    return { changefreq: 'monthly', priority: '0.6' };
   }
   return { changefreq: 'monthly', priority: '0.5' };
 }
@@ -235,7 +261,12 @@ function build({ root, base }) {
     // represented by /uberization-of-construction/ (x-default + en), so the
     // /en duplicate stays out of the sitemap.
     if (urlPath === '/uberization-of-construction/en') continue;
-    const lastmod = gitLastmod(abs, root) || mtimeDate(abs);
+    // Case (playbook) pages are generated in bulk (thousands of files);
+    // a per-file `git log` would dominate runtime and carries no useful
+    // signal for machine-generated pages, so date them from mtime.
+    const isCasePath =
+      /^\/cases\/[^/]+$/.test(urlPath) || /^\/[a-z-]+\/cases\/[^/]+$/.test(urlPath);
+    const lastmod = (isCasePath ? null : gitLastmod(abs, root)) || mtimeDate(abs);
     pages.push({ abs, urlPath, lastmod });
   }
 
@@ -270,6 +301,40 @@ function build({ root, base }) {
   ];
   const isWhitepaper = (p) =>
     p.urlPath === WP_ROOT || /^\/uberization-of-construction\/[a-z]{2}$/.test(p.urlPath);
+
+  // The case (playbook) pages are the third localized cluster, and the
+  // largest: one page per case per language. English lives at
+  // /cases/<slug> (en + x-default); each localized edition at
+  // /<lang>/cases/<slug>. Each gets the full reciprocal hreflang set,
+  // built only from the language editions that actually exist on disk.
+  const urlSet = new Set(pages.map((p) => p.urlPath));
+  const caseSlug = (urlPath) => {
+    let m = urlPath.match(/^\/cases\/([^/]+)$/);
+    if (m) return m[1];
+    m = urlPath.match(/^\/([a-z-]+)\/cases\/([^/]+)$/);
+    if (m && CASE_LANG_DIRS.has(m[1])) return m[2];
+    return null;
+  };
+  const caseAlternatesCache = new Map();
+  const caseAlternates = (slug) => {
+    if (caseAlternatesCache.has(slug)) return caseAlternatesCache.get(slug);
+    const enPath = `/cases/${slug}`;
+    const alts = [];
+    if (urlSet.has(enPath)) {
+      alts.push({ hreflang: 'x-default', href: `${base}${enPath}` });
+      alts.push({ hreflang: 'en', href: `${base}${enPath}` });
+    }
+    for (const l of CASE_LANGS) {
+      const p = `/${l.code}/cases/${slug}`;
+      if (urlSet.has(p)) alts.push({ hreflang: l.hreflang || l.code, href: `${base}${p}` });
+    }
+    // Only worth emitting a cluster when there is at least one alternate
+    // beyond the page itself; a lone English page needs none.
+    const cluster = alts.length > 1 ? alts : null;
+    caseAlternatesCache.set(slug, cluster);
+    return cluster;
+  };
+  const isCase = (p) => /^\/cases\/[^/]+$/.test(p.urlPath) || /^\/[a-z-]+\/cases\/[^/]+$/.test(p.urlPath);
 
   // Deterministic ordering: home first, then language homes in
   // configured order, then non-news top-level pages alphabetically,
@@ -319,7 +384,13 @@ function build({ root, base }) {
     lines.push('  <url>');
     lines.push(`    <loc>${xmlEscape(loc)}</loc>`);
     lines.push(`    <lastmod>${p.lastmod}</lastmod>`);
-    const alternates = isHome(p) ? homeAlternates : isWhitepaper(p) ? whitepaperAlternates : null;
+    const alternates = isHome(p)
+      ? homeAlternates
+      : isWhitepaper(p)
+        ? whitepaperAlternates
+        : isCase(p)
+          ? caseAlternates(caseSlug(p.urlPath))
+          : null;
     if (alternates) {
       for (const alt of alternates) {
         lines.push(

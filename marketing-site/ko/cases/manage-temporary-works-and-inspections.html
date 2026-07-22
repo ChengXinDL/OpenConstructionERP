@@ -1,0 +1,202 @@
+<!doctype html><html lang="ko" data-theme="light"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Manage temporary works and inspections - 건설 플레이북 - OpenConstructionERP</title><meta name="description" content="Register every temporary works item, record the design check and coordinator sign-off, inspect before it is loaded and keep the periodic inspection record…"/><link rel="canonical" href="https://openconstructionerp.com/ko/cases/manage-temporary-works-and-inspections"/><meta property="og:title" content="Manage temporary works and inspections - 건설 플레이북 - OpenConstructionERP"/><meta property="og:description" content="Register every temporary works item, record the design check and coordinator sign-off, inspect before it is loaded and keep the periodic inspection record…"/><meta property="og:type" content="website"/><link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/><link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300..500;1,9..144,300..500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/><style>
+:root{
+  --bg-0:#f1f2f3; --bg-1:#ebeced; --bg-2:#e4e5e7;
+  --ink-0:#0b1220; --ink-1:#1e293b; --ink-2:#475569; --ink-3:#94a3b8;
+  --line-0:rgba(15,23,42,0.05); --line-1:rgba(15,23,42,0.09); --line-2:rgba(15,23,42,0.14);
+  --accent:#2d5e8e; --accent-2:#3c6fa0; --accent-3:#244c74;
+  --card:#ffffff; --card-2:#fbfcfd; --tile:#f4f7fb;
+  color-scheme:light;
+}
+[data-theme="dark"]{
+  --bg-0:#0b1220; --bg-1:#111a2c; --bg-2:#152238;
+  --ink-0:#eff6ff; --ink-1:#cfe0f5; --ink-2:#94a3b8; --ink-3:#64748b;
+  --line-0:rgba(255,255,255,0.06); --line-1:rgba(255,255,255,0.10); --line-2:rgba(255,255,255,0.18);
+  --accent:#6ba2d8; --accent-2:#84b3e2; --accent-3:#5a90c8;
+  --card:#0f1a2e; --card-2:#0d1728; --tile:#0c1626;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg-0); color:var(--ink-0);
+  font-family:'Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+  text-rendering:optimizeLegibility; min-height:100vh; overflow-x:hidden;
+  line-height:1.55;
+}
+a{color:inherit; text-decoration:none}
+.wrap{max-width:1320px; margin:0 auto; padding:0 24px}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+
+/* ---- header ---- */
+.hd{position:sticky; top:0; z-index:50; backdrop-filter:saturate(1.4) blur(12px);
+  background:color-mix(in oklab, var(--bg-0) 82%, transparent);
+  border-bottom:1px solid var(--line-1)}
+.hd-in{display:flex; align-items:center; gap:18px; height:60px}
+.logo{font-family:'Inter Tight',sans-serif; font-weight:700; font-size:1.06rem; letter-spacing:-.01em; white-space:nowrap}
+.logo span{color:var(--accent)}
+.hd-sp{flex:1}
+.hd a.back{font-size:.9rem; color:var(--ink-2); display:inline-flex; align-items:center; gap:6px; white-space:nowrap}
+.hd a.back:hover{color:var(--ink-0)}
+.hd-nav{display:flex; align-items:center; gap:19px}
+.hd-nav a{font-size:.88rem; color:var(--ink-2); white-space:nowrap; transition:.14s}
+.hd-nav a:hover{color:var(--ink-0)}
+.hd-nav a.on{color:var(--ink-0); font-weight:600}
+@media(max-width:960px){.hd-nav{display:none}}
+.tgl{width:34px; height:34px; border-radius:9px; border:1px solid var(--line-2);
+  background:var(--card); color:var(--ink-1); display:inline-grid; place-items:center; cursor:pointer}
+.tgl:hover{border-color:var(--accent)}
+.tgl svg{width:16px; height:16px}
+.btn{display:inline-flex; align-items:center; gap:7px; font-family:'Inter Tight',sans-serif; font-weight:600;
+  font-size:.9rem; padding:9px 16px; border-radius:10px; border:1px solid transparent; cursor:pointer; white-space:nowrap}
+.btn svg{width:16px; height:16px; flex:none}
+.btn-primary{background:var(--accent); color:#fff}
+.btn-primary:hover{background:var(--accent-3)}
+.btn-ghost{border-color:var(--line-2); color:var(--ink-1); background:var(--card)}
+.btn-ghost:hover{border-color:var(--accent); color:var(--ink-0)}
+.ic{width:1em; height:1em; flex:none}
+
+/* ---- hero ---- */
+.hero{padding:56px 0 26px}
+.eyebrow{font-family:'JetBrains Mono',monospace; font-size:.72rem; letter-spacing:.18em; text-transform:uppercase;
+  color:var(--accent); display:inline-flex; align-items:center; gap:9px; margin-bottom:18px}
+.eyebrow::before{content:""; width:26px; height:2px; background:var(--accent); display:inline-block}
+h1.title{font-family:'Inter Tight',sans-serif; font-weight:700; letter-spacing:-.025em; line-height:1.04;
+  font-size:clamp(2.1rem,4.6vw,3.5rem); margin:0 0 18px; max-width:16ch; text-wrap:balance}
+h1.title .it{font-family:'Fraunces',serif; font-weight:400; font-style:italic; color:var(--accent)}
+.lede{font-size:clamp(1.02rem,1.5vw,1.18rem); color:var(--ink-2); max-width:62ch; margin:0}
+.hero-meta{display:flex; gap:22px; flex-wrap:wrap; margin-top:22px; font-family:'JetBrains Mono',monospace;
+  font-size:.8rem; color:var(--ink-2)}
+.hero-meta b{color:var(--ink-0); font-weight:600}
+
+/* ---- toolbar ---- */
+.toolbar{position:sticky; top:60px; z-index:40; padding:14px 0 12px;
+  background:color-mix(in oklab, var(--bg-0) 90%, transparent); backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line-1)}
+.search{position:relative; margin-bottom:12px; max-width:520px}
+.search input{width:100%; font:inherit; font-size:.95rem; padding:11px 14px 11px 40px; border-radius:11px;
+  border:1px solid var(--line-2); background:var(--card); color:var(--ink-0)}
+.search input::placeholder{color:var(--ink-3)}
+.search input:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in oklab,var(--accent) 20%,transparent)}
+.search svg{position:absolute; left:13px; top:50%; transform:translateY(-50%); width:17px; height:17px; color:var(--ink-3)}
+.chips{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.chip{display:inline-flex; align-items:center; gap:7px; font-family:'Inter Tight',sans-serif; font-weight:600;
+  font-size:.83rem; padding:7px 13px; border-radius:999px; border:1px solid var(--line-2);
+  background:var(--card); color:var(--ink-2); cursor:pointer; transition:.14s; white-space:nowrap}
+.chip .ic{width:15px; height:15px}
+.chip .ct{font-family:'JetBrains Mono',monospace; font-size:.72rem; opacity:.7}
+.chip:hover{color:var(--ink-0); border-color:var(--ink-3)}
+.chip[aria-pressed="true"]{color:#fff; border-color:transparent}
+.chip.all[aria-pressed="true"]{background:var(--accent)}
+.rolebar{margin-left:auto; display:flex; align-items:center; gap:8px}
+.rolebar select{font:inherit; font-size:.85rem; padding:7px 12px; border-radius:10px; border:1px solid var(--line-2);
+  background:var(--card); color:var(--ink-1); cursor:pointer}
+
+/* ---- gallery grid ---- */
+.count{font-family:'JetBrains Mono',monospace; font-size:.78rem; color:var(--ink-2); padding:20px 0 4px}
+.grid{display:grid; grid-template-columns:repeat(5,1fr); gap:16px; padding:12px 0 60px}
+.grid.grid-3{grid-template-columns:repeat(3,1fr)}
+@media(max-width:1180px){.grid{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:940px){.grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:680px){.grid{grid-template-columns:repeat(2,1fr)} .grid.grid-3{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:460px){.grid{grid-template-columns:1fr} .grid.grid-3{grid-template-columns:1fr}}
+.card{position:relative; display:flex; flex-direction:column; background:var(--card);
+  border:1px solid var(--line-1); border-radius:14px; overflow:hidden; transition:.18s; cursor:pointer}
+.card:hover{transform:translateY(-4px); border-color:var(--line-2);
+  box-shadow:0 18px 40px -22px rgba(15,23,42,.4)}
+[data-theme="dark"] .card:hover{box-shadow:0 18px 40px -18px rgba(0,0,0,.6)}
+.card .thumb{aspect-ratio:120/74; background:
+  linear-gradient(160deg,#fbfdff,#eef3f9); position:relative; border-bottom:1px solid var(--line-1)}
+.card .thumb svg{position:absolute; inset:0}
+.card .cbar{position:absolute; top:0; left:0; right:0; height:3px}
+.card .body{padding:13px 14px 14px; display:flex; flex-direction:column; gap:7px; flex:1}
+.card .ceyebrow{font-family:'JetBrains Mono',monospace; font-size:.63rem; letter-spacing:.09em; text-transform:uppercase;
+  display:inline-flex; align-items:center; gap:5px; font-weight:500}
+.card .ceyebrow .ic{width:12px; height:12px; flex:none}
+.card .ceyebrow span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.card h3{font-family:'Inter Tight',sans-serif; font-weight:600; font-size:.98rem; letter-spacing:-.01em;
+  margin:0; line-height:1.22; color:var(--ink-0)}
+.card p{margin:0; font-size:.82rem; color:var(--ink-2); line-height:1.45; flex:1}
+.card .foot{display:flex; align-items:center; gap:10px; margin-top:3px; padding-top:10px; border-top:1px solid var(--line-0);
+  font-family:'JetBrains Mono',monospace; font-size:.68rem; color:var(--ink-3)}
+.card .foot .m{display:inline-flex; align-items:center; gap:5px}
+.card .foot .m svg{width:13px; height:13px}
+.card .go{margin-left:auto; color:var(--accent); display:inline-flex; align-items:center; gap:4px; font-weight:600}
+.empty{display:none; padding:60px 0; text-align:center; color:var(--ink-2)}
+.empty.on{display:block}
+
+/* ---- footer ---- */
+.ft{border-top:1px solid var(--line-1); padding:34px 0; margin-top:20px; color:var(--ink-2); font-size:.86rem}
+.ft-in{display:flex; gap:16px; flex-wrap:wrap; align-items:center; justify-content:space-between}
+.ft a:hover{color:var(--ink-0)}
+
+/* ---- detail page ---- */
+.crumb{font-family:'JetBrains Mono',monospace; font-size:.76rem; color:var(--ink-2); padding:26px 0 0}
+.crumb a{color:var(--accent)}
+.dhero{display:grid; grid-template-columns:1.15fr .85fr; gap:38px; align-items:center; padding:22px 0 34px}
+.dhero .scene{aspect-ratio:120/84; background:linear-gradient(160deg,#fbfdff,#eef3f9);
+  border:1px solid var(--line-1); border-radius:18px; position:relative; overflow:hidden}
+.dhero .scene svg{position:absolute; inset:0; padding:8px}
+.dhero h1{font-family:'Inter Tight',sans-serif; font-weight:700; letter-spacing:-.025em; line-height:1.06;
+  font-size:clamp(1.9rem,3.6vw,2.9rem); margin:14px 0 16px; text-wrap:balance}
+.dhero .dlede{font-size:1.06rem; color:var(--ink-2); max-width:52ch; margin:0 0 22px}
+.dmeta{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:22px}
+.pill{font-family:'JetBrains Mono',monospace; font-size:.74rem; padding:6px 11px; border-radius:999px;
+  border:1px solid var(--line-2); color:var(--ink-2); display:inline-flex; align-items:center; gap:6px; white-space:nowrap}
+.pill svg{width:13px; height:13px}
+.dcta{display:flex; gap:12px; flex-wrap:wrap}
+
+/* steps timeline */
+.steps{padding:14px 0 30px; max-width:900px}
+.steps-h{font-family:'Inter Tight',sans-serif; font-weight:700; font-size:1.5rem; letter-spacing:-.02em; margin:0 0 6px}
+.steps-sub{color:var(--ink-2); margin:0 0 26px}
+.step{position:relative; padding:0 0 26px 62px}
+.step::before{content:""; position:absolute; left:22px; top:44px; bottom:-4px; width:2px; background:var(--line-1)}
+.step:last-child::before{display:none}
+.step .num{position:absolute; left:0; top:0; width:44px; height:44px; border-radius:12px;
+  display:grid; place-items:center; font-family:'Inter Tight',sans-serif; font-weight:700; color:#fff; font-size:1.05rem}
+.step .shead{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:9px}
+.step h3{font-family:'Inter Tight',sans-serif; font-weight:600; font-size:1.16rem; letter-spacing:-.01em; margin:0; color:var(--ink-0)}
+.modchip{font-family:'JetBrains Mono',monospace; font-size:.7rem; letter-spacing:.04em; padding:4px 9px; border-radius:7px;
+  background:var(--tile); border:1px solid var(--line-1); color:var(--ink-2); display:inline-flex; align-items:center; gap:5px}
+.modchip svg{width:12px; height:12px}
+.step .what{color:var(--ink-1); margin:0 0 10px}
+.step .why{color:var(--ink-2); font-size:.93rem; margin:0 0 12px; padding-left:13px; border-left:2px solid var(--line-2)}
+.step .why b{color:var(--ink-1); font-weight:600; font-family:'Inter Tight',sans-serif}
+.flow{display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:.8rem}
+.flow .lab{font-family:'JetBrains Mono',monospace; font-size:.66rem; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3)}
+.flow .fchip{font-size:.78rem; padding:4px 9px; border-radius:7px; background:var(--card-2); border:1px solid var(--line-1); color:var(--ink-2)}
+.flow .arrow{color:var(--ink-3)}
+.flow .arrow svg{width:15px; height:15px}
+
+/* related */
+.rel{border-top:1px solid var(--line-1); padding:34px 0 20px}
+.rel-h{font-family:'Inter Tight',sans-serif; font-weight:700; font-size:1.25rem; margin:0 0 18px}
+
+@media(max-width:820px){
+  .dhero{grid-template-columns:1fr; gap:22px}
+  .dhero .scene{order:-1}
+  .rolebar{margin-left:0; width:100%}
+}
+@media(max-width:520px){
+  .step{padding-left:54px}
+}
+</style><script>
+(function(){
+  var k='oce-theme';
+  function set(t){document.documentElement.setAttribute('data-theme',t);
+    try{localStorage.setItem(k,t)}catch(e){}}
+  var saved; try{saved=localStorage.getItem(k)}catch(e){}
+  if(!saved) saved = matchMedia('(prefers-color-scheme:dark)').matches ? 'dark':'light';
+  set(saved);
+  addEventListener('DOMContentLoaded',function(){
+    var b=document.getElementById('tgl');
+    if(b) b.addEventListener('click',function(){
+      set(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark');});
+  });
+})();
+</script><!--oce:cases-seo--><meta property="og:locale" content="ko_KR"/><meta property="og:url" content="https://openconstructionerp.com/ko/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="x-default" href="https://openconstructionerp.com/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="en" href="https://openconstructionerp.com/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="de" href="https://openconstructionerp.com/de/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="fr" href="https://openconstructionerp.com/fr/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="es" href="https://openconstructionerp.com/es/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="it" href="https://openconstructionerp.com/it/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="pt" href="https://openconstructionerp.com/pt/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="nl" href="https://openconstructionerp.com/nl/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="pl" href="https://openconstructionerp.com/pl/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="cs" href="https://openconstructionerp.com/cs/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="ru" href="https://openconstructionerp.com/ru/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="bg" href="https://openconstructionerp.com/bg/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="tr" href="https://openconstructionerp.com/tr/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="sv" href="https://openconstructionerp.com/sv/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="no" href="https://openconstructionerp.com/no/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="fi" href="https://openconstructionerp.com/fi/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="da" href="https://openconstructionerp.com/da/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="ar" href="https://openconstructionerp.com/ar/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="zh" href="https://openconstructionerp.com/zh/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="ja" href="https://openconstructionerp.com/ja/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="ko" href="https://openconstructionerp.com/ko/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="hi" href="https://openconstructionerp.com/hi/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="hr" href="https://openconstructionerp.com/hr/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="id" href="https://openconstructionerp.com/id/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="mn" href="https://openconstructionerp.com/mn/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="ro" href="https://openconstructionerp.com/ro/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="th" href="https://openconstructionerp.com/th/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="vi" href="https://openconstructionerp.com/vi/cases/manage-temporary-works-and-inspections"/><link rel="alternate" hreflang="es-MX" href="https://openconstructionerp.com/es-mx/cases/manage-temporary-works-and-inspections"/><script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Manage temporary works and inspections","description":"Register every temporary works item, record the design check and coordinator sign-off, inspect before it is loaded and keep the periodic inspection record right up until it is struck.","inLanguage":"ko","totalTime":"PT11M","url":"https://openconstructionerp.com/ko/cases/manage-temporary-works-and-inspections","step":[{"@type":"HowToStep","position":1,"name":"Register every item","text":"List every temporary works item on the job - scaffold, props, formwork, falsework, excavation support - with its location, design status and who is responsible for it."},{"@type":"HowToStep","position":2,"name":"Record the design check","text":"Record the independent design check and the temporary works coordinator sign-off against each item, so the design is verified before anything is built to it."},{"@type":"HowToStep","position":3,"name":"Inspect and permit to load","text":"Inspect the erected item against its design, confirm it was built as drawn, and issue the permit to load only once it passes."},{"@type":"HowToStep","position":4,"name":"Keep the inspection record","text":"Keep the periodic inspections going - after high winds, adaptations or a set period - and record each one until the item is safely struck and signed off."}]}</script><!--/oce:cases-seo--></head><body><header class="hd"><div class="wrap hd-in"><a class="logo" href="/">Open<span>Construction</span>ERP</a><nav class="hd-nav" aria-label="Main"><a href="/#tour">둘러보기</a><a href="/#compare">비교</a><a href="/cases">케이스</a><a href="/#pricing">요금제</a><a href="/docs">문서</a><a href="/news">뉴스</a><a href="/uberization-of-construction/">우버화</a></nav><span class="hd-sp"></span><button class="tgl" id="tgl" type="button" aria-label="Toggle theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button><a class="btn btn-primary" href="/demo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8z"/></svg>데모 열기</a></div></header><main class="wrap"><div class="crumb"><a href="/cases">케이스</a> / 현장 및 작업</div><section class="dhero"><div><span class="eyebrow" style="color:#d97706"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-hard-hat" aria-hidden="true"><path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5"></path><path d="M14 6a6 6 0 0 1 6 6v3"></path><path d="M4 15v-3a6 6 0 0 1 6-6"></path><rect x="2" y="15" width="20" height="4" rx="1"></rect></svg><span style="margin-left:2px">현장 및 작업</span></span><h1>Manage temporary works and inspections</h1><p class="dlede">Register every temporary works item, record the design check and coordinator sign-off, inspect before it is loaded and keep the periodic inspection record right up until it is struck.</p><div class="dmeta"><span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h5v-5H4zM10 13h5V8h-5zM16 8h4V3h-4z"/></svg>4단계</span><span class="pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>11 분</span><span class="pill">종합건설사</span><span class="pill">전문건설사</span><span class="pill">PM/CM 업체</span></div><div class="dcta"><a class="btn btn-primary" href="/demo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8z"/></svg>데모에서 사용해 보기</a><a class="btn btn-ghost" href="/cases">모든 케이스 보기</a></div></div><div class="scene"><svg viewBox="0 0 120 84" xmlns="http://www.w3.org/2000/svg" style="color:#94a3b8;width:100%;height:100%" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g stroke-width="0.6" opacity="0.16"><path d="M0 21 H120 M0 42 H120 M0 63 H120"/><path d="M30 0 V84 M60 0 V84 M90 0 V84"/></g><rect x="20" y="20" width="34" height="44" rx="3" fill="#eef2f7"/><rect x="20" y="20" width="34" height="9" rx="3" fill="#d97706"/><path d="M26 38 H48 M26 46 H44 M26 54 H46" stroke="#cbd5e1"/><path d="M58 42 H74" stroke="#d97706" stroke-width="2.4"/><path d="M69 37 L74 42 L69 47" stroke="#d97706"/><rect x="78" y="26" width="24" height="32" rx="3" fill="#f8fafc"/><circle cx="90" cy="38" r="5" fill="#d97706" stroke="none"/><path d="M84 50 H96" stroke="#cbd5e1"/></svg></div></section><section class="steps"><h2 class="steps-h">작동 방식, 단계별로</h2><p class="steps-sub">플랫폼 전반에 걸친 4단계 - 각 단계에서 무엇을 하는지, 그리고 왜 중요한지.</p><div class="step"><span class="num" style="background:#d97706">1</span><div class="shead"><h3>Register every item</h3><span class="modchip"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-wrench" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>Temporary Works</span></div><p class="what">List every temporary works item on the job - scaffold, props, formwork, falsework, excavation support - with its location, design status and who is responsible for it.</p><p class="why"><b>이유:</b> The item nobody registered is the one that gets loaded without a check. A complete register is what makes sure every load-bearing temporary structure has an owner and a design behind it.</p><div class="flow"><span class="lab">입력</span><span class="fchip">Temporary works</span><span class="fchip">Method statements</span><span class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span><span class="lab">결과</span><span class="fchip">Temporary works register</span></div></div>
+<div class="step"><span class="num" style="background:#d97706">2</span><div class="shead"><h3>Record the design check</h3><span class="modchip"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-badge-check" aria-hidden="true"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"></path><path d="m9 12 2 2 4-4"></path></svg>Temporary Works</span></div><p class="what">Record the independent design check and the temporary works coordinator sign-off against each item, so the design is verified before anything is built to it.</p><p class="why"><b>이유:</b> A design check is only worth something if it is recorded and holds the work back until it is done. Tying the sign-off to the item is what makes the check a real gate, not a formality.</p><div class="flow"><span class="lab">입력</span><span class="fchip">Registered item</span><span class="fchip">Design and calculations</span><span class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span><span class="lab">결과</span><span class="fchip">Design check signed</span></div></div>
+<div class="step"><span class="num" style="background:#d97706">3</span><div class="shead"><h3>Inspect and permit to load</h3><span class="modchip"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-clipboard-check" aria-hidden="true"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"></rect><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><path d="m9 14 2 2 4-4"></path></svg>검사</span></div><p class="what">Inspect the erected item against its design, confirm it was built as drawn, and issue the permit to load only once it passes.</p><p class="why"><b>이유:</b> The gap between design and what got built is where temporary works fail. A pre-load inspection and permit is the last check before people and loads depend on it.</p><div class="flow"><span class="lab">입력</span><span class="fchip">Approved item</span><span class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span><span class="lab">결과</span><span class="fchip">Permit to load</span></div></div>
+<div class="step"><span class="num" style="background:#d97706">4</span><div class="shead"><h3>Keep the inspection record</h3><span class="modchip"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-list-checks" aria-hidden="true"><path d="m3 17 2 2 4-4"></path><path d="m3 7 2 2 4-4"></path><path d="M13 6h8"></path><path d="M13 12h8"></path><path d="M13 18h8"></path></svg>검사</span></div><p class="what">Keep the periodic inspections going - after high winds, adaptations or a set period - and record each one until the item is safely struck and signed off.</p><p class="why"><b>이유:</b> A scaffold safe on the day it was signed can be altered or damaged by the next week. The running inspection record is what keeps it safe for its whole life on the job.</p><div class="flow"><span class="lab">입력</span><span class="fchip">Loaded item</span><span class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span><span class="lab">결과</span><span class="fchip">Inspection record</span></div></div><div class="dcta" style="margin-top:10px"><a class="btn btn-primary" href="/demo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4l14 8-14 8z"/></svg>이 워크플로를 데모에서 열기</a></div></section></main><section class="rel"><div class="wrap"><h2 class="rel-h">현장 및 작업 카테고리의 더 보기</h2><div class="grid grid-3" style="padding-top:0"><a class="card" href="/ko/cases/run-the-site-day" data-cat="site" data-roles="general-contractor subcontractor project-manager" data-text="run the site day close the day out properly: record the diary, book the labour and plant hours, upload the photos and log a safety observation, so the day survives as evidence you can lean on. site diary field time files safety"><div class="thumb"><span class="cbar" style="background:#d97706"></span><svg viewBox="0 0 120 84" xmlns="http://www.w3.org/2000/svg" style="color:#94a3b8;width:100%;height:100%" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g stroke-width="0.6" opacity="0.16"><path d="M0 21 H120 M0 42 H120 M0 63 H120"></path><path d="M30 0 V84 M60 0 V84 M90 0 V84"></path></g><rect x="22" y="17" width="80" height="58" rx="4" fill="#0d3550" opacity="0.08" stroke="none"></rect><rect x="20" y="14" width="80" height="58" rx="4" fill="#ffffff" stroke="#9fb3c2" stroke-width="1.6"></rect><path d="M20 25 V18 a4 4 0 0 1 4 -4 H96 a4 4 0 0 1 4 4 V25 Z" fill="#d97706" stroke="none"></path><rect x="26" y="18" width="24" height="3.4" rx="1.7" fill="#ffffff" opacity="0.9" stroke="none"></rect><circle cx="90" cy="19.5" r="4" fill="#e0a23a" stroke="none"></circle><rect x="26" y="32" width="16" height="8" rx="2" fill="#fcd34d" stroke="none"></rect><text x="34" y="36.2" fill="#ffffff" font-size="4.6" font-weight="700" text-anchor="middle" dominant-baseline="central" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" stroke="none">hrs</text><rect x="46" y="34" width="26" height="3" rx="1.5" fill="#cdd9e2" opacity="1" stroke="none"></rect><rect x="26" y="44" width="22" height="16" rx="2" fill="#fcd34d" stroke="#ffffff" stroke-width="1.2"></rect><circle cx="31" cy="49" r="1.8" fill="#ffffff" stroke="none"></circle><path d="M28 60 l6 -5 l4 3 l4 -4 l4 6 z" fill="#b45309" stroke="none"></path><path d="M62 46.6 L68 57.4 L56 57.4 Z" transform="translate(1.5,2)" fill="#0d3550" opacity="0.08" stroke="none"></path><path d="M62 46.6 L68 57.4 L56 57.4 Z" fill="#e0a23a" stroke="none" stroke-linejoin="round"></path><path d="M62 50.488 V53.08" stroke="#ffffff" stroke-width="1.32" stroke-linecap="round" fill="none"></path><circle cx="62" cy="54.808" r="0.72" fill="#ffffff" stroke="none"></circle><rect x="72" y="50" width="22" height="3" rx="1.5" fill="#cdd9e2" opacity="1" stroke="none"></rect><path d="M72 62 c2.6399999999999997 -6 4.4 6 6.6 0 c1.76 -4.5 3.52 3.5 5.279999999999999 0 c1.3199999999999998 -2.5 3.08 2.5 4.84 0.5" fill="none" stroke="#d97706" stroke-width="1.8" stroke-linecap="round"></path></svg></div><div class="body"><span class="ceyebrow" style="color:#d97706"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-hard-hat" aria-hidden="true"><path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5"></path><path d="M14 6a6 6 0 0 1 6 6v3"></path><path d="M4 15v-3a6 6 0 0 1 6-6"></path><rect x="2" y="15" width="20" height="4" rx="1"></rect></svg><span>현장 및 작업</span></span><h3>현장 일일 업무 진행</h3><p>하루를 제대로 마무리합니다. 작업일지를 기록하고, 노무 및 장비 시간을 등록하고, 사진을 업로드하고, 안전 관찰 사항을 기록하여 그날의 기록이 나중에 근거로 활용될…</p><div class="foot"><span class="m"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h5v-5H4zM10 13h5V8h-5zM16 8h4V3h-4z"/></svg>4단계</span><span class="m"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>9 분</span><span class="go">열기<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div></div></a><a class="card" href="/ko/cases/answer-an-rfi" data-cat="site" data-roles="general-contractor designer project-manager" data-text="answer an rfi turn a question from the working face into a tracked request, drive it to the party who owns the answer, and file the response so it becomes part of the record. rfis correspondence files"><div class="thumb"><span class="cbar" style="background:#d97706"></span><svg viewBox="0 0 120 84" xmlns="http://www.w3.org/2000/svg" style="color:#94a3b8;width:100%;height:100%" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g stroke-width="0.6" opacity="0.16"><path d="M0 21 H120 M0 42 H120 M0 63 H120"></path><path d="M30 0 V84 M60 0 V84 M90 0 V84"></path></g><path d="M14 18 h30 a5 5 0 0 1 5 5 v14 a5 5 0 0 1 -5 5 H30 l-8 7 v-7 h-8 a5 5 0 0 1 -5 -5 V23 a5 5 0 0 1 5 -5 z" fill="#fcd34d" stroke="none"></path><path d="M25 26 a4 4 0 0 1 8 0 c0 3 -4 3 -4 6" stroke="#ffffff" stroke-width="2" fill="none" stroke-linecap="round"></path><circle cx="29" cy="36" r="1.5" fill="#ffffff" stroke="none"></circle><path d="M54 34 H66 M62 30 l4 4 l-4 4" stroke="#d97706" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path><rect x="70" y="23" width="36" height="46" rx="4" fill="#0d3550" opacity="0.08" stroke="none"></rect><rect x="68" y="20" width="36" height="46" rx="4" fill="#ffffff" stroke="#9fb3c2" stroke-width="1.6"></rect><path d="M68 29 V24 a4 4 0 0 1 4 -4 H100 a4 4 0 0 1 4 4 V29 Z" fill="#d97706" stroke="none"></path><rect x="74" y="34" width="20" height="3" rx="1.5" fill="#cdd9e2" opacity="1" stroke="none"></rect><rect x="74" y="42" width="16" height="3" rx="1.5" fill="#cdd9e2" opacity="1" stroke="none"></rect><circle cx="97.5" cy="60" r="7" fill="#0d3550" opacity="0.08" stroke="none"></circle><circle cx="96" cy="58" r="7" fill="#2e9c6a" stroke="#ffffff" stroke-width="1"></circle><path d="M93.06 58.14 l1.9600000000000002 2.24 l3.9200000000000004 -4.34" stroke="#ffffff" stroke-width="1.9600000000000002" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg></div><div class="body"><span class="ceyebrow" style="color:#d97706"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-hard-hat" aria-hidden="true"><path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5"></path><path d="M14 6a6 6 0 0 1 6 6v3"></path><path d="M4 15v-3a6 6 0 0 1 6-6"></path><rect x="2" y="15" width="20" height="4" rx="1"></rect></svg><span>현장 및 작업</span></span><h3>RFI 답변하기</h3><p>현장에서 나온 질문을 추적 가능한 요청으로 전환하고, 답변 책임자에게 전달하여, 회신 내용을 기록으로 남깁니다.</p><div class="foot"><span class="m"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h5v-5H4zM10 13h5V8h-5zM16 8h4V3h-4z"/></svg>3단계</span><span class="m"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>9 분</span><span class="go">열기<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div></div></a><a class="card" href="/ko/cases/capture-daywork-and-time-and-materials" data-cat="site" data-roles="subcontractor general-contractor cost-consultant" data-text="capture daywork and time and materials turn instructed extra work into a claim that gets paid: record the labour, plant and materials as it happens, get the sheet signed the same day, then submit it against the contract. field time daily diary contracts"><div class="thumb"><span class="cbar" style="background:#d97706"></span><svg viewBox="0 0 120 84" xmlns="http://www.w3.org/2000/svg" style="color:#94a3b8;width:100%;height:100%" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g stroke-width="0.6" opacity="0.16"><path d="M0 21 H120 M0 42 H120 M0 63 H120"></path><path d="M30 0 V84 M60 0 V84 M90 0 V84"></path></g><rect x="28" y="17" width="44" height="56" rx="4" fill="#0d3550" opacity="0.08" stroke="none"></rect><rect x="26" y="14" width="44" height="56" rx="4" fill="#ffffff" stroke="#9fb3c2" stroke-width="1.6"></rect><path d="M26 24 V18 a4 4 0 0 1 4 -4 H66 a4 4 0 0 1 4 4 V24 Z" fill="#cf8320" stroke="none"></path><rect x="32" y="18" width="22" height="3" rx="1.5" fill="#ffffff" opacity="0.9" stroke="none"></rect><rect x="32" y="30" width="9" height="7" rx="2" fill="#d97706" stroke="none"></rect><text x="36.5" y="33.7" fill="#ffffff" font-size="4.6" font-weight="700" text-anchor="middle" dominant-baseline="central" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" stroke="none">L</text><rect x="44" y="31.5" width="20" height="3" rx="1.5" fill="#cdd9e2" opacity="1" stroke="none"></rect><rect x="32" y="42" width="9" height="7" rx="2" fill="#fcd34d" stroke="none"></rect><text x="36.5" y="45.7" fill="#ffffff" font-size="4.6" font-weight="700" text-anchor="middle" dominant-baseline="central" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" stroke="none">P</text><rect x="44" y="43.5" width="16" height="3" rx="1.5" fill="#cdd9e2" opacity="1" stroke="none"></rect><rect x="32" y="54" width="9" height="7" rx="2" fill="#2e9c6a" stroke="none"></rect><text x="36.5" y="57.7" fill="#ffffff" font-size="4.6" font-weight="700" text-anchor="middle" dominant-baseline="central" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" stroke="none">M</text><rect x="44" y="55.5" width="18" height="3" rx="1.5" fill="#cdd9e2" opacity="1" stroke="none"></rect><path d="M78 40 c2.6399999999999997 -6 4.4 6 6.6 0 c1.76 -4.5 3.52 3.5 5.279999999999999 0 c1.3199999999999998 -2.5 3.08 2.5 4.84 0.5" fill="none" stroke="#d97706" stroke-width="1.8" stroke-linecap="round"></path><circle cx="89.5" cy="28" r="7" fill="#0d3550" opacity="0.08" stroke="none"></circle><circle cx="88" cy="26" r="7" fill="#2e9c6a" stroke="#ffffff" stroke-width="1"></circle><path d="M85.06 26.14 l1.9600000000000002 2.24 l3.9200000000000004 -4.34" stroke="#ffffff" stroke-width="1.9600000000000002" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg></div><div class="body"><span class="ceyebrow" style="color:#d97706"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-hard-hat" aria-hidden="true"><path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5"></path><path d="M14 6a6 6 0 0 1 6 6v3"></path><path d="M4 15v-3a6 6 0 0 1 6-6"></path><rect x="2" y="15" width="20" height="4" rx="1"></rect></svg><span>현장 및 작업</span></span><h3>실비정산(데이워크) 및 시간자재 기록</h3><p>지시된 추가 작업을 지급받는 클레임으로 전환합니다: 발생 즉시 노무, 장비, 자재를 기록하고, 당일 시트에 서명을 받은 뒤 계약에 따라 제출합니다.</p><div class="foot"><span class="m"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h5v-5H4zM10 13h5V8h-5zM16 8h4V3h-4z"/></svg>3단계</span><span class="m"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>9 분</span><span class="go">열기<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div></div></a></div></div></section><footer class="ft"><div class="wrap ft-in"><div>가이드형 건설 플레이북 - OpenConstructionERP 플랫폼의 일부입니다.</div><div><a href="/">홈</a> &nbsp;·&nbsp; <a href="/cases">모든 케이스</a> &nbsp;·&nbsp; <a href="/demo">라이브 데모</a> &nbsp;·&nbsp; <a href="/docs">문서</a></div></div></footer></body></html>
