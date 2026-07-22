@@ -67,6 +67,8 @@ import {
   Mountain,
   Move3d,
   Palette,
+  PanelRight,
+  PanelRightClose,
   Pentagon,
   Pin,
   PinOff,
@@ -357,56 +359,72 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-interface ToolToggleButtonProps {
-  active: boolean;
+interface ToolbarButtonProps {
+  active?: boolean;
   disabled?: boolean;
   onClick: () => void;
   icon: typeof Layers;
+  /** Accessible name + tooltip text. */
   label: string;
+  /** Single-key shortcut shown in the tooltip and as a small kbd hint. */
+  shortcut?: string;
   testId?: string;
-  /** Optional count pill (e.g. captured groups) shown after the label. */
+  /** Optional count pill (e.g. captured groups) on the top-right corner. */
   badge?: number;
 }
 
-/** Toggle-style button for the inspection-tools row - mirrors the "View"
- *  button styling already used for scan rows in PointCloudPage.tsx so the
- *  active/inactive states read consistently across the feature. */
-function ToolToggleButton({
+/** Icon-only button for the floating viewport toolbar. Square target, clear
+ *  filled active state, a corner count badge, and a hover tooltip that also
+ *  surfaces the keyboard shortcut - the professional-tool look the founder
+ *  asked for. Theme-aware via semantic tokens; the tooltip inverts against the
+ *  content colour so it reads on light and dark backdrops alike. */
+function ToolbarButton({
   active,
   disabled,
   onClick,
   icon: Icon,
   label,
+  shortcut,
   testId,
   badge,
-}: ToolToggleButtonProps) {
+}: ToolbarButtonProps) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-pressed={active}
-      title={label}
-      data-testid={testId}
-      className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-        active
-          ? 'border-oe-blue/40 bg-oe-blue/10 text-oe-blue'
-          : 'border-border-light bg-surface-secondary text-content-secondary hover:bg-surface-tertiary hover:text-content-primary'
-      }`}
-    >
-      <Icon size={14} />
-      {label}
-      {badge != null && badge > 0 && (
-        <span
-          className={`ml-0.5 inline-flex min-w-[1.1rem] items-center justify-center rounded-full px-1 text-2xs font-semibold tabular-nums ${
-            active ? 'bg-oe-blue/20 text-oe-blue' : 'bg-surface-tertiary text-content-secondary'
-          }`}
-        >
-          {badge}
-        </span>
-      )}
-    </button>
+    <div className="group relative">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        aria-pressed={active}
+        aria-label={label}
+        data-testid={testId}
+        className={`relative inline-flex h-9 w-9 items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+          active
+            ? 'bg-oe-blue text-white shadow-sm'
+            : 'text-content-secondary hover:bg-surface-tertiary hover:text-content-primary'
+        }`}
+      >
+        <Icon size={17} />
+        {badge != null && badge > 0 && (
+          <span className="absolute -right-1 -top-1 inline-flex min-w-[1rem] items-center justify-center rounded-full bg-oe-blue px-1 text-[10px] font-semibold leading-none text-white ring-2 ring-surface-primary">
+            {badge}
+          </span>
+        )}
+      </button>
+      <span className="pointer-events-none absolute left-1/2 top-full z-40 mt-2 hidden -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-md bg-content-primary px-2 py-1 text-2xs font-medium text-surface-primary shadow-lg group-hover:flex">
+        {label}
+        {shortcut && (
+          <kbd className="rounded border border-surface-primary/30 px-1 font-sans text-[10px] font-semibold uppercase leading-tight">
+            {shortcut}
+          </kbd>
+        )}
+      </span>
+    </div>
   );
+}
+
+/** Thin vertical rule separating tool groups on the floating toolbar. */
+function ToolbarDivider() {
+  return <span className="mx-0.5 h-6 w-px shrink-0 self-center bg-border-light" aria-hidden="true" />;
 }
 
 interface PointCloudViewerProps {
@@ -488,6 +506,9 @@ export function PointCloudViewer({ scanId, scanLabel }: PointCloudViewerProps) {
   const [showGrid, setShowGrid] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [bgMode, setBgMode] = useState<BgMode>('theme');
+  // The collapsible right-hand inspector panel (display settings + active-tool
+  // readouts + layers/groups). Open by default; the toolbar toggles it.
+  const [panelOpen, setPanelOpen] = useState(true);
 
   // ── Inspection-tools state ────────────────────────────────────────────
   const [sliceEnabled, setSliceEnabled] = useState(false);
@@ -1946,14 +1967,72 @@ export function PointCloudViewer({ scanId, scanLabel }: PointCloudViewerProps) {
 
   const toolsDisabled = phase !== 'ready' || !cloud || cloud.pointCount === 0;
 
+  // ── Keyboard shortcuts ───────────────────────────────────────────────────
+  // Single-key accelerators for the toolbar, surfaced in each button's
+  // tooltip. Ignored while typing in a field or with a modifier held, and
+  // only active once a cloud is loaded. Activating a tool also reveals the
+  // inspector panel so its readout is visible.
+  useEffect(() => {
+    if (toolsDisabled) return undefined;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      const reveal = () => setPanelOpen(true);
+      switch (e.key.toLowerCase()) {
+        case 'f': handleRefit(); break;
+        case 'g': setShowGrid((v) => !v); break;
+        case 'd': setDepthCue((v) => !v); break;
+        case 's': handleSnapshot(); break;
+        case 'x': setSliceEnabled((v) => !v); reveal(); break;
+        case 'c': setClipEnabled((v) => !v); reveal(); break;
+        case 'b': toggleGroups(); reveal(); break;
+        case 'm': togglePick('measure'); reveal(); break;
+        case 'n': togglePick('angle'); reveal(); break;
+        case 'p': togglePick('area'); reveal(); break;
+        case 'i': togglePick('inspect'); reveal(); break;
+        case 'k': togglePick('annotate'); reveal(); break;
+        case 'escape': setPickMode('none'); break;
+        default: return;
+      }
+      e.preventDefault();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [toolsDisabled, handleRefit, handleSnapshot, toggleGroups, togglePick]);
+
   return (
     <div className="space-y-3">
-      {/* ── Controls: grouped into Display / View / Tools for clarity ────── */}
-      <div className="space-y-3 rounded-xl border border-border-light bg-surface-secondary/40 p-3">
-        <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
-          <span className="mb-2 hidden self-end text-2xs font-semibold uppercase tracking-wider text-content-quaternary lg:inline">
-            {t('pointcloud.group_display', { defaultValue: 'Display' })}
-          </span>
+      <div className="flex flex-col-reverse gap-3 lg:flex-row-reverse lg:items-start">
+        {/* ── Inspector: display settings · active tool · layers/groups ──── */}
+        {!toolsDisabled && panelOpen && (
+          <aside
+            className="flex max-h-[560px] w-full shrink-0 flex-col overflow-hidden rounded-xl border border-border-light bg-surface-secondary/40 lg:w-[320px]"
+            data-testid="pointcloud-inspector"
+          >
+            <div className="flex shrink-0 items-center justify-between border-b border-border-light px-3 py-2">
+              <span className="text-2xs font-semibold uppercase tracking-wider text-content-tertiary">
+                {t('pointcloud.inspector_title', { defaultValue: 'Inspector' })}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPanelOpen(false)}
+                aria-label={t('pointcloud.panel_hide', { defaultValue: 'Hide panel' })}
+                title={t('pointcloud.panel_hide', { defaultValue: 'Hide panel' })}
+                className="inline-flex h-6 w-6 items-center justify-center rounded-md text-content-tertiary transition-colors hover:bg-surface-tertiary hover:text-content-primary"
+                data-testid="pointcloud-panel-close"
+              >
+                <PanelRightClose size={15} />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3">
+              {/* ── Display settings ─────────────────────────────────────── */}
+              <section className="space-y-3" data-testid="pointcloud-display-section">
+                <h4 className="flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wider text-content-tertiary">
+                  <Palette size={12} />
+                  {t('pointcloud.group_display', { defaultValue: 'Display' })}
+                </h4>
+                <div className="flex flex-col gap-3">
           <div>
             <label
               htmlFor="pointcloud-color-mode"
@@ -1989,7 +2068,7 @@ export function PointCloudViewer({ scanId, scanLabel }: PointCloudViewerProps) {
             className="rounded-lg border border-border-light bg-surface-secondary px-2.5 py-1.5 text-sm text-content-primary focus:outline-none focus:ring-1 focus:ring-oe-blue"
             value={maxPoints}
             onChange={(e) => setMaxPoints(Number(e.target.value))}
-            disabled={phase === 'loading'}
+            disabled={phase !== 'ready'}
             data-testid="pointcloud-density"
           >
             {DENSITY_OPTIONS.map((o) => (
@@ -2093,226 +2172,44 @@ export function PointCloudViewer({ scanId, scanLabel }: PointCloudViewerProps) {
             </>
           ) : null}
         </div>
-      </div>
+                </div>
 
-      {/* ── Preset views ───────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex items-center gap-1 text-2xs font-semibold uppercase tracking-wider text-content-tertiary">
-          <Move3d size={12} />
-          {t('pointcloud.views_label', { defaultValue: 'Views' })}
-        </span>
-        {presetButtons.map((p) => (
-          <button
-            key={p.view}
-            type="button"
-            onClick={() => applyPreset(p.view)}
-            disabled={toolsDisabled}
-            className="inline-flex items-center rounded-lg border border-border-light bg-surface-secondary px-2.5 py-1 text-xs font-medium text-content-secondary transition-colors hover:bg-surface-tertiary hover:text-content-primary disabled:cursor-not-allowed disabled:opacity-40"
-            data-testid={`pointcloud-view-${p.view}`}
-          >
-            {p.label}
-          </button>
-        ))}
+                {activePlaneEqs.length > 0 && (
+                  <p
+                    className="text-2xs tabular-nums text-content-quaternary"
+                    data-testid="pointcloud-visible-readout"
+                  >
+                    {t('pointcloud.readout_points_visible', {
+                      defaultValue: '{{visible}} / {{total}} pts visible',
+                      visible: formatPoints(visiblePointCount),
+                      total: formatPoints(cloud?.pointCount ?? 0),
+                    })}
+                  </p>
+                )}
 
-        <span className="mx-1 hidden h-5 w-px self-center bg-border-light sm:inline-block" aria-hidden="true" />
+                <div className="space-y-1.5 border-t border-border-light pt-3">
+                  <span className="flex items-center gap-1.5 text-2xs font-medium text-content-tertiary">
+                    <Move3d size={12} />
+                    {t('pointcloud.views_label', { defaultValue: 'Views' })}
+                  </span>
+                  <div className="grid grid-cols-4 gap-1">
+                    {presetButtons.map((p) => (
+                      <button
+                        key={p.view}
+                        type="button"
+                        onClick={() => applyPreset(p.view)}
+                        disabled={toolsDisabled}
+                        className="inline-flex items-center justify-center rounded-lg border border-border-light bg-surface-secondary px-2 py-1.5 text-xs font-medium text-content-secondary transition-colors hover:bg-surface-tertiary hover:text-content-primary disabled:cursor-not-allowed disabled:opacity-40"
+                        data-testid={`pointcloud-view-${p.view}`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </section>
 
-        <button
-          type="button"
-          onClick={handleRefit}
-          disabled={toolsDisabled}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border-light bg-surface-secondary px-3 py-1.5 text-sm text-content-secondary transition-colors hover:bg-surface-tertiary hover:text-content-primary disabled:cursor-not-allowed disabled:opacity-40"
-          title={t('pointcloud.viewer_refit', { defaultValue: 'Fit view' })}
-        >
-          <Maximize2 size={14} />
-          {t('pointcloud.viewer_refit', { defaultValue: 'Fit view' })}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setShowGrid((v) => !v)}
-          disabled={toolsDisabled}
-          aria-pressed={showGrid}
-          className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-            showGrid
-              ? 'border-oe-blue/40 bg-oe-blue/10 text-oe-blue'
-              : 'border-border-light bg-surface-secondary text-content-secondary hover:bg-surface-tertiary hover:text-content-primary'
-          }`}
-          title={t('pointcloud.grid_hint', {
-            defaultValue: 'Show a ground grid and orientation axes for scale and direction',
-          })}
-          data-testid="pointcloud-grid-toggle"
-        >
-          <Grid3x3 size={14} />
-          {t('pointcloud.grid_axes', { defaultValue: 'Grid & axes' })}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setDepthCue((v) => !v)}
-          disabled={toolsDisabled}
-          aria-pressed={depthCue}
-          className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-            depthCue
-              ? 'border-oe-blue/40 bg-oe-blue/10 text-oe-blue'
-              : 'border-border-light bg-surface-secondary text-content-secondary hover:bg-surface-tertiary hover:text-content-primary'
-          }`}
-          title={t('pointcloud.depth_cue_hint', {
-            defaultValue: 'Fade distant points for depth perception',
-          })}
-          data-testid="pointcloud-depth-cue"
-        >
-          <CloudFog size={14} />
-          {t('pointcloud.depth_cue', { defaultValue: 'Depth cue' })}
-        </button>
-
-        <button
-          type="button"
-          onClick={toggleFullscreen}
-          disabled={toolsDisabled}
-          aria-pressed={isFullscreen}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border-light bg-surface-secondary px-3 py-1.5 text-sm text-content-secondary transition-colors hover:bg-surface-tertiary hover:text-content-primary disabled:cursor-not-allowed disabled:opacity-40"
-          title={
-            isFullscreen
-              ? t('pointcloud.fullscreen_exit', { defaultValue: 'Exit fullscreen' })
-              : t('pointcloud.fullscreen', { defaultValue: 'Fullscreen' })
-          }
-          data-testid="pointcloud-fullscreen"
-        >
-          {isFullscreen ? <Minimize2 size={14} /> : <Maximize size={14} />}
-          {isFullscreen
-            ? t('pointcloud.fullscreen_exit', { defaultValue: 'Exit fullscreen' })
-            : t('pointcloud.fullscreen', { defaultValue: 'Fullscreen' })}
-        </button>
-
-        <button
-          type="button"
-          onClick={handleSnapshot}
-          disabled={toolsDisabled}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border-light bg-surface-secondary px-3 py-1.5 text-sm text-content-secondary transition-colors hover:bg-surface-tertiary hover:text-content-primary disabled:cursor-not-allowed disabled:opacity-40"
-          title={t('pointcloud.snapshot', { defaultValue: 'Snapshot' })}
-          data-testid="pointcloud-snapshot"
-        >
-          <Camera size={14} />
-          {t('pointcloud.snapshot', { defaultValue: 'Snapshot' })}
-        </button>
-      </div>
-
-      {/* ── Inspection tools: region tools · pick tools · live readout ─────── */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="mr-0.5 text-2xs font-semibold uppercase tracking-wider text-content-tertiary">
-          {t('pointcloud.tools_label', { defaultValue: 'Tools' })}
-        </span>
-        {/* Region tools: crop / segment the cloud. */}
-        <ToolToggleButton
-          active={sliceEnabled}
-          disabled={toolsDisabled}
-          onClick={() => setSliceEnabled((v) => !v)}
-          icon={Layers}
-          label={t('pointcloud.tool_slice', { defaultValue: 'Cross-section' })}
-          testId="pointcloud-tool-slice"
-        />
-        <ToolToggleButton
-          active={clipEnabled}
-          disabled={toolsDisabled}
-          onClick={() => setClipEnabled((v) => !v)}
-          icon={Crop}
-          label={t('pointcloud.tool_clip', { defaultValue: 'Clip box' })}
-          testId="pointcloud-tool-clip"
-        />
-        <ToolToggleButton
-          active={groupsEnabled}
-          disabled={toolsDisabled}
-          onClick={toggleGroups}
-          icon={Boxes}
-          label={t('pointcloud.tool_groups', { defaultValue: 'Groups' })}
-          testId="pointcloud-tool-groups"
-          badge={groups.length}
-        />
-
-        <span className="mx-0.5 hidden h-6 w-px self-center bg-border-light sm:inline-block" aria-hidden="true" />
-
-        {/* Pick tools: click points to measure / mark. */}
-        <ToolToggleButton
-          active={pickMode === 'measure'}
-          disabled={toolsDisabled}
-          onClick={() => togglePick('measure')}
-          icon={Ruler}
-          label={t('pointcloud.tool_measure', { defaultValue: 'Measure' })}
-          testId="pointcloud-tool-measure"
-        />
-        <ToolToggleButton
-          active={pickMode === 'angle'}
-          disabled={toolsDisabled}
-          onClick={() => togglePick('angle')}
-          icon={Triangle}
-          label={t('pointcloud.tool_angle', { defaultValue: 'Angle' })}
-          testId="pointcloud-tool-angle"
-        />
-        <ToolToggleButton
-          active={pickMode === 'area'}
-          disabled={toolsDisabled}
-          onClick={() => togglePick('area')}
-          icon={Pentagon}
-          label={t('pointcloud.tool_area', { defaultValue: 'Area & volume' })}
-          testId="pointcloud-tool-area"
-        />
-        <ToolToggleButton
-          active={pickMode === 'inspect'}
-          disabled={toolsDisabled}
-          onClick={() => togglePick('inspect')}
-          icon={Crosshair}
-          label={t('pointcloud.tool_inspect', { defaultValue: 'Inspect' })}
-          testId="pointcloud-tool-inspect"
-        />
-        <ToolToggleButton
-          active={pickMode === 'annotate'}
-          disabled={toolsDisabled}
-          onClick={() => togglePick('annotate')}
-          icon={MapPin}
-          label={t('pointcloud.tool_annotate', { defaultValue: 'Annotate' })}
-          testId="pointcloud-tool-annotate"
-        />
-
-        {/* Live readout - fills the row's trailing space with real numbers:
-            visible / total points (shows the effect of any active crop) and
-            the captured-group count. */}
-        {!toolsDisabled && cloud && (
-          <div
-            className="ml-auto flex items-center gap-2 text-2xs tabular-nums text-content-tertiary"
-            data-testid="pointcloud-tools-readout"
-          >
-            <span
-              className="inline-flex items-center gap-1"
-              title={t('pointcloud.readout_points_title', {
-                defaultValue: 'Points currently visible after any active crop, of the total loaded',
-              })}
-            >
-              <Boxes size={12} className="text-content-quaternary" />
-              {activePlaneEqs.length > 0
-                ? t('pointcloud.readout_points_visible', {
-                    defaultValue: '{{visible}} / {{total}} pts',
-                    visible: formatPoints(visiblePointCount),
-                    total: formatPoints(cloud.pointCount),
-                  })
-                : t('pointcloud.readout_points_total', {
-                    defaultValue: '{{total}} pts',
-                    total: formatPoints(cloud.pointCount),
-                  })}
-            </span>
-            {groups.length > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-surface-tertiary px-1.5 py-0.5 font-medium text-content-secondary">
-                {t('pointcloud.readout_groups', {
-                  defaultValue: '{{count}} groups',
-                  count: groups.length,
-                })}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
-      </div>
-
-      {sliceEnabled && bounds && (
+              {sliceEnabled && bounds && (
         <div
           className="flex flex-wrap items-end gap-x-4 gap-y-2 rounded-lg border border-border-light bg-surface-secondary/60 p-3"
           data-testid="pointcloud-slice-panel"
@@ -3024,11 +2921,29 @@ export function PointCloudViewer({ scanId, scanLabel }: PointCloudViewerProps) {
         </div>
       )}
 
+            </div>
+          </aside>
+        )}
+
+        {/* ── Canvas column with the floating tool menu ──────────────────── */}
+        <div className="relative min-w-0 flex-1">
+          {!toolsDisabled && !panelOpen && (
+            <button
+              type="button"
+              onClick={() => setPanelOpen(true)}
+              aria-label={t('pointcloud.panel_show', { defaultValue: 'Show panel' })}
+              title={t('pointcloud.panel_show', { defaultValue: 'Show panel' })}
+              className="absolute right-3 top-3 z-30 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border-light bg-surface-primary/85 text-content-secondary shadow-lg backdrop-blur-md transition-colors hover:bg-surface-tertiary hover:text-content-primary"
+              data-testid="pointcloud-panel-reopen"
+            >
+              <PanelRight size={17} />
+            </button>
+          )}
       {/* ── Canvas + status overlays ─────────────────────────────────────── */}
       <div
         ref={containerRef}
         className={`relative w-full overflow-hidden border border-border-light bg-surface-secondary ${
-          isFullscreen ? 'h-full rounded-none' : 'h-[480px] rounded-xl'
+          isFullscreen ? 'h-full rounded-none' : 'h-[560px] rounded-xl'
         }`}
         style={{ cursor: pickMode === 'none' ? undefined : 'crosshair' }}
         data-testid="pointcloud-viewer-canvas"
@@ -3041,6 +2956,164 @@ export function PointCloudViewer({ scanId, scanLabel }: PointCloudViewerProps) {
             : t('pointcloud.viewer_canvas_aria', { defaultValue: '3D point cloud viewer' })
         }
       >
+        {/* ── Floating grouped tool menu, overlaid on the viewport ──────── */}
+        {!webglFailed && phase === 'ready' && cloud && cloud.pointCount > 0 && (
+          <div
+            className="absolute left-1/2 top-3 z-20 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-0.5 rounded-xl border border-border-light bg-surface-primary/85 p-1 shadow-lg ring-1 ring-black/5 backdrop-blur-md"
+            data-testid="pointcloud-toolbar"
+          >
+            {/* Navigate */}
+            <ToolbarButton
+              icon={Maximize2}
+              label={t('pointcloud.viewer_refit', { defaultValue: 'Fit view' })}
+              shortcut="F"
+              onClick={handleRefit}
+              testId="pointcloud-fit"
+            />
+            <ToolbarButton
+              icon={isFullscreen ? Minimize2 : Maximize}
+              label={
+                isFullscreen
+                  ? t('pointcloud.fullscreen_exit', { defaultValue: 'Exit fullscreen' })
+                  : t('pointcloud.fullscreen', { defaultValue: 'Fullscreen' })
+              }
+              active={isFullscreen}
+              onClick={toggleFullscreen}
+              testId="pointcloud-fullscreen"
+            />
+            <ToolbarDivider />
+            {/* Section / segment the cloud */}
+            <ToolbarButton
+              icon={Layers}
+              label={t('pointcloud.tool_slice', { defaultValue: 'Cross-section' })}
+              shortcut="X"
+              active={sliceEnabled}
+              onClick={() => {
+                setSliceEnabled((v) => !v);
+                setPanelOpen(true);
+              }}
+              testId="pointcloud-tool-slice"
+            />
+            <ToolbarButton
+              icon={Crop}
+              label={t('pointcloud.tool_clip', { defaultValue: 'Clip box' })}
+              shortcut="C"
+              active={clipEnabled}
+              onClick={() => {
+                setClipEnabled((v) => !v);
+                setPanelOpen(true);
+              }}
+              testId="pointcloud-tool-clip"
+            />
+            <ToolbarButton
+              icon={Boxes}
+              label={t('pointcloud.tool_groups', { defaultValue: 'Groups' })}
+              shortcut="B"
+              active={groupsEnabled}
+              badge={groups.length}
+              onClick={() => {
+                toggleGroups();
+                setPanelOpen(true);
+              }}
+              testId="pointcloud-tool-groups"
+            />
+            <ToolbarDivider />
+            {/* Measure / select */}
+            <ToolbarButton
+              icon={Ruler}
+              label={t('pointcloud.tool_measure', { defaultValue: 'Measure' })}
+              shortcut="M"
+              active={pickMode === 'measure'}
+              onClick={() => {
+                togglePick('measure');
+                setPanelOpen(true);
+              }}
+              testId="pointcloud-tool-measure"
+            />
+            <ToolbarButton
+              icon={Triangle}
+              label={t('pointcloud.tool_angle', { defaultValue: 'Angle' })}
+              shortcut="N"
+              active={pickMode === 'angle'}
+              onClick={() => {
+                togglePick('angle');
+                setPanelOpen(true);
+              }}
+              testId="pointcloud-tool-angle"
+            />
+            <ToolbarButton
+              icon={Pentagon}
+              label={t('pointcloud.tool_area', { defaultValue: 'Area & volume' })}
+              shortcut="P"
+              active={pickMode === 'area'}
+              onClick={() => {
+                togglePick('area');
+                setPanelOpen(true);
+              }}
+              testId="pointcloud-tool-area"
+            />
+            <ToolbarButton
+              icon={Crosshair}
+              label={t('pointcloud.tool_inspect', { defaultValue: 'Inspect' })}
+              shortcut="I"
+              active={pickMode === 'inspect'}
+              onClick={() => {
+                togglePick('inspect');
+                setPanelOpen(true);
+              }}
+              testId="pointcloud-tool-inspect"
+            />
+            <ToolbarButton
+              icon={MapPin}
+              label={t('pointcloud.tool_annotate', { defaultValue: 'Annotate' })}
+              shortcut="K"
+              active={pickMode === 'annotate'}
+              onClick={() => {
+                togglePick('annotate');
+                setPanelOpen(true);
+              }}
+              testId="pointcloud-tool-annotate"
+            />
+            <ToolbarDivider />
+            {/* Display */}
+            <ToolbarButton
+              icon={Grid3x3}
+              label={t('pointcloud.grid_axes', { defaultValue: 'Grid & axes' })}
+              shortcut="G"
+              active={showGrid}
+              onClick={() => setShowGrid((v) => !v)}
+              testId="pointcloud-grid-toggle"
+            />
+            <ToolbarButton
+              icon={CloudFog}
+              label={t('pointcloud.depth_cue', { defaultValue: 'Depth cue' })}
+              shortcut="D"
+              active={depthCue}
+              onClick={() => setDepthCue((v) => !v)}
+              testId="pointcloud-depth-cue"
+            />
+            <ToolbarButton
+              icon={Camera}
+              label={t('pointcloud.snapshot', { defaultValue: 'Snapshot' })}
+              shortcut="S"
+              onClick={handleSnapshot}
+              testId="pointcloud-snapshot"
+            />
+            <ToolbarDivider />
+            <ToolbarButton
+              icon={panelOpen ? PanelRightClose : PanelRight}
+              label={
+                panelOpen
+                  ? t('pointcloud.panel_hide', { defaultValue: 'Hide panel' })
+                  : t('pointcloud.panel_show', { defaultValue: 'Show panel' })
+              }
+              active={panelOpen}
+              onClick={() => setPanelOpen((v) => !v)}
+              testId="pointcloud-panel-toggle"
+            />
+          </div>
+        )}
+
         {webglFailed && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-6 text-center">
             <AlertCircle size={22} className="text-danger" />
@@ -3196,6 +3269,8 @@ export function PointCloudViewer({ scanId, scanLabel }: PointCloudViewerProps) {
             </div>
           </div>
         )}
+      </div>
+        </div>
       </div>
 
       <p className="text-2xs text-content-quaternary">
