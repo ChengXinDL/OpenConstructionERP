@@ -550,7 +550,7 @@ export function LoginPage() {
         <div className="mt-5 flex items-center gap-5 animate-stagger-in" style={{ animationDelay: '180ms' }}>
           {[
             { value: '120K+', label: t('login.stat_costs', { defaultValue: 'cost items' }) },
-            { value: '27', label: t('login.stat_langs', { defaultValue: 'languages' }) },
+            { value: '28', label: t('login.stat_langs', { defaultValue: 'languages' }) },
             { value: '48', label: t('login.stat_regions', { defaultValue: 'regions' }) },
             { value: '6', label: t('login.stat_cad', { defaultValue: 'CAD formats' }) },
             { value: '161', label: t('login.stat_modules', { defaultValue: 'modules' }) },
@@ -1131,7 +1131,7 @@ export function LoginPage() {
                 {[
                   { value: '120,441', label: t('about.stat.costs', 'Cost items') },
                   { value: '48', label: t('about.stat.regions', 'Regional databases') },
-                  { value: '27', label: t('about.stat.languages', 'Languages') },
+                  { value: '28', label: t('about.stat.languages', 'Languages') },
                   { value: '100%', label: t('about.stat.free', 'Free & open source') },
                 ].map((stat) => (
                   <div key={stat.label} className="rounded-lg bg-surface-secondary/50 py-2.5">

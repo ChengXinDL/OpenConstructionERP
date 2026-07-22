@@ -38,6 +38,13 @@ interface ChangelogEntry {
 // date, title and meaning intact; trim the prose, not the facts.
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '12.2.0',
+    date: '2026-07-22',
+    tag: 'NEW',
+    summary:
+      'Model review keeps the 3D model in view while checks run, instead of the viewer ballooning off screen when a long report renders. The pipeline builder gains ten ready-to-run templates, a saved-workflow picker that used to be reachable only by URL, and seven new node types, and it now flags steps wired to nothing. Point cloud adds a Groups tool that captures a region with its point count, volume and plan area and sends the quantity straight into a BOQ. Kyrgyz joins the interface languages as a full translation, bringing the count to twenty-eight.',
+  },
+  {
     version: '12.1.0',
     date: '2026-07-21',
     tag: 'NEW',

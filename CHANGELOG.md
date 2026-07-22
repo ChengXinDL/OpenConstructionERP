@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [12.2.0] - 2026-07-22
+
+Model review keeps the 3D model in view while its checks run. The page used to take its height from its content, so a long checks report ballooned the viewer canvas and pushed the model off screen the moment you pressed Run checks. It now sits at a fixed height and the checks and issues docks scroll inside their own panels, so the model stays put through a full run.
+
+The pipeline builder gets a library. Ten ready-to-run automation templates cover the common jobs, from flagging zero-priced positions and listing the costliest items to a budget ceiling guard and a validate-before-export gate, and picking one drops a working graph onto the canvas to run or save straight away. A saved-workflow picker reopens or deletes any pipeline you saved before, which used to be reachable only by editing the URL. Seven new node types (a computed column, group and total, rename, a generic threshold gate, a non-empty guard, a fan-out and a validation-findings source) let a graph express far more logic, and the linter now flags a step that is wired to nothing, the usual reason a half-built pipeline does not do everything it looks like it should.
+
+Point cloud reality capture now feeds the estimate. A new Groups tool sizes the box over a room, storey or stockpile and captures it as a named region with its point count, volume and plan area, drawn as a coloured wireframe you can isolate, rename or hide. An Add to BOQ action sends the measured quantity straight into a takeoff bill of quantities in the right unit, and the tool panel is tightened with live point and group readouts.
+
+Kyrgyz joins the interface languages as a full Cyrillic translation of the app, bringing the count to twenty-eight.
+
 ## [12.1.0] - 2026-07-21
 
 Approval workflows get a preset library of tenant-wide review routes and a dry-run simulator that shows who would approve a document before the route is committed. Interface management now links each interface to its RFI and schedule activity, and the composed estimate total is surfaced directly in the UI. The CDE gains ISO 19650 functional roles with a responsibility matrix and a go-live readiness score per project. National cost bases translate into the market language when it is switched, and carry a per-row revision id and source attribution. Cases pages lay their process steps out as a compact horizontal row, BOQ positions can be renumbered freely, links open in a new tab per app type, and the multi-tenant RLS policy is hardened with a cast-safe predicate and a startup role check. The remaining untranslated UI strings are filled in every language.
