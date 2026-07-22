@@ -1,6 +1,14 @@
 // DDC-CWICR-OE: DataDrivenConstruction · OpenConstructionERP
 // Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
-import { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { QueryClientContext } from '@tanstack/react-query';
 import { takeoffApi, type MeasurementCreate, type MeasurementResponse } from '@/features/takeoff/api';
 import {
@@ -645,7 +653,11 @@ interface UseMeasurementPersistenceOptions {
    *  and do NOT sync to the server. */
   documentId: string | null;
   measurements: Measurement[];
-  setMeasurements: (measurements: Measurement[]) => void;
+  /** The React state setter. Typed as the full dispatch (not just a plain
+   *  ``(m: Measurement[]) => void``) so the sync-result merges below can pass a
+   *  FUNCTIONAL updater and compute from the freshest state instead of a stale
+   *  render snapshot, preserving a concurrent user edit (issue #382). */
+  setMeasurements: Dispatch<SetStateAction<Measurement[]>>;
   /** Per-page (per-sheet) scale model. Persisted whole; a legacy
    *  single-scale document is migrated into the default on load. */
   pageScales: PageScales;
@@ -1073,21 +1085,34 @@ export function useMeasurementPersistence({
 
       if (createPromise) {
         const created = await createPromise;
-        // Update serverId on created measurements (map over the LATEST state).
-        setMeasurementsRef.current(
-          measurementsRef.current.map((m) => {
+        // Map each created row's frontend id -> its new serverId.
+        const newIdByFrontendId = new Map(
+          created.map((c) => [c.metadata?.frontend_id as string, c.id]),
+        );
+        // Seed the sync + geometry baselines for each freshly-synced row from
+        // the SNAPSHOT we actually sent (``current``), NOT from the live state:
+        // if the user edited the row during the round-trip, seeding from the
+        // sent snapshot leaves the row looking dirty so the edit re-PATCHes on
+        // the next tick instead of being lost (#194/#282/#382). The geometry
+        // baseline (#334) prevents the first appearance-only edit re-stamping
+        // the page scale.
+        for (const m of current) {
+          if (m.serverId || m.suggested) continue;
+          const newId = newIdByFrontendId.get(m.id);
+          if (!newId) continue;
+          syncSigRef.current.set(newId, syncSignature(m));
+          geomSigRef.current.set(newId, geometrySignature(m));
+        }
+        // Stamp the serverId with a FUNCTIONAL update (issue #382) so we merge
+        // into the FRESHEST state by id: a plain-value dispatch built from the
+        // stale ``measurementsRef`` snapshot would discard any user edit that
+        // landed while bulkCreate was in flight. Only the serverId is written;
+        // every other field is preserved from ``prev``.
+        setMeasurementsRef.current((prev) =>
+          prev.map((m) => {
             if (m.serverId) return m;
-            const match = created.find(
-              (c) => (c.metadata?.frontend_id as string) === m.id,
-            );
-            if (!match) return m;
-            // Seed the sync baseline for the freshly-synced row so a later
-            // edit PATCHes, but a no-op tick does not (#194/#282). Seed the
-            // geometry baseline too (#334) so the first appearance-only edit
-            // after a create does not re-stamp the page scale.
-            syncSigRef.current.set(match.id, syncSignature(m));
-            geomSigRef.current.set(match.id, geometrySignature(m));
-            return { ...m, serverId: match.id };
+            const newId = newIdByFrontendId.get(m.id);
+            return newId ? { ...m, serverId: newId } : m;
           }),
         );
         // Surface the new measurements in the unified Markups hub.
@@ -1210,9 +1235,15 @@ export function useMeasurementPersistence({
       );
 
       if (reconciled.length > 0) {
-        setMeasurementsRef.current(
-          measurementsRef.current.map((m) => {
-            const r = reconciled.find((x) => x.frontendId === m.id);
+        const reconciledById = new Map(reconciled.map((r) => [r.frontendId, r]));
+        // Functional update (issue #382): merge the server-authoritative value
+        // back into the FRESHEST state by id, so a concurrent edit to any other
+        // field (or any other row) made while the PATCH was in flight survives.
+        // A plain-value dispatch from the stale ``measurementsRef`` snapshot
+        // would overwrite the array wholesale and drop that edit.
+        setMeasurementsRef.current((prev) =>
+          prev.map((m) => {
+            const r = reconciledById.get(m.id);
             if (!r) return m;
             return {
               ...m,

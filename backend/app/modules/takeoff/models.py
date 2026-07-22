@@ -192,13 +192,16 @@ class TakeoffMeasurement(Base):
     page: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     type: Mapped[str] = mapped_column(String(50), nullable=False)  # distance, area, count, polyline, volume
     group_name: Mapped[str] = mapped_column(String(100), nullable=False, default="General")
-    # Empty = "no per-measurement colour override" (issue #378). The old blue
-    # default stamped an override onto every uncoloured measurement, so a
-    # cache-less load ignored the group colour. The create schema now defaults
-    # to "" and every create path passes the value through; the empty default
-    # here matches so any writer that skips the field cannot reintroduce the
-    # stamp. Column stays NOT NULL (no migration): "" is a value, not NULL.
-    group_color: Mapped[str] = mapped_column(String(20), nullable=False, default="")
+    # NULL = "no per-measurement colour override" (issue #378). Since #299 a
+    # stored value means the user recoloured THIS measurement; the client omits
+    # the field when they never did. The old blue default stamped an override
+    # onto every uncoloured measurement, so a cache-less load painted blue
+    # instead of following the group colour. The column is nullable with no
+    # default so a create that omits the colour stores a genuine NULL, which the
+    # renderers read as "fall back to the group colour". Existing rows that were
+    # stamped blue keep their value (backward-compatible); only new uncoloured
+    # rows are NULL. See migration v3254_takeoff_measurement_color_nullable.
+    group_color: Mapped[str | None] = mapped_column(String(20), nullable=True, default=None)
     annotation: Mapped[str | None] = mapped_column(String(500), nullable=True)
     points: Mapped[list] = mapped_column(  # type: ignore[assignment]
         JSON, nullable=False, default=list, server_default="[]"

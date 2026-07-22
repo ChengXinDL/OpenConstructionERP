@@ -46,7 +46,9 @@ export interface MeasurementResponse {
   page: number;
   type: string;
   group_name: string;
-  group_color: string;
+  /** Per-measurement colour override; ``null`` when the user never recoloured
+   *  this measurement (issue #378), read as "fall back to the group colour". */
+  group_color: string | null;
   annotation: string | null;
   points: MeasurementPoint[];
   measurement_value: number | null;

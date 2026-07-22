@@ -308,14 +308,15 @@ class TakeoffMeasurementCreate(BaseModel):
         ),
     )
     group_name: str = Field(default="General", max_length=100)
-    # Empty = "no per-measurement colour override" (issue #378). Since #299 a
+    # None = "no per-measurement colour override" (issue #378). Since #299 a
     # stored ``group_color`` means the user explicitly recoloured THIS
     # measurement; the client omits the field when they never did. Defaulting to
     # the blue hex here re-stamped that override onto every uncoloured row, so a
-    # cache-less load painted blue instead of following the group colour. An
-    # empty default keeps the conflation out of new rows (the client reads ``""``
-    # back as unset, exactly like an absent value) with no schema migration.
-    group_color: str = Field(default="", max_length=20)
+    # cache-less load painted blue instead of following the group colour. A
+    # None default stores a genuine NULL for an uncoloured measurement (the
+    # column is nullable), which the renderers read as "fall back to the group
+    # colour". The blue hex constant now lives only where a colour is truly meant.
+    group_color: str | None = Field(default=None, max_length=20)
     annotation: str | None = Field(default=None, max_length=500)
     points: list[PointSchema] = Field(
         default_factory=list,
@@ -379,7 +380,9 @@ class TakeoffMeasurementResponse(BaseModel):
     page: int = 1
     type: str
     group_name: str = "General"
-    group_color: str = "#3B82F6"
+    # None = no per-measurement colour override (issue #378); the client reads
+    # it as "use the group colour". A row recoloured by the user carries its hex.
+    group_color: str | None = None
     annotation: str | None = None
     points: list[dict[str, Any]] = Field(default_factory=list)
     measurement_value: float | None = None

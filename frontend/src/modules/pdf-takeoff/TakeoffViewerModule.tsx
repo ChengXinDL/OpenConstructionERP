@@ -62,6 +62,7 @@ import {
   Boxes,
   ArrowUpToLine,
   ArrowDownToLine,
+  GripVertical,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useToastStore } from '../../stores/useToastStore';
@@ -154,7 +155,9 @@ import {
 import {
   sortByPaintOrder,
   orderKeyForEdge,
+  orderKeyForDrop,
 } from '../../features/takeoff/lib/takeoff-order';
+import { seedAnnotationCounters } from '../../features/takeoff/lib/takeoff-labels';
 import {
   effectiveQuantity,
   hasQuantityFactor,
@@ -974,6 +977,26 @@ export default function TakeoffViewerModule({
     scale,
     projectId: activeProjectId,
   });
+
+  /* ── Seed default-label counters from hydrated measurements (issue #384) ─
+   * The per-type counters (annotationCounterRef) reset to 0 on every load path
+   * and were never re-seeded from the measurements that hydrate afterwards, so a
+   * reopened document recounted from 1 and produced a duplicate "Distance 1"
+   * next to the one already on the sheet (labels feed the BOQ export, where a
+   * duplicate is ambiguous). Raise each per-type counter to the highest trailing
+   * number already present so the next auto label resumes above the numbers in
+   * use. Monotonic (never lowered): deleting the highest-numbered measurement
+   * does not free its number for reuse, and the brief window during an in-place
+   * re-upload can only over-count (skip a number), never duplicate. */
+  useEffect(() => {
+    if (measurements.length === 0) return;
+    const seeded = seedAnnotationCounters(measurements);
+    const counters = annotationCounterRef.current;
+    for (const type of Object.keys(seeded)) {
+      const n = seeded[type]!;
+      if (n > (counters[type] ?? 0)) counters[type] = n;
+    }
+  }, [measurements]);
 
   /* ── Deep-link: auto-select measurement from /markups ─────────────────
    * The /markups hub deep-links here with ``?measurementId=<uuid>``. After
@@ -4258,6 +4281,40 @@ export default function TakeoffViewerModule({
     );
   }, [pushUndo]);
 
+  // Drag-to-reorder state for the sidebar Measurements list (issue #379). Holds
+  // the id of the row currently being dragged (via its grip handle) and the row
+  // it is hovering over, so the list can show a drop indicator. Kept in state
+  // (not a ref) because the drop indicator is a visual affordance that must
+  // re-render; cleared on drop / drag-end.
+  const [draggingMeasurementId, setDraggingMeasurementId] = useState<string | null>(null);
+  const [dragOverMeasurementId, setDragOverMeasurementId] = useState<string | null>(null);
+
+  /** Drop a dragged measurement next to another row in the sidebar list,
+   *  reordering the paint (z) stack accordingly (issue #379). Computes a single
+   *  fractional ``order`` key that lands the dragged row immediately before the
+   *  target in the shared paint-order projection, so canvas paint, hit-test,
+   *  sidebar list and PDF export stay in agreement. One-row edit, undoable, and
+   *  persisted via metadata like bring-to-front / send-to-back. */
+  const reorderMeasurementByDrag = useCallback((draggedId: string, targetId: string) => {
+    const all = measurementsRef.current;
+    const target = all.find((m) => m.id === draggedId);
+    if (!target) return;
+    // Drop "before" the target row: the sidebar lists rows in ascending paint
+    // order, so inserting before the hovered row places the dragged shape just
+    // beneath it in the stack, matching where the user dropped it.
+    const nextOrder = orderKeyForDrop(all, draggedId, targetId, 'before');
+    if (nextOrder === null) return;
+    pushUndo({
+      kind: 'reorder_measurement',
+      measurementId: draggedId,
+      previousOrder: target.order,
+      nextOrder,
+    });
+    setMeasurements((prev) =>
+      prev.map((m) => (m.id === draggedId ? { ...m, order: nextOrder } : m)),
+    );
+  }, [pushUndo]);
+
   /** Toggle collapse of a measurement group in sidebar */
   const toggleGroupCollapse = useCallback((groupName: string) => {
     setCollapsedGroups((prev) => {
@@ -5733,21 +5790,27 @@ export default function TakeoffViewerModule({
         break;
 
       case 'change_annotation': {
-        // Grab the current (about-to-be-overwritten) annotation so redo
-        // can replay the forward delta by swapping again.
-        setMeasurements((prev) => {
-          const target = prev.find((m) => m.id === op.measurementId);
-          if (target) {
-            forwardOp = {
-              kind: 'change_annotation',
-              measurementId: op.measurementId,
-              previousAnnotation: target.annotation,
-            };
-          }
-          return prev.map((m) =>
+        // Capture the CURRENT (about-to-be-overwritten) annotation for the redo
+        // frame SYNCHRONOUSLY from the live ref (issue #383). Reading it inside
+        // the setMeasurements updater and pushing forwardOp right after was a
+        // bug: the updater is deferred to render, so the push below saw
+        // forwardOp still holding the popped op (the pre-edit text) and redo
+        // restored the old text instead of the edited one. measurementsRef
+        // mirrors the current state on every render, so it holds the value the
+        // user last saw.
+        const current = measurementsRef.current.find((m) => m.id === op.measurementId);
+        if (current) {
+          forwardOp = {
+            kind: 'change_annotation',
+            measurementId: op.measurementId,
+            previousAnnotation: current.annotation,
+          };
+        }
+        setMeasurements((prev) =>
+          prev.map((m) =>
             m.id === op.measurementId ? { ...m, annotation: op.previousAnnotation } : m,
-          );
-        });
+          ),
+        );
         break;
       }
 
@@ -5846,21 +5909,22 @@ export default function TakeoffViewerModule({
         break;
 
       case 'change_annotation': {
-        // Swap annotations again — capture the current value so a
-        // subsequent undo can revert this redo.
-        setMeasurements((prev) => {
-          const target = prev.find((m) => m.id === op.measurementId);
-          if (target) {
-            reverseOp = {
-              kind: 'change_annotation',
-              measurementId: op.measurementId,
-              previousAnnotation: target.annotation,
-            };
-          }
-          return prev.map((m) =>
+        // Capture the current value SYNCHRONOUSLY (issue #383, mirror of the
+        // undo defect) so a subsequent undo reverts to the text shown before
+        // this redo, not the stale popped op captured inside a deferred updater.
+        const current = measurementsRef.current.find((m) => m.id === op.measurementId);
+        if (current) {
+          reverseOp = {
+            kind: 'change_annotation',
+            measurementId: op.measurementId,
+            previousAnnotation: current.annotation,
+          };
+        }
+        setMeasurements((prev) =>
+          prev.map((m) =>
             m.id === op.measurementId ? { ...m, annotation: op.previousAnnotation } : m,
-          );
-        });
+          ),
+        );
         break;
       }
 
@@ -8723,6 +8787,23 @@ export default function TakeoffViewerModule({
                             <div
                               key={m.id}
                               onClick={() => setSelectedMeasurementId((cur) => (cur === m.id ? null : m.id))}
+                              // Drop target for drag-to-reorder (issue #379). Only a
+                              // real drag (a grip-initiated one, not a suggestion, not
+                              // the dragged row itself) enables the drop; preventDefault
+                              // on dragOver is what makes the row a valid target.
+                              onDragOver={(e) => {
+                                if (!draggingMeasurementId || draggingMeasurementId === m.id || m.suggested) return;
+                                e.preventDefault();
+                                e.dataTransfer.dropEffect = 'move';
+                                if (dragOverMeasurementId !== m.id) setDragOverMeasurementId(m.id);
+                              }}
+                              onDrop={(e) => {
+                                if (!draggingMeasurementId || draggingMeasurementId === m.id || m.suggested) return;
+                                e.preventDefault();
+                                reorderMeasurementByDrag(draggingMeasurementId, m.id);
+                                setDraggingMeasurementId(null);
+                                setDragOverMeasurementId(null);
+                              }}
                               className={clsx(
                                 'rounded-sm px-2 py-1 group/item transition-all cursor-pointer',
                                 selectedMeasurementId === m.id
@@ -8731,12 +8812,42 @@ export default function TakeoffViewerModule({
                                 // Dim a hidden measurement, keeping it listed so it
                                 // can be restored, the way hidden groups behave (#359).
                                 hiddenMeasurements.has(m.id) && 'opacity-50',
+                                // Drop indicator + dragged-row feedback (issue #379).
+                                dragOverMeasurementId === m.id && 'border-t-2 border-t-oe-blue',
+                                draggingMeasurementId === m.id && 'opacity-40',
                               )}
                               data-testid="measurement-item"
                               data-selected={selectedMeasurementId === m.id}
                               data-hidden={hiddenMeasurements.has(m.id)}
                             >
                               <div className="flex items-center gap-2 leading-tight">
+                                {/* Drag handle (issue #379): initiates a reorder of
+                                    the paint (z) stack. Only the grip is draggable so
+                                    a normal row drag never starts by accident; hidden
+                                    for unsaved AI suggestions (not persisted). */}
+                                {!m.suggested && (
+                                  <span
+                                    draggable
+                                    onClick={(e) => e.stopPropagation()}
+                                    onDragStart={(e) => {
+                                      e.dataTransfer.effectAllowed = 'move';
+                                      // Some browsers require data to be set for a drag
+                                      // to begin; the id is also read from state.
+                                      e.dataTransfer.setData('text/plain', m.id);
+                                      setDraggingMeasurementId(m.id);
+                                    }}
+                                    onDragEnd={() => {
+                                      setDraggingMeasurementId(null);
+                                      setDragOverMeasurementId(null);
+                                    }}
+                                    className="shrink-0 -ml-1 cursor-grab active:cursor-grabbing text-content-tertiary opacity-0 group-hover/item:opacity-60 hover:opacity-100 transition-opacity"
+                                    aria-label={t('takeoff_viewer.drag_to_reorder', { defaultValue: 'Drag to reorder' })}
+                                    title={t('takeoff_viewer.drag_to_reorder', { defaultValue: 'Drag to reorder' })}
+                                    data-testid="measurement-drag-handle"
+                                  >
+                                    <GripVertical size={12} />
+                                  </span>
+                                )}
                                 <span
                                   className="h-2 w-2 rounded-full shrink-0"
                                   // Resolve the per-measurement colour first, the

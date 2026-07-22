@@ -68,3 +68,54 @@ export function orderKeyForEdge<T extends Orderable>(
   }
   return edge === 'front' ? acc + 1 : acc - 1;
 }
+
+/**
+ * Order key that inserts a row between two effective paint keys (issue #379
+ * drag-to-reorder). A ``null`` bound means the very back (``below``) or the very
+ * front (``above``) of the stack, so the row steps one unit past the present
+ * edge; between two real keys it takes their midpoint, which keeps the moved row
+ * strictly between its new neighbours without renumbering them (a single-row
+ * PATCH). With both bounds null (an empty stack) it returns 0.
+ */
+export function orderKeyBetween(below: number | null, above: number | null): number {
+  if (below === null && above === null) return 0;
+  if (below === null) return above! - 1;
+  if (above === null) return below! + 1;
+  return (below + above) / 2;
+}
+
+/**
+ * Compute the ``order`` key that drops ``draggedId`` next to ``targetId`` in the
+ * paint-order projection (issue #379). ``place`` decides whether the dragged row
+ * lands immediately before or after the target in that projection. Effective
+ * keys use the same ``order ?? array-index`` fallback as {@link sortByPaintOrder}
+ * so the result is consistent with the canvas / hit-test / sidebar ordering, and
+ * the dragged row is excluded when picking the neighbours so it does not compare
+ * against its own old slot.
+ *
+ * Returns ``null`` when the target is missing or the drop is a no-op (the
+ * dragged row would keep its current key), so the caller can skip the update.
+ */
+export function orderKeyForDrop<T extends Orderable & { id: string }>(
+  items: readonly T[],
+  draggedId: string,
+  targetId: string,
+  place: 'before' | 'after',
+): number | null {
+  if (draggedId === targetId) return null;
+  // Effective key per row, indexed on the ORIGINAL array position so the
+  // fallback matches sortByPaintOrder; then drop the dragged row and sort.
+  const keyed = items
+    .map((item, index) => ({ id: item.id, order: item.order, key: item.order ?? index }))
+    .filter((k) => k.id !== draggedId)
+    .sort((a, b) => a.key - b.key);
+  const targetIdx = keyed.findIndex((k) => k.id === targetId);
+  if (targetIdx === -1) return null;
+  const insertAt = place === 'before' ? targetIdx : targetIdx + 1;
+  const below = insertAt > 0 ? keyed[insertAt - 1]!.key : null;
+  const above = insertAt < keyed.length ? keyed[insertAt]!.key : null;
+  const newOrder = orderKeyBetween(below, above);
+  const dragged = items.find((m) => m.id === draggedId);
+  if (dragged && dragged.order === newOrder) return null;
+  return newOrder;
+}

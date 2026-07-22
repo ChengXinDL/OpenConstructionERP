@@ -1059,4 +1059,112 @@ describe('useMeasurementPersistence', () => {
 
     vi.useRealTimers();
   });
+
+  /* ── Issue #382: sync results merge by id via a functional update ── */
+
+  // After bulkCreate resolves, the serverId stamp must be dispatched as a
+  // FUNCTIONAL updater computed from the freshest state, not a plain value built
+  // from a stale render snapshot - otherwise a user edit that landed while the
+  // create was in flight is discarded. We capture the dispatched updater and
+  // apply it to a "concurrent" state to prove the edit survives and the serverId
+  // still lands.
+  it('stamps serverId with a functional update that preserves a concurrent edit (issue #382)', async () => {
+    const { takeoffApi } = await import('@/features/takeoff/api');
+    const bulkCreate = takeoffApi.bulkCreate as unknown as ReturnType<typeof vi.fn>;
+    bulkCreate.mockResolvedValue([{ id: 'srv-1', metadata: { frontend_id: 'm1' } }]);
+    const setM = vi.fn();
+
+    const { result } = renderHook(() =>
+      useMeasurementPersistence({
+        fileName: 'merge.pdf',
+        documentId: DOC,
+        measurements: [makeMeasurement('m1')],
+        setMeasurements: setM,
+        pageScales: basePageScales,
+        setPageScales: vi.fn(),
+        scale: defaultScale,
+        projectId: PROJECT,
+      }),
+    );
+
+    await act(async () => {
+      result.current.saveNow();
+      await Promise.resolve();
+    });
+
+    // The stamp is dispatched as a functional updater (not a plain array).
+    await waitFor(() =>
+      expect(setM.mock.calls.some((c) => typeof c[0] === 'function')).toBe(true),
+    );
+    const updater = setM.mock.calls
+      .map((c) => c[0])
+      .find((a) => typeof a === 'function') as (
+      prev: TestMeasurement[],
+    ) => TestMeasurement[];
+
+    // Apply it to a state where the user edited m1 AFTER the snapshot was sent.
+    const concurrent: TestMeasurement[] = [
+      { ...makeMeasurement('m1'), annotation: 'edited mid-sync' },
+    ];
+    const next = updater(concurrent);
+    // serverId is stamped AND the concurrent annotation edit is preserved.
+    expect(next[0]!.serverId).toBe('srv-1');
+    expect(next[0]!.annotation).toBe('edited mid-sync');
+  });
+
+  // The edit-PATCH reconcile must likewise merge the server-authoritative value
+  // by id through a functional update, preserving any other row edited during
+  // the PATCH round-trip.
+  it('reconciles PATCH results by id via a functional update (issue #382)', async () => {
+    vi.useFakeTimers();
+    const { takeoffApi } = await import('@/features/takeoff/api');
+    (takeoffApi.update as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      measurement_value: 9.9,
+      metadata: {},
+    });
+    const m1 = makeSyncedMeasurement('m1', 'srv-1');
+    let rows: TestMeasurement[] = [m1];
+    const setM = vi.fn();
+
+    const { rerender } = renderHook(() =>
+      useMeasurementPersistence({
+        fileName: 'reconcile.pdf',
+        documentId: DOC,
+        measurements: rows,
+        setMeasurements: setM,
+        pageScales: basePageScales,
+        setPageScales: vi.fn(),
+        scale: defaultScale,
+        projectId: PROJECT,
+      }),
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Edit m1 (drives the PATCH), then let it reconcile.
+    rows = [{ ...m1, annotation: 'changed' }];
+    rerender();
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+      await Promise.resolve();
+    });
+
+    vi.useRealTimers();
+    const updater = setM.mock.calls
+      .map((c) => c[0])
+      .find((a) => typeof a === 'function') as
+      | ((prev: TestMeasurement[]) => TestMeasurement[])
+      | undefined;
+    expect(updater).toBeTypeOf('function');
+    // A concurrent edit to a DIFFERENT row survives the reconcile.
+    const concurrent: TestMeasurement[] = [
+      { ...m1, value: 9.9 },
+      { ...makeMeasurement('m2', 1), serverId: 'srv-2', annotation: 'other edit' },
+    ];
+    const next = updater!(concurrent);
+    expect(next.find((m) => m.id === 'm1')!.value).toBe(9.9);
+    expect(next.find((m) => m.id === 'm2')!.annotation).toBe('other edit');
+  });
 });

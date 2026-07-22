@@ -2323,7 +2323,9 @@ class TakeoffService:
                     "page": m.page,
                     "type": m.type,
                     "group_name": m.group_name,
-                    "group_color": m.group_color,
+                    # group_color is NULL for an uncoloured measurement (#378);
+                    # export a blank cell rather than a bare "None" string.
+                    "group_color": m.group_color or "",
                     "annotation": m.annotation or "",
                     "measurement_value": m.measurement_value,
                     "measurement_unit": m.measurement_unit,
