@@ -35,6 +35,8 @@ import type {
   InstanceCreatePayload,
   InstanceDecidePayload,
   InstanceReassignPayload,
+  RouteSimulation,
+  SimulateRequest,
 } from './types';
 
 const BASE = '/v1/approval-routes';
@@ -97,6 +99,21 @@ export async function updateRoute(
 
 export async function deleteRoute(routeId: string): Promise<void> {
   await apiDelete<void>(`${BASE}/routes/${routeId}`);
+}
+
+/** Dry-run a route template without starting a real workflow. Read-only.
+ *  Reports, per step, how many approvals clear it and whether it can ever
+ *  clear, plus a happy-path walk to confirm the template reaches ``approved``.
+ *  Pass ``decisions`` to add a what-if walk (e.g. "what if step 2 is
+ *  rejected"). */
+export async function simulateRoute(
+  routeId: string,
+  payload: SimulateRequest = { decisions: [] },
+): Promise<RouteSimulation> {
+  return apiPost<RouteSimulation, SimulateRequest>(
+    `${BASE}/routes/${routeId}/simulate`,
+    payload,
+  );
 }
 
 /* ── Running instances ──────────────────────────────────────────────── */
@@ -231,6 +248,8 @@ export const approvalRoutesKeys = {
     ['approval-routes', 'routes', projectId ?? null, targetKind ?? null] as const,
   /** Single route detail. */
   route: (id: string) => ['approval-routes', 'route', id] as const,
+  /** Dry-run simulation of a single route template. */
+  simulation: (id: string) => ['approval-routes', 'simulation', id] as const,
   /** List of instances filtered by target. */
   instances: (
     targetKind?: string | null,

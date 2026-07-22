@@ -122,6 +122,7 @@ const route: ApprovalRoute = {
   name: 'Std markup review',
   is_active: true,
   created_by: 'user-author',
+  system_key: null,
   created_at: '2026-05-20T09:00:00Z',
   updated_at: '2026-05-20T09:00:00Z',
   steps: [
@@ -132,6 +133,7 @@ const route: ApprovalRoute = {
       approver_role: null,
       approver_user_id: ME_ID,
       mode: 'all',
+      required_approver_count: null,
       sla_hours: 24,
     },
     {
@@ -141,6 +143,7 @@ const route: ApprovalRoute = {
       approver_role: 'manager',
       approver_user_id: null,
       mode: 'any',
+      required_approver_count: null,
       sla_hours: null,
     },
   ],

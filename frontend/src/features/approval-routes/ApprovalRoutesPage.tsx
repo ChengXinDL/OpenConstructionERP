@@ -11,7 +11,15 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Edit3, Plus, ShieldCheck, Trash2, UserCheck, Workflow } from 'lucide-react';
+import {
+  Edit3,
+  FlaskConical,
+  Plus,
+  ShieldCheck,
+  Trash2,
+  UserCheck,
+  Workflow,
+} from 'lucide-react';
 
 import {
   Badge,
@@ -38,6 +46,7 @@ import { approvalRoutesGuide } from './approvalRoutesGuide';
 import { DelegationManager } from './DelegationManager';
 import { kindLabel } from './labels';
 import { RouteEditor } from './RouteEditor';
+import { RouteSimulateDrawer } from './RouteSimulateDrawer';
 import type { ApprovalRoute } from './types';
 
 type TabId = 'routes' | 'instances';
@@ -52,6 +61,7 @@ export function ApprovalRoutesPage() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingRoute, setEditingRoute] = useState<ApprovalRoute | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ApprovalRoute | null>(null);
+  const [simTarget, setSimTarget] = useState<ApprovalRoute | null>(null);
   const [delegationOpen, setDelegationOpen] = useState(false);
 
   // Admin surface — show archived routes too (includeInactive defaults
@@ -295,10 +305,20 @@ export function ApprovalRoutesPage() {
                         .map((r) => (
                           <tr key={r.id}>
                             <td className="px-3 py-2.5">
-                              <div className="flex flex-col">
+                              <div className="flex flex-col gap-1">
                                 <span className="text-sm font-medium text-content-primary">
                                   {r.name}
                                 </span>
+                                {r.system_key && (
+                                  <span>
+                                    <Badge variant="blue" size="sm">
+                                      <ShieldCheck size={11} />
+                                      {t('approvalRoutes.preset_badge', {
+                                        defaultValue: 'ISO 19650 preset',
+                                      })}
+                                    </Badge>
+                                  </span>
+                                )}
                               </div>
                             </td>
                             <td className="px-3 py-2.5 text-xs text-content-secondary tabular-nums">
@@ -346,24 +366,55 @@ export function ApprovalRoutesPage() {
                             <td className="px-3 py-2.5 text-right">
                               <div className="inline-flex items-center gap-0.5">
                                 <button
-                                  onClick={() => {
-                                    setEditingRoute(r);
-                                    setEditorOpen(true);
-                                  }}
+                                  onClick={() => setSimTarget(r)}
                                   className="p-1 rounded hover:bg-surface-secondary text-content-tertiary transition-colors"
-                                  title={t('common.edit', { defaultValue: 'Edit' })}
-                                >
-                                  <Edit3 size={13} />
-                                </button>
-                                <button
-                                  onClick={() => setDeleteTarget(r)}
-                                  className="p-1 rounded hover:bg-surface-secondary text-semantic-error/70 hover:text-semantic-error transition-colors"
-                                  title={t('common.delete', {
-                                    defaultValue: 'Delete',
+                                  title={t('approvalRoutes.sim_title', {
+                                    defaultValue: 'Dry run',
                                   })}
+                                  data-testid="route-dry-run"
                                 >
-                                  <Trash2 size={13} />
+                                  <FlaskConical size={13} />
                                 </button>
+                                {r.system_key ? (
+                                  // Presets are read-only tenant-wide templates;
+                                  // the API rejects edits / deletes, so only the
+                                  // dry-run action is offered here.
+                                  <span
+                                    className="px-1 text-2xs text-content-tertiary"
+                                    title={t('approvalRoutes.preset_readonly', {
+                                      defaultValue:
+                                        'Read-only preset. Create your own route to customise it.',
+                                    })}
+                                  >
+                                    {t('approvalRoutes.readonly', {
+                                      defaultValue: 'Read-only',
+                                    })}
+                                  </span>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => {
+                                        setEditingRoute(r);
+                                        setEditorOpen(true);
+                                      }}
+                                      className="p-1 rounded hover:bg-surface-secondary text-content-tertiary transition-colors"
+                                      title={t('common.edit', {
+                                        defaultValue: 'Edit',
+                                      })}
+                                    >
+                                      <Edit3 size={13} />
+                                    </button>
+                                    <button
+                                      onClick={() => setDeleteTarget(r)}
+                                      className="p-1 rounded hover:bg-surface-secondary text-semantic-error/70 hover:text-semantic-error transition-colors"
+                                      title={t('common.delete', {
+                                        defaultValue: 'Delete',
+                                      })}
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -396,6 +447,12 @@ export function ApprovalRoutesPage() {
       <DelegationManager
         open={delegationOpen}
         onClose={() => setDelegationOpen(false)}
+      />
+
+      <RouteSimulateDrawer
+        open={simTarget !== null}
+        onClose={() => setSimTarget(null)}
+        route={simTarget}
       />
 
       <ConfirmDialog

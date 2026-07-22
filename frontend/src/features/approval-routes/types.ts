@@ -44,6 +44,9 @@ export interface RouteStep {
   approver_role: string | null;
   approver_user_id: string | null;
   mode: RouteStepMode;
+  /** Eligible-approver population for a role-based all / majority step. null
+   *  when the author did not declare a quorum. */
+  required_approver_count: number | null;
   sla_hours: number | null;
 }
 
@@ -56,6 +59,10 @@ export interface ApprovalRoute {
   is_active: boolean;
   steps: RouteStep[];
   created_by: string | null;
+  /** Set only on platform-seeded presets (tenant-wide, read-only ISO 19650
+   *  review flows); null for every user-created route. The UI flags a preset
+   *  from this and the API rejects edits / deletes of a route that carries it. */
+  system_key: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -210,4 +217,58 @@ export interface Escalation {
   reason: string;
   chain_length: number;
   current_holder: string | null;
+}
+
+/* ── Dry-run simulation (inc3a/inc3c) ─────────────────────────────── */
+
+/** One step's hypothetical decision tally for a what-if dry run. Mirrors the
+ *  backend SimulateDecision. ``distinct_approvers`` defaults to ``approvals``
+ *  server-side when omitted. */
+export interface SimulateDecision {
+  ordinal: number;
+  approvals: number;
+  rejections: number;
+  distinct_approvers?: number | null;
+}
+
+/** Optional body for POST /routes/{id}/simulate. An empty body runs only the
+ *  happy path; supplying ``decisions`` adds a second what-if walk. */
+export interface SimulateRequest {
+  decisions: SimulateDecision[];
+}
+
+/** Per-step analysis of a route template in a dry run. Mirrors the backend
+ *  SimulatedStep. */
+export interface SimulatedStep {
+  ordinal: number;
+  mode: string;
+  approver_role: string | null;
+  approver_user_id: string | null;
+  quorum_required: number | null;
+  min_approvals_to_clear: number;
+  needs_multiple_approvers: boolean;
+  note: string;
+}
+
+/** Where one dry-run walk (happy path or scenario) ends up. ``outcome`` is
+ *  completed (reaches approved), rejected (a rejection short-circuits) or
+ *  stuck (a step never gathers enough approvals). */
+export type SimulationOutcomeKind = 'completed' | 'rejected' | 'stuck';
+
+export interface SimulationOutcome {
+  outcome: SimulationOutcomeKind;
+  stopped_at_ordinal: number | null;
+  trace: string[];
+}
+
+/** Result of dry-running a route template. Mirrors the backend
+ *  RouteSimulationResponse. */
+export interface RouteSimulation {
+  route_id: string;
+  target_kind: string;
+  step_count: number;
+  steps: SimulatedStep[];
+  happy_path: SimulationOutcome;
+  scenario: SimulationOutcome | null;
+  warnings: string[];
 }
