@@ -1,0 +1,242 @@
+# DDC-CWICR-OE: DataDrivenConstruction · OpenConstructionERP
+# Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
+"""Pure workflow maths and provider abstraction for the e-signature registry.
+
+Pins the jurisdiction-neutral, crypto-free logic without a DB or a clock:
+
+    - session status recompute from attestations vs the signatory map;
+    - the ``all_required_signatories_signed`` validation rule;
+    - delta-by-hash (which signatures went stale when the content hash moved);
+    - certificate-metadata expiry flagging;
+    - the issued-set hash manifest;
+    - the SignatureProvider / NullProvider abstraction (records attestations,
+      never verifies cryptographically, never touches keys).
+    - the /meta label lookups localise with an English fallback.
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, date, datetime, timedelta
+from types import SimpleNamespace
+
+from app.modules.signing import intl
+from app.modules.signing.providers import (
+    DEFAULT_PROVIDER,
+    NullProvider,
+    SignatureProvider,
+)
+from app.modules.signing.service import (
+    all_required_signatories_signed,
+    cert_expiry_flags,
+    delta_by_hash,
+    issued_set_manifest,
+    recompute_session_status,
+)
+
+_NOW = datetime(2026, 7, 21, tzinfo=UTC)
+_TODAY = date(2026, 7, 21)
+
+
+def _sig(
+    role: str,
+    *,
+    status: str = "signed",
+    content_hash: str = "h1",
+    name: str | None = None,
+    cert_valid_until: date | None = None,
+    session_id: str = "s",
+    sid: str = "sig",
+):
+    return SimpleNamespace(
+        id=sid,
+        session_id=session_id,
+        signatory_name=name or f"{role}-person",
+        signatory_role=role,
+        status=status,
+        content_hash=content_hash,
+        cert_subject="CN=Signer",
+        cert_valid_until=cert_valid_until,
+    )
+
+
+_MAP = [
+    {"name": "A", "role": "contractor", "required": True},
+    {"name": "B", "role": "client", "required": True},
+    {"name": "C", "role": "witness", "required": False},
+]
+
+
+# ── recompute_session_status ────────────────────────────────────────────────
+
+
+def test_no_signatures_awaiting() -> None:
+    assert recompute_session_status(_MAP, []) == "awaiting_signatures"
+
+
+def test_explicit_draft_with_nothing_signed_stays_draft() -> None:
+    assert recompute_session_status(_MAP, [], current_status="draft") == "draft"
+
+
+def test_some_required_signed_is_partial() -> None:
+    sigs = [_sig("contractor")]
+    assert recompute_session_status(_MAP, sigs) == "partially_signed"
+
+
+def test_all_required_signed_is_fully_signed() -> None:
+    sigs = [_sig("contractor"), _sig("client")]
+    assert recompute_session_status(_MAP, sigs) == "fully_signed"
+
+
+def test_optional_signatory_not_needed_for_fully_signed() -> None:
+    # witness is required=False, so contractor + client alone are enough.
+    sigs = [_sig("contractor"), _sig("client")]
+    assert recompute_session_status(_MAP, sigs) == "fully_signed"
+
+
+def test_decline_is_terminal() -> None:
+    sigs = [_sig("contractor"), _sig("client", status="declined")]
+    assert recompute_session_status(_MAP, sigs) == "declined"
+
+
+def test_declined_current_status_preserved() -> None:
+    assert recompute_session_status(_MAP, [], current_status="declined") == "declined"
+
+
+def test_expiry_flips_to_expired_when_not_fully_signed() -> None:
+    past = _NOW - timedelta(days=1)
+    sigs = [_sig("contractor")]
+    assert recompute_session_status(_MAP, sigs, expires_at=past, now=_NOW) == "expired"
+
+
+def test_fully_signed_beats_expiry() -> None:
+    past = _NOW - timedelta(days=1)
+    sigs = [_sig("contractor"), _sig("client")]
+    assert recompute_session_status(_MAP, sigs, expires_at=past, now=_NOW) == "fully_signed"
+
+
+# ── all_required_signatories_signed (validation rule) ───────────────────────
+
+
+def test_validation_rule_true_when_all_required_signed() -> None:
+    sigs = [_sig("contractor"), _sig("client")]
+    assert all_required_signatories_signed(_MAP, sigs) is True
+
+
+def test_validation_rule_false_when_missing_required() -> None:
+    assert all_required_signatories_signed(_MAP, [_sig("contractor")]) is False
+
+
+def test_validation_rule_false_when_no_required_defined() -> None:
+    only_optional = [{"name": "C", "role": "witness", "required": False}]
+    assert all_required_signatories_signed(only_optional, [_sig("witness")]) is False
+
+
+# ── delta_by_hash ───────────────────────────────────────────────────────────
+
+
+def test_delta_by_hash_flags_stale_signatures() -> None:
+    sigs = [
+        _sig("contractor", content_hash="old", name="Alice"),
+        _sig("client", content_hash="new", name="Bob"),
+    ]
+    session = SimpleNamespace(signatures=sigs, document_content_hash="new")
+    assert delta_by_hash(session, "new") == {"Alice"}
+
+
+def test_delta_by_hash_ignores_declined() -> None:
+    sigs = [_sig("contractor", content_hash="old", name="Alice", status="declined")]
+    assert delta_by_hash(sigs, "new") == set()
+
+
+def test_delta_by_hash_none_stale_when_all_current() -> None:
+    sigs = [_sig("contractor", content_hash="new", name="Alice")]
+    assert delta_by_hash(sigs, "new") == set()
+
+
+# ── cert_expiry_flags ───────────────────────────────────────────────────────
+
+
+def test_cert_expiry_flags_expired_and_soon() -> None:
+    sigs = [
+        _sig("contractor", name="Expired", cert_valid_until=_TODAY - timedelta(days=2), sid="1"),
+        _sig("client", name="Soon", cert_valid_until=_TODAY + timedelta(days=10), sid="2"),
+        _sig("witness", name="Far", cert_valid_until=_TODAY + timedelta(days=400), sid="3"),
+        _sig("extra", name="NoCert", cert_valid_until=None, sid="4"),
+    ]
+    flags = cert_expiry_flags(sigs, today=_TODAY, within_days=30)
+    names = [f["signatory_name"] for f in flags]
+    assert names == ["Expired", "Soon"]  # sorted ascending by days_until_expiry
+    assert flags[0]["expired"] is True
+    assert flags[1]["expired"] is False
+
+
+def test_cert_expiry_ignores_declined() -> None:
+    sigs = [_sig("contractor", name="D", status="declined", cert_valid_until=_TODAY - timedelta(days=1))]
+    assert cert_expiry_flags(sigs, today=_TODAY) == []
+
+
+# ── issued_set_manifest ─────────────────────────────────────────────────────
+
+
+def test_issued_set_manifest_maps_ref_to_hash() -> None:
+    sessions = [
+        SimpleNamespace(document_ref="doc/a", document_content_hash="h1"),
+        SimpleNamespace(document_ref="doc/b", document_content_hash="h2"),
+    ]
+    assert issued_set_manifest(sessions) == {"doc/a": "h1", "doc/b": "h2"}
+
+
+def test_issued_set_manifest_later_hash_wins() -> None:
+    sessions = [
+        SimpleNamespace(document_ref="doc/a", document_content_hash="h1"),
+        SimpleNamespace(document_ref="doc/a", document_content_hash="h2"),
+    ]
+    assert issued_set_manifest(sessions) == {"doc/a": "h2"}
+
+
+# ── Provider abstraction ────────────────────────────────────────────────────
+
+
+def test_null_provider_is_a_signature_provider() -> None:
+    assert isinstance(DEFAULT_PROVIDER, SignatureProvider)
+    assert isinstance(NullProvider(), SignatureProvider)
+
+
+def test_null_provider_describe_declares_no_crypto_no_keys() -> None:
+    desc = NullProvider().describe()
+    assert desc["cryptographic_verification"] is False
+    assert desc["accepts_keys_or_passwords"] is False
+    assert desc["records_attestations"] is True
+
+
+def test_null_provider_verify_is_metadata_only() -> None:
+    good = NullProvider().verify_attestation({"signatory_name": "A", "signatory_role": "client", "content_hash": "h"})
+    assert good.ok is True
+    assert good.cryptographically_verified is False
+
+    bad = NullProvider().verify_attestation({"signatory_name": "", "signatory_role": "", "content_hash": ""})
+    assert bad.ok is False
+    assert "missing content_hash" in bad.issues
+
+
+# ── intl labels ─────────────────────────────────────────────────────────────
+
+
+def test_capability_labels_localise() -> None:
+    assert intl.describe_capability("qualified_electronic", "en") == "Qualified electronic signature"
+    assert intl.describe_capability("qualified_electronic", "ru") == "Квалифицированная электронная подпись"
+    assert intl.describe_capability("digital_certificate", "de") == "Signatur mit digitalem Zertifikat"
+
+
+def test_status_labels_localise() -> None:
+    assert intl.describe_status("fully_signed", "es") == "Totalmente firmado"
+    assert intl.describe_status("declined", "de") == "Abgelehnt"
+
+
+def test_unknown_locale_falls_back_to_english() -> None:
+    assert intl.describe_capability("advanced_electronic", "zz") == "Advanced electronic signature"
+    assert intl.describe_capability("advanced_electronic", None) == "Advanced electronic signature"
+
+
+def test_unknown_code_is_humanised_not_raw() -> None:
+    assert intl.describe_capability("mobile_id_signature", "en") == "Mobile Id Signature"
