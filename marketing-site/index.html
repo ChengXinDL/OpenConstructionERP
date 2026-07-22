@@ -12577,12 +12577,12 @@
       </div>
 
       <div class="nav-links nav-links-slot">
-        <a href="#tour" data-i18n="nav.tour">Tour</a>
         <a href="#compare" data-i18n="nav.compare">Compare</a>
         <a href="#pricing" data-i18n="nav.pricing">Pricing</a>
         <a href="#faq" data-i18n="nav.faq">FAQ</a>
         <a href="/docs.html" data-i18n="nav.docs">Docs</a>
         <a href="/news.html" data-i18n="nav.news">News</a>
+        <a href="#contact" data-i18n="nav.contact">Contact</a>
       </div>
 
       <div class="nav-right">
@@ -12627,12 +12627,12 @@
   <!-- Mobile menu overlay - shown when body has .nav-open -->
   <div class="mobile-menu" id="mobile-menu" role="dialog" aria-label="Mobile navigation" aria-modal="true">
     <a href="/demo"><span data-i18n="nav.demo">Demo</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
-    <a href="#tour"><span data-i18n="nav.tour">Tour</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
     <a href="#compare"><span data-i18n="nav.compare">Compare</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
     <a href="#pricing"><span data-i18n="nav.pricing">Pricing</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
     <a href="#faq"><span data-i18n="nav.faq">FAQ</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
     <a href="/docs.html"><span data-i18n="nav.docs">Docs</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
     <a href="/news.html"><span data-i18n="nav.news">News</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+    <a href="#contact"><span data-i18n="nav.contact">Contact</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
     <div class="cta-row">
       <a class="btn btn-primary" href="/download"><span data-i18n="nav.download">Download</span></a>
     </div>
@@ -19367,7 +19367,7 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
   <!-- ================================================================ -->
   <!-- BIG FOOTER                                                        -->
   <!-- ================================================================ -->
-  <footer class="footer-big">
+  <footer class="footer-big" id="contact">
     <div class="footer-grid">
       <div class="footer-brand-col">
         <a class="footer-brand" href="/">
@@ -22816,7 +22816,7 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
         try {
           // Cache-bust on each release so updated copy reaches users without
           // a hard refresh. LOCALE_VERSION is bumped on every content change.
-          const LOCALE_VERSION = '20260721e';
+          const LOCALE_VERSION = '20260722a';
           const res = await fetch(`locales/${lang}.json?v=${LOCALE_VERSION}`, { cache: 'default' });
           if (!res.ok) throw 0;
           const json = await res.json();
