@@ -233,7 +233,20 @@ a.hc-cell .hc-face{ transition: transform .16s cubic-bezier(.18,.72,.26,1), filt
 a.hc-cell:hover,
 a.hc-cell:focus-visible{ z-index: 6; }
 a.hc-cell:hover .hc-face,
-a.hc-cell:focus-visible .hc-face{ transform: scale(1.5); filter: brightness(1.06); }
+a.hc-cell:focus-visible .hc-face{ transform: scale(1.9); filter: brightness(1.06); }
+/* At the enlarged hover size there is room for the full label, so drop the
+   2-line clamp and let it breathe (up to 3 lines, a touch more line-height)
+   and give the icon a little more separation - the text then sits neatly
+   centred in the hex instead of being cramped or truncated. */
+a.hc-cell:hover .hc-title,
+a.hc-cell:focus-visible .hc-title{
+  -webkit-line-clamp: 3;
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  max-width: 100%;
+}
+a.hc-cell:hover .hc-ico,
+a.hc-cell:focus-visible .hc-ico{ margin-bottom: 3px; }
 a.hc-cell:focus-visible{ outline: none; }
 a.hc-cell:focus-visible .hc-face{ box-shadow: 0 0 0 2px var(--card, #fff), 0 0 0 4px var(--tint, var(--accent)); }
 
