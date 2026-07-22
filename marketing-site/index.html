@@ -693,6 +693,21 @@
     .brand-seg-2 { color: var(--accent); }
     .brand-seg-3 { color: var(--ink-0); }
     [data-theme="dark"] .brand-seg-3 { color: var(--ink-0); }
+    /* Module count chip - how many modules ship in the open core */
+    .brand-count {
+      display: inline-flex;
+      align-items: center;
+      margin-left: 7px;
+      padding: 1px 6px;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.5;
+      letter-spacing: 0;
+      color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
+      border-radius: 6px;
+    }
 
     .lang-toggle {
       height: 36px;
@@ -1669,10 +1684,11 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      /* Tighter horizontal padding so long single-word titles
-         (Validation, Documents, Equipment, Reporting, Schedules) sit
-         centred, not squeezed against the left slant of the hex.   */
-      padding: 10% 6%;
+      /* Wider horizontal padding keeps the title + subtitle inside the
+         hexagon's inscribed width, so long localized labels (German
+         "Baustellenaufgaben", "Teilleistungen") ellipsize cleanly rather
+         than colliding with the slanted edges.                       */
+      padding: 11% 12%;
       gap: 2px;
       text-align: center;
       clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
@@ -1685,8 +1701,8 @@
        so the 3D city stays visible through every hex. */
     .hc-cell .hc-face-front {
       background: linear-gradient(180deg,
-        color-mix(in oklab, var(--tint, var(--accent)) 32%, rgba(255,255,255,0.62)),
-        color-mix(in oklab, var(--tint, var(--accent)) 16%, rgba(255,255,255,0.46)));
+        color-mix(in oklab, var(--tint, var(--accent)) 17%, rgba(255,255,255,0.84)),
+        color-mix(in oklab, var(--tint, var(--accent)) 8%, rgba(255,255,255,0.68)));
       color: var(--ink-0);
       transform: rotateY(0deg);
       z-index: 2;
@@ -1731,19 +1747,19 @@
 
     [data-theme="dark"] .hc-cell .hc-face-front {
       background: linear-gradient(180deg,
-        color-mix(in oklab, var(--tint, var(--accent)) 22%, #111a2c 76%),
-        color-mix(in oklab, var(--tint, var(--accent)) 10%, #111a2c 88%));
+        color-mix(in oklab, var(--tint, var(--accent)) 16%, #17233b 78%),
+        color-mix(in oklab, var(--tint, var(--accent)) 8%, #17233b 88%));
     }
 
     /* Content inside both faces */
     .hc-face .hc-ico {
-      width: 34px;
-      height: 34px;
+      width: 32px;
+      height: 32px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       border-radius: 9px;
-      background: color-mix(in oklab, var(--tint, var(--accent)) 36%, transparent);
+      background: color-mix(in oklab, var(--tint, var(--accent)) 30%, rgba(255,255,255,0.35));
       color: var(--tint, var(--accent));
       font-family: 'Inter Tight', sans-serif;
       font-weight: 700;
@@ -1752,6 +1768,10 @@
       margin-bottom: 2px;
       transition: transform 0.25s ease, background 0.25s ease;
     }
+    /* Injected inline-SVG module icons - one consistent line set replaces
+       the mismatched unicode glyphs. Stroke inherits the hex tint.      */
+    .hc-face .hc-ico svg { width: 19px; height: 19px; display: block; }
+    .mm-ico svg { width: 20px; height: 20px; display: block; }
     .hc-cell:hover .hc-face .hc-ico { transform: translateY(-1px) scale(1.06); }
     .hc-face-back .hc-ico {
       background: rgba(255,255,255,0.25);
@@ -1760,8 +1780,8 @@
     .hc-face .hc-title {
       font-family: 'Inter Tight', 'Inter', sans-serif;
       font-weight: 660;
-      font-size: 12.5px;
-      letter-spacing: -0.015em;
+      font-size: 12px;
+      letter-spacing: -0.02em;
       line-height: 1.05;
       white-space: nowrap;
       text-align: center;
@@ -1772,14 +1792,17 @@
     }
     .hc-face .hc-sub {
       font-family: 'JetBrains Mono', ui-monospace, monospace;
-      font-size: 8px;
-      letter-spacing: 0.05em;
+      font-size: 7px;
+      letter-spacing: 0.01em;
       line-height: 1.15;
       text-transform: uppercase;
       white-space: nowrap;
       text-align: center;
-      opacity: 0.82;
-      width: 100%;
+      opacity: 0.8;
+      /* Sub sits low in the hex where it narrows - cap it tighter than the
+         title so it never reaches the slanted edges.                    */
+      max-width: 86%;
+      margin: 0 auto;
       overflow: hidden;
       text-overflow: ellipsis;
     }
@@ -12533,7 +12556,7 @@
       <div class="nav-left">
         <a class="brand" href="/">
           <span class="brand-name">
-            <span class="brand-seg brand-seg-1">Open</span><span class="brand-seg brand-seg-2">Construction</span><span class="brand-seg brand-seg-3">ERP</span>
+            <span class="brand-seg brand-seg-1">Open</span><span class="brand-seg brand-seg-2">Construction</span><span class="brand-seg brand-seg-3">ERP</span><span class="brand-count" title="modules in the open core">+171</span>
           </span>
         </a>
 
@@ -13348,6 +13371,49 @@
         </a>
       </div>
     </div>
+
+    <!-- Module icons: one consistent inline-SVG line set. Keyed off the
+         placeholder glyph already in each hex / mobile cell, so no markup
+         edit is needed - the glyph is swapped for its matching icon.     -->
+    <script>
+    (function () {
+      var OPEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+      var ICONS = {
+        '◫': '<rect x="3.5" y="3.5" width="7" height="7" rx="1.4"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.4"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.4"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.4"/>',
+        '☰': '<path d="M9 6.5h11"/><path d="M9 12h11"/><path d="M9 17.5h11"/><circle cx="4.7" cy="6.5" r="1.05"/><circle cx="4.7" cy="12" r="1.05"/><circle cx="4.7" cy="17.5" r="1.05"/>',
+        '◷': '<rect x="4" y="5.5" width="10" height="3.2" rx="1.6"/><rect x="9" y="10.4" width="11" height="3.2" rx="1.6"/><rect x="6" y="15.3" width="8" height="3.2" rx="1.6"/>',
+        '☎': '<circle cx="9" cy="8.5" r="3"/><path d="M3.6 19a5.4 5.4 0 0 1 10.8 0"/><path d="M15.5 6.2a3 3 0 0 1 0 5.6"/><path d="M17 13.2a5.2 5.2 0 0 1 3.5 5.8"/>',
+        '✶': '<circle cx="12" cy="12" r="5.6"/><path d="M12 2.4v3.2M12 18.4v3.2M2.4 12h3.2M18.4 12h3.2"/><circle cx="12" cy="12" r="1.2"/>',
+        '◈': '<path d="M12 2.8 20.4 7v10L12 21.2 3.6 17V7z"/><path d="M12 11.6 20.4 7M12 11.6V21.2M12 11.6 3.6 7"/>',
+        '€': '<path d="M11.8 3.6h6.1a2 2 0 0 1 2 2v6.1a2 2 0 0 1-.6 1.4l-6.7 6.7a2 2 0 0 1-2.8 0l-5.9-5.9a2 2 0 0 1 0-2.8l6.7-6.7a2 2 0 0 1 1.4-.6Z"/><circle cx="15.6" cy="8.2" r="1.3"/>',
+        '✓': '<path d="M12 3 5.5 5.6v5.2c0 4.2 2.8 7.1 6.5 8.4 3.7-1.3 6.5-4.2 6.5-8.4V5.6z"/><path d="M9.2 11.8 11.3 14l3.8-4"/>',
+        '⎋': '<rect x="5" y="5" width="14" height="15.5" rx="2"/><path d="M9.2 5V3.8a1 1 0 0 1 1-1h3.6a1 1 0 0 1 1 1V5"/><path d="M9.2 13.4 11 15.2l3.6-3.8"/>',
+        '♻': '<path d="M5 19c-.6-8 5-14.5 15-14 .5 9.5-5.5 15.2-15 14Z"/><path d="M5.5 18.5C9.5 15 13 12 16.5 8.8"/>',
+        '§': '<path d="M13 3.5H7.5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V9z"/><path d="M12.6 3.6V9h5.4"/><path d="M8.6 16.4c.9-1.4 1.8-1.4 2.3 0s1.4 1.4 2.3 0"/>',
+        '▣': '<rect x="3.6" y="9.4" width="7.4" height="7.4" rx="1.1"/><rect x="13" y="9.4" width="7.4" height="7.4" rx="1.1"/><rect x="8.3" y="3.6" width="7.4" height="5.4" rx="1.1"/>',
+        '⊕': '<path d="M12 4.2 20.6 19H3.4z"/><path d="M12 9.8v4.2"/><circle cx="12" cy="16.6" r="0.9" fill="currentColor" stroke="none"/>',
+        '⎘': '<rect x="8.2" y="3.4" width="11" height="13" rx="2"/><path d="M15.6 16.4v2.2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h1.8"/>',
+        '⚙': '<rect x="5" y="5" width="14" height="15.5" rx="2"/><path d="M9.2 5V3.8a1 1 0 0 1 1-1h3.6a1 1 0 0 1 1 1V5"/><path d="M8.7 11h.02M8.7 15h.02M11.6 11h4M11.6 15h4"/>',
+        '✎': '<path d="M6.5 3.6H17a1.4 1.4 0 0 1 1.4 1.4v14a1.4 1.4 0 0 1-1.4 1.4H6.5a2 2 0 0 1-2-2V5.6a2 2 0 0 1 2-2Z"/><path d="M4.5 8.4h13.9M9 12.2h6M9 15.6h4"/>',
+        '⛭': '<path d="M3 6.6h10v8.8H3z"/><path d="M13 9.6h3.8l3.2 3.2v2.6H13z"/><circle cx="7" cy="17.4" r="1.9"/><circle cx="16.4" cy="17.4" r="1.9"/>',
+        '⦿': '<circle cx="12" cy="9.6" r="5.6"/><path d="M9.7 9.6 11.4 11.3 14.6 7.9"/><path d="M8.6 14.3 7 21l5-2.6L17 21l-1.6-6.7"/>',
+        '⎔': '<path d="M6.2 3.6h11.6v16.8l-2-1.3-2 1.3-1.8-1.3-2 1.3-1.8-1.3-2 1.3V3.6Z"/><path d="M9 8.4h6M9 12h4"/>',
+        '◐': '<path d="M4.2 4v15.4a.6.6 0 0 0 .6.6H20"/><rect x="7.6" y="11" width="2.6" height="6" rx="0.7"/><rect x="12" y="8" width="2.6" height="9" rx="0.7"/><rect x="16.4" y="13" width="2.6" height="4" rx="0.7"/>',
+        '◉': '<circle cx="12" cy="8.2" r="3.2"/><path d="M5.6 20a6.4 6.4 0 0 1 12.8 0"/>'
+      };
+      function apply() {
+        var cells = document.querySelectorAll('.hc-ico, .mm-ico');
+        for (var i = 0; i < cells.length; i++) {
+          var el = cells[i];
+          var g = (el.textContent || '').trim();
+          var paths = ICONS[g];
+          if (paths) { el.innerHTML = OPEN + paths + '</svg>'; }
+        }
+      }
+      if (document.readyState !== 'loading') { apply(); }
+      else { document.addEventListener('DOMContentLoaded', apply); }
+    })();
+    </script>
 
   </section>
 
@@ -15985,14 +16051,14 @@
         <div class="number-foot" data-i18n="numbers.card1_foot">updated monthly</div>
       </div>
       <div class="number-card reveal delay-2" style="--tint: var(--accent-2)">
-        <div class="number-eyebrow" data-i18n="numbers.card2_eyebrow">CAD formats</div>
-        <div class="number-value" data-count="6">0</div>
-        <p class="number-label" data-i18n="numbers.card2_label">native CAD ingest, DWG, RVT, IFC, DGN, DXF and GLB into one canonical format.</p>
-        <div class="number-foot">DWG &middot; RVT &middot; IFC &middot; DGN &middot; DXF &middot; GLB</div>
+        <div class="number-eyebrow" data-i18n="numbers.card2_eyebrow">import formats</div>
+        <div class="number-value" data-count="20" data-suffix="+">0<span class="suffix">+</span></div>
+        <p class="number-label" data-i18n="numbers.card2_label">IFC, DWG/DGN, Excel/CSV, PDF and 20+ more formats in - and 40+ formats back out of one canonical model.</p>
+        <div class="number-foot">IFC &middot; DWG &middot; DGN &middot; Excel &middot; CSV &middot; PDF &middot; 20+ in &middot; 40+ out</div>
       </div>
       <div class="number-card reveal delay-3" style="--tint: var(--accent-3)">
         <div class="number-eyebrow" data-i18n="numbers.card3_eyebrow">modules</div>
-        <div class="number-value" data-count="161">0</div>
+        <div class="number-value" data-count="171">0</div>
         <p class="number-label" data-i18n="numbers.card3_label">plug-in modules covering the full site workflow, projects, BOQ, takeoff, tenders and more.</p>
         <div class="number-foot" data-i18n="numbers.card3_foot">add &amp; remove like packages</div>
       </div>
@@ -22750,7 +22816,7 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
         try {
           // Cache-bust on each release so updated copy reaches users without
           // a hard refresh. LOCALE_VERSION is bumped on every content change.
-          const LOCALE_VERSION = '20260615a';
+          const LOCALE_VERSION = '20260721e';
           const res = await fetch(`locales/${lang}.json?v=${LOCALE_VERSION}`, { cache: 'default' });
           if (!res.ok) throw 0;
           const json = await res.json();
