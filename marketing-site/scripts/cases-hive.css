@@ -1,286 +1,248 @@
 /* ================================================================
  * cases-hive.css  (generated asset, committed)
  *
- * Gallery redesign for /cases (cases/index.html): a 70/30 split where
- * the left 70% is the 3-column case grid and the right 30% is a sticky
- * "honeycomb" panel. On hover / keyboard-focus of a case card, the panel
- * renders that case's distinct modules as flip-hex cells - the same
- * visual language as the homepage "modules honeycomb" (the hc-cell /
- * hc-face / hc-ico / hc-title hex is lifted verbatim below). The hex
- * cluster is positioned by generate-cases.mjs' inline JS from the baked
- * per-case module data. Injected inside a marked <style> block.
+ * Gallery honeycomb for /cases (cases/index.html). No side panel, no
+ * boxed background: a single centred, transparent honeycomb "field"
+ * sits above the full-width card grid. Hovering / focusing a case card
+ * lights that case's modules as solid flip-hexes in the centre of the
+ * field, ringed by the platform's OTHER modules rendered as faint
+ * ghost hexes - so a visitor sees, at a glance, that each playbook is
+ * one small selection out of many modules. Positions + colours are set
+ * by the inline runtime in generate-gallery.mjs from each card's baked
+ * data-modules list. Injected inside a marked <style> block.
  * ================================================================ */
 
-/* ---- 70 / 30 layout ------------------------------------------- */
-.cases-layout{
-  display: grid;
-  grid-template-columns: minmax(0, 7fr) minmax(0, 3fr);
-  gap: clamp(20px, 3vw, 44px);
-  align-items: start;
-}
-.cases-left{ min-width: 0; }
-
-/* Tighten the dead space at the top of the left column so the first card
-   row sits right under the toolbar (the page's .count adds 20px top, the
-   base .grid another 12px - trim both inside the layout). */
-.cases-left .count{ padding-top: 6px; }
-
-/* Denser grid inside the 70% column: 3 columns on desktop, reflowing
-   to 2 then 1 on narrow screens. Overrides the page's own .grid rule. */
-.cases-left .grid{
+/* ---- full-width grid (no more 70/30 split) --------------------- */
+.cases-grid-wide{ min-width: 0; }
+.cases-grid-wide .count{ padding-top: 6px; }
+.cases-grid-wide .grid{
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
   padding: 2px 0 60px;
 }
-
-/* ---- honeycomb panel ------------------------------------------ */
-/* align-self:stretch overrides the layout's align-items:start so the aside
-   spans the full grid-row height; without it the aside is only as tall as
-   its own content and position:sticky releases after the first screenful. */
-.hive-panel{ min-width: 0; align-self: stretch; }
-.hive-sticky{
-  position: sticky;
-  top: 88px;
-  border: 1px solid var(--line-1);
-  border-radius: 16px;
-  background:
-    radial-gradient(120% 90% at 50% 0%, color-mix(in oklab, var(--accent) 6%, transparent), transparent 70%),
-    var(--card);
-  box-shadow: 0 18px 40px -24px rgba(15,23,42,0.28);
-  padding: 20px 18px 26px;
-  overflow: hidden;
+@media (min-width: 1400px){
+  .cases-grid-wide .grid{ grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
-.hive-head{ text-align: center; margin-bottom: 6px; }
+@media (max-width: 900px){
+  .cases-grid-wide .grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px){
+  .cases-grid-wide .grid{ grid-template-columns: 1fr; }
+}
+
+/* ---- the honeycomb hero (transparent, centred) ----------------- */
+.cases-hive{
+  /* No border, no background, no card. Just breathing room. */
+  margin: 6px auto 26px;
+  padding: 8px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.hive-head{ margin-bottom: 4px; }
 .hive-eyebrow{
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: .66rem;
-  letter-spacing: .16em;
+  letter-spacing: .18em;
   text-transform: uppercase;
   color: var(--ink-3);
 }
 .hive-title{
   font-family: 'Inter Tight', 'Inter', sans-serif;
-  font-weight: 640;
-  font-size: 1.02rem;
-  letter-spacing: -0.015em;
+  font-weight: 660;
+  font-size: clamp(1.02rem, 1.6vw, 1.24rem);
+  letter-spacing: -0.02em;
   line-height: 1.2;
   color: var(--ink-0);
-  margin: 4px 0 0;
+  margin: 5px 0 0;
   text-wrap: balance;
-  min-height: 2.4em;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  max-width: 30ch;
+  transition: opacity .25s ease;
 }
 .hive-count{
   display: block;
-  margin-top: 3px;
+  margin-top: 4px;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   font-size: .64rem;
   letter-spacing: .06em;
   color: var(--ink-3);
 }
-/* The honeycomb stage. Height + child positions are set inline by JS. */
+
+/* The honeycomb stage. Width + height + child positions are inline (JS). */
 .hive-grid{
-  --hc-w: clamp(64px, 7vw, 82px);
-  --hc-h: calc(var(--hc-w) * 0.866);
-  --hc-col: calc(var(--hc-w) * 0.78);
-  --hc-zig: calc(var(--hc-h) * 0.5);
   position: relative;
-  margin: 14px auto 2px;
-  transition: height 0.35s cubic-bezier(.4,0,.2,1);
-}
-.hive-empty{
-  text-align: center;
-  color: var(--ink-3);
-  font-size: .82rem;
-  line-height: 1.5;
-  padding: 26px 10px;
+  margin: 16px auto 2px;
+  transition: height .4s cubic-bezier(.4,0,.2,1), width .4s cubic-bezier(.4,0,.2,1);
 }
 
-/* ---- hex cells (verbatim homepage visual) --------------------- */
+/* ---- solid hex cells (the case's own modules) ------------------ */
+/* Flat-top hex, glassy front that flips to a tinted back on hover.  */
 .hc-cell{
-      position: absolute;
-      width: var(--hc-w);
-      height: var(--hc-h);
-      pointer-events: auto;
-      cursor: pointer;
-      opacity: 0;
-      transform: translateY(6px) scale(0.92);
-      animation: hc-in 0.55s cubic-bezier(.18,.72,.26,1) forwards;
-      perspective: 700px;
-      /* Soft glass shadow - subtle lift off the 3D scene. */
-      filter:
-        drop-shadow(0 1px 0 color-mix(in oklab, var(--tint, var(--accent)) 40%, rgba(255,255,255,0.3)))
-        drop-shadow(0 6px 14px color-mix(in oklab, var(--tint, var(--accent)) 18%, rgba(15,23,42,0.12)));
-    }
+  position: absolute;
+  width: var(--hc-w);
+  height: var(--hc-h);
+  pointer-events: auto;
+  cursor: default;
+  opacity: 0;
+  transform: translateY(6px) scale(.92);
+  animation: hc-in .5s cubic-bezier(.18,.72,.26,1) forwards;
+  perspective: 700px;
+  filter:
+    drop-shadow(0 1px 0 color-mix(in oklab, var(--tint, var(--accent)) 40%, rgba(255,255,255,.3)))
+    drop-shadow(0 8px 16px color-mix(in oklab, var(--tint, var(--accent)) 22%, rgba(15,23,42,.14)));
+}
 .hc-cell .hc-face{
-      position: absolute;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      /* Tighter horizontal padding so long single-word titles
-         (Validation, Documents, Equipment, Reporting, Schedules) sit
-         centred, not squeezed against the left slant of the hex.   */
-      padding: 11% 12%;
-      gap: 2px;
-      text-align: center;
-      clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
-      /* Springy flip - slight overshoot feels more tactile. */
-      transition: transform 0.6s cubic-bezier(.34, 1.56, .64, 1), opacity 0.3s ease;
-      backface-visibility: hidden;
-      -webkit-backface-visibility: hidden;
-    }
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 11% 12%;
+  gap: 2px;
+  text-align: center;
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+  transition: transform .6s cubic-bezier(.34,1.56,.64,1), opacity .3s ease;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
 .hc-cell .hc-face-front{
-      background: linear-gradient(180deg,
-        color-mix(in oklab, var(--tint, var(--accent)) 15%, rgba(255,255,255,0.86)),
-        color-mix(in oklab, var(--tint, var(--accent)) 8%, rgba(255,255,255,0.70)));
-      color: var(--ink-0);
-      transform: rotateY(0deg);
-      z-index: 2;
-      -webkit-backdrop-filter: blur(16px) saturate(1.4);
-              backdrop-filter: blur(16px) saturate(1.4);
-    }
+  background: linear-gradient(180deg,
+    color-mix(in oklab, var(--tint, var(--accent)) 16%, rgba(255,255,255,.9)),
+    color-mix(in oklab, var(--tint, var(--accent)) 9%, rgba(255,255,255,.74)));
+  color: var(--ink-0);
+  transform: rotateY(0deg);
+  z-index: 2;
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+          backdrop-filter: blur(14px) saturate(1.4);
+}
 .hc-cell .hc-face-back{
-      background: linear-gradient(180deg,
-        color-mix(in oklab, var(--tint, var(--accent)) 72%, rgba(11,18,32,0.65)),
-        color-mix(in oklab, var(--tint, var(--accent)) 48%, rgba(11,18,32,0.82)));
-      color: #fff;
-      transform: rotateY(-180deg);
-      z-index: 1;
-      -webkit-backdrop-filter: blur(10px) saturate(1.4);
-              backdrop-filter: blur(10px) saturate(1.4);
-    }
+  background: linear-gradient(180deg,
+    color-mix(in oklab, var(--tint, var(--accent)) 74%, rgba(11,18,32,.62)),
+    color-mix(in oklab, var(--tint, var(--accent)) 50%, rgba(11,18,32,.8)));
+  color: #fff;
+  transform: rotateY(-180deg);
+  z-index: 1;
+}
 .hc-cell .hc-face-front::before{
-      content: '';
-      position: absolute;
-      inset: 0;
-      clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
-      background:
-        linear-gradient(155deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.08) 42%, transparent 60%),
-        linear-gradient(0deg, color-mix(in oklab, var(--tint, var(--accent)) 14%, transparent), transparent 45%);
-      pointer-events: none;
-      mix-blend-mode: screen;
-    }
+  content: '';
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+  background:
+    linear-gradient(155deg, rgba(255,255,255,.6) 0%, rgba(255,255,255,.08) 42%, transparent 60%),
+    linear-gradient(0deg, color-mix(in oklab, var(--tint, var(--accent)) 14%, transparent), transparent 45%);
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
 .hc-cell .hc-face > *{ position: relative; z-index: 1; }
 .hc-cell:hover .hc-face-front,
-    .hc-cell:focus-visible .hc-face-front{ transform: rotateY(180deg); }
+.hc-cell:focus-visible .hc-face-front{ transform: rotateY(180deg); }
 .hc-cell:hover .hc-face-back,
-    .hc-cell:focus-visible .hc-face-back{ transform: rotateY(0deg); }
+.hc-cell:focus-visible .hc-face-back{ transform: rotateY(0deg); }
 .hc-cell:hover,
-    .hc-cell:focus-visible{
-      filter: drop-shadow(0 16px 28px color-mix(in oklab, var(--tint, var(--accent)) 52%, rgba(15,23,42,0.28)));
-      z-index: 10;
-    }
+.hc-cell:focus-visible{
+  filter: drop-shadow(0 16px 28px color-mix(in oklab, var(--tint, var(--accent)) 52%, rgba(15,23,42,.28)));
+  z-index: 30;
+}
 [data-theme="dark"] .hc-cell .hc-face-front{
-      background: linear-gradient(180deg,
-        color-mix(in oklab, var(--tint, var(--accent)) 16%, #17233b 78%),
-        color-mix(in oklab, var(--tint, var(--accent)) 8%, #17233b 88%));
-    }
+  background: linear-gradient(180deg,
+    color-mix(in oklab, var(--tint, var(--accent)) 18%, #17233b 76%),
+    color-mix(in oklab, var(--tint, var(--accent)) 9%, #17233b 88%));
+}
 .hc-face .hc-ico{
-      width: 32px;
-      height: 32px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 9px;
-      background: color-mix(in oklab, var(--tint, var(--accent)) 30%, rgba(255,255,255,0.35));
-      color: var(--tint, var(--accent));
-      font-family: 'Inter Tight', sans-serif;
-      font-weight: 700;
-      font-size: 17px;
-      line-height: 1;
-      margin-bottom: 2px;
-      transition: transform 0.25s ease, background 0.25s ease;
-    }
-.hc-face .hc-ico svg{ width: 19px; height: 19px; display: block; }
-.hc-cell:hover .hc-face .hc-ico{ transform: translateY(-1px) scale(1.06); }
-.hc-face-back .hc-ico{
-      background: rgba(255,255,255,0.25);
-      color: #fff;
-    }
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--tint, var(--accent)) 30%, rgba(255,255,255,.35));
+  color: var(--tint, var(--accent));
+  font-family: 'Inter Tight', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+.hc-face .hc-ico svg{ width: 15px; height: 15px; display: block; }
+.hc-face-back .hc-ico{ background: rgba(255,255,255,.25); color: #fff; }
 .hc-face .hc-title{
-      font-family: 'Inter Tight', 'Inter', sans-serif;
-      font-weight: 660;
-      font-size: 12px;
-      letter-spacing: -0.02em;
-      line-height: 1.05;
-      white-space: nowrap;
-      text-align: center;
-      width: 100%;
-      /* Keeps really long titles inside the hex even on narrow breakpoints. */
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
+  font-family: 'Inter Tight', 'Inter', sans-serif;
+  font-weight: 660;
+  font-size: 10.5px;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  white-space: nowrap;
+  text-align: center;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .hc-face .hc-sub{
-      font-family: 'JetBrains Mono', ui-monospace, monospace;
-      font-size: 7px;
-      letter-spacing: 0.01em;
-      line-height: 1.15;
-      text-transform: uppercase;
-      white-space: nowrap;
-      text-align: center;
-      opacity: 0.8;
-      max-width: 86%;
-      margin: 0 auto;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 7px;
+  letter-spacing: .01em;
+  line-height: 1.15;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: .8;
+  max-width: 86%;
+  margin: 0 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .hc-face-front .hc-sub{ color: var(--ink-2); }
-.hc-face-back  .hc-sub{ color: rgba(255,255,255,0.85); }
-.hc-cell .hc-face-back::after{
-      content: '';
-      position: absolute;
-      inset: -10%;
-      background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,0.55) 50%, transparent 65%);
-      transform: translateX(-120%);
-      pointer-events: none;
-      mix-blend-mode: overlay;
-    }
-.hc-cell:hover .hc-face-back::after,
-    .hc-cell:focus-visible .hc-face-back::after{
-      animation: hc-shimmer 0.9s cubic-bezier(.4,0,.2,1) 0.25s both;
-    }
-@media (max-width: 1280px) {
-.hc-face .hc-title{ font-size: 12px; }
-.hc-face .hc-ico{ width: 30px; height: 30px; font-size: 15px; }
+.hc-face-back  .hc-sub{ color: rgba(255,255,255,.85); }
+
+/* ---- ghost hex cells (the platform's OTHER modules) ------------ */
+/* Faint, static, non-flipping. They ring the solid cluster so the
+   selection reads as a few picks out of many available modules.     */
+.hc-ghost{
+  position: absolute;
+  width: var(--hc-w);
+  height: var(--hc-h);
+  opacity: 0;
+  transform: scale(.9);
+  animation: hc-ghost-in .55s cubic-bezier(.18,.72,.26,1) forwards;
+  pointer-events: auto;
+  cursor: default;
 }
-@media (max-width: 1280px) {
-.hc-face .hc-title{ font-size: 11px; }
-.hc-face .hc-sub{ font-size: 7.5px; }
+.hc-ghost .hc-gface{
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+  background: color-mix(in oklab, var(--tint, var(--accent)) 12%, transparent);
+  color: color-mix(in oklab, var(--tint, var(--accent)) 62%, var(--ink-3));
+  transition: background .25s ease, transform .25s ease, color .25s ease;
+}
+.hc-ghost .hc-gico{
+  font-family: 'Inter Tight', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1;
+  opacity: .9;
+}
+.hc-ghost .hc-gico svg{ width: 15px; height: 15px; display: block; }
+.hc-ghost:hover .hc-gface{
+  background: color-mix(in oklab, var(--tint, var(--accent)) 24%, transparent);
+  color: color-mix(in oklab, var(--tint, var(--accent)) 82%, var(--ink-1));
+  transform: scale(1.05);
 }
 
-@keyframes hc-in {
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-@keyframes hc-shimmer {
-  from { transform: translateX(-120%); }
-  to   { transform: translateX(120%); }
-}
+@keyframes hc-in { to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes hc-ghost-in { to { opacity: .5; transform: scale(1); } }
 
-/* Panel hex sizing tweaks (smaller than the homepage stage). */
-.hive-grid .hc-face .hc-ico{ width: 26px; height: 26px; font-size: 13px; border-radius: 8px; }
-.hive-grid .hc-face .hc-ico svg{ width: 15px; height: 15px; }
-.hive-grid .hc-face .hc-title{ font-size: 10.5px; }
-
-/* ---- responsive ----------------------------------------------- */
-@media (max-width: 1080px){
-  .cases-left .grid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@media (max-width: 900px){
-  /* Stack: grid first, panel below, no longer sticky. Hover still works
-     on devices with a pointer; touch users see the featured case. */
-  .cases-layout{ grid-template-columns: 1fr; }
-  .hive-sticky{ position: static; }
-  .hive-panel{ order: 2; }
-}
 @media (max-width: 560px){
-  .cases-left .grid{ grid-template-columns: 1fr; }
+  .cases-hive{ display: none; } /* honeycomb is a desktop delight; keep mobile lean */
 }
 @media (prefers-reduced-motion: reduce){
-  .hc-cell{ animation: none !important; opacity: 1 !important; transform: none !important; }
+  .hc-cell, .hc-ghost{ animation: none !important; opacity: 1 !important; transform: none !important; }
+  .hc-ghost{ opacity: .5 !important; }
   .hc-cell .hc-face{ transition: none !important; }
   .hive-grid{ transition: none !important; }
 }

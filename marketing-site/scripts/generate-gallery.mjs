@@ -10,14 +10,16 @@
  *      (cases/answer-an-rfi.html) so the two stay in sync. The "Cases"
  *      link is marked active.
  *
- *   2. Honeycomb-on-hover. The card area becomes a 70/30 split: the card
- *      grid (three columns) sits in the left 70%, a sticky panel in the
- *      right 30%. Hovering or focusing a card renders that case's modules
- *      as flip-hex cells - the same visual language as the homepage
- *      "One platform, shaped to how you build" honeycomb. Per-case module
- *      lists come from scripts/case-modules.json; each card carries a
- *      data-modules="A|B|C" attribute the hover script reads. The panel
- *      rests on the first case so it is never empty.
+ *   2. Honeycomb-on-hover. The card grid runs full width (no side panel).
+ *      A single centred, transparent honeycomb "field" sits above it.
+ *      Hovering or focusing a card lights that case's modules as solid
+ *      flip-hexes in the centre of the field, ringed by the platform's
+ *      OTHER modules as faint ghost hexes - so the selection reads as a
+ *      few picks out of many available modules. Per-case module lists
+ *      come from scripts/case-modules.json; each card carries a
+ *      data-modules="A|B|C" attribute the runtime reads. The global
+ *      module vocabulary (the ghost pool) is derived from every card at
+ *      runtime. The field rests on the first case so it is never empty.
  *
  * Everything is injected between HTML-comment sentinels, so re-running the
  * generator produces a byte-identical file (idempotent). Run it from the
@@ -139,21 +141,20 @@ function main() {
     return m + attr;
   });
 
-  /* ---- (3b) wrap the card area into the 70/30 hive layout ---------- */
-  const panelHtml =
-    '<aside class="hive-panel"><div class="hive-sticky">' +
+  /* ---- (3b) insert the transparent honeycomb hero above the grid --- */
+  const heroHtml =
+    '<section class="cases-hive" aria-label="Modules used by this playbook">' +
     '<div class="hive-head">' +
     '<span class="hive-eyebrow">Modules in play</span>' +
     '<h2 class="hive-title" id="hiveTitle">One platform, shaped to how you build</h2>' +
-    '<span class="hive-count" id="hiveCount">Hover a playbook to see its modules</span>' +
+    '<span class="hive-count" id="hiveCount">Hover a playbook to light up its modules</span>' +
     '</div>' +
     '<div class="hive-grid" id="hiveGrid" aria-live="polite"></div>' +
-    '<p class="hive-empty" id="hiveEmpty" hidden>Hover or focus a playbook to see the modules it uses.</p>' +
-    '</div></aside>';
+    '</section>';
 
   const hiveRe = new RegExp(
     '<main class="wrap">' +
-    '(?:<!--oce:gallery-hive--><div class="cases-layout"><div class="cases-left">)?' +
+    '(?:<!--oce:gallery-hive-->[\\s\\S]*?)?' +
     '(<div class="count" id="count"></div>)' +
     '(<div class="grid" id="grid">[\\s\\S]*?</div>)(?=<div class="empty" id="empty">)' +
     '(<div class="empty" id="empty">[\\s\\S]*?</div>)' +
@@ -161,9 +162,9 @@ function main() {
   );
   if (!hiveRe.test(html)) throw new Error('Could not locate the card area (<main> + count + grid + empty)');
   html = html.replace(hiveRe, (_full, count, grid, empty) =>
-    '<main class="wrap"><!--oce:gallery-hive--><div class="cases-layout"><div class="cases-left">' +
-    count + grid + empty +
-    '</div>' + panelHtml + '</div><!--/oce:gallery-hive--></main>',
+    '<main class="wrap"><!--oce:gallery-hive-->' + heroHtml +
+    '<div class="cases-grid-wide">' + count + grid + empty + '</div>' +
+    '<!--/oce:gallery-hive--></main>',
   );
 
   /* ---- (4) hover script + nav wiring before </body> --------------- */
@@ -188,14 +189,6 @@ const HIVE_SCRIPT = `<script>
   var countEl=document.getElementById('hiveCount');
   var board=document.getElementById('grid');
   if(!grid||!board) return;
-  var CLUSTERS={
-    1:[[0,0]],
-    2:[[0,0],[1,0.5]],
-    3:[[0,0],[0,1],[1,0.5]],
-    4:[[0,0],[0,1],[1,-0.5],[1,0.5]],
-    5:[[0,0],[0,1],[1,-0.5],[1,0.5],[2,0]],
-    6:[[0,0],[0,1],[1,-0.5],[1,0.5],[2,0],[2,1]]
-  };
   var ICONS={
     'boq':'\\u2630','cost explorer':'\\u20AC','costs':'\\u20AC','finance':'\\u20AC','payroll':'\\u20AC','value':'\\u25C7',
     'assemblies':'\\u274F','labour rates':'\\u20AC','resources':'\\u25A6','resource summary':'\\u25A6','production norms':'\\u2211',
@@ -219,36 +212,85 @@ const HIVE_SCRIPT = `<script>
     return m?m.charAt(0).toUpperCase():'\\u25C6';
   }
   function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  // Global module vocabulary (the ghost pool), in first-seen order.
+  var ALL=[]; (function(){
+    var seen={};
+    board.querySelectorAll('.card[data-modules]').forEach(function(c){
+      (c.getAttribute('data-modules')||'').split('|').forEach(function(m){
+        m=m.trim(); if(!m) return; var k=m.toLowerCase();
+        if(!seen[k]){ seen[k]=1; ALL.push(m); }
+      });
+    });
+  })();
+
+  // Flat-top hex spiral of axial coords: centre first, then rings out.
+  function spiral(radius){
+    var out=[{q:0,r:0}];
+    var dirs=[[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+    for(var k=1;k<=radius;k++){
+      var q=dirs[4][0]*k, r=dirs[4][1]*k;
+      for(var s=0;s<6;s++){
+        for(var step=0;step<k;step++){ out.push({q:q,r:r}); q+=dirs[s][0]; r+=dirs[s][1]; }
+      }
+    }
+    return out;
+  }
+  var CELLS=spiral(3); // 37 positions -> a lush field
+
   function render(mods,title,color){
     grid.innerHTML='';
     var n=mods.length;
     if(!n){ if(countEl) countEl.textContent=''; return; }
-    var pts=CLUSTERS[n]||CLUSTERS[6];
-    var cw=grid.clientWidth||260;
-    var w=Math.max(56,Math.min(82,Math.round(cw/3.35)));
+
+    // Ghost pool: the platform's OTHER modules (exclude this case's).
+    var own={}; mods.forEach(function(m){ own[m.toLowerCase()]=1; });
+    var ghosts=ALL.filter(function(m){ return !own[m.toLowerCase()]; });
+    var ghostCount=Math.min(ghosts.length, Math.max(0, CELLS.length-n));
+    var used=CELLS.slice(0, n+ghostCount);
+
+    var vw=Math.min(window.innerWidth||960, 980);
+    var w = vw<900 ? 50 : 58;
+    var h=w*0.866, col=w*0.75;
     grid.style.setProperty('--hc-w',w+'px');
-    var h=w*0.866, col=w*0.78;
-    var xs=pts.map(function(p){return p[0]*col;});
-    var ys=pts.map(function(p){return p[1]*h;});
+    grid.style.setProperty('--hc-h',h+'px');
+
+    // Pixel positions (flat-top): x=col*q, y=h*(r+q/2).
+    var pos=used.map(function(c){ return { x:c.q*col, y:h*(c.r + c.q/2) }; });
+    var xs=pos.map(function(p){return p.x;}), ys=pos.map(function(p){return p.y;});
     var minX=Math.min.apply(null,xs), maxX=Math.max.apply(null,xs)+w;
     var minY=Math.min.apply(null,ys), maxY=Math.max.apply(null,ys)+h;
-    var offX=(cw-(maxX-minX))/2-minX;
+    grid.style.width=(maxX-minX)+'px';
     grid.style.height=(maxY-minY)+'px';
+
     var pal=[color||'var(--accent)','var(--accent)','var(--accent-3)','var(--accent-2)'];
-    for(var i=0;i<n;i++){
-      var p=pts[i];
-      var cell=document.createElement('span');
-      cell.className='hc-cell';
-      cell.style.left=(p[0]*col+offX)+'px';
-      cell.style.top=(p[1]*h-minY)+'px';
-      cell.style.setProperty('--tint',pal[i%pal.length]);
-      cell.style.animationDelay=(i*0.05)+'s';
-      cell.title=mods[i];
-      cell.innerHTML='<span class="hc-face hc-face-front"><span class="hc-ico" aria-hidden="true">'+iconFor(mods[i])+'</span><span class="hc-title">'+esc(mods[i])+'</span></span><span class="hc-face hc-face-back"><span class="hc-title">'+esc(mods[i])+'</span><span class="hc-sub">module</span></span>';
-      grid.appendChild(cell);
-    }
+    var gpal=['var(--accent)','var(--accent-3)','var(--accent-2)'];
+
+    used.forEach(function(c,i){
+      var x=pos[i].x-minX, y=pos[i].y-minY;
+      if(i<n){
+        var cell=document.createElement('span');
+        cell.className='hc-cell';
+        cell.style.left=x+'px'; cell.style.top=y+'px';
+        cell.style.setProperty('--tint',pal[i%pal.length]);
+        cell.style.animationDelay=(i*0.045)+'s';
+        cell.title=mods[i];
+        cell.innerHTML='<span class="hc-face hc-face-front"><span class="hc-ico" aria-hidden="true">'+iconFor(mods[i])+'</span><span class="hc-title">'+esc(mods[i])+'</span></span><span class="hc-face hc-face-back"><span class="hc-title">'+esc(mods[i])+'</span><span class="hc-sub">module</span></span>';
+        grid.appendChild(cell);
+      } else {
+        var name=ghosts[i-n];
+        var gh=document.createElement('span');
+        gh.className='hc-ghost';
+        gh.style.left=x+'px'; gh.style.top=y+'px';
+        gh.style.setProperty('--tint',gpal[i%gpal.length]);
+        gh.style.animationDelay=(0.12+(i-n)*0.02)+'s';
+        gh.title=name;
+        gh.innerHTML='<span class="hc-gface"><span class="hc-gico" aria-hidden="true">'+iconFor(name)+'</span></span>';
+        grid.appendChild(gh);
+      }
+    });
+
     if(titleEl) titleEl.textContent=title;
-    if(countEl) countEl.textContent=n+(n===1?' module':' modules');
+    if(countEl) countEl.textContent=n+(n===1?' module':' modules')+' in this playbook of '+ALL.length+' available';
   }
   function fromCard(card){
     if(!card) return;
