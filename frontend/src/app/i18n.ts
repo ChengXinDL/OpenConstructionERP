@@ -33,6 +33,7 @@ export const SUPPORTED_LANGUAGES = [
   { code: 'th', name: 'ไทย', english: 'Thai', flag: '🇹🇭', country: 'th' },
   { code: 'vi', name: 'Tiếng Việt', english: 'Vietnamese', flag: '🇻🇳', country: 'vn' },
   { code: 'mn', name: 'Монгол', english: 'Mongolian', flag: '🇲🇳', country: 'mn' },
+  { code: 'ky', name: 'Кыргызча', english: 'Kyrgyz', flag: '🇰🇬', country: 'kg' },
 ];
 
 export function getLanguageByCode(code: string): (typeof SUPPORTED_LANGUAGES)[number] {
