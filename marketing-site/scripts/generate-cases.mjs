@@ -91,28 +91,27 @@ const HIVE_CORE_CSS = (() => {
   return m[0];
 })();
 
-// The detail hero right column: a smaller scene image with the module
-// honeycomb below it as a tidy, compact side panel. On narrow screens the
-// column stacks under the content (the hero grid collapses to one column and
-// the side wrapper follows the copy in source order).
+// Detail-page layout: the "How it works" steps and the modules honeycomb sit
+// side by side (steps left, a slim vertical module panel right). The hexes are
+// stacked into a tall, narrow 2-wide column. On narrow screens the panel drops
+// below the steps. Label text is tuned to always sit inside the hexagon.
 const CASE_HIVE_CSS = `
-.dhero{ align-items: start; }
-.dhero-side{
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-  align-self: start;
-  min-width: 0;
-}
 /* Smaller hero illustration so it no longer dominates the top of the page. */
-.dhero .scene{ width: 100%; max-width: 330px; }
-/* Module honeycomb as a neat, compact right-hand panel (not a wide band). */
+.dhero .scene{ width: 100%; max-width: 400px; margin-left: auto; }
+/* Steps + modules panel, side by side. */
+.case-body{
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 236px;
+  gap: 42px;
+  align-items: start;
+}
+.case-body > .steps{ margin: 0; min-width: 0; }
+/* The module honeycomb as a slim, sticky vertical panel beside the steps. */
 .case-hive{
+  position: sticky;
+  top: 84px;
   margin: 0;
-  width: 100%;
-  max-width: 340px;
-  padding: 16px 12px 12px;
+  padding: 18px 12px 14px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -123,17 +122,17 @@ const CASE_HIVE_CSS = `
 }
 .case-hive .ch-eyebrow{
   font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: .66rem;
-  letter-spacing: .18em;
+  font-size: .62rem;
+  letter-spacing: .16em;
   text-transform: uppercase;
   color: var(--ink-3);
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
 }
 .case-hive .ch-eyebrow::before{
   content: "";
-  width: 22px;
+  width: 18px;
   height: 2px;
   background: var(--band-accent, var(--accent));
   display: inline-block;
@@ -141,30 +140,44 @@ const CASE_HIVE_CSS = `
 .case-hive .ch-title{
   font-family: 'Inter Tight', 'Inter', sans-serif;
   font-weight: 680;
-  font-size: clamp(1rem, 1.4vw, 1.18rem);
+  font-size: 1rem;
   letter-spacing: -.02em;
-  line-height: 1.18;
+  line-height: 1.2;
   color: var(--ink-0);
   margin: 8px 0 0;
-  max-width: 22ch;
+  max-width: 16ch;
   text-wrap: balance;
 }
-.case-hive-stage{ position: relative; margin: 18px auto 2px; }
+.case-hive-stage{ position: relative; margin: 16px auto 2px; }
+/* Keep the hex label inside the hexagon: the polygon narrows toward its
+   left/right points, so keep text in the central band with generous side
+   padding, a small font, graceful wrapping and a clamp - never clipping
+   across the angled border. */
+.case-hive .hc-face{ padding: 13% 20%; }
+.case-hive .hc-face .hc-ico{ width: 20px; height: 20px; font-size: 13px; margin-bottom: 1px; }
+.case-hive .hc-face .hc-title{
+  font-size: 10.5px;
+  line-height: 1.08;
+  max-width: 100%;
+  -webkit-line-clamp: 3;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: auto;
+}
 .case-hive .ch-note{
   margin: 12px 0 2px;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: .64rem;
-  letter-spacing: .05em;
+  font-size: .62rem;
+  letter-spacing: .04em;
   color: var(--ink-3);
 }
 .case-hive .ch-note b{ color: var(--ink-1); font-weight: 700; }
-@media (max-width: 820px){
-  /* Stacked: keep the panel and image from stretching the full page width. */
-  .dhero-side{ align-self: stretch; align-items: center; }
-  .dhero .scene{ max-width: 420px; }
-  .case-hive{ width: 100%; max-width: 420px; }
+@media (max-width: 900px){
+  /* Panel drops below the steps and centres. */
+  .case-body{ grid-template-columns: 1fr; gap: 26px; }
+  .case-hive{ position: static; width: 100%; max-width: 300px; margin: 0 auto; }
+  .dhero .scene{ max-width: 420px; margin: 0 auto; }
 }
-@media (max-width: 460px){ .case-hive-stage{ transform: scale(.86); margin: 12px auto 0; } }
 `;
 
 const CASE_HIVE_CSS_BLOCK =
@@ -240,6 +253,20 @@ function hiveSpiral(radius) {
   return out;
 }
 
+// A slim 2-wide vertical honeycomb, read top to bottom, for the tall side
+// panel on the detail pages. The case's own modules fill the top rows, the
+// ghost hexes trail below.
+function hiveColumn(count) {
+  const out = [];
+  let r = 0;
+  while (out.length < count) {
+    out.push({ q: 0, r });
+    if (out.length < count) out.push({ q: 1, r });
+    r += 1;
+  }
+  return out;
+}
+
 // Build the static honeycomb band for one case. Solid hexes are the case's
 // own modules; ghosts are one to two rings of the platform's other modules.
 // Positions are baked so the band needs no runtime JS. Labels come from the
@@ -249,10 +276,9 @@ function buildCaseHive({ mods, color, eyebrow, title, noteTpl, filterBase }) {
   if (!n) return '';
   const own = new Set(mods.map((m) => m.toLowerCase()));
   const ghosts = HIVE_ALL.filter((m) => !own.has(m.toLowerCase()));
-  const CELLS = hiveSpiral(2);
-  const ghostCount = Math.min(ghosts.length, CELLS.length - n, Math.max(8, 14 - n));
-  const used = CELLS.slice(0, n + ghostCount);
-  const w = 66, h = w * 0.866, col = w * 0.75;
+  const ghostCount = Math.min(ghosts.length, Math.max(3, 8 - n));
+  const used = hiveColumn(n + ghostCount);
+  const w = 92, h = w * 0.866, col = w * 0.75;
   const pos = used.map((c) => ({ x: c.q * col, y: h * (c.r + c.q / 2) }));
   const xs = pos.map((p) => p.x), ys = pos.map((p) => p.y);
   const minX = Math.min(...xs), maxX = Math.max(...xs) + w;
@@ -664,9 +690,11 @@ function buildPage({ rawEnglish, pb, lang, base, locales, catById, compById, sta
     .replace(/<!--oce:nav-js-->[\s\S]*?<!--\/oce:nav-js-->/, '')
     .replace(/<!--oce:case-hive-css-->[\s\S]*?<!--\/oce:case-hive-css-->/, '')
     .replace(/<!--oce:case-hive-->[\s\S]*?<!--\/oce:case-hive-->/, '')
-    // Unwrap the hero right-column wrapper back to a bare scene so re-runs do
-    // not nest it (the case-hive band inside it was already stripped above).
-    .replace(/<div class="dhero-side">(<div class="scene">[\s\S]*?<\/div>)\s*<\/div>/, '$1');
+    // Unwrap the layout wrappers back to bare elements so re-runs do not nest
+    // them (the case-hive band inside was already stripped above). Both the
+    // older hero-side wrapper and the current steps+modules body are handled.
+    .replace(/<div class="dhero-side">(<div class="scene">[\s\S]*?<\/div>)\s*<\/div>/, '$1')
+    .replace(/<div class="case-body">(<section class="steps">[\s\S]*?<\/section>)\s*<\/div>/, '$1');
   const slug = pb.id;
 
   const ch = !isEn ? CHROME[lang.code] : null;
@@ -893,16 +921,18 @@ function buildPage({ rawEnglish, pb, lang, base, locales, catById, compById, sta
   // when the band lands).
   html = html.replace('</head>', `${CASE_HIVE_CSS_BLOCK}</head>`);
   if (hiveBand) {
-    // Place the honeycomb in the hero's right column, under the (smaller)
-    // scene image, so it reads as a compact side panel. If the page has no
-    // scene image, fall back to an in-flow band between the hero and steps.
+    // Pair the honeycomb with the steps section: steps on the left, the
+    // compact modules panel as a slim vertical column on the right. On narrow
+    // screens the panel stacks under the steps (see .case-body media query).
+    // If a page has no steps section, fall back to an in-flow band before
+    // </main> so the panel still shows.
     const before = html;
     html = html.replace(
-      /<div class="scene">[\s\S]*?<\/div>/,
-      (scene) => `<div class="dhero-side">${scene}${hiveBand}</div>`,
+      /<section class="steps">[\s\S]*?<\/section>/,
+      (steps) => `<div class="case-body">${steps}${hiveBand}</div>`,
     );
     if (html === before) {
-      html = html.replace('</section><section class="steps">', `</section>${hiveBand}<section class="steps">`);
+      html = html.replace('</main>', `${hiveBand}</main>`);
     }
   }
 
