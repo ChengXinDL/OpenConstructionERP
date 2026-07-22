@@ -12,6 +12,7 @@ import {
   Briefcase, Globe, ExternalLink,
   Linkedin, Youtube, Star, Coffee, Rocket, ArrowRight, Handshake,
   Github, MessageCircle, Heart, HandCoins, ChevronDown, Sparkles,
+  MessageSquareQuote,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { Card, Button, Badge, Breadcrumb, DismissibleInfo, IntroRichText } from '@/shared/ui';
@@ -22,6 +23,7 @@ import { Changelog, getRecentReleases } from './Changelog';
 import { CONTRIBUTORS, SPONSORS, acknowledgedUrl, type Acknowledged } from './acknowledgments';
 
 const REPO_URL = 'https://github.com/datadrivenconstruction/OpenConstructionERP';
+const G2_REVIEWS_URL = 'https://www.g2.com/products/openconstructionerp/reviews?source=search';
 const PAYPAL_DONATE_URL = 'https://www.paypal.com/donate/?hosted_button_id=DWBCLNLY2VWAA';
 const GITHUB_SPONSORS_URL = 'https://github.com/sponsors/datadrivenconstruction';
 
@@ -416,6 +418,33 @@ export function AboutPage() {
                   </div>
                 </a>
               </div>
+
+              {/* Review on G2 — a review from a real user helps other teams
+                  find and trust the project. Full-width row like Telegram. */}
+              <a
+                href={G2_REVIEWS_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex items-center gap-3 rounded-lg border border-[#FF492C]/25 bg-[#FF492C]/[0.04] px-3.5 py-3 hover:border-[#FF492C]/50 hover:bg-[#FF492C]/[0.08] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue focus-visible:ring-offset-1"
+              >
+                <span className="shrink-0 h-10 w-10 rounded-lg bg-[#FF492C]/15 text-[#FF492C] flex items-center justify-center">
+                  <MessageSquareQuote size={18} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-content-primary leading-tight">
+                      {t('about.community_g2_title', { defaultValue: 'Review us on G2' })}
+                    </p>
+                    <span className="inline-flex items-center rounded-md bg-[#FF492C]/15 text-[#FF492C] text-2xs font-semibold px-1.5 py-0.5">
+                      {t('about.community_g2_badge', { defaultValue: 'Means a lot' })}
+                    </span>
+                  </div>
+                  <p className="text-xs text-content-secondary mt-0.5 leading-snug">
+                    {t('about.community_g2_desc', { defaultValue: 'We would be grateful if you rate us or write a short review - it helps other construction teams find and trust the platform.' })}
+                  </p>
+                </div>
+                <ExternalLink size={13} className="text-content-quaternary group-hover:text-[#FF492C] shrink-0" />
+              </a>
             </div>
 
             <p className="mt-auto pt-4 text-[11px] text-content-tertiary text-center">
