@@ -61,7 +61,12 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { tmpdir } from 'node:os';
 import { CHROME, NAV_PILL } from './cases-chrome.mjs';
-import { buildSwitcher, detailHref, SWITCHER_JS } from './cases-switcher.mjs';
+import { buildSwitcher, detailHref, SWITCHER_JS, SWITCH_LANGS } from './cases-switcher.mjs';
+import { PLATFORM_MODULE_TOTAL, moduleSlug } from './cases-constants.mjs';
+
+// Languages that have a localized gallery index (/<lang>/cases). The module
+// filter links point there when available, and fall back to /cases otherwise.
+const LOCALIZED_GALLERY = new Set(SWITCH_LANGS.map((l) => l.code).filter((c) => c !== 'en'));
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const MARKETING_ROOT = resolve(SCRIPT_DIR, '..');
@@ -215,7 +220,7 @@ function hiveSpiral(radius) {
 // own modules; ghosts are one to two rings of the platform's other modules.
 // Positions are baked so the band needs no runtime JS. Labels come from the
 // module vocabulary (English); heading text is passed in (localized).
-function buildCaseHive({ mods, color, eyebrow, title, noteTpl }) {
+function buildCaseHive({ mods, color, eyebrow, title, noteTpl, filterBase }) {
   const n = mods.length;
   if (!n) return '';
   const own = new Set(mods.map((m) => m.toLowerCase()));
@@ -235,9 +240,12 @@ function buildCaseHive({ mods, color, eyebrow, title, noteTpl }) {
     const x = Math.round(pos[i].x - minX), y = Math.round(pos[i].y - minY);
     if (i < n) {
       const name = mods[i];
-      hex += `<span class="hc-cell" style="left:${x}px;top:${y}px;--tint:${color};animation-delay:${r2(i * 0.04)}s">` +
+      const href = `${filterBase || '/cases'}/?module=${moduleSlug(name)}`;
+      const label = `See all cases using ${name}`;
+      hex += `<a class="hc-cell" href="${href}" aria-label="${escText(label)}" title="${escText(label)}" ` +
+        `style="left:${x}px;top:${y}px;--tint:${color};animation-delay:${r2(i * 0.04)}s">` +
         `<span class="hc-face"><span class="hc-ico" aria-hidden="true">${hiveIcon(name)}</span>` +
-        `<span class="hc-title">${escText(name)}</span></span></span>`;
+        `<span class="hc-title">${escText(name)}</span></span></a>`;
     } else {
       const name = ghosts[i - n];
       hex += `<span class="hc-ghost" style="left:${x}px;top:${y}px;--tint:${color};animation-delay:${r2(0.1 + (i - n) * 0.018)}s">` +
@@ -246,7 +254,7 @@ function buildCaseHive({ mods, color, eyebrow, title, noteTpl }) {
   });
   const note = escText(noteTpl)
     .replace('{n}', `<b>${n}</b>`)
-    .replace('{total}', `<b>${HIVE_ALL.length}</b>`);
+    .replace('{total}', `<b>${PLATFORM_MODULE_TOTAL}</b>`);
   const stageStyle = `width:${cw}px;height:${chh}px;--hc-w:${w}px;--hc-h:${Math.round(h)}px`;
   return `<!--oce:case-hive--><section class="case-hive" style="--band-accent:${color}" aria-label="Modules this playbook uses">` +
     `<span class="ch-eyebrow">${escText(eyebrow)}</span>` +
@@ -842,12 +850,16 @@ function buildPage({ rawEnglish, pb, lang, base, locales, catById, compById, sta
     : normModules((pb.steps || []).map((s) => s.moduleLabel).filter(Boolean));
   const catAccent = catById[pb.category] && catById[pb.category].accent;
   const hiveColor = (catAccent && (catAccent.base || catAccent)) || '#0284c7';
+  // Clicking a hex lands on the gallery filtered to that module. Use this
+  // language's localized gallery when one exists, else the English gallery.
+  const filterBase = LOCALIZED_GALLERY.has(lang.code) ? `/${lang.code}/cases` : '/cases';
   const hiveBand = buildCaseHive({
     mods: hiveMods,
     color: hiveColor,
     eyebrow: (ch && ch.modulesEyebrow) || 'Modules',
     title: (ch && ch.modulesTitle) || 'Modules in this playbook',
     noteTpl: (ch && ch.modulesNote) || '{n} / {total} platform modules',
+    filterBase,
   });
   // The shared core CSS carries the hex component, the language-switcher
   // styling and the white page canvas, so inject it on every page (not only

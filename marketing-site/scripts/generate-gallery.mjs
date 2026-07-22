@@ -140,13 +140,13 @@ function escHtml(s) {
 // Build the hero aside: a radius-2 hex cluster of representative modules
 // (a few solid picks ringed by ghost hexes), tinted the gallery accent.
 function buildHeroHive() {
-  const solids = ['BOQ', 'Takeoff', 'Schedule', 'BIM Viewer', 'Costs', 'Validation'];
-  const ghosts = ['Tendering', 'Procurement', 'Handover', 'Projects', 'Reports',
-    'Production Norms', 'Assemblies', 'Daily Diary', 'RFIs', 'Punch List',
-    'Portal', 'Resource Summary', 'Files'];
+  const solids = ['BOQ', 'Takeoff', 'Costs', 'Schedule', 'Reports', 'Projects'];
+  const ghosts = ['Tendering', 'Procurement', 'Handover', 'Portal', 'Validation',
+    'BIM Viewer', 'Assemblies', 'Daily Diary', 'RFIs', 'Punch List',
+    'Files', 'Resource Summary', 'Production Norms'];
   const cells = heroSpiral(2); // 19 seats
   const tint = '#0284c7';
-  const w = 60, h = w * 0.866, col = w * 0.75;
+  const w = 64, h = w * 0.866, col = w * 0.75;
   const seats = cells.map((c) => ({ x: c.q * col, y: h * (c.r + c.q / 2) }));
   const xs = seats.map((s) => s.x), ys = seats.map((s) => s.y);
   const minX = Math.min(...xs), maxX = Math.max(...xs) + w;
@@ -216,6 +216,28 @@ function main() {
     /<!--oce:gallery-nav-->[\s\S]*?<!--\/oce:gallery-nav-->|<header class="hd">[\s\S]*?<\/header>/,
     navBlock,
   );
+
+  /* ---- (2b) hero: balanced blocks + decorative honeycomb ---------- */
+  // Rebuild the hero as evenly balanced, equal-height blocks (eyebrow +
+  // headline, description, stats) with the decorative honeycomb on the
+  // right, on a seamless background (no panel/border). Re-extracting each
+  // original piece by its own selector keeps this idempotent whether or not
+  // a prior run already wrapped them.
+  html = html.replace(/<section class="hero">[\s\S]*?<\/section>/, (heroFull) => {
+    const grab = (re) => { const m = heroFull.match(re); return m ? m[0] : ''; };
+    const eyebrow = grab(/<span class="eyebrow">[\s\S]*?<\/span>/);
+    const title = grab(/<h1 class="title">[\s\S]*?<\/h1>/);
+    const lede = grab(/<p class="lede">[\s\S]*?<\/p>/);
+    const meta = grab(/<div class="hero-meta">[\s\S]*?<\/div>/);
+    return (
+      '<section class="hero"><!--oce:hero-->' +
+      '<div class="hero-lead">' + eyebrow + title + '</div>' +
+      '<div class="hero-lede">' + lede + '</div>' +
+      meta +
+      buildHeroHive() +
+      '<!--/oce:hero--></section>'
+    );
+  });
 
   /* ---- (3) data-modules on every card ----------------------------- */
   // Strip any prior data-modules (only card tags carry it) then re-add fresh,
