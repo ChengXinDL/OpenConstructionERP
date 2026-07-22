@@ -31,6 +31,21 @@ action.export.excel`` plus a wider working set of estimator-facing nodes:
                           (side_effecting=False - it writes a file, not DB)
     action.export.csv     write the rows to a .csv file reference
 
+Plus a broader data-shaping set layered on the same envelope contract:
+
+    transform.round             round a numeric field to N decimals
+    transform.currency_convert  restate a money field by an FX rate
+    transform.map_values        remap a field via a from/to dictionary
+    transform.split             partition rows matched vs unmatched
+    transform.join              merge two branches on a shared key
+    transform.running_total     cumulative sum of a field, in row order
+    transform.percent_of_total  each row's share (%) of a field total
+    transform.fill_missing      default blank / missing values
+    transform.clamp             constrain a numeric field to [min, max]
+    transform.concat            join several fields into one text column
+    source.constant             emit fixed literal rows from a param
+    enrich.lookup               fold reference fields on from a lookup table
+
 Aggregates, totals and gates compute over the FULL row set: a BOQ
 envelope carries ``row_ids`` and ``_resolve_full_rows`` re-reads the
 positions, so a total is never just the 25-row preview. Money stays
@@ -1151,6 +1166,562 @@ async def _run_gate_non_empty(ctx: NodeContext) -> dict[str, Any]:
     }
 
 
+# ── transform.round ──────────────────────────────────────────────────────
+
+
+async def _run_transform_round(ctx: NodeContext) -> dict[str, Any]:
+    """Round a numeric field to N decimal places on every row.
+
+    Params: ``field`` (the numeric row key to round), ``places`` (int, how
+    many decimals - default 2), ``target`` (optional destination field;
+    defaults to overwriting ``field`` in place). Uses Decimal ``quantize``
+    (banker's-free ROUND_HALF_UP) so money keeps its exact string form.
+    Non-numeric or missing values pass through untouched. A what-if
+    transform: it changes the rows in place (``mutated``).
+    """
+    from decimal import ROUND_HALF_UP
+
+    upstream = ctx.first_input()
+    rows = list(upstream.get("rows") or [])
+    field = ctx.params.get("field")
+    target = ctx.params.get("target") or field
+    try:
+        places = int(ctx.params.get("places"))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        places = 2
+    places = max(0, places)
+    quant = Decimal(1).scaleb(-places)  # e.g. places=2 → Decimal("0.01")
+
+    out: list[dict[str, Any]] = []
+    rounded = 0
+    for r in rows:
+        new = dict(r)
+        if field:
+            num = _to_decimal(_row_value(r, field))
+            if num is not None:
+                new[target] = str(num.quantize(quant, rounding=ROUND_HALF_UP))
+                rounded += 1
+        out.append(new)
+
+    return {
+        "rows": out[:_SAMPLE_LIMIT],
+        "row_ids": upstream.get("row_ids") or [],
+        "count": upstream.get("count", len(out)),
+        "mutated": True,
+        "summary": (
+            f"Rounded '{field}' to {places} dp on {rounded} of {len(out)} rows"
+            if field
+            else f"No field to round ({len(out)} rows)"
+        ),
+    }
+
+
+# ── transform.currency_convert ───────────────────────────────────────────
+
+
+async def _run_transform_currency_convert(ctx: NodeContext) -> dict[str, Any]:
+    """Convert a money field by a static exchange rate.
+
+    Params: ``field`` (money row key, default ``unit_rate``), ``rate``
+    (multiplier - e.g. 1.08 for EUR→USD), ``target`` (optional destination;
+    defaults to overwriting ``field``), ``currency`` (optional new currency
+    code to stamp on the row's ``currency`` field). When the field is
+    ``unit_rate`` the row's ``total`` is recomputed from the new rate so a
+    downstream rollup stays consistent. Money stays Decimal-as-string. A
+    what-if transform (``mutated``): it does not write back to the BOQ.
+    """
+    upstream = ctx.first_input()
+    rows = list(upstream.get("rows") or [])
+    field = ctx.params.get("field") or "unit_rate"
+    target = ctx.params.get("target") or field
+    currency = ctx.params.get("currency")
+    rate = _to_decimal(ctx.params.get("rate"))
+
+    out: list[dict[str, Any]] = []
+    converted = 0
+    for r in rows:
+        new = dict(r)
+        if rate is not None:
+            money = _to_decimal(_row_value(r, field))
+            if money is not None:
+                new_money = money * rate
+                new[target] = str(new_money)
+                converted += 1
+                if target == "unit_rate":
+                    qty = _to_decimal(r.get("quantity"))
+                    if qty is not None:
+                        new["total"] = str(qty * new_money)
+            if currency:
+                new["currency"] = str(currency)
+        out.append(new)
+
+    return {
+        "rows": out[:_SAMPLE_LIMIT],
+        "row_ids": upstream.get("row_ids") or [],
+        "count": upstream.get("count", len(out)),
+        "mutated": True,
+        "rate": str(rate) if rate is not None else None,
+        "summary": (
+            f"Converted '{field}' by x{rate} on {converted} of {len(out)} rows"
+            + (f" → {currency}" if currency else "")
+            if rate is not None
+            else f"No rate given ({len(out)} rows)"
+        ),
+    }
+
+
+# ── transform.map_values ─────────────────────────────────────────────────
+
+
+async def _run_transform_map_values(ctx: NodeContext) -> dict[str, Any]:
+    """Remap a field's values through a small ``{from: to}`` dictionary.
+
+    Params: ``field`` (the row key to remap), ``mapping`` (dict of
+    old-value → new-value; keys compared as strings), ``target`` (optional
+    destination field; defaults to overwriting ``field``), ``keep_unmapped``
+    (bool, default true - a value absent from the mapping passes through
+    unchanged; set false to blank it). Handy to normalise unit codes or
+    relabel trade names. A what-if transform (``mutated``).
+    """
+    upstream = ctx.first_input()
+    rows = list(upstream.get("rows") or [])
+    field = ctx.params.get("field")
+    target = ctx.params.get("target") or field
+    raw_mapping = ctx.params.get("mapping")
+    mapping = {str(k): v for k, v in raw_mapping.items()} if isinstance(raw_mapping, dict) else {}
+    keep_unmapped = bool(ctx.params.get("keep_unmapped", True))
+
+    out: list[dict[str, Any]] = []
+    remapped = 0
+    for r in rows:
+        new = dict(r)
+        if field:
+            current = _row_value(r, field)
+            key = str(current)
+            if key in mapping:
+                new[target] = mapping[key]
+                remapped += 1
+            elif not keep_unmapped:
+                new[target] = None
+            elif target != field:
+                new[target] = current
+        out.append(new)
+
+    return {
+        "rows": out[:_SAMPLE_LIMIT],
+        "row_ids": upstream.get("row_ids") or [],
+        "count": upstream.get("count", len(out)),
+        "mutated": True,
+        "summary": (
+            f"Remapped '{field}' on {remapped} of {len(out)} rows ({len(mapping)} rules)"
+            if field
+            else f"No field to map ({len(out)} rows)"
+        ),
+    }
+
+
+# ── transform.split ──────────────────────────────────────────────────────
+
+
+async def _run_transform_split(ctx: NodeContext) -> dict[str, Any]:
+    """Partition rows into a matched primary set and an unmatched remainder.
+
+    Params: ``field`` / ``op`` / ``value`` - the same predicate the Filter
+    node uses (op in eq|ne|contains|gt|gte|lt|lte|exists). The rows that
+    match travel out the primary ``rows`` path; the rest are exposed as
+    ``unmatched_rows`` / ``unmatched_row_ids`` on the same envelope with a
+    count, so a template can document a two-way branch. With no predicate
+    everything is treated as matched.
+    """
+    upstream = ctx.first_input()
+    rows = list(upstream.get("rows") or [])
+    field = ctx.params.get("field")
+    op = ctx.params.get("op", "eq")
+    value = ctx.params.get("value")
+
+    if not field:
+        matched, unmatched = rows, []
+    else:
+        matched = [r for r in rows if _matches(r, field, op, value)]
+        unmatched = [r for r in rows if not _matches(r, field, op, value)]
+
+    matched_ids = [r.get("id") for r in matched if r.get("id")]
+    unmatched_ids = [r.get("id") for r in unmatched if r.get("id")]
+    return {
+        "rows": matched[:_SAMPLE_LIMIT],
+        "row_ids": matched_ids[:_ROW_IDS_CAP],
+        "count": len(matched),
+        "unmatched_rows": unmatched[:_SAMPLE_LIMIT],
+        "unmatched_row_ids": unmatched_ids[:_ROW_IDS_CAP],
+        "unmatched_count": len(unmatched),
+        "summary": (
+            f"Split {len(rows)} rows: {len(matched)} matched, {len(unmatched)} not ({field} {op} {value!r})"
+            if field
+            else f"All {len(rows)} rows matched (no predicate)"
+        ),
+    }
+
+
+# ── transform.join ───────────────────────────────────────────────────────
+
+
+async def _run_transform_join(ctx: NodeContext) -> dict[str, Any]:
+    """Merge two upstream branches on a shared key field.
+
+    Params: ``key`` (field present on both sides; or ``left_key`` /
+    ``right_key`` when the names differ), ``how`` (``inner`` (default) keeps
+    only left rows with a right match, ``left`` keeps every left row),
+    ``prefix`` (optional string prepended to the right side's field names so
+    they never clobber the left's). The first connected branch is the left
+    side, the second is the right - the same iteration order the Merge node
+    uses. A right row's fields are folded onto the matching left row.
+    """
+    envelopes = [env for env in ctx.inputs.values() if isinstance(env, dict)]
+    left_env = envelopes[0] if envelopes else {}
+    right_env = envelopes[1] if len(envelopes) > 1 else {}
+    left_rows = list(left_env.get("rows") or [])
+    right_rows = list(right_env.get("rows") or [])
+
+    key = ctx.params.get("key")
+    left_key = ctx.params.get("left_key") or key
+    right_key = ctx.params.get("right_key") or key
+    how = (ctx.params.get("how") or "inner").strip().lower()
+    prefix = ctx.params.get("prefix") or ""
+
+    right_index: dict[str, dict[str, Any]] = {}
+    if right_key:
+        for rr in right_rows:
+            rk = _row_value(rr, right_key)
+            if rk is not None:
+                right_index.setdefault(str(rk), rr)
+
+    out: list[dict[str, Any]] = []
+    joined = 0
+    for lr in left_rows:
+        lk = _row_value(lr, left_key) if left_key else None
+        match = right_index.get(str(lk)) if lk is not None else None
+        if match is None:
+            if how == "left":
+                out.append(dict(lr))
+            continue
+        merged = dict(lr)
+        for k, v in match.items():
+            if prefix:
+                merged[f"{prefix}{k}"] = v
+            elif k not in merged:
+                merged[k] = v
+        out.append(merged)
+        joined += 1
+
+    out_ids = [r.get("id") for r in out if r.get("id")]
+    return {
+        "rows": out[:_SAMPLE_LIMIT],
+        "row_ids": out_ids[:_ROW_IDS_CAP],
+        "count": len(out),
+        "mutated": True,
+        "joined": joined,
+        "summary": (f"{how} join on '{left_key}': {joined} of {len(left_rows)} left rows matched a right row"),
+    }
+
+
+# ── transform.running_total ──────────────────────────────────────────────
+
+
+async def _run_transform_running_total(ctx: NodeContext) -> dict[str, Any]:
+    """Add a cumulative running total of a numeric field, in row order.
+
+    Params: ``field`` (numeric row key to accumulate; when blank each row
+    counts as 1, giving a running row index), ``target`` (new column name,
+    default ``running_total``). Order-dependent, so it accumulates over the
+    rows exactly as they arrive - pair it with Sort for a meaningful cumulative
+    curve. Money stays Decimal-as-string. A what-if transform (``mutated``).
+    """
+    upstream = ctx.first_input()
+    rows = list(upstream.get("rows") or [])
+    field = ctx.params.get("field")
+    target = ctx.params.get("target") or "running_total"
+
+    out: list[dict[str, Any]] = []
+    running = Decimal(0)
+    for r in rows:
+        new = dict(r)
+        step = _to_decimal(_row_value(r, field)) if field else Decimal(1)
+        running += step if step is not None else Decimal(0)
+        new[target] = str(running)
+        out.append(new)
+
+    return {
+        "rows": out[:_SAMPLE_LIMIT],
+        "row_ids": upstream.get("row_ids") or [],
+        "count": upstream.get("count", len(out)),
+        "mutated": True,
+        "final_total": str(running),
+        "summary": (f"Running total of '{field or 'row count'}' → '{target}' over {len(out)} rows (ends {running})"),
+    }
+
+
+# ── transform.percent_of_total ───────────────────────────────────────────
+
+
+async def _run_transform_percent_of_total(ctx: NodeContext) -> dict[str, Any]:
+    """Add each row's share (%) of a field's grand total.
+
+    Params: ``field`` (numeric row key; when blank each row's quantity x
+    unit_rate line total is used), ``target`` (new column name, default
+    ``pct_of_total``), ``places`` (decimals on the percent, default 1).
+    Computes the denominator over the FULL row set (re-reading the BOQ when
+    the envelope carries ids) so the percentages are honest, not sample-only.
+    A summarising what-if transform (``mutated``).
+    """
+    from decimal import ROUND_HALF_UP
+
+    upstream = ctx.first_input()
+    rows = await _resolve_full_rows(ctx, upstream)
+    field = ctx.params.get("field")
+    target = ctx.params.get("target") or "pct_of_total"
+    try:
+        places = int(ctx.params.get("places"))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        places = 1
+    places = max(0, places)
+    quant = Decimal(1).scaleb(-places)
+
+    def _measure(row: dict[str, Any]) -> Decimal:
+        if field:
+            return _to_decimal(_row_value(row, field)) or Decimal(0)
+        return _line_total(row)
+
+    total = sum((_measure(r) for r in rows), Decimal(0))
+
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        new = dict(r)
+        share = (_measure(r) / total * Decimal(100)) if total != 0 else Decimal(0)
+        new[target] = str(share.quantize(quant, rounding=ROUND_HALF_UP))
+        out.append(new)
+
+    return {
+        "rows": out[:_SAMPLE_LIMIT],
+        "count": len(out),
+        "grand_total": str(total),
+        "mutated": True,
+        "summary": (f"Added '{target}' (share of {field or 'line total'}) over {len(out)} rows, total {total}"),
+    }
+
+
+# ── transform.fill_missing ───────────────────────────────────────────────
+
+
+async def _run_transform_fill_missing(ctx: NodeContext) -> dict[str, Any]:
+    """Fill blank / missing values in a field with a default.
+
+    Params: ``field`` (row key to fill), ``value`` (the fill value). A value
+    is considered missing when it is absent, ``None`` or an empty string;
+    populated values are left untouched. Useful to default a unit, a rate or
+    a classification before a downstream gate. A what-if transform (``mutated``).
+    """
+    upstream = ctx.first_input()
+    rows = list(upstream.get("rows") or [])
+    field = ctx.params.get("field")
+    fill = ctx.params.get("value")
+
+    out: list[dict[str, Any]] = []
+    filled = 0
+    for r in rows:
+        new = dict(r)
+        if field:
+            current = new.get(field)
+            if current in (None, ""):
+                new[field] = fill
+                filled += 1
+        out.append(new)
+
+    return {
+        "rows": out[:_SAMPLE_LIMIT],
+        "row_ids": upstream.get("row_ids") or [],
+        "count": upstream.get("count", len(out)),
+        "mutated": True,
+        "summary": (
+            f"Filled '{field}' on {filled} of {len(out)} rows" if field else f"No field to fill ({len(out)} rows)"
+        ),
+    }
+
+
+# ── transform.clamp ──────────────────────────────────────────────────────
+
+
+async def _run_transform_clamp(ctx: NodeContext) -> dict[str, Any]:
+    """Clamp a numeric field into a ``[min, max]`` range.
+
+    Params: ``field`` (numeric row key), ``min`` (lower bound, optional),
+    ``max`` (upper bound, optional), ``target`` (optional destination;
+    defaults to overwriting ``field``). A value below ``min`` becomes ``min``,
+    above ``max`` becomes ``max``; a blank bound is not enforced on that side.
+    Non-numeric values pass through. Money stays Decimal-as-string. A what-if
+    transform (``mutated``).
+    """
+    upstream = ctx.first_input()
+    rows = list(upstream.get("rows") or [])
+    field = ctx.params.get("field")
+    target = ctx.params.get("target") or field
+    lo = _to_decimal(ctx.params.get("min"))
+    hi = _to_decimal(ctx.params.get("max"))
+
+    out: list[dict[str, Any]] = []
+    clamped = 0
+    for r in rows:
+        new = dict(r)
+        if field:
+            num = _to_decimal(_row_value(r, field))
+            if num is not None:
+                bounded = num
+                if lo is not None and bounded < lo:
+                    bounded = lo
+                if hi is not None and bounded > hi:
+                    bounded = hi
+                new[target] = str(bounded)
+                if bounded != num:
+                    clamped += 1
+        out.append(new)
+
+    return {
+        "rows": out[:_SAMPLE_LIMIT],
+        "row_ids": upstream.get("row_ids") or [],
+        "count": upstream.get("count", len(out)),
+        "mutated": True,
+        "summary": (
+            f"Clamped '{field}' to [{lo}, {hi}] on {clamped} of {len(out)} rows"
+            if field
+            else f"No field to clamp ({len(out)} rows)"
+        ),
+    }
+
+
+# ── transform.concat ─────────────────────────────────────────────────────
+
+
+async def _run_transform_concat(ctx: NodeContext) -> dict[str, Any]:
+    """Join several fields into one text column.
+
+    Params: ``fields`` (list of row keys, dotted allowed, read in order),
+    ``target`` (new column name, default ``combined``), ``separator`` (string
+    placed between parts, default a single space). Missing / blank parts are
+    skipped so the separator never doubles up. Handy to build a full position
+    description from code + trade + material. A what-if transform (``mutated``).
+    """
+    upstream = ctx.first_input()
+    rows = list(upstream.get("rows") or [])
+    raw_fields = ctx.params.get("fields")
+    fields = [str(f) for f in raw_fields] if isinstance(raw_fields, list) else []
+    target = ctx.params.get("target") or "combined"
+    sep = ctx.params.get("separator")
+    sep = " " if sep is None else str(sep)
+
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        new = dict(r)
+        parts = [str(v) for f in fields if (v := _row_value(r, f)) not in (None, "")]
+        new[target] = sep.join(parts)
+        out.append(new)
+
+    return {
+        "rows": out[:_SAMPLE_LIMIT],
+        "row_ids": upstream.get("row_ids") or [],
+        "count": upstream.get("count", len(out)),
+        "mutated": True,
+        "summary": (
+            f"Joined {len(fields)} fields into '{target}' on {len(out)} rows"
+            if fields
+            else f"No fields to join ({len(out)} rows)"
+        ),
+    }
+
+
+# ── source.constant ──────────────────────────────────────────────────────
+
+
+async def _run_source_constant(ctx: NodeContext) -> dict[str, Any]:
+    """Emit a fixed set of literal rows supplied as a param.
+
+    Params: ``rows`` (a list of dict rows to emit verbatim). Each row gets a
+    generated ``id`` when it lacks one so downstream id-based nodes (dedupe,
+    merge, join) still work. A no-I/O seed for demos, tests and small fixed
+    lookup / reference tables - the pipeline equivalent of a literal.
+    """
+    raw = ctx.params.get("rows")
+    source_rows = raw if isinstance(raw, list) else []
+
+    rows: list[dict[str, Any]] = []
+    for idx, item in enumerate(source_rows):
+        if not isinstance(item, dict):
+            continue
+        row = dict(item)
+        if not row.get("id"):
+            row["id"] = f"const-{idx}"
+        rows.append(row)
+
+    all_ids = [r["id"] for r in rows]
+    return {
+        "rows": rows[:_SAMPLE_LIMIT],
+        "row_ids": all_ids[:_ROW_IDS_CAP],
+        "count": len(rows),
+        "sample_truncated": len(rows) > _SAMPLE_LIMIT,
+        "summary": f"Emitted {len(rows)} literal rows",
+    }
+
+
+# ── enrich.lookup ────────────────────────────────────────────────────────
+
+
+async def _run_enrich_lookup(ctx: NodeContext) -> dict[str, Any]:
+    """Enrich rows against an inline lookup table keyed by a field value.
+
+    Params: ``key`` (row field whose value is the lookup key), ``table``
+    (dict of key → {field: value, …} to fold onto the row), ``prefix``
+    (optional string prepended to the added field names so they never clobber
+    existing ones), ``keep_unmatched`` (bool, default true - a row whose key
+    is absent from the table passes through unchanged; set false to drop it).
+    A small dependency-free join against reference data. A what-if transform
+    (``mutated``).
+    """
+    upstream = ctx.first_input()
+    rows = list(upstream.get("rows") or [])
+    key = ctx.params.get("key")
+    raw_table = ctx.params.get("table")
+    table = {str(k): v for k, v in raw_table.items() if isinstance(v, dict)} if isinstance(raw_table, dict) else {}
+    prefix = ctx.params.get("prefix") or ""
+    keep_unmatched = bool(ctx.params.get("keep_unmatched", True))
+
+    out: list[dict[str, Any]] = []
+    matched = 0
+    for r in rows:
+        lookup_val = _row_value(r, key) if key else None
+        extra = table.get(str(lookup_val)) if lookup_val is not None else None
+        if extra is None:
+            if keep_unmatched:
+                out.append(dict(r))
+            continue
+        new = dict(r)
+        for k, v in extra.items():
+            new[f"{prefix}{k}" if prefix else str(k)] = v
+        out.append(new)
+        matched += 1
+
+    out_ids = [r.get("id") for r in out if r.get("id")]
+    return {
+        "rows": out[:_SAMPLE_LIMIT],
+        "row_ids": out_ids[:_ROW_IDS_CAP],
+        "count": len(out),
+        "mutated": True,
+        "matched": matched,
+        "summary": (
+            f"Enriched {matched} of {len(rows)} rows from a {len(table)}-entry table on '{key}'"
+            if key
+            else f"No lookup key given ({len(rows)} rows)"
+        ),
+    }
+
+
 # ── Registration (import-time, autodiscovered by the module loader) ──────
 
 
@@ -1542,6 +2113,207 @@ def register_pipeline_nodes() -> None:
         inputs=["rows"],
         outputs=["rows"],
         params_schema={},
+        side_effecting=False,
+    )
+    register_node(
+        type="transform.round",
+        module=MODULE,
+        category="transform",
+        label="Round a number",
+        description="Round a numeric field to a set number of decimal places.",
+        runner=_run_transform_round,
+        inputs=["rows"],
+        outputs=["rows"],
+        params_schema={
+            "field": {"type": "string", "title": "Field to round"},
+            "places": {"type": "number", "title": "Decimal places", "default": 2},
+            "target": {"type": "string", "title": "New column (optional)"},
+        },
+        side_effecting=False,
+    )
+    register_node(
+        type="transform.currency_convert",
+        module=MODULE,
+        category="transform",
+        label="Convert currency",
+        description="Multiply a money field by an exchange rate and relabel the currency.",
+        runner=_run_transform_currency_convert,
+        inputs=["rows"],
+        outputs=["rows"],
+        params_schema={
+            "field": {"type": "string", "title": "Money field (default unit_rate)"},
+            "rate": {"type": "number", "title": "Exchange rate"},
+            "target": {"type": "string", "title": "New column (optional)"},
+            "currency": {"type": "string", "title": "New currency code (optional)"},
+        },
+        side_effecting=False,
+    )
+    register_node(
+        type="transform.map_values",
+        module=MODULE,
+        category="transform",
+        label="Remap values",
+        description="Replace a field's values through a small from/to dictionary.",
+        runner=_run_transform_map_values,
+        inputs=["rows"],
+        outputs=["rows"],
+        params_schema={
+            "field": {"type": "string", "title": "Field to remap"},
+            "mapping": {"type": "object", "title": "Value map (from → to)"},
+            "target": {"type": "string", "title": "New column (optional)"},
+            "keep_unmapped": {"type": "boolean", "title": "Keep unmapped values", "default": True},
+        },
+        side_effecting=False,
+    )
+    register_node(
+        type="transform.split",
+        module=MODULE,
+        category="transform",
+        label="Split rows",
+        description="Partition rows into a matched set and the unmatched remainder by a predicate.",
+        runner=_run_transform_split,
+        inputs=["rows"],
+        outputs=["matched", "unmatched"],
+        params_schema={
+            "field": {"type": "string", "title": "Field"},
+            "op": {
+                "type": "string",
+                "title": "Operator",
+                "enum": ["eq", "ne", "contains", "gt", "gte", "lt", "lte", "exists"],
+            },
+            "value": {"title": "Value"},
+        },
+        side_effecting=False,
+    )
+    register_node(
+        type="transform.join",
+        module=MODULE,
+        category="transform",
+        label="Join two branches",
+        description="Merge two upstream branches on a shared key field.",
+        runner=_run_transform_join,
+        inputs=["rows_a", "rows_b"],
+        outputs=["rows"],
+        params_schema={
+            "key": {"type": "string", "title": "Key field (both sides)"},
+            "left_key": {"type": "string", "title": "Left key (if different)"},
+            "right_key": {"type": "string", "title": "Right key (if different)"},
+            "how": {
+                "type": "string",
+                "title": "Join type",
+                "enum": ["inner", "left"],
+                "default": "inner",
+            },
+            "prefix": {"type": "string", "title": "Prefix for right fields (optional)"},
+        },
+        side_effecting=False,
+    )
+    register_node(
+        type="transform.running_total",
+        module=MODULE,
+        category="transform",
+        label="Running total",
+        description="Add a cumulative running total of a field, in row order.",
+        runner=_run_transform_running_total,
+        inputs=["rows"],
+        outputs=["rows"],
+        params_schema={
+            "field": {"type": "string", "title": "Field to accumulate"},
+            "target": {"type": "string", "title": "New column (default running_total)"},
+        },
+        side_effecting=False,
+    )
+    register_node(
+        type="transform.percent_of_total",
+        module=MODULE,
+        category="transform",
+        label="Share of total",
+        description="Add each row's percentage share of a field's grand total.",
+        runner=_run_transform_percent_of_total,
+        inputs=["rows"],
+        outputs=["rows"],
+        params_schema={
+            "field": {"type": "string", "title": "Field (blank = line total)"},
+            "target": {"type": "string", "title": "New column (default pct_of_total)"},
+            "places": {"type": "number", "title": "Decimal places", "default": 1},
+        },
+        side_effecting=False,
+    )
+    register_node(
+        type="transform.fill_missing",
+        module=MODULE,
+        category="transform",
+        label="Fill blanks",
+        description="Fill blank or missing values in a field with a default.",
+        runner=_run_transform_fill_missing,
+        inputs=["rows"],
+        outputs=["rows"],
+        params_schema={
+            "field": {"type": "string", "title": "Field to fill"},
+            "value": {"title": "Fill value"},
+        },
+        side_effecting=False,
+    )
+    register_node(
+        type="transform.clamp",
+        module=MODULE,
+        category="transform",
+        label="Clamp to range",
+        description="Constrain a numeric field to a minimum and maximum.",
+        runner=_run_transform_clamp,
+        inputs=["rows"],
+        outputs=["rows"],
+        params_schema={
+            "field": {"type": "string", "title": "Numeric field"},
+            "min": {"type": "number", "title": "Minimum (optional)"},
+            "max": {"type": "number", "title": "Maximum (optional)"},
+            "target": {"type": "string", "title": "New column (optional)"},
+        },
+        side_effecting=False,
+    )
+    register_node(
+        type="transform.concat",
+        module=MODULE,
+        category="transform",
+        label="Combine text",
+        description="Join several fields into one text column with a separator.",
+        runner=_run_transform_concat,
+        inputs=["rows"],
+        outputs=["rows"],
+        params_schema={
+            "fields": {"type": "array", "title": "Fields to join", "items": {"type": "string"}},
+            "target": {"type": "string", "title": "New column (default combined)"},
+            "separator": {"type": "string", "title": "Separator (default space)"},
+        },
+        side_effecting=False,
+    )
+    register_node(
+        type="source.constant",
+        module=MODULE,
+        category="source",
+        label="Constant rows",
+        description="Emit a fixed set of literal rows supplied inline.",
+        runner=_run_source_constant,
+        inputs=["trigger"],
+        outputs=["rows"],
+        params_schema={"rows": {"type": "array", "title": "Rows", "items": {"type": "object"}}},
+        side_effecting=False,
+    )
+    register_node(
+        type="enrich.lookup",
+        module=MODULE,
+        category="transform",
+        label="Lookup enrich",
+        description="Fold reference fields onto rows from an inline lookup table keyed by a field.",
+        runner=_run_enrich_lookup,
+        inputs=["rows"],
+        outputs=["rows"],
+        params_schema={
+            "key": {"type": "string", "title": "Lookup key field"},
+            "table": {"type": "object", "title": "Lookup table (key → fields)"},
+            "prefix": {"type": "string", "title": "Prefix for added fields (optional)"},
+            "keep_unmatched": {"type": "boolean", "title": "Keep unmatched rows", "default": True},
+        },
         side_effecting=False,
     )
 
