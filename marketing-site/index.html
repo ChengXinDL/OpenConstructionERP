@@ -22752,11 +22752,11 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
   <!-- ================================================================ -->
   <script>
     (function i18n() {
-      const SUPPORTED = ['en','de','fr','es','it','pt','nl','pl','cs','ru','bg','tr','sv','no','fi','da','ar','zh','ja','ko'];
-      const LANG_NAMES = { en:'English', de:'Deutsch', fr:'Français', es:'Español', it:'Italiano', pt:'Português', nl:'Nederlands', pl:'Polski', cs:'Čeština', ru:'Русский', bg:'Български', tr:'Türkçe', sv:'Svenska', no:'Norsk', fi:'Suomi', da:'Dansk', ar:'العربية', zh:'中文', ja:'日本語', ko:'한국어' };
+      const SUPPORTED = ['en','de','fr','es','es-MX','it','pt','nl','pl','cs','ru','bg','tr','sv','no','fi','da','ar','zh','ja','ko','hi','th','vi','id','ro','hr','mn','ky'];
+      const LANG_NAMES = { en:'English', de:'Deutsch', fr:'Français', es:'Español', it:'Italiano', pt:'Português', nl:'Nederlands', pl:'Polski', cs:'Čeština', ru:'Русский', bg:'Български', tr:'Türkçe', sv:'Svenska', no:'Norsk', fi:'Suomi', da:'Dansk', ar:'العربية', zh:'中文', ja:'日本語', ko:'한국어', 'es-MX':'Español (México)', hi:'हिन्दी', th:'ไทย', vi:'Tiếng Việt', id:'Bahasa Indonesia', ro:'Română', hr:'Hrvatski', mn:'Монгол', ky:'Кыргызча' };
       // Map each language to a representative country-code for its flag
       // (ISO 3166-1 alpha-2, lowercase, as expected by flagcdn.com).
-      const LANG_FLAGS = { en:'gb', de:'de', fr:'fr', es:'es', it:'it', pt:'pt', nl:'nl', pl:'pl', cs:'cz', ru:'ru', bg:'bg', tr:'tr', sv:'se', no:'no', fi:'fi', da:'dk', ar:'sa', zh:'cn', ja:'jp', ko:'kr' };
+      const LANG_FLAGS = { en:'gb', de:'de', fr:'fr', es:'es', it:'it', pt:'pt', nl:'nl', pl:'pl', cs:'cz', ru:'ru', bg:'bg', tr:'tr', sv:'se', no:'no', fi:'fi', da:'dk', ar:'sa', zh:'cn', ja:'jp', ko:'kr', 'es-MX':'mx', hi:'in', th:'th', vi:'vn', id:'id', ro:'ro', hr:'hr', mn:'mn', ky:'kg' };
       const FLAG_URL = (code) => `https://flagcdn.com/${code}.svg`;
       const RTL = new Set(['ar']);
       const COUNTRY_TO_LANG = {
@@ -22816,7 +22816,7 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
         try {
           // Cache-bust on each release so updated copy reaches users without
           // a hard refresh. LOCALE_VERSION is bumped on every content change.
-          const LOCALE_VERSION = '20260722a';
+          const LOCALE_VERSION = '20260722b';
           const res = await fetch(`locales/${lang}.json?v=${LOCALE_VERSION}`, { cache: 'default' });
           if (!res.ok) throw 0;
           const json = await res.json();
