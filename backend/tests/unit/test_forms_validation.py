@@ -241,3 +241,70 @@ def test_number_accepts_comma_decimal() -> None:
     fields = validation.normalize_fields([{"type": "number", "label": "Temp", "required": True}])
     check = validation.validate_submission_answers(fields, {"temp": "22,5"})
     assert check.is_complete
+
+
+# ── per-field capture config ─────────────────────────────────────────────────
+
+
+def test_number_min_greater_than_max_is_flagged() -> None:
+    fields = validation.normalize_fields([{"type": "number", "label": "Slump", "min": 10, "max": 5}])
+    assert "min_gt_max" in _codes(validation.validate_template_fields(fields))
+
+
+def test_bad_pattern_is_flagged() -> None:
+    fields = validation.normalize_fields([{"type": "short_text", "label": "Code", "pattern": "("}])
+    assert "bad_pattern" in _codes(validation.validate_template_fields(fields))
+
+
+def test_choice_default_must_be_an_option() -> None:
+    fields = validation.normalize_fields(
+        [{"type": "single_choice", "label": "Pick", "options": ["A", "B"], "default": "Z"}]
+    )
+    assert "default_not_option" in _codes(validation.validate_template_fields(fields))
+
+
+def test_number_below_min_is_reported() -> None:
+    fields = validation.normalize_fields([{"type": "number", "label": "Slump", "required": True, "min": 10, "max": 200}])
+    check = validation.validate_submission_answers(fields, {"slump": "5"})
+    assert "below_min" in _codes(check.issues)
+
+
+def test_number_above_max_is_reported() -> None:
+    fields = validation.normalize_fields([{"type": "number", "label": "Slump", "required": True, "min": 10, "max": 200}])
+    check = validation.validate_submission_answers(fields, {"slump": "500"})
+    assert "above_max" in _codes(check.issues)
+
+
+def test_number_within_bounds_passes() -> None:
+    fields = validation.normalize_fields([{"type": "number", "label": "Slump", "required": True, "min": 10, "max": 200}])
+    assert validation.validate_submission_answers(fields, {"slump": "90"}).is_complete
+
+
+def test_text_min_length_is_reported() -> None:
+    fields = validation.normalize_fields([{"type": "short_text", "label": "Ref", "required": True, "min_length": 5}])
+    check = validation.validate_submission_answers(fields, {"ref": "ab"})
+    assert "too_short" in _codes(check.issues)
+
+
+def test_text_pattern_mismatch_is_reported() -> None:
+    # A simple 4-digit code pattern.
+    fields = validation.normalize_fields([{"type": "short_text", "label": "PIN", "required": True, "pattern": r"\d{4}"}])
+    bad = validation.validate_submission_answers(fields, {"pin": "12"})
+    assert "pattern_mismatch" in _codes(bad.issues)
+    good = validation.validate_submission_answers(fields, {"pin": "1234"})
+    assert good.is_complete
+
+
+def test_formula_field_is_not_required_and_not_user_validated() -> None:
+    # A formula field carries no user answer, so a submission with only the
+    # entered inputs (no 'area' answer) is still complete.
+    fields = validation.normalize_fields(
+        [
+            {"type": "number", "label": "Length", "key": "length", "required": True},
+            {"type": "number", "label": "Width", "key": "width", "required": True},
+            {"type": "formula", "label": "Area", "key": "area", "formula": "length * width", "required": True},
+        ]
+    )
+    check = validation.validate_submission_answers(fields, {"length": "4", "width": "3"})
+    assert check.is_complete
+    assert check.total_required == 2  # only the two number fields count

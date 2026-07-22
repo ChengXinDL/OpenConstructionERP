@@ -521,6 +521,203 @@ async def test_node_source_cost_catalog(mem_factory) -> None:
         assert filtered["rows"][0]["unit_rate"] == "120"
 
 
+# ── Per-node coverage: the newer working set ───────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_node_transform_round() -> None:
+    from app.modules.pipelines.pipeline_nodes import _run_transform_round
+
+    rows = [{"id": "1", "unit_rate": "10.126"}, {"id": "2", "unit_rate": "5"}]
+    out = await _run_transform_round(
+        _ctx(params={"field": "unit_rate", "places": 2}, inputs={"u": {"rows": rows}})
+    )
+    assert out["mutated"] is True
+    assert out["rows"][0]["unit_rate"] == "10.13"
+    assert out["rows"][1]["unit_rate"] == "5.00"
+    # A separate target leaves the source untouched.
+    tgt = await _run_transform_round(
+        _ctx(params={"field": "unit_rate", "places": 0, "target": "rounded"}, inputs={"u": {"rows": rows}})
+    )
+    assert tgt["rows"][0]["rounded"] == "10"
+    assert tgt["rows"][0]["unit_rate"] == "10.126"
+
+
+@pytest.mark.asyncio
+async def test_node_transform_currency_convert() -> None:
+    from decimal import Decimal
+
+    from app.modules.pipelines.pipeline_nodes import _run_transform_currency_convert
+
+    rows = [{"id": "1", "quantity": "2", "unit_rate": "100"}]
+    out = await _run_transform_currency_convert(
+        _ctx(params={"rate": "1.1", "currency": "USD"}, inputs={"u": {"rows": rows}})
+    )
+    assert Decimal(out["rows"][0]["unit_rate"]) == Decimal("110.0")
+    # unit_rate conversion recomputes the line total.
+    assert Decimal(out["rows"][0]["total"]) == Decimal("220.0")
+    assert out["rows"][0]["currency"] == "USD"
+    # No rate → pass-through.
+    noop = await _run_transform_currency_convert(_ctx(params={}, inputs={"u": {"rows": rows}}))
+    assert noop["rows"][0]["unit_rate"] == "100"
+
+
+@pytest.mark.asyncio
+async def test_node_transform_map_values() -> None:
+    from app.modules.pipelines.pipeline_nodes import _run_transform_map_values
+
+    rows = [{"id": "1", "unit": "m3"}, {"id": "2", "unit": "sqm"}, {"id": "3", "unit": "m3"}]
+    out = await _run_transform_map_values(
+        _ctx(params={"field": "unit", "mapping": {"sqm": "m2"}}, inputs={"u": {"rows": rows}})
+    )
+    # sqm remapped, unmapped m3 kept.
+    assert [r["unit"] for r in out["rows"]] == ["m3", "m2", "m3"]
+    # keep_unmapped=False blanks the miss.
+    dropped = await _run_transform_map_values(
+        _ctx(
+            params={"field": "unit", "mapping": {"sqm": "m2"}, "keep_unmapped": False},
+            inputs={"u": {"rows": rows}},
+        )
+    )
+    assert dropped["rows"][0]["unit"] is None
+
+
+@pytest.mark.asyncio
+async def test_node_transform_split() -> None:
+    from app.modules.pipelines.pipeline_nodes import _run_transform_split
+
+    rows = [{"id": "1", "unit": "m3"}, {"id": "2", "unit": "m2"}, {"id": "3", "unit": "m3"}]
+    out = await _run_transform_split(
+        _ctx(params={"field": "unit", "op": "eq", "value": "m3"}, inputs={"u": {"rows": rows}})
+    )
+    assert out["count"] == 2
+    assert out["unmatched_count"] == 1
+    assert {r["id"] for r in out["rows"]} == {"1", "3"}
+    assert out["unmatched_rows"][0]["id"] == "2"
+
+
+@pytest.mark.asyncio
+async def test_node_transform_join() -> None:
+    from app.modules.pipelines.pipeline_nodes import _run_transform_join
+
+    left = [{"id": "1", "code": "C-1"}, {"id": "2", "code": "C-2"}]
+    right = [{"code": "C-1", "rate": "100"}]
+    out = await _run_transform_join(
+        _ctx(
+            params={"key": "code", "how": "inner"},
+            inputs={"a": {"rows": left}, "b": {"rows": right}},
+        )
+    )
+    assert out["count"] == 1  # inner: only C-1 matched
+    assert out["rows"][0]["rate"] == "100"
+    # left join keeps the unmatched left row.
+    lj = await _run_transform_join(
+        _ctx(
+            params={"key": "code", "how": "left"},
+            inputs={"a": {"rows": left}, "b": {"rows": right}},
+        )
+    )
+    assert lj["count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_node_transform_running_total() -> None:
+    from app.modules.pipelines.pipeline_nodes import _run_transform_running_total
+
+    rows = [{"id": "1", "q": "10"}, {"id": "2", "q": "5"}, {"id": "3", "q": "2"}]
+    out = await _run_transform_running_total(
+        _ctx(params={"field": "q", "target": "cum"}, inputs={"u": {"rows": rows}})
+    )
+    assert [r["cum"] for r in out["rows"]] == ["10", "15", "17"]
+    assert out["final_total"] == "17"
+
+
+@pytest.mark.asyncio
+async def test_node_transform_percent_of_total() -> None:
+    from app.modules.pipelines.pipeline_nodes import _run_transform_percent_of_total
+
+    # No row_ids → uses the wire sample; line totals 1000 + 100 + 5 = 1105.
+    out = await _run_transform_percent_of_total(
+        _ctx(params={"places": 2}, inputs={"u": {"rows": _SAMPLE_ROWS}})
+    )
+    assert out["grand_total"] == "1105"
+    # First row 10*100 = 1000 → 90.50%.
+    assert out["rows"][0]["pct_of_total"] == "90.50"
+
+
+@pytest.mark.asyncio
+async def test_node_transform_fill_missing() -> None:
+    from app.modules.pipelines.pipeline_nodes import _run_transform_fill_missing
+
+    rows = [{"id": "1", "unit": "m3"}, {"id": "2", "unit": ""}, {"id": "3"}]
+    out = await _run_transform_fill_missing(
+        _ctx(params={"field": "unit", "value": "pcs"}, inputs={"u": {"rows": rows}})
+    )
+    assert [r["unit"] for r in out["rows"]] == ["m3", "pcs", "pcs"]
+
+
+@pytest.mark.asyncio
+async def test_node_transform_clamp() -> None:
+    from app.modules.pipelines.pipeline_nodes import _run_transform_clamp
+
+    rows = [{"id": "1", "unit_rate": "5"}, {"id": "2", "unit_rate": "150"}, {"id": "3", "unit_rate": "50"}]
+    out = await _run_transform_clamp(
+        _ctx(params={"field": "unit_rate", "min": 10, "max": 100}, inputs={"u": {"rows": rows}})
+    )
+    assert [r["unit_rate"] for r in out["rows"]] == ["10", "100", "50"]
+
+
+@pytest.mark.asyncio
+async def test_node_transform_concat() -> None:
+    from app.modules.pipelines.pipeline_nodes import _run_transform_concat
+
+    rows = [{"id": "1", "code": "C-1", "desc": "Concrete"}, {"id": "2", "code": "S-1", "desc": ""}]
+    out = await _run_transform_concat(
+        _ctx(
+            params={"fields": ["code", "desc"], "target": "label", "separator": " - "},
+            inputs={"u": {"rows": rows}},
+        )
+    )
+    assert out["rows"][0]["label"] == "C-1 - Concrete"
+    # Blank part is skipped, no dangling separator.
+    assert out["rows"][1]["label"] == "S-1"
+
+
+@pytest.mark.asyncio
+async def test_node_source_constant() -> None:
+    from app.modules.pipelines.pipeline_nodes import _run_source_constant
+
+    out = await _run_source_constant(
+        _ctx(params={"rows": [{"code": "A"}, {"id": "keep", "code": "B"}]})
+    )
+    assert out["count"] == 2
+    # A missing id is generated; a supplied one is kept.
+    assert out["rows"][0]["id"] == "const-0"
+    assert out["rows"][1]["id"] == "keep"
+    assert out["row_ids"] == ["const-0", "keep"]
+
+
+@pytest.mark.asyncio
+async def test_node_enrich_lookup() -> None:
+    from app.modules.pipelines.pipeline_nodes import _run_enrich_lookup
+
+    rows = [{"id": "1", "code": "C-1"}, {"id": "2", "code": "C-9"}]
+    table = {"C-1": {"rate": "100", "trade": "Concrete"}}
+    out = await _run_enrich_lookup(
+        _ctx(params={"key": "code", "table": table}, inputs={"u": {"rows": rows}})
+    )
+    assert out["matched"] == 1
+    assert out["rows"][0]["rate"] == "100"
+    assert out["rows"][0]["trade"] == "Concrete"
+    # Unmatched row kept untouched by default.
+    assert out["rows"][1].get("rate") is None
+    # keep_unmatched=False drops the miss.
+    dropped = await _run_enrich_lookup(
+        _ctx(params={"key": "code", "table": table, "keep_unmatched": False}, inputs={"u": {"rows": rows}})
+    )
+    assert dropped["count"] == 1
+
+
 # ── HTTP IDOR regression ───────────────────────────────────────────────────
 
 
