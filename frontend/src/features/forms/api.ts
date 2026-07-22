@@ -27,7 +27,35 @@ export type FieldType =
   | 'rating'
   | 'photo'
   | 'signature'
-  | 'date';
+  | 'date'
+  | 'formula';
+
+/** A comparison operator usable in a conditional (branching) rule. */
+export type ConditionOp =
+  | 'eq'
+  | 'neq'
+  | 'in'
+  | 'not_in'
+  | 'gt'
+  | 'lt'
+  | 'gte'
+  | 'lte'
+  | 'empty'
+  | 'not_empty';
+
+/**
+ * A branching rule attached to a field via visible_if / required_if. It is
+ * either a single comparison (field + op [+ value]) or a boolean group of
+ * nested expressions - all (every one holds) or any (at least one holds). Kept
+ * in lock-step with backend conditional.CONDITION_OPERATORS.
+ */
+export interface ConditionExpr {
+  field?: string;
+  op?: ConditionOp;
+  value?: string | number | boolean | string[] | null;
+  all?: ConditionExpr[];
+  any?: ConditionExpr[];
+}
 
 export type TemplateCategory =
   | 'safety'
@@ -51,6 +79,18 @@ export interface FormFieldDef {
   options?: string[];
   unit?: string | null;
   max_rating?: number | null;
+  /* -- Per-field capture config (all optional, type-dependent) -- */
+  placeholder?: string | null;
+  default?: string | number | boolean | string[] | null;
+  min?: number | null;
+  max?: number | null;
+  min_length?: number | null;
+  pattern?: string | null;
+  /** Expression for a computed (formula) field, read against other field keys. */
+  formula?: string | null;
+  /* -- Conditional (branching) logic -- */
+  visible_if?: ConditionExpr | null;
+  required_if?: ConditionExpr | null;
 }
 
 /** A captured signature answer. */

@@ -60,6 +60,15 @@ class FormField(BaseModel):
     options: list[str] = Field(default_factory=list)
     unit: str | None = Field(default=None, max_length=40)
     max_rating: int | None = Field(default=None, ge=2, le=10)
+    # Per-field capture config. All optional; the service keeps only the ones that
+    # apply to the field's type (see validation.normalize_fields).
+    placeholder: str | None = Field(default=None, max_length=200)
+    default: Any = Field(default=None, description="Prefilled default answer.")
+    min: float | None = Field(default=None, description="Minimum for a number field.")
+    max: float | None = Field(default=None, description="Maximum for a number field.")
+    min_length: int | None = Field(default=None, ge=0, description="Minimum length for a text field.")
+    pattern: str | None = Field(default=None, max_length=300, description="Regex a text answer must match.")
+    formula: str | None = Field(default=None, max_length=512, description="Expression for a computed field.")
     visible_if: ConditionExpr | None = Field(default=None, description="Show this field only while the rule holds.")
     required_if: ConditionExpr | None = Field(default=None, description="Require this field only while the rule holds.")
 

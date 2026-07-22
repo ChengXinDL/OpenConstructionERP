@@ -23,6 +23,7 @@ from app.modules.forms.schemas import (
     TemplateCreate,
     TemplateUpdate,
 )
+from app.modules.forms.formula import compute_formulas
 from app.modules.forms.seed import STARTER_TEMPLATES
 from app.modules.forms.validation import (
     LAYOUT_TYPES,
@@ -233,6 +234,10 @@ class FormsService:
             final_answers.update(answers)
 
         snapshot = list(submission.template_snapshot or [])
+        # Resolve computed (formula) fields from the entered answers before
+        # validating and freezing them, so the stored form carries the derived
+        # values and any formula-driven consistency is against real numbers.
+        final_answers = compute_formulas(snapshot, final_answers)
         check = validate_submission_answers(snapshot, final_answers)
         if not check.is_complete:
             raise HTTPException(

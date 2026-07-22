@@ -37,7 +37,16 @@ import {
   type SignatureValue,
   type SubmissionDetail,
 } from './api';
-import { LAYOUT_TYPES, missingRequiredKeys, requiredCount, isAnswerEmpty } from './fieldTypes';
+import {
+  LAYOUT_TYPES,
+  COMPUTED_TYPES,
+  missingRequiredKeys,
+  requiredCount,
+  isAnswerEmpty,
+  resolveVisibility,
+  computeFormulas,
+  applyDefaults,
+} from './fieldTypes';
 
 const inputCls =
   'h-10 w-full rounded-lg border border-border bg-surface-primary px-3 text-sm focus:outline-none focus:ring-2 focus:ring-oe-blue/30 focus:border-oe-blue';
@@ -69,7 +78,14 @@ export function FormFiller({ open, onClose, submissionId, onChanged }: FormFille
   // edits on a background refetch of the same submission.
   useEffect(() => {
     if (submission) {
-      setAnswers({ ...submission.answers });
+      // A draft prefills configured defaults for blank fields; a completed
+      // submission is shown exactly as stored (no default seeding).
+      const base = { ...submission.answers };
+      setAnswers(
+        submission.status === 'completed'
+          ? base
+          : applyDefaults(submission.template_snapshot ?? [], base),
+      );
       setTitle(submission.title ?? '');
       setLocation(submission.location ?? '');
     }
@@ -79,11 +95,15 @@ export function FormFiller({ open, onClose, submissionId, onChanged }: FormFille
   const readOnly = submission?.status === 'completed';
   const fields = submission?.template_snapshot ?? [];
 
+  // Live conditional state + computed formula values, recomputed as answers change.
+  const visibility = useMemo(() => resolveVisibility(fields, answers), [fields, answers]);
+  const computed = useMemo(() => computeFormulas(fields, answers), [fields, answers]);
+
   const setAnswer = (key: string, value: AnswerValue) =>
     setAnswers((prev) => ({ ...prev, [key]: value }));
 
   const missing = useMemo(() => missingRequiredKeys(fields, answers), [fields, answers]);
-  const totalRequired = useMemo(() => requiredCount(fields), [fields]);
+  const totalRequired = useMemo(() => requiredCount(fields, answers), [fields, answers]);
   const answeredRequired = totalRequired - missing.length;
 
   const afterChange = () => {
@@ -250,16 +270,23 @@ export function FormFiller({ open, onClose, submissionId, onChanged }: FormFille
 
           {/* Fields */}
           <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
-            {fields.map((field, idx) => (
-              <FieldInput
-                key={field.key || idx}
-                field={field}
-                value={answers[field.key] ?? null}
-                readOnly={readOnly}
-                invalid={invalidKeys.has(field.key)}
-                onChange={(v) => setAnswer(field.key, v)}
-              />
-            ))}
+            {fields.map((field, idx) => {
+              const state = field.key ? visibility[field.key] : undefined;
+              if (state && !state.visible) return null;
+              const isFormula = COMPUTED_TYPES.has(field.type);
+              const shownValue = isFormula ? (computed[field.key] ?? null) : answers[field.key] ?? null;
+              return (
+                <FieldInput
+                  key={field.key || idx}
+                  field={field}
+                  value={shownValue}
+                  requiredOverride={state?.required}
+                  readOnly={readOnly}
+                  invalid={invalidKeys.has(field.key)}
+                  onChange={(v) => setAnswer(field.key, v)}
+                />
+              );
+            })}
           </div>
 
           {/* Footer actions */}
@@ -322,10 +349,12 @@ export interface FieldInputProps {
   value: AnswerValue;
   readOnly?: boolean;
   invalid?: boolean;
+  /** Live required state (from conditional logic); falls back to field.required. */
+  requiredOverride?: boolean;
   onChange: (value: AnswerValue) => void;
 }
 
-function FieldInput({ field, value, readOnly, invalid, onChange }: FieldInputProps) {
+function FieldInput({ field, value, readOnly, invalid, requiredOverride, onChange }: FieldInputProps) {
   const { t } = useTranslation();
 
   if (LAYOUT_TYPES.has(field.type)) {
@@ -338,13 +367,14 @@ function FieldInput({ field, value, readOnly, invalid, onChange }: FieldInputPro
     );
   }
 
-  const showMissing = invalid && field.required && isAnswerEmpty(field.type, value);
+  const required = requiredOverride ?? field.required;
+  const showMissing = invalid && required && isAnswerEmpty(field.type, value);
 
   return (
     <div>
       <label className="mb-1 flex items-start gap-1 text-sm font-medium text-content-secondary">
         <span>{field.label}</span>
-        {field.required && <span className="text-semantic-error">*</span>}
+        {required && <span className="text-semantic-error">*</span>}
       </label>
       {field.help_text && <p className="mb-1.5 text-xs text-content-tertiary">{field.help_text}</p>}
 
@@ -373,6 +403,7 @@ export function FieldControl({ field, value, readOnly, onChange }: FieldInputPro
         <input
           className={inputCls}
           disabled={disabled}
+          placeholder={field.placeholder ?? undefined}
           value={typeof value === 'string' ? value : ''}
           onChange={(e) => onChange(e.target.value)}
         />
@@ -382,6 +413,7 @@ export function FieldControl({ field, value, readOnly, onChange }: FieldInputPro
         <textarea
           className={clsx(inputCls, 'h-auto min-h-[80px] py-2')}
           disabled={disabled}
+          placeholder={field.placeholder ?? undefined}
           value={typeof value === 'string' ? value : ''}
           onChange={(e) => onChange(e.target.value)}
         />
@@ -394,12 +426,28 @@ export function FieldControl({ field, value, readOnly, onChange }: FieldInputPro
             inputMode="decimal"
             className={inputCls}
             disabled={disabled}
+            placeholder={field.placeholder ?? undefined}
+            min={field.min ?? undefined}
+            max={field.max ?? undefined}
             value={typeof value === 'number' || typeof value === 'string' ? String(value) : ''}
             onChange={(e) => onChange(e.target.value)}
           />
           {field.unit && <span className="shrink-0 text-sm text-content-tertiary">{field.unit}</span>}
         </div>
       );
+    case 'formula': {
+      // Computed, never user-entered: show the derived value read-only.
+      const shown =
+        value == null || value === '' ? '-' : typeof value === 'number' ? String(value) : String(value);
+      return (
+        <div className="flex items-center gap-2">
+          <div className="inline-flex h-10 min-w-[6rem] items-center rounded-lg border border-border bg-surface-secondary px-3 text-sm font-medium tabular-nums text-content-primary">
+            {shown}
+          </div>
+          {field.unit && <span className="shrink-0 text-sm text-content-tertiary">{field.unit}</span>}
+        </div>
+      );
+    }
     case 'date':
       return (
         <input

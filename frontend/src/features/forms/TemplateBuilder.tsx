@@ -16,6 +16,11 @@ import {
   X,
   AlertTriangle,
   Asterisk,
+  Copy,
+  Eye,
+  EyeOff,
+  Settings2,
+  GitBranch,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { Button, Badge, WideModal } from '@/shared/ui';
@@ -24,6 +29,8 @@ import { ApiError, getErrorMessage } from '@/shared/lib/api';
 import {
   createTemplate,
   updateTemplate,
+  type ConditionExpr,
+  type ConditionOp,
   type FieldIssue,
   type FormFieldDef,
   type TemplateCategory,
@@ -34,13 +41,20 @@ import {
   fieldMeta,
   CHOICE_TYPES,
   LAYOUT_TYPES,
+  TEXT_TYPES,
+  PLACEHOLDER_TYPES,
+  CONDITION_OPS,
+  CONDITION_OP_LABELS,
+  VALUELESS_OPS,
   CATEGORY_ORDER,
   CATEGORY_LABELS,
   DEFAULT_RATING_SCALE,
   ensureFieldKeys,
   validateTemplateFields,
+  parseFormula,
   type FieldTypeMeta,
 } from './fieldTypes';
+import { FormPreview } from './FormPreview';
 
 const inputCls =
   'h-10 w-full rounded-lg border border-border bg-surface-primary px-3 text-sm focus:outline-none focus:ring-2 focus:ring-oe-blue/30 focus:border-oe-blue';
@@ -65,6 +79,15 @@ function blankField(type: FormFieldDef['type']): EditableField {
     options: meta.hasOptions ? ['Option 1', 'Option 2'] : [],
     unit: null,
     max_rating: meta.hasRating ? DEFAULT_RATING_SCALE : null,
+    placeholder: null,
+    default: null,
+    min: null,
+    max: null,
+    min_length: null,
+    pattern: null,
+    formula: type === 'formula' ? '' : null,
+    visible_if: null,
+    required_if: null,
   };
 }
 
@@ -79,6 +102,15 @@ function toEditable(fields: FormFieldDef[]): EditableField[] {
     options: f.options ?? [],
     unit: f.unit ?? null,
     max_rating: f.max_rating ?? (fieldMeta(f.type).hasRating ? DEFAULT_RATING_SCALE : null),
+    placeholder: f.placeholder ?? null,
+    default: f.default ?? null,
+    min: f.min ?? null,
+    max: f.max ?? null,
+    min_length: f.min_length ?? null,
+    pattern: f.pattern ?? null,
+    formula: f.formula ?? null,
+    visible_if: f.visible_if ?? null,
+    required_if: f.required_if ?? null,
   }));
 }
 
@@ -106,6 +138,7 @@ export function TemplateBuilder({ open, onClose, initial, projectId, onSaved }: 
   const [tagsText, setTagsText] = useState((initial?.tags ?? []).join(', '));
   const [fields, setFields] = useState<EditableField[]>(initial ? toEditable(initial.fields) : []);
   const [showPalette, setShowPalette] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   const issues = useMemo(() => validateTemplateFields(fields), [fields]);
   const isEdit = !!initial;
@@ -119,6 +152,17 @@ export function TemplateBuilder({ open, onClose, initial, projectId, onSaved }: 
   };
 
   const removeField = (id: string) => setFields((prev) => prev.filter((f) => f._id !== id));
+
+  const duplicateField = (id: string) =>
+    setFields((prev) => {
+      const idx = prev.findIndex((f) => f._id === id);
+      if (idx < 0) return prev;
+      const src = prev[idx]!;
+      const copy: EditableField = { ...src, _id: nextId(), key: '' };
+      const next = [...prev];
+      next.splice(idx + 1, 0, copy);
+      return next;
+    });
 
   const move = (id: string, dir: -1 | 1) =>
     setFields((prev) => {
@@ -145,6 +189,17 @@ export function TemplateBuilder({ open, onClose, initial, projectId, onSaved }: 
         options: CHOICE_TYPES.has(f.type) ? (f.options ?? []).map((o) => o.trim()).filter(Boolean) : [],
         unit: f.type === 'number' ? (f.unit ?? null) : null,
         max_rating: f.type === 'rating' ? (f.max_rating ?? DEFAULT_RATING_SCALE) : null,
+        // Per-field config + branching logic - the backend normaliser keeps only
+        // the keys that apply to each field type, so passing them all is safe.
+        placeholder: f.placeholder ?? null,
+        default: f.default ?? null,
+        min: f.min ?? null,
+        max: f.max ?? null,
+        min_length: f.min_length ?? null,
+        pattern: (f.pattern ?? '').trim() || null,
+        formula: f.type === 'formula' ? (f.formula ?? '').trim() || null : null,
+        visible_if: cleanRule(f.visible_if),
+        required_if: cleanRule(f.required_if),
       })),
     );
     const tags = tagsText
@@ -153,6 +208,11 @@ export function TemplateBuilder({ open, onClose, initial, projectId, onSaved }: 
       .filter(Boolean);
     return { cleaned, tags };
   };
+
+  // Field definitions as the filler will see them, for the live preview. Keys are
+  // filled from labels exactly like on save, so a formula / condition referencing
+  // another field resolves in the preview too.
+  const previewFields = useMemo(() => buildPayload().cleaned as FormFieldDef[], [fields]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const saveMut = useMutation({
     mutationFn: async (): Promise<TemplateDetail> => {
@@ -318,48 +378,75 @@ export function TemplateBuilder({ open, onClose, initial, projectId, onSaved }: 
           )}
         </div>
 
-        {/* Fields */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-content-primary">
-              {t('forms.fields', { defaultValue: 'Fields' })}
-            </h3>
-          </div>
-
-          {fields.length === 0 && (
-            <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-content-tertiary">
-              {t('forms.no_fields_yet', { defaultValue: 'No fields yet. Add your first field below.' })}
+        {/* Fields + live preview */}
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-content-primary">
+                {t('forms.fields', { defaultValue: 'Fields' })}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowPreview((v) => !v)}
+                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-content-secondary hover:bg-surface-secondary lg:hidden"
+              >
+                {showPreview ? <EyeOff size={13} /> : <Eye size={13} />}
+                {showPreview
+                  ? t('forms.hide_preview', { defaultValue: 'Hide preview' })
+                  : t('forms.show_preview', { defaultValue: 'Preview' })}
+              </button>
             </div>
-          )}
 
-          {fields.map((field, idx) => (
-            <FieldCard
-              key={field._id}
-              field={field}
-              index={idx}
-              total={fields.length}
-              onPatch={(changes) => patch(field._id, changes)}
-              onRemove={() => removeField(field._id)}
-              onMove={(dir) => move(field._id, dir)}
-            />
-          ))}
-
-          {/* Add-field palette */}
-          <div className="relative">
-            <Button
-              variant="secondary"
-              icon={<Plus size={15} />}
-              onClick={() => setShowPalette((v) => !v)}
-            >
-              {t('forms.add_field', { defaultValue: 'Add field' })}
-            </Button>
-            {showPalette && (
-              <div className="absolute z-10 mt-2 grid w-full max-w-2xl grid-cols-2 gap-1 rounded-xl border border-border bg-surface-elevated p-2 shadow-xl sm:grid-cols-3">
-                {FIELD_TYPES.map((m) => (
-                  <PaletteButton key={m.type} meta={m} onClick={() => addField(m.type)} />
-                ))}
+            {fields.length === 0 && (
+              <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-content-tertiary">
+                {t('forms.no_fields_yet', { defaultValue: 'No fields yet. Add your first field below.' })}
               </div>
             )}
+
+            {fields.map((field, idx) => (
+              <FieldCard
+                key={field._id}
+                field={field}
+                index={idx}
+                total={fields.length}
+                allFields={fields}
+                onPatch={(changes) => patch(field._id, changes)}
+                onRemove={() => removeField(field._id)}
+                onDuplicate={() => duplicateField(field._id)}
+                onMove={(dir) => move(field._id, dir)}
+              />
+            ))}
+
+            {/* Add-field palette */}
+            <div className="relative">
+              <Button
+                variant="secondary"
+                icon={<Plus size={15} />}
+                onClick={() => setShowPalette((v) => !v)}
+              >
+                {t('forms.add_field', { defaultValue: 'Add field' })}
+              </Button>
+              {showPalette && (
+                <div className="absolute z-10 mt-2 grid w-full max-w-2xl grid-cols-2 gap-1 rounded-xl border border-border bg-surface-elevated p-2 shadow-xl sm:grid-cols-3">
+                  {FIELD_TYPES.map((m) => (
+                    <PaletteButton key={m.type} meta={m} onClick={() => addField(m.type)} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Live preview - always shown on large screens, toggled on small */}
+          <div className={clsx('lg:block', showPreview ? 'block' : 'hidden')}>
+            <div className="sticky top-2">
+              <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-content-tertiary">
+                <Eye size={13} />
+                {t('forms.live_preview', { defaultValue: 'Live preview' })}
+              </div>
+              <div className="max-h-[60vh] overflow-y-auto rounded-xl border border-border bg-surface-secondary p-3">
+                <FormPreview fields={previewFields} />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -407,16 +494,35 @@ interface FieldCardProps {
   field: EditableField;
   index: number;
   total: number;
+  allFields: EditableField[];
   onPatch: (changes: Partial<EditableField>) => void;
   onRemove: () => void;
+  onDuplicate: () => void;
   onMove: (dir: -1 | 1) => void;
 }
 
-function FieldCard({ field, index, total, onPatch, onRemove, onMove }: FieldCardProps) {
+function FieldCard({ field, index, total, allFields, onPatch, onRemove, onDuplicate, onMove }: FieldCardProps) {
   const { t } = useTranslation();
+  const [showConfig, setShowConfig] = useState(false);
+  const [showLogic, setShowLogic] = useState(false);
   const meta = fieldMeta(field.type);
   const Icon = meta.icon;
   const isLayout = LAYOUT_TYPES.has(field.type);
+  const isFormula = field.type === 'formula';
+
+  // Other fields this one may reference in a condition or formula, with their
+  // real (deduped) keys, resolved exactly like on save.
+  const refs = useMemo(() => {
+    const keyed = ensureFieldKeys(allFields);
+    return keyed
+      .map((f, i) => ({ key: f.key, label: f.label || f.key, type: f.type, i }))
+      .filter((r) => r.i !== index && !LAYOUT_TYPES.has(r.type));
+  }, [allFields, index]);
+
+  const hasLogic = !!(field.visible_if || field.required_if);
+  const hasConfig =
+    !!(field.placeholder || field.default != null || field.min != null || field.max != null ||
+      field.min_length != null || (field.pattern && field.pattern.trim()));
 
   return (
     <div
@@ -433,7 +539,7 @@ function FieldCard({ field, index, total, onPatch, onRemove, onMove }: FieldCard
               <Icon size={12} className="mr-1" />
               {meta.label}
             </Badge>
-            {!isLayout && (
+            {!isLayout && !isFormula && (
               <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-content-secondary">
                 <input
                   type="checkbox"
@@ -444,6 +550,12 @@ function FieldCard({ field, index, total, onPatch, onRemove, onMove }: FieldCard
                 <Asterisk size={11} className="text-semantic-error" />
                 {t('forms.required', { defaultValue: 'Required' })}
               </label>
+            )}
+            {hasLogic && (
+              <Badge variant="blue" size="sm">
+                <GitBranch size={11} className="mr-1" />
+                {t('forms.has_logic', { defaultValue: 'Logic' })}
+              </Badge>
             )}
           </div>
 
@@ -475,12 +587,24 @@ function FieldCard({ field, index, total, onPatch, onRemove, onMove }: FieldCard
           )}
 
           {field.type === 'number' && (
-            <input
-              className={clsx(inputCls, 'h-8 max-w-[12rem] text-xs')}
-              value={field.unit ?? ''}
-              onChange={(e) => onPatch({ unit: e.target.value || null })}
-              placeholder={t('forms.unit_ph', { defaultValue: 'Unit (e.g. mm, m3)' })}
-            />
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                className={clsx(inputCls, 'h-8 max-w-[10rem] text-xs')}
+                value={field.unit ?? ''}
+                onChange={(e) => onPatch({ unit: e.target.value || null })}
+                placeholder={t('forms.unit_ph', { defaultValue: 'Unit (e.g. mm, m3)' })}
+              />
+              <NumBound
+                label={t('forms.min', { defaultValue: 'Min' })}
+                value={field.min}
+                onChange={(v) => onPatch({ min: v })}
+              />
+              <NumBound
+                label={t('forms.max', { defaultValue: 'Max' })}
+                value={field.max}
+                onChange={(v) => onPatch({ max: v })}
+              />
+            </div>
           )}
 
           {field.type === 'rating' && (
@@ -496,6 +620,53 @@ function FieldCard({ field, index, total, onPatch, onRemove, onMove }: FieldCard
               />
             </label>
           )}
+
+          {isFormula && <FormulaEditor field={field} refs={refs} onPatch={onPatch} />}
+
+          {/* Expanders: capture settings + conditional logic */}
+          {!isLayout && (
+            <div className="flex flex-wrap gap-3 pt-0.5">
+              {!isFormula && (
+                <ExpanderToggle
+                  active={showConfig}
+                  dot={hasConfig}
+                  icon={<Settings2 size={12} />}
+                  label={t('forms.field_settings', { defaultValue: 'Settings' })}
+                  onClick={() => setShowConfig((v) => !v)}
+                />
+              )}
+              <ExpanderToggle
+                active={showLogic}
+                dot={hasLogic}
+                icon={<GitBranch size={12} />}
+                label={t('forms.field_logic', { defaultValue: 'Logic' })}
+                onClick={() => setShowLogic((v) => !v)}
+              />
+            </div>
+          )}
+
+          {showConfig && !isFormula && (
+            <FieldConfig field={field} onPatch={onPatch} />
+          )}
+
+          {showLogic && (
+            <div className="space-y-2 rounded-lg border border-border-light bg-surface-secondary p-2.5">
+              <ConditionEditor
+                title={t('forms.visible_when', { defaultValue: 'Show this field only when' })}
+                rule={field.visible_if ?? null}
+                refs={refs}
+                onChange={(r) => onPatch({ visible_if: r })}
+              />
+              {!isFormula && (
+                <ConditionEditor
+                  title={t('forms.required_when', { defaultValue: 'Make it required only when' })}
+                  rule={field.required_if ?? null}
+                  refs={refs}
+                  onChange={(r) => onPatch({ required_if: r })}
+                />
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex shrink-0 flex-col items-center gap-0.5">
@@ -505,6 +676,9 @@ function FieldCard({ field, index, total, onPatch, onRemove, onMove }: FieldCard
           <IconBtn label="Move down" disabled={index === total - 1} onClick={() => onMove(1)}>
             <ArrowDown size={14} />
           </IconBtn>
+          <IconBtn label="Duplicate field" onClick={onDuplicate}>
+            <Copy size={14} />
+          </IconBtn>
           <IconBtn label="Remove field" danger onClick={onRemove}>
             <Trash2 size={14} />
           </IconBtn>
@@ -512,6 +686,363 @@ function FieldCard({ field, index, total, onPatch, onRemove, onMove }: FieldCard
       </div>
     </div>
   );
+}
+
+/* -- Field config (placeholder / default / length / pattern) --------------- */
+
+interface FieldConfigProps {
+  field: EditableField;
+  onPatch: (changes: Partial<EditableField>) => void;
+}
+
+function FieldConfig({ field, onPatch }: FieldConfigProps) {
+  const { t } = useTranslation();
+  return (
+    <div className="grid grid-cols-1 gap-2 rounded-lg border border-border-light bg-surface-secondary p-2.5 sm:grid-cols-2">
+      {PLACEHOLDER_TYPES.has(field.type) && (
+        <ConfigRow label={t('forms.placeholder', { defaultValue: 'Placeholder' })}>
+          <input
+            className={clsx(inputCls, 'h-8 text-xs')}
+            value={field.placeholder ?? ''}
+            onChange={(e) => onPatch({ placeholder: e.target.value || null })}
+          />
+        </ConfigRow>
+      )}
+      {TEXT_TYPES.has(field.type) && (
+        <>
+          <ConfigRow label={t('forms.min_length', { defaultValue: 'Min length' })}>
+            <input
+              type="number"
+              min={0}
+              className={clsx(inputCls, 'h-8 text-xs')}
+              value={field.min_length ?? ''}
+              onChange={(e) =>
+                onPatch({ min_length: e.target.value === '' ? null : Math.max(0, Number(e.target.value)) })
+              }
+            />
+          </ConfigRow>
+          <ConfigRow label={t('forms.pattern', { defaultValue: 'Pattern (regex)' })}>
+            <input
+              className={clsx(inputCls, 'h-8 font-mono text-xs')}
+              value={field.pattern ?? ''}
+              onChange={(e) => onPatch({ pattern: e.target.value || null })}
+              placeholder="\\d{4}"
+            />
+          </ConfigRow>
+        </>
+      )}
+      {field.type !== 'photo' && field.type !== 'signature' && (
+        <ConfigRow label={t('forms.default_value', { defaultValue: 'Default value' })}>
+          <DefaultValueInput field={field} onPatch={onPatch} />
+        </ConfigRow>
+      )}
+    </div>
+  );
+}
+
+function ConfigRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-0.5 block text-[11px] font-medium text-content-tertiary">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+/** A default-value control shaped to the field type (bool / choice / text). */
+function DefaultValueInput({ field, onPatch }: FieldConfigProps) {
+  const cls = clsx(inputCls, 'h-8 text-xs');
+  if (field.type === 'checkbox') {
+    return (
+      <select
+        className={cls}
+        value={field.default === true ? 'true' : 'false'}
+        onChange={(e) => onPatch({ default: e.target.value === 'true' })}
+      >
+        <option value="false">Unticked</option>
+        <option value="true">Ticked</option>
+      </select>
+    );
+  }
+  if (field.type === 'single_choice') {
+    return (
+      <select
+        className={cls}
+        value={typeof field.default === 'string' ? field.default : ''}
+        onChange={(e) => onPatch({ default: e.target.value || null })}
+      >
+        <option value="">-</option>
+        {(field.options ?? []).map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+    );
+  }
+  if (field.type === 'pass_fail_na') {
+    return (
+      <select
+        className={cls}
+        value={typeof field.default === 'string' ? field.default : ''}
+        onChange={(e) => onPatch({ default: e.target.value || null })}
+      >
+        <option value="">-</option>
+        <option value="pass">Pass</option>
+        <option value="fail">Fail</option>
+        <option value="na">N/A</option>
+      </select>
+    );
+  }
+  return (
+    <input
+      className={cls}
+      type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
+      value={
+        field.default == null
+          ? ''
+          : Array.isArray(field.default)
+            ? field.default.join(', ')
+            : String(field.default)
+      }
+      onChange={(e) => onPatch({ default: e.target.value || null })}
+    />
+  );
+}
+
+function NumBound({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number | null | undefined;
+  onChange: (v: number | null) => void;
+}) {
+  return (
+    <label className="inline-flex items-center gap-1 text-xs text-content-tertiary">
+      {label}
+      <input
+        type="number"
+        className={clsx(inputCls, 'h-8 w-20 text-xs')}
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
+      />
+    </label>
+  );
+}
+
+/* -- Formula editor -------------------------------------------------------- */
+
+interface FormulaEditorProps {
+  field: EditableField;
+  refs: { key: string; label: string }[];
+  onPatch: (changes: Partial<EditableField>) => void;
+}
+
+function FormulaEditor({ field, refs, onPatch }: FormulaEditorProps) {
+  const { t } = useTranslation();
+  const expr = field.formula ?? '';
+  const parsed = useMemo(() => (expr.trim() ? parseFormula(expr) : null), [expr]);
+  const known = new Set(refs.map((r) => r.key));
+  const badRefs = parsed?.ok ? parsed.vars.filter((v) => !known.has(v)) : [];
+
+  return (
+    <div className="space-y-1.5 rounded-lg border border-border-light bg-surface-secondary p-2.5">
+      <input
+        className={clsx(inputCls, 'h-9 font-mono text-xs')}
+        value={expr}
+        onChange={(e) => onPatch({ formula: e.target.value })}
+        placeholder={t('forms.formula_ph', { defaultValue: 'e.g. length * width' })}
+      />
+      <div className="flex items-center gap-1 text-[11px]">
+        <span className="text-content-tertiary">{t('forms.unit', { defaultValue: 'Unit' })}:</span>
+        <input
+          className={clsx(inputCls, 'h-7 max-w-[8rem] text-xs')}
+          value={field.unit ?? ''}
+          onChange={(e) => onPatch({ unit: e.target.value || null })}
+          placeholder="m2"
+        />
+      </div>
+      {parsed && !parsed.ok && (
+        <p className="text-[11px] text-semantic-error">
+          {t('forms.formula_invalid', { defaultValue: 'Invalid formula' })}: {parsed.error}
+        </p>
+      )}
+      {badRefs.length > 0 && (
+        <p className="text-[11px] text-semantic-error">
+          {t('forms.formula_unknown', { defaultValue: 'Unknown field(s)' })}: {badRefs.join(', ')}
+        </p>
+      )}
+      {refs.length > 0 && (
+        <div className="flex flex-wrap gap-1 pt-0.5">
+          <span className="text-[11px] text-content-tertiary">
+            {t('forms.insert_field', { defaultValue: 'Insert' })}:
+          </span>
+          {refs.map((r) => (
+            <button
+              key={r.key}
+              type="button"
+              onClick={() => onPatch({ formula: `${expr}${expr && !expr.endsWith(' ') ? ' ' : ''}${r.key}` })}
+              className="rounded border border-border bg-surface-primary px-1.5 py-0.5 font-mono text-[11px] text-oe-blue hover:bg-oe-blue-subtle"
+            >
+              {r.key}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* -- Conditional rule editor ----------------------------------------------- */
+
+interface ConditionEditorProps {
+  title: string;
+  rule: ConditionExpr | null;
+  refs: { key: string; label: string }[];
+  onChange: (rule: ConditionExpr | null) => void;
+}
+
+function ConditionEditor({ title, rule, refs, onChange }: ConditionEditorProps) {
+  const { t } = useTranslation();
+  const isGroup = !!(rule && (rule.all || rule.any));
+  const leaf = rule && !isGroup ? rule : null;
+
+  if (isGroup) {
+    return (
+      <div className="text-[11px] text-content-tertiary">
+        <span className="font-medium text-content-secondary">{title}</span>{' '}
+        {t('forms.advanced_rule', { defaultValue: 'an advanced rule (kept as-is).' })}{' '}
+        <button type="button" onClick={() => onChange(null)} className="text-oe-blue hover:underline">
+          {t('common.clear', { defaultValue: 'Clear' })}
+        </button>
+      </div>
+    );
+  }
+
+  const op = leaf?.op ?? 'eq';
+  const needsValue = !VALUELESS_OPS.has(op);
+  const isListOp = op === 'in' || op === 'not_in';
+
+  const setLeaf = (patch: Partial<ConditionExpr>) => {
+    const next: ConditionExpr = { field: leaf?.field, op: leaf?.op ?? 'eq', value: leaf?.value, ...patch };
+    if (!next.field || !next.op) {
+      onChange(null);
+      return;
+    }
+    onChange(next);
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <span className="block text-[11px] font-medium text-content-secondary">{title}</span>
+      {!leaf ? (
+        refs.length === 0 ? (
+          <p className="text-[11px] text-content-tertiary">
+            {t('forms.logic_needs_fields', { defaultValue: 'Add another field first to build a rule.' })}
+          </p>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setLeaf({ field: refs[0]!.key, op: 'not_empty' })}
+            className="inline-flex items-center gap-1 text-[11px] font-medium text-oe-blue hover:underline"
+          >
+            <Plus size={11} />
+            {t('forms.add_condition', { defaultValue: 'Add a condition' })}
+          </button>
+        )
+      ) : (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <select
+            className={clsx(inputCls, 'h-8 max-w-[10rem] text-xs')}
+            value={leaf.field ?? ''}
+            onChange={(e) => setLeaf({ field: e.target.value })}
+          >
+            {refs.map((r) => (
+              <option key={r.key} value={r.key}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+          <select
+            className={clsx(inputCls, 'h-8 max-w-[9rem] text-xs')}
+            value={op}
+            onChange={(e) => setLeaf({ op: e.target.value as ConditionOp })}
+          >
+            {CONDITION_OPS.map((o) => (
+              <option key={o} value={o}>
+                {CONDITION_OP_LABELS[o]}
+              </option>
+            ))}
+          </select>
+          {needsValue && (
+            <input
+              className={clsx(inputCls, 'h-8 max-w-[9rem] text-xs')}
+              value={
+                leaf.value == null ? '' : Array.isArray(leaf.value) ? leaf.value.join(', ') : String(leaf.value)
+              }
+              onChange={(e) =>
+                setLeaf({ value: isListOp ? e.target.value.split(',').map((s) => s.trim()).filter(Boolean) : e.target.value })
+              }
+              placeholder={isListOp ? 'a, b, c' : t('forms.value', { defaultValue: 'value' })}
+            />
+          )}
+          <button
+            type="button"
+            aria-label="Clear condition"
+            onClick={() => onChange(null)}
+            className="text-content-tertiary hover:text-semantic-error"
+          >
+            <X size={13} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ExpanderToggle({
+  active,
+  dot,
+  icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  dot?: boolean;
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={clsx(
+        'inline-flex items-center gap-1 text-[11px] font-medium transition-colors',
+        active ? 'text-oe-blue' : 'text-content-tertiary hover:text-content-secondary',
+      )}
+    >
+      {icon}
+      {label}
+      {dot && <span className="ml-0.5 h-1.5 w-1.5 rounded-full bg-oe-blue" />}
+    </button>
+  );
+}
+
+/* -- Rule cleanup (drops an incomplete rule to null on save) --------------- */
+
+function cleanRule(rule: ConditionExpr | null | undefined): ConditionExpr | null {
+  if (!rule || typeof rule !== 'object') return null;
+  if (Array.isArray(rule.all) || Array.isArray(rule.any)) return rule; // keep advanced groups verbatim
+  if (!rule.field || !rule.op) return null;
+  const valueless = VALUELESS_OPS.has(rule.op);
+  return {
+    field: rule.field,
+    op: rule.op,
+    ...(valueless ? {} : { value: rule.value ?? null }),
+  };
 }
 
 function OptionsEditor({ options, onChange }: { options: string[]; onChange: (next: string[]) => void }) {

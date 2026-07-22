@@ -36,23 +36,32 @@ from typing import Any
 # pure layer stays testable on a bare interpreter - just like the rest of it.
 try:
     from .conditional import collect_rule_issues, evaluate_visibility, sanitize_expr
+    from .formula import FormulaError, formula_field_issues, list_formula_vars
 except ImportError:  # pragma: no cover - exercised only under path-based loading
     import importlib.util as _importlib_util
     import sys as _sys
     from pathlib import Path as _Path
 
-    if "forms_conditional" in _sys.modules:
-        _conditional = _sys.modules["forms_conditional"]
-    else:
-        _conditional_path = _Path(__file__).resolve().parent / "conditional.py"
-        _spec = _importlib_util.spec_from_file_location("forms_conditional", _conditional_path)
-        assert _spec and _spec.loader
-        _conditional = _importlib_util.module_from_spec(_spec)
-        _sys.modules["forms_conditional"] = _conditional
-        _spec.loader.exec_module(_conditional)
+    def _load_sibling(mod_name: str, filename: str):  # noqa: ANN202 - dynamic handle
+        if mod_name in _sys.modules:
+            return _sys.modules[mod_name]
+        path = _Path(__file__).resolve().parent / filename
+        spec = _importlib_util.spec_from_file_location(mod_name, path)
+        assert spec and spec.loader
+        module = _importlib_util.module_from_spec(spec)
+        _sys.modules[mod_name] = module
+        spec.loader.exec_module(module)
+        return module
+
+    _conditional = _load_sibling("forms_conditional", "conditional.py")
     collect_rule_issues = _conditional.collect_rule_issues
     evaluate_visibility = _conditional.evaluate_visibility
     sanitize_expr = _conditional.sanitize_expr
+
+    _formula = _load_sibling("forms_formula", "formula.py")
+    FormulaError = _formula.FormulaError
+    formula_field_issues = _formula.formula_field_issues
+    list_formula_vars = _formula.list_formula_vars
 
 # ── Field vocabulary ─────────────────────────────────────────────────────────
 
@@ -71,6 +80,7 @@ FIELD_TYPES: tuple[str, ...] = (
     "photo",  # photo evidence (one or more references)
     "signature",  # a captured signature (name + optional image data)
     "date",
+    "formula",  # a value computed from other fields (never user-entered)
 )
 
 # Types that require a non-empty ``options`` list to mean anything.
@@ -78,6 +88,20 @@ CHOICE_TYPES: frozenset[str] = frozenset({"single_choice", "multi_choice"})
 
 # Types that carry no answer - they structure the form but are never filled in.
 LAYOUT_TYPES: frozenset[str] = frozenset({"section"})
+
+# Types whose value is derived, not entered: the user never fills them, so they
+# are never "required" and their stored value is server-computed, not validated
+# against a user answer.
+COMPUTED_TYPES: frozenset[str] = frozenset({"formula"})
+
+# Free-text types that support a ``min_length`` / ``pattern`` constraint.
+TEXT_TYPES: frozenset[str] = frozenset({"short_text", "long_text"})
+
+# Types that support a numeric ``min`` / ``max`` bound.
+BOUNDED_TYPES: frozenset[str] = frozenset({"number"})
+
+# Types that support a free-text ``placeholder``.
+PLACEHOLDER_TYPES: frozenset[str] = frozenset({"short_text", "long_text", "number"})
 
 # The pass/fail/NA values a checklist item may take (lower-cased on compare).
 PASS_FAIL_VALUES: frozenset[str] = frozenset({"pass", "fail", "na"})
@@ -193,6 +217,35 @@ def normalize_fields(raw_fields: list[dict[str, Any]]) -> list[dict[str, Any]]:
             field["unit"] = unit or None
         if ftype == "rating":
             field["max_rating"] = _coerce_rating_scale(src.get("max_rating"))
+        if ftype == "formula":
+            expr = str(src.get("formula", "") or "").strip()
+            if expr:
+                field["formula"] = expr
+
+        # Per-field capture config, carried only for the types it applies to so a
+        # stored field stays compact (a number never carries a ``pattern``, a
+        # section never carries a ``placeholder``).
+        if not is_layout and ftype not in COMPUTED_TYPES:
+            placeholder = str(src.get("placeholder", "") or "").strip()
+            if placeholder and ftype in PLACEHOLDER_TYPES:
+                field["placeholder"] = placeholder[:200]
+            default = _clean_default(ftype, src.get("default"))
+            if default is not None:
+                field["default"] = default
+            if ftype in BOUNDED_TYPES:
+                low = _coerce_number(src.get("min"))
+                high = _coerce_number(src.get("max"))
+                if low is not None:
+                    field["min"] = low
+                if high is not None:
+                    field["max"] = high
+            if ftype in TEXT_TYPES:
+                min_length = _coerce_int(src.get("min_length"))
+                if min_length is not None and min_length > 0:
+                    field["min_length"] = min_length
+                pattern = str(src.get("pattern", "") or "").strip()
+                if pattern:
+                    field["pattern"] = pattern[:300]
 
         # Carry optional branching rules through, cleaned to a compact JSON-safe
         # shape. Absent / empty rules are simply omitted (the field is
@@ -229,6 +282,43 @@ def _coerce_rating_scale(raw: Any) -> int:
     except (TypeError, ValueError):
         return DEFAULT_RATING_SCALE
     return value
+
+
+def _coerce_number(raw: Any) -> float | int | None:
+    """Coerce a config bound to a JSON number, or ``None`` when absent/blank."""
+    if raw is None or (isinstance(raw, str) and raw.strip() == ""):
+        return None
+    parsed = _to_float(raw)
+    if parsed is None:
+        return None
+    return int(parsed) if float(parsed).is_integer() else parsed
+
+
+def _coerce_int(raw: Any) -> int | None:
+    """Coerce a config integer (e.g. min_length), or ``None`` when unparseable."""
+    parsed = _to_float(raw)
+    return None if parsed is None else int(parsed)
+
+
+def _clean_default(ftype: str, raw: Any) -> Any:
+    """Coerce a field default to a JSON-safe value matching the field type.
+
+    Empty strings / empty lists collapse to ``None`` (no default). Multi-choice
+    defaults are a list of strings; a checkbox default is a bool; everything else
+    is a trimmed string. Choice-option membership is checked separately by the
+    template validator, not here.
+    """
+    if raw is None:
+        return None
+    if ftype == "checkbox":
+        return bool(raw) if isinstance(raw, bool) else str(raw).strip().lower() in ("true", "1", "yes", "on")
+    if ftype == "multi_choice":
+        if not isinstance(raw, (list, tuple)):
+            return None
+        picked = [str(v).strip() for v in raw if str(v).strip()]
+        return picked or None
+    text = str(raw).strip()
+    return text[:500] or None
 
 
 # ── Template integrity ───────────────────────────────────────────────────────
@@ -284,7 +374,10 @@ def validate_template_fields(fields: list[dict[str, Any]]) -> list[FieldIssue]:
         else:
             seen_keys.add(key)
 
-        if ftype not in LAYOUT_TYPES:
+        # Only a field the user can actually enter counts as "fillable"; a
+        # section is layout and a formula is computed, so a form of only those
+        # has nothing to fill in.
+        if ftype not in LAYOUT_TYPES and ftype not in COMPUTED_TYPES:
             fillable += 1
 
         if ftype in CHOICE_TYPES:
@@ -312,6 +405,8 @@ def validate_template_fields(fields: list[dict[str, Any]]) -> list[FieldIssue]:
                     )
                 )
 
+        _append_config_issues(idx, key or None, field, issues)
+
     if fillable == 0:
         issues.append(
             FieldIssue(
@@ -326,7 +421,53 @@ def validate_template_fields(fields: list[dict[str, Any]]) -> list[FieldIssue]:
     # rejected here so it never reaches storage or a submission snapshot.
     issues.extend(FieldIssue(ri.field_index, ri.field_key, ri.code, ri.message) for ri in collect_rule_issues(fields))
 
+    # Formula fields: a broken expression, a reference to a missing field, a self
+    # reference or a cycle among formulas is rejected here too.
+    issues.extend(FieldIssue(fi, fk, code, msg) for fi, fk, code, msg in formula_field_issues(fields))
+
     return issues
+
+
+def _append_config_issues(
+    idx: int,
+    key: str | None,
+    field: dict[str, Any],
+    issues: list[FieldIssue],
+) -> None:
+    """Validate a field's per-field capture config (bounds, length, pattern).
+
+    Reported problems: ``min`` greater than ``max`` on a number field, a negative
+    ``min_length``, a ``pattern`` that is not a compilable regular expression, and
+    a ``default`` that is not one of a choice field's options.
+    """
+    ftype = str(field.get("type", "")).strip()
+
+    if ftype in BOUNDED_TYPES:
+        low = _coerce_number(field.get("min"))
+        high = _coerce_number(field.get("max"))
+        if low is not None and high is not None and low > high:
+            issues.append(FieldIssue(idx, key, "min_gt_max", "The minimum cannot be greater than the maximum."))
+
+    if ftype in TEXT_TYPES:
+        min_length = _coerce_int(field.get("min_length"))
+        if min_length is not None and min_length < 0:
+            issues.append(FieldIssue(idx, key, "bad_min_length", "Minimum length cannot be negative."))
+        pattern = str(field.get("pattern", "") or "").strip()
+        if pattern:
+            try:
+                re.compile(pattern)
+            except re.error:
+                issues.append(FieldIssue(idx, key, "bad_pattern", "The validation pattern is not a valid regular expression."))
+
+    # A single/multi choice default must be an actual option.
+    default = field.get("default")
+    if default is not None and ftype in CHOICE_TYPES:
+        options = set(_clean_options(field.get("options")))
+        picked = default if isinstance(default, (list, tuple)) else [default]
+        for item in picked:
+            if str(item).strip() and str(item).strip() not in options:
+                issues.append(FieldIssue(idx, key, "default_not_option", "The default value is not one of the options."))
+                break
 
 
 # ── Submission completeness / consistency ────────────────────────────────────
@@ -376,7 +517,9 @@ def validate_submission_answers(
 
     for idx, field in enumerate(fields):
         ftype = str(field.get("type", "")).strip()
-        if ftype in LAYOUT_TYPES:
+        # Layout fields carry no answer; computed (formula) fields are filled by
+        # the server, never the user, so neither is required or value-checked.
+        if ftype in LAYOUT_TYPES or ftype in COMPUTED_TYPES:
             continue
 
         key = str(field.get("key", "")).strip()
@@ -478,8 +621,31 @@ def _answer_value_issue(idx: int, field: dict[str, Any], value: Any) -> FieldIss
         return None
 
     if ftype == "number":
-        if _to_float(value) is None:
+        number = _to_float(value)
+        if number is None:
             return FieldIssue(idx, key, "not_a_number", "Answer must be a number.")
+        low = _coerce_number(field.get("min"))
+        high = _coerce_number(field.get("max"))
+        if low is not None and number < low:
+            return FieldIssue(idx, key, "below_min", f"Answer must be at least {low}.")
+        if high is not None and number > high:
+            return FieldIssue(idx, key, "above_max", f"Answer must be at most {high}.")
+        return None
+
+    if ftype in TEXT_TYPES:
+        text = str(value)
+        min_length = _coerce_int(field.get("min_length"))
+        if min_length is not None and min_length > 0 and len(text.strip()) < min_length:
+            return FieldIssue(idx, key, "too_short", f"Answer must be at least {min_length} character(s).")
+        pattern = str(field.get("pattern", "") or "").strip()
+        if pattern:
+            try:
+                if re.fullmatch(pattern, text) is None:
+                    return FieldIssue(idx, key, "pattern_mismatch", "Answer does not match the required format.")
+            except re.error:
+                # A bad pattern is a template bug (rejected on save); never block a
+                # completion over it here.
+                return None
         return None
 
     if ftype == "rating":
