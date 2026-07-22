@@ -23390,35 +23390,47 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
   setTimeout(tick, 1500);
 })();
 </script>
-  <!--oce:integr-flux - module hexes drift across the integrations band and wire to nearby integration logos (both the orbit hub and the bottom marquee) with fine dotted connectors that fade in and out. Hexes carry the module icon and label in the hero-honeycomb style, spawn in small clusters near the hub, never overlap, and stay left-weighted, edge-faded, theme-aware. Canvas is pointer-events none, paused off-screen and under reduced motion. -->
+  <!--oce:hexflow - one shared fixed full-viewport canvas + single rAF loop. It
+  draws the integrations drift hexes + dotted connectors (as before) and, keyed
+  to scroll position, a set of journey hexes that peel off the hero honeycomb,
+  curve through the integration logo whirl and settle into the left-weighted
+  drift field where they cross-fade into the autonomous drift. Hexes carry the
+  module icon + label (hero-honeycomb style) and click through to the cases
+  gallery. pointer-events none, paused off-screen and under reduced motion. -->
   <style>
     #integrations > .section-head, #integrations > .oce-rhub,
     #integrations > .oce-integr-marq, #integrations > .oce-integr-cta,
     #integrations > .oce-integr-tm { position: relative; z-index: 1; }
-    .oce-flux-canvas {
-      position: absolute; inset: 0; width: 100%; height: 100%;
-      pointer-events: none; z-index: 0;
+    .oce-hexflow-canvas {
+      position: fixed; inset: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 3;
     }
-    @media (max-width: 720px) { .oce-flux-canvas { display: none; } }
+    @media (max-width: 720px) { .oce-hexflow-canvas { display: none; } }
   </style>
   <script>
   (function () {
     function boot() {
       var section = document.getElementById('integrations');
-      if (!section || section.querySelector('.oce-flux-canvas')) return;
+      if (!section) return;
       var stage = section.querySelector('.oce-rhub-stage');
       var marq = section.querySelector('.oce-integr-marq');
       if (!stage) return;
+      if (document.querySelector('.oce-hexflow-canvas')) return;
+      var hero = document.querySelector('.module-honeycomb');
 
       var canvas = document.createElement('canvas');
-      canvas.className = 'oce-flux-canvas';
+      canvas.className = 'oce-hexflow-canvas';
       canvas.setAttribute('aria-hidden', 'true');
-      section.appendChild(canvas);
+      document.body.appendChild(canvas);
       var ctx = canvas.getContext('2d');
 
       var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      // step 2 (the scroll journey + hero->canvas handoff) is opt-in for now so
+      // it can be judged on the real hero before it goes default-on. With it off
+      // the block is a pure architecture migration: identical drift + connectors.
+      var JOURNEY_ON = /(?:[?&#])hexflow\b/.test(location.search + location.hash) ||
+        (function () { try { return localStorage.getItem('oce_hexflow') === '1'; } catch (e) { return false; } })();
 
-      // module icons in 24x24 stroke space, matching the hub / hero honeycomb set
       var ICONS = {
         BOQ:        ['M3 4h18v16H3z', 'M3 9h18', 'M3 14h18', 'M9 4v16'],
         Takeoff:    ['M3 21 21 3', 'M3 21h6', 'M3 21v-6', 'M8.5 6.5l2-2', 'M11.5 9.5l2-2', 'M14.5 12.5l2-2'],
@@ -23438,8 +23450,6 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
       var MODS = Object.keys(ICONS);
       var PATHS = {};
       for (var mk in ICONS) { PATHS[mk] = ICONS[mk].map(function (d) { return new Path2D(d); }); }
-
-      // each hex links to the cases gallery filtered by its module
       var SLUG = {
         BOQ: 'boq', Takeoff: 'takeoff', CAD: 'dwg take-off', Costs: 'cost explorer',
         Tender: 'tendering', Validation: 'validation', Schedule: 'schedule',
@@ -23449,15 +23459,9 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
       function hrefFor(label) { var s = SLUG[label]; return s ? '/cases/?module=' + encodeURIComponent(s) : '/cases/'; }
 
       var W = 0, H = 0, DPR = 1;
-      function accent() {
-        var v = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-        return v || '#0284c7';
-      }
-      function bg() {
-        var v = getComputedStyle(document.documentElement).getPropertyValue('--bg-0').trim();
-        return v || '#ffffff';
-      }
-      var ACC = accent(), BG = bg(), accRGB = null;
+      function accent() { var v = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(); return v || '#0284c7'; }
+      function bgc() { var v = getComputedStyle(document.documentElement).getPropertyValue('--bg-0').trim(); return v || '#ffffff'; }
+      var ACC = accent(), BG = bgc(), accRGB = null;
       function parseAcc(str) {
         var c = document.createElement('canvas').getContext('2d');
         c.fillStyle = '#000'; c.fillStyle = str; var s = c.fillStyle;
@@ -23471,36 +23475,38 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
       }
 
       function resize() {
-        var r = section.getBoundingClientRect();
-        W = r.width; H = r.height;
+        W = window.innerWidth; H = window.innerHeight;
         DPR = Math.min(window.devicePixelRatio || 1, 2);
-        canvas.width = Math.round(W * DPR);
-        canvas.height = Math.round(H * DPR);
+        canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
         ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-        ACC = accent(); BG = bg();
+        ACC = accent(); BG = bgc();
       }
 
-      // vertical band that spans the orbit hub down to the marquee
+      // real scroll for document coords, mockable scroll for the harness only
+      function realScroll() { return window.pageYOffset || document.documentElement.scrollTop || 0; }
+      function scrollTop() { return (typeof window.__oceScroll === 'number') ? window.__oceScroll : realScroll(); }
+      function docTopOf(el) { var r = el.getBoundingClientRect(); return r.top + realScroll(); }
+
+      // integrations section geometry, expressed on the fixed canvas
+      function secGeom() {
+        var r = section.getBoundingClientRect();
+        return { left: r.left, top: docTopOf(section) - scrollTop(), w: r.width, h: r.height };
+      }
       function band() {
         var sr = section.getBoundingClientRect();
         var st = stage.getBoundingClientRect();
-        var top = st.top - sr.top;
-        var bot = top + st.height;
+        var top = st.top - sr.top, bot = top + st.height;
         if (marq) { var mr = marq.getBoundingClientRect(); bot = mr.bottom - sr.top; }
-        return { top: Math.max(0, top), bot: Math.min(H, bot) };
+        return { top: Math.max(0, top), bot: Math.min(secGeom().h, bot) };
       }
-
-      // live centres of every integration logo (orbit + marquee), kept to the
-      // left field where the hexes actually live so the work stays bounded
+      // logo centres in section-local coords, left field only
       function logoCenters() {
-        var sr = section.getBoundingClientRect();
-        var out = [];
+        var sr = section.getBoundingClientRect(), out = [];
         function add(list) {
           for (var i = 0; i < list.length; i++) {
-            var b = list[i].getBoundingClientRect();
-            if (!b.width) continue;
+            var b = list[i].getBoundingClientRect(); if (!b.width) continue;
             var cx = b.left - sr.left + b.width / 2, cy = b.top - sr.top + b.height / 2;
-            if (cx < W * 0.68 && cx > -50 && cy > -50 && cy < H + 50) out.push({ x: cx, y: cy });
+            if (cx < sr.width * 0.68 && cx > -50 && cy > -50 && cy < sr.height + 50) out.push({ x: cx, y: cy });
           }
         }
         add(section.querySelectorAll('.oce-rhub-node .oce-lg'));
@@ -23508,145 +23514,53 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
         return out;
       }
 
-      var hexes = [];
-      // twice the previous size (was 19)
-      var R = 38, GAP = 12, THRESH = 214, MAXLINES = 22, MAXHEX = 11, clusterTimer = 0;
-      var mouse = { x: 0, y: 0, in: false }, hovered = null;
-
-      // topmost hex under the pointer (index 0 is drawn last / on top)
-      function hitTest() {
-        if (!mouse.in) return null;
-        for (var i = 0; i < hexes.length; i++) {
-          var he = hexes[i];
-          if (op(he.x) <= 0.15) continue;
-          if (Math.hypot(mouse.x - he.x, mouse.y - he.y) < R * 0.9) return he;
-        }
-        return null;
-      }
-
-      // does a candidate centre clear every existing hex by the collision gap
-      function clears(x, y, min) {
-        for (var j = 0; j < hexes.length; j++) {
-          if (Math.hypot(x - hexes[j].x, y - hexes[j].y) < min) return false;
-        }
-        return true;
-      }
-
-      // spawn a loose cluster of 2-5 module hexes. seeded clusters start already
-      // on-screen near the hub; the rest drift in from just past the left edge
-      function spawnCluster(seeded) {
-        var b = band(), h = b.bot - b.top;
-        var n = 2 + (Math.random() * 4 | 0);
-        var ax = seeded ? W * (0.08 + Math.random() * 0.26) : -R * (0.8 + Math.random() * 0.6);
-        var t = (Math.random() + Math.random()) / 2;
-        var ay = b.top + h * (0.12 + t * 0.74);
-        var vx = 0.14 + Math.random() * 0.1;
-        var min = 2 * R + GAP;
-        for (var i = 0; i < n && hexes.length < MAXHEX; i++) {
-          var placed = false, tries = 0, hx, hy;
-          while (!placed && tries < 24) {
-            var ang = Math.random() * Math.PI * 2, rad = min + Math.random() * R * 1.4;
-            hx = ax + Math.cos(ang) * rad * 0.62;
-            hy = ay + Math.sin(ang) * rad * 0.9;
-            if (hy < b.top + R) hy = b.top + R; if (hy > b.bot - R) hy = b.bot - R;
-            placed = clears(hx, hy, min);
-            tries++;
-          }
-          if (!placed) continue;
-          // prefer a label not already on screen so clusters read as variety
-          var used = {}; for (var u = 0; u < hexes.length; u++) used[hexes[u].label] = 1;
-          var pool = MODS.filter(function (l) { return !used[l]; });
-          if (!pool.length) pool = MODS;
-          hexes.push({
-            x: hx, y: hy,
-            vx: vx + (Math.random() - 0.5) * 0.03,
-            drift: (Math.random() - 0.5) * 0.05,
-            label: pool[(Math.random() * pool.length) | 0],
-            phase: Math.random() * Math.PI * 2
-          });
-        }
-      }
-
-      // left-weighted opacity: fades in from the far-left edge, brightest across
-      // the left third, softening to 0 by the centre of the block
-      function op(x) {
-        var inEdge = W * 0.05, peakEnd = W * 0.34, fadeEnd = W * 0.62;
-        if (x < inEdge) return Math.max(0, x / inEdge);
-        if (x <= peakEnd) return 1;
-        if (x < fadeEnd) return Math.max(0, 1 - (x - peakEnd) / (fadeEnd - peakEnd));
-        return 0;
-      }
-
-      function hexPath(x, y, r) {
+      // ---- shared drawing helpers -------------------------------------------
+      var R = 38, GAP = 12, THRESH = 214, MAXLINES = 22, MAXHEX = 11;
+      function hexPath(x, y, r, rot) {
         ctx.beginPath();
         for (var k = 0; k < 6; k++) {
-          var ang = Math.PI / 6 + k * Math.PI / 3;
+          var ang = Math.PI / 6 + k * Math.PI / 3 + (rot || 0);
           var px = x + r * Math.cos(ang), py = y + r * Math.sin(ang);
           k ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
         }
         ctx.closePath();
       }
-
       function fitLabel(label, maxW) {
         var size = R * 0.30;
         ctx.font = '600 ' + size + 'px "Inter Tight", Inter, system-ui, sans-serif';
-        while (size > 7 && ctx.measureText(label).width > maxW) {
-          size -= 0.5;
-          ctx.font = '600 ' + size + 'px "Inter Tight", Inter, system-ui, sans-serif';
-        }
+        while (size > 7 && ctx.measureText(label).width > maxW) { size -= 0.5; ctx.font = '600 ' + size + 'px "Inter Tight", Inter, system-ui, sans-serif'; }
         var text = label;
-        if (ctx.measureText(text).width > maxW) {
-          while (text.length > 1 && ctx.measureText(text + '…').width > maxW) text = text.slice(0, -1);
-          text += '…';
-        }
+        if (ctx.measureText(text).width > maxW) { while (text.length > 1 && ctx.measureText(text + '…').width > maxW) text = text.slice(0, -1); text += '…'; }
         return text;
       }
-
-      function drawHex(x, y, a, label, hover) {
+      function drawHex(x, y, a, label, hover, rot) {
+        if (a <= 0.01) return;
         ctx.save();
         ctx.globalAlpha = hover ? Math.max(a, 0.9) : a;
-        if (hover) {
-          hexPath(x, y, R + 4);
-          ctx.lineWidth = 1.2; ctx.strokeStyle = withAlpha(ACC, 0.4); ctx.stroke();
-        }
-        // filled face so it reads as a solid cell like the hero honeycomb
-        hexPath(x, y, R);
-        ctx.fillStyle = BG; ctx.fill();
-        hexPath(x, y, R);
-        ctx.fillStyle = withAlpha(ACC, hover ? 0.2 : 0.1); ctx.fill();
-        ctx.lineWidth = hover ? 2 : 1.5;
-        ctx.strokeStyle = withAlpha(ACC, hover ? 1 : 0.82);
-        ctx.stroke();
-
-        // icon, clipped to the hex, sitting in the upper half
+        if (hover) { hexPath(x, y, R + 4, rot); ctx.lineWidth = 1.2; ctx.strokeStyle = withAlpha(ACC, 0.4); ctx.stroke(); }
+        hexPath(x, y, R, rot); ctx.fillStyle = BG; ctx.fill();
+        hexPath(x, y, R, rot); ctx.fillStyle = withAlpha(ACC, hover ? 0.2 : 0.1); ctx.fill();
+        ctx.lineWidth = hover ? 2 : 1.5; ctx.strokeStyle = withAlpha(ACC, hover ? 1 : 0.82); ctx.stroke();
         var paths = PATHS[label];
         if (paths) {
-          ctx.save();
-          hexPath(x, y, R); ctx.clip();
+          ctx.save(); hexPath(x, y, R, rot); ctx.clip();
           var S = R * 0.86, icx = x - S / 2, icy = y - R * 0.30 - S / 2;
           ctx.translate(icx, icy); ctx.scale(S / 24, S / 24);
           ctx.lineWidth = 1.7; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-          ctx.strokeStyle = withAlpha(ACC, 0.92); ctx.fillStyle = 'rgba(0,0,0,0)';
+          ctx.strokeStyle = withAlpha(ACC, 0.92);
           for (var p = 0; p < paths.length; p++) ctx.stroke(paths[p]);
           ctx.restore();
         }
-
-        // label under the icon, inside the hex
         var text = fitLabel(label, R * 1.5);
-        ctx.fillStyle = withAlpha(ACC, 0.95);
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = withAlpha(ACC, 0.95); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(text, x, y + R * 0.46);
         ctx.restore();
       }
-
-      // fine dotted connector; alpha carries the fade in / fade out
       function drawLink(x1, y1, x2, y2, a, dash) {
+        if (a <= 0.02) return;
         ctx.save();
-        ctx.setLineDash([1.4, 4.6]);
-        ctx.lineDashOffset = dash;
-        ctx.lineCap = 'round';
-        ctx.lineWidth = 1.05;
-        ctx.strokeStyle = withAlpha(ACC, a);
+        ctx.setLineDash([1.4, 4.6]); ctx.lineDashOffset = dash; ctx.lineCap = 'round';
+        ctx.lineWidth = 1.05; ctx.strokeStyle = withAlpha(ACC, a);
         ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
         ctx.setLineDash([]);
         ctx.fillStyle = withAlpha(ACC, Math.min(1, a * 1.2));
@@ -23654,69 +23568,150 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
         ctx.restore();
       }
 
-      // gentle pairwise separation so hexes never overlap
+      // ---- integration drift (Task 1 behaviour, section-local coords) --------
+      var hexes = [], clusterTimer = 0;
+      var mouse = { x: 0, y: 0, in: false }, hovered = null;
+      function clears(x, y, min) { for (var j = 0; j < hexes.length; j++) if (Math.hypot(x - hexes[j].x, y - hexes[j].y) < min) return false; return true; }
+      function spawnCluster(seeded) {
+        var b = band(), h = b.bot - b.top, sw = secGeom().w;
+        var n = 2 + (Math.random() * 4 | 0);
+        var ax = seeded ? sw * (0.08 + Math.random() * 0.26) : -R * (0.8 + Math.random() * 0.6);
+        var t = (Math.random() + Math.random()) / 2, ay = b.top + h * (0.12 + t * 0.74);
+        var vx = 0.14 + Math.random() * 0.1, min = 2 * R + GAP;
+        for (var i = 0; i < n && hexes.length < MAXHEX; i++) {
+          var placed = false, tries = 0, hx, hy;
+          while (!placed && tries < 24) {
+            var ang = Math.random() * Math.PI * 2, rad = min + Math.random() * R * 1.4;
+            hx = ax + Math.cos(ang) * rad * 0.62; hy = ay + Math.sin(ang) * rad * 0.9;
+            if (hy < b.top + R) hy = b.top + R; if (hy > b.bot - R) hy = b.bot - R;
+            placed = clears(hx, hy, min); tries++;
+          }
+          if (!placed) continue;
+          var used = {}; for (var u = 0; u < hexes.length; u++) used[hexes[u].label] = 1;
+          var pool = MODS.filter(function (l) { return !used[l]; }); if (!pool.length) pool = MODS;
+          hexes.push({ x: hx, y: hy, vx: vx + (Math.random() - 0.5) * 0.03, drift: (Math.random() - 0.5) * 0.05, label: pool[(Math.random() * pool.length) | 0], phase: Math.random() * Math.PI * 2 });
+        }
+      }
+      function op(x) {
+        var sw = secGeom().w, inEdge = sw * 0.05, peakEnd = sw * 0.34, fadeEnd = sw * 0.62;
+        if (x < inEdge) return Math.max(0, x / inEdge);
+        if (x <= peakEnd) return 1;
+        if (x < fadeEnd) return Math.max(0, 1 - (x - peakEnd) / (fadeEnd - peakEnd));
+        return 0;
+      }
       function separate() {
         var min = 2 * R + GAP;
-        for (var i = 0; i < hexes.length; i++) {
-          for (var j = i + 1; j < hexes.length; j++) {
-            var dx = hexes[j].x - hexes[i].x, dy = hexes[j].y - hexes[i].y;
-            var d = Math.hypot(dx, dy);
-            if (d > 0 && d < min) {
-              var push = (min - d) / 2 * 0.5, nx = dx / d, ny = dy / d;
-              hexes[i].x -= nx * push * 0.4; hexes[i].y -= ny * push;
-              hexes[j].x += nx * push * 0.4; hexes[j].y += ny * push;
-            }
-          }
+        for (var i = 0; i < hexes.length; i++) for (var j = i + 1; j < hexes.length; j++) {
+          var dx = hexes[j].x - hexes[i].x, dy = hexes[j].y - hexes[i].y, d = Math.hypot(dx, dy);
+          if (d > 0 && d < min) { var push = (min - d) / 2 * 0.5, nx = dx / d, ny = dy / d; hexes[i].x -= nx * push * 0.4; hexes[i].y -= ny * push; hexes[j].x += nx * push * 0.4; hexes[j].y += ny * push; }
         }
+      }
+      function hitTest() {
+        if (!mouse.in) return null;
+        for (var i = 0; i < hexes.length; i++) { var he = hexes[i]; if (op(he.x) <= 0.15) continue; if (Math.hypot(mouse.x - he.x, mouse.y - he.y) < R * 0.9) return he; }
+        return null;
+      }
+
+      // ---- journey hexes (scroll-position-driven) ---------------------------
+      var JN = 10, journey = [], journeyCells = [];
+      function buildJourney() {
+        // restore any previously faded cells before rebuilding
+        for (var z = 0; z < journeyCells.length; z++) if (journeyCells[z]) journeyCells[z].style.opacity = '';
+        journey = []; journeyCells = [];
+        if (!hero || !JOURNEY_ON) return;
+        var cells = [].slice.call(hero.querySelectorAll('.hc-cell')).filter(function (c) { return c.getBoundingClientRect().width; });
+        if (!cells.length) return;
+        var sg = secGeom(), b = band(), h = b.bot - b.top;
+        var step = Math.max(1, Math.floor(cells.length / JN));
+        var picks = []; for (var c = 0; c < cells.length && picks.length < JN; c += step) picks.push(cells[c]);
+        for (var i = 0; i < picks.length; i++) {
+          var el = picks[i];
+          var lab = (el.querySelector('.hc-title') ? el.querySelector('.hc-title').textContent.trim() : '');
+          if (!PATHS[lab]) lab = MODS[i % MODS.length];
+          var tx = sg.left + sg.w * (0.08 + (i % 4) * 0.07 + Math.random() * 0.04);
+          var ty = docTopOf(section) + b.top + h * (0.14 + Math.random() * 0.7);
+          journey.push({ el: el, tx: tx, ty: ty, wob: (Math.random() - 0.5), spin: (Math.random() - 0.5), label: lab });
+          journeyCells.push(el);
+        }
+      }
+      function easeIO(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+      // scroll span over which the journey plays out
+      function progress() {
+        var p0 = 40;
+        if (journey.length && journey[0].el) { var r0 = journey[0].el.getBoundingClientRect(); p0 = r0.top + realScroll() - 60; }
+        var p1 = docTopOf(section) + band().top - H * 0.32;
+        if (p1 <= p0) p1 = p0 + 400;
+        return Math.max(0, Math.min(1, (scrollTop() - p0) / (p1 - p0)));
       }
 
       var frame = 0, running = false, raf = 0;
       function tick() {
         frame++;
         ctx.clearRect(0, 0, W, H);
+        var sg = secGeom(), p = progress();
+        // with the journey on, drift appears only once the journey has settled
+        // (clean cross-fade, reversible on scroll-up); with it off, drift just
+        // shows whenever the block is in view, exactly as before
+        var driftVis = JOURNEY_ON ? Math.max(0, Math.min(1, (p - 0.8) / 0.18)) : 1;
+        var journeyVis = Math.max(0, Math.min(1, 1 - (p - 0.82) / 0.16));
+
+        // integration drift layer (section-local, translated onto the canvas)
         var centers = logoCenters();
-
         clusterTimer--;
-        if (clusterTimer <= 0 && hexes.length < MAXHEX - 1) {
-          spawnCluster(false); clusterTimer = 150 + (Math.random() * 90 | 0);
-        }
-
+        if (clusterTimer <= 0 && hexes.length < MAXHEX - 1) { spawnCluster(false); clusterTimer = 150 + (Math.random() * 90 | 0); }
         var b = band();
         for (var i = 0; i < hexes.length; i++) {
-          var hx = hexes[i];
-          hx.x += hx.vx;
-          hx.y += hx.drift + Math.sin(frame * 0.02 + hx.phase) * 0.08;
-          if (hx.y < b.top + R) hx.y = b.top + R;
-          if (hx.y > b.bot - R) hx.y = b.bot - R;
+          var hx = hexes[i]; hx.x += hx.vx; hx.y += hx.drift + Math.sin(frame * 0.02 + hx.phase) * 0.08;
+          if (hx.y < b.top + R) hx.y = b.top + R; if (hx.y > b.bot - R) hx.y = b.bot - R;
         }
         separate();
+        hovered = (driftVis > 0.5) ? hitTest() : null;
+        section.style.cursor = hovered ? 'pointer' : '';
 
-        var links = [];
-        for (var q = 0; q < hexes.length; q++) {
-          var hq = hexes[q];
-          var o = op(hq.x);
-          if (o <= 0.01) continue;
-          for (var j2 = 0; j2 < centers.length; j2++) {
-            var d2 = Math.hypot(hq.x - centers[j2].x, hq.y - centers[j2].y);
-            if (d2 < THRESH) {
-              var a = (1 - d2 / THRESH) * o * 0.9;
-              if (a > 0.04) links.push({ h: hq, c: centers[j2], a: a });
+        ctx.save();
+        ctx.translate(sg.left, sg.top);
+        if (driftVis > 0.01) {
+          var links = [];
+          for (var q = 0; q < hexes.length; q++) {
+            var hq = hexes[q], o = op(hq.x); if (o <= 0.01) continue;
+            for (var j2 = 0; j2 < centers.length; j2++) {
+              var d2 = Math.hypot(hq.x - centers[j2].x, hq.y - centers[j2].y);
+              if (d2 < THRESH) { var al = (1 - d2 / THRESH) * o * 0.9 * driftVis; if (al > 0.04) links.push({ h: hq, c: centers[j2], a: al }); }
             }
           }
+          links.sort(function (a2, b2) { return b2.a - a2.a; });
+          var dash = -frame * 0.5;
+          for (var l = 0; l < links.length && l < MAXLINES; l++) drawLink(links[l].h.x, links[l].h.y, links[l].c.x, links[l].c.y, links[l].a, dash);
         }
-        links.sort(function (p, q) { return q.a - p.a; });
-        var dash = -frame * 0.5;
-        for (var l = 0; l < links.length && l < MAXLINES; l++) {
-          drawLink(links[l].h.x, links[l].h.y, links[l].c.x, links[l].c.y, links[l].a, dash);
-        }
-
-        hovered = hitTest();
-        section.style.cursor = hovered ? 'pointer' : '';
         for (var m = hexes.length - 1; m >= 0; m--) {
           var he = hexes[m];
-          if (he.x > W * 0.64 + R) { hexes.splice(m, 1); continue; }
-          var oo = op(he.x);
-          if (oo > 0.01) drawHex(he.x, he.y, oo, he.label, he === hovered);
+          if (he.x > sg.w * 0.64 + R) { hexes.splice(m, 1); continue; }
+          var oo = op(he.x) * driftVis; if (oo > 0.01) drawHex(he.x, he.y, oo, he.label, he === hovered, 0);
+        }
+        ctx.restore();
+
+        // journey layer (viewport coords). each hex leaves its hero cell: the
+        // DOM cell fades as the canvas proxy fades in over the same spot (no
+        // doubling, no pop), then the proxy curves through the whirl and settles
+        if (journey.length) {
+          var st2 = scrollTop(), rs = realScroll();
+          var scx = sg.left + sg.w / 2, scyDoc = docTopOf(section) + b.top + (stage.getBoundingClientRect().height) / 2;
+          var handoff = Math.max(0, Math.min(1, (p - 0.04) / 0.16)); // 0 -> 1 across the lift-off
+          for (var k = 0; k < journey.length; k++) {
+            var jh = journey[k];
+            if (jh.el) { var o = 1 - handoff; jh.el.style.opacity = (o >= 0.999 ? '' : String(o)); }
+            if (journeyVis <= 0.01) continue;
+            var r = jh.el ? jh.el.getBoundingClientRect() : null;
+            var sx = r ? r.left + r.width / 2 : jh.tx, sy = r ? r.top + rs + r.height / 2 : jh.ty;
+            var e = easeIO(p), mt = 1 - e;
+            var wx = scx + jh.wob * 120, wy = scyDoc + jh.wob * 60;
+            var bx = mt * mt * sx + 2 * mt * e * wx + e * e * jh.tx;
+            var by = mt * mt * sy + 2 * mt * e * wy + e * e * jh.ty;
+            var bump = Math.sin(e * Math.PI);
+            bx += jh.wob * 40 * bump; by += jh.spin * 26 * bump;
+            var alpha = journeyVis * handoff * 0.96;
+            drawHex(bx, by - st2, alpha, jh.label, false, jh.spin * 0.5 * bump);
+          }
         }
         raf = requestAnimationFrame(tick);
       }
@@ -23725,57 +23720,50 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
       function stop() { running = false; cancelAnimationFrame(raf); }
 
       function seed() { spawnCluster(true); spawnCluster(true); }
-
       function staticFrame() {
-        ctx.clearRect(0, 0, W, H);
-        var b = band(), h = b.bot - b.top;
-        var pts = [[W * 0.13, b.top + h * 0.34, 'BOQ'], [W * 0.20, b.top + h * 0.6, 'Takeoff'],
-                   [W * 0.28, b.top + h * 0.44, 'BIM']];
+        resize(); var sg = secGeom(), b = band(), h = b.bot - b.top;
+        ctx.clearRect(0, 0, W, H); ctx.save(); ctx.translate(sg.left, sg.top);
+        var pts = [[sg.w * 0.13, b.top + h * 0.34, 'BOQ'], [sg.w * 0.20, b.top + h * 0.6, 'Takeoff'], [sg.w * 0.28, b.top + h * 0.44, 'BIM']];
         var c = logoCenters();
-        pts.forEach(function (p) {
-          var best = null;
-          for (var i = 0; i < c.length; i++) { var d = Math.hypot(p[0] - c[i].x, p[1] - c[i].y); if (!best || d < best.d) best = { c: c[i], d: d }; }
-          if (best && best.d < THRESH * 1.4) drawLink(p[0], p[1], best.c.x, best.c.y, 0.28, 0);
-          drawHex(p[0], p[1], 0.72, p[2]);
+        pts.forEach(function (pt) {
+          var best = null; for (var i = 0; i < c.length; i++) { var d = Math.hypot(pt[0] - c[i].x, pt[1] - c[i].y); if (!best || d < best.d) best = { c: c[i], d: d }; }
+          if (best && best.d < THRESH * 1.4) drawLink(pt[0], pt[1], best.c.x, best.c.y, 0.28, 0);
+          drawHex(pt[0], pt[1], 0.72, pt[2], false, 0);
         });
+        ctx.restore();
       }
 
-      // clicks are hit-tested against the hex list (canvas stays pointer-events
-      // none, so logos and links keep their own clicks); a hit opens the cases
-      // gallery filtered by that module
-      section.addEventListener('mousemove', function (e) {
-        var r = section.getBoundingClientRect();
-        mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top; mouse.in = true;
-      });
-      section.addEventListener('mouseleave', function () {
-        mouse.in = false; hovered = null; section.style.cursor = '';
-      });
-      section.addEventListener('click', function (e) {
-        var r = section.getBoundingClientRect();
-        mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top; mouse.in = true;
-        var h = hitTest();
-        if (h) { e.preventDefault(); window.location.href = hrefFor(h.label); }
-      });
+      // click-through on the drift hexes (section-scoped hit test)
+      section.addEventListener('mousemove', function (e) { var r = section.getBoundingClientRect(); mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top; mouse.in = true; });
+      section.addEventListener('mouseleave', function () { mouse.in = false; hovered = null; section.style.cursor = ''; });
+      section.addEventListener('click', function (e) { var r = section.getBoundingClientRect(); mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top; mouse.in = true; var h = hitTest(); if (h) { e.preventDefault(); window.location.href = hrefFor(h.label); } });
 
       resize();
+      buildJourney();
       if (reduce) { setTimeout(staticFrame, 60); }
       else {
         seed();
+        // run while the hero or the integrations block is anywhere near view
+        var visc = 0;
+        function upd(en) { en.forEach(function (e) { e._on = e.isIntersecting; }); }
         var io = ('IntersectionObserver' in window) ? new IntersectionObserver(function (en) {
-          en.forEach(function (e) { e.isIntersecting ? start() : stop(); });
-        }, { threshold: 0.02 }) : null;
-        if (io) io.observe(section); else start();
+          en.forEach(function (e) { if (e.target === section) visc = (visc & 2) | (e.isIntersecting ? 1 : 0); else visc = (visc & 1) | (e.isIntersecting ? 2 : 0); });
+          if (visc) start(); else stop();
+        }, { rootMargin: '200px 0px', threshold: 0.001 }) : null;
+        if (io) { io.observe(section); if (hero && JOURNEY_ON) io.observe(hero); }
+        if (!io) start();
+        // keep a frame flowing briefly on scroll so the journey tracks position
+        var stopTimer;
+        window.addEventListener('scroll', function () { start(); clearTimeout(stopTimer); stopTimer = setTimeout(function () { if (!visc) stop(); }, 400); }, { passive: true });
       }
       var rt;
-      window.addEventListener('resize', function () {
-        clearTimeout(rt); rt = setTimeout(function () { resize(); if (reduce) staticFrame(); }, 160);
-      });
+      window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { resize(); buildJourney(); if (reduce) staticFrame(); }, 160); });
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
     else boot();
   })();
   </script>
-  <!--/oce:integr-flux-->
+  <!--/oce:hexflow-->
     <!--oce:cb-hexflank - decorative honeycomb hexes flanking the cost-bases block. Reads as platform modules the resource/cost data feeds into. Semi-transparent, edge-faded, theme-aware, hidden on narrow widths, pointer-events none, behind the content. -->
     <style>
       /* keep the real content above the decoration */
