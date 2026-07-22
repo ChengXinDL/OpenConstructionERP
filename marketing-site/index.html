@@ -23390,22 +23390,39 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
   setTimeout(tick, 1500);
 })();
 </script>
-  <!--oce:hexflow - one shared fixed full-viewport canvas + single rAF loop. It
-  draws the integrations drift hexes + dotted connectors (as before) and, keyed
-  to scroll position, a set of journey hexes that peel off the hero honeycomb,
-  curve through the integration logo whirl and settle into the left-weighted
-  drift field where they cross-fade into the autonomous drift. Hexes carry the
-  module icon + label (hero-honeycomb style) and click through to the cases
-  gallery. pointer-events none, paused off-screen and under reduced motion. -->
+  <!--oce:hexflow - hero-identical honeycomb cells (cloned at runtime) hand off
+  from the top hero honeycomb into the integrations block, then run as a left-to
+  -right conveyor of small connected groups (2-5 hexes). The conveyor drifts on
+  its own and speeds up while the user scrolls; each group fades to ~10% as it
+  crosses the middle and re-emerges on the right, looping seamlessly. As a group
+  passes a tool logo it links to it with thin dotted lines that form and release.
+  The centre is a portable concrete mixer whose drum is the tools ring (logos on
+  top, nothing points inward). One fixed layer + one wires layer + one rAF,
+  paused off-screen. Reduced motion: static faint groups. -->
   <style>
     #integrations > .section-head, #integrations > .oce-rhub,
     #integrations > .oce-integr-marq, #integrations > .oce-integr-cta,
     #integrations > .oce-integr-tm { position: relative; z-index: 1; }
-    .oce-hexflow-canvas {
-      position: fixed; inset: 0; width: 100%; height: 100%;
-      pointer-events: none; z-index: 3;
+    #integrations .oce-rhub-node::before,
+    #integrations .oce-rhub-ring::before { display: none !important; }
+    .oce-hexwires { position: fixed; inset: 0; pointer-events: none; z-index: 2; overflow: hidden; }
+    .oce-hexflow {
+      position: fixed; inset: 0; pointer-events: none; z-index: 3; overflow: hidden;
+      --hc-w: 80px; --hc-h: calc(var(--hc-w) * 0.866);
     }
-    @media (max-width: 720px) { .oce-hexflow-canvas { display: none; } }
+    .oce-hexflow .oce-hexgrp { position: absolute; left: 0; top: 0; will-change: transform, opacity; }
+    .oce-hexflow .hc-cell { animation: none; opacity: 1; transform: none; }
+    .oce-hexflow .hc-cell.oce-clickable { pointer-events: auto; }
+    .oce-mixer-rig {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      width: 94%; height: 94%; z-index: 0; pointer-events: none;
+      color: color-mix(in oklab, var(--accent) 58%, var(--ink-2)); opacity: .19;
+    }
+    :root[data-theme="dark"] .oce-mixer-rig, [data-theme="dark"] .oce-mixer-rig { opacity: .27; }
+    @keyframes oce-drum-turn { to { stroke-dashoffset: -280; } }
+    .oce-mixer-rig .oce-drum-band { animation: oce-drum-turn 11s linear infinite; }
+    @media (prefers-reduced-motion: reduce) { .oce-mixer-rig .oce-drum-band { animation: none; } }
+    @media (max-width: 720px) { .oce-hexflow, .oce-hexwires { display: none; } }
   </style>
   <script>
   (function () {
@@ -23413,351 +23430,311 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
       var section = document.getElementById('integrations');
       if (!section) return;
       var stage = section.querySelector('.oce-rhub-stage');
-      var marq = section.querySelector('.oce-integr-marq');
+      var ring = section.querySelector('.oce-rhub-ring');
       if (!stage) return;
-      if (document.querySelector('.oce-hexflow-canvas')) return;
+      if (document.querySelector('.oce-hexflow')) return;
       var hero = document.querySelector('.module-honeycomb');
-
-      var canvas = document.createElement('canvas');
-      canvas.className = 'oce-hexflow-canvas';
-      canvas.setAttribute('aria-hidden', 'true');
-      document.body.appendChild(canvas);
-      var ctx = canvas.getContext('2d');
-
+      var heroCells = hero ? [].slice.call(hero.querySelectorAll('.hc-cell')).filter(function (c) { return c.querySelector('.hc-title'); }) : [];
       var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      // step 2 (the scroll journey + hero->canvas handoff) is opt-in for now so
-      // it can be judged on the real hero before it goes default-on. With it off
-      // the block is a pure architecture migration: identical drift + connectors.
-      var JOURNEY_ON = /(?:[?&#])hexflow\b/.test(location.search + location.hash) ||
-        (function () { try { return localStorage.getItem('oce_hexflow') === '1'; } catch (e) { return false; } })();
+      var SVGNS = 'http://www.w3.org/2000/svg';
+      // the playbooks/cases cards block: the conveyor groups settle beside its
+      // cards grid (hugging the card column, not the viewport edges)
+      var settleSection = document.getElementById('playbooks') || document.querySelector('[data-oce-playbooks]') || null;
+      var gridEl = null;
+      function findGrid() {
+        if (!settleSection) return null;
+        if (gridEl && settleSection.contains(gridEl)) return gridEl;
+        var all = settleSection.querySelectorAll('*'), best = null, bn = 2;
+        for (var i = 0; i < all.length; i++) {
+          var n = all[i].childElementCount; if (n < 3 || n <= bn) continue;
+          var r = all[i].getBoundingClientRect(); if (r.width < 320) continue;
+          bn = n; best = all[i];
+        }
+        gridEl = best; return best;
+      }
 
+      // ---- hub: mixer rig (drum = tools ring) ----------------------------
+      (function mixer() {
+        var old = section.querySelector('.oce-mixer'); if (old) old.remove();
+        if (stage.querySelector('.oce-mixer-rig')) return;
+        var el = document.createElementNS(SVGNS, 'svg');
+        el.setAttribute('class', 'oce-mixer-rig'); el.setAttribute('viewBox', '0 0 500 500');
+        el.setAttribute('fill', 'none'); el.setAttribute('aria-hidden', 'true');
+        el.setAttribute('stroke', 'currentColor'); el.setAttribute('stroke-width', '4');
+        el.setAttribute('stroke-linecap', 'round'); el.setAttribute('stroke-linejoin', 'round');
+        el.innerHTML =
+          '<circle cx="250" cy="250" r="212" opacity="0.7"/>' +
+          '<circle class="oce-drum-band" cx="250" cy="250" r="228" stroke-dasharray="2 12" opacity="0.5"/>' +
+          '<path d="M196 44 L214 74 H286 L304 44" opacity="0.85"/>' +
+          '<path d="M30 250 H70" /><path d="M430 250 H470" />' +
+          '<path d="M70 250 L150 470 M430 250 L350 470" />' +
+          '<path d="M120 470 H380" opacity="0.8"/>' +
+          '<path d="M138 470 v14 M362 470 v14" opacity="0.8"/>' +
+          '<path d="M250 300 V470" opacity="0.5"/>' +
+          '<path d="M470 250 h26 v-30 h20" /><circle cx="516" cy="220" r="7" opacity="0.9"/>';
+        stage.insertBefore(el, stage.firstChild);
+      })();
+
+      // ---- brand marks (monochrome, on-brand, theme-aware) ---------------
       var ICONS = {
-        BOQ:        ['M3 4h18v16H3z', 'M3 9h18', 'M3 14h18', 'M9 4v16'],
-        Takeoff:    ['M3 21 21 3', 'M3 21h6', 'M3 21v-6', 'M8.5 6.5l2-2', 'M11.5 9.5l2-2', 'M14.5 12.5l2-2'],
-        CAD:        ['M12 3v18', 'M3 12h18', 'M12 4.5a7.5 7.5 0 100 15 7.5 7.5 0 000-15z'],
-        Costs:      ['M12 3.5c4.4 0 8 1.3 8 3s-3.6 3-8 3-8-1.3-8-3 3.6-3 8-3z', 'M4 6.5v5c0 1.7 3.6 3 8 3s8-1.3 8-3v-5', 'M4 11.5v5c0 1.7 3.6 3 8 3s8-1.3 8-3v-5'],
-        Tender:     ['M6 3h8l5 5v13H6z', 'M14 3v5h5', 'M9 13h6', 'M9 17h6'],
-        Validation: ['M12 3l7 3v5c0 4-3 7.2-7 9-4-1.8-7-5-7-9V6z', 'M9 11.5l2.2 2.2L15 10'],
-        Schedule:   ['M4 6h10', 'M4 11h14', 'M4 16h8', 'M18 5v3', 'M14 10v3', 'M12 15v3'],
-        Reporting:  ['M3 3v18h18', 'M7 15l4-4 3 3 5-6'],
-        AI:         ['M12 4a4 4 0 100 8 4 4 0 000-8z', 'M12 2v2', 'M12 12v2', 'M20 8h-2', 'M6 8H4', 'M12 16v4', 'M8.5 19.5l2-2', 'M15.5 19.5l-2-2'],
-        Field:      ['M4 16a8 8 0 0116 0', 'M3 16h18', 'M9 16V9a3 3 0 016 0v7'],
-        Docs:       ['M7 3h7l4 4v14H7z', 'M14 3v5h5', 'M10 13h5', 'M10 17h5'],
-        BIM:        ['M21 8 12 3 3 8l9 5 9-5Z', 'M3 8v8l9 5 9-5V8', 'M12 13v8'],
-        Carbon:     ['M5 20c-1-8 5-15 15-16-1 10-7 16-15 16z', 'M6 19c3-4 7-6 11-8'],
-        Quality:    ['M12 3l2.3 4.7 5.2.8-3.75 3.65.9 5.15L12 15l-4.65 2.45.9-5.15L4.5 8.5l5.2-.8z']
+        Telegram: 'M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.464.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.226-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212-.07-.062-.174-.041-.249-.024-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z',
+        WhatsApp: 'M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.71.306 1.263.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.885-9.885 9.885M20.52 3.449C18.24 1.245 15.24 0 12.045 0 5.463 0 .104 5.334.101 11.892c0 2.096.549 4.14 1.595 5.945L0 24l6.335-1.652a12.062 12.062 0 0 0 5.71 1.447h.006c6.585 0 11.946-5.336 11.949-11.896 0-3.18-1.246-6.167-3.51-8.454',
+        Excel: 'M23 1.5q.41 0 .7.3.3.29.3.7v19q0 .41-.3.7-.29.3-.7.3H7q-.41 0-.7-.3-.3-.29-.3-.7V17H1q-.41 0-.7-.3-.3-.29-.3-.7V7q0-.41.3-.7Q.58 6 1 6h5V1.5q0-.41.3-.7.29-.3.7-.3ZM6 13.28l1.42 2.66h2.14l-2.38-3.87 2.34-3.8H7.46l-1.3 2.4-.05.08-.04.09-.64-1.28-.66-1.29H2.59l2.27 3.82-2.48 3.86h2.16L6 13.28ZM14.25 21v-3H7.5v3h6.75Zm0-4.5v-3.75H12v3.75h2.25Zm0-5.25V7.5H12v3.75h2.25Zm0-5.25V3H7.5v3h6.75Zm8.25 15v-3h-6.75v3h6.75Zm0-4.5v-3.75h-6.75v3.75h6.75Zm0-5.25V7.5h-6.75v3.75h6.75Zm0-5.25V3h-6.75v3h6.75Z',
+        'Power BI': 'M18.29 5.706a1.412 1.412 0 0 1 1.412-1.412h.94a1.412 1.412 0 0 1 1.413 1.412v12.588a1.412 1.412 0 0 1-1.412 1.412h-2.353zm-5.176 3.53a1.412 1.412 0 0 1 1.412-1.413h.94a1.412 1.412 0 0 1 1.412 1.412v9.059a1.412 1.412 0 0 1-1.412 1.412h-2.352zm-5.177 3.528a1.412 1.412 0 0 1 1.413-1.412h.94a1.412 1.412 0 0 1 1.412 1.412v5.53a1.412 1.412 0 0 1-1.412 1.411H7.937zM2.76 16.824h2.353a1.412 1.412 0 0 1 1.411 1.411v.588a1.412 1.412 0 0 1-1.411 1.412H2.76z',
+        SharePoint: 'M13.2 0a6.6 6.6 0 0 0-6.535 5.7 6 6 0 0 0 .246 11.94q.16.01.32.007A5.4 5.4 0 0 0 16.02 20.4a5.7 5.7 0 0 0 .78.054q.18 0 .357-.011A5.7 5.7 0 1 0 18.9 9.3 6.6 6.6 0 0 0 13.2 0zm-.3 3.9a3.3 3.3 0 1 1 0 6.6 3.3 3.3 0 0 1 0-6.6z'
       };
-      var MODS = Object.keys(ICONS);
-      var PATHS = {};
-      for (var mk in ICONS) { PATHS[mk] = ICONS[mk].map(function (d) { return new Path2D(d); }); }
-      var SLUG = {
-        BOQ: 'boq', Takeoff: 'takeoff', CAD: 'dwg take-off', Costs: 'cost explorer',
-        Tender: 'tendering', Validation: 'validation', Schedule: 'schedule',
-        Reporting: 'reports', AI: 'ai estimator', Field: 'field time',
-        Docs: 'documents', BIM: 'bim', Carbon: 'carbon', Quality: 'quality'
-      };
-      function hrefFor(label) { var s = SLUG[label]; return s ? '/cases/?module=' + encodeURIComponent(s) : '/cases/'; }
-
-      var W = 0, H = 0, DPR = 1;
-      function accent() { var v = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(); return v || '#0284c7'; }
-      function bgc() { var v = getComputedStyle(document.documentElement).getPropertyValue('--bg-0').trim(); return v || '#ffffff'; }
-      var ACC = accent(), BG = bgc(), accRGB = null;
-      function parseAcc(str) {
-        var c = document.createElement('canvas').getContext('2d');
-        c.fillStyle = '#000'; c.fillStyle = str; var s = c.fillStyle;
-        if (s[0] === '#') { var h = s.slice(1); if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
-          return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)]; }
-        var m = s.match(/(\d+(?:\.\d+)?)/g); return m ? [+m[0],+m[1],+m[2]] : [2,132,199];
+      function paintIcon(host, label) {
+        var svg = host.querySelector('svg');
+        if (svg) {
+          svg.setAttribute('viewBox', '0 0 24 24');
+          while (svg.firstChild) svg.removeChild(svg.firstChild);
+          var p = document.createElementNS(SVGNS, 'path'); p.setAttribute('d', ICONS[label]); p.setAttribute('fill', 'currentColor');
+          svg.appendChild(p);
+        } else { var t = host.querySelector('.oce-lg-in') || host.querySelector('.oce-lg') || host; t.textContent = label.slice(0, 2).toUpperCase(); }
       }
-      function withAlpha(str, a) {
-        if (!accRGB || accRGB._src !== str) { accRGB = parseAcc(str); accRGB._src = str; }
-        return 'rgba(' + accRGB[0] + ',' + accRGB[1] + ',' + accRGB[2] + ',' + a + ')';
+      // circle/hub RING gets Telegram, Excel, Power BI, SharePoint, then re-space
+      (function ringLogos() {
+        if (!ring) return;
+        var nodes0 = [].slice.call(ring.querySelectorAll('.oce-rhub-node'));
+        if (!nodes0.length) return;
+        ['Telegram', 'Excel', 'Power BI', 'SharePoint'].forEach(function (lab) {
+          if (ring.querySelector('[aria-label="' + lab + '"]')) return;
+          var n = nodes0[0].cloneNode(true); n.setAttribute('aria-label', lab);
+          var lg = n.querySelector('.oce-lg'); if (lg) lg.setAttribute('title', lab);
+          paintIcon(n, lab); ring.appendChild(n);
+        });
+        var nodes = [].slice.call(ring.querySelectorAll('.oce-rhub-node'));
+        var srect = stage.getBoundingClientRect(), cx = srect.left + srect.width / 2, cy = srect.top + srect.height / 2;
+        var r0n = nodes0[0].getBoundingClientRect();
+        var r0 = Math.hypot((r0n.left + r0n.width / 2) - cx, (r0n.top + r0n.height / 2) - cy) || srect.width * 0.4;
+        for (var i = 0; i < nodes.length; i++) {
+          var a = (i / nodes.length) * Math.PI * 2, x = Math.sin(a) * r0, y = -Math.cos(a) * r0;
+          nodes[i].style.setProperty('transform', 'translate(-50%,-50%) translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px)', 'important');
+        }
+      })();
+      // block-2 integration logo set (marquee) gets Telegram + WhatsApp
+      (function marqueeLogos() {
+        var track = section.querySelector('.oce-integr-marq-track') || section.querySelector('.oce-integr-marq');
+        if (!track) return;
+        var items = [].slice.call(track.querySelectorAll('.oce-lg'));
+        if (!items.length) return;
+        ['Telegram', 'WhatsApp'].forEach(function (lab) {
+          if (track.querySelector('[data-oce-logo="' + lab + '"]')) return;
+          var m = items[0].cloneNode(true); m.setAttribute('data-oce-logo', lab); m.setAttribute('title', lab);
+          paintIcon(m, lab); track.appendChild(m);
+        });
+      })();
+
+      // ---- cloned hero-identical cells -----------------------------------
+      var SLUG = { boq: 'boq', takeoff: 'takeoff', cad: 'dwg take-off', costs: 'cost explorer',
+        tenders: 'tendering', tender: 'tendering', validation: 'validation', schedule: 'schedule',
+        schedules: 'schedule', reports: 'reports', reporting: 'reports', documents: 'documents',
+        field: 'field time', bim: 'bim', carbon: 'carbon', quality: 'quality', projects: 'projects',
+        inspections: 'inspections', forms: 'forms', rfis: 'rfis', crm: 'crm' };
+      function hrefFor(title) { var k = (title || '').trim().toLowerCase(); var s = SLUG.hasOwnProperty(k) ? SLUG[k] : k; return s ? '/cases/?module=' + encodeURIComponent(s) : '/cases/'; }
+      function cloneCell(src) {
+        var c = src.cloneNode(true); c.className = 'hc-cell oce-clickable';
+        c.style.left = ''; c.style.top = ''; c.removeAttribute('data-shot'); c.setAttribute('tabindex', '0');
+        var title = (c.querySelector('.hc-title') || {}).textContent || '';
+        c.addEventListener('click', function (e) { e.preventDefault(); window.location.href = hrefFor(title); });
+        c.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); window.location.href = hrefFor(title); } });
+        return c;
+      }
+      var pick = 0;
+      function nextSrc() { if (!heroCells.length) return null; var s = heroCells[pick % heroCells.length]; pick++; return s; }
+
+      var HCW = 80, COL = HCW * 0.78, HEXH = HCW * 0.866, ZIG = HEXH * 0.5;
+      var TEMPLATES = [ [[0, 0], [1, 1]], [[0, 0], [1, 1], [0, 2]], [[0, 0], [1, -1], [1, 1]],
+        [[0, 0], [1, 1], [2, 0], [1, -1]], [[0, 0], [1, 1], [0, 2], [1, 3], [2, 2]] ];
+      function buildGroup(kind) {
+        var tpl = TEMPLATES[kind % TEMPLATES.length];
+        var el = document.createElement('div'); el.className = 'oce-hexgrp'; el.setAttribute('aria-hidden', 'true');
+        var minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
+        for (var i = 0; i < tpl.length; i++) {
+          var src = nextSrc(); if (!src) continue;
+          var c = cloneCell(src); var x = tpl[i][0] * COL, y = tpl[i][1] * ZIG;
+          c.style.position = 'absolute'; c.style.left = x + 'px'; c.style.top = y + 'px'; el.appendChild(c);
+          minx = Math.min(minx, x); miny = Math.min(miny, y); maxx = Math.max(maxx, x + HCW); maxy = Math.max(maxy, y + HEXH);
+        }
+        el._w = maxx - minx; el._h = maxy - miny; el._cx = (minx + maxx) / 2; el._cy = (miny + maxy) / 2;
+        return el;
       }
 
-      function resize() {
-        W = window.innerWidth; H = window.innerHeight;
-        DPR = Math.min(window.devicePixelRatio || 1, 2);
-        canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
-        ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-        ACC = accent(); BG = bgc();
+      var wires = document.createElementNS(SVGNS, 'svg');
+      wires.setAttribute('class', 'oce-hexwires'); wires.setAttribute('aria-hidden', 'true');
+      var WIRE_POOL = 16, wireLines = [];
+      for (var w = 0; w < WIRE_POOL; w++) {
+        var ln = document.createElementNS(SVGNS, 'line');
+        ln.setAttribute('stroke', 'currentColor'); ln.setAttribute('stroke-width', '1');
+        ln.setAttribute('stroke-dasharray', '1.5 5'); ln.setAttribute('stroke-linecap', 'round');
+        ln.style.opacity = '0'; wires.appendChild(ln); wireLines.push(ln);
       }
+      wires.style.color = 'var(--accent)';
+      document.body.appendChild(wires);
 
-      // real scroll for document coords, mockable scroll for the harness only
+      var layer = document.createElement('div');
+      layer.className = 'oce-hexflow'; layer.setAttribute('aria-hidden', 'true');
+      layer.style.setProperty('--hc-w', HCW + 'px'); document.body.appendChild(layer);
+
       function realScroll() { return window.pageYOffset || document.documentElement.scrollTop || 0; }
       function scrollTop() { return (typeof window.__oceScroll === 'number') ? window.__oceScroll : realScroll(); }
-      function docTopOf(el) { var r = el.getBoundingClientRect(); return r.top + realScroll(); }
-
-      // integrations section geometry, expressed on the fixed canvas
-      function secGeom() {
-        var r = section.getBoundingClientRect();
-        return { left: r.left, top: docTopOf(section) - scrollTop(), w: r.width, h: r.height };
-      }
-      function band() {
-        var sr = section.getBoundingClientRect();
-        var st = stage.getBoundingClientRect();
-        var top = st.top - sr.top, bot = top + st.height;
-        if (marq) { var mr = marq.getBoundingClientRect(); bot = mr.bottom - sr.top; }
-        return { top: Math.max(0, top), bot: Math.min(secGeom().h, bot) };
-      }
-      // logo centres in section-local coords, left field only
-      function logoCenters() {
-        var sr = section.getBoundingClientRect(), out = [];
-        function add(list) {
-          for (var i = 0; i < list.length; i++) {
-            var b = list[i].getBoundingClientRect(); if (!b.width) continue;
-            var cx = b.left - sr.left + b.width / 2, cy = b.top - sr.top + b.height / 2;
-            if (cx < sr.width * 0.68 && cx > -50 && cy > -50 && cy < sr.height + 50) out.push({ x: cx, y: cy });
-          }
-        }
-        add(section.querySelectorAll('.oce-rhub-node .oce-lg'));
-        if (marq) add(marq.querySelectorAll('.oce-lg'));
-        return out;
-      }
-
-      // ---- shared drawing helpers -------------------------------------------
-      var R = 38, GAP = 12, THRESH = 214, MAXLINES = 22, MAXHEX = 11;
-      function hexPath(x, y, r, rot) {
-        ctx.beginPath();
-        for (var k = 0; k < 6; k++) {
-          var ang = Math.PI / 6 + k * Math.PI / 3 + (rot || 0);
-          var px = x + r * Math.cos(ang), py = y + r * Math.sin(ang);
-          k ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
-        }
-        ctx.closePath();
-      }
-      function fitLabel(label, maxW) {
-        var size = R * 0.30;
-        ctx.font = '600 ' + size + 'px "Inter Tight", Inter, system-ui, sans-serif';
-        while (size > 7 && ctx.measureText(label).width > maxW) { size -= 0.5; ctx.font = '600 ' + size + 'px "Inter Tight", Inter, system-ui, sans-serif'; }
-        var text = label;
-        if (ctx.measureText(text).width > maxW) { while (text.length > 1 && ctx.measureText(text + '…').width > maxW) text = text.slice(0, -1); text += '…'; }
-        return text;
-      }
-      function drawHex(x, y, a, label, hover, rot) {
-        if (a <= 0.01) return;
-        ctx.save();
-        ctx.globalAlpha = hover ? Math.max(a, 0.9) : a;
-        if (hover) { hexPath(x, y, R + 4, rot); ctx.lineWidth = 1.2; ctx.strokeStyle = withAlpha(ACC, 0.4); ctx.stroke(); }
-        hexPath(x, y, R, rot); ctx.fillStyle = BG; ctx.fill();
-        hexPath(x, y, R, rot); ctx.fillStyle = withAlpha(ACC, hover ? 0.2 : 0.1); ctx.fill();
-        ctx.lineWidth = hover ? 2 : 1.5; ctx.strokeStyle = withAlpha(ACC, hover ? 1 : 0.82); ctx.stroke();
-        var paths = PATHS[label];
-        if (paths) {
-          ctx.save(); hexPath(x, y, R, rot); ctx.clip();
-          var S = R * 0.86, icx = x - S / 2, icy = y - R * 0.30 - S / 2;
-          ctx.translate(icx, icy); ctx.scale(S / 24, S / 24);
-          ctx.lineWidth = 1.7; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-          ctx.strokeStyle = withAlpha(ACC, 0.92);
-          for (var p = 0; p < paths.length; p++) ctx.stroke(paths[p]);
-          ctx.restore();
-        }
-        var text = fitLabel(label, R * 1.5);
-        ctx.fillStyle = withAlpha(ACC, 0.95); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(text, x, y + R * 0.46);
-        ctx.restore();
-      }
-      function drawLink(x1, y1, x2, y2, a, dash) {
-        if (a <= 0.02) return;
-        ctx.save();
-        ctx.setLineDash([1.4, 4.6]); ctx.lineDashOffset = dash; ctx.lineCap = 'round';
-        ctx.lineWidth = 1.05; ctx.strokeStyle = withAlpha(ACC, a);
-        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.fillStyle = withAlpha(ACC, Math.min(1, a * 1.2));
-        ctx.beginPath(); ctx.arc(x2, y2, 1.7, 0, Math.PI * 2); ctx.fill();
-        ctx.restore();
-      }
-
-      // ---- integration drift (Task 1 behaviour, section-local coords) --------
-      var hexes = [], clusterTimer = 0;
-      var mouse = { x: 0, y: 0, in: false }, hovered = null;
-      function clears(x, y, min) { for (var j = 0; j < hexes.length; j++) if (Math.hypot(x - hexes[j].x, y - hexes[j].y) < min) return false; return true; }
-      function spawnCluster(seeded) {
-        var b = band(), h = b.bot - b.top, sw = secGeom().w;
-        var n = 2 + (Math.random() * 4 | 0);
-        var ax = seeded ? sw * (0.08 + Math.random() * 0.26) : -R * (0.8 + Math.random() * 0.6);
-        var t = (Math.random() + Math.random()) / 2, ay = b.top + h * (0.12 + t * 0.74);
-        var vx = 0.14 + Math.random() * 0.1, min = 2 * R + GAP;
-        for (var i = 0; i < n && hexes.length < MAXHEX; i++) {
-          var placed = false, tries = 0, hx, hy;
-          while (!placed && tries < 24) {
-            var ang = Math.random() * Math.PI * 2, rad = min + Math.random() * R * 1.4;
-            hx = ax + Math.cos(ang) * rad * 0.62; hy = ay + Math.sin(ang) * rad * 0.9;
-            if (hy < b.top + R) hy = b.top + R; if (hy > b.bot - R) hy = b.bot - R;
-            placed = clears(hx, hy, min); tries++;
-          }
-          if (!placed) continue;
-          var used = {}; for (var u = 0; u < hexes.length; u++) used[hexes[u].label] = 1;
-          var pool = MODS.filter(function (l) { return !used[l]; }); if (!pool.length) pool = MODS;
-          hexes.push({ x: hx, y: hy, vx: vx + (Math.random() - 0.5) * 0.03, drift: (Math.random() - 0.5) * 0.05, label: pool[(Math.random() * pool.length) | 0], phase: Math.random() * Math.PI * 2 });
-        }
-      }
-      function op(x) {
-        var sw = secGeom().w, inEdge = sw * 0.05, peakEnd = sw * 0.34, fadeEnd = sw * 0.62;
-        if (x < inEdge) return Math.max(0, x / inEdge);
-        if (x <= peakEnd) return 1;
-        if (x < fadeEnd) return Math.max(0, 1 - (x - peakEnd) / (fadeEnd - peakEnd));
-        return 0;
-      }
-      function separate() {
-        var min = 2 * R + GAP;
-        for (var i = 0; i < hexes.length; i++) for (var j = i + 1; j < hexes.length; j++) {
-          var dx = hexes[j].x - hexes[i].x, dy = hexes[j].y - hexes[i].y, d = Math.hypot(dx, dy);
-          if (d > 0 && d < min) { var push = (min - d) / 2 * 0.5, nx = dx / d, ny = dy / d; hexes[i].x -= nx * push * 0.4; hexes[i].y -= ny * push; hexes[j].x += nx * push * 0.4; hexes[j].y += ny * push; }
-        }
-      }
-      function hitTest() {
-        if (!mouse.in) return null;
-        for (var i = 0; i < hexes.length; i++) { var he = hexes[i]; if (op(he.x) <= 0.15) continue; if (Math.hypot(mouse.x - he.x, mouse.y - he.y) < R * 0.9) return he; }
-        return null;
-      }
-
-      // ---- journey hexes (scroll-position-driven) ---------------------------
-      var JN = 10, journey = [], journeyCells = [];
-      function buildJourney() {
-        // restore any previously faded cells before rebuilding
-        for (var z = 0; z < journeyCells.length; z++) if (journeyCells[z]) journeyCells[z].style.opacity = '';
-        journey = []; journeyCells = [];
-        if (!hero || !JOURNEY_ON) return;
-        var cells = [].slice.call(hero.querySelectorAll('.hc-cell')).filter(function (c) { return c.getBoundingClientRect().width; });
-        if (!cells.length) return;
-        var sg = secGeom(), b = band(), h = b.bot - b.top;
-        var step = Math.max(1, Math.floor(cells.length / JN));
-        var picks = []; for (var c = 0; c < cells.length && picks.length < JN; c += step) picks.push(cells[c]);
-        for (var i = 0; i < picks.length; i++) {
-          var el = picks[i];
-          var lab = (el.querySelector('.hc-title') ? el.querySelector('.hc-title').textContent.trim() : '');
-          if (!PATHS[lab]) lab = MODS[i % MODS.length];
-          var tx = sg.left + sg.w * (0.08 + (i % 4) * 0.07 + Math.random() * 0.04);
-          var ty = docTopOf(section) + b.top + h * (0.14 + Math.random() * 0.7);
-          journey.push({ el: el, tx: tx, ty: ty, wob: (Math.random() - 0.5), spin: (Math.random() - 0.5), label: lab });
-          journeyCells.push(el);
-        }
-      }
+      function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
       function easeIO(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
-      // scroll span over which the journey plays out
-      function progress() {
-        var p0 = 40;
-        if (journey.length && journey[0].el) { var r0 = journey[0].el.getBoundingClientRect(); p0 = r0.top + realScroll() - 60; }
-        var p1 = docTopOf(section) + band().top - H * 0.32;
+      function smooth(a, b, t) { t = clamp01((t - a) / (b - a)); return t * t * (3 - 2 * t); }
+      function docTopOf(el) { return el.getBoundingClientRect().top + realScroll(); }
+      // settle progress: 0 while the conveyor runs, 1 once the cards are in view
+      function settleProgress() {
+        if (!settleSection) return 0;
+        var p0 = docTopOf(settleSection) - window.innerHeight * 0.85;
+        var p1 = docTopOf(settleSection) - window.innerHeight * 0.20;
         if (p1 <= p0) p1 = p0 + 400;
-        return Math.max(0, Math.min(1, (scrollTop() - p0) / (p1 - p0)));
+        return clamp01((scrollTop() - p0) / (p1 - p0));
       }
 
-      var frame = 0, running = false, raf = 0;
+      // ---- conveyor groups: one per lane so they never overlap ------------
+      var NG = 6, groups = [];
+      function buildGroups() {
+        for (var i = 0; i < groups.length; i++) groups[i].el.remove();
+        groups = [];
+        if (!heroCells.length) return;
+        for (var g = 0; g < NG; g++) {
+          var el = buildGroup(g); if (!el.childNodes.length) continue; layer.appendChild(el);
+          groups.push({ el: el, w: el._w, h: el._h, cx: el._cx, cy: el._cy,
+            lane: g, gx: (g / NG), v: 0.10 + (g % 3) * 0.015,
+            side: (g % 2 ? 1 : -1), slot: Math.floor(g / 2) });
+        }
+      }
+
+      // ---- hero handoff cells: visibly travel hero -> block on scroll ------
+      var handoff = [], handCells = [];
+      function buildHandoff() {
+        for (var i = 0; i < handCells.length; i++) if (handCells[i]) handCells[i].style.opacity = '';
+        handoff = []; handCells = [];
+        if (!hero || !heroCells.length || reduce) return;
+        var N = Math.min(5, heroCells.length);
+        for (var i = 0; i < N; i++) {
+          var src = heroCells[i * 2 % heroCells.length];
+          var c = cloneCell(src); c.style.position = 'absolute'; c.style.left = '0'; c.style.top = '0';
+          c.style.opacity = '0'; c.style.willChange = 'transform,opacity'; layer.appendChild(c);
+          handoff.push({ cell: c, src: src, k: i, wob: (i % 2 ? 1 : -1) * (0.4 + (i * 17 % 30) / 100) });
+          handCells.push(src);
+        }
+      }
+
+      var lastScroll = realScroll(), scrollBoost = 0, frame = 0, running = false, raf = 0;
       function tick() {
         frame++;
-        ctx.clearRect(0, 0, W, H);
-        var sg = secGeom(), p = progress();
-        // with the journey on, drift appears only once the journey has settled
-        // (clean cross-fade, reversible on scroll-up); with it off, drift just
-        // shows whenever the block is in view, exactly as before
-        var driftVis = JOURNEY_ON ? Math.max(0, Math.min(1, (p - 0.8) / 0.18)) : 1;
-        var journeyVis = Math.max(0, Math.min(1, 1 - (p - 0.82) / 0.16));
+        var sc = realScroll(), dv = Math.abs(sc - lastScroll); lastScroll = sc;
+        scrollBoost = Math.max(scrollBoost * 0.90, Math.min(dv * 0.11, 3.2)); // scroll speeds travel up
 
-        // integration drift layer (section-local, translated onto the canvas)
-        var centers = logoCenters();
-        clusterTimer--;
-        if (clusterTimer <= 0 && hexes.length < MAXHEX - 1) { spawnCluster(false); clusterTimer = 150 + (Math.random() * 90 | 0); }
-        var b = band();
-        for (var i = 0; i < hexes.length; i++) {
-          var hx = hexes[i]; hx.x += hx.vx; hx.y += hx.drift + Math.sin(frame * 0.02 + hx.phase) * 0.08;
-          if (hx.y < b.top + R) hx.y = b.top + R; if (hx.y > b.bot - R) hx.y = b.bot - R;
-        }
-        separate();
-        hovered = (driftVis > 0.5) ? hitTest() : null;
-        section.style.cursor = hovered ? 'pointer' : '';
+        var sr = section.getBoundingClientRect();
+        var vr = stage.getBoundingClientRect();
+        var bandTop = vr.top, bandH = vr.height;
+        var W = window.innerWidth, cxMid = sr.left + sr.width / 2, halfW = sr.width / 2;
 
-        ctx.save();
-        ctx.translate(sg.left, sg.top);
-        if (driftVis > 0.01) {
-          var links = [];
-          for (var q = 0; q < hexes.length; q++) {
-            var hq = hexes[q], o = op(hq.x); if (o <= 0.01) continue;
-            for (var j2 = 0; j2 < centers.length; j2++) {
-              var d2 = Math.hypot(hq.x - centers[j2].x, hq.y - centers[j2].y);
-              if (d2 < THRESH) { var al = (1 - d2 / THRESH) * o * 0.9 * driftVis; if (al > 0.04) links.push({ h: hq, c: centers[j2], a: al }); }
+        // gather logo centres (viewport) for the dotted links
+        var nodes = ring ? [].slice.call(ring.querySelectorAll('.oce-rhub-node')) : [];
+        var logo = nodes.map(function (n) { var r = n.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+
+        var Psettle = settleProgress();
+        var gb = (Psettle > 0.001) ? findGrid() : null;
+        var gbr = gb ? gb.getBoundingClientRect() : null;
+        var settleRows = Math.ceil(NG / 2);
+
+        var wireI = 0;
+        for (var i = 0; i < groups.length; i++) {
+          var gp = groups[i];
+          gp.gx += (gp.v + scrollBoost) / Math.max(600, sr.width); // normalised 0..1 travel
+          if (gp.gx > 1.12) gp.gx -= 1.24;
+          var laneY = bandTop + bandH * (0.10 + (gp.lane + 0.5) / NG * 0.80) - gp.h * 0.5;
+          var gxPx = sr.left - gp.w * 0.6 + gp.gx * (sr.width + gp.w * 1.2);
+          // mid-fade: fade toward ~10% crossing the centre, plus soft edges for the loop
+          var dCen = Math.min(1, Math.abs((gxPx + gp.w / 2) - cxMid) / (halfW * 0.9));
+          var mid = 0.10 + 0.90 * smooth(0.12, 0.72, dCen);
+          var edge = smooth(-0.08, 0.06, gp.gx) * (1 - smooth(1.02, 1.14, gp.gx));
+          var op = clamp01(mid * edge);
+
+          // final settle beside the cards grid (hugging the card column, faint)
+          if (gbr) {
+            var gap = 16;
+            var fx = gp.side < 0 ? (gbr.left - gap - gp.w) : (gbr.right + gap);
+            var fy = gbr.top + 8 + gp.slot * ((gbr.height - 16) / settleRows) + (gbr.height / settleRows - gp.h) * 0.5;
+            var roomL = gbr.left, roomR = W - gbr.right;
+            var fits = (gp.side < 0 ? roomL : roomR) > gp.w + gap + 8;
+            var e = easeIO(Psettle);
+            gxPx = gxPx + (fx - gxPx) * e;
+            laneY = laneY + (fy - laneY) * e;
+            op = op + ((fits ? 0.15 : 0) - op) * e;
+          }
+
+          gp.el.style.opacity = op.toFixed(3);
+          gp.el.style.transform = 'translate3d(' + gxPx.toFixed(1) + 'px,' + laneY.toFixed(1) + 'px,0)';
+
+          // dotted connectors to nearby logos (form as it nears, break as it leaves)
+          if (op > 0.12 && Psettle < 0.4) {
+            var gcx = gxPx + gp.w / 2 + gp.cx - gp.w / 2, gcy = laneY + gp.h / 2;
+            gcx = gxPx + gp.cx; gcy = laneY + gp.cy;
+            for (var j = 0; j < logo.length && wireI < WIRE_POOL; j++) {
+              var dx = logo[j][0] - gcx, dy = logo[j][1] - gcy, d = Math.hypot(dx, dy);
+              if (d < 190) {
+                var la = clamp01(1 - d / 190) * op * 0.9;
+                var l = wireLines[wireI++];
+                l.setAttribute('x1', gcx.toFixed(1)); l.setAttribute('y1', gcy.toFixed(1));
+                l.setAttribute('x2', logo[j][0].toFixed(1)); l.setAttribute('y2', logo[j][1].toFixed(1));
+                l.style.opacity = la.toFixed(3);
+              }
             }
           }
-          links.sort(function (a2, b2) { return b2.a - a2.a; });
-          var dash = -frame * 0.5;
-          for (var l = 0; l < links.length && l < MAXLINES; l++) drawLink(links[l].h.x, links[l].h.y, links[l].c.x, links[l].c.y, links[l].a, dash);
         }
-        for (var m = hexes.length - 1; m >= 0; m--) {
-          var he = hexes[m];
-          if (he.x > sg.w * 0.64 + R) { hexes.splice(m, 1); continue; }
-          var oo = op(he.x) * driftVis; if (oo > 0.01) drawHex(he.x, he.y, oo, he.label, he === hovered, 0);
-        }
-        ctx.restore();
+        for (var k = wireI; k < WIRE_POOL; k++) wireLines[k].style.opacity = '0';
 
-        // journey layer (viewport coords). each hex leaves its hero cell: the
-        // DOM cell fades as the canvas proxy fades in over the same spot (no
-        // doubling, no pop), then the proxy curves through the whirl and settles
-        if (journey.length) {
-          var st2 = scrollTop(), rs = realScroll();
-          var scx = sg.left + sg.w / 2, scyDoc = docTopOf(section) + b.top + (stage.getBoundingClientRect().height) / 2;
-          var handoff = Math.max(0, Math.min(1, (p - 0.04) / 0.16)); // 0 -> 1 across the lift-off
-          for (var k = 0; k < journey.length; k++) {
-            var jh = journey[k];
-            if (jh.el) { var o = 1 - handoff; jh.el.style.opacity = (o >= 0.999 ? '' : String(o)); }
-            if (journeyVis <= 0.01) continue;
-            var r = jh.el ? jh.el.getBoundingClientRect() : null;
-            var sx = r ? r.left + r.width / 2 : jh.tx, sy = r ? r.top + rs + r.height / 2 : jh.ty;
-            var e = easeIO(p), mt = 1 - e;
-            var wx = scx + jh.wob * 120, wy = scyDoc + jh.wob * 60;
-            var bx = mt * mt * sx + 2 * mt * e * wx + e * e * jh.tx;
-            var by = mt * mt * sy + 2 * mt * e * wy + e * e * jh.ty;
-            var bump = Math.sin(e * Math.PI);
-            bx += jh.wob * 40 * bump; by += jh.spin * 26 * bump;
-            var alpha = journeyVis * handoff * 0.96;
-            drawHex(bx, by - st2, alpha, jh.label, false, jh.spin * 0.5 * bump);
+        // hero -> block handoff (visible continuity), keyed to scroll
+        if (handoff.length) {
+          var hr = hero.getBoundingClientRect();
+          var p0 = hr.top + sc + hr.height * 0.30 - window.innerHeight * 0.6; // begins as hero lower half shows
+          var p1 = sr.top + sc - window.innerHeight * 0.15;                    // done as block enters
+          if (p1 <= p0) p1 = p0 + 500;
+          var P = clamp01((scrollTop() - p0) / (p1 - p0));
+          var entryX = sr.left + sr.width * 0.10, entryY = bandTop + bandH * 0.5;
+          for (var h = 0; h < handoff.length; h++) {
+            var hh = handoff[h], r = hh.src.getBoundingClientRect();
+            var sx = r.left + r.width / 2, sy = r.top + r.height / 2;
+            var sub = clamp01((P - h * 0.06) / (1 - h * 0.06));
+            if (hh.src) { var ho = 1 - clamp01(sub / 0.15); hh.src.style.opacity = (ho >= 0.999 ? '' : ho.toFixed(3)); }
+            var e = easeIO(sub), mt = 1 - e;
+            var wx = (sx + entryX) / 2 + hh.wob * 140, wy = (sy + entryY) / 2 + Math.abs(hh.wob) * 120;
+            var bx = mt * mt * sx + 2 * mt * e * wx + e * e * entryX;
+            var by = mt * mt * sy + 2 * mt * e * wy + e * e * entryY;
+            var a = (sub > 0.001 ? 1 : 0) * (1 - smooth(0.86, 1.0, sub)); // fade as it merges into conveyor
+            hh.cell.style.opacity = (sub <= 0.001 ? 0 : a).toFixed(3);
+            hh.cell.style.transform = 'translate3d(' + (bx - HCW / 2).toFixed(1) + 'px,' + (by - HEXH / 2).toFixed(1) + 'px,0) scale(' + (0.92 + 0.08 * e).toFixed(3) + ')';
           }
         }
         raf = requestAnimationFrame(tick);
       }
-
-      function start() { if (running) return; running = true; raf = requestAnimationFrame(tick); }
+      function start() { if (running || reduce) return; running = true; lastScroll = realScroll(); raf = requestAnimationFrame(tick); }
       function stop() { running = false; cancelAnimationFrame(raf); }
 
-      function seed() { spawnCluster(true); spawnCluster(true); }
-      function staticFrame() {
-        resize(); var sg = secGeom(), b = band(), h = b.bot - b.top;
-        ctx.clearRect(0, 0, W, H); ctx.save(); ctx.translate(sg.left, sg.top);
-        var pts = [[sg.w * 0.13, b.top + h * 0.34, 'BOQ'], [sg.w * 0.20, b.top + h * 0.6, 'Takeoff'], [sg.w * 0.28, b.top + h * 0.44, 'BIM']];
-        var c = logoCenters();
-        pts.forEach(function (pt) {
-          var best = null; for (var i = 0; i < c.length; i++) { var d = Math.hypot(pt[0] - c[i].x, pt[1] - c[i].y); if (!best || d < best.d) best = { c: c[i], d: d }; }
-          if (best && best.d < THRESH * 1.4) drawLink(pt[0], pt[1], best.c.x, best.c.y, 0.28, 0);
-          drawHex(pt[0], pt[1], 0.72, pt[2], false, 0);
-        });
-        ctx.restore();
-      }
-
-      // click-through on the drift hexes (section-scoped hit test)
-      section.addEventListener('mousemove', function (e) { var r = section.getBoundingClientRect(); mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top; mouse.in = true; });
-      section.addEventListener('mouseleave', function () { mouse.in = false; hovered = null; section.style.cursor = ''; });
-      section.addEventListener('click', function (e) { var r = section.getBoundingClientRect(); mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top; mouse.in = true; var h = hitTest(); if (h) { e.preventDefault(); window.location.href = hrefFor(h.label); } });
-
-      resize();
-      buildJourney();
-      if (reduce) { setTimeout(staticFrame, 60); }
-      else {
-        seed();
-        // run while the hero or the integrations block is anywhere near view
-        var visc = 0;
-        function upd(en) { en.forEach(function (e) { e._on = e.isIntersecting; }); }
+      buildGroups(); buildHandoff();
+      if (reduce) {
+        var sr = section.getBoundingClientRect(), vr = stage.getBoundingClientRect();
+        for (var i = 0; i < groups.length; i++) {
+          var gp = groups[i]; var laneY = vr.top + vr.height * (0.10 + (gp.lane + 0.5) / NG * 0.80) - gp.h * 0.5;
+          var gxPx = sr.left + (0.16 + i * 0.13) * sr.width;
+          gp.el.style.opacity = '0.14'; gp.el.style.transform = 'translate3d(' + gxPx.toFixed(1) + 'px,' + laneY.toFixed(1) + 'px,0)';
+        }
+      } else {
+        var onScreen = false, visCount = 0, seen = new WeakMap();
         var io = ('IntersectionObserver' in window) ? new IntersectionObserver(function (en) {
-          en.forEach(function (e) { if (e.target === section) visc = (visc & 2) | (e.isIntersecting ? 1 : 0); else visc = (visc & 1) | (e.isIntersecting ? 2 : 0); });
-          if (visc) start(); else stop();
-        }, { rootMargin: '200px 0px', threshold: 0.001 }) : null;
-        if (io) { io.observe(section); if (hero && JOURNEY_ON) io.observe(hero); }
-        if (!io) start();
-        // keep a frame flowing briefly on scroll so the journey tracks position
-        var stopTimer;
-        window.addEventListener('scroll', function () { start(); clearTimeout(stopTimer); stopTimer = setTimeout(function () { if (!visc) stop(); }, 400); }, { passive: true });
+          en.forEach(function (e) { var was = seen.get(e.target) ? 1 : 0, now = e.isIntersecting ? 1 : 0; if (now !== was) { visCount += now - was; seen.set(e.target, e.isIntersecting); } });
+          onScreen = visCount > 0; if (onScreen) start(); else stop();
+        }, { rootMargin: '600px 0px', threshold: 0.001 }) : null;
+        if (io) { io.observe(section); if (hero) io.observe(hero); if (settleSection) io.observe(settleSection); } else start();
+        var stTimer;
+        window.addEventListener('scroll', function () { start(); clearTimeout(stTimer); stTimer = setTimeout(function () { if (!onScreen) stop(); }, 600); }, { passive: true });
       }
       var rt;
-      window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { resize(); buildJourney(); if (reduce) staticFrame(); }, 160); });
+      window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { buildHandoff(); }, 200); });
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
     else boot();
