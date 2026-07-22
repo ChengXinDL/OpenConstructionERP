@@ -170,6 +170,12 @@ def signal_keys(catalogue: Sequence[ReadinessSignal] = READINESS_SIGNALS) -> tup
     return tuple(s.key for s in catalogue)
 
 
+#: The readiness levels in ascending order of maturity. The index of a level in
+#: this tuple is its rank, which the go-live gate compares against a required
+#: minimum (see :func:`level_rank` and :func:`meets_level`).
+READINESS_LEVELS: tuple[str, ...] = ("not_started", "forming", "operational", "mature")
+
+
 def readiness_level(score: int) -> str:
     """Coarse band for *score*.
 
@@ -184,6 +190,29 @@ def readiness_level(score: int) -> str:
     if score < 85:
         return "operational"
     return "mature"
+
+
+def level_rank(level: str) -> int:
+    """Rank of a readiness *level*, 0 (``not_started``) to 3 (``mature``).
+
+    An unknown level ranks 0 (least ready) so a typo can never let a project
+    slip past a go-live gate. Pure and total.
+    """
+    try:
+        return READINESS_LEVELS.index(level)
+    except ValueError:
+        return 0
+
+
+def meets_level(level: str, required: str) -> bool:
+    """Whether an achieved *level* is at least the *required* one.
+
+    Both are ranked via :func:`level_rank`, so ``meets_level("mature",
+    "operational")`` is ``True`` and ``meets_level("forming", "operational")``
+    is ``False``. Used by the CDE go-live gate to decide whether a project has
+    exercised its common data environment enough to open it to the whole team.
+    """
+    return level_rank(level) >= level_rank(required)
 
 
 def _weighted_score(statuses: Sequence[ReadinessSignalStatus]) -> int:
@@ -225,9 +254,7 @@ def evaluate(
     inflates readiness. The computation is pure and deterministic: identical
     inputs always yield an identical result.
     """
-    statuses = tuple(
-        ReadinessSignalStatus(signal=s, done=s.key in observed_keys) for s in catalogue
-    )
+    statuses = tuple(ReadinessSignalStatus(signal=s, done=s.key in observed_keys) for s in catalogue)
     score = _weighted_score(statuses)
     level = readiness_level(score)
 
@@ -245,11 +272,14 @@ def evaluate(
 
 __all__ = [
     "DEFAULT_NEXT_ACTIONS",
+    "READINESS_LEVELS",
     "READINESS_SIGNALS",
     "ReadinessSignal",
     "ReadinessSignalStatus",
     "CdeReadiness",
     "signal_keys",
     "readiness_level",
+    "level_rank",
+    "meets_level",
     "evaluate",
 ]

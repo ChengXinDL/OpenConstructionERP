@@ -63,6 +63,8 @@ from app.modules.projects.file_manager_service import (
 )
 from app.modules.projects.member_schemas import (
     AddProjectMemberRequest,
+    BulkAddProjectMembersRequest,
+    BulkAddProjectMembersResponse,
     ProjectMemberResponse,
 )
 from app.modules.projects.module_presence import probe_project_modules
@@ -554,6 +556,60 @@ async def add_project_member_endpoint(
     from app.modules.projects.member_service import add_project_member
 
     return await add_project_member(session, project_id, data)
+
+
+@router.post(
+    "/{project_id}/members/bulk/",
+    response_model=BulkAddProjectMembersResponse,
+    status_code=201,
+    summary="Invite several members at once (mass invite)",
+    description="Open the project to the whole team in one call. Subject to the "
+    "CDE go-live gate: when the gate is enabled the project's common data "
+    "environment must have reached the required readiness level, otherwise the "
+    "invite is rejected with 409 so nobody is invited onto an unconfigured CDE.",
+)
+@router.post(
+    "/{project_id}/members/bulk",
+    response_model=BulkAddProjectMembersResponse,
+    status_code=201,
+    include_in_schema=False,
+)
+async def bulk_add_project_members_endpoint(
+    project_id: uuid.UUID,
+    data: BulkAddProjectMembersRequest,
+    user_id: CurrentUserId,
+    payload: CurrentUserPayload,
+    session: SessionDep,
+    service: ProjectService = Depends(_get_service),
+) -> BulkAddProjectMembersResponse:
+    """Invite several users at once, gated on CDE go-live readiness.
+
+    The CDE go-live gate is the anti-"showroom" protection: a team cannot invite
+    everyone onto a common data environment that has not actually been exercised.
+    When the gate blocks, the whole batch is rejected (409) so the invite is all
+    or nothing - no half-open CDE.
+    """
+    await _verify_project_owner(service, project_id, user_id, payload)
+
+    # Gate the mass invite on CDE readiness (lazy import to avoid a load-time
+    # cycle between the projects and cde modules).
+    from app.modules.cde.service import CDEService
+
+    gate = await CDEService(session).evaluate_go_live_gate(project_id)
+    if not gate.allowed:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"CDE go-live gate: the common data environment is not ready to open to the whole team. {gate.reason}"
+            ),
+        )
+
+    from app.modules.projects.member_service import add_project_member
+
+    added: list[ProjectMemberResponse] = []
+    for member in data.members:
+        added.append(await add_project_member(session, project_id, member))
+    return BulkAddProjectMembersResponse(added=added)
 
 
 @router.delete(

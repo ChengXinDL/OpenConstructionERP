@@ -24,14 +24,21 @@ from app.core.cde_states import CDEState, CDEStateMachine
 from app.core.events import event_bus
 from app.core.json_merge import merge_metadata
 from app.modules.cde import readiness as cde_readiness
-from app.modules.cde.models import DocumentContainer, DocumentRevision, StateTransition
+from app.modules.cde.models import (
+    CdeSettings,
+    DocumentContainer,
+    DocumentRevision,
+    StateTransition,
+)
 from app.modules.cde.repository import ContainerRepository, RevisionRepository
 from app.modules.cde.schemas import (
     CDEReadinessResponse,
+    CdeSettingsUpdate,
     CDEStatsResponse,
     ContainerCreate,
     ContainerTransmittalLink,
     ContainerUpdate,
+    GoLiveGateStatus,
     ReadinessNextAction,
     ReadinessSignalStatus,
     RevisionCreate,
@@ -747,10 +754,85 @@ class CDEService:
                 )
                 for s in result.signals
             ],
-            next_actions=[
-                ReadinessNextAction(key=s.key, label=s.label, hint=s.hint)
-                for s in result.next_actions
-            ],
+            next_actions=[ReadinessNextAction(key=s.key, label=s.label, hint=s.hint) for s in result.next_actions],
+        )
+
+    # ── CDE settings (per-project setup) ─────────────────────────────────
+
+    async def get_or_create_settings(self, project_id: uuid.UUID) -> CdeSettings:
+        """Return the project's CDE settings, creating a default row if absent.
+
+        Lazy get-or-create (mirrors ``get_or_create_match_settings``) so projects
+        that predate the setup wizard get a sensible default configuration on
+        first read rather than a 404. The caller owns the commit.
+        """
+        stmt = select(CdeSettings).where(CdeSettings.project_id == project_id)
+        row = (await self.session.execute(stmt)).scalar_one_or_none()
+        if row is not None:
+            return row
+        row = CdeSettings(project_id=project_id)
+        self.session.add(row)
+        await self.session.flush()
+        await self.session.refresh(row)
+        return row
+
+    async def update_settings(
+        self,
+        project_id: uuid.UUID,
+        data: CdeSettingsUpdate,
+    ) -> CdeSettings:
+        """Apply a partial update to a project's CDE settings.
+
+        Only fields explicitly supplied (``exclude_unset``) are written, so a
+        wizard step can save just the part it owns without clobbering the rest.
+        """
+        row = await self.get_or_create_settings(project_id)
+        fields = data.model_dump(exclude_unset=True)
+        for key, value in fields.items():
+            setattr(row, key, value)
+        await self.session.flush()
+        await self.session.refresh(row)
+        logger.info(
+            "CDE settings updated: project=%s fields=%s",
+            project_id,
+            list(fields.keys()),
+        )
+        return row
+
+    async def evaluate_go_live_gate(self, project_id: uuid.UUID) -> GoLiveGateStatus:
+        """Decide whether the CDE may be opened to the whole team.
+
+        The go-live gate is the anti-"showroom" protection: a team cannot invite
+        everyone onto a common data environment that has not actually been
+        exercised. When the gate is enabled, the project's readiness ``level``
+        must meet the configured ``min_readiness_level``; when it is disabled the
+        gate always allows. Read-only - it computes readiness but changes nothing.
+        """
+        settings = await self.get_or_create_settings(project_id)
+        readiness = await self.compute_readiness(project_id)
+        required = settings.min_readiness_level
+
+        if not settings.go_live_gate_enabled:
+            allowed = True
+            reason = "Go-live gate is disabled for this project."
+        else:
+            allowed = cde_readiness.meets_level(readiness.level, required)
+            if allowed:
+                reason = f"CDE readiness is '{readiness.level}', which meets the required '{required}'."
+            else:
+                reason = (
+                    f"CDE readiness is '{readiness.level}', below the required '{required}'. "
+                    "Exercise the CDE workflow further before inviting the whole team."
+                )
+
+        return GoLiveGateStatus(
+            project_id=project_id,
+            gate_enabled=settings.go_live_gate_enabled,
+            allowed=allowed,
+            level=readiness.level,
+            min_readiness_level=required,
+            score=readiness.score,
+            reason=reason,
         )
 
     # ── ISO 19650 naming convention ──────────────────────────────────────

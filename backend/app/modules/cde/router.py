@@ -35,6 +35,8 @@ from app.modules.cde.roles import (
 )
 from app.modules.cde.schemas import (
     CDEReadinessResponse,
+    CdeSettingsResponse,
+    CdeSettingsUpdate,
     CDEStatsResponse,
     ContainerCreate,
     ContainerResponse,
@@ -42,6 +44,7 @@ from app.modules.cde.schemas import (
     ContainerUpdate,
     FunctionalRoleEntry,
     FunctionalRolesResponse,
+    GoLiveGateStatus,
     RevisionCreate,
     RevisionResponse,
     StateTransitionEntry,
@@ -226,6 +229,86 @@ async def cde_readiness(
     """
     await verify_project_access(project_id, user_id, session)
     return await service.compute_readiness(project_id)
+
+
+# ── CDE settings (per-project setup wizard) ───────────────────────────────────
+
+
+@router.get(
+    "/settings",
+    response_model=CdeSettingsResponse,
+    dependencies=[Depends(RequirePermission("cde.read"))],
+    include_in_schema=False,
+)
+@router.get(
+    "/settings/",
+    response_model=CdeSettingsResponse,
+    dependencies=[Depends(RequirePermission("cde.read"))],
+)
+async def get_cde_settings(
+    user_id: CurrentUserId,
+    session: SessionDep,
+    project_id: uuid.UUID = Query(...),
+    service: CDEService = Depends(_get_service),
+) -> CdeSettingsResponse:
+    """Return a project's CDE setup settings (creating defaults on first read)."""
+    await verify_project_access(project_id, user_id, session)
+    row = await service.get_or_create_settings(project_id)
+    return CdeSettingsResponse.model_validate(row)
+
+
+@router.patch(
+    "/settings",
+    response_model=CdeSettingsResponse,
+    dependencies=[Depends(RequirePermission("cde.update"))],
+    include_in_schema=False,
+)
+@router.patch(
+    "/settings/",
+    response_model=CdeSettingsResponse,
+    dependencies=[Depends(RequirePermission("cde.update"))],
+)
+async def update_cde_settings(
+    data: CdeSettingsUpdate,
+    user_id: CurrentUserId,
+    session: SessionDep,
+    project_id: uuid.UUID = Query(...),
+    service: CDEService = Depends(_get_service),
+) -> CdeSettingsResponse:
+    """Save one or more CDE setup fields for a project (wizard step save)."""
+    await verify_project_access(project_id, user_id, session)
+    row = await service.update_settings(project_id, data)
+    return CdeSettingsResponse.model_validate(row)
+
+
+# ── Go-live gate ──────────────────────────────────────────────────────────────
+
+
+@router.get(
+    "/go-live",
+    response_model=GoLiveGateStatus,
+    dependencies=[Depends(RequirePermission("cde.read"))],
+    include_in_schema=False,
+)
+@router.get(
+    "/go-live/",
+    response_model=GoLiveGateStatus,
+    dependencies=[Depends(RequirePermission("cde.read"))],
+)
+async def get_go_live_gate(
+    user_id: CurrentUserId,
+    session: SessionDep,
+    project_id: uuid.UUID = Query(...),
+    service: CDEService = Depends(_get_service),
+) -> GoLiveGateStatus:
+    """Whether the project's CDE is ready to open to the whole team.
+
+    Reports the go-live gate standing: whether the gate is enabled, the current
+    readiness level and score, the required minimum, and whether inviting the
+    whole team is currently allowed. Read-only.
+    """
+    await verify_project_access(project_id, user_id, session)
+    return await service.evaluate_go_live_gate(project_id)
 
 
 # ── Container List ────────────────────────────────────────────────────────────

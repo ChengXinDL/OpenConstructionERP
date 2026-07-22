@@ -49,3 +49,23 @@ class AddProjectMemberRequest(BaseModel):
         default="member",
         pattern=r"^(member|lead|owner|estimator|viewer|project_manager)$",
     )
+
+
+class BulkAddProjectMembersRequest(BaseModel):
+    """Invite several users to the project at once (mass invite).
+
+    This is the "open the CDE to the whole team" path, so it is subject to the
+    CDE go-live gate: when the gate is enabled the project's common data
+    environment must have reached the required readiness level before the bulk
+    invite is allowed.
+    """
+
+    model_config = ConfigDict(extra="ignore", str_strip_whitespace=True)
+
+    members: list[AddProjectMemberRequest] = Field(min_length=1, max_length=200)
+
+
+class BulkAddProjectMembersResponse(BaseModel):
+    """Result of a mass invite: the members added this call."""
+
+    added: list[ProjectMemberResponse] = Field(default_factory=list)

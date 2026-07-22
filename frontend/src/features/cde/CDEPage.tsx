@@ -52,6 +52,7 @@ import {
 } from './api';
 import { CDEHistoryDrawer } from './CDEHistoryDrawer';
 import { CDETransmittalsBadge } from './CDETransmittalsBadge';
+import { CDESetupWizard } from './CDESetupWizard';
 import { cdeGuide } from './cdeGuide';
 
 /* ── Constants ─────────────────────────────────────────────────────────── */
@@ -1558,6 +1559,7 @@ export function CDEPage() {
 
   // State
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showSetupWizard, setShowSetupWizard] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [stateFilter, setStateFilter] = useState<CDEState | ''>('');
 
@@ -1828,6 +1830,23 @@ export function CDEPage() {
         actions={
           <>
           <ModuleGuideButton content={cdeGuide} />
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={!projectId}
+            onClick={() => setShowSetupWizard(true)}
+            title={
+              !projectId
+                ? t('cde.select_project_first', {
+                    defaultValue: 'Please select a project first',
+                  })
+                : undefined
+            }
+            className="shrink-0 whitespace-nowrap"
+          >
+            <Gauge size={14} className="mr-1 shrink-0" />
+            <span>{t('cde.setup_cde', { defaultValue: 'Set up CDE' })}</span>
+          </Button>
           <Button
             variant="primary"
             size="sm"
@@ -2140,6 +2159,14 @@ export function CDEPage() {
           containerId={historyTarget.id}
           containerCode={historyTarget.container_code}
           onClose={() => setHistoryTarget(null)}
+        />
+      )}
+
+      {projectId && (
+        <CDESetupWizard
+          open={showSetupWizard}
+          onClose={() => setShowSetupWizard(false)}
+          projectId={projectId}
         />
       )}
     </div>

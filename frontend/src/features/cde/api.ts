@@ -6,7 +6,7 @@
  * All endpoints are prefixed with /v1/cde/.
  */
 
-import { apiGet, apiPost } from '@/shared/lib/api';
+import { apiGet, apiPatch, apiPost } from '@/shared/lib/api';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 
@@ -240,6 +240,71 @@ export async function fetchCDEStats(projectId: string): Promise<CDEStats> {
 export async function fetchCDEReadiness(projectId: string): Promise<CDEReadiness> {
   return apiGet<CDEReadiness>(
     `/v1/cde/readiness/?project_id=${encodeURIComponent(projectId)}`,
+  );
+}
+
+/* ── CDE settings (per-project setup wizard) ────────────────────────────── */
+
+export interface CDESettings {
+  id: string;
+  project_id: string;
+  naming_convention: string;
+  suitability_set: string;
+  review_preset_key: string | null;
+  /** functional role key -> user id. */
+  role_assignments: Record<string, string>;
+  go_live_gate_enabled: boolean;
+  min_readiness_level: CDEReadinessLevel;
+  setup_completed: boolean;
+  setup_step: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Partial update payload for a wizard step save. Every field optional. */
+export interface CDESettingsUpdate {
+  naming_convention?: string;
+  suitability_set?: string;
+  review_preset_key?: string | null;
+  role_assignments?: Record<string, string>;
+  go_live_gate_enabled?: boolean;
+  min_readiness_level?: CDEReadinessLevel;
+  setup_completed?: boolean;
+  setup_step?: number;
+}
+
+export async function fetchCDESettings(projectId: string): Promise<CDESettings> {
+  return apiGet<CDESettings>(
+    `/v1/cde/settings/?project_id=${encodeURIComponent(projectId)}`,
+  );
+}
+
+export async function updateCDESettings(
+  projectId: string,
+  data: CDESettingsUpdate,
+): Promise<CDESettings> {
+  return apiPatch<CDESettings>(
+    `/v1/cde/settings/?project_id=${encodeURIComponent(projectId)}`,
+    data,
+  );
+}
+
+/** Go-live gate standing: whether the CDE may be opened to the whole team. */
+export interface GoLiveGateStatus {
+  project_id: string;
+  gate_enabled: boolean;
+  allowed: boolean;
+  level: CDEReadinessLevel;
+  min_readiness_level: CDEReadinessLevel;
+  score: number;
+  reason: string;
+}
+
+export async function fetchGoLiveGate(
+  projectId: string,
+): Promise<GoLiveGateStatus> {
+  return apiGet<GoLiveGateStatus>(
+    `/v1/cde/go-live/?project_id=${encodeURIComponent(projectId)}`,
   );
 }
 
