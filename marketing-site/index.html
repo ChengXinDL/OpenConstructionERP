@@ -22628,7 +22628,10 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
         noHover = window.matchMedia('(hover: none)').matches;
       } catch (e) {}
       smallScreen = window.innerWidth <= 900;
-      var previewOn = !(noHover || smallScreen);
+      // Hero hex screenshot preview retired - the cases popover is now the only
+      // thing a module hex shows on hover. Force it off so the panel is never
+      // built or wired (click-to-scroll and keyboard below still run).
+      var previewOn = false;
 
       var reduceMotion = false;
       try { reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
