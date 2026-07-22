@@ -226,9 +226,14 @@ body{ padding-top: 64px; }
    module. Make the interactivity obvious: pointer cursor, a small lift and
    a stronger face on hover/focus, and a visible keyboard focus ring. */
 a.hc-cell{ text-decoration: none; color: inherit; cursor: pointer; }
-a.hc-cell .hc-face{ transition: transform .14s ease, filter .14s ease; }
+a.hc-cell .hc-face{ transition: transform .16s cubic-bezier(.18,.72,.26,1), filter .16s ease; transform-origin: center center; }
+/* Hover/focus grows the hex ~50% from its centre; the whole face scales
+   uniformly so the icon and label keep fitting neatly inside the hex. The
+   hovered cell is lifted above its neighbours so it never gets clipped. */
+a.hc-cell:hover,
+a.hc-cell:focus-visible{ z-index: 6; }
 a.hc-cell:hover .hc-face,
-a.hc-cell:focus-visible .hc-face{ transform: scale(1.06); filter: brightness(1.05); }
+a.hc-cell:focus-visible .hc-face{ transform: scale(1.5); filter: brightness(1.06); }
 a.hc-cell:focus-visible{ outline: none; }
 a.hc-cell:focus-visible .hc-face{ box-shadow: 0 0 0 2px var(--card, #fff), 0 0 0 4px var(--tint, var(--accent)); }
 
