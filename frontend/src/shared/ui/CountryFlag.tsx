@@ -128,6 +128,9 @@ const FLAGS: Record<string, string> = {
   // provenance badge for the in-house GESN/CWICR post-Soviet norm bases.
   // Blue field + gold sun emblem (CIS colours), distinct from any national flag.
   cis: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"><rect width="30" height="20" fill="#2A6CC6"/><g stroke="#F4C430" stroke-width="1.1" stroke-linecap="round"><line x1="15" y1="3.9" x2="15" y2="2.3"/><line x1="15" y1="3.9" x2="15" y2="2.3" transform="rotate(45 15 10)"/><line x1="15" y1="3.9" x2="15" y2="2.3" transform="rotate(90 15 10)"/><line x1="15" y1="3.9" x2="15" y2="2.3" transform="rotate(135 15 10)"/><line x1="15" y1="3.9" x2="15" y2="2.3" transform="rotate(180 15 10)"/><line x1="15" y1="3.9" x2="15" y2="2.3" transform="rotate(225 15 10)"/><line x1="15" y1="3.9" x2="15" y2="2.3" transform="rotate(270 15 10)"/><line x1="15" y1="3.9" x2="15" y2="2.3" transform="rotate(315 15 10)"/></g><circle cx="15" cy="10" r="5" fill="none" stroke="#F4C430" stroke-width="1.2"/><circle cx="15" cy="10" r="1.9" fill="#F4C430"/></svg>`,
+
+  // KG — Kyrgyzstan (red field, yellow sun with rays, red tunduk in the centre)
+  kg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"><rect width="30" height="20" fill="#E8112D"/><g stroke="#FFEF00" stroke-width="0.9" stroke-linecap="round"><line x1="15" y1="4" x2="15" y2="2.2"/><line x1="15" y1="4" x2="15" y2="2.2" transform="rotate(30 15 10)"/><line x1="15" y1="4" x2="15" y2="2.2" transform="rotate(60 15 10)"/><line x1="15" y1="4" x2="15" y2="2.2" transform="rotate(90 15 10)"/><line x1="15" y1="4" x2="15" y2="2.2" transform="rotate(120 15 10)"/><line x1="15" y1="4" x2="15" y2="2.2" transform="rotate(150 15 10)"/><line x1="15" y1="4" x2="15" y2="2.2" transform="rotate(180 15 10)"/><line x1="15" y1="4" x2="15" y2="2.2" transform="rotate(210 15 10)"/><line x1="15" y1="4" x2="15" y2="2.2" transform="rotate(240 15 10)"/><line x1="15" y1="4" x2="15" y2="2.2" transform="rotate(270 15 10)"/><line x1="15" y1="4" x2="15" y2="2.2" transform="rotate(300 15 10)"/><line x1="15" y1="4" x2="15" y2="2.2" transform="rotate(330 15 10)"/></g><circle cx="15" cy="10" r="3.6" fill="#FFEF00"/><g fill="none" stroke="#E8112D" stroke-width="0.45"><circle cx="15" cy="10" r="2.2"/><path d="M13 10 H17 M15 8 V12 M13.4 8.4 L16.6 11.6 M16.6 8.4 L13.4 11.6"/></g></svg>`,
 };
 
 /** Fallback emoji map for unknown codes. Covers everything that lands in
@@ -145,6 +148,8 @@ const EMOJI_FALLBACK: Record<string, string> = {
   nz: '🇳🇿', ro: '🇷🇴', th: '🇹🇭', vn: '🇻🇳', za: '🇿🇦',
   // v3.0.4 — Mongolian locale (community contribution; PR #125)
   mn: '🇲🇳',
+  // Kyrgyz locale (12.2.0)
+  kg: '🇰🇬',
   // CIS provenance badge (has an SVG above; fallback only)
   cis: '🤝',
 };

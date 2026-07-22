@@ -42,7 +42,7 @@ import {
   LayoutGrid,
   Users,
 } from 'lucide-react';
-import { Card, CardHeader, CardContent, CardFooter, Button, Badge, InfoHint, Skeleton, Breadcrumb, DismissibleInfo, IntroRichText, ConfirmDialog, ModuleGuideButton } from '@/shared/ui';
+import { Card, CardHeader, CardContent, CardFooter, Button, Badge, InfoHint, Skeleton, Breadcrumb, DismissibleInfo, IntroRichText, ConfirmDialog, ModuleGuideButton, CountryFlag } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { settingsGuide } from './settingsGuide';
 import { useTabKeyboardNav } from '@/shared/hooks/useTabKeyboardNav';
@@ -1832,10 +1832,13 @@ export function SettingsPage() {
                               : 'border-2 border-transparent hover:bg-surface-secondary text-content-secondary hover:text-content-primary'
                           }`}
                         >
-                          <span className="text-lg" aria-hidden="true">{lang.flag}</span>
+                          {/* Crisp SVG flag (the emoji flags render as bare
+                              letter pairs on Windows, which is why Kyrgyz and
+                              others looked flagless here). */}
+                          <CountryFlag code={lang.country} size={22} />
                           {/* Visually-hidden accessible name so screen readers
-                              announce the language even though the flag emoji
-                              is hidden from the a11y tree. */}
+                              announce the language even though the flag is
+                              hidden from the a11y tree. */}
                           <span className="sr-only">{lang.name}</span>
                           <span className="text-2xs font-medium truncate w-full" title={lang.name} aria-hidden="true">
                             {lang.name}
