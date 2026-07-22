@@ -10,16 +10,16 @@
  *      (cases/answer-an-rfi.html) so the two stay in sync. The "Cases"
  *      link is marked active.
  *
- *   2. Honeycomb-on-hover. The card grid runs full width (no side panel).
- *      A single centred, transparent honeycomb "field" sits above it.
- *      Hovering or focusing a card lights that case's modules as solid
- *      flip-hexes in the centre of the field, ringed by the platform's
- *      OTHER modules as faint ghost hexes - so the selection reads as a
- *      few picks out of many available modules. Per-case module lists
- *      come from scripts/case-modules.json; each card carries a
- *      data-modules="A|B|C" attribute the runtime reads. The global
- *      module vocabulary (the ghost pool) is derived from every card at
- *      runtime. The field rests on the first case so it is never empty.
+ *   2. Contextual honeycomb-on-hover. The card grid runs full width (no
+ *      side panel, no detached hero band). A single fixed, click-through
+ *      overlay follows the pointer: hovering or focusing a card blooms
+ *      that case's modules as solid hexes right beside THAT card, ringed
+ *      by the platform's OTHER modules as faint ghost hexes - so the
+ *      selection reads as a few picks out of many available modules.
+ *      Per-case module lists come from scripts/case-modules.json; each
+ *      card carries a data-modules="A|B|C" attribute the runtime reads.
+ *      The global module vocabulary (the ghost pool) is derived from
+ *      every card at runtime.
  *
  * Everything is injected between HTML-comment sentinels, so re-running the
  * generator produces a byte-identical file (idempotent). Run it from the
@@ -141,16 +141,12 @@ function main() {
     return m + attr;
   });
 
-  /* ---- (3b) insert the transparent honeycomb hero above the grid --- */
-  const heroHtml =
-    '<section class="cases-hive" aria-label="Modules used by this playbook">' +
-    '<div class="hive-head">' +
-    '<span class="hive-eyebrow">Modules in play</span>' +
-    '<h2 class="hive-title" id="hiveTitle">One platform, shaped to how you build</h2>' +
-    '<span class="hive-count" id="hiveCount">Hover a playbook to light up its modules</span>' +
-    '</div>' +
-    '<div class="hive-grid" id="hiveGrid" aria-live="polite"></div>' +
-    '</section>';
+  /* ---- (3b) insert the click-through honeycomb overlay ------------ */
+  // A single fixed overlay; the runtime positions its cluster next to the
+  // hovered card. aria-hidden: it is a decorative echo of the card, and
+  // the module list is already spoken by the card's own text.
+  const overlayHtml =
+    '<div class="hive-overlay" id="hiveGrid" aria-hidden="true"></div>';
 
   const hiveRe = new RegExp(
     '<main class="wrap">' +
@@ -162,7 +158,7 @@ function main() {
   );
   if (!hiveRe.test(html)) throw new Error('Could not locate the card area (<main> + count + grid + empty)');
   html = html.replace(hiveRe, (_full, count, grid, empty) =>
-    '<main class="wrap"><!--oce:gallery-hive-->' + heroHtml +
+    '<main class="wrap"><!--oce:gallery-hive-->' + overlayHtml +
     '<div class="cases-grid-wide">' + count + grid + empty + '</div>' +
     '<!--/oce:gallery-hive--></main>',
   );
@@ -184,11 +180,9 @@ function main() {
 /* ---- the runtime honeycomb script (inlined into the page) ----------- */
 const HIVE_SCRIPT = `<script>
 (function(){
-  var grid=document.getElementById('hiveGrid');
-  var titleEl=document.getElementById('hiveTitle');
-  var countEl=document.getElementById('hiveCount');
+  var overlay=document.getElementById('hiveGrid');
   var board=document.getElementById('grid');
-  if(!grid||!board) return;
+  if(!overlay||!board) return;
   var ICONS={
     'boq':'\\u2630','cost explorer':'\\u20AC','costs':'\\u20AC','finance':'\\u20AC','payroll':'\\u20AC','value':'\\u25C7',
     'assemblies':'\\u274F','labour rates':'\\u20AC','resources':'\\u25A6','resource summary':'\\u25A6','production norms':'\\u2211',
@@ -235,12 +229,33 @@ const HIVE_SCRIPT = `<script>
     }
     return out;
   }
-  var CELLS=spiral(3); // 37 positions -> a lush field
+  var CELLS=spiral(2); // 19 positions -> a compact cluster beside the card
 
-  function render(mods,title,color){
-    grid.innerHTML='';
+  // The floating cluster + its caption live inside the fixed overlay.
+  var stage=document.createElement('div'); stage.className='hive-stage';
+  var cap=document.createElement('div'); cap.className='hive-cap';
+  overlay.appendChild(stage);
+
+  var activeCard=null, lastW=0, lastH=0, raf=0;
+
+  function place(card,cw,ch){
+    var rect=card.getBoundingClientRect();
+    var vw=window.innerWidth, vh=window.innerHeight, gap=14;
+    // Prefer the side with more room: card on the left half -> cluster right.
+    var left = (rect.left + rect.width/2 <= vw/2) ? (rect.right + gap) : (rect.left - gap - cw);
+    left = Math.max(12, Math.min(left, vw - cw - 12));
+    var top = rect.top + rect.height/2 - ch/2;
+    top = Math.max(78, Math.min(top, vh - ch - 14)); // 78 keeps clear of the 64px fixed nav
+    stage.style.left=left+'px';
+    stage.style.top=top+'px';
+  }
+
+  function render(card){
+    var mods=(card.getAttribute('data-modules')||'').split('|').map(function(s){return s.trim();}).filter(Boolean);
     var n=mods.length;
-    if(!n){ if(countEl) countEl.textContent=''; return; }
+    if(!n){ hide(); return; }
+    var t=card.querySelector('h3'); var title=t?t.textContent.trim():'';
+    var bar=card.querySelector('.cbar'); var color=(bar&&bar.style.background)||'var(--accent)';
 
     // Ghost pool: the platform's OTHER modules (exclude this case's).
     var own={}; mods.forEach(function(m){ own[m.toLowerCase()]=1; });
@@ -248,65 +263,72 @@ const HIVE_SCRIPT = `<script>
     var ghostCount=Math.min(ghosts.length, Math.max(0, CELLS.length-n));
     var used=CELLS.slice(0, n+ghostCount);
 
-    var vw=Math.min(window.innerWidth||960, 980);
-    var w = vw<900 ? 50 : 58;
+    var vw=window.innerWidth||1200;
+    var w = vw<1100 ? 40 : 46;
     var h=w*0.866, col=w*0.75;
-    grid.style.setProperty('--hc-w',w+'px');
-    grid.style.setProperty('--hc-h',h+'px');
+    stage.style.setProperty('--hc-w',w+'px');
+    stage.style.setProperty('--hc-h',h+'px');
+    stage.style.setProperty('--cap-accent',color);
 
     // Pixel positions (flat-top): x=col*q, y=h*(r+q/2).
     var pos=used.map(function(c){ return { x:c.q*col, y:h*(c.r + c.q/2) }; });
     var xs=pos.map(function(p){return p.x;}), ys=pos.map(function(p){return p.y;});
     var minX=Math.min.apply(null,xs), maxX=Math.max.apply(null,xs)+w;
     var minY=Math.min.apply(null,ys), maxY=Math.max.apply(null,ys)+h;
-    grid.style.width=(maxX-minX)+'px';
-    grid.style.height=(maxY-minY)+'px';
+    var cw=maxX-minX, ch=maxY-minY;
+    stage.style.width=cw+'px';
+    stage.style.height=ch+'px';
 
-    var pal=[color||'var(--accent)','var(--accent)','var(--accent-3)','var(--accent-2)'];
-    var gpal=['var(--accent)','var(--accent-3)','var(--accent-2)'];
-
+    var frag=document.createDocumentFragment();
     used.forEach(function(c,i){
       var x=pos[i].x-minX, y=pos[i].y-minY;
       if(i<n){
         var cell=document.createElement('span');
         cell.className='hc-cell';
         cell.style.left=x+'px'; cell.style.top=y+'px';
-        cell.style.setProperty('--tint',pal[i%pal.length]);
-        cell.style.animationDelay=(i*0.045)+'s';
+        cell.style.setProperty('--tint',color);
+        cell.style.animationDelay=(i*0.04)+'s';
         cell.title=mods[i];
-        cell.innerHTML='<span class="hc-face hc-face-front"><span class="hc-ico" aria-hidden="true">'+iconFor(mods[i])+'</span><span class="hc-title">'+esc(mods[i])+'</span></span><span class="hc-face hc-face-back"><span class="hc-title">'+esc(mods[i])+'</span><span class="hc-sub">module</span></span>';
-        grid.appendChild(cell);
+        cell.innerHTML='<span class="hc-face"><span class="hc-ico" aria-hidden="true">'+iconFor(mods[i])+'</span><span class="hc-title">'+esc(mods[i])+'</span></span>';
+        frag.appendChild(cell);
       } else {
         var name=ghosts[i-n];
         var gh=document.createElement('span');
         gh.className='hc-ghost';
         gh.style.left=x+'px'; gh.style.top=y+'px';
-        gh.style.setProperty('--tint',gpal[i%gpal.length]);
-        gh.style.animationDelay=(0.12+(i-n)*0.02)+'s';
+        gh.style.setProperty('--tint',color);
+        gh.style.animationDelay=(0.10+(i-n)*0.018)+'s';
         gh.title=name;
         gh.innerHTML='<span class="hc-gface"><span class="hc-gico" aria-hidden="true">'+iconFor(name)+'</span></span>';
-        grid.appendChild(gh);
+        frag.appendChild(gh);
       }
     });
 
-    if(titleEl) titleEl.textContent=title;
-    if(countEl) countEl.textContent=n+(n===1?' module':' modules')+' in this playbook of '+ALL.length+' available';
+    cap.innerHTML='<span class="dot"></span><b>'+esc(title)+'</b> \\u00b7 '+n+' of '+ALL.length+' modules';
+    stage.innerHTML='';
+    stage.appendChild(cap);
+    stage.appendChild(frag);
+
+    lastW=cw; lastH=ch;
+    stage.classList.remove('no-anim'); // glide when switching cards
+    place(card,cw,ch);
+    overlay.classList.add('is-on');
   }
-  function fromCard(card){
-    if(!card) return;
-    var mods=(card.getAttribute('data-modules')||'').split('|').filter(Boolean);
-    var t=card.querySelector('h3'); var title=t?t.textContent:'';
-    var bar=card.querySelector('.cbar'); var color=bar?bar.style.background:'var(--accent)';
-    render(mods,title,color);
-  }
-  var active=null;
-  function activate(card){ if(card && card!==active){ active=card; fromCard(card); } }
+
+  function hide(){ overlay.classList.remove('is-on'); activeCard=null; }
+  function activate(card){ if(card && card!==activeCard){ activeCard=card; render(card); } }
+
   board.addEventListener('mouseover',function(e){ var c=e.target.closest('.card'); if(c) activate(c); });
   board.addEventListener('focusin',function(e){ var c=e.target.closest('.card'); if(c) activate(c); });
-  var first=board.querySelector('.card');
-  if(first){ active=first; fromCard(first); }
-  var rt;
-  window.addEventListener('resize',function(){ clearTimeout(rt); rt=setTimeout(function(){ if(active) fromCard(active); },150); });
+  board.addEventListener('mouseleave',hide);
+
+  // Follow the card as the page scrolls (track it tightly, no glide).
+  window.addEventListener('scroll',function(){
+    if(!activeCard) return;
+    if(raf) cancelAnimationFrame(raf);
+    raf=requestAnimationFrame(function(){ if(activeCard){ stage.classList.add('no-anim'); place(activeCard,lastW,lastH); } });
+  }, {passive:true});
+  window.addEventListener('resize',function(){ if(activeCard) render(activeCard); });
 })();
 </script>`;
 
