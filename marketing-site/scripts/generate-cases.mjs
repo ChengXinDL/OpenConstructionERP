@@ -91,20 +91,39 @@ const HIVE_CORE_CSS = (() => {
   return m[0];
 })();
 
-// The in-flow container the detail band wraps the shared hexes in.
+// The detail hero right column: a smaller scene image with the module
+// honeycomb below it as a tidy, compact side panel. On narrow screens the
+// column stacks under the content (the hero grid collapses to one column and
+// the side wrapper follows the copy in source order).
 const CASE_HIVE_CSS = `
+.dhero{ align-items: start; }
+.dhero-side{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  align-self: start;
+  min-width: 0;
+}
+/* Smaller hero illustration so it no longer dominates the top of the page. */
+.dhero .scene{ width: 100%; max-width: 330px; }
+/* Module honeycomb as a neat, compact right-hand panel (not a wide band). */
 .case-hive{
-  margin: 34px auto 6px;
-  padding: 28px 12px 12px;
+  margin: 0;
+  width: 100%;
+  max-width: 340px;
+  padding: 16px 12px 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  border-top: 1px solid var(--line-1);
+  border: 1px solid var(--line-1);
+  border-radius: 16px;
+  background: color-mix(in oklab, var(--band-accent, var(--accent)) 4%, transparent);
 }
 .case-hive .ch-eyebrow{
   font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: .68rem;
+  font-size: .66rem;
   letter-spacing: .18em;
   text-transform: uppercase;
   color: var(--ink-3);
@@ -114,7 +133,7 @@ const CASE_HIVE_CSS = `
 }
 .case-hive .ch-eyebrow::before{
   content: "";
-  width: 24px;
+  width: 22px;
   height: 2px;
   background: var(--band-accent, var(--accent));
   display: inline-block;
@@ -122,25 +141,30 @@ const CASE_HIVE_CSS = `
 .case-hive .ch-title{
   font-family: 'Inter Tight', 'Inter', sans-serif;
   font-weight: 680;
-  font-size: clamp(1.1rem, 1.9vw, 1.4rem);
+  font-size: clamp(1rem, 1.4vw, 1.18rem);
   letter-spacing: -.02em;
   line-height: 1.18;
   color: var(--ink-0);
-  margin: 10px 0 0;
-  max-width: 30ch;
+  margin: 8px 0 0;
+  max-width: 22ch;
   text-wrap: balance;
 }
-.case-hive-stage{ position: relative; margin: 34px auto 4px; }
+.case-hive-stage{ position: relative; margin: 18px auto 2px; }
 .case-hive .ch-note{
-  margin: 16px 0 0;
+  margin: 12px 0 2px;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: .66rem;
+  font-size: .64rem;
   letter-spacing: .05em;
   color: var(--ink-3);
 }
 .case-hive .ch-note b{ color: var(--ink-1); font-weight: 700; }
-@media (max-width: 600px){ .case-hive-stage{ transform: scale(.82); margin: 20px auto 0; } }
-@media (max-width: 420px){ .case-hive-stage{ transform: scale(.64); } }
+@media (max-width: 820px){
+  /* Stacked: keep the panel and image from stretching the full page width. */
+  .dhero-side{ align-self: stretch; align-items: center; }
+  .dhero .scene{ max-width: 420px; }
+  .case-hive{ width: 100%; max-width: 420px; }
+}
+@media (max-width: 460px){ .case-hive-stage{ transform: scale(.86); margin: 12px auto 0; } }
 `;
 
 const CASE_HIVE_CSS_BLOCK =
@@ -228,7 +252,7 @@ function buildCaseHive({ mods, color, eyebrow, title, noteTpl, filterBase }) {
   const CELLS = hiveSpiral(2);
   const ghostCount = Math.min(ghosts.length, CELLS.length - n, Math.max(8, 14 - n));
   const used = CELLS.slice(0, n + ghostCount);
-  const w = 80, h = w * 0.866, col = w * 0.75;
+  const w = 66, h = w * 0.866, col = w * 0.75;
   const pos = used.map((c) => ({ x: c.q * col, y: h * (c.r + c.q / 2) }));
   const xs = pos.map((p) => p.x), ys = pos.map((p) => p.y);
   const minX = Math.min(...xs), maxX = Math.max(...xs) + w;
@@ -639,7 +663,10 @@ function buildPage({ rawEnglish, pb, lang, base, locales, catById, compById, sta
     .replace(/<!--oce:nav-theme-init-->[\s\S]*?<!--\/oce:nav-theme-init-->/, '')
     .replace(/<!--oce:nav-js-->[\s\S]*?<!--\/oce:nav-js-->/, '')
     .replace(/<!--oce:case-hive-css-->[\s\S]*?<!--\/oce:case-hive-css-->/, '')
-    .replace(/<!--oce:case-hive-->[\s\S]*?<!--\/oce:case-hive-->/, '');
+    .replace(/<!--oce:case-hive-->[\s\S]*?<!--\/oce:case-hive-->/, '')
+    // Unwrap the hero right-column wrapper back to a bare scene so re-runs do
+    // not nest it (the case-hive band inside it was already stripped above).
+    .replace(/<div class="dhero-side">(<div class="scene">[\s\S]*?<\/div>)\s*<\/div>/, '$1');
   const slug = pb.id;
 
   const ch = !isEn ? CHROME[lang.code] : null;
@@ -863,11 +890,20 @@ function buildPage({ rawEnglish, pb, lang, base, locales, catById, compById, sta
   });
   // The shared core CSS carries the hex component, the language-switcher
   // styling and the white page canvas, so inject it on every page (not only
-  // when the band lands). The band itself lands when the steps section is
-  // present.
+  // when the band lands).
   html = html.replace('</head>', `${CASE_HIVE_CSS_BLOCK}</head>`);
   if (hiveBand) {
-    html = html.replace('</section><section class="steps">', `</section>${hiveBand}<section class="steps">`);
+    // Place the honeycomb in the hero's right column, under the (smaller)
+    // scene image, so it reads as a compact side panel. If the page has no
+    // scene image, fall back to an in-flow band between the hero and steps.
+    const before = html;
+    html = html.replace(
+      /<div class="scene">[\s\S]*?<\/div>/,
+      (scene) => `<div class="dhero-side">${scene}${hiveBand}</div>`,
+    );
+    if (html === before) {
+      html = html.replace('</section><section class="steps">', `</section>${hiveBand}<section class="steps">`);
+    }
   }
 
   if (!isEn && stats) {
