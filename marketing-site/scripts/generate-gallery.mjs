@@ -346,6 +346,12 @@ function main() {
     );
     // The active "Cases" nav link points at this language's gallery.
     lp = lp.replace('<a href="/cases" class="is-active"', `<a href="/${l.code}/cases" class="is-active"`);
+    // Self-canonical so each localized gallery is indexed on its own URL
+    // (it used to canonicalise to the English /cases, which told search
+    // engines the localized pages were duplicates and kept them out of the
+    // index). hreflang alternates already point every language at each other.
+    lp = lp.replace(/<link rel="canonical" href="[^"]*"\s*\/>/, `<link rel="canonical" href="https://openconstructionerp.com/${l.code}/cases"/>`);
+    lp = lp.replace(/<meta property="og:url" content="[^"]*"\s*\/>/, `<meta property="og:url" content="https://openconstructionerp.com/${l.code}/cases"/>`);
     // Nav labels (Tour/Compare/Pricing/News/Uberization/Demo/Download) read
     // in this language too, reusing the same tables the detail pages use.
     lp = localizeNavText(lp, l.code);
