@@ -30,6 +30,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useThemeStore } from '@/stores/useThemeStore';
 import { useBrandingStore } from '@/stores/useBrandingStore';
 import { usePreferencesStore } from '@/stores/usePreferencesStore';
+import { hydrateInfoBlocksFromServer } from '@/stores/useInfoBlockPrefsStore';
 import { ddcVerifyIntegrity, ddcInjectMeta, DDC_ORIGIN } from '@/shared/lib/ddc-integrity';
 import { NavigationProgress } from '@/shared/lib/navigationProgress';
 import { useKeyboardShortcuts } from '@/shared/hooks/useKeyboardShortcuts';
@@ -893,6 +894,10 @@ export default function App() {
   useEffect(() => {
     if (!isAuthenticated) return;
     void syncCustomUnitsFromServer();
+    // Per-user module info-card collapse state, so a card the user collapsed
+    // (into the pill next to "How it works") stays collapsed on every browser
+    // and device, not just the one they clicked on.
+    void hydrateInfoBlocksFromServer();
   }, [isAuthenticated]);
 
   // Pull the workspace white-label brand from the server so it follows the user

@@ -389,14 +389,21 @@ export function Header({ title, onMenuClick }: HeaderProps) {
 
 /* ── Module info re-opener (top bar) ──────────────────────────────────── */
 
-/** Small info icon after the module title, shown ONLY while the page's
- *  DismissibleInfo card is collapsed. Clicking it re-expands the card
- *  (and this icon disappears, because the card unregisters itself). */
+/** Small info icon after the module title. FALLBACK re-open control, shown
+ *  ONLY while the page's DismissibleInfo card is collapsed AND the page has no
+ *  "How it works" button (which hosts the primary re-open pill next to it -
+ *  founder 2026-07-23). This keeps a collapsed card reachable on the rare page
+ *  without a guide button, without doubling the affordance elsewhere. Clicking
+ *  re-expands the card (and this icon disappears, because the card
+ *  unregisters itself). */
 function ModuleInfoReopener() {
   const { t } = useTranslation();
   const hasCollapsed = useModuleInfoStore((s) => s.entries.length > 0);
+  const guidePresent = useModuleInfoStore((s) => s.guideKeys.length > 0);
   const expandAll = useModuleInfoStore((s) => s.expandAll);
-  if (!hasCollapsed) return null;
+  // The pill next to "How it works" owns re-open whenever a guide button is on
+  // the page; only fall back to this top-bar icon when there is none.
+  if (!hasCollapsed || guidePresent) return null;
   const label = t('common.module_info', { defaultValue: 'Module information' });
   return (
     <button

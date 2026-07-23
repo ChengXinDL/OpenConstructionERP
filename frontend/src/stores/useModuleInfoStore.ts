@@ -1,20 +1,28 @@
 // DDC-CWICR-OE: DataDrivenConstruction · OpenConstructionERP
 // Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
 /**
- * Registry of COLLAPSED module info cards on the current page.
+ * Registry of COLLAPSED module info cards on the current page (+ which pages
+ * carry a "How it works" guide button).
  *
- * Founder decision 2026-06-06: when a `DismissibleInfo` card is collapsed
- * (card click or X) it disappears from the page entirely - no leftover
- * "Module information" line in the content flow. Instead a small info icon
- * appears in the TOP APP BAR, right after the module name (project pill >
- * module icon + name > info icon). Clicking that icon re-expands the card.
+ * When a `DismissibleInfo` card is collapsed (card click or X) it disappears
+ * from the content flow. The way back is a re-open control:
  *
- * Mechanics: every DismissibleInfo registers itself here while collapsed
- * (key + an `expand` callback) and unregisters when expanded or unmounted,
- * so navigation naturally clears the registry. The Header renders the icon
- * whenever at least one entry exists and fires every entry's `expand` - the
- * canon is one info card per page, so this is a single-card toggle in
- * practice while staying correct for multi-card pages.
+ *   - Founder revision 2026-07-23: the PRIMARY control is a small labelled
+ *     pill rendered right next to the module's "How it works" button
+ *     (`ModuleInfoButton`, hosted by `ModuleGuideButton`). This is discoverable
+ *     and sits where the founder asked - "рядом с кнопкой how to".
+ *   - FALLBACK: on the rare page that has an info card but NO guide button,
+ *     the top app bar shows a small info icon after the module name instead,
+ *     so a collapsed card is never stranded and unreachable.
+ *
+ * Mechanics:
+ *   - Every DismissibleInfo registers itself here while collapsed (key + an
+ *     `expand` callback) and unregisters when expanded or unmounted, so
+ *     navigation naturally clears the registry.
+ *   - Every ModuleGuideButton registers a `guideKey` while mounted, so the
+ *     Header can tell whether the pill is already handling re-open on this
+ *     page and suppress the top-bar fallback icon. Both the pill and the icon
+ *     fire every collapsed entry's `expand` (the canon is one card per page).
  */
 
 import { create } from 'zustand';
@@ -30,8 +38,13 @@ interface ModuleInfoState {
   entries: CollapsedModuleInfo[];
   register: (entry: CollapsedModuleInfo) => void;
   unregister: (key: string) => void;
-  /** Expand every collapsed card on the page (top-bar icon click). */
+  /** Expand every collapsed card on the page (re-open control click). */
   expandAll: () => void;
+
+  /** Ids of the "How it works" guide buttons currently mounted on the page. */
+  guideKeys: string[];
+  registerGuide: (id: string) => void;
+  unregisterGuide: (id: string) => void;
 }
 
 export const useModuleInfoStore = create<ModuleInfoState>((set, get) => ({
@@ -48,4 +61,9 @@ export const useModuleInfoStore = create<ModuleInfoState>((set, get) => ({
     const snapshot = [...get().entries];
     snapshot.forEach((e) => e.expand());
   },
+
+  guideKeys: [],
+  registerGuide: (id) =>
+    set((s) => (s.guideKeys.includes(id) ? s : { guideKeys: [...s.guideKeys, id] })),
+  unregisterGuide: (id) => set((s) => ({ guideKeys: s.guideKeys.filter((k) => k !== id) })),
 }));

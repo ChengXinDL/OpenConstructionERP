@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, Info, X } from 'lucide-react';
 import { useModuleInfoStore } from '@/stores/useModuleInfoStore';
+import { useInfoBlockPrefsStore, readLegacyCollapsed } from '@/stores/useInfoBlockPrefsStore';
 
 /**
  * Contextual info / help card used across every module page.
@@ -20,14 +21,15 @@ import { useModuleInfoStore } from '@/stores/useModuleInfoStore';
  *    module name > info icon). Clicking that icon re-expands the card here.
  *
  * There is no longer a dismissed-forever state. The X simply collapses, and
- * the top-bar icon keeps the card always reachable on every breakpoint.
+ * the re-open control keeps the card always reachable on every breakpoint.
  *
- * Persistence lives under ``oce.intro.<storageKey>`` in localStorage:
- *
- *   - missing / "0" -> expanded
- *   - "1"           -> collapsed
- *   - "2"           -> collapsed (LEGACY "dismissed" value: users who pressed
- *                      the old X now get the top-bar icon instead of nothing)
+ * Persistence is per-user (founder 2026-07-23: "пожелание пользователя ...
+ * сохранено"). The collapsed/expanded flag lives in ``useInfoBlockPrefsStore``,
+ * which writes localStorage (``oce.info-blocks``) for an instant offline paint
+ * and syncs to ``/api/v1/users/me/info-blocks/`` so the preference follows the
+ * user across browsers and devices. For cards this store has never seen it
+ * falls back once to the legacy per-browser ``oce.intro.<storageKey>`` flag, so
+ * preferences set before this change carry over seamlessly.
  *
  * Use the SAME ``storageKey`` you would pass to the old SectionIntro so
  * existing preferences carry over. The public API (storageKey, title,
@@ -94,26 +96,6 @@ export function IntroRichText({ text }: { text: string }) {
   );
 }
 
-/** Persisted display states for an info card. */
-type IntroState = 'expanded' | 'collapsed';
-
-function readState(lsKey: string): IntroState {
-  try {
-    const raw = localStorage.getItem(lsKey);
-    // Both "1" (collapsed) and the legacy "2" (old dismissed) now resolve to
-    // collapsed, so previously-hidden cards reappear as the bare line.
-    if (raw === '1' || raw === '2') return 'collapsed';
-    return 'expanded';
-  } catch {
-    return 'expanded';
-  }
-}
-
-const STATE_TO_RAW: Record<IntroState, string> = {
-  expanded: '0',
-  collapsed: '1',
-};
-
 export function DismissibleInfo({
   storageKey,
   title,
@@ -140,41 +122,43 @@ export function DismissibleInfo({
   className?: string;
 }) {
   const { t } = useTranslation();
-  const lsKey = `oce.intro.${storageKey}`;
 
-  const [state, setState] = useState<IntroState>(() => readState(lsKey));
+  // Per-user collapse state, synced across devices. `blocks[storageKey]` is
+  // the authoritative value once known; until then (a card this browser/user
+  // has never toggled) fall back once to the legacy per-card localStorage flag
+  // so a preference set before this feature carries over. Server hydration
+  // lands into the store and flips this reactively.
+  const storedCollapsed = useInfoBlockPrefsStore((s) => s.blocks[storageKey]);
+  const setCollapsedPref = useInfoBlockPrefsStore((s) => s.setCollapsed);
+  const [legacyCollapsed] = useState(() => readLegacyCollapsed(storageKey));
+  const collapsed = storedCollapsed ?? legacyCollapsed;
 
-  const persist = useCallback(
-    (next: IntroState) => {
-      setState(next);
-      try {
-        localStorage.setItem(lsKey, STATE_TO_RAW[next]);
-      } catch {
-        /* private mode / quota - non-fatal, state just resets next load */
-      }
-    },
-    [lsKey],
+  const collapse = useCallback(
+    () => setCollapsedPref(storageKey, true),
+    [setCollapsedPref, storageKey],
   );
-
-  const collapse = useCallback(() => persist('collapsed'), [persist]);
-  const expand = useCallback(() => persist('expanded'), [persist]);
+  const expand = useCallback(
+    () => setCollapsedPref(storageKey, false),
+    [setCollapsedPref, storageKey],
+  );
 
   // "Show more" is session-local (not persisted): a returning user sees the
   // short card again and opens the long read only when they want it.
   const [showMore, setShowMore] = useState(false);
 
   // While collapsed the card renders nothing here - it hands itself to the
-  // top app bar instead (Header shows an info icon after the module name
-  // that calls `expand`). Unmount (navigation) unregisters automatically.
+  // re-open control instead (the pill next to "How it works", or the Header
+  // fallback icon on pages without a guide button), which calls `expand`.
+  // Unmount (navigation) unregisters automatically.
   const register = useModuleInfoStore((s) => s.register);
   const unregister = useModuleInfoStore((s) => s.unregister);
   useEffect(() => {
-    if (state !== 'collapsed') return undefined;
-    register({ key: lsKey, expand });
-    return () => unregister(lsKey);
-  }, [state, lsKey, expand, register, unregister]);
+    if (!collapsed) return undefined;
+    register({ key: storageKey, expand });
+    return () => unregister(storageKey);
+  }, [collapsed, storageKey, expand, register, unregister]);
 
-  if (state === 'collapsed') return null;
+  if (collapsed) return null;
 
   // Expanded: a soft, translucent card - a VISIBLE light blue tint
   // (bg-oe-blue/10 ~ #e5f1fc over white; /[0.14] over the dark surfaces),

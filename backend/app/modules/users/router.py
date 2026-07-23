@@ -25,6 +25,8 @@ Endpoints:
     PUT  /me/dashboard-layout    - Save dashboard widget layout
     GET  /me/tour-state          - Get per-tour dismiss / completion state
     PUT  /me/tour-state          - Save per-tour dismiss / completion state
+    GET  /me/info-blocks         - Get module info-card collapse state
+    PUT  /me/info-blocks         - Save module info-card collapse state
     GET  /                      - List users (admin/manager)
     GET  /{id}                  - Get user by ID (admin/manager)
     PATCH /{id}                 - Update user (admin only)
@@ -100,6 +102,22 @@ class SidebarPreferencesPayload(BaseModel):
     """
 
     hidden_modules: list[str]
+
+
+class InfoBlocksPayload(BaseModel):
+    """Request/response body for the user's module info-card collapse state.
+
+    Every module page carries a ``DismissibleInfo`` card ("what this page is
+    for and how it connects"). A user can collapse it into a small button next
+    to "How it works" so it stops taking room, and re-open it when needed.
+    ``blocks`` maps each card's stable ``storageKey`` to whether the user has
+    collapsed it (``true``) or explicitly kept it open (``false``). Missing
+    keys fall back to the default (expanded). Persisted per-user in the
+    ``metadata_`` JSON column so the preference follows the user across
+    browsers and devices, exactly like sidebar and dashboard preferences.
+    """
+
+    blocks: dict[str, bool]
 
 
 class DashboardLayoutPayload(BaseModel):
@@ -1008,6 +1026,71 @@ async def save_custom_units(
     metadata["custom_units"] = cleaned
     await service.update_profile(uuid.UUID(user_id), metadata_=metadata)
     return CustomUnitsPayload(units=cleaned)
+
+
+# ── Module Info Blocks ────────────────────────────────────────────────────
+
+
+def _sanitise_info_blocks(raw: object) -> dict[str, bool]:
+    """Clean the inbound info-block map into ``{storageKey: collapsed}``.
+
+    Drops non-string keys, trims and caps each key at 128 chars, coerces
+    values to bool, and caps the map at 500 entries so a runaway client can't
+    bloat the JSON column. Mirrors the sanitisation the sidebar and dashboard
+    preference endpoints already apply.
+    """
+    if not isinstance(raw, dict):
+        return {}
+    cleaned: dict[str, bool] = {}
+    for key, value in raw.items():
+        if not isinstance(key, str):
+            continue
+        storage_key = key.strip()[:128]
+        if not storage_key:
+            continue
+        cleaned[storage_key] = bool(value)
+        if len(cleaned) >= 500:
+            break
+    return cleaned
+
+
+@router.get("/me/info-blocks/", response_model=InfoBlocksPayload)
+async def get_info_blocks(
+    user_id: CurrentUserId,
+    service: UserService = Depends(_get_service),
+) -> InfoBlocksPayload:
+    """Get the user's module info-card collapse state.
+
+    Returns ``{"blocks": {}}`` when the user has never collapsed a card - the
+    client then treats every card as expanded (the default) and falls back to
+    any legacy per-browser localStorage flag for a one-time migration.
+    """
+    user = await service.get_user(uuid.UUID(user_id))
+    metadata: dict[str, Any] = user.metadata_ or {}
+    return InfoBlocksPayload(blocks=_sanitise_info_blocks(metadata.get("info_blocks")))
+
+
+@router.put("/me/info-blocks/", response_model=InfoBlocksPayload)
+async def save_info_blocks(
+    data: InfoBlocksPayload,
+    user_id: CurrentUserId,
+    service: UserService = Depends(_get_service),
+) -> InfoBlocksPayload:
+    """Upsert the user's module info-card collapse state.
+
+    Stores ``{storageKey: collapsed}`` in the user's ``metadata_`` JSON column
+    under key ``info_blocks``. Sanitises the payload (trims keys, caps lengths,
+    coerces values to bool) so a runaway client can't bloat the column.
+
+    IDOR posture: writes the row keyed by ``CurrentUserId`` only - the body has
+    no ``user_id`` field, so a caller can never write another user's state.
+    """
+    cleaned = _sanitise_info_blocks(data.blocks)
+    user = await service.get_user(uuid.UUID(user_id))
+    metadata: dict[str, Any] = dict(user.metadata_ or {})
+    metadata["info_blocks"] = cleaned
+    await service.update_profile(uuid.UUID(user_id), metadata_=metadata)
+    return InfoBlocksPayload(blocks=cleaned)
 
 
 # ── Onboarding ────────────────────────────────────────────────────────────────
