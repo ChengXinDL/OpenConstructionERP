@@ -322,9 +322,27 @@ body{ background: var(--bg-0); }
   align-items: stretch;   /* blocks share one height and line up evenly */
   gap: 40px;
   padding: 32px 0 24px;
-  background: color-mix(in oklab, var(--bg-0) 90%, transparent);
+  position: relative;
+  z-index: 0;
+  background: transparent;
   border: 0;
   box-shadow: none;
+}
+/* .hero sits inside the width-constrained .wrap, so its fill can't reach the
+   page edges on its own. This ::before is a full-bleed layer behind the
+   content: centred on the viewport (not on .wrap), stretched to 100vw, so it
+   reads continuous with the full-width header/toolbar bars above and below. */
+.hero::before{
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  background: color-mix(in oklab, var(--bg-0) 90%, transparent);
+  z-index: -1;
+  pointer-events: none;
 }
 .hero > .hero-lead,
 .hero > .hero-lede,
