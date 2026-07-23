@@ -490,6 +490,7 @@ const navGroups: NavGroup[] = [
         adminOnly: true,
       },
       { labelKey: 'nav.find_records', to: '/find', icon: FileSearch, advancedOnly: true },
+      { labelKey: 'project_route.title', to: '/project-route', icon: SlidersHorizontal, advancedOnly: true },
     ],
   },
   // ── 11. FIELD OPERATIONS ───────────────────────────────────────────
@@ -527,6 +528,7 @@ const navGroups: NavGroup[] = [
       { labelKey: 'nav.service', to: '/service', icon: Wrench },
       { labelKey: 'nav.site_logistics', to: '/site-logistics', icon: Truck },
       { labelKey: 'site_inventory.title', to: '/site-inventory', icon: Warehouse },
+      { labelKey: 'site_supervision.title', to: '/site-supervision', icon: HardHat, advancedOnly: true },
       { labelKey: 'nav.portal', to: '/portal', icon: Globe },
     ],
   },
@@ -564,6 +566,7 @@ const navGroups: NavGroup[] = [
       { labelKey: 'construction_control.title', to: '/construction-control', icon: ClipboardList },
       { labelKey: 'ncr.title', to: '/ncr', icon: AlertOctagon },
       { labelKey: 'nav.punchlist', to: '/punchlist', icon: ListChecks },
+      { labelKey: 'review_authority.title', to: '/review-authority', icon: FileCheck, advancedOnly: true },
     ],
   },
   // ── 13b. HANDOVER & COMMISSIONING ──────────────────────────────────
@@ -629,6 +632,7 @@ const navGroups: NavGroup[] = [
       { labelKey: 'rfi.title', to: '/rfi', icon: HelpCircle, advancedOnly: true },
       { labelKey: 'interface_management.title', to: '/interface-management', icon: Handshake },
       { labelKey: 'correspondence.title', to: '/correspondence', icon: Mail, advancedOnly: true },
+      { labelKey: 'authority_submission.title', to: '/authority-submissions', icon: Send, advancedOnly: true },
       { labelKey: 'nav.collaboration', to: '/collaboration', icon: Users, moduleKey: 'collaboration', advancedOnly: true },
     ],
   },
@@ -644,6 +648,8 @@ const navGroups: NavGroup[] = [
       { labelKey: 'submittals.title', to: '/submittals', icon: FileCheck, advancedOnly: true },
       { labelKey: 'transmittals.title', to: '/transmittals', icon: Send, advancedOnly: true },
       { labelKey: 'cde.title', to: '/cde', icon: Database },
+      { labelKey: 'source_data.title', to: '/source-data', icon: Database, advancedOnly: true },
+      { labelKey: 'signing.title', to: '/signing', icon: PenTool, advancedOnly: true },
       { labelKey: 'nav.photos', to: '/photos', icon: Camera },
       { labelKey: 'nav.markups', to: '/markups', icon: PenTool },
       { labelKey: 'nav.plan_room', to: '/plan-room', icon: Layers, badge: 'BETA' },
@@ -954,6 +960,13 @@ const ROUTE_BACKEND_MODULE: Record<string, string> = {
   '/temporary-works': 'oe_temporary_works',
   '/interface-management': 'oe_interface_management',
   '/defects-liability': 'oe_defects_liability',
+  // International delivery / authority modules (frontends added this wave).
+  '/authority-submissions': 'oe_authority_submission',
+  '/review-authority': 'oe_review_authority',
+  '/signing': 'oe_signing',
+  '/source-data': 'oe_source_data',
+  '/project-route': 'oe_project_route',
+  '/site-supervision': 'oe_site_supervision',
 };
 
 // localStorage key for collapsed state

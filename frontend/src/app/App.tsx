@@ -165,6 +165,25 @@ const SubmittalsPage = lazy(() =>
 const CorrespondencePage = lazy(() =>
   import('@/features/correspondence/CorrespondencePage').then((m) => ({ default: m.CorrespondencePage }))
 );
+// International delivery / authority modules (frontends added this wave).
+const AuthoritySubmissionPage = lazy(() =>
+  import('@/features/authority-submission/AuthoritySubmissionPage').then((m) => ({ default: m.AuthoritySubmissionPage }))
+);
+const ReviewAuthorityPage = lazy(() =>
+  import('@/features/review-authority/ReviewAuthorityPage').then((m) => ({ default: m.ReviewAuthorityPage }))
+);
+const SigningPage = lazy(() =>
+  import('@/features/signing/SigningPage').then((m) => ({ default: m.SigningPage }))
+);
+const SourceDataPage = lazy(() =>
+  import('@/features/source-data/SourceDataPage').then((m) => ({ default: m.SourceDataPage }))
+);
+const ProjectRoutePage = lazy(() =>
+  import('@/features/project-route/ProjectRoutePage').then((m) => ({ default: m.ProjectRoutePage }))
+);
+const SiteSupervisionPage = lazy(() =>
+  import('@/features/site-supervision/SiteSupervisionPage').then((m) => ({ default: m.SiteSupervisionPage }))
+);
 const CDEPage = lazy(() =>
   import('@/features/cde/CDEPage').then((m) => ({ default: m.CDEPage }))
 );
@@ -1165,6 +1184,18 @@ export default function App() {
         <Route path="/submittals" element={<P title="Submittals"><SubmittalsPage /></P>} />
         <Route path="/projects/:projectId/correspondence" element={<P title="Correspondence"><CorrespondencePage /></P>} />
         <Route path="/correspondence" element={<P title="Correspondence"><CorrespondencePage /></P>} />
+        <Route path="/projects/:projectId/authority-submissions" element={<P title="Authority Submissions"><AuthoritySubmissionPage /></P>} />
+        <Route path="/authority-submissions" element={<P title="Authority Submissions"><AuthoritySubmissionPage /></P>} />
+        <Route path="/projects/:projectId/review-authority" element={<P title="Review Authority"><ReviewAuthorityPage /></P>} />
+        <Route path="/review-authority" element={<P title="Review Authority"><ReviewAuthorityPage /></P>} />
+        <Route path="/projects/:projectId/signing" element={<P title="E-Signatures"><SigningPage /></P>} />
+        <Route path="/signing" element={<P title="E-Signatures"><SigningPage /></P>} />
+        <Route path="/projects/:projectId/source-data" element={<P title="Source Data"><SourceDataPage /></P>} />
+        <Route path="/source-data" element={<P title="Source Data"><SourceDataPage /></P>} />
+        <Route path="/projects/:projectId/project-route" element={<P title="Route Classifier"><ProjectRoutePage /></P>} />
+        <Route path="/project-route" element={<P title="Route Classifier"><ProjectRoutePage /></P>} />
+        <Route path="/projects/:projectId/site-supervision" element={<P title="Site Supervision"><SiteSupervisionPage /></P>} />
+        <Route path="/site-supervision" element={<P title="Site Supervision"><SiteSupervisionPage /></P>} />
         <Route path="/projects/:projectId/cde" element={<P title="CDE"><CDEPage /></P>} />
         <Route path="/cde" element={<P title="CDE"><CDEPage /></P>} />
         <Route path="/projects/:projectId/transmittals" element={<P title="Transmittals"><TransmittalsPage /></P>} />
