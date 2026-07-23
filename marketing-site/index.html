@@ -23393,12 +23393,14 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
   <!--oce:hexflow - hero-identical honeycomb cells (cloned at runtime) hand off
   from the top hero honeycomb into the integrations block, then run as a left-to
   -right conveyor of small connected groups (2-5 hexes). The conveyor drifts on
-  its own and speeds up while the user scrolls; each group fades to ~10% as it
+  its own and accelerates with scroll velocity; each group fades to ~10% as it
   crosses the middle and re-emerges on the right, looping seamlessly. As a group
   passes a tool logo it links to it with thin dotted lines that form and release.
-  The centre is a portable concrete mixer whose drum is the tools ring (logos on
-  top, nothing points inward). One fixed layer + one wires layer + one rAF,
-  paused off-screen. Reduced motion: static faint groups. -->
+  Once the playbooks cards come into view the groups settle compactly on the
+  RIGHT half of that block, stacked in one column, still travelling left to
+  right. The centre is a portable concrete mixer whose drum is the tools ring
+  (logos on top, nothing points inward). One fixed layer + one wires layer +
+  one rAF, paused off-screen. Reduced motion: static faint groups. -->
   <style>
     #integrations > .section-head, #integrations > .oce-rhub,
     #integrations > .oce-integr-marq, #integrations > .oce-integr-cta,
@@ -23483,12 +23485,17 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
         'Power BI': 'M18.29 5.706a1.412 1.412 0 0 1 1.412-1.412h.94a1.412 1.412 0 0 1 1.413 1.412v12.588a1.412 1.412 0 0 1-1.412 1.412h-2.353zm-5.176 3.53a1.412 1.412 0 0 1 1.412-1.413h.94a1.412 1.412 0 0 1 1.412 1.412v9.059a1.412 1.412 0 0 1-1.412 1.412h-2.352zm-5.177 3.528a1.412 1.412 0 0 1 1.413-1.412h.94a1.412 1.412 0 0 1 1.412 1.412v5.53a1.412 1.412 0 0 1-1.412 1.411H7.937zM2.76 16.824h2.353a1.412 1.412 0 0 1 1.411 1.411v.588a1.412 1.412 0 0 1-1.411 1.412H2.76z',
         SharePoint: 'M13.2 0a6.6 6.6 0 0 0-6.535 5.7 6 6 0 0 0 .246 11.94q.16.01.32.007A5.4 5.4 0 0 0 16.02 20.4a5.7 5.7 0 0 0 .78.054q.18 0 .357-.011A5.7 5.7 0 1 0 18.9 9.3 6.6 6.6 0 0 0 13.2 0zm-.3 3.9a3.3 3.3 0 1 1 0 6.6 3.3 3.3 0 0 1 0-6.6z'
       };
+      // brand fill per mark, matching the explicit-colour treatment the other
+      // product logos on this page already use (not monochrome currentColor)
+      var ICON_COLOR = { Telegram: '#2AABEE', WhatsApp: '#25D366', Excel: '#217346',
+        'Power BI': '#F2C811', SharePoint: '#038387' };
       function paintIcon(host, label) {
         var svg = host.querySelector('svg');
         if (svg) {
           svg.setAttribute('viewBox', '0 0 24 24');
+          svg.setAttribute('fill', ICON_COLOR[label] || 'currentColor');
           while (svg.firstChild) svg.removeChild(svg.firstChild);
-          var p = document.createElementNS(SVGNS, 'path'); p.setAttribute('d', ICONS[label]); p.setAttribute('fill', 'currentColor');
+          var p = document.createElementNS(SVGNS, 'path'); p.setAttribute('d', ICONS[label]); p.setAttribute('fill', ICON_COLOR[label] || 'currentColor');
           svg.appendChild(p);
         } else { var t = host.querySelector('.oce-lg-in') || host.querySelector('.oce-lg') || host; t.textContent = label.slice(0, 2).toUpperCase(); }
       }
@@ -23605,8 +23612,9 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
             // even spacing along the conveyor so it reads as one continuous left->right
             // river: a group always enters compact on the left as another exits on the
             // right, never a pack that bunches up and wraps back all at once
-            lane: g, gx: -0.12 + g * (1.24 / NG), v: 0.16,
-            side: (g % 2 ? 1 : -1), slot: Math.floor(g / 2) });
+            lane: g, gx: -0.12 + g * (1.24 / NG), v: 0.10,
+            // right half of the playbooks block only, stacked in one compact column
+            side: 1, slot: g });
         }
       }
 
@@ -23630,7 +23638,7 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
       function tick() {
         frame++;
         var sc = realScroll(), dv = Math.abs(sc - lastScroll); lastScroll = sc;
-        scrollBoost = Math.max(scrollBoost * 0.90, Math.min(dv * 0.11, 3.2)); // scroll speeds travel up
+        scrollBoost = Math.max(scrollBoost * 0.92, Math.min(dv * 0.17, 5.5)); // travel accelerates with scroll speed
 
         var sr = section.getBoundingClientRect();
         var vr = stage.getBoundingClientRect();
@@ -23644,7 +23652,7 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
         var Psettle = settleProgress();
         var gb = (Psettle > 0.001) ? findGrid() : null;
         var gbr = gb ? gb.getBoundingClientRect() : null;
-        var settleRows = Math.ceil(NG / 2);
+        var settleRows = NG; // one compact column, right half only
 
         var wireI = 0;
         for (var i = 0; i < groups.length; i++) {
