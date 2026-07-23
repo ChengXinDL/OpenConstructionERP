@@ -703,3 +703,65 @@ for (const [code, m] of Object.entries(MODULE_BAND)) {
   CHROME[code].modulesTitle = m.title;
   CHROME[code].modulesNote = m.note;
 }
+
+/* ================================================================
+ * GALLERY_CHROME - the gallery-index-only chrome (/<lang>/cases). These
+ * strings appear ONLY on the gallery landing page and have no key in the
+ * app locales and no equivalent on the detail pages, so they cannot be
+ * reused from cases.* / CHROME. Everything else on the gallery is reused
+ * from existing translations: card titles/blurbs come from the app locale
+ * keys cases.<slug>.title / .desc, the discipline chips from cases.cat.*,
+ * the role options from cases.company.*, and the footer / nav from CHROME
+ * above. So only the handful of fields below remain.
+ *
+ * A language missing here (or a missing field) falls back to the original
+ * English gallery text - the generator leaves that run untouched. English
+ * is intentionally absent (the /cases root keeps its own copy verbatim).
+ *
+ * Fields (English reference in the generator, GALLERY_CHROME_EN below):
+ *   metaTitle        - <title> / og:title (product suffix added by generator is none here)
+ *   metaDescTpl      - meta description / og:description, {n} = playbook count
+ *   heroEyebrow      - hero eyebrow "Guided playbooks"
+ *   heroTitleTpl     - hero <h1>; {n} = count; keep the <span class="it">..</span> emphasis run
+ *   heroLede         - hero lede paragraph
+ *   metaPlaybooks    - hero-meta unit after the count ("playbooks")
+ *   metaDisciplines  - hero-meta "disciplines"
+ *   metaSteps        - hero-meta "guided steps"
+ *   metaDemoTpl      - hero-meta last cell; keep the <b>..</b> run ("Open any one in the <b>live demo</b>")
+ *   searchPlaceholder- search box placeholder (keep the example words in quotes as hints)
+ *   empty            - empty-results line
+ *   chipAll          - the "All" discipline chip
+ *   roleLabel        - "I work as"
+ *   roleAny          - "Any role" option
+ *   countWord        - unit for the live result count ("playbooks")
+ *
+ * House style: plain hyphen only (never an em/en dash); never translate the
+ * product name OpenConstructionERP. To fill this table cheaply, translate
+ * GALLERY_CHROME_EN into each language (the codes are the SWITCH_LANGS set
+ * in cases-switcher.mjs: de fr es it pt nl pl cs ru bg tr sv no fi da ar zh
+ * ja ko) and drop the result in below.
+ * ================================================================ */
+export const GALLERY_CHROME_EN = {
+  metaTitle: 'Construction playbooks & use-case library',
+  metaDescTpl:
+    'Browse {n} end-to-end construction playbooks - estimating, tendering, BIM, site, commercial and handover. Open any one in the live demo and follow it step by step.',
+  heroEyebrow: 'Guided playbooks',
+  heroTitleTpl: '{n} construction playbooks, <span class="it">ready to run</span>.',
+  heroLede:
+    'Real, end-to-end workflows a construction team actually runs - estimating, tendering, BIM, site, commercial and handover. Each one is a worked example you can open in the live demo and follow step by step, with what to do and why at every stage.',
+  metaPlaybooks: 'playbooks',
+  metaDisciplines: 'disciplines',
+  metaSteps: 'guided steps',
+  metaDemoTpl: 'Open any one in the <b>live demo</b>',
+  searchPlaceholder: 'Search playbooks',
+  empty: 'No playbooks match. Try a different word or clear the filters.',
+  chipAll: 'All',
+  roleLabel: 'I work as',
+  roleAny: 'Any role',
+  countWord: 'playbooks',
+};
+
+// Per-language gallery chrome. Empty until a translation pass fills it; the
+// generator falls back to GALLERY_CHROME_EN field by field, so a partly
+// filled language still renders (translated where present, English where not).
+export const GALLERY_CHROME = {};

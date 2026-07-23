@@ -30,23 +30,117 @@
  * Plain Node ESM, no dependencies beyond node:fs / node:path.
  */
 
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { dirname, join, resolve } from 'node:path';
+import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
 import {
   buildSwitcher,
   galleryHref,
   SWITCHER_JS,
   SWITCH_LANGS,
 } from './cases-switcher.mjs';
-import { CHROME, NAV_PILL } from './cases-chrome.mjs';
+import { CHROME, NAV_PILL, GALLERY_CHROME, GALLERY_CHROME_EN } from './cases-chrome.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SITE = join(here, '..');
+const REPO_ROOT = resolve(SITE, '..');
 const GALLERY = join(SITE, 'cases', 'index.html');
 const DETAIL = join(SITE, 'cases', 'answer-an-rfi.html');
 const MODULES_JSON = join(here, 'case-modules.json');
 const HIVE_CSS = join(here, 'cases-hive.css');
+
+// Locale-file basename per switcher language (all match the URL code today).
+const TS_OF = { 'es-mx': 'es-MX' };
+const tsOf = (code) => TS_OF[code] || code;
+
+/* ---- text helpers (match the detail generator / React escaping) ------ */
+// Escape identical to React's renderToStaticMarkup, so a translated string
+// swapped in matches the committed English gallery byte conventions.
+function escText(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;');
+}
+function escRe(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+// Hard slice with an ellipsis, mirroring the gallery's own card blurbs.
+function truncate(s, max) {
+  const t = String(s);
+  if (t.length <= max) return t;
+  return t.slice(0, max).replace(/\s+$/, '') + '…';
+}
+
+/* ---- esbuild-backed loaders (reuse the app's own case data + locales) - */
+// The card titles / blurbs, discipline labels and role labels shown on the
+// gallery are the SAME strings the app already translates (cases.<slug>.*,
+// cases.cat.*, cases.company.*). We read those translations straight from
+// the app locale files and reuse them, so no separate translation store is
+// needed for the bulk of the page. Only the gallery-only chrome (hero,
+// title, search box, etc.) comes from GALLERY_CHROME. Loading is best-effort:
+// if esbuild or the app sources are unavailable, the gallery still builds
+// with English card copy.
+let TMP;
+function tmpFile(name) {
+  if (!TMP) {
+    TMP = join(tmpdir(), `oce-gallery-${process.pid}`);
+    mkdirSync(TMP, { recursive: true });
+  }
+  return join(TMP, name);
+}
+async function bundleImport(entrySource, resolveDir, outName) {
+  const require = createRequire(join(REPO_ROOT, 'frontend', 'package.json'));
+  const esbuild = require('esbuild');
+  const outfile = tmpFile(outName);
+  await esbuild.build({
+    stdin: { contents: entrySource, resolveDir, loader: 'ts' },
+    bundle: true,
+    platform: 'node',
+    format: 'esm',
+    outfile,
+    logLevel: 'silent',
+  });
+  return import(pathToFileURL(outfile).href);
+}
+// Non-English switcher languages get a localized gallery snapshot.
+const SNAP_LANGS = SWITCH_LANGS.filter((l) => l.code !== 'en');
+
+async function loadContent() {
+  const dataDir = join(REPO_ROOT, 'frontend/src/features/cases/data');
+  const catsPath = join(REPO_ROOT, 'frontend/src/features/cases/categories.ts');
+  const compPath = join(REPO_ROOT, 'frontend/src/features/cases/companyTypes.ts');
+  const files = readdirSync(dataDir).filter((f) => f.endsWith('.playbook.ts')).sort();
+  const imports = files
+    .map((f, i) => `import pb_${i} from ${JSON.stringify(join(dataDir, f))};`)
+    .join('\n');
+  const arr = files.map((_, i) => `pb_${i}`).join(',');
+  const dataEntry = `${imports}
+import { CATEGORY_META } from ${JSON.stringify(catsPath)};
+import { COMPANY_TYPE_META } from ${JSON.stringify(compPath)};
+export const playbooks = [${arr}].map((p) => ({ id: p.id, titleKey: p.titleKey, titleDefault: p.titleDefault, descKey: p.descKey, descDefault: p.descDefault }));
+export const categories = CATEGORY_META.map((c) => ({ id: c.id, labelKey: c.labelKey, labelDefault: c.labelDefault }));
+export const companies = COMPANY_TYPE_META.map((c) => ({ id: c.id, labelKey: c.labelKey, labelDefault: c.labelDefault }));
+`;
+  const data = await bundleImport(dataEntry, dataDir, 'gallery-data.mjs');
+
+  const localesDir = join(REPO_ROOT, 'frontend/src/app/locales');
+  const rows = SNAP_LANGS.map((l, i) => `import loc_${i} from ${JSON.stringify(join(localesDir, tsOf(l.code) + '.ts'))};`);
+  const map = SNAP_LANGS.map((l, i) => `${JSON.stringify(l.code)}: loc_${i}.translation`).join(',');
+  const locEntry = `${rows.join('\n')}\nexport const locales = { ${map} };\n`;
+  const loc = await bundleImport(locEntry, localesDir, 'gallery-locales.mjs');
+
+  return {
+    pbById: Object.fromEntries(data.playbooks.map((p) => [p.id, p])),
+    categories: data.categories,
+    companies: data.companies,
+    locales: loc.locales,
+  };
+}
 
 /* ---- module-label normalisation ------------------------------------- */
 // Fold obvious duplicate / case-variant labels to a single clean form.
@@ -207,8 +301,106 @@ function localizeNavText(pageHtml, code) {
   return out;
 }
 
+/* ---- localize one gallery snapshot's content ------------------------ */
+// Swap the card titles / blurbs, the discipline chip + eyebrow labels, the
+// role options, the footer, the nav Cases/Docs and the gallery-only chrome
+// into `code`. Card copy and labels reuse the app's own translations; the
+// gallery-only chrome comes from GALLERY_CHROME (field-by-field English
+// fallback). Returns the localized page; leaves untranslatable runs as-is.
+function localizeContent(lp, code, ctx) {
+  if (!ctx) return lp;
+  const { pbById, categories, companies, locales, cards, count } = ctx;
+  const m = locales[code];
+  const T = (key, def) => {
+    const v = m ? m[key] : undefined;
+    return v == null || v === '' ? def : v;
+  };
+  const cjk = ['zh', 'ja', 'ko', 'th'].includes(code);
+  const budget = cjk ? 46 : 92;
+
+  // Card title + blurb, anchored on the card's own /cases/<slug> link so each
+  // match is unique. Blurb reuses the translated description, re-truncated.
+  for (const c of cards) {
+    const pb = pbById[c.slug];
+    if (!pb) continue;
+    const trTitle = escText(T(pb.titleKey, pb.titleDefault));
+    const trBlurb = escText(truncate(T(pb.descKey, pb.descDefault), budget));
+    lp = lp.replace(
+      new RegExp('(href="/cases/' + escRe(c.slug) + '"[\\s\\S]*?<h3>)' + escRe(c.enTitle) + '(</h3><p>)' + escRe(c.enBlurb) + '(</p>)'),
+      (_m, a, b, d) => `${a}${trTitle}${b}${trBlurb}${d}`,
+    );
+  }
+  // Discipline chip + card eyebrow labels (reuse cases.cat.*).
+  for (const cat of categories) {
+    const en = escText(cat.labelDefault);
+    const tr = escText(T(cat.labelKey, cat.labelDefault));
+    if (tr !== en) lp = lp.split(en).join(tr);
+  }
+  // Role select options (reuse cases.company.*).
+  for (const comp of companies) {
+    const en = escText(comp.labelDefault);
+    const tr = escText(T(comp.labelKey, comp.labelDefault));
+    if (tr !== en) lp = lp.split(en).join(tr);
+  }
+  // Nav + crumb "Cases" and footer "Docs" (reuse nav.cases / nav.docs).
+  const casesTr = escText(T('nav.cases', 'Cases'));
+  if (casesTr !== 'Cases') lp = lp.split('>Cases</a>').join(`>${casesTr}</a>`);
+  const docsTr = escText(T('nav.docs', 'Docs'));
+  if (docsTr !== 'Docs') lp = lp.split('>Docs</a>').join(`>${docsTr}</a>`);
+  // Footer tagline + links (reuse CHROME).
+  const ch = CHROME[code];
+  if (ch) {
+    lp = lp.replace(
+      '<div>Guided construction playbooks - part of the OpenConstructionERP platform.</div>',
+      `<div>${escText(ch.footerTagline)}</div>`,
+    );
+    lp = lp.split('<a href="/">Home</a>').join(`<a href="/">${escText(ch.footHome)}</a>`);
+    lp = lp.split('<a href="/cases">All cases</a>').join(`<a href="/cases">${escText(ch.footAllCases)}</a>`);
+    lp = lp.split('<a href="/demo">Live demo</a>').join(`<a href="/demo">${escText(ch.footLiveDemo)}</a>`);
+  }
+
+  // Gallery-only chrome: each field falls back to the English gallery text
+  // (no swap) when GALLERY_CHROME lacks it, so a partly filled language still
+  // renders correctly and the English page is never touched.
+  const gc = GALLERY_CHROME[code] || {};
+  const n = String(count);
+  if (gc.metaTitle) {
+    const t = `${escText(gc.metaTitle)} - OpenConstructionERP`;
+    lp = lp.replace(/<title>[\s\S]*?<\/title>/, `<title>${t}</title>`);
+    lp = lp.replace(/<meta property="og:title" content="[\s\S]*?"\/>/, `<meta property="og:title" content="${t}"/>`);
+  }
+  if (gc.metaDescTpl) {
+    const d = escText(gc.metaDescTpl.replace(/\{n\}/g, n));
+    lp = lp.replace(/<meta name="description" content="[\s\S]*?"\/>/, `<meta name="description" content="${d}"/>`);
+    lp = lp.replace(/<meta property="og:description" content="[\s\S]*?"\/>/, `<meta property="og:description" content="${d}"/>`);
+  }
+  if (gc.heroEyebrow) {
+    lp = lp.replace(/<span class="eyebrow">[\s\S]*?<\/span>/, `<span class="eyebrow">${escText(gc.heroEyebrow)}</span>`);
+  }
+  if (gc.heroTitleTpl) {
+    // Keeps the translator-provided <span class="it">..</span> emphasis run.
+    lp = lp.replace(/<h1 class="title">[\s\S]*?<\/h1>/, `<h1 class="title">${gc.heroTitleTpl.replace(/\{n\}/g, n)}</h1>`);
+  }
+  if (gc.heroLede) {
+    lp = lp.replace(/<p class="lede">[\s\S]*?<\/p>/, `<p class="lede">${escText(gc.heroLede)}</p>`);
+  }
+  if (gc.metaPlaybooks) lp = lp.split('</b> playbooks</span>').join(`</b> ${escText(gc.metaPlaybooks)}</span>`);
+  if (gc.metaDisciplines) lp = lp.split('</b> disciplines</span>').join(`</b> ${escText(gc.metaDisciplines)}</span>`);
+  if (gc.metaSteps) lp = lp.split('</b> guided steps</span>').join(`</b> ${escText(gc.metaSteps)}</span>`);
+  if (gc.metaDemoTpl) lp = lp.split('<span>Open any one in the <b>live demo</b></span>').join(`<span>${gc.metaDemoTpl}</span>`);
+  if (gc.searchPlaceholder) lp = lp.replace(/placeholder="[^"]*"/, `placeholder="${escText(gc.searchPlaceholder)}"`);
+  if (gc.empty) lp = lp.split('No playbooks match. Try a different word or clear the filters.').join(escText(gc.empty));
+  if (gc.chipAll) lp = lp.split('>All<span class="ct">').join(`>${escText(gc.chipAll)}<span class="ct">`);
+  if (gc.roleLabel) lp = lp.split('>I work as</span>').join(`>${escText(gc.roleLabel)}</span>`);
+  if (gc.roleAny) lp = lp.split('<option value="all">Any role</option>').join(`<option value="all">${escText(gc.roleAny)}</option>`);
+  if (gc.countWord) {
+    lp = lp.split("(shown===1?' playbook':' playbooks')").join("(' '+" + JSON.stringify(gc.countWord) + ')');
+  }
+  return lp;
+}
+
 /* ==================================================================== */
-function main() {
+async function main() {
   let html = readFileSync(GALLERY, 'utf8');
   const detail = readFileSync(DETAIL, 'utf8');
   const modulesRaw = JSON.parse(readFileSync(MODULES_JSON, 'utf8'));
@@ -324,6 +516,23 @@ function main() {
 
   writeFileSync(GALLERY, html);
 
+  /* ---- (4b) load the app's case translations (best-effort) --------- */
+  // Reuse the app's own translated case titles / blurbs, discipline labels
+  // and role labels for the localized snapshots. If the app sources or
+  // esbuild are unavailable, fall back to English card copy and still emit
+  // the snapshots (nav chrome is localized regardless).
+  let content = null;
+  const cards = [];
+  for (const m of html.matchAll(/<a class="card" href="\/cases\/([a-z0-9-]+)"[\s\S]*?<h3>([\s\S]*?)<\/h3><p>([\s\S]*?)<\/p>/g)) {
+    cards.push({ slug: m[1], enTitle: m[2], enBlurb: m[3] });
+  }
+  try {
+    const loaded = await loadContent();
+    content = { ...loaded, cards, count: cards.length };
+  } catch (e) {
+    console.log(`Case translations unavailable, localized cards stay English: ${e.message}`);
+  }
+
   /* ---- (5) localized gallery snapshots (/<lang>/cases/index.html) --- */
   // The switcher navigates to /<lang>/cases; emit those pages so the links
   // resolve. Each is the English gallery with the page language set, the
@@ -337,6 +546,9 @@ function main() {
     let lp = html;
     // Page language (and direction for Arabic).
     lp = lp.replace(/<html lang="[^"]*"/, `<html lang="${l.code}"${l.code === 'ar' ? ' dir="rtl"' : ''}`);
+    // Translate the card copy, discipline + role labels, footer and chrome
+    // BEFORE the links are retargeted (the card anchors match on /cases/<slug>).
+    lp = localizeContent(lp, l.code, content);
     // Retarget every case-card link to the localized detail page.
     lp = lp.replace(/href="\/cases\/([a-z0-9-]+)"/g, `href="/${l.code}/cases/$1"`);
     // Rebuild the switcher for this language (current = l.code).
@@ -365,6 +577,11 @@ function main() {
   if (missing.length) console.log(`Slugs missing from case-modules.json (${missing.length}): ${missing.join(', ')}`);
   else console.log('All card slugs matched an entry in case-modules.json.');
   console.log(`Localized gallery snapshots written: ${localized} (/<lang>/cases/index.html)`);
+  if (content) {
+    console.log(`Card copy localized from app locales: ${content.cards.length} cards x ${SNAP_LANGS.length} langs (titles + blurbs + discipline + role labels).`);
+    const filled = SNAP_LANGS.filter((l) => GALLERY_CHROME[l.code]).length;
+    console.log(`Gallery-only chrome (hero/title/meta/search): ${filled}/${SNAP_LANGS.length} langs filled in GALLERY_CHROME (rest fall back to English).`);
+  }
 }
 
 /* ---- the runtime honeycomb script (inlined into the page) ----------- */
@@ -521,4 +738,7 @@ const HIVE_SCRIPT = `<script>
 })();
 </script>`;
 
-main();
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
