@@ -451,6 +451,14 @@ interface TakeoffViewerModuleProps {
    *  list lands (used by the /markups → /takeoff deep-link). Matches either
    *  the frontend id or the server-side UUID. */
   initialMeasurementId?: string | null;
+  /** Optional 1-based page to restore once a server-loaded document finishes
+   *  loading (issue #386 - reopening a document should land on the page it
+   *  was left on, not always page 1). Clamped to the loaded document's page
+   *  count. Ignored for local file uploads, which always start on page 1. */
+  initialPage?: number;
+  /** Called with the 1-based page whenever it changes on a loaded document,
+   *  so the parent can mirror it into the URL for bookmarking/sharing. */
+  onPageChange?: (page: number) => void;
   /** Previously-uploaded documents for the active project, shown on the
    *  landing page as a "Recent drawings" quick-open list. */
   recentDocuments?: RecentTakeoffDocument[];
@@ -468,6 +476,8 @@ export default function TakeoffViewerModule({
   initialPdfName,
   initialDocumentId,
   initialMeasurementId,
+  initialPage,
+  onPageChange,
   recentDocuments,
   onOpenRecentDocument,
 }: TakeoffViewerModuleProps = {}) {
@@ -1009,6 +1019,11 @@ export default function TakeoffViewerModule({
    * Guarded by a ref so we only consume the param once per mount — the
    * user is free to click around afterwards without us yanking them back. */
   const deepLinkConsumedRef = useRef<string | null>(null);
+  /** Guards the ``initialPage`` restore (issue #386) so it is applied once
+   *  per mount, mirroring ``deepLinkConsumedRef`` above. The viewer is keyed
+   *  by document id and remounts on document switch, so a fresh mount always
+   *  gets a fresh ref. */
+  const initialPageConsumedRef = useRef(false);
   useEffect(() => {
     if (!initialMeasurementId) return;
     if (deepLinkConsumedRef.current === initialMeasurementId) return;
@@ -1093,6 +1108,18 @@ export default function TakeoffViewerModule({
     setDragPreview(null);
   }, [currentPage]);
 
+  /* ── Mirror the current page back to the parent (issue #386) ──────────
+   * Guarded on `pdfDoc` being loaded: before the document finishes loading,
+   * `currentPage` still holds its mount-time default (1), and emitting that
+   * here would overwrite a deep-linked `?page=` in the URL before the
+   * restore above has had a chance to apply it. Once `pdfDoc` is set, the
+   * restore has already run in the same update (both are set together in
+   * the load effect), so `currentPage` is always the resolved value here. */
+  useEffect(() => {
+    if (!pdfDoc) return;
+    onPageChange?.(currentPage);
+  }, [currentPage, pdfDoc, onPageChange]);
+
   /* Deselect a measurement that lives on a different page than the one
    * being viewed — keeps Properties panel coherent with the canvas. */
   useEffect(() => {
@@ -1132,7 +1159,17 @@ export default function TakeoffViewerModule({
         if (cancelled) return;
         setPdfDoc(doc);
         setTotalPages(doc.numPages);
-        setCurrentPage(1);
+        // Restore the page the document was left on (issue #386) rather than
+        // always landing on page 1, so reopening a takeoff document (or
+        // sharing/bookmarking a `?page=` link) returns to the same sheet.
+        // Consumed once per mount; a fresh mount (new document, new key) gets
+        // a fresh ref, so switching documents never leaks the old page.
+        if (initialPage && !initialPageConsumedRef.current) {
+          initialPageConsumedRef.current = true;
+          setCurrentPage(Math.max(1, Math.min(initialPage, doc.numPages)));
+        } else {
+          setCurrentPage(1);
+        }
         setFileName(initialPdfName || 'Document.pdf');
         setActivePoints([]);
         undoStackRef.current = [];
@@ -7159,9 +7196,13 @@ export default function TakeoffViewerModule({
                 directly below the toolbar so the two toolbar rows stay clean.
                 Only for server-side documents (it needs a document id to scan)
                 and hidden while actively setting or calibrating scale so it
-                never competes with those flows. Nothing auto-applies - the
-                user confirms via "Use this" (CLAUDE.md rule 7). */}
-            {documentId && !calibrationMode && !settingScale && (
+                never competes with those flows. Also hidden once the page is
+                calibrated (applied or manual) - the suggestion has nothing
+                left to offer once a scale already exists for this page, and
+                calibration is persisted per page so it stays hidden on reopen
+                (issue #387). Nothing auto-applies - the user confirms via
+                "Use this" (CLAUDE.md rule 7). */}
+            {documentId && !calibrationMode && !settingScale && !isCalibrated && (
               <ScaleAutoDetect
                 documentId={documentId}
                 pageNumber={currentPage}

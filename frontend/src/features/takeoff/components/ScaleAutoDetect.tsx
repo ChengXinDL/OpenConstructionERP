@@ -49,12 +49,13 @@ type DetectState =
  * Renders a compact scale-detection affordance for one document/page.
  *
  * Behaviour:
- *  - while the detect request is in flight: a quiet "checking..." line;
+ *  - while the detect request is in flight: renders nothing (quiet, no strip
+ *    reserved below the toolbar for a state that offers no action);
  *  - when a scale is found: "Detected scale: 1:100" + the matched evidence +
  *    a "Use this" button;
- *  - when nothing is found (or the request fails / the module is disabled): a
- *    subtle "No scale note detected" line so the affordance never blocks the
- *    manual calibration the host already provides.
+ *  - when nothing is found (or the request fails / the module is disabled):
+ *    renders nothing, so the affordance never blocks the manual calibration
+ *    the host already provides and never occupies space with an idle line.
  */
 export function ScaleAutoDetect({
   documentId,
@@ -97,30 +98,16 @@ export function ScaleAutoDetect({
     };
   }, [documentId, pageNumber]);
 
+  // Loading and empty states offer no action, so they render nothing rather
+  // than occupying a strip below the toolbar on every uncalibrated page
+  // (issue #387). The `t` calls above for these copies are now unused here
+  // but the translation keys stay registered for any other future surface.
   if (state.status === 'loading') {
-    return (
-      <p
-        className={`text-[10px] text-content-tertiary ${className ?? ''}`}
-        data-testid="scale-autodetect-loading"
-      >
-        {t('takeoff.detect_scale_checking', {
-          defaultValue: 'Checking the drawing for a scale note...',
-        })}
-      </p>
-    );
+    return null;
   }
 
   if (state.status === 'none') {
-    return (
-      <p
-        className={`text-[10px] text-content-quaternary ${className ?? ''}`}
-        data-testid="scale-autodetect-none"
-      >
-        {t('takeoff.detect_scale_none', {
-          defaultValue: 'No scale note detected on the drawing',
-        })}
-      </p>
-    );
+    return null;
   }
 
   const { candidate } = state;

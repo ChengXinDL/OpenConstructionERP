@@ -740,6 +740,26 @@ h4 {
   box-shadow: inset 4px 0 0 var(--color-amber-400, #fbbf24);
 }
 
+/* ── Dark mode base palette for ag-theme-quartz ──────────────────────
+   The BOQ grid uses ag-theme-quartz (not ag-theme-alpine), but only the
+   row-state accents above were dark-scoped for quartz. Without a base
+   palette override, quartz falls back to its built-in light theme under
+   .dark, leaving a white grid with near-black text. Mirrors the
+   .dark .ag-theme-alpine block above using the same --oe-* tokens so
+   both themes look identical in dark mode. */
+.dark .ag-theme-quartz {
+  --ag-background-color: var(--oe-bg);
+  --ag-header-background-color: var(--oe-bg-tertiary);
+  --ag-header-foreground-color: var(--oe-text-secondary);
+  --ag-foreground-color: var(--oe-text-primary);
+  --ag-border-color: var(--oe-border-light);
+  --ag-row-border-color: var(--oe-border-light);
+  --ag-secondary-foreground-color: var(--oe-text-secondary);
+  --ag-selected-row-background-color: var(--oe-blue-subtle);
+  --ag-odd-row-background-color: var(--oe-bg-secondary);
+  --ag-range-selection-background-color: rgba(59, 130, 246, 0.1);
+}
+
 /* ── Premium Visual Polish ──────────────────────────────────────────── */
 
 /* Smooth scroll behavior */

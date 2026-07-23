@@ -1222,6 +1222,26 @@ export function TakeoffPage() {
     () => searchParams.get('measurementId'),
   );
 
+  /** Set when the URL carries a `?page=` deep-link so the viewer can restore
+   *  it after the document loads, instead of always landing on page 1
+   *  (issue #386). Read once from the initial URL, mirroring
+   *  `initialMeasurementId` above. */
+  const [initialPage] = useState<number | null>(() => {
+    const raw = searchParams.get('page');
+    const parsed = raw ? parseInt(raw, 10) : NaN;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  });
+
+  /** The document id deep-linked at mount (`?doc=` or `?docId=`), if any.
+   *  `initialPage` only makes sense for THIS document - the viewer is keyed
+   *  by document id and remounts on document switch, so an unscoped
+   *  `initialPage` would leak onto the next document opened in the same
+   *  session. Captured once via a ref (mirrors `deepLinkConsumedRef` in the
+   *  viewer), never updated after mount. */
+  const deepLinkedDocIdRef = useRef<string | null>(
+    searchParams.get('doc') || searchParams.get('docId') || null,
+  );
+
   /** True when a `?docId=` deep-link couldn't be resolved against either
    *  the takeoff documents catalogue or the project documents module —
    *  drives a friendly empty-state with a "back to /markups" link instead
@@ -1928,6 +1948,27 @@ export function TakeoffPage() {
     [filmstripDocuments, t, setSearchParams],
   );
 
+  /** Mirror the viewer's current page into the URL (issue #386) so a sheet
+   *  can be bookmarked/shared and reopening the document restores it. Page 1
+   *  keeps a clean URL (param dropped); any other page is written in. */
+  const handleViewerPageChange = useCallback(
+    (page: number) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (page > 1) {
+            next.set('page', String(page));
+          } else {
+            next.delete('page');
+          }
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
   /* ── Render ─────────────────────────────────────────────────────────── */
 
   return (
@@ -2383,6 +2424,16 @@ export function TakeoffPage() {
                   initialPdfName={viewerDoc?.name}
                   initialDocumentId={viewerDoc?.id}
                   initialMeasurementId={initialMeasurementId}
+                  // Scoped to the document deep-linked at mount only - the
+                  // viewer remounts (new `key`) on document switch, so an
+                  // unscoped page would otherwise leak onto the next
+                  // document opened in this session (issue #386).
+                  initialPage={
+                    viewerDoc && viewerDoc.id === deepLinkedDocIdRef.current
+                      ? (initialPage ?? undefined)
+                      : undefined
+                  }
+                  onPageChange={handleViewerPageChange}
                   recentDocuments={serverDocuments}
                   onOpenRecentDocument={handleOpenDocInViewer}
                 />
