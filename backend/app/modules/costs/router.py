@@ -981,6 +981,9 @@ async def list_loaded_regions(
         .where(CostItem.is_active.is_(True))
         .where(CostItem.region.isnot(None))
         .where(CostItem.region != "")
+        # transient language-swap staging regions (an interrupted swap can leave
+        # them behind); they are internal and must never show up as a real region
+        .where(~CostItem.region.startswith("__xlate_", autoescape=True))
     )
     regions = sorted(row[0] for row in result.all())
     _region_cache["regions"] = regions
@@ -4846,6 +4849,23 @@ async def _ensure_region_text_language(base_region: str, lang_code: str | None, 
     logger.info("Swapped %s work-item text to %s (%d items updated)", base_region, lang_code, updated)
 
 
+def _join_work_name_columns(orig: pd.Series, final: pd.Series) -> pd.Series:  # noqa: F821
+    """Join the two CWICR work-name columns into one display description.
+
+    Classic CWICR parquets carry complementary text in ``rate_original_name``
+    (native language) and ``rate_final_name`` (English), so the description
+    joins both. Several national bases ship the SAME string in both columns
+    (single-language sources), and a blind join doubles every name ("cement
+    mortar cement mortar") - so the join happens per row and only when the two
+    sides actually differ; equal or half-empty rows keep a single copy.
+
+    Both inputs must already be NaN-filled, stringified and stripped.
+    """
+    joined = (orig + " " + final).str.strip()
+    single = final.where(final != "", orig)
+    return joined.where((orig != final) & (orig != "") & (final != ""), single)
+
+
 def _process_and_insert_cwicr(parquet_path: str, db_id: str, db_file: str) -> dict[str, Any]:
     """Process CWICR parquet + insert into PostgreSQL. Runs in a thread.
 
@@ -4875,9 +4895,10 @@ def _process_and_insert_cwicr(parquet_path: str, db_id: str, db_file: str) -> di
 
     # 2. Vectorized processing - use groupby.first() instead of iterrows
     if "rate_original_name" in df.columns and "rate_final_name" in df.columns:
-        df["_desc"] = (
-            df["rate_original_name"].fillna("").astype(str) + " " + df["rate_final_name"].fillna("").astype(str)
-        ).str.strip()
+        df["_desc"] = _join_work_name_columns(
+            df["rate_original_name"].fillna("").astype(str).str.strip(),
+            df["rate_final_name"].fillna("").astype(str).str.strip(),
+        )
     elif "rate_original_name" in df.columns:
         df["_desc"] = df["rate_original_name"].fillna("").astype(str)
     else:
@@ -5438,9 +5459,10 @@ def _build_cwicr_items(df: pd.DataFrame, db_id: str) -> list[dict[str, Any]]:  #
 
     # Build description column
     if "rate_original_name" in df.columns and "rate_final_name" in df.columns:
-        df.loc[:, "_full_desc"] = (
-            df["rate_original_name"].fillna("").astype(str) + " " + df["rate_final_name"].fillna("").astype(str)
-        ).str.strip()
+        df.loc[:, "_full_desc"] = _join_work_name_columns(
+            df["rate_original_name"].fillna("").astype(str).str.strip(),
+            df["rate_final_name"].fillna("").astype(str).str.strip(),
+        )
 
     if "rate_code" not in df.columns:
         return []

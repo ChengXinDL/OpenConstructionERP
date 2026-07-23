@@ -25,7 +25,7 @@ import pytest
 from fastapi import HTTPException
 
 import app.modules.costs.router as costs_router
-from app.modules.costs.router import _safe_float, _validate_cost_upload
+from app.modules.costs.router import _join_work_name_columns, _safe_float, _validate_cost_upload
 
 # ── _safe_float: comma handling (M1) ───────────────────────────────────────
 
@@ -126,3 +126,36 @@ def test_ole_xls_is_not_a_zip_and_passes_signature_gate() -> None:
     ole_magic = bytes([0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1])
     content = ole_magic + b"\x00" * 512
     assert _validate_cost_upload(content, "legacy.xls") is False
+
+
+# ── _join_work_name_columns: no doubled descriptions ───────────────────────
+# Several national bases ship the SAME text in rate_original_name and
+# rate_final_name; the old blind concat doubled every work name in the app
+# ("cement mortar cement mortar"). The join must be per row.
+
+
+def _join(orig: list[str], final: list[str]) -> list[str]:
+    import pandas as pd
+
+    out = _join_work_name_columns(pd.Series(orig), pd.Series(final))
+    return list(out)
+
+
+def test_equal_name_columns_keep_a_single_copy() -> None:
+    assert _join(["cement mortar"], ["cement mortar"]) == ["cement mortar"]
+    assert _join(["20"], ["20"]) == ["20"]
+
+
+def test_different_name_columns_still_concatenate() -> None:
+    assert _join(["Beton C30/37"], ["Concrete C30/37"]) == ["Beton C30/37 Concrete C30/37"]
+
+
+def test_half_empty_rows_take_the_non_empty_side() -> None:
+    assert _join([""], ["slab formwork"]) == ["slab formwork"]
+    assert _join(["slab formwork"], [""]) == ["slab formwork"]
+    assert _join([""], [""]) == [""]
+
+
+def test_join_is_per_row_not_per_frame() -> None:
+    out = _join(["same", "native", ""], ["same", "english", "only-final"])
+    assert out == ["same", "native english", "only-final"]
