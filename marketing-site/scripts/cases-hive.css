@@ -321,7 +321,8 @@ body{ background: var(--bg-0); }
   display: flex;
   align-items: stretch;   /* blocks share one height and line up evenly */
   gap: 40px;
-  background: transparent;
+  padding: 32px 0 24px;
+  background: color-mix(in oklab, var(--bg-0) 90%, transparent);
   border: 0;
   box-shadow: none;
 }
@@ -343,7 +344,7 @@ body{ background: var(--bg-0); }
   max-width: 14ch;
 }
 .hero .eyebrow{ margin-bottom: 14px; }
-.hero .lede{ margin: 0; max-width: none; }
+.hero .lede{ margin: 0; max-width: none; font-size: clamp(0.816rem, 1.2vw, 0.944rem); line-height: 1.5; }
 /* Stats as a tidy vertical list rather than a wrapping row. */
 .hero .hero-meta{ margin-top: 0; gap: 12px; row-gap: 12px; flex-wrap: nowrap; }
 
