@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [12.4.0] - 2026-07-23
+
+The Common Data Environment now lets a project adopt one of the three ISO 19650 approval presets and make it its own. The presets were tenant-wide and read-only, so you could see them but never tailor one to a project. Adopting a preset clones its steps into an editable project route, wired through the setup wizard and a new preset library on the CDE page, and a training case walks a team from the wizard to the go-live gate.
+
+Site teams can turn a document into an action without re-typing it. A correspondence item, an RFI or an inbound capture now has a Create task action that pre-fills from the source and records where it came from, and the tasks list shows a source badge so you can see which document each task grew from.
+
+Reporting gains a COBie facility export that builds a UK 2.4 workbook from a project's whole asset register, covering contacts, floors, spaces, zones, types, components and systems. E-signatures move onto a pluggable provider interface, so a real signing provider can take over issuing and status without changing the rest of the module, while the in-house behaviour stays the default.
+
+The six international modules now link out to where their references live, so a signed document opens the file, a blocking source-data record jumps to the schedule, and a supervision change reference opens its change order. On the public site every case page carries the same header as the home page, the hover honeycomb reads more clearly, and the two new common-data-environment case steps are translated into every language.
+
 ## [12.3.0] - 2026-07-23
 
 Six delivery and authority modules that already had a tested backend but no interface now have full screens, so they are usable rather than invisible. Authority Submissions assembles a submission, validates it, generates the export package and submits it. Review Authority runs a review cycle with logged remarks, stale and repeat-remark radars, cycle editing and a one-click evidence dossier export. E-Signatures tracks who must sign, who signed or declined and certificate expiry, and downloads the signing manifest. Source Data registers the input documents a project depends on, verifies them and shows what is expiring or blocking the schedule. Route Classifier suggests the delivery and approval route for a work type with a confidence and rationale you confirm. Site Supervision plans and conducts visits, logs observations, flags hidden works and compares plan against actual. Each screen carries the how-it-works guide, and six new guided cases walk the modules end to end.

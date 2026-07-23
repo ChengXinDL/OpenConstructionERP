@@ -38,6 +38,13 @@ interface ChangelogEntry {
 // date, title and meaning intact; trim the prose, not the facts.
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '12.4.0',
+    date: '2026-07-23',
+    tag: 'NEW',
+    summary:
+      'The Common Data Environment can adopt an ISO 19650 approval preset and clone it into an editable project route, wired through the setup wizard with a preset library and a training case. Correspondence, RFI and inbound items get a Create task action that pre-fills from the source and tags the task with where it came from. Reporting adds a COBie facility export over the whole asset register, and e-signatures move onto a pluggable provider interface. The six international modules link out to their files, schedule and change orders, and every public case page now carries the home-page header.',
+  },
+  {
     version: '12.3.0',
     date: '2026-07-23',
     tag: 'NEW',
