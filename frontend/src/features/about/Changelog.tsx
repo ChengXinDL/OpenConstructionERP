@@ -38,6 +38,13 @@ interface ChangelogEntry {
 // date, title and meaning intact; trim the prose, not the facts.
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '12.3.0',
+    date: '2026-07-23',
+    tag: 'NEW',
+    summary:
+      'Six delivery and authority modules that had a backend but no screens are now fully usable: authority submissions, authority review cycles with an evidence dossier, an e-signature registry, a source-data register, a work-type route classifier and site supervision, each with its guide and worked cases. The Bill of Quantities grid follows the dark theme, PDF takeoff restores and shares the current sheet through the URL, and the scale auto-detect strip stays quiet when idle or once a page is calibrated.',
+  },
+  {
     version: '12.2.0',
     date: '2026-07-22',
     tag: 'NEW',

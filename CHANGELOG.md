@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [12.3.0] - 2026-07-23
+
+Six delivery and authority modules that already had a tested backend but no interface now have full screens, so they are usable rather than invisible. Authority Submissions assembles a submission, validates it, generates the export package and submits it. Review Authority runs a review cycle with logged remarks, stale and repeat-remark radars, cycle editing and a one-click evidence dossier export. E-Signatures tracks who must sign, who signed or declined and certificate expiry, and downloads the signing manifest. Source Data registers the input documents a project depends on, verifies them and shows what is expiring or blocking the schedule. Route Classifier suggests the delivery and approval route for a work type with a confidence and rationale you confirm. Site Supervision plans and conducts visits, logs observations, flags hidden works and compares plan against actual. Each screen carries the how-it-works guide, and six new guided cases walk the modules end to end.
+
+The Bill of Quantities grid now follows the dark theme instead of rendering white in dark mode. PDF takeoff restores the sheet you were on when a document is reopened and keeps it in the URL so a sheet can be shared, and the scale auto-detect strip no longer reserves space when idle or lingers once a page is calibrated.
+
 ## [12.2.0] - 2026-07-22
 
 Model review keeps the 3D model in view while its checks run. The page used to take its height from its content, so a long checks report ballooned the viewer canvas and pushed the model off screen the moment you pressed Run checks. It now sits at a fixed height and the checks and issues docks scroll inside their own panels, so the model stays put through a full run.
