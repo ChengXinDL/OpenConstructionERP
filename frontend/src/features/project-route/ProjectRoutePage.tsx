@@ -3,6 +3,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import {
   Route,
@@ -14,6 +15,7 @@ import {
   CheckCircle2,
   ListChecks,
   ChevronRight,
+  Landmark,
 } from 'lucide-react';
 import {
   Button,
@@ -365,6 +367,25 @@ const AssessmentRow = React.memo(function AssessmentRow({
               })}
             </p>
           )}
+
+          {item.status === 'confirmed' &&
+            (item.determined_route === 'full_permit' ||
+              item.determined_route === 'notification' ||
+              item.determined_route === 'expertise_required') && (
+              <Link
+                to="/authority-submissions"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-oe-blue/30 bg-oe-blue/5 px-2.5 py-1.5 text-xs font-medium text-oe-blue hover:bg-oe-blue/10 hover:underline"
+                title={t('project_route.open_authority_submissions_hint', {
+                  defaultValue: 'This route needs a submission to an approving authority.',
+                })}
+              >
+                <Landmark size={12} className="shrink-0" />
+                {t('project_route.open_authority_submissions', {
+                  defaultValue: 'Start an authority submission',
+                })}
+              </Link>
+            )}
 
           <div className="flex items-center gap-2 pt-1 flex-wrap">
             {item.status !== 'confirmed' && (

@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState, type ElementType } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import clsx from 'clsx';
 import {
   HardHat,
@@ -608,12 +608,22 @@ function InsightPanels({ projectId }: { projectId: string }) {
                   <div className="min-w-0 flex-1">
                     <p className="truncate">{row.observation}</p>
                     <p className="text-xs text-content-tertiary">
-                      {row.links_to_change_ref
-                        ? t('site_supervision.change_ref_label', {
+                      {row.links_to_change_ref ? (
+                        <Link
+                          to="/changeorders"
+                          className="text-oe-blue hover:underline"
+                          title={t('site_supervision.open_change_orders', {
+                            defaultValue: 'Open Change Orders',
+                          })}
+                        >
+                          {t('site_supervision.change_ref_label', {
                             defaultValue: 'Change ref: {{ref}}',
                             ref: row.links_to_change_ref,
-                          })
-                        : t('site_supervision.no_change_ref', { defaultValue: 'No change reference yet' })}
+                          })}
+                        </Link>
+                      ) : (
+                        t('site_supervision.no_change_ref', { defaultValue: 'No change reference yet' })
+                      )}
                     </p>
                   </div>
                   <Badge variant={categoryVariant(row.category)} size="sm">
@@ -793,10 +803,16 @@ function VisitDetail({
                       {prettyLabel(entry.status)}
                     </Badge>
                     {entry.links_to_change_ref && (
-                      <Badge variant="neutral" size="sm">
-                        <Workflow size={10} className="mr-0.5 inline" />
+                      <Link
+                        to="/changeorders"
+                        className="inline-flex items-center gap-0.5 rounded-full bg-oe-blue/10 px-2 py-0.5 text-xs font-medium text-oe-blue hover:bg-oe-blue/20 hover:underline"
+                        title={t('site_supervision.open_change_orders', {
+                          defaultValue: 'Open Change Orders',
+                        })}
+                      >
+                        <Workflow size={10} className="shrink-0" />
                         {entry.links_to_change_ref}
-                      </Badge>
+                      </Link>
                     )}
                   </div>
                   <p className="mt-1.5 text-sm text-content-primary whitespace-pre-wrap">{entry.observation}</p>

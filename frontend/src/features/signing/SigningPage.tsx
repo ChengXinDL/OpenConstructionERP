@@ -3,6 +3,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import {
   FileSignature,
@@ -21,6 +22,7 @@ import {
   UserCheck,
   UserX,
   UserCircle,
+  ExternalLink,
   X as XIcon,
 } from 'lucide-react';
 import {
@@ -664,9 +666,18 @@ const SessionRow = React.memo(function SessionRow({
           className={clsx('text-content-tertiary transition-transform shrink-0', expanded && 'rotate-90')}
         />
         <FileSignature size={15} className="shrink-0 text-content-tertiary" />
-        <span className="text-sm text-content-primary truncate flex-1 min-w-0" title={session.document_ref}>
-          {session.document_ref}
-        </span>
+        <Link
+          to={`/files?q=${encodeURIComponent(session.document_ref)}`}
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex items-center gap-1 text-sm text-content-primary truncate flex-1 min-w-0 hover:text-oe-blue hover:underline"
+          title={t('signing.open_document', {
+            defaultValue: 'Find "{{ref}}" in Project Files',
+            ref: session.document_ref,
+          })}
+        >
+          <span className="truncate">{session.document_ref}</span>
+          <ExternalLink size={11} className="shrink-0 opacity-60" aria-hidden="true" />
+        </Link>
 
         <Badge variant="neutral" size="sm" className="hidden md:inline-flex">
           {t(`signing.capability_${session.provider_capability}`, {

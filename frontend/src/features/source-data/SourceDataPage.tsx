@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import clsx from 'clsx';
 import {
   FileStack,
@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   Ban,
   Circle,
+  ExternalLink,
 } from 'lucide-react';
 import {
   Button,
@@ -423,16 +424,25 @@ function DocumentRow({
 
   return (
     <div className="flex items-center gap-3 px-4 py-3 border-b border-border-light last:border-b-0 hover:bg-surface-secondary/50 transition-colors">
-      <span className="text-sm font-medium text-content-primary truncate flex-1 min-w-0">
-        {item.name}
+      <Link
+        to={`/files?q=${encodeURIComponent(item.name)}`}
+        onClick={(e) => e.stopPropagation()}
+        className="inline-flex items-center gap-1 text-sm font-medium text-content-primary truncate flex-1 min-w-0 hover:text-oe-blue hover:underline"
+        title={t('source_data.open_document', {
+          defaultValue: 'Find "{{name}}" in Project Files',
+          name: item.name,
+        })}
+      >
+        <span className="truncate">{item.name}</span>
+        <ExternalLink size={11} className="shrink-0 opacity-60" aria-hidden="true" />
         {item.blocks_schedule && (
           <AlertOctagon
             size={12}
-            className="inline-block ml-1.5 -mt-0.5 text-semantic-error"
+            className="inline-block ml-1 -mt-0.5 shrink-0 text-semantic-error"
             aria-label={t('source_data.blocks_schedule_badge', { defaultValue: 'Blocks schedule' })}
           />
         )}
-      </span>
+      </Link>
 
       <Badge variant="neutral" size="sm" className="hidden md:inline-flex shrink-0">
         {t(`source_data.doc_type_${item.doc_type}`, {
@@ -982,9 +992,20 @@ export function SourceDataPage() {
             <Card padding="sm">
               <div className="flex items-center gap-2">
                 <AlertOctagon size={15} className="text-semantic-error shrink-0" />
-                <span className="text-sm font-semibold text-content-primary">
-                  {t('source_data.blocking_title', { defaultValue: 'Blocking the schedule' })}
-                </span>
+                {blocking.length > 0 ? (
+                  <Link
+                    to="/schedule"
+                    className="inline-flex items-center gap-1 text-sm font-semibold text-content-primary hover:text-oe-blue hover:underline"
+                    title={t('source_data.open_schedule', { defaultValue: 'Open the project schedule' })}
+                  >
+                    {t('source_data.blocking_title', { defaultValue: 'Blocking the schedule' })}
+                    <ExternalLink size={11} className="shrink-0 opacity-60" aria-hidden="true" />
+                  </Link>
+                ) : (
+                  <span className="text-sm font-semibold text-content-primary">
+                    {t('source_data.blocking_title', { defaultValue: 'Blocking the schedule' })}
+                  </span>
+                )}
                 <Badge variant="error" size="sm" className="ml-auto">
                   {blocking.length}
                 </Badge>
