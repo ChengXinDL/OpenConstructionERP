@@ -213,8 +213,11 @@ h1.title .it{font-family:'Fraunces',serif; font-weight:400; font-style:italic; c
  *      only). Values mirror the homepage dark palette + the case-template
  *      card/tile tokens, so light stays byte-identical and dark is coherent.
  *
- * The .lang-toggle / .nav-kbd-hint / .gh-star-* rules are inert here (no
- * such markup is emitted) but kept verbatim to stay a faithful copy.
+ * The .lang-toggle / .nav-kbd-hint rules are inert here (no such markup is
+ * emitted - the case pages use the URL-based language switcher instead) but
+ * kept verbatim to stay a faithful copy. .gh-star-* and .brand-count ARE
+ * emitted (the case header now carries the live star count and the module
+ * badge, same as the homepage).
  * ================================================================ */
 .nav{
       position: fixed;
@@ -333,6 +336,20 @@ h1.title .it{font-family:'Fraunces',serif; font-weight:400; font-style:italic; c
 .brand-seg-2{ color: var(--accent); }
 .brand-seg-3{ color: var(--ink-0); }
 [data-theme="dark"] .brand-seg-3{ color: var(--ink-0); }
+.brand-count{
+      display: inline-flex;
+      align-items: center;
+      margin-left: 7px;
+      padding: 1px 6px;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.5;
+      letter-spacing: 0;
+      color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
+      border-radius: 6px;
+    }
 .lang-toggle{
       height: 36px;
       padding: 0 11px;
@@ -838,13 +855,17 @@ body{ padding-top: 64px; }
    a stronger face on hover/focus, and a visible keyboard focus ring. */
 a.hc-cell{ text-decoration: none; color: inherit; cursor: pointer; }
 a.hc-cell .hc-face{ transition: transform .16s cubic-bezier(.18,.72,.26,1), filter .16s ease; transform-origin: center center; }
-/* Hover/focus grows the hex ~50% from its centre; the whole face scales
+/* Hover/focus grows the hex from its centre; the whole face scales
    uniformly so the icon and label keep fitting neatly inside the hex. The
-   hovered cell is lifted above its neighbours so it never gets clipped. */
+   hovered cell is lifted above its neighbours (z-index) so it never gets
+   clipped by sibling hexes, and both hosting surfaces keep the enlarged hex
+   fully visible: the gallery's popup stage sits in a position:fixed overlay
+   (no ancestor overflow to clip against) and the detail-page side panel
+   (.case-hive / .case-hive-stage) sets no overflow of its own either. */
 a.hc-cell:hover,
 a.hc-cell:focus-visible{ z-index: 6; }
 a.hc-cell:hover .hc-face,
-a.hc-cell:focus-visible .hc-face{ transform: scale(1.9); filter: brightness(1.06); }
+a.hc-cell:focus-visible .hc-face{ transform: scale(2.85); filter: brightness(1.06); }
 /* At the enlarged hover size there is room for the full label, so drop the
    2-line clamp and let it breathe (up to 3 lines, a touch more line-height)
    and give the icon a little more separation - the text then sits neatly
@@ -1050,7 +1071,7 @@ body{ background: var(--bg-0); }
       <div class="nav-left">
         <a class="brand" href="/">
           <span class="brand-name">
-            <span class="brand-seg brand-seg-1">Open</span><span class="brand-seg brand-seg-2">Construction</span><span class="brand-seg brand-seg-3">ERP</span>
+            <span class="brand-seg brand-seg-1">Open</span><span class="brand-seg brand-seg-2">Construction</span><span class="brand-seg brand-seg-3">ERP</span><span class="brand-count" title="modules in the open core">+171</span>
           </span>
         </a>
 
@@ -1066,13 +1087,12 @@ body{ background: var(--bg-0); }
       </div>
 
       <div class="nav-links nav-links-slot">
-        <a href="/#tour">Visite</a>
         <a href="/#compare">Comparer</a>
-        <a href="/fr/cases" class="is-active" aria-current="page">Cases</a>
         <a href="/#pricing">Tarifs</a>
+        <a href="/#faq">FAQ</a>
         <a href="/docs">Docs</a>
         <a href="/news">Actualités</a>
-        <a class="nav-wp" href="/uberization-of-construction/" style="display:inline-flex;align-items:center;gap:5px"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;opacity:.8"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 13h6M9 17h4"/></svg>Uberisation</a>
+        <a href="/#contact">Contact</a>
       </div>
 
       <div class="nav-right">
@@ -1084,6 +1104,9 @@ body{ background: var(--bg-0); }
         <a class="github-pill" href="https://github.com/datadrivenconstruction/openconstructionerp" target="_blank" rel="noopener" aria-label="Star us on GitHub">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M12 0.5C5.65 0.5 0.5 5.65 0.5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.87-1.36-3.87-1.36-.52-1.32-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.18-3.1-.12-.29-.51-1.47.11-3.05 0 0 .97-.31 3.18 1.18A11 11 0 0 1 12 6.8a11 11 0 0 1 2.9.39c2.2-1.5 3.17-1.18 3.17-1.18.63 1.58.24 2.76.12 3.05.74.81 1.18 1.84 1.18 3.1 0 4.43-2.7 5.4-5.27 5.69.42.36.78 1.07.78 2.15v3.19c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
           <span>GitHub</span>
+          <span class="gh-star-sep" aria-hidden="true"></span>
+          <svg class="gh-star-icon" viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M12 2l2.95 6.36 6.92.65-5.23 4.74 1.55 6.85L12 17.27 5.81 20.6l1.55-6.85L2.13 9.01l6.92-.65L12 2z"/></svg>
+          <span class="gh-star-count" data-gh-stars aria-label="GitHub stars"></span>
         </a>
 
         <a class="install-pill" href="/download">
@@ -1114,13 +1137,12 @@ body{ background: var(--bg-0); }
   </nav>
   <div class="mobile-menu" id="mobile-menu" role="dialog" aria-label="Mobile navigation" aria-modal="true">
     <a href="/demo"><span>Démo</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
-    <a href="/#tour"><span>Visite</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
     <a href="/#compare"><span>Comparer</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
-    <a href="/cases"><span>Cases</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
     <a href="/#pricing"><span>Tarifs</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+    <a href="/#faq"><span>FAQ</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
     <a href="/docs"><span>Docs</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
     <a href="/news"><span>Actualités</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
-    <a href="/uberization-of-construction/"><span>Uberisation</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+    <a href="/#contact"><span>Contact</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
     <div class="cta-row">
       <a class="btn btn-primary" href="/download"><span>Télécharger</span></a>
     </div>
@@ -1468,4 +1490,4 @@ body{ background: var(--bg-0); }
   }, {passive:true});
   window.addEventListener('resize',function(){ if(activeCard) render(activeCard); });
 })();
-</script><!--oce:nav-js--><script>(function(){var root=document.documentElement,body=document.body;var tt=document.getElementById('theme-toggle');if(tt)tt.addEventListener('click',function(){var d=root.dataset.theme==='dark'?'light':'dark';root.dataset.theme=d;try{localStorage.setItem('oce-theme',d);}catch(e){}});var burger=document.getElementById('nav-burger'),menu=document.getElementById('mobile-menu');function setOpen(o){body.classList.toggle('nav-open',o);if(burger)burger.setAttribute('aria-expanded',o?'true':'false');body.style.overflow=o?'hidden':'';}if(burger)burger.addEventListener('click',function(){setOpen(!body.classList.contains('nav-open'));});if(menu)menu.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){setOpen(false);});});document.addEventListener('keydown',function(e){if(e.key==='Escape')setOpen(false);});})();</script><!--/oce:nav-js--><script>(function(){var wrap=document.querySelector('[data-oce-lang]');if(!wrap)return;var btn=wrap.querySelector('.oce-lang-btn'),menu=wrap.querySelector('.oce-lang-menu');if(!btn||!menu)return;function open(o){menu.hidden=!o;btn.setAttribute('aria-expanded',o?'true':'false');}btn.addEventListener('click',function(e){e.stopPropagation();open(menu.hidden);});document.addEventListener('click',function(e){if(!wrap.contains(e.target))open(false);});document.addEventListener('keydown',function(e){if(e.key==='Escape')open(false);});})();</script><!--/oce:gallery-js--></body></html>
+</script><!--oce:nav-js--><script>(function(){var root=document.documentElement,body=document.body;var tt=document.getElementById('theme-toggle');if(tt)tt.addEventListener('click',function(){var d=root.dataset.theme==='dark'?'light':'dark';root.dataset.theme=d;try{localStorage.setItem('oce-theme',d);}catch(e){}});var burger=document.getElementById('nav-burger'),menu=document.getElementById('mobile-menu');function setOpen(o){body.classList.toggle('nav-open',o);if(burger)burger.setAttribute('aria-expanded',o?'true':'false');body.style.overflow=o?'hidden':'';}if(burger)burger.addEventListener('click',function(){setOpen(!body.classList.contains('nav-open'));});if(menu)menu.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){setOpen(false);});});document.addEventListener('keydown',function(e){if(e.key==='Escape')setOpen(false);});var el=document.querySelector('[data-gh-stars]');if(el){var KEY='oce_gh_stars_v1',TTL=24*60*60*1000;var fmt=function(n){n=Number(n)||0;return n>=1000?(n/1000).toFixed(1).replace(/\.0$/,'')+'k':String(n);};try{var cached=JSON.parse(sessionStorage.getItem(KEY)||'null');if(cached&&(Date.now()-cached.t)<TTL&&cached.n)el.textContent=fmt(cached.n);}catch(e){}fetch('https://api.github.com/repos/datadrivenconstruction/openconstructionerp').then(function(r){return r.ok?r.json():null;}).then(function(j){if(!j||typeof j.stargazers_count!=='number')return;el.textContent=fmt(j.stargazers_count);try{sessionStorage.setItem(KEY,JSON.stringify({n:j.stargazers_count,t:Date.now()}));}catch(e){}}).catch(function(){});}})();</script><!--/oce:nav-js--><script>(function(){var wrap=document.querySelector('[data-oce-lang]');if(!wrap)return;var btn=wrap.querySelector('.oce-lang-btn'),menu=wrap.querySelector('.oce-lang-menu');if(!btn||!menu)return;function open(o){menu.hidden=!o;btn.setAttribute('aria-expanded',o?'true':'false');}btn.addEventListener('click',function(e){e.stopPropagation();open(menu.hidden);});document.addEventListener('click',function(e){if(!wrap.contains(e.target))open(false);});document.addEventListener('keydown',function(e){if(e.key==='Escape')open(false);});})();</script><!--/oce:gallery-js--></body></html>

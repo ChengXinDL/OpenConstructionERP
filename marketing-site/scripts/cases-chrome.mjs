@@ -47,6 +47,8 @@ export const CHROME = {
     navCompare: 'Vergleich',
     navPricing: 'Preise',
     navNews: 'Neuigkeiten',
+    navFaq: 'FAQ',
+    navContact: 'Kontakt',
     navUberization: 'Uberisierung',
   },
   fr: {
@@ -67,6 +69,8 @@ export const CHROME = {
     navCompare: 'Comparer',
     navPricing: 'Tarifs',
     navNews: 'Actualités',
+    navFaq: 'FAQ',
+    navContact: 'Contact',
     navUberization: 'Uberisation',
   },
   es: {
@@ -87,6 +91,8 @@ export const CHROME = {
     navCompare: 'Comparar',
     navPricing: 'Precios',
     navNews: 'Novedades',
+    navFaq: 'Preguntas',
+    navContact: 'Contacto',
     navUberization: 'Uberización',
   },
   it: {
@@ -107,6 +113,8 @@ export const CHROME = {
     navCompare: 'Confronto',
     navPricing: 'Prezzi',
     navNews: 'Novità',
+    navFaq: 'FAQ',
+    navContact: 'Contatti',
     navUberization: 'Uberizzazione',
   },
   pt: {
@@ -127,6 +135,8 @@ export const CHROME = {
     navCompare: 'Comparar',
     navPricing: 'Preços',
     navNews: 'Notícias',
+    navFaq: 'FAQ',
+    navContact: 'Contato',
     navUberization: 'Uberização',
   },
   nl: {
@@ -147,6 +157,8 @@ export const CHROME = {
     navCompare: 'Vergelijken',
     navPricing: 'Prijzen',
     navNews: 'Nieuws',
+    navFaq: 'FAQ',
+    navContact: 'Contact',
     navUberization: 'Uberisering',
   },
   pl: {
@@ -167,6 +179,8 @@ export const CHROME = {
     navCompare: 'Porównanie',
     navPricing: 'Cennik',
     navNews: 'Aktualności',
+    navFaq: 'FAQ',
+    navContact: 'Kontakt',
     navUberization: 'Uberyzacja',
   },
   cs: {
@@ -187,6 +201,8 @@ export const CHROME = {
     navCompare: 'Porovnání',
     navPricing: 'Ceník',
     navNews: 'Novinky',
+    navFaq: 'FAQ',
+    navContact: 'Kontakt',
     navUberization: 'Uberizace',
   },
   ru: {
@@ -207,6 +223,8 @@ export const CHROME = {
     navCompare: 'Сравнение',
     navPricing: 'Цены',
     navNews: 'Новости',
+    navFaq: 'Вопросы и ответы',
+    navContact: 'Контакты',
     navUberization: 'Уберизация',
   },
   bg: {
@@ -227,6 +245,8 @@ export const CHROME = {
     navCompare: 'Сравнение',
     navPricing: 'Цени',
     navNews: 'Новини',
+    navFaq: 'Въпроси',
+    navContact: 'Контакти',
     navUberization: 'Уберизация',
   },
   tr: {
@@ -247,6 +267,8 @@ export const CHROME = {
     navCompare: 'Karşılaştır',
     navPricing: 'Fiyatlar',
     navNews: 'Haberler',
+    navFaq: 'SSS',
+    navContact: 'İletişim',
     navUberization: 'Uberleşme',
   },
   sv: {
@@ -267,6 +289,8 @@ export const CHROME = {
     navCompare: 'Jämför',
     navPricing: 'Priser',
     navNews: 'Nyheter',
+    navFaq: 'FAQ',
+    navContact: 'Kontakt',
     navUberization: 'Uberisering',
   },
   no: {
@@ -287,6 +311,8 @@ export const CHROME = {
     navCompare: 'Sammenlign',
     navPricing: 'Priser',
     navNews: 'Nyheter',
+    navFaq: 'FAQ',
+    navContact: 'Kontakt',
     navUberization: 'Uberisering',
   },
   fi: {
@@ -307,6 +333,8 @@ export const CHROME = {
     navCompare: 'Vertaa',
     navPricing: 'Hinnat',
     navNews: 'Uutiset',
+    navFaq: 'UKK',
+    navContact: 'Yhteystiedot',
     navUberization: 'Uberisaatio',
   },
   da: {
@@ -327,6 +355,8 @@ export const CHROME = {
     navCompare: 'Sammenlign',
     navPricing: 'Priser',
     navNews: 'Nyheder',
+    navFaq: 'FAQ',
+    navContact: 'Kontakt',
     navUberization: 'Uberisering',
   },
   ar: {
@@ -347,6 +377,8 @@ export const CHROME = {
     navCompare: 'قارن',
     navPricing: 'الأسعار',
     navNews: 'الأخبار',
+    navFaq: 'الأسئلة الشائعة',
+    navContact: 'اتصل بنا',
     navUberization: 'أبرزة',
   },
   zh: {
@@ -367,6 +399,8 @@ export const CHROME = {
     navCompare: '对比',
     navPricing: '定价',
     navNews: '新闻',
+    navFaq: '常见问题',
+    navContact: '联系',
     navUberization: '优步化',
   },
   ja: {
@@ -387,6 +421,8 @@ export const CHROME = {
     navCompare: '比較',
     navPricing: '料金',
     navNews: 'ニュース',
+    navFaq: 'FAQ',
+    navContact: 'お問い合わせ',
     navUberization: 'ウーバー化',
   },
   ko: {
@@ -407,6 +443,8 @@ export const CHROME = {
     navCompare: '비교',
     navPricing: '요금제',
     navNews: '뉴스',
+    navFaq: '자주 묻는 질문',
+    navContact: '문의하기',
     navUberization: '우버화',
   },
   hi: {
@@ -427,6 +465,8 @@ export const CHROME = {
     navCompare: 'तुलना',
     navPricing: 'मूल्य',
     navNews: 'समाचार',
+    navFaq: 'अक्सर पूछे जाने वाले प्रश्न',
+    navContact: 'संपर्क करें',
     navUberization: 'उबरीकरण',
   },
   hr: {
@@ -447,6 +487,8 @@ export const CHROME = {
     navCompare: 'Usporedba',
     navPricing: 'Cijene',
     navNews: 'Novosti',
+    navFaq: 'Česta pitanja',
+    navContact: 'Kontakt',
     navUberization: 'Uberizacija',
   },
   id: {
@@ -467,6 +509,8 @@ export const CHROME = {
     navCompare: 'Bandingkan',
     navPricing: 'Harga',
     navNews: 'Berita',
+    navFaq: 'FAQ',
+    navContact: 'Kontak',
     navUberization: 'Uberisasi',
   },
   mn: {
@@ -487,6 +531,8 @@ export const CHROME = {
     navCompare: 'Харьцуулах',
     navPricing: 'Үнэ',
     navNews: 'Мэдээ',
+    navFaq: 'Түгээмэл асуултууд',
+    navContact: 'Холбоо барих',
     navUberization: 'Убержилт',
   },
   ro: {
@@ -507,6 +553,8 @@ export const CHROME = {
     navCompare: 'Comparație',
     navPricing: 'Prețuri',
     navNews: 'Noutăți',
+    navFaq: 'Întrebări frecvente',
+    navContact: 'Contact',
     navUberization: 'Uberizare',
   },
   th: {
@@ -527,6 +575,8 @@ export const CHROME = {
     navCompare: 'เปรียบเทียบ',
     navPricing: 'ราคา',
     navNews: 'ข่าว',
+    navFaq: 'คำถามที่พบบ่อย',
+    navContact: 'ติดต่อ',
     navUberization: 'Uberization',
   },
   vi: {
@@ -547,6 +597,8 @@ export const CHROME = {
     navCompare: 'So sánh',
     navPricing: 'Bảng giá',
     navNews: 'Tin tức',
+    navFaq: 'Câu hỏi thường gặp',
+    navContact: 'Liên hệ',
     navUberization: 'Uber hóa',
   },
   'es-mx': {
@@ -567,6 +619,8 @@ export const CHROME = {
     navCompare: 'Comparar',
     navPricing: 'Precios',
     navNews: 'Novedades',
+    navFaq: 'Preguntas frecuentes',
+    navContact: 'Contacto',
     navUberization: 'Uberización',
   },
 };

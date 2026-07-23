@@ -518,18 +518,14 @@ function seoBlock(base, slug, lang, T, pb) {
 // picks the localized whitepaper when one exists.
 function headerLinks(code) {
   const home = HOME_LANGS.has(code) ? `/${code}/` : '/';
-  const uber = HOME_LANGS.has(code)
-    ? `/uberization-of-construction/${code}`
-    : '/uberization-of-construction/';
   return {
     home,
-    tour: `${home}#tour`,
     compare: `${home}#compare`,
     pricing: `${home}#pricing`,
-    cases: '/cases',
+    faq: `${home}#faq`,
     docs: '/docs',
     news: '/news',
-    uber,
+    contact: `${home}#contact`,
     demo: '/demo',
     download: '/download',
     github: 'https://github.com/datadrivenconstruction/openconstructionerp',
@@ -550,13 +546,12 @@ function buildHeader(lang, T, ch, slug) {
   // the chosen language (/<lang>/cases/<slug>, English at /cases/<slug>).
   const langSwitch = '<!--oce:lang-switch-->' + buildSwitcher(code, detailHref(slug)) + '<!--/oce:lang-switch-->';
   const L = {
-    tour: escText(ch ? ch.navTour : 'Tour'),
     compare: escText(ch ? ch.navCompare : 'Compare'),
-    cases: escText(isEn ? 'Cases' : T('nav.cases', 'Cases')),
     pricing: escText(ch ? ch.navPricing : 'Pricing'),
+    faq: escText(ch ? ch.navFaq : 'FAQ'),
     docs: escText(isEn ? 'Docs' : T('nav.docs', 'Docs')),
     news: escText(ch ? ch.navNews : 'News'),
-    uber: escText(ch ? ch.navUberization : 'Uberization'),
+    contact: escText(ch ? ch.navContact : 'Contact'),
     demo: escText(pill.demo || 'Demo'),
     download: escText(pill.download || 'Download'),
   };
@@ -568,7 +563,7 @@ function buildHeader(lang, T, ch, slug) {
       <div class="nav-left">
         <a class="brand" href="${H.home}">
           <span class="brand-name">
-            <span class="brand-seg brand-seg-1">Open</span><span class="brand-seg brand-seg-2">Construction</span><span class="brand-seg brand-seg-3">ERP</span>
+            <span class="brand-seg brand-seg-1">Open</span><span class="brand-seg brand-seg-2">Construction</span><span class="brand-seg brand-seg-3">ERP</span><span class="brand-count" title="modules in the open core">+171</span>
           </span>
         </a>
 
@@ -584,13 +579,12 @@ function buildHeader(lang, T, ch, slug) {
       </div>
 
       <div class="nav-links nav-links-slot">
-        <a href="${H.tour}">${L.tour}</a>
         <a href="${H.compare}">${L.compare}</a>
-        <a href="${H.cases}">${L.cases}</a>
         <a href="${H.pricing}">${L.pricing}</a>
+        <a href="${H.faq}">${L.faq}</a>
         <a href="${H.docs}">${L.docs}</a>
         <a href="${H.news}">${L.news}</a>
-        <a class="nav-wp" href="${H.uber}" style="display:inline-flex;align-items:center;gap:5px"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;opacity:.8"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 13h6M9 17h4"/></svg>${L.uber}</a>
+        <a href="${H.contact}">${L.contact}</a>
       </div>
 
       <div class="nav-right">
@@ -602,6 +596,9 @@ function buildHeader(lang, T, ch, slug) {
         <a class="github-pill" href="${H.github}" target="_blank" rel="noopener" aria-label="Star us on GitHub">
           <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M12 0.5C5.65 0.5 0.5 5.65 0.5 12a11.5 11.5 0 0 0 7.86 10.92c.58.1.79-.25.79-.56v-2c-3.2.7-3.87-1.36-3.87-1.36-.52-1.32-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.7 0-1.26.45-2.29 1.18-3.1-.12-.29-.51-1.47.11-3.05 0 0 .97-.31 3.18 1.18A11 11 0 0 1 12 6.8a11 11 0 0 1 2.9.39c2.2-1.5 3.17-1.18 3.17-1.18.63 1.58.24 2.76.12 3.05.74.81 1.18 1.84 1.18 3.1 0 4.43-2.7 5.4-5.27 5.69.42.36.78 1.07.78 2.15v3.19c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
           <span>GitHub</span>
+          <span class="gh-star-sep" aria-hidden="true"></span>
+          <svg class="gh-star-icon" viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M12 2l2.95 6.36 6.92.65-5.23 4.74 1.55 6.85L12 17.27 5.81 20.6l1.55-6.85L2.13 9.01l6.92-.65L12 2z"/></svg>
+          <span class="gh-star-count" data-gh-stars aria-label="GitHub stars"></span>
         </a>
 
         <a class="install-pill" href="${H.download}">
@@ -631,13 +628,12 @@ function buildHeader(lang, T, ch, slug) {
   </nav>
   <div class="mobile-menu" id="mobile-menu" role="dialog" aria-label="Mobile navigation" aria-modal="true">
     <a href="${H.demo}"><span>${L.demo}</span>${arrow}</a>
-    <a href="${H.tour}"><span>${L.tour}</span>${arrow}</a>
     <a href="${H.compare}"><span>${L.compare}</span>${arrow}</a>
-    <a href="${H.cases}"><span>${L.cases}</span>${arrow}</a>
     <a href="${H.pricing}"><span>${L.pricing}</span>${arrow}</a>
+    <a href="${H.faq}"><span>${L.faq}</span>${arrow}</a>
     <a href="${H.docs}"><span>${L.docs}</span>${arrow}</a>
     <a href="${H.news}"><span>${L.news}</span>${arrow}</a>
-    <a href="${H.uber}"><span>${L.uber}</span>${arrow}</a>
+    <a href="${H.contact}"><span>${L.contact}</span>${arrow}</a>
     <div class="cta-row">
       <a class="btn btn-primary" href="${H.download}"><span>${L.download}</span></a>
     </div>
@@ -652,7 +648,12 @@ function buildHeader(lang, T, ch, slug) {
 // them cleanly.
 const NAV_CSS_BLOCK = `<style id="oce-cases-nav-css">\n${NAV_CSS}\n</style>`;
 const NAV_THEME_INIT = `<!--oce:nav-theme-init--><script>(function(){try{var t=localStorage.getItem('oce-theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t;}catch(e){}})();</script><!--/oce:nav-theme-init-->`;
-const NAV_JS = `<!--oce:nav-js--><script>(function(){var root=document.documentElement,body=document.body;var tt=document.getElementById('theme-toggle');if(tt)tt.addEventListener('click',function(){var d=root.dataset.theme==='dark'?'light':'dark';root.dataset.theme=d;try{localStorage.setItem('oce-theme',d);}catch(e){}});var burger=document.getElementById('nav-burger'),menu=document.getElementById('mobile-menu');function setOpen(o){body.classList.toggle('nav-open',o);if(burger)burger.setAttribute('aria-expanded',o?'true':'false');body.style.overflow=o?'hidden':'';}if(burger)burger.addEventListener('click',function(){setOpen(!body.classList.contains('nav-open'));});if(menu)menu.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){setOpen(false);});});document.addEventListener('keydown',function(e){if(e.key==='Escape')setOpen(false);});})();</script><!--/oce:nav-js-->`;
+// Live GitHub star count for the nav pill, byte-identical logic to the
+// homepage's own inline script (24h sessionStorage cache, anonymous API,
+// fails silently). Riding along in the same one-time NAV_JS block so it is
+// stripped/re-injected by the same idempotent markers.
+const GH_STARS_JS = `var el=document.querySelector('[data-gh-stars]');if(el){var KEY='oce_gh_stars_v1',TTL=24*60*60*1000;var fmt=function(n){n=Number(n)||0;return n>=1000?(n/1000).toFixed(1).replace(/\\.0$/,'')+'k':String(n);};try{var cached=JSON.parse(sessionStorage.getItem(KEY)||'null');if(cached&&(Date.now()-cached.t)<TTL&&cached.n)el.textContent=fmt(cached.n);}catch(e){}fetch('https://api.github.com/repos/datadrivenconstruction/openconstructionerp').then(function(r){return r.ok?r.json():null;}).then(function(j){if(!j||typeof j.stargazers_count!=='number')return;el.textContent=fmt(j.stargazers_count);try{sessionStorage.setItem(KEY,JSON.stringify({n:j.stargazers_count,t:Date.now()}));}catch(e){}}).catch(function(){});}`;
+const NAV_JS = `<!--oce:nav-js--><script>(function(){var root=document.documentElement,body=document.body;var tt=document.getElementById('theme-toggle');if(tt)tt.addEventListener('click',function(){var d=root.dataset.theme==='dark'?'light':'dark';root.dataset.theme=d;try{localStorage.setItem('oce-theme',d);}catch(e){}});var burger=document.getElementById('nav-burger'),menu=document.getElementById('mobile-menu');function setOpen(o){body.classList.toggle('nav-open',o);if(burger)burger.setAttribute('aria-expanded',o?'true':'false');body.style.overflow=o?'hidden':'';}if(burger)burger.addEventListener('click',function(){setOpen(!body.classList.contains('nav-open'));});if(menu)menu.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){setOpen(false);});});document.addEventListener('keydown',function(e){if(e.key==='Escape')setOpen(false);});${GH_STARS_JS}})();</script><!--/oce:nav-js-->`;
 const SWITCHER_JS_BLOCK = `<!--oce:lang-switch-js--><script>${SWITCHER_JS}</script><!--/oce:lang-switch-js-->`;
 
 function injectNavAssets(html) {
