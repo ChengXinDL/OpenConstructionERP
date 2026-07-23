@@ -770,6 +770,9 @@ def register_notification_subscribers() -> None:
     from app.modules.notifications._collaboration_subscribers import (
         register_collaboration_notification_subscribers,
     )
+    from app.modules.notifications._file_approvals_subscribers import (
+        register_file_approvals_notification_subscribers,
+    )
     from app.modules.notifications._wave1_subscribers import (
         register_wave1_notification_subscribers,
     )
@@ -788,3 +791,4 @@ def register_notification_subscribers() -> None:
     register_wave4_notification_subscribers()
     register_wave5_notification_subscribers()
     register_collaboration_notification_subscribers()
+    register_file_approvals_notification_subscribers()

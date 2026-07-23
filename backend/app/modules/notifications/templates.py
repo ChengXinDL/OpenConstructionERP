@@ -131,6 +131,13 @@ _TEMPLATES: dict[str, str] = {
     "notifications.approval.escalated.body": "Step {step_ordinal} on this {target_kind} escalated to you (level {level}).",
     "notifications.approval.reassigned.title": "Approval reassigned to you",
     "notifications.approval.reassigned.body": "Step {step_ordinal} on this {target_kind} is now yours to decide.",
+    # ── Document approvals (file_approvals engine) ───────────────────
+    "notifications.file_approval.needs_approver.title": "A document needs your approval",
+    "notifications.file_approval.needs_approver.body": "A {file_kind} is waiting for your approval.",
+    "notifications.file_approval.approved.title": "Your document was approved",
+    "notifications.file_approval.approved.body": "Your {file_kind} passed every approval step.",
+    "notifications.file_approval.rejected.title": "Your document was returned",
+    "notifications.file_approval.rejected.body": "Your {file_kind} was rejected and needs changes.",
     # ── Portal (client & partner portal) ─────────────────────────────
     "notifications.portal.user_invited.title": "Portal user invited",
     "notifications.portal.user_invited.body": "{portal_user_email} invited as {portal_role}.",
@@ -182,6 +189,10 @@ _TYPE_TO_ICON: dict[str, str] = {
     "approval_overdue": "warning",
     "approval_escalated": "error",
     "approval_reassigned": "info",
+    # Document approvals (file_approvals) - needs action / passed / returned
+    "approval_needed": "warning",
+    "approval_decided": "success",
+    "approval_rejected": "error",
 }
 
 

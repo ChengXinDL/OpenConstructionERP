@@ -181,7 +181,9 @@ class ApprovalService:
                 )
             )
         await self.session.flush()
-        return await self.get_workflow(workflow.id)
+        result = await self.get_workflow(workflow.id)
+        self._notify_submitted(result)
+        return result
 
     # ── Decide ─────────────────────────────────────────────────────────
 
@@ -264,7 +266,9 @@ class ApprovalService:
         # stays ``in_review`` and the next approver in the chain can act.
 
         await self.session.flush()
-        return await self.get_workflow(workflow.id)
+        result = await self.get_workflow(workflow.id)
+        self._notify_decided(result, decision_data.decision, actor_uuid, decision_data.decision_note)
+        return result
 
     async def withdraw(self, workflow_id: uuid.UUID) -> FileApprovalWorkflow:
         """Submitter (or admin) abandons the workflow."""
@@ -275,6 +279,81 @@ class ApprovalService:
         workflow.final_decision_at = datetime.now(UTC)
         await self.session.flush()
         return await self.get_workflow(workflow.id)
+
+    # ── Notifications (detached domain events) ──────────────────────────
+    #
+    # The generic approval engine (approval_routes) already rides the
+    # notification loop; this document-approval engine did not emit anything,
+    # so assigning a step or deciding fired zero notifications. We publish
+    # detached events here and map them to in-app notifications in
+    # ``notifications/_file_approvals_subscribers.py``. Emission is best-effort
+    # and must never break the submit / decide it rides on.
+
+    def _emit(self, name: str, payload: dict) -> None:
+        """Fire a detached domain event; never let it break the mutation."""
+        try:
+            from app.core.events import event_bus
+
+            event_bus.publish_detached(name, payload)
+        except Exception:  # noqa: BLE001 - notifications must never fail a decision
+            logger.debug("file_approvals: emit %s failed", name, exc_info=True)
+
+    @staticmethod
+    def _base_payload(wf: FileApprovalWorkflow) -> dict:
+        return {
+            "workflow_id": str(wf.id),
+            "project_id": str(wf.project_id) if wf.project_id else None,
+            "file_kind": wf.file_kind,
+            "file_id": str(wf.file_id) if wf.file_id else None,
+            "submitter_id": str(wf.submitted_by_id) if wf.submitted_by_id else None,
+        }
+
+    def _notify_submitted(self, wf: FileApprovalWorkflow) -> None:
+        """Ball is with the first approver the moment a workflow is submitted."""
+        steps = sorted(wf.steps, key=lambda s: s.sort_order)
+        first = steps[0] if steps else None
+        if first is None:
+            return
+        self._emit(
+            "file_approval.submitted",
+            {
+                **self._base_payload(wf),
+                "approver_id": str(first.approver_id) if first.approver_id else None,
+                "role_label": first.role_label,
+                "step_ordinal": first.sort_order + 1,
+            },
+        )
+
+    def _notify_decided(
+        self,
+        wf: FileApprovalWorkflow,
+        decision: str,
+        actor_uuid: uuid.UUID | None,
+        note: str | None,
+    ) -> None:
+        """Route the outcome: submitter on final approve/reject, next approver otherwise."""
+        base = {**self._base_payload(wf), "decided_by": str(actor_uuid) if actor_uuid else None}
+        if wf.status == "rejected":
+            self._emit("file_approval.rejected", {**base, "note": note})
+        elif wf.status == "approved":
+            self._emit("file_approval.approved", base)
+        elif decision == "approved" and wf.status == "in_review":
+            # A middle step approved: the ball moves to the next pending approver.
+            pending = sorted(
+                (s for s in wf.steps if s.decision == "pending"),
+                key=lambda s: s.sort_order,
+            )
+            nxt = pending[0] if pending else None
+            if nxt is not None:
+                self._emit(
+                    "file_approval.step_advanced",
+                    {
+                        **base,
+                        "approver_id": str(nxt.approver_id) if nxt.approver_id else None,
+                        "role_label": nxt.role_label,
+                        "step_ordinal": nxt.sort_order + 1,
+                    },
+                )
 
     # ── Stamp templates ────────────────────────────────────────────────
 
