@@ -837,9 +837,27 @@ body{ padding-top: 64px; }
    module. Make the interactivity obvious: pointer cursor, a small lift and
    a stronger face on hover/focus, and a visible keyboard focus ring. */
 a.hc-cell{ text-decoration: none; color: inherit; cursor: pointer; }
-a.hc-cell .hc-face{ transition: transform .14s ease, filter .14s ease; }
+a.hc-cell .hc-face{ transition: transform .16s cubic-bezier(.18,.72,.26,1), filter .16s ease; transform-origin: center center; }
+/* Hover/focus grows the hex ~50% from its centre; the whole face scales
+   uniformly so the icon and label keep fitting neatly inside the hex. The
+   hovered cell is lifted above its neighbours so it never gets clipped. */
+a.hc-cell:hover,
+a.hc-cell:focus-visible{ z-index: 6; }
 a.hc-cell:hover .hc-face,
-a.hc-cell:focus-visible .hc-face{ transform: scale(1.06); filter: brightness(1.05); }
+a.hc-cell:focus-visible .hc-face{ transform: scale(1.9); filter: brightness(1.06); }
+/* At the enlarged hover size there is room for the full label, so drop the
+   2-line clamp and let it breathe (up to 3 lines, a touch more line-height)
+   and give the icon a little more separation - the text then sits neatly
+   centred in the hex instead of being cramped or truncated. */
+a.hc-cell:hover .hc-title,
+a.hc-cell:focus-visible .hc-title{
+  -webkit-line-clamp: 3;
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  max-width: 100%;
+}
+a.hc-cell:hover .hc-ico,
+a.hc-cell:focus-visible .hc-ico{ margin-bottom: 3px; }
 a.hc-cell:focus-visible{ outline: none; }
 a.hc-cell:focus-visible .hc-face{ box-shadow: 0 0 0 2px var(--card, #fff), 0 0 0 4px var(--tint, var(--accent)); }
 
@@ -897,6 +915,13 @@ a.hc-cell:focus-visible .hc-face{ box-shadow: 0 0 0 2px var(--card, #fff), 0 0 0
 }
 
 /* ---- (gallery) hero: balanced blocks + decorative honeycomb ----- */
+/* The page canvas matches the sticky nav and the toolbar (both sit on the
+   --bg-0 surface). The hero has no panel of its own, so on a pure-white body
+   it used to read as a white band wedged between the two grey bars; tinting
+   the canvas to --bg-0 lets the hero blend cleanly into the sections above
+   and below while the white cards below still pop against it. */
+body{ background: var(--bg-0); }
+
 /* The hero reads as evenly balanced, equal-height blocks - eyebrow +
    headline, description, stats - with a decorative module-hex motif on the
    right. No panel background or border: it sits on the plain page canvas and
@@ -907,9 +932,28 @@ a.hc-cell:focus-visible .hc-face{ box-shadow: 0 0 0 2px var(--card, #fff), 0 0 0
   display: flex;
   align-items: stretch;   /* blocks share one height and line up evenly */
   gap: 40px;
+  padding: 32px 0 24px;
+  position: relative;
+  z-index: 0;
   background: transparent;
   border: 0;
   box-shadow: none;
+}
+/* .hero sits inside the width-constrained .wrap, so its fill can't reach the
+   page edges on its own. This ::before is a full-bleed layer behind the
+   content: centred on the viewport (not on .wrap), stretched to 100vw, so it
+   reads continuous with the full-width header/toolbar bars above and below. */
+.hero::before{
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  background: color-mix(in oklab, var(--bg-0) 90%, transparent);
+  z-index: -1;
+  pointer-events: none;
 }
 .hero > .hero-lead,
 .hero > .hero-lede,
@@ -929,7 +973,7 @@ a.hc-cell:focus-visible .hc-face{ box-shadow: 0 0 0 2px var(--card, #fff), 0 0 0
   max-width: 14ch;
 }
 .hero .eyebrow{ margin-bottom: 14px; }
-.hero .lede{ margin: 0; max-width: none; }
+.hero .lede{ margin: 0; max-width: none; font-size: clamp(0.816rem, 1.2vw, 0.944rem); line-height: 1.5; }
 /* Stats as a tidy vertical list rather than a wrapping row. */
 .hero .hero-meta{ margin-top: 0; gap: 12px; row-gap: 12px; flex-wrap: nowrap; }
 
@@ -1022,13 +1066,13 @@ a.hc-cell:focus-visible .hc-face{ box-shadow: 0 0 0 2px var(--card, #fff), 0 0 0
       </div>
 
       <div class="nav-links nav-links-slot">
-        <a href="/#tour">Tour</a>
-        <a href="/#compare">Compare</a>
+        <a href="/#tour">Rundvisning</a>
+        <a href="/#compare">Sammenlign</a>
         <a href="/da/cases" class="is-active" aria-current="page">Cases</a>
-        <a href="/#pricing">Pricing</a>
+        <a href="/#pricing">Priser</a>
         <a href="/docs">Docs</a>
-        <a href="/news">News</a>
-        <a class="nav-wp" href="/uberization-of-construction/" style="display:inline-flex;align-items:center;gap:5px"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;opacity:.8"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 13h6M9 17h4"/></svg>Uberization</a>
+        <a href="/news">Nyheder</a>
+        <a class="nav-wp" href="/uberization-of-construction/" style="display:inline-flex;align-items:center;gap:5px"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;opacity:.8"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 13h6M9 17h4"/></svg>Uberisering</a>
       </div>
 
       <div class="nav-right">
@@ -1070,13 +1114,13 @@ a.hc-cell:focus-visible .hc-face{ box-shadow: 0 0 0 2px var(--card, #fff), 0 0 0
   </nav>
   <div class="mobile-menu" id="mobile-menu" role="dialog" aria-label="Mobile navigation" aria-modal="true">
     <a href="/demo"><span>Demo</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
-    <a href="/#tour"><span>Tour</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
-    <a href="/#compare"><span>Compare</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+    <a href="/#tour"><span>Rundvisning</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+    <a href="/#compare"><span>Sammenlign</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
     <a href="/cases"><span>Cases</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
-    <a href="/#pricing"><span>Pricing</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+    <a href="/#pricing"><span>Priser</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
     <a href="/docs"><span>Docs</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
-    <a href="/news"><span>News</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
-    <a href="/uberization-of-construction/"><span>Uberization</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+    <a href="/news"><span>Nyheder</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+    <a href="/uberization-of-construction/"><span>Uberisering</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
     <div class="cta-row">
       <a class="btn btn-primary" href="/download"><span>Download</span></a>
     </div>

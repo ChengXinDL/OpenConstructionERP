@@ -39,6 +39,7 @@ import {
   SWITCHER_JS,
   SWITCH_LANGS,
 } from './cases-switcher.mjs';
+import { CHROME, NAV_PILL } from './cases-chrome.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SITE = join(here, '..');
@@ -170,6 +171,40 @@ function buildHeroHive() {
   }).join('');
   return `<aside class="hero-hive" aria-hidden="true" style="width:${cw.toFixed(0)}px;height:${chh.toFixed(0)}px;` +
     `--hc-w:${w}px;--hc-h:${h.toFixed(1)}px">${parts}</aside>`;
+}
+
+/* ---- localize the nav chrome text on a snapshot ---------------------- */
+// The gallery header is lifted verbatim (in English) from the detail-page
+// template, so every /<lang>/cases snapshot used to keep the English nav
+// labels no matter which language it was for - the switcher correctly
+// navigated to /<lang>/cases, but the header itself never actually read
+// as that language. Detail pages already solve this with the CHROME /
+// NAV_PILL tables (see cases-chrome.mjs); reuse the exact same tables here
+// so the gallery header matches the language a visitor lands on. "Cases"
+// and "Docs" are left in English: those two reuse the app's own nav.cases
+// / nav.docs locale keys on detail pages, which this lightweight generator
+// does not load (no bundler dependency here by design).
+function localizeNavText(pageHtml, code) {
+  const ch = CHROME[code];
+  const pill = NAV_PILL[code];
+  if (!ch && !pill) return pageHtml;
+  let out = pageHtml;
+  const swap = (oldStr, newStr) => {
+    if (!newStr || newStr === oldStr) return;
+    out = out.split(oldStr).join(newStr);
+  };
+  if (ch) {
+    swap('>Tour<', `>${escHtml(ch.navTour)}<`);
+    swap('>Compare<', `>${escHtml(ch.navCompare)}<`);
+    swap('>Pricing<', `>${escHtml(ch.navPricing)}<`);
+    swap('>News<', `>${escHtml(ch.navNews)}<`);
+    swap('>Uberization<', `>${escHtml(ch.navUberization)}<`);
+  }
+  if (pill) {
+    swap('<span>Demo</span>', `<span>${escHtml(pill.demo)}</span>`);
+    swap('<span>Download</span>', `<span>${escHtml(pill.download)}</span>`);
+  }
+  return out;
 }
 
 /* ==================================================================== */
@@ -311,6 +346,9 @@ function main() {
     );
     // The active "Cases" nav link points at this language's gallery.
     lp = lp.replace('<a href="/cases" class="is-active"', `<a href="/${l.code}/cases" class="is-active"`);
+    // Nav labels (Tour/Compare/Pricing/News/Uberization/Demo/Download) read
+    // in this language too, reusing the same tables the detail pages use.
+    lp = localizeNavText(lp, l.code);
     const outDir = join(SITE, l.code, 'cases');
     mkdirSync(outDir, { recursive: true });
     writeFileSync(join(outDir, 'index.html'), lp);

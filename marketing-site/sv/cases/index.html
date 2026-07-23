@@ -837,9 +837,27 @@ body{ padding-top: 64px; }
    module. Make the interactivity obvious: pointer cursor, a small lift and
    a stronger face on hover/focus, and a visible keyboard focus ring. */
 a.hc-cell{ text-decoration: none; color: inherit; cursor: pointer; }
-a.hc-cell .hc-face{ transition: transform .14s ease, filter .14s ease; }
+a.hc-cell .hc-face{ transition: transform .16s cubic-bezier(.18,.72,.26,1), filter .16s ease; transform-origin: center center; }
+/* Hover/focus grows the hex ~50% from its centre; the whole face scales
+   uniformly so the icon and label keep fitting neatly inside the hex. The
+   hovered cell is lifted above its neighbours so it never gets clipped. */
+a.hc-cell:hover,
+a.hc-cell:focus-visible{ z-index: 6; }
 a.hc-cell:hover .hc-face,
-a.hc-cell:focus-visible .hc-face{ transform: scale(1.06); filter: brightness(1.05); }
+a.hc-cell:focus-visible .hc-face{ transform: scale(1.9); filter: brightness(1.06); }
+/* At the enlarged hover size there is room for the full label, so drop the
+   2-line clamp and let it breathe (up to 3 lines, a touch more line-height)
+   and give the icon a little more separation - the text then sits neatly
+   centred in the hex instead of being cramped or truncated. */
+a.hc-cell:hover .hc-title,
+a.hc-cell:focus-visible .hc-title{
+  -webkit-line-clamp: 3;
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  max-width: 100%;
+}
+a.hc-cell:hover .hc-ico,
+a.hc-cell:focus-visible .hc-ico{ margin-bottom: 3px; }
 a.hc-cell:focus-visible{ outline: none; }
 a.hc-cell:focus-visible .hc-face{ box-shadow: 0 0 0 2px var(--card, #fff), 0 0 0 4px var(--tint, var(--accent)); }
 
@@ -897,6 +915,13 @@ a.hc-cell:focus-visible .hc-face{ box-shadow: 0 0 0 2px var(--card, #fff), 0 0 0
 }
 
 /* ---- (gallery) hero: balanced blocks + decorative honeycomb ----- */
+/* The page canvas matches the sticky nav and the toolbar (both sit on the
+   --bg-0 surface). The hero has no panel of its own, so on a pure-white body
+   it used to read as a white band wedged between the two grey bars; tinting
+   the canvas to --bg-0 lets the hero blend cleanly into the sections above
+   and below while the white cards below still pop against it. */
+body{ background: var(--bg-0); }
+
 /* The hero reads as evenly balanced, equal-height blocks - eyebrow +
    headline, description, stats - with a decorative module-hex motif on the
    right. No panel background or border: it sits on the plain page canvas and
@@ -907,9 +932,28 @@ a.hc-cell:focus-visible .hc-face{ box-shadow: 0 0 0 2px var(--card, #fff), 0 0 0
   display: flex;
   align-items: stretch;   /* blocks share one height and line up evenly */
   gap: 40px;
+  padding: 32px 0 24px;
+  position: relative;
+  z-index: 0;
   background: transparent;
   border: 0;
   box-shadow: none;
+}
+/* .hero sits inside the width-constrained .wrap, so its fill can't reach the
+   page edges on its own. This ::before is a full-bleed layer behind the
+   content: centred on the viewport (not on .wrap), stretched to 100vw, so it
+   reads continuous with the full-width header/toolbar bars above and below. */
+.hero::before{
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 100vw;
+  transform: translateX(-50%);
+  background: color-mix(in oklab, var(--bg-0) 90%, transparent);
+  z-index: -1;
+  pointer-events: none;
 }
 .hero > .hero-lead,
 .hero > .hero-lede,
@@ -929,7 +973,7 @@ a.hc-cell:focus-visible .hc-face{ box-shadow: 0 0 0 2px var(--card, #fff), 0 0 0
   max-width: 14ch;
 }
 .hero .eyebrow{ margin-bottom: 14px; }
-.hero .lede{ margin: 0; max-width: none; }
+.hero .lede{ margin: 0; max-width: none; font-size: clamp(0.816rem, 1.2vw, 0.944rem); line-height: 1.5; }
 /* Stats as a tidy vertical list rather than a wrapping row. */
 .hero .hero-meta{ margin-top: 0; gap: 12px; row-gap: 12px; flex-wrap: nowrap; }
 
@@ -1022,13 +1066,13 @@ a.hc-cell:focus-visible .hc-face{ box-shadow: 0 0 0 2px var(--card, #fff), 0 0 0
       </div>
 
       <div class="nav-links nav-links-slot">
-        <a href="/#tour">Tour</a>
-        <a href="/#compare">Compare</a>
+        <a href="/#tour">Rundtur</a>
+        <a href="/#compare">Jämför</a>
         <a href="/sv/cases" class="is-active" aria-current="page">Cases</a>
-        <a href="/#pricing">Pricing</a>
+        <a href="/#pricing">Priser</a>
         <a href="/docs">Docs</a>
-        <a href="/news">News</a>
-        <a class="nav-wp" href="/uberization-of-construction/" style="display:inline-flex;align-items:center;gap:5px"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;opacity:.8"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 13h6M9 17h4"/></svg>Uberization</a>
+        <a href="/news">Nyheter</a>
+        <a class="nav-wp" href="/uberization-of-construction/" style="display:inline-flex;align-items:center;gap:5px"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;opacity:.8"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/><path d="M9 13h6M9 17h4"/></svg>Uberisering</a>
       </div>
 
       <div class="nav-right">
@@ -1048,7 +1092,7 @@ a.hc-cell:focus-visible .hc-face{ box-shadow: 0 0 0 2px var(--card, #fff), 0 0 0
             <polyline points="7 10 12 15 17 10"></polyline>
             <line x1="12" y1="15" x2="12" y2="3"></line>
           </svg>
-          <span>Download</span>
+          <span>Ladda ner</span>
         </a>
 
         
@@ -1070,15 +1114,15 @@ a.hc-cell:focus-visible .hc-face{ box-shadow: 0 0 0 2px var(--card, #fff), 0 0 0
   </nav>
   <div class="mobile-menu" id="mobile-menu" role="dialog" aria-label="Mobile navigation" aria-modal="true">
     <a href="/demo"><span>Demo</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
-    <a href="/#tour"><span>Tour</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
-    <a href="/#compare"><span>Compare</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+    <a href="/#tour"><span>Rundtur</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+    <a href="/#compare"><span>Jämför</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
     <a href="/cases"><span>Cases</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
-    <a href="/#pricing"><span>Pricing</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+    <a href="/#pricing"><span>Priser</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
     <a href="/docs"><span>Docs</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
-    <a href="/news"><span>News</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
-    <a href="/uberization-of-construction/"><span>Uberization</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+    <a href="/news"><span>Nyheter</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+    <a href="/uberization-of-construction/"><span>Uberisering</span><svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
     <div class="cta-row">
-      <a class="btn btn-primary" href="/download"><span>Download</span></a>
+      <a class="btn btn-primary" href="/download"><span>Ladda ner</span></a>
     </div>
   </div>
   </header><!--/oce:gallery-nav--><main class="wrap"><section class="hero"><!--oce:hero--><div class="hero-lead"><span class="eyebrow">Guided playbooks</span><h1 class="title">127 construction playbooks, <span class="it">ready to run</span>.</h1></div><div class="hero-lede"><p class="lede">Real, end-to-end workflows a construction team actually runs - estimating, tendering, BIM, site, commercial and handover. Each one is a worked example you can open in the live demo and follow step by step, with what to do and why at every stage.</p></div><div class="hero-meta"><span><b>127</b> playbooks</span><span><b>8</b> disciplines</span><span><b>450</b> guided steps</span><span>Open any one in the <b>live demo</b></span></div><aside class="hero-hive" aria-hidden="true" style="width:256px;height:277px;--hc-w:64px;--hc-h:55.4px"><span class="hc-cell" style="left:96.0px;top:110.8px;--tint:#0284c7;--dur:6.0s;--del:0.00s" title="BOQ"><span class="hc-face"><span class="hc-ico" aria-hidden="true">☰</span><span class="hc-title">BOQ</span></span></span><span class="hc-cell" style="left:48.0px;top:138.6px;--tint:#0284c7;--dur:7.2s;--del:0.35s" title="Takeoff"><span class="hc-face"><span class="hc-ico" aria-hidden="true">✶</span><span class="hc-title">Takeoff</span></span></span><span class="hc-cell" style="left:96.0px;top:166.3px;--tint:#0284c7;--dur:8.4s;--del:0.70s" title="Costs"><span class="hc-face"><span class="hc-ico" aria-hidden="true">€</span><span class="hc-title">Costs</span></span></span><span class="hc-cell" style="left:144.0px;top:138.6px;--tint:#0284c7;--dur:6.6s;--del:1.05s" title="Schedule"><span class="hc-face"><span class="hc-ico" aria-hidden="true">◷</span><span class="hc-title">Schedule</span></span></span><span class="hc-cell" style="left:144.0px;top:83.1px;--tint:#0284c7;--dur:7.8s;--del:1.40s" title="Reports"><span class="hc-face"><span class="hc-ico" aria-hidden="true">▤</span><span class="hc-title">Reports</span></span></span><span class="hc-cell" style="left:96.0px;top:55.4px;--tint:#0284c7;--dur:6.0s;--del:1.75s" title="Projects"><span class="hc-face"><span class="hc-ico" aria-hidden="true">◫</span><span class="hc-title">Projects</span></span></span><span class="hc-ghost" style="left:48.0px;top:83.1px;--tint:#0284c7;--dur:7.2s;--del:0.00s" title="Tendering"><span class="hc-gface"><span class="hc-gico" aria-hidden="true">⎙</span></span></span><span class="hc-ghost" style="left:0.0px;top:166.3px;--tint:#0284c7;--dur:8.4s;--del:0.35s" title="Procurement"><span class="hc-gface"><span class="hc-gico" aria-hidden="true">⛟</span></span></span><span class="hc-ghost" style="left:48.0px;top:194.0px;--tint:#0284c7;--dur:6.6s;--del:0.70s" title="Handover"><span class="hc-gface"><span class="hc-gico" aria-hidden="true">⚑</span></span></span><span class="hc-ghost" style="left:96.0px;top:221.7px;--tint:#0284c7;--dur:7.8s;--del:1.05s" title="Portal"><span class="hc-gface"><span class="hc-gico" aria-hidden="true">◧</span></span></span><span class="hc-ghost" style="left:144.0px;top:194.0px;--tint:#0284c7;--dur:6.0s;--del:1.40s" title="Validation"><span class="hc-gface"><span class="hc-gico" aria-hidden="true">✓</span></span></span><span class="hc-ghost" style="left:192.0px;top:166.3px;--tint:#0284c7;--dur:7.2s;--del:1.75s" title="BIM Viewer"><span class="hc-gface"><span class="hc-gico" aria-hidden="true">◈</span></span></span><span class="hc-ghost" style="left:192.0px;top:110.8px;--tint:#0284c7;--dur:8.4s;--del:0.00s" title="Assemblies"><span class="hc-gface"><span class="hc-gico" aria-hidden="true">❏</span></span></span><span class="hc-ghost" style="left:192.0px;top:55.4px;--tint:#0284c7;--dur:6.6s;--del:0.35s" title="Daily Diary"><span class="hc-gface"><span class="hc-gico" aria-hidden="true">✎</span></span></span><span class="hc-ghost" style="left:144.0px;top:27.7px;--tint:#0284c7;--dur:7.8s;--del:0.70s" title="RFIs"><span class="hc-gface"><span class="hc-gico" aria-hidden="true">?</span></span></span><span class="hc-ghost" style="left:96.0px;top:0.0px;--tint:#0284c7;--dur:6.0s;--del:1.05s" title="Punch List"><span class="hc-gface"><span class="hc-gico" aria-hidden="true">☑</span></span></span><span class="hc-ghost" style="left:48.0px;top:27.7px;--tint:#0284c7;--dur:7.2s;--del:1.40s" title="Files"><span class="hc-gface"><span class="hc-gico" aria-hidden="true">▦</span></span></span><span class="hc-ghost" style="left:0.0px;top:55.4px;--tint:#0284c7;--dur:8.4s;--del:1.75s" title="Resource Summary"><span class="hc-gface"><span class="hc-gico" aria-hidden="true">▦</span></span></span><span class="hc-ghost" style="left:0.0px;top:110.8px;--tint:#0284c7;--dur:6.6s;--del:0.00s" title="Production Norms"><span class="hc-gface"><span class="hc-gico" aria-hidden="true">∑</span></span></span></aside><!--/oce:hero--></section></main><div class="toolbar"><div class="wrap"><div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><input id="q" type="search" placeholder="Search playbooks - try “variation”, “clash”, “retention”…" autocomplete="off"/></div><div class="chips" id="chips"><button class="chip all" data-cat="all" aria-pressed="true">All<span class="ct">127</span></button><button class="chip" data-cat="estimating" aria-pressed="false" style="--c:#059669"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calculator" aria-hidden="true"><rect width="16" height="20" x="4" y="2" rx="2"></rect><line x1="8" x2="16" y1="6" y2="6"></line><line x1="16" x2="16" y1="14" y2="18"></line><path d="M16 10h.01"></path><path d="M12 10h.01"></path><path d="M8 10h.01"></path><path d="M12 14h.01"></path><path d="M8 14h.01"></path><path d="M12 18h.01"></path><path d="M8 18h.01"></path></svg>Estimating &amp; costing<span class="ct">22</span></button><button class="chip" data-cat="tendering" aria-pressed="false" style="--c:#7c3aed"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-package-check" aria-hidden="true"><path d="m16 16 2 2 4-4"></path><path d="M21 10V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l2-1.14"></path><path d="m7.5 4.27 9 5.15"></path><polyline points="3.29 7 12 12 20.71 7"></polyline><line x1="12" x2="12" y1="22" y2="12"></line></svg>Tendering &amp; procurement<span class="ct">9</span></button><button class="chip" data-cat="planning" aria-pressed="false" style="--c:#0284c7"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-clock" aria-hidden="true"><path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"></path><path d="M16 2v4"></path><path d="M8 2v4"></path><path d="M3 10h5"></path><path d="M17.5 17.5 16 16.3V14"></path><circle cx="16" cy="16" r="6"></circle></svg>Planning &amp; controls<span class="ct">18</span></button><button class="chip" data-cat="bim" aria-pressed="false" style="--c:#4f46e5"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-box" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path><path d="m3.3 7 8.7 5 8.7-5"></path><path d="M12 22V12"></path></svg>BIM &amp; takeoff<span class="ct">14</span></button><button class="chip" data-cat="site" aria-pressed="false" style="--c:#d97706"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-hard-hat" aria-hidden="true"><path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5"></path><path d="M14 6a6 6 0 0 1 6 6v3"></path><path d="M4 15v-3a6 6 0 0 1 6-6"></path><rect x="2" y="15" width="20" height="4" rx="1"></rect></svg>Site &amp; field<span class="ct">16</span></button><button class="chip" data-cat="quality" aria-pressed="false" style="--c:#0d9488"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-badge-check" aria-hidden="true"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"></path><path d="m9 12 2 2 4-4"></path></svg>Quality &amp; safety<span class="ct">12</span></button><button class="chip" data-cat="commercial" aria-pressed="false" style="--c:#e11d48"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-pen-line" aria-hidden="true"><path d="m18 5-2.414-2.414A2 2 0 0 0 14.172 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2"></path><path d="M21.378 12.626a1 1 0 0 0-3.004-3.004l-4.01 4.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"></path><path d="M8 18h1"></path></svg>Commercial &amp; contracts<span class="ct">21</span></button><button class="chip" data-cat="handover" aria-pressed="false" style="--c:#0891b2"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-shield-check" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></svg>Handover &amp; lifecycle<span class="ct">15</span></button><span class="rolebar"><span class="lab mono" style="font-size:.72rem;color:var(--ink-3)">I work as</span><select id="role"><option value="all">Any role</option><option value="general-contractor">General contractor</option><option value="subcontractor">Specialist subcontractor</option><option value="cost-consultant">Cost consultant / QS</option><option value="designer">Designer / engineer</option><option value="developer-client">Developer / client</option><option value="project-manager">Project / construction manager</option><option value="bim-consultant">BIM / digital consultant</option><option value="owner-operator">Owner / operator (FM)</option></select></span></div></div></div><main class="wrap"><!--oce:gallery-hive--><div class="hive-overlay" id="hiveGrid" aria-hidden="true"></div><div class="cases-grid-wide"><div class="count" id="count"></div><div class="grid" id="grid"><a class="card" href="/sv/cases/project-end-to-end" data-modules="Projects|BOQ|Schedule|Daily Diary|Handover" data-cat="planning" data-roles="general-contractor project-manager developer-client" data-text="set up a project and hand it over take a job from the very first setup right through to handover. create it, price the work, plan the programme, track it on site, then close it out clean. five steps across the full lifecycle. projects boq schedule daily diary handover"><div class="thumb"><span class="cbar" style="background:#0284c7"></span><svg viewBox="0 0 120 84" xmlns="http://www.w3.org/2000/svg" style="color:#94a3b8;width:100%;height:100%" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g stroke-width="0.6" opacity="0.16"><path d="M0 21 H120 M0 42 H120 M0 63 H120"></path><path d="M30 0 V84 M60 0 V84 M90 0 V84"></path></g><circle cx="20" cy="34" r="6" fill="#7dd3fc" stroke="none"></circle><circle cx="40" cy="34" r="6" fill="#0284c7" stroke="none"></circle><circle cx="60" cy="34" r="6" fill="#0284c7" stroke="none"></circle><circle cx="80" cy="34" r="6" fill="#0284c7" stroke="none"></circle><path d="M26 34 H34 M46 34 H54 M66 34 H74" stroke="#9fb3c2" stroke-width="1.6" fill="none"></path><rect x="92" y="26" width="14" height="18" rx="1" fill="#0369a1" stroke="none"></rect><path d="M91 26 L99 20 L107 26 Z" fill="#0369a1" stroke="none"></path><path d="M18 54 H98" stroke="#cdd9e2" stroke-width="4" stroke-linecap="round"></path><path d="M18 54 H78" stroke="#0284c7" stroke-width="4" stroke-linecap="round"></path><circle cx="100" cy="54" r="5.5" fill="#2e9c6a" stroke="#ffffff" stroke-width="1"></circle><path d="M97.69 54.11 l1.54 1.76 l3.08 -3.41" stroke="#ffffff" stroke-width="1.54" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg></div><div class="body"><span class="ceyebrow" style="color:#0284c7"><svg class="ic" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-clock" aria-hidden="true"><path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"></path><path d="M16 2v4"></path><path d="M8 2v4"></path><path d="M3 10h5"></path><path d="M17.5 17.5 16 16.3V14"></path><circle cx="16" cy="16" r="6"></circle></svg><span>Planning &amp; controls</span></span><h3>Set up a project and hand it over</h3><p>Take a job from the very first setup right through to handover. Create it, price the work,…</p><div class="foot"><span class="m"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h5v-5H4zM10 13h5V8h-5zM16 8h4V3h-4z"/></svg>5 steps</span><span class="m"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>20 min</span><span class="go">Open<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></div></div></a>

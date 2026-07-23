@@ -838,10 +838,17 @@ body{ padding-top: 64px; }
    a stronger face on hover/focus, and a visible keyboard focus ring. */
 a.hc-cell{ text-decoration: none; color: inherit; cursor: pointer; }
 a.hc-cell .hc-face{ transition: transform .16s cubic-bezier(.18,.72,.26,1), filter .16s ease; transform-origin: center center; }
+/* Hover/focus grows the hex ~50% from its centre; the whole face scales
+   uniformly so the icon and label keep fitting neatly inside the hex. The
+   hovered cell is lifted above its neighbours so it never gets clipped. */
 a.hc-cell:hover,
 a.hc-cell:focus-visible{ z-index: 6; }
 a.hc-cell:hover .hc-face,
 a.hc-cell:focus-visible .hc-face{ transform: scale(1.9); filter: brightness(1.06); }
+/* At the enlarged hover size there is room for the full label, so drop the
+   2-line clamp and let it breathe (up to 3 lines, a touch more line-height)
+   and give the icon a little more separation - the text then sits neatly
+   centred in the hex instead of being cramped or truncated. */
 a.hc-cell:hover .hc-title,
 a.hc-cell:focus-visible .hc-title{
   -webkit-line-clamp: 3;
@@ -908,13 +915,19 @@ a.hc-cell:focus-visible .hc-face{ box-shadow: 0 0 0 2px var(--card, #fff), 0 0 0
 }
 
 /* ---- (gallery) hero: balanced blocks + decorative honeycomb ----- */
+/* The page canvas matches the sticky nav and the toolbar (both sit on the
+   --bg-0 surface). The hero has no panel of its own, so on a pure-white body
+   it used to read as a white band wedged between the two grey bars; tinting
+   the canvas to --bg-0 lets the hero blend cleanly into the sections above
+   and below while the white cards below still pop against it. */
+body{ background: var(--bg-0); }
+
 /* The hero reads as evenly balanced, equal-height blocks - eyebrow +
    headline, description, stats - with a decorative module-hex motif on the
    right. No panel background or border: it sits on the plain page canvas and
    blends with the sections above and below. The honeycomb drifts gently on a
    loop, shrinks on tablet and hides on narrow screens so it never pushes the
    card grid down on mobile. */
-body{ background: var(--bg-0); }
 .hero{
   display: flex;
   align-items: stretch;   /* blocks share one height and line up evenly */
@@ -926,6 +939,10 @@ body{ background: var(--bg-0); }
   border: 0;
   box-shadow: none;
 }
+/* .hero sits inside the width-constrained .wrap, so its fill can't reach the
+   page edges on its own. This ::before is a full-bleed layer behind the
+   content: centred on the viewport (not on .wrap), stretched to 100vw, so it
+   reads continuous with the full-width header/toolbar bars above and below. */
 .hero::before{
   content: "";
   position: absolute;
