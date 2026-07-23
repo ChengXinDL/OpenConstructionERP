@@ -22,6 +22,7 @@ import {
   ArrowRight,
   ChevronLeft,
   ChevronRight,
+  ListTodo,
 } from 'lucide-react';
 
 import { Button, Card, Badge, EmptyState, ErrorState, SkeletonTable, DismissibleInfo } from '@/shared/ui';
@@ -29,6 +30,7 @@ import { getErrorMessage } from '@/shared/lib/api';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { listConnectorSources } from '@/features/connectors/api';
 import type { ConnectorSource } from '@/features/connectors/types';
+import { CreateTaskFromSourceDialog } from '@/features/tasks';
 import { listCapturedMessages } from './api';
 import type { InboundAttachment, InboundMessage } from './types';
 import {
@@ -106,7 +108,14 @@ function AttachmentList({ attachments }: { attachments: InboundAttachment[] }) {
 // per-record correspondence route today, so we deep-link to the project's
 // correspondence register (the closest verified target) and show the reference
 // so the row is easy to find there.
-function CapturedRow({ msg }: { msg: InboundMessage }) {
+function CapturedRow({
+  msg,
+  onCreateTask,
+}: {
+  msg: InboundMessage;
+  /** Open the "Create task" quick-create prefilled from this captured message. */
+  onCreateTask: (msg: InboundMessage) => void;
+}) {
   const { t } = useTranslation();
   const to = `/projects/${encodeURIComponent(msg.project_id)}/correspondence`;
   return (
@@ -139,10 +148,26 @@ function CapturedRow({ msg }: { msg: InboundMessage }) {
           {t('inbound.from', { defaultValue: 'From' })}: {msg.sender || '-'}
         </p>
         {msg.attachments.length > 0 ? <AttachmentList attachments={msg.attachments} /> : null}
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-oe-blue-text">
-          {t('inbound.open_record', { defaultValue: 'Open correspondence' })}
-          <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" aria-hidden />
-        </span>
+        <div className="flex items-center justify-between gap-2">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-oe-blue-text">
+            {t('inbound.open_record', { defaultValue: 'Open correspondence' })}
+            <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" aria-hidden />
+          </span>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<ListTodo size={13} />}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onCreateTask(msg);
+            }}
+            data-testid={`inbound-create-task-${msg.correspondence_id}`}
+            title={t('inbound.create_task_hint', { defaultValue: 'Turn this message into a task' })}
+          >
+            {t('inbound.create_task', { defaultValue: 'Create task' })}
+          </Button>
+        </div>
       </Card>
     </Link>
   );
@@ -175,6 +200,7 @@ export function InboundCapturePage() {
 
   const [offset, setOffset] = useState(0);
   const [filters, setFilters] = useState<InboundFilterState>(EMPTY_INBOUND_FILTERS);
+  const [taskSourceMsg, setTaskSourceMsg] = useState<InboundMessage | null>(null);
 
   // A different project is a different mailbox: start from the first page and a
   // clean filter so a deep offset from the previous project cannot strand us on
@@ -331,7 +357,7 @@ export function InboundCapturePage() {
                     aria-busy={isPaging}
                   >
                     {visible.map((m) => (
-                      <CapturedRow key={m.correspondence_id} msg={m} />
+                      <CapturedRow key={m.correspondence_id} msg={m} onCreateTask={setTaskSourceMsg} />
                     ))}
                   </div>
                 )}
@@ -394,6 +420,28 @@ export function InboundCapturePage() {
             )}
           </section>
         </>
+      )}
+
+      {/* Create task quick action — prefilled from this captured message. It
+          became a correspondence row (see the module doc comment above), so
+          the task links back the same way a task raised from a hand-entered
+          correspondence entry would. */}
+      {taskSourceMsg && (
+        <CreateTaskFromSourceDialog
+          projectId={taskSourceMsg.project_id || projectId}
+          sourceType="inbound_capture"
+          sourceId={taskSourceMsg.correspondence_id}
+          sourceLabel={taskSourceMsg.reference_number || taskSourceMsg.correspondence_id}
+          defaultTitle={
+            taskSourceMsg.subject || t('inbound.no_subject', { defaultValue: '(no subject)' })
+          }
+          defaultDescription={t('inbound.task_desc_default', {
+            defaultValue: 'Follow up on captured message {{ref}} from {{sender}}.',
+            ref: taskSourceMsg.reference_number || taskSourceMsg.correspondence_id,
+            sender: taskSourceMsg.sender || t('inbound.unknown_sender', { defaultValue: 'unknown sender' }),
+          })}
+          onClose={() => setTaskSourceMsg(null)}
+        />
       )}
     </div>
   );

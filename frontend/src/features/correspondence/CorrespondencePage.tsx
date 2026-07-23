@@ -29,6 +29,7 @@ import {
   Network,
   Clock,
   AlertTriangle,
+  ListTodo,
 } from 'lucide-react';
 import {
   Button,
@@ -69,6 +70,7 @@ import {
   type UpdateCorrespondencePayload,
 } from './api';
 import { correspondenceGuide } from './correspondenceGuide';
+import { CreateTaskFromSourceDialog } from '@/features/tasks';
 
 /* ── Constants ─────────────────────────────────────────────────────────── */
 
@@ -845,6 +847,7 @@ const CorrespondenceRow = React.memo(function CorrespondenceRow({
   onDelete,
   onUploadAttachment,
   onDownloadAttachment,
+  onCreateTask,
 }: {
   item: Correspondence;
   onEdit: (item: Correspondence) => void;
@@ -853,6 +856,8 @@ const CorrespondenceRow = React.memo(function CorrespondenceRow({
   onUploadAttachment: (item: Correspondence, file: File) => Promise<void>;
   /** Download the attachment at the given index (Bearer-authed fetch). */
   onDownloadAttachment: (item: Correspondence, index: number, filename: string) => void;
+  /** Open the "Create task" quick-create prefilled from this entry. */
+  onCreateTask: (item: Correspondence) => void;
 }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
@@ -1181,6 +1186,21 @@ const CorrespondenceRow = React.memo(function CorrespondenceRow({
             <Button
               variant="secondary"
               size="sm"
+              icon={<ListTodo size={13} />}
+              onClick={(e) => {
+                e.stopPropagation();
+                onCreateTask(item);
+              }}
+              data-testid={`correspondence-create-task-${item.id}`}
+              title={t('correspondence.create_task_hint', {
+                defaultValue: 'Turn this entry into a task',
+              })}
+            >
+              {t('correspondence.create_task', { defaultValue: 'Create task' })}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
               icon={<Pencil size={13} />}
               onClick={(e) => {
                 e.stopPropagation();
@@ -1391,6 +1411,7 @@ export function CorrespondencePage() {
   // State
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingItem, setEditingItem] = useState<Correspondence | null>(null);
+  const [taskSourceItem, setTaskSourceItem] = useState<Correspondence | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [directionFilter, setDirectionFilter] = useState<CorrespondenceDirection | ''>('');
   const [typeFilter, setTypeFilter] = useState<CorrespondenceType | ''>('');
@@ -1889,6 +1910,7 @@ export function CorrespondencePage() {
                   onDelete={handleDelete}
                   onUploadAttachment={handleUploadAttachment}
                   onDownloadAttachment={handleDownloadAttachment}
+                  onCreateTask={setTaskSourceItem}
                 />
               ))}
             </Card>
@@ -1915,6 +1937,24 @@ export function CorrespondencePage() {
           onClose={() => setEditingItem(null)}
           onSubmit={handleEditSubmit}
           isPending={updateMut.isPending}
+        />
+      )}
+
+      {/* Create task quick action — prefilled from this correspondence entry */}
+      {taskSourceItem && (
+        <CreateTaskFromSourceDialog
+          projectId={taskSourceItem.project_id || projectId}
+          sourceType="correspondence"
+          sourceId={taskSourceItem.id}
+          sourceLabel={taskSourceItem.reference_number}
+          defaultTitle={taskSourceItem.subject}
+          defaultDescription={t('correspondence.task_desc_default', {
+            defaultValue: 'Follow up on correspondence {{ref}}: {{subject}}',
+            ref: taskSourceItem.reference_number,
+            subject: taskSourceItem.subject,
+          })}
+          defaultDueDate={taskSourceItem.response_required_by}
+          onClose={() => setTaskSourceItem(null)}
         />
       )}
 

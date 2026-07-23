@@ -23,6 +23,7 @@ import {
   Check,
   Pencil,
   Network,
+  ListTodo,
 } from 'lucide-react';
 import {
   Button,
@@ -67,6 +68,7 @@ import {
 } from './api';
 import { rfiGuide } from './rfiGuide';
 import { ApprovalTargetBadge } from '@/features/approval-routes';
+import { CreateTaskFromSourceDialog } from '@/features/tasks';
 
 /* ── Constants ─────────────────────────────────────────────────────────── */
 
@@ -1254,6 +1256,7 @@ const RFIRow = React.memo(function RFIRow({
   onEdit,
   onClose,
   onCreateVariation,
+  onCreateTask,
   creatingVariation = false,
 }: {
   rfi: RFI;
@@ -1262,6 +1265,8 @@ const RFIRow = React.memo(function RFIRow({
   onEdit: (rfi: RFI) => void;
   onClose: (id: string) => void;
   onCreateVariation: (id: string) => void;
+  /** Open the "Create task" quick-create prefilled from this RFI. */
+  onCreateTask: (rfi: RFI) => void;
   // True while a create-variation request is in flight (any row). Disables
   // the button so a double-click cannot mint two change orders.
   creatingVariation?: boolean;
@@ -1490,6 +1495,18 @@ const RFIRow = React.memo(function RFIRow({
 
           {/* Actions */}
           <div className="flex items-center gap-2 pt-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCreateTask(rfi);
+              }}
+              icon={<ListTodo size={14} />}
+              title={t('rfi.create_task_hint', { defaultValue: 'Turn this RFI into a task' })}
+            >
+              {t('rfi.create_task', { defaultValue: 'Create task' })}
+            </Button>
             {rfi.status === 'open' && (
               <Button
                 variant="primary"
@@ -1699,6 +1716,7 @@ export function RFIPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingRfi, setEditingRfi] = useState<RFI | null>(null);
   const [respondingRfi, setRespondingRfi] = useState<RFI | null>(null);
+  const [taskSourceRfi, setTaskSourceRfi] = useState<RFI | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   /* Debounced copy of the search input that drives the backend `?search=`
      query. Keeps typing fluid (no fetch storm) but still hits the server
@@ -2439,6 +2457,7 @@ export function RFIPage() {
                     onEdit={handleEdit}
                     onClose={handleClose}
                     onCreateVariation={handleCreateVariation}
+                    onCreateTask={setTaskSourceRfi}
                     creatingVariation={createVariationMut.isPending}
                   />
                 ))}
@@ -2549,6 +2568,25 @@ export function RFIPage() {
           onClose={() => setRespondingRfi(null)}
           onSubmit={handleRespondSubmit}
           isPending={respondMut.isPending}
+        />
+      )}
+
+      {/* Create task quick action — prefilled from this RFI */}
+      {taskSourceRfi && (
+        <CreateTaskFromSourceDialog
+          projectId={taskSourceRfi.project_id || projectId}
+          sourceType="rfi"
+          sourceId={taskSourceRfi.id}
+          sourceLabel={`#${taskSourceRfi.rfi_number}`}
+          defaultTitle={taskSourceRfi.subject}
+          defaultDescription={t('rfi.task_desc_default', {
+            defaultValue: 'Follow up on RFI #{{number}}: {{subject}}',
+            number: taskSourceRfi.rfi_number,
+            subject: taskSourceRfi.subject,
+          })}
+          defaultDueDate={taskSourceRfi.response_due_date}
+          defaultAssigneeId={taskSourceRfi.ball_in_court || taskSourceRfi.assigned_to}
+          onClose={() => setTaskSourceRfi(null)}
         />
       )}
 

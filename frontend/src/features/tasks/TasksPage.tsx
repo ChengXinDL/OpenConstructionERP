@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom';
 import clsx from 'clsx';
 import {
   ClipboardList,
@@ -584,18 +584,54 @@ const TaskCard = React.memo(function TaskCard({
       {/* Source / BIM indicators — inline, compact */}
       {(task.meeting_id || (task.metadata && typeof task.metadata.source === 'string') || (task.bim_element_ids && task.bim_element_ids.length > 0)) && (
         <div className="flex items-center gap-2 mt-1 ml-6">
-          {(task.meeting_id || (task.metadata && typeof task.metadata.source === 'string')) && (
-            <span className="inline-flex items-center gap-0.5 text-[9px] text-content-quaternary">
-              <Link2 size={8} className="shrink-0" />
-              {task.meeting_id
+          {(task.meeting_id || (task.metadata && typeof task.metadata.source === 'string')) &&
+            (() => {
+              // ``metadata.source`` is the cross-module back-link convention
+              // (see CreateTaskFromSourceDialog): 'rfi' / 'correspondence' /
+              // 'inbound_capture' / 'inspection'. ``source_id`` is the source
+              // record's id, when the caller stored one — it makes the chip
+              // a deep link back to where the task came from.
+              const src = task.metadata ? String(task.metadata.source ?? '') : '';
+              const srcId =
+                task.metadata && typeof task.metadata.source_id === 'string'
+                  ? task.metadata.source_id
+                  : '';
+              const label = task.meeting_id
                 ? t('tasks.from_meeting', { defaultValue: 'Meeting' })
-                : String(task.metadata?.source) === 'rfi'
+                : src === 'rfi'
                   ? t('tasks.from_rfi', { defaultValue: 'RFI' })
-                  : String(task.metadata?.source) === 'inspection'
+                  : src === 'inspection'
                     ? t('tasks.from_inspection', { defaultValue: 'Inspection' })
-                    : t('tasks.source_linked', { defaultValue: 'Linked' })}
-            </span>
-          )}
+                    : src === 'correspondence'
+                      ? t('tasks.from_correspondence', { defaultValue: 'Correspondence' })
+                      : src === 'inbound_capture'
+                        ? t('tasks.from_inbound_capture', { defaultValue: 'Captured message' })
+                        : t('tasks.source_linked', { defaultValue: 'Linked' });
+              // Correspondence and inbound_capture both surface only on the
+              // list page (no per-record detail route today), so both link
+              // there; RFI has a real detail route to deep-link into.
+              const to =
+                !task.meeting_id && srcId
+                  ? src === 'rfi'
+                    ? `/rfi/${srcId}`
+                    : src === 'correspondence' || src === 'inbound_capture'
+                      ? '/correspondence'
+                      : null
+                  : null;
+              const chip = (
+                <span className="inline-flex items-center gap-0.5 text-[9px] text-content-quaternary">
+                  <Link2 size={8} className="shrink-0" />
+                  {label}
+                </span>
+              );
+              return to ? (
+                <Link to={to} onClick={(e) => e.stopPropagation()} className="hover:underline">
+                  {chip}
+                </Link>
+              ) : (
+                chip
+              );
+            })()}
           <ViewInBIMButton
             elementIds={task.bim_element_ids ?? []}
             iconSize={8}
