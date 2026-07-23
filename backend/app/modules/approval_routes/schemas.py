@@ -124,6 +124,21 @@ class RouteUpdate(BaseModel):
         return self
 
 
+class RouteCloneRequest(BaseModel):
+    """Adopt a route (typically a read-only system preset) into a project.
+
+    Copies the source route's steps into a brand-new, project-scoped route
+    that carries no ``system_key`` - so it is immediately editable through the
+    ordinary ``PATCH /routes/{id}`` surface. This is how a team "adopts" a
+    tenant-wide preset in one click without losing the ability to tailor it.
+    """
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    project_id: UUID
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+
+
 class RouteResponse(BaseModel):
     """Full read-side projection of a :class:`Route` + its steps."""
 

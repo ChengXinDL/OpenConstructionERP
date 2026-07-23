@@ -50,6 +50,7 @@ import {
   type CreateCDEContainerPayload,
   type TransitionPayload,
 } from './api';
+import { CDEApprovalPresetsCard } from './CDEApprovalPresetsCard';
 import { CDEHistoryDrawer } from './CDEHistoryDrawer';
 import { CDETransmittalsBadge } from './CDETransmittalsBadge';
 import { CDESetupWizard } from './CDESetupWizard';
@@ -1918,6 +1919,11 @@ export function CDEPage() {
           the next few things to fix, so a CDE never quietly becomes a dead
           document dump. Renders whenever a project is in context. */}
       {projectId && <CdeReadiness projectId={projectId} />}
+
+      {/* Approval presets — one-click, editable ISO 19650 review flows for
+          the CDE gates (see backend/app/modules/cde/service.py
+          apply_approval_preset). Renders whenever a project is in context. */}
+      {projectId && <CDEApprovalPresetsCard projectId={projectId} />}
 
       {/* Summary cards — fed by the /cde/stats aggregate endpoint. Shows the
           full ISO 19650 lifecycle (Total + every state) so users can see how

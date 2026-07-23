@@ -367,6 +367,9 @@ class CdeSettingsResponse(BaseModel):
     naming_convention: str = ""
     suitability_set: str = CDE_DEFAULT_SUITABILITY_SET
     review_preset_key: str | None = None
+    # The project's own editable route cloned from ``review_preset_key`` (see
+    # CDEService.apply_approval_preset). NULL until a preset has been adopted.
+    review_route_id: UUID | None = None
     role_assignments: dict[str, Any] = Field(default_factory=dict)
     go_live_gate_enabled: bool = True
     min_readiness_level: str = CDE_DEFAULT_MIN_READINESS_LEVEL
@@ -394,6 +397,59 @@ class GoLiveGateStatus(BaseModel):
     min_readiness_level: str
     score: int
     reason: str
+
+
+# ── Approval presets (ISO 19650 review flows) ─────────────────────────────
+
+
+class CDEApprovalPresetStep(BaseModel):
+    """One step of an approval preset, as it will apply once adopted."""
+
+    ordinal: int
+    approver_role: str | None = None
+    mode: str
+    required_approver_count: int | None = None
+    sla_hours: int | None = None
+
+
+class CDEApprovalPresetEntry(BaseModel):
+    """A ready-made, tenant-wide ISO 19650 approval/review configuration.
+
+    Merges the live route definition from ``approval_routes`` (name, steps)
+    with CDE-facing framing (which gate it covers, why a team would pick it).
+    """
+
+    system_key: str
+    route_id: UUID
+    name: str
+    gate: str
+    description: str
+    steps: list[CDEApprovalPresetStep] = Field(default_factory=list)
+
+
+class CDEApprovalPresetsResponse(BaseModel):
+    """The CDE approval-preset library plus which one (if any) is adopted."""
+
+    presets: list[CDEApprovalPresetEntry] = Field(default_factory=list)
+    active_system_key: str | None = None
+    active_route_id: UUID | None = None
+
+
+class CDEApprovalPresetApplyRequest(BaseModel):
+    """Adopt one preset as this project's active review route."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    system_key: str = Field(..., min_length=1, max_length=100)
+
+
+class CDEApprovalPresetApplyResponse(BaseModel):
+    """Result of adopting a preset: the new editable route plus settings."""
+
+    settings: CdeSettingsResponse
+    route_id: UUID
+    route_name: str
+    step_count: int
 
 
 # ── Transmittal link summary (back-reference from CDE) ───────────────────

@@ -263,3 +263,61 @@ async def test_happy_path_post_decide_round_trip(db_session) -> None:
     assert resp.status_code == 200, resp.text
     assert resp.json()["status"] == "approved"
     assert resp.json()["completed_at"] is not None
+
+
+# ── Clone (adopt into a project, editable) ────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_clone_route_produces_editable_project_route(db_session) -> None:
+    """A tenant-wide route can be cloned into a project-scoped, editable copy.
+
+    Mirrors the "adopt a preset" flow the CDE module uses: cloning a
+    read-only route yields a fresh route with no ``system_key`` (so it can be
+    PATCHed straight away) while the original is untouched.
+    """
+    owner_id = await _make_user(db_session)
+    project_id = await _make_project(db_session, owner_id)
+    await db_session.commit()
+
+    app = _build_app(db_session, caller_id=str(owner_id))
+    async with _http(app) as client:
+        # Tenant-wide template (no project_id).
+        resp = await client.post(
+            "/v1/approval-routes/routes",
+            json={
+                "project_id": None,
+                "name": "Tenant-wide template",
+                "target_kind": "submittal",
+                "steps": [
+                    {"ordinal": 1, "approver_role": "editor", "mode": "all"},
+                    {"ordinal": 2, "approver_role": "manager", "mode": "all"},
+                ],
+            },
+        )
+        assert resp.status_code == 201, resp.text
+        source_id = resp.json()["id"]
+
+        resp = await client.post(
+            f"/v1/approval-routes/routes/{source_id}/clone",
+            json={"project_id": str(project_id), "name": "Our review flow"},
+        )
+        assert resp.status_code == 201, resp.text
+        clone = resp.json()
+        assert clone["project_id"] == str(project_id)
+        assert clone["system_key"] is None
+        assert clone["name"] == "Our review flow"
+        assert [s["ordinal"] for s in clone["steps"]] == [1, 2]
+        assert [s["approver_role"] for s in clone["steps"]] == ["editor", "manager"]
+
+        # The clone is editable ...
+        resp = await client.patch(
+            f"/v1/approval-routes/routes/{clone['id']}",
+            json={"name": "Renamed"},
+        )
+        assert resp.status_code == 200, resp.text
+
+        # ... while the source template is untouched.
+        resp = await client.get(f"/v1/approval-routes/routes/{source_id}")
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["name"] == "Tenant-wide template"

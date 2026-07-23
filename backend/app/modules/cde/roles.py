@@ -115,6 +115,48 @@ RESPONSIBILITY_MATRIX: dict[str, dict[str, str]] = {
 }
 
 
+# ── Approval presets (ISO 19650 review flows) ────────────────────────────────
+# Descriptive metadata for the three tenant-wide, platform-seeded approval-route
+# presets a CDE can adopt (see ``approval_routes.seed.PRESETS`` for the actual
+# route + step definitions - this module only adds the CDE-facing framing:
+# which gate the preset gates and why a team would pick it). Kept here rather
+# than in approval_routes so that module stays generic and CDE-agnostic; the
+# ``system_key`` is the join key between the two. Order matches the workflow
+# (lightest review first).
+CDE_REVIEW_PRESET_KEYS: tuple[str, ...] = (
+    "cde_issue_for_review",
+    "cde_comment_and_return",
+    "cde_review_and_publish",
+)
+
+CDE_REVIEW_PRESET_META: dict[str, dict[str, str]] = {
+    "cde_issue_for_review": {
+        "gate": "A",
+        "description": (
+            "A single reviewer checks the content before it moves from work in "
+            "progress into the shared area. The lightest gate - good for teams "
+            "just starting to run a formal review."
+        ),
+    },
+    "cde_comment_and_return": {
+        "gate": "A",
+        "description": (
+            "One approver either accepts the content or returns it with "
+            "comments. Suits fast-moving packages that need a single "
+            "accountable check rather than a two-step sign-off."
+        ),
+    },
+    "cde_review_and_publish": {
+        "gate": "B",
+        "description": (
+            "A reviewer checks the content first, then a separate approver "
+            "authorises it for publication. The full two-step ISO 19650 flow - "
+            "recommended once the CDE is carrying real project information."
+        ),
+    },
+}
+
+
 def role_keys() -> list[str]:
     """Return the functional-role keys in workflow order."""
     return [r["key"] for r in FUNCTIONAL_ROLES]

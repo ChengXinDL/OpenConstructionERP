@@ -190,7 +190,15 @@ class CdeSettings(Base):
     )
     # The chosen review preset - an approval-route ``system_key`` (e.g.
     # "cde_review_and_publish") or NULL when the project has not picked one.
+    # Kept even after adoption below as a label/audit trail of which preset the
+    # project started from.
     review_preset_key: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # The project's own EDITABLE review route, cloned from ``review_preset_key``
+    # by ``CDEService.apply_approval_preset`` (see approval_routes.clone_route).
+    # A soft cross-module reference (no FK, mirrors ``DocumentRevision.document_id``)
+    # so the CDE module stays decoupled from approval_routes' table lifecycle;
+    # NULL until a preset has actually been adopted into this project.
+    review_route_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
     # Functional-role assignment: {role_key: user_id}, e.g.
     # {"author": "<uuid>", "reviewer": "<uuid>", ...}. Free-form so a role can be
     # left unassigned; validated against the four ISO 19650 roles in the schema.

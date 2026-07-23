@@ -30,6 +30,8 @@ import { Badge, Button, WideModal, WideModalSection } from '@/shared/ui';
 import { apiGet } from '@/shared/lib/api';
 import { useToastStore } from '@/stores/useToastStore';
 import {
+  applyCDEApprovalPreset,
+  fetchCDEApprovalPresets,
   fetchCDEReadiness,
   fetchCDESettings,
   fetchFunctionalRoles,
@@ -50,12 +52,6 @@ interface ProjectMember {
   user_id: string;
   full_name?: string;
   email: string;
-}
-
-interface PresetRoute {
-  id: string;
-  name: string;
-  system_key: string | null;
 }
 
 export interface CDESetupWizardProps {
@@ -105,11 +101,10 @@ export function CDESetupWizard({ open, onClose, projectId }: CDESetupWizardProps
   });
 
   const presetsQuery = useQuery({
-    queryKey: ['approval-routes', 'presets'],
-    queryFn: () =>
-      apiGet<PresetRoute[]>('/v1/approval-routes/routes?target_kind=submittal'),
-    enabled: open,
-    staleTime: 5 * 60_000,
+    queryKey: ['cde-approval-presets', projectId],
+    queryFn: () => fetchCDEApprovalPresets(projectId),
+    enabled: open && !!projectId,
+    staleTime: 60_000,
   });
 
   const readinessQuery = useQuery({
@@ -148,10 +143,7 @@ export function CDESetupWizard({ open, onClose, projectId }: CDESetupWizardProps
     }
   }, [open]);
 
-  const presets = useMemo(
-    () => (presetsQuery.data ?? []).filter((r) => r.system_key !== null),
-    [presetsQuery.data],
-  );
+  const presets = useMemo(() => presetsQuery.data?.presets ?? [], [presetsQuery.data]);
   const members = membersQuery.data ?? [];
   const roles = rolesQuery.data?.roles ?? [];
 
@@ -166,6 +158,23 @@ export function CDESetupWizard({ open, onClose, projectId }: CDESetupWizardProps
       addToast({
         type: 'error',
         title: t('common.error', { defaultValue: 'Error' }),
+        message: e.message,
+      }),
+  });
+
+  // Adopting a preset clones it into a project-scoped, editable route (see
+  // POST /v1/cde/approval-presets/apply) - the settings save above only
+  // stores the label, this is what actually wires up a working route the
+  // team can tailor afterwards in Approval routes.
+  const applyPresetMut = useMutation({
+    mutationFn: (systemKey: string) => applyCDEApprovalPreset(projectId, systemKey),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['cde-approval-presets', projectId] });
+    },
+    onError: (e: Error) =>
+      addToast({
+        type: 'error',
+        title: t('cde.preset_apply_failed', { defaultValue: 'Could not adopt preset' }),
         message: e.message,
       }),
   });
@@ -200,6 +209,15 @@ export function CDESetupWizard({ open, onClose, projectId }: CDESetupWizardProps
   }
 
   async function finish() {
+    // Adopt the chosen preset into an editable route first (if it isn't
+    // already active) so "Finish" leaves the project with a working review
+    // flow, not just a label.
+    if (
+      draft?.review_preset_key &&
+      draft.review_preset_key !== presetsQuery.data?.active_system_key
+    ) {
+      await applyPresetMut.mutateAsync(draft.review_preset_key);
+    }
     await persist({ setup_completed: true, setup_step: STEP_COUNT - 1 });
     addToast({
       type: 'success',
@@ -249,7 +267,7 @@ export function CDESetupWizard({ open, onClose, projectId }: CDESetupWizardProps
         defaultValue:
           'Agree the few things ISO 19650 asks for up front, then open the CDE to the team once it is ready.',
       })}
-      busy={saveMut.isPending}
+      busy={saveMut.isPending || applyPresetMut.isPending}
       footer={
         <div className="flex items-center justify-between gap-2 w-full">
           <span className="text-xs text-content-tertiary">
@@ -283,7 +301,7 @@ export function CDESetupWizard({ open, onClose, projectId }: CDESetupWizardProps
               <Button
                 variant="primary"
                 size="sm"
-                disabled={loading || saveMut.isPending}
+                disabled={loading || saveMut.isPending || applyPresetMut.isPending}
                 onClick={() => void finish()}
                 icon={<Check size={14} />}
               >
@@ -476,7 +494,7 @@ export function CDESetupWizard({ open, onClose, projectId }: CDESetupWizardProps
                 </label>
                 {presets.map((p) => (
                   <label
-                    key={p.id}
+                    key={p.system_key}
                     className="flex items-center gap-2 rounded-lg border border-border-light bg-surface-primary p-2.5 cursor-pointer"
                   >
                     <input
@@ -489,7 +507,7 @@ export function CDESetupWizard({ open, onClose, projectId }: CDESetupWizardProps
                     />
                     <span className="inline-flex items-center gap-2 text-sm text-content-primary">
                       <ShieldCheck size={13} className="text-oe-blue" />
-                      {p.name}
+                      {t(`cde.preset_name_${p.system_key}`, { defaultValue: p.name })}
                     </span>
                   </label>
                 ))}

@@ -31,8 +31,14 @@ from app.modules.cde.models import (
     StateTransition,
 )
 from app.modules.cde.repository import ContainerRepository, RevisionRepository
+from app.modules.cde.roles import CDE_REVIEW_PRESET_KEYS, CDE_REVIEW_PRESET_META
 from app.modules.cde.schemas import (
+    CDEApprovalPresetApplyResponse,
+    CDEApprovalPresetEntry,
+    CDEApprovalPresetsResponse,
+    CDEApprovalPresetStep,
     CDEReadinessResponse,
+    CdeSettingsResponse,
     CdeSettingsUpdate,
     CDEStatsResponse,
     ContainerCreate,
@@ -798,6 +804,133 @@ class CDEService:
             list(fields.keys()),
         )
         return row
+
+    # ── Approval presets (ISO 19650 review flows) ─────────────────────────
+
+    async def list_approval_presets(self, project_id: uuid.UUID | None) -> CDEApprovalPresetsResponse:
+        """List the tenant-wide CDE approval presets a project can adopt.
+
+        Reads the live route + step definitions from ``approval_routes`` (the
+        source of truth) and merges in the CDE-facing gate/description framing
+        from :data:`app.modules.cde.roles.CDE_REVIEW_PRESET_META`. When
+        ``project_id`` is given, also reports which preset (if any) is
+        currently adopted so the UI can show an "Active" state.
+        """
+        from app.modules.approval_routes.service import ApprovalRouteService
+
+        engine = ApprovalRouteService(self.session)
+        routes = await engine.list_routes(project_id=None, target_kind="submittal", include_inactive=False)
+        by_key = {r.system_key: r for r in routes if r.system_key in CDE_REVIEW_PRESET_META}
+
+        presets: list[CDEApprovalPresetEntry] = []
+        for key in CDE_REVIEW_PRESET_KEYS:
+            route = by_key.get(key)
+            if route is None:
+                # Seed has not run yet (fresh DB) - skip rather than 500.
+                continue
+            meta = CDE_REVIEW_PRESET_META[key]
+            steps = await engine.list_steps(route.id)
+            presets.append(
+                CDEApprovalPresetEntry(
+                    system_key=key,
+                    route_id=route.id,
+                    name=route.name,
+                    gate=meta["gate"],
+                    description=meta["description"],
+                    steps=[
+                        CDEApprovalPresetStep(
+                            ordinal=s.ordinal,
+                            approver_role=s.approver_role,
+                            mode=s.mode,
+                            required_approver_count=s.required_approver_count,
+                            sla_hours=s.sla_hours,
+                        )
+                        for s in sorted(steps, key=lambda s: s.ordinal)
+                    ],
+                )
+            )
+
+        active_key: str | None = None
+        active_route_id: uuid.UUID | None = None
+        if project_id is not None:
+            settings = await self.get_or_create_settings(project_id)
+            active_key = settings.review_preset_key
+            active_route_id = settings.review_route_id
+
+        return CDEApprovalPresetsResponse(
+            presets=presets,
+            active_system_key=active_key,
+            active_route_id=active_route_id,
+        )
+
+    async def apply_approval_preset(
+        self,
+        project_id: uuid.UUID,
+        system_key: str,
+        *,
+        actor_id: str | None,
+    ) -> CDEApprovalPresetApplyResponse:
+        """Adopt a CDE approval preset as this project's editable review route.
+
+        Clones the tenant-wide preset (via ``approval_routes.clone_route``)
+        into a project-scoped route with no ``system_key`` - so it can be
+        tailored in the Approval routes editor right after adoption - and
+        records both the preset label and the new route on the project's CDE
+        settings. Adopting a second preset (or re-adopting the same one)
+        simply clones a fresh route each time; the previous clone is left in
+        place (it may already carry running instances) so nothing is lost.
+        """
+        from app.modules.approval_routes.service import ApprovalRouteService
+
+        if system_key not in CDE_REVIEW_PRESET_META:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Unknown CDE approval preset {system_key!r}",
+            )
+
+        engine = ApprovalRouteService(self.session)
+        routes = await engine.list_routes(project_id=None, target_kind="submittal", include_inactive=True)
+        source = next((r for r in routes if r.system_key == system_key), None)
+        if source is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Approval preset {system_key!r} is not seeded yet",
+            )
+
+        actor_uuid: uuid.UUID | None
+        try:
+            actor_uuid = uuid.UUID(str(actor_id)) if actor_id else None
+        except (ValueError, TypeError):
+            actor_uuid = None
+
+        clone = await engine.clone_route(
+            source.id,
+            project_id=project_id,
+            name=None,
+            created_by=actor_uuid,
+        )
+        clone_steps = await engine.list_steps(clone.id)
+
+        settings = await self.update_settings(
+            project_id,
+            CdeSettingsUpdate(review_preset_key=system_key),
+        )
+        settings.review_route_id = clone.id
+        await self.session.flush()
+        await self.session.refresh(settings)
+
+        logger.info(
+            "CDE approval preset applied: project=%s preset=%s route=%s",
+            project_id,
+            system_key,
+            clone.id,
+        )
+        return CDEApprovalPresetApplyResponse(
+            settings=CdeSettingsResponse.model_validate(settings),
+            route_id=clone.id,
+            route_name=clone.name,
+            step_count=len(clone_steps),
+        )
 
     async def evaluate_go_live_gate(self, project_id: uuid.UUID) -> GoLiveGateStatus:
         """Decide whether the CDE may be opened to the whole team.

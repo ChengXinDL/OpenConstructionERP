@@ -251,6 +251,9 @@ export interface CDESettings {
   naming_convention: string;
   suitability_set: string;
   review_preset_key: string | null;
+  /** The project's own editable route cloned from `review_preset_key`, or null
+   *  until a preset has actually been adopted (see applyCDEApprovalPreset). */
+  review_route_id: string | null;
   /** functional role key -> user id. */
   role_assignments: Record<string, string>;
   go_live_gate_enabled: boolean;
@@ -319,5 +322,59 @@ export async function fetchContainerTransmittals(
 ): Promise<ContainerTransmittalLink[]> {
   return apiGet<ContainerTransmittalLink[]>(
     `/v1/cde/containers/${containerId}/transmittals/`,
+  );
+}
+
+/* ── Approval presets (ISO 19650 review flows) ──────────────────────────── */
+
+export interface CDEApprovalPresetStep {
+  ordinal: number;
+  approver_role: string | null;
+  mode: string;
+  required_approver_count: number | null;
+  sla_hours: number | null;
+}
+
+export interface CDEApprovalPresetEntry {
+  system_key: string;
+  route_id: string;
+  name: string;
+  /** ISO 19650 gate this preset covers ("A" = WIP -> Shared, "B" = Shared -> Published). */
+  gate: string;
+  description: string;
+  steps: CDEApprovalPresetStep[];
+}
+
+export interface CDEApprovalPresetsResponse {
+  presets: CDEApprovalPresetEntry[];
+  active_system_key: string | null;
+  active_route_id: string | null;
+}
+
+export interface CDEApprovalPresetApplyResult {
+  settings: CDESettings;
+  route_id: string;
+  route_name: string;
+  step_count: number;
+}
+
+/** List the ready-made ISO 19650 approval presets a CDE can adopt. Pass a
+ *  project id to also learn which preset (if any) is already active there. */
+export async function fetchCDEApprovalPresets(
+  projectId?: string,
+): Promise<CDEApprovalPresetsResponse> {
+  const qs = projectId ? `?project_id=${encodeURIComponent(projectId)}` : '';
+  return apiGet<CDEApprovalPresetsResponse>(`/v1/cde/approval-presets/${qs}`);
+}
+
+/** Adopt a preset as the project's editable review route (one click). Clones
+ *  the tenant-wide preset into a project-scoped route in Approval routes. */
+export async function applyCDEApprovalPreset(
+  projectId: string,
+  systemKey: string,
+): Promise<CDEApprovalPresetApplyResult> {
+  return apiPost<CDEApprovalPresetApplyResult>(
+    `/v1/cde/approval-presets/apply?project_id=${encodeURIComponent(projectId)}`,
+    { system_key: systemKey },
   );
 }

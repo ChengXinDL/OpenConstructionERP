@@ -55,6 +55,7 @@ from app.modules.approval_routes.schemas import (
     InstanceCreate,
     RouteCreate,
     RouteUpdate,
+    StepCreate,
 )
 from app.modules.approval_routes.simulate import step_cleared
 from app.modules.approval_routes.timeline import compute_timeline
@@ -235,6 +236,55 @@ class ApprovalRouteService:
             },
         )
         return route
+
+    async def clone_route(
+        self,
+        route_id: uuid.UUID,
+        *,
+        project_id: uuid.UUID,
+        name: str | None,
+        created_by: uuid.UUID | None,
+    ) -> Route:
+        """Copy a route (typically a read-only system preset) into a project.
+
+        The clone is an ordinary project-scoped route - no ``system_key`` - so
+        it can be edited straight away through :meth:`update_route`. This is
+        how a team "adopts" a tenant-wide preset in one click while keeping
+        the original preset untouched and reusable by every other project.
+        """
+        source = await self.get_route(route_id)
+        source_steps = await self.repo.list_steps(route_id)
+        if not source_steps:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Route has no steps to clone",
+            )
+
+        payload = RouteCreate(
+            project_id=project_id,
+            name=(name or source.name).strip() or source.name,
+            target_kind=source.target_kind,
+            is_active=True,
+            steps=[
+                StepCreate(
+                    ordinal=s.ordinal,
+                    approver_role=s.approver_role,
+                    approver_user_id=s.approver_user_id,
+                    mode=s.mode,
+                    required_approver_count=s.required_approver_count,
+                    sla_hours=s.sla_hours,
+                )
+                for s in source_steps
+            ],
+        )
+        clone = await self.create_route(payload, created_by=created_by)
+        logger.info(
+            "Approval route cloned: source=%s clone=%s project=%s",
+            route_id,
+            clone.id,
+            project_id,
+        )
+        return clone
 
     async def update_route(
         self,

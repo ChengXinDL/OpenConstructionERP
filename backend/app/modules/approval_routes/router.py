@@ -9,6 +9,7 @@ Endpoints (auto-mounted at ``/api/v1/approval-routes/``)::
     GET    /routes/{route_id}                 - single template + steps
     PATCH  /routes/{route_id}                 - update mutable fields
     DELETE /routes/{route_id}                 - delete (rejected if instances exist)
+    POST   /routes/{route_id}/clone           - adopt a route (e.g. a preset) into a project, editable
     GET    /instances                         - list workflows (filterable)
     POST   /instances                         - start a workflow
     GET    /instances/{instance_id}           - single workflow + step states
@@ -51,6 +52,7 @@ from app.modules.approval_routes.schemas import (
     InstanceCreate,
     InstanceResponse,
     ReassignInstance,
+    RouteCloneRequest,
     RouteCreate,
     RouteResponse,
     RouteSimulationResponse,
@@ -244,6 +246,35 @@ async def update_route(
         actor_id=_safe_user_uuid(user_id),
     )
     return await _route_to_response(updated, service)
+
+
+@router.post(
+    "/routes/{route_id}/clone",
+    response_model=RouteResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(RequirePermission("approval_routes.write"))],
+)
+async def clone_route(
+    route_id: uuid.UUID,
+    payload: RouteCloneRequest,
+    session: SessionDep,
+    user_id: CurrentUserId,
+    service: ApprovalRouteService = Depends(_get_service),
+) -> RouteResponse:
+    """Adopt a route (typically a read-only preset) into a project.
+
+    Copies the source route's steps into a new project-scoped route with no
+    ``system_key`` - editable straight away. The source route (a tenant-wide
+    preset or another project's route) is left untouched.
+    """
+    await verify_project_access(payload.project_id, user_id, session)
+    clone = await service.clone_route(
+        route_id,
+        project_id=payload.project_id,
+        name=payload.name,
+        created_by=_safe_user_uuid(user_id),
+    )
+    return await _route_to_response(clone, service)
 
 
 @router.delete(

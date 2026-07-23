@@ -34,6 +34,9 @@ from app.modules.cde.roles import (
     RESPONSIBILITY_MATRIX,
 )
 from app.modules.cde.schemas import (
+    CDEApprovalPresetApplyRequest,
+    CDEApprovalPresetApplyResponse,
+    CDEApprovalPresetsResponse,
     CDEReadinessResponse,
     CdeSettingsResponse,
     CdeSettingsUpdate,
@@ -309,6 +312,62 @@ async def get_go_live_gate(
     """
     await verify_project_access(project_id, user_id, session)
     return await service.evaluate_go_live_gate(project_id)
+
+
+# ── Approval presets (ISO 19650 review flows) ─────────────────────────────────
+
+
+@router.get(
+    "/approval-presets",
+    response_model=CDEApprovalPresetsResponse,
+    dependencies=[Depends(RequirePermission("cde.read"))],
+    include_in_schema=False,
+)
+@router.get(
+    "/approval-presets/",
+    response_model=CDEApprovalPresetsResponse,
+    dependencies=[Depends(RequirePermission("cde.read"))],
+)
+async def list_cde_approval_presets(
+    user_id: CurrentUserId,
+    session: SessionDep,
+    project_id: uuid.UUID | None = Query(default=None),
+    service: CDEService = Depends(_get_service),
+) -> CDEApprovalPresetsResponse:
+    """List the ready-made ISO 19650 approval presets a CDE can adopt.
+
+    Tenant-wide reference data - no project needed to browse it. Pass
+    ``project_id`` (with access to that project) to also learn which preset,
+    if any, is already adopted there.
+    """
+    if project_id is not None:
+        await verify_project_access(project_id, user_id, session)
+    return await service.list_approval_presets(project_id)
+
+
+@router.post(
+    "/approval-presets/apply",
+    response_model=CDEApprovalPresetApplyResponse,
+    dependencies=[Depends(RequirePermission("cde.update"))],
+)
+async def apply_cde_approval_preset(
+    data: CDEApprovalPresetApplyRequest,
+    user_id: CurrentUserId,
+    session: SessionDep,
+    project_id: uuid.UUID = Query(...),
+    service: CDEService = Depends(_get_service),
+) -> CDEApprovalPresetApplyResponse:
+    """Adopt a preset as the project's editable review route (one click).
+
+    Clones the tenant-wide preset into a project-scoped, editable Approval
+    routes route and records it on the project's CDE settings.
+    """
+    await verify_project_access(project_id, user_id, session)
+    return await service.apply_approval_preset(
+        project_id,
+        data.system_key,
+        actor_id=user_id,
+    )
 
 
 # ── Container List ────────────────────────────────────────────────────────────
