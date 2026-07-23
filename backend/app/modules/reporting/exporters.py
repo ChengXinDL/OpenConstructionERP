@@ -67,8 +67,11 @@ from app.core.csv_safety import neutralise_formula
 from app.core.evidence import evidence_header
 
 __all__ = [
+    "COBIE_ADDITIONAL_SHEETS",
+    "COBIE_MEDIA_TYPE",
     "ExportFormatError",
     "SUPPORTED_FORMATS",
+    "export_project_cobie",
     "export_report",
 ]
 
@@ -113,6 +116,16 @@ _MEDIA_TYPES: dict[str, str] = {
     "csv": "text/csv; charset=utf-8",
     "html": "text/html; charset=utf-8",
 }
+
+# COBie is a distinct export profile: it is not a projection of a
+# GeneratedReport's ``data_snapshot`` (a per-section KV/record-list bag), it
+# is a projection of the platform's canonical BIM asset register (BIMModel +
+# BIMElement). It is registered here, alongside the report exporters, with
+# the same ``(filename, media_type, blob)`` return shape as ``export_report``
+# so callers do not need to special-case it, but it is invoked through its
+# own function (``export_project_cobie``) rather than through the
+# ``fmt=`` dispatch of ``export_report`` because its inputs differ.
+COBIE_MEDIA_TYPE = _MEDIA_TYPES["xlsx"]
 
 
 class ExportFormatError(ValueError):
@@ -836,3 +849,123 @@ def _safe_filename(title: str) -> str:
     # Collapse path separators that would confuse some download clients.
     base = base.replace("/", "-").replace("\\", "-")
     return base or "report"
+
+
+# ── COBie export profile ─────────────────────────────────────────────────
+#
+# COBie (Construction Operations Building Information Exchange, BS 1192-4 /
+# ISO 19650 handover shape) is the open, jurisdiction-neutral facility
+# handover workbook: one sheet per concept, imported into whatever CAFM / FM
+# system the client runs. This module does not re-derive COBie rows from
+# scratch - the canonical builder already lives at
+# ``app.modules.bim_hub.exporters.cobie.build_cobie_workbook`` and is fully
+# covered by its own tests; we reuse it so there is exactly one place that
+# knows how a BIMElement becomes a COBie Space/Type/Component/System row.
+# What this module adds is the project-level "handover as a report artifact"
+# framing: a project can carry several BIM models (architecture, structure,
+# MEP, ...), and a COBie handover is the union of their tracked assets, not a
+# single model's view.
+#
+# Sheet-to-source mapping (see also the docstring of
+# ``app.modules.bim_hub.exporters.cobie`` for the per-column detail):
+#
+#     Contact    - synthesised: one default "handover" contact row (COBie
+#                  requires at least one Contact; the platform does not yet
+#                  model a per-person contact register for handover).
+#     Facility   - the project itself (``ReportingService`` resolves the
+#                  project's display name; there is one Facility row per
+#                  export, standing in for the project as a whole).
+#     Floor      - distinct ``BIMElement.storey`` values across every model
+#                  in the project.
+#     Space      - ``BIMElement`` rows whose ``element_type`` matches a room
+#                  / space token (Room, Space, IfcSpace, ...).
+#     Type       - ``BIMElement`` rows with ``is_tracked_asset=True``,
+#                  grouped by (element_type, manufacturer, model).
+#     Component  - ``BIMElement`` rows with ``is_tracked_asset=True`` (the
+#                  platform's asset register), one row per element.
+#     System     - ``BIMElement.asset_info["parent_system"]`` groupings of
+#                  the tracked assets.
+#     Zone       - emitted with the standard COBie Zone header row only. The
+#                  canonical model does not yet carry a zone/space-grouping
+#                  concept distinct from ``storey``, so there is nothing to
+#                  populate; a future zoning feature can fill this in without
+#                  changing the file shape a CAFM import already expects.
+#
+# The remaining COBie 2.4 spec sheets (Job, Resource, Spare, Document,
+# Attribute, Coordinate, Issue, Connection, Assembly, Impact, PickLists) are
+# left out entirely, same rationale as the underlying builder: they need data
+# the canonical model does not hold yet (maintenance jobs, spare-parts
+# stock, per-element documents/attributes) and a header-only sheet for all of
+# them would only add noise without signalling anything real. Add them here
+# (not in ``bim_hub``) once a module populates that data, following the same
+# "emit the header, fill what's known" pattern used for Zone below.
+
+COBIE_ADDITIONAL_SHEETS: dict[str, list[str]] = {
+    "Zone": [
+        "Name*",
+        "CreatedBy",
+        "CreatedOn",
+        "Category",
+        "SpaceNames",
+        "ExtSystem",
+        "ExtObject",
+        "ExtIdentifier",
+        "Description",
+    ],
+}
+
+
+def export_project_cobie(
+    model: Any,
+    elements: list[Any],
+    *,
+    documents: list[Any] | None = None,
+    options: Any | None = None,
+) -> tuple[str, str, bytes]:
+    """Build a COBie handover workbook and return it in the exporter shape.
+
+    Args:
+        model: A BIMModel-like object (or a stand-in with the same
+            attributes) representing the facility being handed over.
+            Attribute access only - see
+            ``bim_hub.exporters.cobie.build_cobie_workbook`` for the exact
+            attributes read.
+        elements: The project's tracked-asset / space register, as
+            BIMElement-like objects. Typically the union of every BIM
+            model's elements for a project (multiple disciplines feed one
+            handover).
+        documents: Reserved, forwarded to the underlying builder unchanged.
+        options: Optional ``CobieOptions`` forwarded to the underlying
+            builder (project name, currency unit, frozen timestamp for
+            deterministic tests, ...).
+
+    Returns:
+        ``(suggested_filename, media_type, file_bytes)`` - the same 3-tuple
+        shape :func:`export_report` returns, so callers do not need to
+        special-case this profile.
+    """
+    from io import BytesIO
+
+    from openpyxl import load_workbook
+
+    from app.modules.bim_hub.exporters.cobie import build_cobie_workbook
+
+    blob = build_cobie_workbook(model, elements, documents, options)
+
+    # Append the header-only sheets this profile adds on top of the
+    # underlying builder (see the module mapping doc above).
+    if COBIE_ADDITIONAL_SHEETS:
+        wb = load_workbook(BytesIO(blob))
+        for sheet_name, columns in COBIE_ADDITIONAL_SHEETS.items():
+            if sheet_name in wb.sheetnames:
+                continue
+            ws = wb.create_sheet(sheet_name)
+            for col_idx, col_name in enumerate(columns, start=1):
+                ws.cell(row=1, column=col_idx, value=col_name)
+        buffer = BytesIO()
+        wb.save(buffer)
+        blob = buffer.getvalue()
+
+    safe_name = _safe_filename(getattr(model, "name", None) or "model")
+    filename = f"COBie_{safe_name}.xlsx"
+    return filename, COBIE_MEDIA_TYPE, blob

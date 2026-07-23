@@ -13,6 +13,7 @@ import html
 import logging
 import uuid
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -727,6 +728,53 @@ class ReportingService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(exc),
             ) from exc
+
+    async def export_project_cobie(self, project_id: uuid.UUID) -> tuple[str, str, bytes]:
+        """Build a project-wide COBie handover workbook.
+
+        Unlike the other export profiles this is not a projection of a
+        previously *generated* report - it is a live projection of the
+        project's BIM asset register (BIMModel + BIMElement, the same
+        canonical data every other COBie consumer in the platform reads),
+        assembled across every BIM model attached to the project so a
+        multi-discipline project (architecture + structure + MEP) hands over
+        as one workbook. See ``app.modules.reporting.exporters`` for the
+        sheet-to-source mapping.
+
+        Raises 404 when the project has no BIM models yet - there is
+        nothing to hand over.
+        """
+        from app.modules.bim_hub.repository import BIMElementRepository, BIMModelRepository
+        from app.modules.reporting.exporters import export_project_cobie as build_cobie_export
+
+        model_repo = BIMModelRepository(self.session)
+        element_repo = BIMElementRepository(self.session)
+
+        models, _total = await model_repo.list_for_project(project_id, limit=1000, include_non_3d=True)
+        if not models:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No BIM models found for this project; nothing to hand over as COBie.",
+            )
+
+        all_elements: list[Any] = []
+        for bim_model in models:
+            offset = 0
+            page_size = 5000
+            while True:
+                batch, total = await element_repo.list_for_model(bim_model.id, offset=offset, limit=page_size)
+                all_elements.extend(batch)
+                if offset + page_size >= total or not batch:
+                    break
+                offset += page_size
+
+        project_name = await self._lookup_project_name(project_id)
+        facility = SimpleNamespace(
+            name=project_name,
+            id=project_id,
+            project_id=project_id,
+        )
+        return build_cobie_export(facility, all_elements)
 
     async def dispatch_report_email(
         self,

@@ -16,6 +16,7 @@ Endpoints:
     GET    /reports/{report_id}                   - Get a generated report
     GET    /reports/{report_id}/content           - Rendered HTML body
     GET    /reports/{report_id}/download?format=  - Download as pdf/xlsx/csv/html
+    GET    /cobie/{project_id}/download           - Download a COBie handover workbook
 """
 
 import logging
@@ -436,6 +437,48 @@ async def download_report(
     report = await service.get_report(report_id)
     await verify_project_access(report.project_id, user_id, session)
     filename, media_type, blob = await service.export_report_file(report_id, format)
+    return Response(
+        content=blob,
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(blob)),
+        },
+    )
+
+
+@router.get(
+    "/cobie/{project_id}/download/",
+    responses={
+        200: {
+            "content": {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}},
+            "description": "COBie handover workbook",
+        },
+        404: {"description": "Project has no BIM models to hand over"},
+    },
+    dependencies=[Depends(RequirePermission("reporting.read"))],
+)
+@router.get(
+    "/cobie/{project_id}/download",
+    include_in_schema=False,
+    dependencies=[Depends(RequirePermission("reporting.read"))],
+)
+async def download_cobie(
+    project_id: uuid.UUID,
+    session: SessionDep,
+    user_id: CurrentUserId,
+    service: ReportingService = Depends(_get_service),
+) -> Response:
+    """Download a project's COBie (ISO 19650 handover) workbook.
+
+    Unlike ``/reports/{id}/download`` this is not tied to a previously
+    generated report row - it is a live projection of the project's BIM
+    asset register (every BIM model attached to the project, unioned), so
+    it always reflects the current state of the model without requiring a
+    "generate" step first.
+    """
+    await verify_project_access(project_id, user_id, session)
+    filename, media_type, blob = await service.export_project_cobie(project_id)
     return Response(
         content=blob,
         media_type=media_type,

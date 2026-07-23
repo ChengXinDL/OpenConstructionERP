@@ -11,7 +11,7 @@ manifest = ModuleManifest(
     description="KPI snapshots, report templates, and generated reports for projects and portfolios",
     author="OpenConstructionERP Core Team",
     category="core",
-    depends=["oe_users", "oe_projects", "oe_boq"],
+    depends=["oe_users", "oe_projects", "oe_boq", "oe_bim_hub"],
     auto_install=True,
     enabled=True,
 )

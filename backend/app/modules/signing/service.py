@@ -27,12 +27,14 @@ import logging
 import uuid
 from datetime import UTC, datetime
 from datetime import date as _date
+from types import SimpleNamespace
 from typing import Any
 
 from fastapi import HTTPException
 from fastapi import status as http_status
 
 from app.modules.signing.models import Signature, SigningSession
+from app.modules.signing.providers import get_provider
 from app.modules.signing.repository import SigningRepository
 from app.modules.signing.schemas import (
     AttestationCreate,
@@ -237,15 +239,24 @@ class SigningService:
         user_id: str | None = None,
     ) -> SigningSession:
         signatory_map = [s.model_dump() for s in data.signatory_map]
-        status = recompute_session_status(
-            signatory_map,
+        # Status derivation goes through the provider interface (see
+        # app.modules.signing.providers) rather than calling
+        # recompute_session_status directly, so a registered adapter could
+        # override it later without a call-site change here. The built-in
+        # NullProvider delegates straight back to recompute_session_status,
+        # so behaviour is unchanged.
+        provider = get_provider(data.provider_capability)
+        status = provider.check_status(
+            SimpleNamespace(
+                signatory_map=signatory_map,
+                expires_at=data.expires_at,
+                # Only honour an *explicit* draft; a session opened without a
+                # status and with signatories to collect is awaiting_signatures,
+                # not draft.
+                status=data.status,
+            ),
             [],
-            expires_at=data.expires_at,
-            now=self._now(),
-            # Only honour an *explicit* draft; a session opened without a status
-            # and with signatories to collect is awaiting_signatures, not draft.
-            current_status=data.status,
-        )
+        ).status
         session_row = SigningSession(
             project_id=data.project_id,
             document_ref=data.document_ref,
@@ -258,6 +269,25 @@ class SigningService:
             created_by=user_id,
         )
         session_row = await self.repo.create_session(session_row)
+
+        # Best-effort provider initiation: for the built-in provider this is
+        # a no-op acceptance (nothing external to dispatch); for a real
+        # adapter this is where a signing request would go out. Never blocks
+        # session creation - a provider hiccup here must not lose the
+        # session the caller just asked to open.
+        try:
+            initiation = provider.initiate(session_row)
+            merged_metadata = dict(session_row.metadata_ or {})
+            merged_metadata["provider_initiation"] = initiation.as_dict()
+            session_row.metadata_ = merged_metadata
+            await self.session.flush()  # type: ignore[attr-defined]
+        except Exception:
+            logger.warning(
+                "Signing provider initiate() failed for session %s; continuing without it",
+                session_row.id,
+                exc_info=True,
+            )
+
         logger.info(
             "Signing session created: %s (%s) for project %s",
             session_row.id,
@@ -311,16 +341,19 @@ class SigningService:
             setattr(session_row, key, value)
 
         # Re-derive status from the (possibly changed) map / expiry against the
-        # existing attestations, unless the caller pinned draft/awaiting.
+        # existing attestations, unless the caller pinned draft/awaiting. Goes
+        # through the provider interface (see create_session for why).
         signatures = await self.repo.list_signatures_for_session(session_id)
         explicit_status = fields.get("status")
-        session_row.status = recompute_session_status(
-            session_row.signatory_map,
+        provider = get_provider(session_row.provider_capability)
+        session_row.status = provider.check_status(
+            SimpleNamespace(
+                signatory_map=session_row.signatory_map,
+                expires_at=session_row.expires_at,
+                status=explicit_status or session_row.status,
+            ),
             signatures,
-            expires_at=session_row.expires_at,
-            now=self._now(),
-            current_status=explicit_status or session_row.status,
-        )
+        ).status
 
         await self.session.flush()  # type: ignore[attr-defined]
         await self.session.refresh(session_row)  # type: ignore[attr-defined]
@@ -391,13 +424,15 @@ class SigningService:
 
     async def _recompute_and_save(self, session_row: SigningSession) -> SigningSession:
         signatures = await self.repo.list_signatures_for_session(session_row.id)
-        session_row.status = recompute_session_status(
-            session_row.signatory_map,
+        provider = get_provider(session_row.provider_capability)
+        session_row.status = provider.check_status(
+            SimpleNamespace(
+                signatory_map=session_row.signatory_map,
+                expires_at=session_row.expires_at,
+                status=session_row.status,
+            ),
             signatures,
-            expires_at=session_row.expires_at,
-            now=self._now(),
-            current_status=session_row.status,
-        )
+        ).status
         await self.session.flush()  # type: ignore[attr-defined]
         await self.session.refresh(session_row)  # type: ignore[attr-defined]
         return session_row
@@ -428,6 +463,8 @@ class SigningService:
         session_row = await self.get_session(session_id)
         signatures = await self.repo.list_signatures_for_session(session_id)
         current = session_row.document_content_hash
+        provider = get_provider(session_row.provider_capability)
+        artifact = provider.fetch_artifact(session_row, signatures)
         return {
             "session_id": str(session_row.id),
             "document_ref": session_row.document_ref,
@@ -435,6 +472,11 @@ class SigningService:
             "provider_capability": session_row.provider_capability,
             "status": session_row.status,
             "manifest": issued_set_manifest([session_row]),
+            # Provider-reported view of the same manifest plus (when a
+            # provider produces one) certificate metadata. Additive - the
+            # top-level "manifest" key above is unchanged for existing
+            # callers.
+            "provider_artifact": artifact.as_dict(),
             "signatures": [
                 {
                     "signatory_name": s.signatory_name,

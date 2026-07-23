@@ -23,7 +23,12 @@ from app.modules.signing import intl
 from app.modules.signing.providers import (
     DEFAULT_PROVIDER,
     NullProvider,
+    ProviderInitiation,
+    ProviderStatus,
     SignatureProvider,
+    SignedArtifact,
+    get_provider,
+    register_provider,
 )
 from app.modules.signing.service import (
     all_required_signatories_signed,
@@ -217,6 +222,80 @@ def test_null_provider_verify_is_metadata_only() -> None:
     bad = NullProvider().verify_attestation({"signatory_name": "", "signatory_role": "", "content_hash": ""})
     assert bad.ok is False
     assert "missing content_hash" in bad.issues
+
+
+def test_null_provider_initiate_accepts_with_no_external_reference() -> None:
+    session = SimpleNamespace(signatory_map=[], expires_at=None, status="draft")
+    result = NullProvider().initiate(session)
+    assert isinstance(result, ProviderInitiation)
+    assert result.accepted is True
+    assert result.external_reference is None
+    assert result.provider_name == "null"
+    assert result.details["mode"] == "manual_attestation"
+    # as_dict() round-trips into plain JSON-safe types.
+    d = result.as_dict()
+    assert d["accepted"] is True
+    assert d["provider_name"] == "null"
+
+
+def test_null_provider_check_status_matches_recompute_session_status() -> None:
+    """The provider must not diverge from the pure function it delegates to."""
+    signatory_map = [{"role": "client", "required": True}]
+    signed = [_sig("client", status="signed")]
+    session = SimpleNamespace(signatory_map=signatory_map, expires_at=None, status="awaiting_signatures")
+
+    direct = recompute_session_status(
+        signatory_map, signed, expires_at=None, now=_NOW, current_status="awaiting_signatures"
+    )
+    via_provider = NullProvider().check_status(session, signed)
+
+    assert isinstance(via_provider, ProviderStatus)
+    assert via_provider.status == direct == "fully_signed"
+    assert via_provider.provider_name == "null"
+
+
+def test_null_provider_fetch_artifact_unavailable_before_any_signature() -> None:
+    session = SimpleNamespace(document_ref="doc/a", document_content_hash="h1")
+    artifact = NullProvider().fetch_artifact(session, [])
+    assert isinstance(artifact, SignedArtifact)
+    assert artifact.available is False
+    assert artifact.certificate is None
+    assert artifact.manifest == {"doc/a": "h1"}
+
+
+def test_null_provider_fetch_artifact_available_once_signed() -> None:
+    session = SimpleNamespace(document_ref="doc/a", document_content_hash="h1")
+    signed = [_sig("client", status="signed")]
+    artifact = NullProvider().fetch_artifact(session, signed)
+    assert artifact.available is True
+    assert artifact.certificate is None  # attestation-only: never a certificate file
+    d = artifact.as_dict()
+    assert d["manifest"] == {"doc/a": "h1"}
+
+
+def test_get_provider_defaults_to_null_provider_for_unknown_capability() -> None:
+    provider = get_provider("qualified_electronic")
+    assert provider is DEFAULT_PROVIDER
+
+    provider_no_capability = get_provider(None)
+    assert provider_no_capability is DEFAULT_PROVIDER
+
+
+def test_register_provider_overrides_resolution_for_its_capability() -> None:
+    class _StubProvider(NullProvider):
+        name = "stub_adapter"
+
+    stub = _StubProvider()
+    try:
+        register_provider("digital_certificate", stub)
+        assert get_provider("digital_certificate") is stub
+        # Unrelated capabilities are unaffected.
+        assert get_provider("simple_electronic") is DEFAULT_PROVIDER
+    finally:
+        # Don't leak state into other tests in the process.
+        from app.modules.signing.providers import _PROVIDER_REGISTRY
+
+        _PROVIDER_REGISTRY.pop("digital_certificate", None)
 
 
 # ── intl labels ─────────────────────────────────────────────────────────────
