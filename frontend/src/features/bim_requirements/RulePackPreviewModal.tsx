@@ -30,6 +30,7 @@ import {
   Pencil,
   XCircle,
   Eye,
+  Info,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -410,6 +411,20 @@ export function RulePackPreviewModal({
         busy={installMutation.isPending}
       >
         <div className="flex flex-col gap-4" data-testid={testId}>
+          {/* Plain-language reminder of what installing does at import time. */}
+          <p
+            className="flex items-start gap-2 rounded-lg border border-border-light bg-surface-secondary px-3 py-2 text-[11px] leading-relaxed text-content-secondary"
+            data-testid={`${testId}-explainer`}
+          >
+            <Info size={13} className="mt-0.5 flex-shrink-0 text-oe-blue" />
+            <span>
+              {t('rulePacks.modal_explainer', {
+                defaultValue:
+                  'These rules describe the data a delivered model must carry. Installing adds them to this project, where they run automatically each time a model is imported and flag any element that is missing or fails a requirement. Preview them below, and dry-run against a loaded model before you install.',
+              })}
+            </span>
+          </p>
+
           {/* Toolbar — readonly toggle (seed mode only) + model picker */}
           <div className="flex flex-wrap items-center gap-3">
             {isSeedMode && (

@@ -14,13 +14,18 @@ import { useTranslation } from 'react-i18next';
 import { Badge } from '@/shared/ui';
 import { Eye, Layers3 } from 'lucide-react';
 import clsx from 'clsx';
-import type { SeedPack, SeedPackCategory } from './SEED_PACKS';
+import type { SeedPack, SeedPackCategory, SeedPackFormat } from './SEED_PACKS';
 
 export interface RulePackCardProps {
   pack: SeedPack;
   onSelect: (pack: SeedPack) => void;
   testId?: string;
 }
+
+const FORMAT_LABEL: Record<SeedPackFormat, { key: string; fallback: string }> = {
+  ifc: { key: 'rulePacks.format_ifc', fallback: 'IFC' },
+  revit: { key: 'rulePacks.format_revit', fallback: 'Revit' },
+};
 
 const CATEGORY_COLOR: Record<SeedPackCategory, string> = {
   Accessibility: 'bg-blue-50 text-blue-700 border-blue-100',
@@ -81,15 +86,25 @@ export function RulePackCard({ pack, onSelect, testId }: RulePackCardProps) {
         <h3 className="line-clamp-2 text-sm font-semibold text-content-primary">
           {pack.name}
         </h3>
-        <span
-          className={clsx(
-            'flex-shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium',
-            CATEGORY_COLOR[pack.category],
-          )}
-          data-testid={`${testIdRoot}-category`}
-        >
-          {t(categoryLabelKey(pack.category), { defaultValue: pack.category })}
-        </span>
+        <div className="flex flex-shrink-0 items-center gap-1">
+          <span
+            className="rounded-full border border-border-light bg-surface-secondary px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-content-secondary"
+            data-testid={`${testIdRoot}-format`}
+          >
+            {t(FORMAT_LABEL[pack.format].key, {
+              defaultValue: FORMAT_LABEL[pack.format].fallback,
+            })}
+          </span>
+          <span
+            className={clsx(
+              'rounded-full border px-2 py-0.5 text-[10px] font-medium',
+              CATEGORY_COLOR[pack.category],
+            )}
+            data-testid={`${testIdRoot}-category`}
+          >
+            {t(categoryLabelKey(pack.category), { defaultValue: pack.category })}
+          </span>
+        </div>
       </div>
 
       <p

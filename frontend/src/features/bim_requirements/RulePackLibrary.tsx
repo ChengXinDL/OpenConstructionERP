@@ -3,26 +3,37 @@
 /**
  * RulePackLibrary — top-level Rule Library browser.
  *
- * Renders a filterable / searchable grid of the 5 seed `RulePackCard`s
+ * Renders a filterable / searchable grid of the seed `RulePackCard`s
  * shipped in `SEED_PACKS.ts`. A "Paste your own YAML" CTA opens the
  * preview/install modal in custom mode. Selecting a card opens it in
  * seed mode with the YAML pre-loaded.
  *
+ * Every template ships in two flavours — one written against IFC entity
+ * classes, one against Revit categories — so a prominent format switch
+ * swaps the shown set between the two. A dismissible explainer states, in
+ * plain language, what a requirement template is and how it runs at import.
+ *
  * Filtering is purely client-side: the seed packs are inlined so the
  * library functions offline. Search matches against `name + description`
- * case-insensitively; category pills are an exclusive single-select.
+ * case-insensitively; format is a two-way toggle and category pills are an
+ * exclusive single-select.
  */
 
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ClipboardEdit, Search, BookOpenCheck } from 'lucide-react';
+import { ClipboardEdit, Search, BookOpenCheck, Boxes } from 'lucide-react';
 import clsx from 'clsx';
 
-import { EmptyState } from '@/shared/ui';
+import { EmptyState, DismissibleInfo, IntroRichText } from '@/shared/ui';
 import { useTabKeyboardNav } from '@/shared/hooks/useTabKeyboardNav';
 import { RulePackCard } from './RulePackCard';
 import { RulePackPreviewModal } from './RulePackPreviewModal';
-import { SEED_PACKS, type SeedPack, type SeedPackCategory } from './SEED_PACKS';
+import {
+  SEED_PACKS,
+  type SeedPack,
+  type SeedPackCategory,
+  type SeedPackFormat,
+} from './SEED_PACKS';
 
 export interface RulePackLibraryProps {
   /** Active project id — required to install a pack. */
@@ -32,6 +43,31 @@ export interface RulePackLibraryProps {
 }
 
 type CategoryFilter = 'all' | SeedPackCategory;
+
+const FORMAT_FILTERS: Array<{
+  value: SeedPackFormat;
+  labelKey: string;
+  defaultLabel: string;
+  hintKey: string;
+  hintDefault: string;
+}> = [
+  {
+    value: 'ifc',
+    labelKey: 'rulePacks.format_ifc',
+    defaultLabel: 'IFC',
+    hintKey: 'rulePacks.format_hint_ifc',
+    hintDefault:
+      'IFC templates select by entity class (IfcWall, IfcSpace) and check Pset property names.',
+  },
+  {
+    value: 'revit',
+    labelKey: 'rulePacks.format_revit',
+    defaultLabel: 'Revit',
+    hintKey: 'rulePacks.format_hint_revit',
+    hintDefault:
+      'Revit templates select by category (Walls, Rooms, Doors) and check Revit parameters, noting Type, Instance and Shared parameters.',
+  },
+];
 
 const CATEGORY_FILTERS: Array<{
   value: CategoryFilter;
@@ -61,6 +97,7 @@ type ModalState =
 
 export function RulePackLibrary({ projectId, testId = 'rule-pack-library' }: RulePackLibraryProps) {
   const { t } = useTranslation();
+  const [format, setFormat] = useState<SeedPackFormat>('ifc');
   const [category, setCategory] = useState<CategoryFilter>('all');
   const [query, setQuery] = useState('');
   const [modal, setModal] = useState<ModalState>({ kind: 'closed' });
@@ -79,6 +116,7 @@ export function RulePackLibrary({ projectId, testId = 'rule-pack-library' }: Rul
   const visiblePacks = useMemo(() => {
     const q = query.trim().toLowerCase();
     return SEED_PACKS.filter((pack) => {
+      if (pack.format !== format) return false;
       if (category !== 'all' && pack.category !== category) return false;
       if (!q) return true;
       return (
@@ -86,7 +124,12 @@ export function RulePackLibrary({ projectId, testId = 'rule-pack-library' }: Rul
         pack.description.toLowerCase().includes(q)
       );
     });
-  }, [category, query]);
+  }, [format, category, query]);
+
+  const activeFormatHint = useMemo(
+    () => FORMAT_FILTERS.find((f) => f.value === format) ?? FORMAT_FILTERS[0]!,
+    [format],
+  );
 
   const handleSelectPack = useCallback((pack: SeedPack) => {
     setModal({ kind: 'seed', pack });
@@ -119,6 +162,71 @@ export function RulePackLibrary({ projectId, testId = 'rule-pack-library' }: Rul
           <ClipboardEdit size={14} />
           {t('rulePacks.paste_custom', { defaultValue: 'Paste your own YAML' })}
         </button>
+      </div>
+
+      {/* Plain-language explainer: what a template is + how it runs at import */}
+      <DismissibleInfo
+        storageKey="rule-library"
+        title={t('rulePacks.intro_title', {
+          defaultValue: 'What a requirement template is',
+        })}
+        more={
+          <IntroRichText
+            text={t('rulePacks.intro_more', {
+              defaultValue:
+                '**How it is used at import.** When you import a BIM model the platform runs every installed template against it before the model is stored.\n\n1. Each rule selects the elements it applies to, by IFC entity class or Revit category.\n2. It checks that the required property or parameter is present and valid on each matched element.\n3. You get a traffic-light report, pass, warning or error, linked back to the exact element.\n\n**Two flavours, one intent.** Every requirement ships for both formats. IFC templates read Pset property names on IFC entity classes; Revit templates read Revit parameters on Revit categories and note whether each is a Type, Instance or Shared parameter. Pick the format your models arrive in.\n\n**Preview before you install.** Open any template to read its rules in plain language and, when a model is loaded, dry-run it to see exactly what would pass or fail.',
+            })}
+          />
+        }
+      >
+        {t('rulePacks.intro_body', {
+          defaultValue:
+            'A requirement template is a checklist of the data a delivered model must carry, its properties, classifications and dimensions. Install one and it runs automatically at import: every element is checked and you get a pass, warning or error report you can act on.',
+        })}
+      </DismissibleInfo>
+
+      {/* Model-format switch — swaps the whole library between the IFC and
+          Revit flavours of the same templates. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-content-secondary">
+          <Boxes size={14} className="text-content-tertiary" />
+          {t('rulePacks.format_label', { defaultValue: 'Model format' })}
+        </span>
+        <div
+          role="group"
+          aria-label={t('rulePacks.format_aria', {
+            defaultValue: 'Choose the model format the templates target',
+          })}
+          data-testid={`${testId}-formats`}
+          className="inline-flex items-center rounded-lg border border-border-light bg-surface-secondary p-0.5"
+        >
+          {FORMAT_FILTERS.map((f) => {
+            const active = format === f.value;
+            return (
+              <button
+                key={f.value}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setFormat(f.value)}
+                data-testid={`${testId}-format-${f.value}`}
+                className={clsx(
+                  'rounded-md px-3 py-1 text-[12px] font-semibold transition-colors',
+                  active
+                    ? 'bg-oe-blue text-white shadow-sm'
+                    : 'text-content-secondary hover:text-content-primary',
+                )}
+              >
+                {t(f.labelKey, { defaultValue: f.defaultLabel })}
+              </button>
+            );
+          })}
+        </div>
+        <span
+          className="text-[11px] text-content-tertiary"
+          data-testid={`${testId}-format-hint`}
+        >
+          {t(activeFormatHint.hintKey, { defaultValue: activeFormatHint.hintDefault })}
+        </span>
       </div>
 
       {/* Filter pills + search */}
@@ -182,7 +290,8 @@ export function RulePackLibrary({ projectId, testId = 'rule-pack-library' }: Rul
           icon={<Search size={24} strokeWidth={1.5} />}
           title={t('rulePacks.empty_title', { defaultValue: 'No matching rule packs' })}
           description={t('rulePacks.empty_desc', {
-            defaultValue: 'Try a different category or clear the search to see all 5 packs.',
+            defaultValue:
+              'Try a different category, clear the search, or switch the model format.',
           })}
         />
       ) : (

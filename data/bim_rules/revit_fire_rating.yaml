@@ -1,0 +1,64 @@
+# Interior-wall fire-rating completeness for Revit models.
+#
+# Every interior wall (Walls whose built-in "Function" type parameter reads
+# "Interior") must declare a "Fire Rating" value. "Fire Rating" is the
+# built-in Walls type parameter. Acceptable values follow DIN 4102-2
+# ("F30", "F60", "F90", "F120", "F180") and the equivalent EN 13501-2
+# classes ("REI 30" .. "REI 180"), plus the explicit "none" sentinel for
+# walls intentionally outside any fire compartment (which still must be
+# recorded; silent absence is the failure case).
+#
+# Revit-flavoured twin of fire_compartment_property (IFC). Revit "Function
+# = Interior" corresponds to IFC "IsExternal = false".
+schema_version: "1.0"
+pack:
+  id: revit_fire_rating
+  name: Interior Wall Fire-Rating Completeness (Revit)
+  description: |
+    Validates that every interior Revit wall declares a Fire Rating value
+    drawn from the DIN 4102-2 / EN 13501-2 vocabulary.
+  source: openconstructionerp
+  version: "1.0.0"
+  applies_to:
+    classifications: ["DIN276", "DIN4102"]
+    project_regions: ["DE", "AT", "CH"]
+
+rules:
+  - id: revit_interior_wall_fire_rating_present
+    name: Fire Rating present on every interior wall
+    severity: error
+    rationale: |
+      Fire-compartment design fails silently when wall fire-ratings are
+      missing. "Fire Rating" is the built-in Walls type parameter and
+      "Function" is the built-in Walls type parameter whose "Interior"
+      value corresponds to IFC IsExternal = false.
+    selector:
+      ifc_class: Walls
+      properties:
+        - { key: Function, op: eq, value: Interior }
+    assertion:
+      property:
+        key: Fire Rating
+        op: exists
+        value: true
+    failure_message: "Interior wall {{id}} has no Fire Rating type parameter."
+
+  - id: revit_interior_wall_fire_rating_valid
+    name: Fire Rating value drawn from DIN 4102 / EN 13501 vocabulary
+    severity: warning
+    rationale: |
+      Ratings outside the standard vocabulary cannot be aggregated into
+      compartment certificates and force manual review. Populate the
+      built-in "Fire Rating" type parameter from the agreed value list
+      (DIN 4102 F-classes or the equivalent EN 13501-2 REI classes).
+    selector:
+      ifc_class: Walls
+      properties:
+        - { key: Function, op: eq, value: Interior }
+        - { key: Fire Rating, op: exists, value: true }
+    assertion:
+      property:
+        key: Fire Rating
+        op: in
+        value: ["none", "F30", "F60", "F90", "F120", "F180", "REI 30", "REI 60", "REI 90", "REI 120", "REI 180"]
+    failure_message: "Interior wall {{id}} has a Fire Rating outside the DIN 4102 / EN 13501 vocabulary."

@@ -52,11 +52,33 @@ beforeEach(() => {
 });
 
 describe('RulePackLibrary', () => {
-  it('renders all 5 seed packs in the grid', () => {
+  it('renders the IFC seed packs by default and hides the Revit ones', () => {
     renderLibrary();
     const grid = screen.getByTestId('rule-pack-library-grid');
-    for (const pack of SEED_PACKS) {
+    const ifcPacks = SEED_PACKS.filter((p) => p.format === 'ifc');
+    const revitPacks = SEED_PACKS.filter((p) => p.format === 'revit');
+    expect(ifcPacks.length).toBeGreaterThan(0);
+    for (const pack of ifcPacks) {
       expect(within(grid).getByTestId(`rule-pack-card-${pack.id}`)).toBeTruthy();
+    }
+    // Default format is IFC, so the Revit twins must not be in the grid yet.
+    for (const pack of revitPacks) {
+      expect(within(grid).queryByTestId(`rule-pack-card-${pack.id}`)).toBeNull();
+    }
+  });
+
+  it('swaps to the Revit templates when the Revit format is selected', () => {
+    renderLibrary();
+    fireEvent.click(screen.getByTestId('rule-pack-library-format-revit'));
+    const grid = screen.getByTestId('rule-pack-library-grid');
+    const revitPacks = SEED_PACKS.filter((p) => p.format === 'revit');
+    const ifcPacks = SEED_PACKS.filter((p) => p.format === 'ifc');
+    expect(revitPacks.length).toBeGreaterThan(0);
+    for (const pack of revitPacks) {
+      expect(within(grid).getByTestId(`rule-pack-card-${pack.id}`)).toBeTruthy();
+    }
+    for (const pack of ifcPacks) {
+      expect(within(grid).queryByTestId(`rule-pack-card-${pack.id}`)).toBeNull();
     }
   });
 

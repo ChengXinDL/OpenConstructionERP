@@ -1,0 +1,66 @@
+# Accessibility clearance audit for Revit models (DIN 18040-1).
+#
+# - Corridors (Rooms whose built-in "Occupancy" instance parameter reads
+#   "Corridor") must have a clear width of at least 1.50 m per
+#   DIN 18040-1 4.3.6. Revit Rooms have no built-in clear-width, so the
+#   value lives in a shared parameter "Clear Width" (m).
+# - Doors on barrier-free routes must have a clear opening width of at
+#   least 0.90 m per DIN 18040-1 4.3.3.2. Door "Width" is the built-in
+#   type parameter; "Accessible Route" is a project/shared Yes/No flag.
+#
+# Revit-flavoured twin of clearance_corridor_door (IFC).
+schema_version: "1.0"
+pack:
+  id: revit_corridor_door_clearance
+  name: Corridor and Door Clearance (Revit)
+  description: |
+    Validates barrier-free clearance for Revit Rooms tagged as corridors
+    and for Doors on accessible routes, per DIN 18040-1 (public buildings).
+  source: openconstructionerp
+  version: "1.0.0"
+  applies_to:
+    classifications: ["DIN276", "DIN18040"]
+    project_regions: ["DE", "AT", "CH"]
+
+rules:
+  - id: revit_corridor_minimum_width
+    name: Corridor room minimum clear width 1.50 m
+    severity: warning
+    rationale: |
+      DIN 18040-1 4.3.6 - main corridors on accessible routes must let two
+      wheelchair users pass; minimum clear width is 1.50 m. "Occupancy" is
+      a built-in Rooms instance parameter; "Clear Width" is a shared
+      parameter (Revit has no built-in clear-width for Rooms); "Number" is
+      the built-in Rooms instance parameter used as the room key.
+    selector:
+      ifc_class: Rooms
+      properties:
+        - { key: Occupancy, op: eq, value: Corridor }
+    assertion:
+      property:
+        key: Clear Width
+        op: gte
+        value: 1.5
+        unit: m
+    failure_message: "Corridor room {{Number}} has a clear width below the 1.50 m DIN 18040-1 minimum."
+
+  - id: revit_door_clear_width
+    name: Door clear opening width 0.90 m on accessible routes
+    severity: error
+    rationale: |
+      DIN 18040-1 4.3.3.2 - doors on accessible routes need a 0.90 m clear
+      opening. "Width" is the built-in Doors type parameter (metres in a
+      metric template); "Mark" is the built-in instance parameter; and
+      "Accessible Route" is a project or shared Yes/No parameter that flags
+      the barrier-free circulation path.
+    selector:
+      ifc_class: Doors
+      properties:
+        - { key: Accessible Route, op: eq, value: true }
+    assertion:
+      property:
+        key: Width
+        op: gte
+        value: 0.9
+        unit: m
+    failure_message: "Door {{Mark}} width {{Width}} m is below the 0.90 m DIN 18040-1 minimum."

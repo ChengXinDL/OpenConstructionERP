@@ -1,0 +1,62 @@
+# Revit cost-classification completeness (DIN 276).
+#
+# Every enclosing and load-bearing element modelled in Revit must carry a
+# DIN 276 cost-group code so cost-group rollups are well-defined. DIN 276
+# is not a built-in Revit parameter, so the code lives in a shared
+# parameter named "DIN_276_Code" (Text) that schedules, tags and exports
+# cleanly. The built-in "Assembly Code" type parameter carries Uniformat,
+# not DIN 276, so it cannot stand in for this.
+#
+# This is the Revit-flavoured twin of din_276_kg_completeness (IFC). In a
+# real project the same pair of rules is replicated per model category
+# (Walls, Floors, Roofs, Structural Columns, ...); Walls are the worked
+# example here.
+schema_version: "1.0"
+pack:
+  id: revit_cost_classification
+  name: DIN 276 Cost-Group Completeness (Revit)
+  description: |
+    Verifies that every Revit wall carries a DIN 276 cost-group code in the
+    300, 400 or 500 ranges, stored in the DIN_276_Code shared parameter, so
+    cost-group rollups are well-defined.
+  source: openconstructionerp
+  version: "1.0.0"
+  applies_to:
+    classifications: ["DIN276"]
+    project_regions: ["DE", "AT", "CH", "LU"]
+
+rules:
+  - id: revit_din276_code_present
+    name: DIN_276_Code shared parameter present on every wall
+    severity: error
+    rationale: |
+      DIN 276 is not a native Revit parameter. Add it as a shared
+      parameter "DIN_276_Code" (Text) bound to the Walls category so it can
+      be scheduled and exported. The built-in "Assembly Code" type
+      parameter holds Uniformat, not DIN 276, and cannot substitute.
+    selector:
+      ifc_class: Walls
+    assertion:
+      property:
+        key: DIN_276_Code
+        op: exists
+        value: true
+    failure_message: "Wall {{id}} has no DIN_276_Code shared parameter."
+
+  - id: revit_din276_code_in_building_range
+    name: DIN_276_Code must be in the 300/400/500 series
+    severity: warning
+    rationale: |
+      Cost groups 100/200/600/700 cover land, soft costs and FF and E and
+      should not normally appear on building elements. DIN_276_Code is the
+      shared parameter carrying the value.
+    selector:
+      ifc_class: Walls
+      properties:
+        - { key: DIN_276_Code, op: exists, value: true }
+    assertion:
+      property:
+        key: DIN_276_Code
+        op: regex
+        value: "^[345][0-9]{2}$"
+    failure_message: "DIN 276 code {{DIN_276_Code}} on wall {{id}} is outside the building-structure ranges (300/400/500)."

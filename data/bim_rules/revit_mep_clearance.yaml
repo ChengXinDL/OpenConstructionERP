@@ -1,0 +1,49 @@
+# MEP-to-structure clearance for Revit models.
+#
+# Pipes must keep at least 100 mm of clearance from structural framing to
+# allow insulation, sleeves and installation tolerance (cf. VDI 2055 6.3).
+#
+# This is the canonical set-vs-set rule: it pairs every element in the
+# Pipes category (selector set) with every element in the Structural
+# Framing category (other_selector set) and asserts a clearance property.
+# "Clearance To Structure" is a shared parameter that carries the
+# coordinated gap in metres; a future geometric engine can compute it from
+# coordinates without changing this rule file.
+#
+# Revit-flavoured twin of mep_clearance (IFC).
+schema_version: "1.0"
+pack:
+  id: revit_mep_clearance
+  name: MEP-to-Structure Clearance (Revit)
+  description: |
+    Validates that Revit pipes maintain a minimum 100 mm clearance from
+    structural framing per VDI 2055.
+  source: openconstructionerp
+  version: "1.0.0"
+  applies_to:
+    classifications: ["DIN276"]
+    project_regions: ["DE", "AT", "CH"]
+
+rules:
+  - id: revit_pipe_to_framing_clearance_100mm
+    name: Pipe at least 100 mm from structural framing
+    severity: error
+    rule_type: set_vs_set
+    rationale: |
+      VDI 2055 6.3 requires clearance around insulated pipe runs for
+      insulation thickness, fastenings and maintenance access. Pipes and
+      Structural Framing are Revit categories; "Clearance To Structure" is
+      a shared parameter (metres) carrying the coordinated gap.
+    selector:
+      ifc_class: Pipes
+    assertion:
+      set_vs_set:
+        other_selector:
+          ifc_class: Structural Framing
+        metric: clearance
+        property:
+          key: Clearance To Structure
+          op: gte
+          value: 0.1
+          unit: m
+    failure_message: "Pipe {{id}} is closer than the 100 mm minimum to nearby structural framing."
