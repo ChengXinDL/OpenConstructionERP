@@ -738,7 +738,22 @@ export function ExpandCellRenderer(params: ICellRendererParams) {
   return (
     <div className="flex items-center justify-center h-full w-full">
       <button
-        onClick={() => ctx?.onToggleResources?.(data.id)}
+        // One-click expand. Fire on mousedown, which runs BEFORE the blur that
+        // commits an in-progress cell edit and re-renders the rows — that
+        // re-render used to unmount this button between mousedown and mouseup,
+        // so the native click never fired and only the SECOND click worked.
+        // preventDefault stops the button stealing focus. The onClick path runs
+        // only for keyboard activation (detail === 0) so a real mouse click,
+        // already handled by mousedown, never double-toggles (which would net
+        // to a no-op).
+        onMouseDown={(e) => {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          ctx?.onToggleResources?.(data.id);
+        }}
+        onClick={(e) => {
+          if (e.detail === 0) ctx?.onToggleResources?.(data.id);
+        }}
         style={{ width: 22, height: 22 }}
         className={`shrink-0 flex items-center justify-center rounded-md ring-1 transition-colors cursor-pointer hover:bg-oe-blue hover:text-white hover:ring-oe-blue ${
           isExpanded
