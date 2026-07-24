@@ -290,6 +290,9 @@ const GlobalSearchPage = lazy(() =>
 const TransmittalLogPage = lazy(() =>
   import('@/features/file-transmittals/TransmittalLogPage').then((m) => ({ default: m.TransmittalLogPage }))
 );
+const FileApprovalsRegisterPage = lazy(() =>
+  import('@/features/file-approvals/FileApprovalsRegisterPage').then((m) => ({ default: m.FileApprovalsRegisterPage }))
+);
 const SharePage = lazy(() =>
   import('@/features/file-manager/SharePage').then((m) => ({ default: m.SharePage }))
 );
@@ -1145,6 +1148,7 @@ export default function App() {
         <Route path="/files/trash" element={<P title="Recycle Bin"><TrashPage /></P>} />
         <Route path="/files/search" element={<P title="Search across projects"><GlobalSearchPage /></P>} />
         <Route path="/files/transmittals" element={<P title="Transmittals"><TransmittalLogPage /></P>} />
+        <Route path="/files/approvals" element={<P title="Approvals register"><FileApprovalsRegisterPage /></P>} />
         <Route path="/files" element={<P title="Project Files"><FileManagerPage /></P>} />
         <Route path="/projects/:projectId/files" element={<P title="Project Files"><FileManagerPage /></P>} />
 

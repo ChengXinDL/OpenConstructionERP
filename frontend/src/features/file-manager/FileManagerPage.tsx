@@ -12,7 +12,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ChevronRight, HardDrive, UploadCloud, Search, Send, Loader2 } from 'lucide-react';
+import { ArrowLeft, ChevronRight, HardDrive, UploadCloud, Search, Send, Loader2, ClipboardCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import { EmptyState, ModuleGuideButton } from '@/shared/ui';
@@ -895,6 +895,18 @@ export function FileManagerPage() {
             <Send size={13} />
             <span className="hidden md:inline">
               {t('files.transmittals.open_log', { defaultValue: 'Transmittal log' })}
+            </span>
+          </Link>
+          {/* Project-wide file-approvals register + one-click Excel export */}
+          <Link
+            to="/files/approvals"
+            data-guide="files-approvals-link"
+            className="hidden sm:inline-flex items-center gap-1.5 h-9 px-2.5 rounded-lg text-xs font-medium text-content-secondary hover:text-content-primary hover:bg-surface-secondary transition-colors"
+            title={t('files.approvals.register_title', { defaultValue: 'Approvals register' })}
+          >
+            <ClipboardCheck size={13} />
+            <span className="hidden md:inline">
+              {t('files.approvals.register_title', { defaultValue: 'Approvals register' })}
             </span>
           </Link>
           <button
