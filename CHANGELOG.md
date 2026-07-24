@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [12.6.0] - 2026-07-24
+
+The case-study pages now open the running demo on the exact module the story is about. Each open-in-the-demo link points at the module route directly, so a reader following the 4D sequence case lands on the schedule board, a 5D cost model case lands on the BOQ, and so on across the workflow library.
+
+Behind that, sign-in now keeps the destination you were headed to. A visitor sent to the login screen from a deep link is returned to that page after they sign in instead of being dropped on the dashboard. The redirect is resolved in one shared place so the login form and the already-signed-in guard cannot disagree and lose the target, and it still refuses external or looping destinations.
+
 ## [12.5.0] - 2026-07-24
 
 Every module register can now show a Module Insights panel, a toggleable summary of the rows already on screen with the key counts, a breakdown chart and a build-your-own chart maker, so a list turns into a quick read of where things stand without leaving the page or loading anything extra. It started on tendering and now reaches the risk register, subcontractors, variations, RFIs, non-conformances, safety, quality and dozens more operational registers across the platform.

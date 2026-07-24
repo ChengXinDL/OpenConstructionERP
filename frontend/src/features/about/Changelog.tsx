@@ -38,6 +38,13 @@ interface ChangelogEntry {
 // date, title and meaning intact; trim the prose, not the facts.
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '12.6.0',
+    date: '2026-07-24',
+    tag: 'NEW',
+    summary:
+      'Case studies now open the running demo on the exact module the story is about, so a 4D sequence case lands on the schedule board and a 5D cost model case lands on the BOQ. Sign-in keeps your intended destination too: arriving at the login screen from a deep link returns you to that page after you sign in instead of dropping you on the dashboard.',
+  },
+  {
     version: '12.5.0',
     date: '2026-07-24',
     tag: 'NEW',
