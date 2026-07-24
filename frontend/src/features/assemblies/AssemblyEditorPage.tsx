@@ -33,6 +33,8 @@ import { apiGet, triggerDownload } from '@/shared/lib/api';
 import { getIntlLocale } from '@/shared/lib/formatters';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
+import { usePreferencesStore } from '@/stores/usePreferencesStore';
+import { getUnitsForLocale } from '@/features/boq/boqHelpers';
 import {
   assembliesApi,
   type AssemblyComponent,
@@ -44,10 +46,6 @@ import {
 import { ParametersPanel } from './ParametersPanel';
 import { ExpandPreviewModal } from './ExpandPreviewModal';
 
-/* -- Constants ------------------------------------------------------------ */
-
-const UNITS = ['m', 'm2', 'm3', 'kg', 't', 'pcs', 'lsum', 'h', 'set', 'lm'];
-
 /* -- Component ------------------------------------------------------------ */
 
 export function AssemblyEditorPage() {
@@ -55,6 +53,11 @@ export function AssemblyEditorPage() {
   const navigate = useNavigate();
   const { assemblyId } = useParams<{ assemblyId: string }>();
   const queryClient = useQueryClient();
+  // Seed new component units from the user's measurement system (imperial ->
+  // sqft, metric -> m2) the same way the BOQ editor does, so an imperial user
+  // no longer lands on a hardcoded metric unit. Storage stays free-text.
+  const measurementSystem = usePreferencesStore((s) => s.measurementSystem);
+  const defaultUnit = measurementSystem === 'imperial' ? 'sqft' : 'm2';
 
   const [applyModalOpen, setApplyModalOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -152,7 +155,7 @@ export function AssemblyEditorPage() {
       > = {
         material: {
           description: t('assemblies.seed_material', { defaultValue: 'New material' }),
-          unit: assembly?.unit || 'm2',
+          unit: assembly?.unit || defaultUnit,
           metadata: { waste_pct: 0 },
         },
         labor: {
@@ -192,7 +195,7 @@ export function AssemblyEditorPage() {
         metadata: d.metadata,
       });
     },
-    [addComponentMutation, assembly?.unit, t],
+    [addComponentMutation, assembly?.unit, defaultUnit, t],
   );
 
   const openCatalogPicker = useCallback((rt: ResourceType | null = null) => {
@@ -995,13 +998,16 @@ function ComponentRow({
   onDelete: () => void;
   fmt: (n: number) => string;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { confirm, ...confirmProps } = useConfirm();
   const [editing, setEditing] = useState<string | null>(null);
   // Per-row "details" panel toggle. Closed by default to keep the
   // table compact; opens to reveal type-specific fields (waste_pct
   // for material, burden_pct for labor, fuel_cost for equipment …).
   const [detailsOpen, setDetailsOpen] = useState(false);
+  // Locale/imperial-aware unit list (same primitive as the BOQ editor) so the
+  // per-component unit dropdown offers imperial + locale tokens, not metric only.
+  const unitOptions = useMemo(() => getUnitsForLocale(i18n.language), [i18n.language]);
 
   const handleBlur = (field: string, value: string) => {
     setEditing(null);
@@ -1135,7 +1141,7 @@ function ComponentRow({
           onChange={(e) => onUpdate({ unit: e.target.value })}
           className="bg-transparent text-sm text-center cursor-pointer border-none outline-none text-content-secondary hover:text-content-primary"
         >
-          {UNITS.map((u) => (
+          {unitOptions.map((u) => (
             <option key={u} value={u}>
               {u}
             </option>

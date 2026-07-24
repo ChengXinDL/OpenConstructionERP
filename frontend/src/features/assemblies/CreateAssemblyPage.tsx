@@ -1,6 +1,6 @@
 // DDC-CWICR-OE: DataDrivenConstruction · OpenConstructionERP
 // Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useMemo, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -9,6 +9,7 @@ import { Button, Input } from '@/shared/ui';
 import { CurrencyPicker } from '@/shared/ui/CurrencyPicker';
 import { useToastStore } from '@/stores/useToastStore';
 import { usePreferencesStore } from '@/stores/usePreferencesStore';
+import { getUnitsForLocale } from '@/features/boq/boqHelpers';
 import { assembliesApi, type CreateAssemblyData } from './api';
 
 /* -- Constants ------------------------------------------------------------ */
@@ -20,19 +21,6 @@ const CATEGORIES = [
   { value: 'mep', key: 'assemblies.cat_mep', defaultLabel: 'MEP' },
   { value: 'earthwork', key: 'assemblies.cat_earthwork', defaultLabel: 'Earthwork' },
   { value: 'general', key: 'assemblies.cat_general', defaultLabel: 'General' },
-];
-
-const UNITS = [
-  { value: 'm', key: 'units.meter', defaultLabel: 'm -- Meter' },
-  { value: 'm2', key: 'units.square_meter', defaultLabel: 'm\u00B2 -- Square meter' },
-  { value: 'm3', key: 'units.cubic_meter', defaultLabel: 'm\u00B3 -- Cubic meter' },
-  { value: 'kg', key: 'units.kilogram', defaultLabel: 'kg -- Kilogram' },
-  { value: 't', key: 'units.tonne', defaultLabel: 't -- Tonne' },
-  { value: 'pcs', key: 'units.piece', defaultLabel: 'pcs -- Piece' },
-  { value: 'lsum', key: 'units.lump_sum', defaultLabel: 'lsum -- Lump sum' },
-  { value: 'h', key: 'units.hour', defaultLabel: 'h -- Hour' },
-  { value: 'set', key: 'units.set', defaultLabel: 'set -- Set' },
-  { value: 'lm', key: 'units.linear_meter', defaultLabel: 'lm -- Linear meter' },
 ];
 
 const STANDARDS = [
@@ -51,7 +39,7 @@ interface CreateAssemblyModalProps {
 }
 
 export function CreateAssemblyModal({ open, onClose }: CreateAssemblyModalProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const addToast = useToastStore((s) => s.addToast);
@@ -61,11 +49,18 @@ export function CreateAssemblyModal({ open, onClose }: CreateAssemblyModalProps)
   // their assemblies as EUR. The field stays editable below.
   const rawPreferredCurrency = usePreferencesStore((s) => s.currency);
   const preferredCurrency = /^[A-Z]{3}$/.test(rawPreferredCurrency) ? rawPreferredCurrency : 'EUR';
+  // Locale/imperial-aware unit dropdown, same primitive the BOQ editor uses:
+  // the list carries imperial + locale-specific tokens (not metric-only), and
+  // the seeded default follows the user's measurement system so an imperial
+  // user opens on sqft instead of m2. Storage stays free-text/canonical.
+  const measurementSystem = usePreferencesStore((s) => s.measurementSystem);
+  const defaultUnit = measurementSystem === 'imperial' ? 'sqft' : 'm2';
+  const unitOptions = useMemo(() => getUnitsForLocale(i18n.language), [i18n.language]);
 
   const [form, setForm] = useState({
     code: '',
     name: '',
-    unit: 'm2',
+    unit: defaultUnit,
     category: 'general',
     classificationStandard: '',
     classificationCode: '',
@@ -76,12 +71,12 @@ export function CreateAssemblyModal({ open, onClose }: CreateAssemblyModalProps)
   useEffect(() => {
     if (open) {
       setForm({
-        code: '', name: '', unit: 'm2', category: 'general',
+        code: '', name: '', unit: defaultUnit, category: 'general',
         classificationStandard: '', classificationCode: '',
         currency: preferredCurrency, bid_factor: '1.00',
       });
     }
-  }, [open, preferredCurrency]);
+  }, [open, preferredCurrency, defaultUnit]);
 
   const mutation = useMutation({
     mutationFn: (data: CreateAssemblyData) => assembliesApi.create(data),
@@ -186,8 +181,8 @@ export function CreateAssemblyModal({ open, onClose }: CreateAssemblyModalProps)
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-content-primary">{t('assemblies.unit', { defaultValue: 'Unit' })}</label>
                 <select value={form.unit} onChange={(e) => set('unit', e.target.value)} className={selectClass}>
-                  {UNITS.map((u) => (
-                    <option key={u.value} value={u.value}>{t(u.key, { defaultValue: u.defaultLabel })}</option>
+                  {unitOptions.map((u) => (
+                    <option key={u} value={u}>{u}</option>
                   ))}
                 </select>
               </div>

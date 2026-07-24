@@ -1,6 +1,6 @@
 // DDC-CWICR-OE: DataDrivenConstruction · OpenConstructionERP
 // Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -49,6 +49,7 @@ import {
   type ResourceType,
 } from '@/features/assemblies/api';
 import { getResourceTypeLabel } from '@/features/boq/boqResourceTypes';
+import { getUnitsForLocale } from '@/features/boq/boqHelpers';
 import { copyToClipboard } from '@/shared/lib/browser';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -126,8 +127,6 @@ const TYPE_TABS: TypeTabConfig[] = [
   { key: 'labor', label: 'Labor', icon: Users },
   { key: 'operator', label: 'Operators', icon: HardHat },
 ];
-
-const UNITS = ['', 'm', 'm2', 'm3', 'kg', 't', 'h', 'pcs', 'lsum', 'set', 'lm'] as const;
 
 interface CWICRRegionInfo {
   id: string;
@@ -1029,12 +1028,18 @@ function BuildAssemblyModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const addToast = useToastStore((s) => s.addToast);
+  // Locale/imperial-aware unit list + measurement-system-seeded default (same
+  // primitive the BOQ editor uses) so an imperial user opens on sqft, and the
+  // dropdown carries imperial + locale tokens instead of metric only.
+  const measurementSystem = usePreferencesStore((s) => s.measurementSystem);
+  const defaultUnit = measurementSystem === 'imperial' ? 'sqft' : 'm2';
+  const unitOptions = useMemo(() => getUnitsForLocale(i18n.language), [i18n.language]);
 
   const [name, setName] = useState('');
-  const [assemblyUnit, setAssemblyUnit] = useState('m2');
+  const [assemblyUnit, setAssemblyUnit] = useState(defaultUnit);
   const [assemblyCategory, setAssemblyCategory] = useState('general');
   const [isCreating, setIsCreating] = useState(false);
   const [entries, setEntries] = useState<SelectedResourceEntry[]>(() =>
@@ -1217,7 +1222,7 @@ function BuildAssemblyModal({
                 aria-label={t('boq.unit', { defaultValue: 'Unit' })}
                 className="h-10 w-full appearance-none rounded-lg border border-border bg-surface-primary px-3 text-sm text-content-primary focus:outline-none focus:ring-2 focus:ring-oe-blue focus:border-transparent"
               >
-                {['m', 'm2', 'm3', 'kg', 't', 'pcs', 'lsum', 'h', 'set', 'lm'].map((u) => (
+                {unitOptions.map((u) => (
                   <option key={u} value={u}>
                     {u}
                   </option>
@@ -1414,9 +1419,12 @@ function BuildAssemblyModal({
 /* ── Main CatalogPage ────────────────────────────────────────────────── */
 
 export function CatalogPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const addToast = useToastStore((s) => s.addToast);
+  // Locale/imperial-aware unit list for the unit filter (same primitive the
+  // BOQ editor uses) so imperial + locale tokens are filterable, not metric only.
+  const unitOptions = useMemo(() => getUnitsForLocale(i18n.language), [i18n.language]);
 
   const navigate = useNavigate();
 
@@ -1878,7 +1886,7 @@ export function CatalogPage() {
               <option value="">
                 {t('catalog.all_units', { defaultValue: 'All units' })}
               </option>
-              {UNITS.filter(Boolean).map((u) => (
+              {unitOptions.map((u) => (
                 <option key={u} value={u}>
                   {u}
                 </option>
@@ -2742,7 +2750,7 @@ function CreateResourceModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const addToast = useToastStore((s) => s.addToast);
   // Seed the currency from the user's preferred (Regional Settings) currency
   // instead of a hardcoded 'EUR' - a user working in USD/GBP/BRL who does not
@@ -2750,18 +2758,23 @@ function CreateResourceModal({
   // as EUR. Falls back to 'EUR' if the stored preference is malformed.
   const rawPreferredCurrency = usePreferencesStore((s) => s.currency);
   const preferredCurrency = /^[A-Z]{3}$/.test(rawPreferredCurrency) ? rawPreferredCurrency : 'EUR';
+  // Locale/imperial-aware unit list + measurement-system-seeded default (same
+  // primitive the BOQ editor uses) so an imperial user opens on sqft and the
+  // dropdown carries imperial + locale tokens instead of metric only.
+  const measurementSystem = usePreferencesStore((s) => s.measurementSystem);
+  const defaultUnit = measurementSystem === 'imperial' ? 'sqft' : 'm2';
+  const unitOptions = useMemo(() => getUnitsForLocale(i18n.language), [i18n.language]);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     name: '',
     resource_type: 'material',
     category: '',
-    unit: 'm2',
+    unit: defaultUnit,
     base_price: '',
     currency: preferredCurrency,
   });
 
   const TYPES = ['material', 'equipment', 'labor', 'operator'];
-  const UNITS = ['m', 'm2', 'm3', 'kg', 't', 'pcs', 'lsum', 'hrs', 'Machine hours', 'set', 'l', 'kWh'];
 
   const handleSubmit = useCallback(async () => {
     if (!form.name.trim()) return;
@@ -2854,7 +2867,7 @@ function CreateResourceModal({
               <label className="text-xs font-medium text-content-secondary mb-1 block">{t('boq.unit', { defaultValue: 'Unit' })}</label>
               <select value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })}
                 className="h-9 w-full rounded-lg border border-border bg-surface-primary px-2 text-sm focus:outline-none focus:ring-2 focus:ring-oe-blue">
-                {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                {unitOptions.map((u) => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
             <div>

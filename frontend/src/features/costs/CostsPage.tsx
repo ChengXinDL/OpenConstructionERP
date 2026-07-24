@@ -45,6 +45,7 @@ import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { useCostDatabaseStore, REGION_MAP } from '@/stores/useCostDatabaseStore';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { usePreferencesStore } from '@/stores/usePreferencesStore';
 import type { CostItemMetadata, CertaintyBadge as CertaintyBadgeData, CostCatalog } from './api';
 import { buildBoqPositionDraft, massEffectiveUnitRate, type FullCostItem } from './addToBoqHelpers';
 import { componentDisplayNumbers } from './costComponentDisplay';
@@ -57,6 +58,7 @@ import { EscalationCalculator } from './EscalationCalculator';
 import { RegionalAdjustPanel } from './RegionalAdjustPanel';
 import { CostCategoryTree } from '@/features/boq/CostCategoryTree';
 import { fetchCategoryTree, type CategoryTreeNode } from '@/features/boq/api';
+import { getUnitsForLocale } from '@/features/boq/boqHelpers';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 
@@ -462,7 +464,6 @@ function RegionTabBar({
 
 /* ── Constants ─────────────────────────────────────────────────────────── */
 
-const UNITS = ['', 'm', 'm2', 'm3', 'kg', 't', 'pcs', 'lsum', 'h', 'set', 'lm'] as const;
 const SOURCES = ['', 'cwicr', 'custom'] as const;
 // Initial page size kept small so the first paint shows results within
 // ~150ms even on cold-start. The user can navigate to the next page (or
@@ -593,10 +594,13 @@ function CostDatabaseEmptyState({
 /* ── Component ─────────────────────────────────────────────────────────── */
 
 export function CostsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const addToast = useToastStore((s) => s.addToast);
   const queryClient = useQueryClient();
+  // Locale/imperial-aware unit list for the unit filter (same primitive the
+  // BOQ editor uses) so imperial + locale tokens are filterable, not metric only.
+  const unitOptions = useMemo(() => getUnitsForLocale(i18n.language), [i18n.language]);
 
   // Global active region from Zustand store
   const activeRegion = useCostDatabaseStore((s) => s.activeRegion);
@@ -1454,7 +1458,7 @@ export function CostsPage() {
               className="h-10 w-full appearance-none rounded-lg border border-border bg-surface-primary pl-3 pr-9 text-sm text-content-primary transition-all duration-fast ease-oe focus:outline-none focus:ring-2 focus:ring-oe-blue focus:border-transparent hover:border-content-tertiary sm:w-32"
             >
               <option value="">{t('costs.all_units', 'All units')}</option>
-              {UNITS.filter(Boolean).map((u) => (
+              {unitOptions.map((u) => (
                 <option key={u} value={u}>
                   {u}
                 </option>
@@ -2298,12 +2302,15 @@ function CreateAssemblyFromCostsModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const addToast = useToastStore((s) => s.addToast);
   const activeProjectId = useProjectContextStore((s) => s.activeProjectId);
+  const measurementSystem = usePreferencesStore((s) => s.measurementSystem);
+  const defaultUnit = measurementSystem === 'imperial' ? 'sqft' : 'm2';
+  const unitOptions = useMemo(() => getUnitsForLocale(i18n.language), [i18n.language]);
   const [name, setName] = useState('');
-  const [unit, setUnit] = useState('m2');
+  const [unit, setUnit] = useState(defaultUnit);
   const [isCreating, setIsCreating] = useState(false);
 
   // Resolve project currency from the active-project context. No hardcoded
@@ -2467,7 +2474,7 @@ function CreateAssemblyFromCostsModal({
               onChange={(e) => setUnit(e.target.value)}
               className="h-10 w-full appearance-none rounded-lg border border-border bg-surface-primary px-3 text-sm text-content-primary focus:outline-none focus:ring-2 focus:ring-purple-500/30"
             >
-              {['m', 'm2', 'm3', 'kg', 't', 'pcs', 'lsum', 'h', 'set', 'lm'].map((u) => (
+              {unitOptions.map((u) => (
                 <option key={u} value={u}>{u}</option>
               ))}
             </select>
@@ -2659,9 +2666,12 @@ function CreateCostItemModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const addToast = useToastStore((s) => s.addToast);
   const activeProjectId = useProjectContextStore((s) => s.activeProjectId);
+  const measurementSystem = usePreferencesStore((s) => s.measurementSystem);
+  const defaultUnit = measurementSystem === 'imperial' ? 'sqft' : 'm2';
+  const unitOptions = useMemo(() => getUnitsForLocale(i18n.language), [i18n.language]);
   const { data: projects } = useQuery({
     queryKey: ['projects'],
     queryFn: () => apiGet<Project[]>('/v1/projects/'),
@@ -2685,6 +2695,7 @@ function CreateCostItemModal({
   // active, the user must pick one in the form select. No EUR/USD baked in.
   const [form, setForm] = useState(() => ({
     ...INITIAL_COST_ITEM_FORM,
+    unit: defaultUnit,
     currency: projectCurrency,
   }));
   const selectedCatalog = catalogs?.find((c) => c.id === itemCatalogId) ?? null;
@@ -2705,8 +2716,6 @@ function CreateCostItemModal({
       setForm((prev) => ({ ...prev, currency: projectCurrency }));
     }
   }, [projectCurrency, form.currency]);
-
-  const UNITS = ['m', 'm2', 'm3', 'kg', 't', 'pcs', 'lsum', 'h', 'set', 'lm'];
 
   const handleSubmit = useCallback(async () => {
     if (!form.description.trim()) return;
@@ -2826,7 +2835,7 @@ function CreateCostItemModal({
                 onChange={(e) => setForm({ ...form, unit: e.target.value })}
                 className="h-9 w-full rounded-lg border border-border bg-surface-primary px-2 text-sm focus:outline-none focus:ring-2 focus:ring-oe-blue"
               >
-                {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+                {unitOptions.map((u) => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
             <div>
@@ -2936,9 +2945,10 @@ function EditCostItemModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const addToast = useToastStore((s) => s.addToast);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const unitOptions = useMemo(() => getUnitsForLocale(i18n.language), [i18n.language]);
   const [form, setForm] = useState(() => ({
     code: item.code,
     description: item.description,
@@ -2958,7 +2968,6 @@ function EditCostItemModal({
     return () => document.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  const UNITS = ['m', 'm2', 'm3', 'kg', 't', 'pcs', 'lsum', 'h', 'set', 'lm'];
   const currencyOptions = ['EUR', 'USD', 'GBP', 'CHF', 'CAD', 'AUD', 'AED', 'RUB', 'CNY', 'INR', 'BRL'];
   // Keep a non-standard existing code selectable so opening + saving without
   // touching the currency never silently rewrites it.
@@ -3081,7 +3090,7 @@ function EditCostItemModal({
                 onChange={(e) => setForm({ ...form, unit: e.target.value })}
                 className="h-9 w-full rounded-lg border border-border bg-surface-primary px-2 text-sm focus:outline-none focus:ring-2 focus:ring-oe-blue"
               >
-                {(UNITS.includes(form.unit) ? UNITS : [form.unit, ...UNITS]).map((u) => (
+                {(unitOptions.includes(form.unit) ? unitOptions : [form.unit, ...unitOptions]).map((u) => (
                   <option key={u} value={u}>{u}</option>
                 ))}
               </select>
