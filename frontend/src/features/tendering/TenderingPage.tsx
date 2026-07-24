@@ -32,7 +32,7 @@ import {
   XCircle,
   CheckCircle2,
 } from 'lucide-react';
-import { Button, Card, Badge, EmptyState, RecoveryCard, DismissibleInfo, IntroRichText, SkeletonTable, Breadcrumb, ConfirmDialog, ModuleGuideButton } from '@/shared/ui';
+import { Button, Card, Badge, EmptyState, RecoveryCard, DismissibleInfo, IntroRichText, SkeletonTable, Breadcrumb, ConfirmDialog, ModuleGuideButton, CollapsibleSection } from '@/shared/ui';
 import { RequiresProject } from '@/shared/auth/RequiresProject';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import {
@@ -1948,12 +1948,15 @@ function HowTenderingWorks() {
   ];
 
   return (
-    <section className="rounded-xl border border-border-light bg-surface-secondary/40 p-4">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('tendering.how_title', { defaultValue: 'How tendering fits together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="tendering.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('tendering.how_title', { defaultValue: 'How tendering fits together' })}
+      subtitle={t('tendering.how_subtitle', {
+        defaultValue: 'From a priced BOQ to an awarded contract, in five steps',
+      })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('tendering.how_intro', {
           defaultValue:
             'Take a priced BOQ to market: package the work, invite subcontractors, compare their offers and award the winner, which writes the agreed rates back to the BOQ.',
@@ -1999,7 +2002,7 @@ function HowTenderingWorks() {
         ·{' '}
         <ModLink to="/reports">{t('tendering.how_mod_reports', { defaultValue: 'Reports' })}</ModLink>
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
 
