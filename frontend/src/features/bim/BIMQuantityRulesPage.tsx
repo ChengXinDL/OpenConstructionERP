@@ -3625,8 +3625,12 @@ export function BIMQuantityRulesPage() {
             the Takeoff "BIM Rules" and Estimation "Quantity Rules" sidebar
             entries read as dedicated pages, not as two tabs on the same
             screen. */}
-        {!lockedMode && (
-          <div className="mt-4 flex border-b border-border-light -mb-px">
+        {/* Tab bar. In locked requirements mode we keep the Requirements +
+            Rule Library tabs (so the Revit/IFC template library is reachable
+            at ?mode=requirements) and hide only the Estimation-side Quantity
+            Rules tab. Unlocked, all three show. */}
+        <div className="mt-4 flex border-b border-border-light -mb-px">
+            {!lockedMode && (
             <button
               type="button"
               onClick={() => setActiveTab('quantity_rules')}
@@ -3640,6 +3644,7 @@ export function BIMQuantityRulesPage() {
               <SlidersHorizontal size={13} />
               {t('bim_rules.tab_quantity_rules', { defaultValue: 'Quantity Rules' })}
             </button>
+            )}
             <button
               type="button"
               onClick={() => setActiveTab('requirements')}
@@ -3668,7 +3673,6 @@ export function BIMQuantityRulesPage() {
               {t('rulePacks.title', { defaultValue: 'Rule Library' })}
             </button>
           </div>
-        )}
 
         {/* Toolbar - model picker for both tabs (Requirements uses it to
             populate the "From BIM Model" auto-fill); Preview/Apply only
