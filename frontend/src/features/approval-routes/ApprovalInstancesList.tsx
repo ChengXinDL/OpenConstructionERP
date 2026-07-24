@@ -53,16 +53,20 @@ export interface ApprovalInstancesListProps {
   targetKind?: string | null;
   /** Pre-select a project filter. */
   projectId?: string | null;
+  /** Seed the status filter (e.g. when drilling in from the Analytics
+   *  tab). Only the initial value - the user can still change it. */
+  initialStatus?: InstanceStatus | '';
 }
 
 export function ApprovalInstancesList({
   targetKind: pinnedKind,
   projectId,
+  initialStatus,
 }: ApprovalInstancesListProps) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [kindFilter, setKindFilter] = useState<string>(pinnedKind ?? '');
-  const [statusFilter, setStatusFilter] = useState<InstanceStatus | ''>('');
+  const [statusFilter, setStatusFilter] = useState<InstanceStatus | ''>(initialStatus ?? '');
   const [search, setSearch] = useState('');
   const [openInstanceId, setOpenInstanceId] = useState<string | null>(null);
 

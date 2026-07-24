@@ -378,3 +378,77 @@ class RouteSimulationResponse(BaseModel):
     happy_path: SimulationOutcome
     scenario: SimulationOutcome | None = None
     warnings: list[str] = Field(default_factory=list)
+
+
+# ── Approval-cycle analytics (item #11) ──────────────────────────────
+
+
+class AnalyticsKpis(BaseModel):
+    """Project-level headline figures over the analytics window."""
+
+    total_instances: int
+    pending: int
+    approved: int
+    rejected: int
+    cancelled: int
+    approval_rate: float | None
+    avg_cycle_days: float | None
+    median_cycle_days: float | None
+    breached_steps_total: int
+    instances_with_breach: int
+    open_overdue_now: int
+
+
+class AnalyticsRoleStat(BaseModel):
+    """Held-time stats for the decided steps attributed to one role."""
+
+    role: str | None
+    decided_count: int
+    avg_hours: float
+    median_hours: float
+    max_hours: int
+    breach_count: int
+    breach_rate: float
+
+
+class AnalyticsStepStat(BaseModel):
+    """Held-time stats for one route step (route + ordinal)."""
+
+    route_id: UUID
+    route_name: str
+    ordinal: int
+    approver_role: str | None
+    decided_count: int
+    avg_hours: float
+    median_hours: float
+    breach_count: int
+    breach_rate: float
+    sla_hours: int | None
+
+
+class AnalyticsBottleneck(BaseModel):
+    """A ranked slow point - a role or a specific route step."""
+
+    kind: Literal["role", "step"]
+    label: str
+    ref: str
+    avg_hours: float
+    median_hours: float
+    breach_rate: float
+    sample_size: int
+
+
+class ApprovalAnalyticsResponse(BaseModel):
+    """Full aggregate for one project's approval workflows."""
+
+    project_id: UUID
+    generated_at: datetime
+    range_days: int | None
+    started_after: datetime | None
+    started_before: datetime | None
+    sample_size: int  # instances actually computed (post-cap)
+    truncated: bool  # True when the compute cap was hit
+    kpis: AnalyticsKpis
+    by_role: list[AnalyticsRoleStat]
+    by_step: list[AnalyticsStepStat]
+    bottlenecks: list[AnalyticsBottleneck]

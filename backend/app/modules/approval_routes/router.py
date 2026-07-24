@@ -27,6 +27,7 @@ wide templates (``project_id IS NULL``) are visible to everyone with
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
@@ -44,6 +45,7 @@ from app.modules.approval_routes.models import (
     TARGET_KINDS,
 )
 from app.modules.approval_routes.schemas import (
+    ApprovalAnalyticsResponse,
     CancelInstance,
     DecisionSubmit,
     DelegationCreate,
@@ -478,6 +480,50 @@ async def get_instance_timeline(
     if route.project_id is not None:
         await verify_project_access(route.project_id, user_id, session)
     return await service.instance_timeline(instance_id)
+
+
+@router.get(
+    "/analytics",
+    response_model=ApprovalAnalyticsResponse,
+    dependencies=[Depends(RequirePermission("approval_routes.read"))],
+)
+async def get_project_analytics(
+    session: SessionDep,
+    user_id: CurrentUserId,
+    project_id: uuid.UUID = Query(...),
+    target_kind: str | None = Query(default=None),
+    days: int = Query(default=180, ge=1, le=730),
+    started_after: datetime | None = Query(default=None),
+    started_before: datetime | None = Query(default=None),
+    service: ApprovalRouteService = Depends(_get_service),
+) -> ApprovalAnalyticsResponse:
+    """Project-scoped approval-cycle analytics.
+
+    Aggregates the per-instance held-days timeline across the project's own
+    routes into KPI headline figures, per-role / per-step held time, SLA breach
+    counts and a bottleneck ranking. Read scope (VIEWER+); the project guard
+    runs before any query so another project's cycle data never leaks. A project
+    that owns no routes (or has no instances in range) returns a zeroed 200,
+    never a 404 - matching the /instances drill-down.
+    """
+    if target_kind is not None and target_kind not in TARGET_KINDS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Unknown target_kind: {target_kind!r}",
+        )
+    if started_after is not None and started_before is not None and started_after > started_before:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="started_after must not be after started_before",
+        )
+    await verify_project_access(project_id, user_id, session)
+    return await service.project_analytics(
+        project_id=project_id,
+        target_kind=target_kind,
+        days=days,
+        started_after=started_after,
+        started_before=started_before,
+    )
 
 
 @router.post(

@@ -5,8 +5,9 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
-from sqlalchemy import and_, delete, or_, select
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.approval_routes.models import (
@@ -143,6 +144,58 @@ class ApprovalRouteRepository:
             stmt = stmt.where(Instance.status == status)
         stmt = stmt.order_by(Instance.started_at.desc()).offset(offset).limit(limit)
         return list((await self.session.execute(stmt)).scalars().all())
+
+    async def list_instances_for_routes(
+        self,
+        route_ids: list[uuid.UUID],
+        *,
+        status: str | None = None,
+        started_after: datetime | None = None,
+        started_before: datetime | None = None,
+        limit: int = 5000,
+    ) -> list[Instance]:
+        """Instances whose route is in ``route_ids``, newest first, capped.
+
+        Backs the project-scoped analytics aggregate: :meth:`list_instances`
+        filters by a single ``route_id``, so this batches the scan across a
+        project's whole route set in one query. The ``limit`` bounds the
+        Python-side held-time computation; the caller pairs it with the exact
+        GROUP BY counter below so the headline status counts stay accurate even
+        when the compute set is capped.
+        """
+        if not route_ids:
+            return []
+        stmt = select(Instance).where(Instance.route_id.in_(route_ids))
+        if status is not None:
+            stmt = stmt.where(Instance.status == status)
+        if started_after is not None:
+            stmt = stmt.where(Instance.started_at >= started_after)
+        if started_before is not None:
+            stmt = stmt.where(Instance.started_at <= started_before)
+        stmt = stmt.order_by(Instance.started_at.desc()).limit(limit)
+        return list((await self.session.execute(stmt)).scalars().all())
+
+    async def count_instances_by_status_for_routes(
+        self,
+        route_ids: list[uuid.UUID],
+        *,
+        started_after: datetime | None = None,
+        started_before: datetime | None = None,
+    ) -> dict[str, int]:
+        """GROUP BY status count over a project's routes - cheap and exact.
+
+        Stays accurate even when :meth:`list_instances_for_routes` is capped,
+        so the analytics KPI headline never undercounts a busy project.
+        """
+        if not route_ids:
+            return {}
+        stmt = select(Instance.status, func.count()).where(Instance.route_id.in_(route_ids)).group_by(Instance.status)
+        if started_after is not None:
+            stmt = stmt.where(Instance.started_at >= started_after)
+        if started_before is not None:
+            stmt = stmt.where(Instance.started_at <= started_before)
+        rows = (await self.session.execute(stmt)).all()
+        return {status: int(count) for status, count in rows}
 
     async def add_instance(self, instance: Instance) -> Instance:
         self.session.add(instance)

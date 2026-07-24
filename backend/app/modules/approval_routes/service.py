@@ -27,7 +27,7 @@ from __future__ import annotations
 import logging
 import uuid
 from collections import defaultdict
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -37,7 +37,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.audit_log import log_activity
 from app.core.events import event_bus
 from app.core.permissions import ROLE_HIERARCHY, _resolve_role
-from app.modules.approval_routes import delegation_engine
+from app.modules.approval_routes import analytics, delegation_engine
 from app.modules.approval_routes.delegation_engine import DelegationView
 from app.modules.approval_routes.models import (
     INSTANCE_STATUSES,
@@ -51,6 +51,11 @@ from app.modules.approval_routes.models import (
 )
 from app.modules.approval_routes.repository import ApprovalRouteRepository
 from app.modules.approval_routes.schemas import (
+    AnalyticsBottleneck,
+    AnalyticsKpis,
+    AnalyticsRoleStat,
+    AnalyticsStepStat,
+    ApprovalAnalyticsResponse,
     DecisionSubmit,
     InstanceCreate,
     RouteCreate,
@@ -440,6 +445,141 @@ class ApprovalRouteService:
             sla_hours_by_ordinal=sla_by_ordinal,
         )
         return timeline.as_dict()
+
+    async def project_analytics(
+        self,
+        *,
+        project_id: uuid.UUID,
+        target_kind: str | None = None,
+        days: int = 180,
+        started_after: datetime | None = None,
+        started_before: datetime | None = None,
+        cap: int = 5000,
+    ) -> ApprovalAnalyticsResponse:
+        """Aggregate a project's approval workflows into cycle-time analytics.
+
+        Reuses the per-instance assembly from :meth:`instance_timeline` (collapse
+        each ordinal to its latest decision) across every instance on the
+        project's own routes, then delegates the held-time maths to the pure
+        :mod:`app.modules.approval_routes.analytics` aggregate. No schema change -
+        every input already lives on Instance / Route / Step / StepState.
+        """
+        now = datetime.now(UTC)
+        # An explicit range wins over the rolling window; range_days then stays
+        # None so the response tells the UI which mode produced the numbers.
+        if started_after is None and started_before is None:
+            started_after = now - timedelta(days=days)
+            range_days: int | None = days
+        else:
+            range_days = None
+
+        # Only the project's OWN routes belong to its analytics (tenant-wide
+        # presets are excluded, matching the /instances drill-down in
+        # router.list_instances).
+        routes = await self.list_routes(
+            project_id=project_id,
+            target_kind=target_kind,
+            include_inactive=True,
+        )
+        own = [r for r in routes if r.project_id == project_id]
+        route_name = {r.id: r.name for r in own}
+        route_ids = list(route_name)
+
+        if not route_ids:
+            empty = analytics.aggregate([], reference=now)
+            return ApprovalAnalyticsResponse(
+                project_id=project_id,
+                generated_at=now,
+                range_days=range_days,
+                started_after=started_after,
+                started_before=started_before,
+                sample_size=0,
+                truncated=False,
+                kpis=AnalyticsKpis(**empty.kpis.as_dict()),
+                by_role=[],
+                by_step=[],
+                bottlenecks=[],
+            )
+
+        # Exact status counts - accurate even when the compute set below is
+        # capped, so the KPI headline never undercounts a busy project.
+        status_counts = await self.repo.count_instances_by_status_for_routes(
+            route_ids,
+            started_after=started_after,
+            started_before=started_before,
+        )
+
+        # Bounded compute set (cap + 1 so truncation is detectable).
+        instances = await self.repo.list_instances_for_routes(
+            route_ids,
+            started_after=started_after,
+            started_before=started_before,
+            limit=cap + 1,
+        )
+        truncated = len(instances) > cap
+        if truncated:
+            instances = instances[:cap]
+        sample_size = len(instances)
+
+        steps_by_route = await self.repo.list_steps_for_routes(route_ids)
+        states_by_instance = await self.repo.list_step_states_for_instances(
+            [i.id for i in instances],
+        )
+
+        inputs: list[analytics.InstanceInput] = []
+        for inst in instances:
+            steps = steps_by_route.get(inst.route_id, [])
+            ordinal_by_step = {s.id: s.ordinal for s in steps}
+            # A step (one ordinal) may collect several decision rows; it is
+            # "decided" at the latest one (mirrors instance_timeline).
+            decided_by_ordinal: dict[int, datetime] = {}
+            for st in states_by_instance.get(inst.id, []):
+                if st.decided_at is None:
+                    continue
+                ordinal = ordinal_by_step.get(st.step_id)
+                if ordinal is None:
+                    continue
+                prev = decided_by_ordinal.get(ordinal)
+                if prev is None or st.decided_at > prev:
+                    decided_by_ordinal[ordinal] = st.decided_at
+            inputs.append(
+                analytics.InstanceInput(
+                    instance_id=str(inst.id),
+                    route_id=str(inst.route_id),
+                    route_name=route_name.get(inst.route_id, ""),
+                    status=inst.status,
+                    started_at=inst.started_at,
+                    completed_at=inst.completed_at,
+                    current_step_ordinal=inst.current_step_ordinal,
+                    steps=tuple(analytics.StepMeta(s.ordinal, s.approver_role, s.sla_hours) for s in steps),
+                    decisions=tuple((s.ordinal, decided_by_ordinal.get(s.ordinal)) for s in steps),
+                ),
+            )
+
+        result = analytics.aggregate(inputs, reference=now)
+
+        # The five status counts come from the exact GROUP BY; every other KPI
+        # is compute-derived over the (bounded) sample.
+        kpis_dict = result.kpis.as_dict()
+        kpis_dict["total_instances"] = sum(status_counts.values())
+        kpis_dict["pending"] = status_counts.get("pending", 0)
+        kpis_dict["approved"] = status_counts.get("approved", 0)
+        kpis_dict["rejected"] = status_counts.get("rejected", 0)
+        kpis_dict["cancelled"] = status_counts.get("cancelled", 0)
+
+        return ApprovalAnalyticsResponse(
+            project_id=project_id,
+            generated_at=now,
+            range_days=range_days,
+            started_after=started_after,
+            started_before=started_before,
+            sample_size=sample_size,
+            truncated=truncated,
+            kpis=AnalyticsKpis(**kpis_dict),
+            by_role=[AnalyticsRoleStat(**r.as_dict()) for r in result.by_role],
+            by_step=[AnalyticsStepStat(**s.as_dict()) for s in result.by_step],
+            bottlenecks=[AnalyticsBottleneck(**b.as_dict()) for b in result.bottlenecks],
+        )
 
     async def list_instances(
         self,

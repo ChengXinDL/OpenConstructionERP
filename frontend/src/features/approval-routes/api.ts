@@ -22,6 +22,7 @@
 
 import { apiDelete, apiGet, apiPatch, apiPost } from '@/shared/lib/api';
 import type {
+  ApprovalAnalytics,
   ApprovalDelegation,
   ApprovalInstance,
   ApprovalRoute,
@@ -238,6 +239,29 @@ export async function revokeDelegation(delegationId: string): Promise<void> {
   await apiDelete<void>(`${BASE}/delegations/${delegationId}`);
 }
 
+/* ── Approval-cycle analytics (item #11) ────────────────────────────── */
+
+export interface AnalyticsParams {
+  projectId: string;
+  targetKind?: string | null;
+  /** Rolling window in days (backend default 180). */
+  days?: number;
+}
+
+/** Project-scoped approval-cycle analytics: KPI headline, per-role /
+ *  per-step held time, SLA breach counts and a bottleneck ranking. The
+ *  project guard runs server-side, so a caller only ever sees a project
+ *  they can access. */
+export async function getApprovalAnalytics(
+  p: AnalyticsParams,
+): Promise<ApprovalAnalytics> {
+  const qs = new URLSearchParams();
+  qs.set('project_id', p.projectId);
+  if (p.targetKind) qs.set('target_kind', p.targetKind);
+  if (p.days) qs.set('days', String(p.days));
+  return apiGet<ApprovalAnalytics>(`${BASE}/analytics?${qs.toString()}`);
+}
+
 /* ── React Query keys (single source of truth) ──────────────────────── */
 
 export const approvalRoutesKeys = {
@@ -277,5 +301,18 @@ export const approvalRoutesKeys = {
       'delegations',
       role ?? 'mine',
       includeInactive ?? false,
+    ] as const,
+  /** Project-scoped approval-cycle analytics (by project + kind + window). */
+  analytics: (
+    projectId: string | null,
+    targetKind?: string | null,
+    days?: number,
+  ) =>
+    [
+      'approval-routes',
+      'analytics',
+      projectId ?? null,
+      targetKind ?? null,
+      days ?? null,
     ] as const,
 };

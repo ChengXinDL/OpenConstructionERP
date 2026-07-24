@@ -41,15 +41,16 @@ import {
   getMeta,
   listRoutes,
 } from './api';
+import { ApprovalAnalyticsPanel } from './ApprovalAnalyticsPanel';
 import { ApprovalInstancesList } from './ApprovalInstancesList';
 import { approvalRoutesGuide } from './approvalRoutesGuide';
 import { DelegationManager } from './DelegationManager';
 import { kindLabel } from './labels';
 import { RouteEditor } from './RouteEditor';
 import { RouteSimulateDrawer } from './RouteSimulateDrawer';
-import type { ApprovalRoute } from './types';
+import type { ApprovalRoute, InstanceStatus } from './types';
 
-type TabId = 'routes' | 'instances';
+type TabId = 'routes' | 'instances' | 'analytics';
 
 export function ApprovalRoutesPage() {
   const { t } = useTranslation();
@@ -63,6 +64,11 @@ export function ApprovalRoutesPage() {
   const [deleteTarget, setDeleteTarget] = useState<ApprovalRoute | null>(null);
   const [simTarget, setSimTarget] = useState<ApprovalRoute | null>(null);
   const [delegationOpen, setDelegationOpen] = useState(false);
+  // Analytics tab: which project to aggregate, and the drill-down target it
+  // hands to the Instances tab (seeded on mount there).
+  const [analyticsProjectId, setAnalyticsProjectId] = useState<string | null>(null);
+  const [instancesInitialStatus, setInstancesInitialStatus] = useState<InstanceStatus | ''>('');
+  const [instancesPinnedKind, setInstancesPinnedKind] = useState<string | null>(null);
 
   // Admin surface — show archived routes too (includeInactive defaults
   // to true on the backend; we keep it explicit for clarity).
@@ -217,6 +223,19 @@ export function ApprovalRoutesPage() {
           }`}
         >
           {t('approvalRoutes.tab_instances', { defaultValue: 'Running & history' })}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'analytics'}
+          onClick={() => setTab('analytics')}
+          className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+            tab === 'analytics'
+              ? 'bg-oe-blue text-content-inverse'
+              : 'text-content-secondary hover:bg-surface-secondary'
+          }`}
+        >
+          {t('approvalRoutes.tab_analytics', { defaultValue: 'Analytics' })}
         </button>
       </div>
 
@@ -426,7 +445,7 @@ export function ApprovalRoutesPage() {
             ))
           )}
         </div>
-      ) : (
+      ) : tab === 'instances' ? (
         <div className="mt-3 space-y-2">
           <p className="text-xs text-content-tertiary max-w-3xl">
             {t('approvalRoutes.instances_intro', {
@@ -434,7 +453,51 @@ export function ApprovalRoutesPage() {
                 'Every approval workflow started across the app. Click a row to open the step ladder and approve, reject or cancel a pending workflow without leaving this page.',
             })}
           </p>
-          <ApprovalInstancesList />
+          <ApprovalInstancesList
+            initialStatus={instancesInitialStatus}
+            targetKind={instancesPinnedKind}
+          />
+        </div>
+      ) : (
+        <div className="mt-3 space-y-3">
+          <p className="text-xs text-content-tertiary max-w-3xl">
+            {t('approvalRoutes.analytics_intro', {
+              defaultValue:
+                "Cycle-time and SLA-breach analytics across this project's approval workflows.",
+            })}
+          </p>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-content-secondary">
+              {t('approvalRoutes.analytics_project_label', { defaultValue: 'Project' })}
+            </label>
+            <select
+              value={analyticsProjectId ?? ''}
+              onChange={(e) => setAnalyticsProjectId(e.target.value || null)}
+              className="h-8 rounded-md border border-border bg-surface-primary px-2 text-xs focus:outline-none focus:ring-2 focus:ring-oe-blue/30 focus:border-oe-blue cursor-pointer"
+              aria-label={t('approvalRoutes.analytics_project_label', {
+                defaultValue: 'Project',
+              })}
+            >
+              <option value="">
+                {t('approvalRoutes.analytics_project_all', {
+                  defaultValue: 'Select a project…',
+                })}
+              </option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <ApprovalAnalyticsPanel
+            projectId={analyticsProjectId}
+            onDrill={({ status, targetKind }) => {
+              setInstancesInitialStatus(status ?? '');
+              setInstancesPinnedKind(targetKind ?? null);
+              setTab('instances');
+            }}
+          />
         </div>
       )}
 

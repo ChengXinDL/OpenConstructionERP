@@ -272,3 +272,79 @@ export interface RouteSimulation {
   scenario: SimulationOutcome | null;
   warnings: string[];
 }
+
+/* ── Approval-cycle analytics (item #11) ──────────────────────────── */
+
+/** Project-level KPI headline. Mirrors the backend AnalyticsKpis. */
+export interface ApprovalAnalyticsKpis {
+  total_instances: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+  cancelled: number;
+  /** approved / (approved + rejected); null when there is no terminal decision. */
+  approval_rate: number | null;
+  avg_cycle_days: number | null;
+  median_cycle_days: number | null;
+  breached_steps_total: number;
+  instances_with_breach: number;
+  /** Pending instances whose current step is overdue right now. */
+  open_overdue_now: number;
+}
+
+/** Held-time stats for the decided steps attributed to one role. Mirrors
+ *  AnalyticsRoleStat. ``role`` is null for user-pinned steps. */
+export interface ApprovalAnalyticsRoleStat {
+  role: string | null;
+  decided_count: number;
+  avg_hours: number;
+  median_hours: number;
+  max_hours: number;
+  breach_count: number;
+  breach_rate: number;
+}
+
+/** Held-time stats for one route step (route + ordinal). Mirrors
+ *  AnalyticsStepStat. */
+export interface ApprovalAnalyticsStepStat {
+  route_id: string;
+  route_name: string;
+  ordinal: number;
+  approver_role: string | null;
+  decided_count: number;
+  avg_hours: number;
+  median_hours: number;
+  breach_count: number;
+  breach_rate: number;
+  sla_hours: number | null;
+}
+
+/** A ranked slow point - a role or a specific route step. Mirrors
+ *  AnalyticsBottleneck. ``ref`` is the role name or ``{route_id}:{ordinal}``. */
+export interface ApprovalAnalyticsBottleneck {
+  kind: 'role' | 'step';
+  label: string;
+  ref: string;
+  avg_hours: number;
+  median_hours: number;
+  breach_rate: number;
+  sample_size: number;
+}
+
+/** Full project-scoped approval-cycle analytics. Mirrors the backend
+ *  ApprovalAnalyticsResponse. */
+export interface ApprovalAnalytics {
+  project_id: string;
+  generated_at: string;
+  range_days: number | null;
+  started_after: string | null;
+  started_before: string | null;
+  /** Instances actually computed (post-cap). */
+  sample_size: number;
+  /** True when the compute cap was hit; status counts stay exact regardless. */
+  truncated: boolean;
+  kpis: ApprovalAnalyticsKpis;
+  by_role: ApprovalAnalyticsRoleStat[];
+  by_step: ApprovalAnalyticsStepStat[];
+  bottlenecks: ApprovalAnalyticsBottleneck[];
+}

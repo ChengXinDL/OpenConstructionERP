@@ -9,6 +9,8 @@ export type { ApprovalInstanceCardProps } from './ApprovalInstanceCard';
 export { ApprovalTargetBadge } from './ApprovalTargetBadge';
 export type { ApprovalTargetBadgeProps } from './ApprovalTargetBadge';
 export { ApprovalInstancesList } from './ApprovalInstancesList';
+export { ApprovalAnalyticsPanel } from './ApprovalAnalyticsPanel';
+export type { ApprovalAnalyticsPanelProps } from './ApprovalAnalyticsPanel';
 export { ApprovalInstanceDetailDrawer } from './ApprovalInstanceDetailDrawer';
 export type { ApprovalInstanceDetailDrawerProps } from './ApprovalInstanceDetailDrawer';
 export { ReassignDialog } from './ReassignDialog';
@@ -37,4 +39,9 @@ export type {
   StepState,
   StepDecision,
   StepDecisionState,
+  ApprovalAnalytics,
+  ApprovalAnalyticsKpis,
+  ApprovalAnalyticsRoleStat,
+  ApprovalAnalyticsStepStat,
+  ApprovalAnalyticsBottleneck,
 } from './types';
