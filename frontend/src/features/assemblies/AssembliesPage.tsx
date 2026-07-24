@@ -15,6 +15,7 @@ import { Button, Card, Badge, DismissibleInfo, IntroRichText, EmptyState, Skelet
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { apiGet, apiPost, apiDelete } from '@/shared/lib/api';
 import { getIntlLocale } from '@/shared/lib/formatters';
+import { unitLabel } from '@/shared/lib/unitLabels';
 import { copyToClipboard } from '@/shared/lib/browser';
 import { useToastStore } from '@/stores/useToastStore';
 import {
@@ -1553,7 +1554,7 @@ function AIGenerateModal({
                 className="w-full h-9 px-2.5 rounded-lg border border-border-light bg-surface-primary text-sm text-content-primary focus:outline-none focus:ring-2 focus:ring-violet-500/30 appearance-none cursor-pointer"
               >
                 {UNIT_OPTIONS.map((u) => (
-                  <option key={u} value={u}>{u}</option>
+                  <option key={u} value={u}>{unitLabel(u, t)}</option>
                 ))}
               </select>
             </div>

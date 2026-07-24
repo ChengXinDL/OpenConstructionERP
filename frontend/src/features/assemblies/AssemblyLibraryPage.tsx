@@ -11,6 +11,7 @@ import { PageHeader } from '@/shared/ui/PageHeader';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { useDisplayQuantity } from '@/shared/hooks/useDisplayQuantity';
+import { unitGlyph } from '@/shared/lib/unitLabels';
 import { projectsApi } from '@/features/projects/api';
 
 import {
@@ -48,6 +49,26 @@ const CATEGORY_BADGE: Record<string, BadgeVariant> = {
   mep: 'success',
   earthwork: 'warning',
 };
+
+/** Minimal `t` shape used by the label helpers below (repo convention). */
+type Translate = (key: string, opts?: { defaultValue?: string }) => string;
+
+/** Localized category label — reuses the filter-chip keys, falling back to a
+ *  capitalized raw value for any category without a dedicated key. */
+function categoryLabel(cat: string, t: Translate): string {
+  if (!cat) return '';
+  const cap = cat.charAt(0).toUpperCase() + cat.slice(1);
+  return t(`assemblies.library.category_${cat}`, { defaultValue: cap });
+}
+
+/** Localized resource-role label — reuses the editor's type_*_full keys so a
+ *  template component's role (material / labor / …) reads in the user's
+ *  language instead of a raw English token. */
+function roleLabel(role: string, t: Translate): string {
+  if (!role) return '';
+  const cap = role.charAt(0).toUpperCase() + role.slice(1);
+  return t(`assemblies.type_${role}_full`, { defaultValue: cap });
+}
 
 /* -- Page ---------------------------------------------------------------- */
 
@@ -230,7 +251,7 @@ function TemplateCard({
           <h3 className="line-clamp-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             {localisedName}
           </h3>
-          <Badge variant={badgeColor}>{template.category}</Badge>
+          <Badge variant={badgeColor}>{categoryLabel(template.category, t)}</Badge>
         </div>
 
         <div className="flex flex-wrap gap-1.5">
@@ -253,7 +274,7 @@ function TemplateCard({
             {t('assemblies.library.components', 'components')}
           </span>
           <span className="font-mono text-zinc-700 dark:text-zinc-300">
-            {t('assemblies.library.per_unit', 'per')} {template.unit}
+            {t('assemblies.library.per_unit', 'per')} {unitGlyph(template.unit)}
           </span>
         </div>
       </div>
@@ -436,7 +457,8 @@ function TemplateDrawer({
               {localisedName}
             </h2>
             <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              {template.category} · per {template.unit} · {template.component_count}{' '}
+              {categoryLabel(template.category, t)} · {t('assemblies.library.per_unit', 'per')}{' '}
+              {unitGlyph(template.unit)} · {template.component_count}{' '}
               {t('assemblies.library.components', 'components')}
             </p>
           </div>
@@ -499,10 +521,10 @@ function TemplateDrawer({
                 <li key={idx} className="flex items-center justify-between px-3 py-2 text-sm">
                   <div>
                     <div className="text-zinc-800 dark:text-zinc-200">{c.description}</div>
-                    <div className="text-xs text-zinc-500">{c.role}</div>
+                    <div className="text-xs text-zinc-500">{roleLabel(c.role, t)}</div>
                   </div>
                   <div className="text-right font-mono text-xs text-zinc-600 dark:text-zinc-400">
-                    {c.factor} {c.unit}
+                    {c.factor} {unitGlyph(c.unit)}
                   </div>
                 </li>
               ))}

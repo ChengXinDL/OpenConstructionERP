@@ -10,6 +10,7 @@ import { CurrencyPicker } from '@/shared/ui/CurrencyPicker';
 import { useToastStore } from '@/stores/useToastStore';
 import { usePreferencesStore } from '@/stores/usePreferencesStore';
 import { getUnitsForLocale } from '@/features/boq/boqHelpers';
+import { unitLabel } from '@/shared/lib/unitLabels';
 import { assembliesApi, type CreateAssemblyData } from './api';
 
 /* -- Constants ------------------------------------------------------------ */
@@ -180,11 +181,19 @@ export function CreateAssemblyModal({ open, onClose }: CreateAssemblyModalProps)
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-content-primary">{t('assemblies.unit', { defaultValue: 'Unit' })}</label>
+                {/* Friendly, localized label (e.g. "m² · Square meter") while the
+                    option value stays the canonical getUnitsForLocale token, so
+                    imperial/locale coverage and canonical storage are unchanged. */}
                 <select value={form.unit} onChange={(e) => set('unit', e.target.value)} className={selectClass}>
                   {unitOptions.map((u) => (
-                    <option key={u} value={u}>{u}</option>
+                    <option key={u} value={u}>{unitLabel(u, t)}</option>
                   ))}
                 </select>
+                <p className="text-xs text-content-tertiary">
+                  {t('assemblies.unit_hint', {
+                    defaultValue: 'The unit the finished rate is priced per (e.g. m² of wall). Each component can still use its own unit.',
+                  })}
+                </p>
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-content-primary">{t('assemblies.category', { defaultValue: 'Category' })}</label>

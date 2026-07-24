@@ -35,6 +35,7 @@ import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { usePreferencesStore } from '@/stores/usePreferencesStore';
 import { getUnitsForLocale } from '@/features/boq/boqHelpers';
+import { unitGlyph, unitLabel } from '@/shared/lib/unitLabels';
 import {
   assembliesApi,
   type AssemblyComponent,
@@ -285,8 +286,19 @@ export function AssemblyEditorPage() {
 
   if (!assembly) {
     return (
-      <div className="w-full py-16 text-center">
-        <p className="text-content-secondary">{t('assemblies.not_found', { defaultValue: 'Assembly not found' })}</p>
+      <div className="w-full py-16 flex flex-col items-center gap-3 text-center animate-fade-in">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-surface-tertiary text-content-tertiary">
+          <LayersIcon size={22} />
+        </div>
+        <p className="text-content-primary font-medium">{t('assemblies.not_found', { defaultValue: 'Assembly not found' })}</p>
+        <p className="text-sm text-content-tertiary max-w-sm">
+          {t('assemblies.not_found_hint', {
+            defaultValue: 'This assembly may have been deleted, or you may not have access to it.',
+          })}
+        </p>
+        <Button variant="secondary" size="sm" onClick={() => navigate('/assemblies')}>
+          {t('assemblies.back_to_list', { defaultValue: 'Back to assemblies' })}
+        </Button>
       </div>
     );
   }
@@ -346,7 +358,7 @@ export function AssemblyEditorPage() {
               <span className="capitalize">{assembly.category}</span>
             )}
             <span className="text-content-tertiary">/</span>
-            <span>{assembly.unit}</span>
+            <span title={unitLabel(assembly.unit, t)}>{unitGlyph(assembly.unit)}</span>
             <span className="text-content-tertiary">/</span>
             <span>{assembly.currency || 'EUR'}</span>
             {assembly.bid_factor !== 1.0 && (
@@ -679,7 +691,7 @@ export function AssemblyEditorPage() {
                   <td className="px-4 py-3 text-right text-content-primary text-base tabular-nums">
                     {fmt(adjustedTotal)}
                     <span className="ml-1 text-xs font-normal text-content-tertiary">
-                      / {assembly.unit}
+                      / {unitGlyph(assembly.unit)}
                     </span>
                   </td>
                   <td />
@@ -1134,16 +1146,20 @@ function ComponentRow({
         </div>
       </td>
 
-      {/* Unit */}
+      {/* Unit — dense cell keeps the compact glyph (m2 -> m²); the friendly
+          localized name is a hover/aria title so the column stays narrow.
+          Option value stays the canonical token, storage is unchanged. */}
       <td className="px-4 py-2.5 text-center">
         <select
           value={component.unit}
           onChange={(e) => onUpdate({ unit: e.target.value })}
+          title={unitLabel(component.unit, t)}
+          aria-label={t('boq.unit', { defaultValue: 'Unit' })}
           className="bg-transparent text-sm text-center cursor-pointer border-none outline-none text-content-secondary hover:text-content-primary"
         >
           {unitOptions.map((u) => (
-            <option key={u} value={u}>
-              {u}
+            <option key={u} value={u} title={unitLabel(u, t)}>
+              {unitGlyph(u)}
             </option>
           ))}
         </select>
@@ -1829,7 +1845,7 @@ function BreakdownSidebar({
               {t('assemblies.breakdown_total', { defaultValue: 'Total / unit' })}
             </span>
             <span className="font-bold text-content-primary tabular-nums">
-              {fmt(breakdown.withBid)} {currency} / {unit}
+              {fmt(breakdown.withBid)} {currency} / {unitGlyph(unit)}
             </span>
           </div>
         </div>
