@@ -56,6 +56,8 @@ import { ScorecardTile } from './ScorecardTile';
 import { LienWaiverPanel } from './LienWaiverPanel';
 import { AwardEligibilityBanner } from './AwardEligibilityBanner';
 import { subcontractorsGuide } from './subcontractorsGuide';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildSubcontractorsInsights } from './subcontractorsInsights';
 import { useToastStore } from '@/stores/useToastStore';
 import { getErrorMessage } from '@/shared/lib/api';
 import {
@@ -379,6 +381,20 @@ export function SubcontractorsPage() {
     });
   }, [subsQ.data, search, statusFilter]);
 
+  // Module Insights - the toggleable visualization panel for this module. Its
+  // charts are built client-side from the subcontractors already loaded; when
+  // the register is empty, buildSubcontractorsInsights returns a labelled
+  // sample set so the panel is never empty on first open. This page has no
+  // early return, but the hooks still lead the render body so their order
+  // stays fixed. The list record has no contract value (money lives on the
+  // per-firm Agreement, which this page does not load), so the charts use the
+  // register's own fields - trade, prequalification status, insurance, rating.
+  const insights = useModuleInsights('subcontractors', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildSubcontractorsInsights(subsQ.data ?? [], '', t),
+    [subsQ.data, t],
+  );
+
   // For the "latest payment app" column we need a hint, but it would
   // require N+1 queries. We skip it in the row and surface it inside
   // the drawer instead.
@@ -399,6 +415,7 @@ export function SubcontractorsPage() {
         })}
         actions={
           <>
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             <ModuleGuideButton content={subcontractorsGuide} />
             <Button
               variant="primary"
@@ -409,6 +426,20 @@ export function SubcontractorsPage() {
             </Button>
           </>
         }
+      />
+
+      {/* Module Insights panel - toggled by the header button. Placed high so
+          its charts (real, or labelled sample) are visible as the register
+          opens. */}
+      <InsightsPanel
+        open={insights.open}
+        title={t('subcontractors.insights.title', { defaultValue: 'Subcontractor insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       <DismissibleInfo

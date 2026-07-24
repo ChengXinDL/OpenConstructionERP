@@ -92,6 +92,8 @@ import { HoldPointDependencyTree } from './HoldPointDependencyTree';
 import { AttachmentEvidenceGallery } from './AttachmentEvidenceGallery';
 import { qmsGuide } from './qmsGuide';
 import { listVariationOrders } from '@/features/variations/api';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildQMSInsights } from './qmsInsights';
 
 type Tab = 'itp' | 'inspections' | 'ncrs' | 'punch' | 'audits';
 
@@ -333,6 +335,27 @@ export function QMSPage() {
     enabled: !!projectId && tab === 'ncrs',
   });
 
+  // Module Insights - the toggleable visualization panel for this module. The
+  // per-tab list queries above are gated on the active tab, so the panel gets
+  // its own always-on punch-list query: the punch list is the register a
+  // quality lead works day to day and it carries category, due date and close
+  // date, so the panel can chart open, overdue and average time to close. This
+  // keeps the charts showing real data the moment the page opens, whatever tab
+  // is active. Declared with the other top-level hooks (this component has no
+  // early return) so the hook order stays stable; when the project has no punch
+  // items, buildQMSInsights returns a labelled sample set so the panel is never
+  // empty on first open.
+  const insightsPunchQ = useQuery({
+    queryKey: ['qms', 'insights-punch', projectId],
+    queryFn: () => listPunchItems({ project_id: projectId, limit: 200 }),
+    enabled: !!projectId,
+  });
+  const insights = useModuleInsights('qms', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildQMSInsights(insightsPunchQ.data ?? [], '', t),
+    [insightsPunchQ.data, t],
+  );
+
   const filteredItp = useMemo(
     () => filterByText(itpQ.data ?? [], search, (r) => `${r.name} ${r.work_type} ${r.wbs_ref ?? ''}`),
     [itpQ.data, search],
@@ -392,12 +415,29 @@ export function QMSPage() {
         })}
         actions={
           <>
+            {/* Insights toggle - shows or hides this module's visualization
+                panel. Leads the cluster so charts are one obvious click away. */}
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             <ModuleGuideButton content={qmsGuide} />
             <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => setCreateOpen(true)} disabled={!projectId}>
               {tabCreateLabel(tab, t)}
             </Button>
           </>
         }
+      />
+
+      {/* Module Insights panel - toggled by the header button. Placed high so
+          its charts (real, or labelled sample) are visible the moment the
+          quality hub opens. */}
+      <InsightsPanel
+        open={insights.open}
+        title={t('qms.insights.title', { defaultValue: 'Quality insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       <SectionIntro

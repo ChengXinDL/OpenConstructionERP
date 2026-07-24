@@ -107,6 +107,8 @@ import {
   type EotStatus,
 } from './api';
 import { variationsGuide } from './variationsGuide';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildVariationsInsights } from './variationsInsights';
 
 const VARIATIONS_TAB_IDS = ['notices', 'requests', 'orders', 'daywork', 'eot'] as const;
 type Tab = (typeof VARIATIONS_TAB_IDS)[number];
@@ -555,6 +557,18 @@ export function VariationsPage() {
     return items.filter((e) => (e.description || '').toLowerCase().includes(s));
   }, [eotQ.data, search]);
 
+  // Module Insights - the toggleable visualization panel for this module. It
+  // charts the variation requests already loaded (the entity that carries each
+  // change's estimated cost and schedule impact); when the project has none,
+  // buildVariationsInsights returns a labelled sample set so the panel is never
+  // empty on first open. Declared before the no-project early return below so
+  // the hook order stays stable.
+  const insights = useModuleInsights('variations', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildVariationsInsights(requestsQ.data ?? [], currency, t),
+    [requestsQ.data, currency, t],
+  );
+
   if (!projectId) {
     return (
       <div className="space-y-5 animate-fade-in">
@@ -615,6 +629,7 @@ export function VariationsPage() {
         })}
         actions={
           <>
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             <ModuleGuideButton content={variationsGuide} />
             <Button variant="primary" icon={<Plus size={14} />} onClick={() => setCreateOpen(true)}>
               {tab === 'notices'
@@ -629,6 +644,19 @@ export function VariationsPage() {
             </Button>
           </>
         }
+      />
+
+      {/* Module Insights panel - toggled by the header button. Placed high so
+          its charts (real, or labelled sample) are visible as the page opens. */}
+      <InsightsPanel
+        open={insights.open}
+        title={t('variations.insights.title', { defaultValue: 'Variations insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       <HowVariationsWork />

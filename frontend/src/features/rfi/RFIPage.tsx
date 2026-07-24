@@ -70,6 +70,8 @@ import {
 import { rfiGuide } from './rfiGuide';
 import { ApprovalTargetBadge } from '@/features/approval-routes';
 import { CreateTaskFromSourceDialog } from '@/features/tasks';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildRFIInsights } from './rfiInsights';
 
 /* ── Constants ─────────────────────────────────────────────────────────── */
 
@@ -1855,6 +1857,16 @@ export function RFIPage() {
     return { total, open, overdue, avgDays };
   }, [rfis, serverStats]);
 
+  // Module Insights - the toggleable visualization panel for this module. Built
+  // client-side from the RFIs already loaded; when the project has none,
+  // buildRFIInsights returns a labelled sample set so the panel is never empty.
+  // Declared with the other top-of-component hooks so the hook order stays stable.
+  const insights = useModuleInsights('rfi', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildRFIInsights(rfis, '', t),
+    [rfis, t],
+  );
+
   // Invalidation
   const invalidateAll = useCallback(() => {
     qc.invalidateQueries({ queryKey: ['rfis'] });
@@ -2102,6 +2114,7 @@ export function RFIPage() {
         subtitle={t('rfi.subtitle', { defaultValue: 'Submit, track, and resolve design and construction queries' })}
         actions={
           <>
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             {/* How it works guide - explains the raise / attach / track /
                 respond flow and the impact-to-Variation handoff. Sits at the
                 head of the action cluster as the leading help pill. */}
@@ -2138,6 +2151,20 @@ export function RFIPage() {
             </Button>
           </>
         }
+      />
+
+      {/* Module Insights panel - toggled by the header button. Placed high so
+          its charts (real, or labelled sample) are visible the moment the
+          register opens. */}
+      <InsightsPanel
+        open={insights.open}
+        title={t('rfi.insights.title', { defaultValue: 'RFI insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       {/* Canonical module info card — pain-named title + workflow body. */}

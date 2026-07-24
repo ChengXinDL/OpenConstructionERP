@@ -52,6 +52,8 @@ import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { useTabKeyboardNav } from '@/shared/hooks/useTabKeyboardNav';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildSafetyInsights } from './safetyInsights';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 
@@ -709,6 +711,24 @@ export function SafetyPage() {
     orientation: 'horizontal',
   });
 
+  // Module Insights - the toggleable visualization panel for this module. The
+  // incidents list also feeds the child IncidentsTab; sharing the same query
+  // key means React Query serves both from a single fetch. Declared with the
+  // other top-level hooks (this component has no early return) so the hook
+  // order stays stable. When the project has no incidents, buildSafetyInsights
+  // returns a labelled sample set so the panel is never empty on first open.
+  const { data: insightIncidents = [] } = useQuery({
+    queryKey: ['safety-incidents', projectId],
+    queryFn: () => apiGet<IncidentWire[]>(`/v1/safety/incidents/?project_id=${projectId}`),
+    select: (d): Incident[] => normalizeListResponse<IncidentWire>(d).map(normaliseIncident),
+    enabled: !!projectId,
+  });
+  const insights = useModuleInsights('safety', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildSafetyInsights(insightIncidents, '', t),
+    [insightIncidents, t],
+  );
+
   const tabs: { key: SafetyTab; label: string; icon: React.ReactNode }[] = [
     {
       key: 'incidents',
@@ -746,6 +766,9 @@ export function SafetyPage() {
         })}
         actions={
           <>
+            {/* Insights toggle - shows or hides this module's visualization
+                panel. Leads the cluster so charts are one obvious click away. */}
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             <ModuleGuideButton content={safetyGuide} />
             {projectId && (
               <Button
@@ -761,6 +784,20 @@ export function SafetyPage() {
             )}
           </>
         }
+      />
+
+      {/* Module Insights panel - toggled by the header button. Placed high so
+          its charts (real, or labelled sample) are visible the moment the
+          safety register opens. */}
+      <InsightsPanel
+        open={insights.open}
+        title={t('safety.insights.title', { defaultValue: 'Safety insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       <HowSafetyWork />

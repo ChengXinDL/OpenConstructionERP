@@ -56,6 +56,8 @@ import {
 } from './api';
 import { NCR_STAGES, ncrStageIndex, ncrNextMoves } from './ncrFsm';
 import { ncrGuide } from './ncrGuide';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildNCRInsights } from './ncrInsights';
 
 /* -- Constants ------------------------------------------------------------- */
 
@@ -1209,6 +1211,16 @@ export function NCRPage() {
     return { total, open, underReview, closed };
   }, [ncrs]);
 
+  // Module Insights - the toggleable visualization panel for this module. Built
+  // client-side from the NCRs already loaded; when the project has none,
+  // buildNCRInsights returns a labelled sample set so the panel is never empty.
+  // Declared with the other top-of-component hooks so the hook order stays stable.
+  const insights = useModuleInsights('ncr', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildNCRInsights(ncrs, projectCurrency, t),
+    [ncrs, projectCurrency, t],
+  );
+
   // Invalidation
   const invalidateAll = useCallback(() => {
     qc.invalidateQueries({ queryKey: ['ncrs'] });
@@ -1415,6 +1427,7 @@ export function NCRPage() {
         })}
         actions={
           <>
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             <ModuleGuideButton content={ncrGuide} />
             <Button
               variant="primary"
@@ -1428,6 +1441,20 @@ export function NCRPage() {
             </Button>
           </>
         }
+      />
+
+      {/* Module Insights panel - toggled by the header button. Placed high so
+          its charts (real, or labelled sample) are visible the moment the
+          register opens. */}
+      <InsightsPanel
+        open={insights.open}
+        title={t('ncr.insights.title', { defaultValue: 'NCR insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       <SectionIntro
