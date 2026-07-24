@@ -7367,6 +7367,175 @@ class CatalogueRateOutlier(ValidationRule):
         return results
 
 
+# ── Sheet completeness (drawing index / issue register reconciliation) ───────
+#
+# These rules read a pre-computed EXPECTED sheet list and the ACTUAL project
+# ``Sheet`` rows off ``context.data`` and diff them (documents.sheet_index
+# owns the parse + set-diff). One finding row per gap, plus a single green row
+# when a facet is clean, mirroring how the estimate-audit rules read.
+
+
+def _reconcile_from_context(context: ValidationContext) -> Any:
+    """Diff the expected index against the actual sheets on ``context.data``.
+
+    The three sheet-completeness rules share one reconciliation. The engine
+    hands each rule the same :class:`ValidationContext`, so the result is
+    computed once and cached on ``context.metadata`` for the other two rules.
+    ``sheet_index`` is imported lazily so the core validation package keeps no
+    import-time dependency on the documents module.
+    """
+    meta = context.metadata if isinstance(context.metadata, dict) else {}
+    cached = meta.get("_sc_result")
+    if cached is not None:
+        return cached
+
+    from app.modules.documents.sheet_index import ExpectedSheet, normalize_sheet_number, reconcile
+
+    data = context.data if isinstance(context.data, dict) else {}
+    expected_raw = data.get("expected") or []
+    actual = data.get("actual") or []
+    expected = [
+        ExpectedSheet(
+            sheet_number=str(e.get("sheet_number") or ""),
+            sheet_number_norm=str(e.get("sheet_number_norm") or normalize_sheet_number(e.get("sheet_number"))),
+            sheet_title=e.get("sheet_title"),
+            revision=e.get("revision"),
+        )
+        for e in expected_raw
+        if isinstance(e, dict)
+    ]
+    result = reconcile(expected, actual)
+    if isinstance(context.metadata, dict):
+        context.metadata["_sc_result"] = result
+    return result
+
+
+class SheetCompletenessMissing(ValidationRule):
+    rule_id = "sheet_completeness.missing"
+    name = "Sheet in index is missing from the set"
+    standard = "sheet_completeness"
+    severity = Severity.ERROR
+    category = RuleCategory.COMPLETENESS
+    description = "Every sheet listed in the drawing index must exist in the uploaded set"
+
+    async def validate(self, context: ValidationContext) -> list[RuleResult]:
+        locale = _get_locale(context)
+        result = _reconcile_from_context(context)
+        out: list[RuleResult] = []
+        for num in result.missing:
+            out.append(
+                RuleResult(
+                    rule_id=self.rule_id,
+                    rule_name=self.name,
+                    severity=self.severity,
+                    category=self.category,
+                    passed=False,
+                    message=translate("sheet_completeness.missing.fail", locale=locale, sheet=num),
+                    element_ref=num,
+                    suggestion=translate("sheet_completeness.missing.suggestion", locale=locale),
+                )
+            )
+        if not out:
+            # One green summary row keeps the traffic-light dashboard tile.
+            out.append(
+                RuleResult(
+                    rule_id=self.rule_id,
+                    rule_name=self.name,
+                    severity=self.severity,
+                    category=self.category,
+                    passed=True,
+                    message=_ok(locale),
+                )
+            )
+        return out
+
+
+class SheetCompletenessExtra(ValidationRule):
+    rule_id = "sheet_completeness.extra"
+    name = "Uploaded sheet is not in the index"
+    standard = "sheet_completeness"
+    severity = Severity.WARNING  # a stray sheet is a flag, not a block
+    category = RuleCategory.COMPLETENESS
+    description = "Every uploaded sheet should be listed in the drawing index / issue register"
+
+    async def validate(self, context: ValidationContext) -> list[RuleResult]:
+        locale = _get_locale(context)
+        result = _reconcile_from_context(context)
+        out: list[RuleResult] = []
+        for num in result.extra:
+            out.append(
+                RuleResult(
+                    rule_id=self.rule_id,
+                    rule_name=self.name,
+                    severity=self.severity,
+                    category=self.category,
+                    passed=False,
+                    message=translate("sheet_completeness.extra.fail", locale=locale, sheet=num),
+                    element_ref=num,
+                    suggestion=translate("sheet_completeness.extra.suggestion", locale=locale),
+                )
+            )
+        if not out:
+            out.append(
+                RuleResult(
+                    rule_id=self.rule_id,
+                    rule_name=self.name,
+                    severity=self.severity,
+                    category=self.category,
+                    passed=True,
+                    message=_ok(locale),
+                )
+            )
+        return out
+
+
+class SheetRevisionMismatch(ValidationRule):
+    rule_id = "sheet_completeness.revision_mismatch"
+    name = "Sheet revision differs from the index"
+    standard = "sheet_completeness"
+    severity = Severity.WARNING
+    category = RuleCategory.CONSISTENCY
+    description = "A matched sheet should be at the revision the drawing index expects"
+
+    async def validate(self, context: ValidationContext) -> list[RuleResult]:
+        locale = _get_locale(context)
+        result = _reconcile_from_context(context)
+        out: list[RuleResult] = []
+        for row in result.rev_mismatch:
+            sheet = row.get("sheet_number", "?")
+            out.append(
+                RuleResult(
+                    rule_id=self.rule_id,
+                    rule_name=self.name,
+                    severity=self.severity,
+                    category=self.category,
+                    passed=False,
+                    message=translate(
+                        "sheet_completeness.revision_mismatch.fail",
+                        locale=locale,
+                        sheet=sheet,
+                        expected_rev=row.get("expected_rev", "?"),
+                        actual_rev=row.get("actual_rev", "?"),
+                    ),
+                    element_ref=sheet,
+                    details=dict(row),
+                    suggestion=translate("sheet_completeness.revision_mismatch.suggestion", locale=locale),
+                )
+            )
+        if not out:
+            out.append(
+                RuleResult(
+                    rule_id=self.rule_id,
+                    rule_name=self.name,
+                    severity=self.severity,
+                    category=self.category,
+                    passed=True,
+                    message=_ok(locale),
+                )
+            )
+        return out
+
+
 # ── Registration ────────────────────────────────────────────────────────────
 
 
@@ -7483,6 +7652,10 @@ def register_builtin_rules() -> None:
         (NearDuplicateLine(), ["estimate_audit"]),
         (MissingCompanionItem(), ["estimate_audit"]),
         (CatalogueRateOutlier(), ["estimate_audit"]),
+        # Sheet completeness (drawing index / issue register reconciliation)
+        (SheetCompletenessMissing(), ["sheet_completeness"]),
+        (SheetCompletenessExtra(), ["sheet_completeness"]),
+        (SheetRevisionMismatch(), ["sheet_completeness"]),
     ]
 
     for rule, sets in rules:

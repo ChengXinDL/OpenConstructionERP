@@ -61,6 +61,8 @@ from app.modules.documents.schemas import (
     ShareLinkListItem,
     ShareLinkPublicInfo,
     ShareLinkResponse,
+    SheetCompletenessRequest,
+    SheetCompletenessResponse,
     SheetResponse,
     SheetUpdate,
     SheetVersionHistory,
@@ -967,6 +969,46 @@ async def split_pdf(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to split PDF into sheets",
         )
+
+
+# ── Sheet completeness (drawing index reconciliation) ──────────────────
+
+
+@router.post("/sheets/check-completeness/", response_model=SheetCompletenessResponse)
+async def check_sheet_completeness(
+    data: SheetCompletenessRequest,
+    user_id: CurrentUserId,
+    session: SessionDep,
+    _perm: None = Depends(RequirePermission("documents.create")),
+    service: SheetService = Depends(_get_sheet_service),
+) -> SheetCompletenessResponse:
+    """Reconcile the project's uploaded sheets against a drawing index.
+
+    Parses the index (an uploaded index PDF, a pasted sheet list, or a
+    structured override), diffs it against the project's actual ``Sheet`` rows,
+    and persists a document-target ``ValidationReport`` under the
+    ``sheet_completeness`` rule set - flagging missing sheets (error), extra
+    sheets and revision mismatches (warning). Read the report back through the
+    standard ``/v1/validation/reports/`` endpoints.
+    """
+    await verify_project_access(data.project_id, user_id, session)
+    try:
+        result = await service.check_completeness(
+            data.project_id,
+            user_id=uuid.UUID(user_id) if user_id else None,
+            index_document_id=data.index_document_id,
+            index_page=data.index_page,
+            pasted_index=data.pasted_index,
+            expected_sheets=data.expected_sheets,
+            current_only=data.current_only,
+        )
+    except ValueError as exc:
+        msg = str(exc)
+        # "not found" is an IDOR-safe 404 (missing or foreign index document);
+        # every other ValueError is bad/unreadable input -> 422.
+        code = status.HTTP_404_NOT_FOUND if "not found" in msg.lower() else status.HTTP_422_UNPROCESSABLE_ENTITY
+        raise HTTPException(status_code=code, detail=msg) from exc
+    return SheetCompletenessResponse.model_validate(result)
 
 
 # ── Get single sheet ───────────────────────────────────────────────────

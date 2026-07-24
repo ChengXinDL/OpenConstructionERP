@@ -374,6 +374,20 @@
       "suggestion": "Set a positive working-day duration, or type the row as a milestone if it is genuinely a zero-duration event"
     }
   },
+  "sheet_completeness": {
+    "missing": {
+      "fail": "Sheet {sheet} is listed in the drawing index but is not in the uploaded set",
+      "suggestion": "Upload the missing sheet or confirm it was withdrawn from the issue"
+    },
+    "extra": {
+      "fail": "Sheet {sheet} is in the uploaded set but is not listed in the drawing index",
+      "suggestion": "Add it to the index or issue register, or remove the stray sheet"
+    },
+    "revision_mismatch": {
+      "fail": "Sheet {sheet} is at revision {actual_rev} but the index expects {expected_rev}",
+      "suggestion": "Issue the expected revision or update the index to the current revision"
+    }
+  },
   "errors": {
     "resource_not_found": "Resource not found",
     "project_not_found": "Project not found",

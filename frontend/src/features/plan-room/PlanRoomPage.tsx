@@ -45,6 +45,7 @@ import {
 import { allLayersVisible, type LayerKey } from './layers';
 import { LayerPanel } from './LayerPanel';
 import { PlanRoomViewer } from './PlanRoomViewer';
+import { SheetCompletenessPanel } from './SheetCompletenessPanel';
 
 /** Roles that satisfy ``plan_room.write`` (EDITOR and above, plus the role
  *  aliases the backend permission registry maps). Used only to decide whether
@@ -341,6 +342,9 @@ export function PlanRoomPage({ documentId: documentIdProp, initialPage }: PlanRo
           {/* Side panel: layers + photos */}
           <div className="space-y-4">
             <LayerPanel visibility={visibility} counts={counts} onToggle={toggleLayer} />
+
+            {/* Sheet completeness: reconcile the set against its drawing index. */}
+            <SheetCompletenessPanel projectId={projectId} defaultIndexDocumentId={selectedDocId} />
 
             {/* Empty-overlays hint (the sheet still renders). */}
             {overlaysQuery.isSuccess && totalOverlays === 0 && (

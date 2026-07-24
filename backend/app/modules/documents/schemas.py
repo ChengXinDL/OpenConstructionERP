@@ -13,6 +13,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.modules.validation.schemas import ValidationResultItem
+
 # ── Document schemas ─────────────────────────────────────────────────────
 
 
@@ -246,6 +248,90 @@ class SheetVersionHistory(BaseModel):
 
     current: SheetResponse
     history: list[SheetResponse] = Field(default_factory=list)
+
+
+# ── Sheet completeness (drawing index reconciliation) schemas ────────────
+
+
+class ExpectedSheetIn(BaseModel):
+    """One expected sheet supplied directly by the caller (skips parsing)."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    sheet_number: str = Field(min_length=1, max_length=100)
+    sheet_title: str | None = Field(default=None, max_length=500)
+    revision: str | None = Field(default=None, max_length=50)
+
+
+class SheetCompletenessRequest(BaseModel):
+    """Reconcile the project sheet set against a drawing index / issue register.
+
+    Exactly one index source must be provided: an already-uploaded index PDF
+    (``index_document_id``), a pasted sheet list (``pasted_index``), or a
+    structured override (``expected_sheets``). ``index_page`` is 1-based and
+    only valid together with ``index_document_id``.
+    """
+
+    project_id: UUID
+    index_document_id: UUID | None = None
+    index_page: int | None = Field(default=None, ge=1)
+    pasted_index: str | None = None
+    expected_sheets: list[ExpectedSheetIn] | None = None
+    current_only: bool = True
+
+    @model_validator(mode="after")
+    def _check_single_source(self) -> SheetCompletenessRequest:
+        sources = [
+            self.index_document_id is not None,
+            bool(self.pasted_index and self.pasted_index.strip()),
+            bool(self.expected_sheets),
+        ]
+        if sum(sources) == 0:
+            raise ValueError("Provide an index source: index_document_id, pasted_index or expected_sheets")
+        if sum(sources) > 1:
+            raise ValueError("Provide exactly one index source")
+        if self.index_page is not None and self.index_document_id is None:
+            raise ValueError("index_page requires index_document_id")
+        return self
+
+
+class SheetRevisionMismatchItem(BaseModel):
+    """A matched sheet whose revision differs from what the index expects."""
+
+    sheet_number: str
+    expected_rev: str
+    actual_rev: str
+
+
+class SheetCompletenessSummary(BaseModel):
+    """The reconciliation snapshot (missing / extra / matched / rev mismatch)."""
+
+    index_source: str
+    index_document_id: str | None = None
+    index_page: int | None = None
+    expected_count: int
+    actual_count: int
+    missing: list[str] = Field(default_factory=list)
+    extra: list[str] = Field(default_factory=list)
+    matched: list[str] = Field(default_factory=list)
+    rev_mismatch: list[SheetRevisionMismatchItem] = Field(default_factory=list)
+
+
+class SheetCompletenessResponse(BaseModel):
+    """Result of a sheet-completeness run - report summary + reconciliation."""
+
+    report_id: UUID
+    status: str
+    score: float | None = None
+    total_rules: int
+    passed_count: int
+    warning_count: int
+    error_count: int
+    info_count: int
+    rule_sets: list[str] = Field(default_factory=list)
+    duration_ms: float
+    results: list[ValidationResultItem] = Field(default_factory=list)
+    completeness: SheetCompletenessSummary
 
 
 # ── DocumentBIMLink schemas ─────────────────────────────────────────────

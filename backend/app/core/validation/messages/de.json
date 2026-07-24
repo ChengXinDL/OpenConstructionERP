@@ -374,6 +374,20 @@
       "suggestion": "Eine positive Arbeitstage-Dauer setzen oder die Zeile als Meilenstein kennzeichnen, falls es wirklich ein Ereignis ohne Dauer ist"
     }
   },
+  "sheet_completeness": {
+    "missing": {
+      "fail": "Blatt {sheet} ist im Planverzeichnis aufgeführt, fehlt aber im hochgeladenen Satz",
+      "suggestion": "Laden Sie das fehlende Blatt hoch oder bestätigen Sie, dass es aus der Ausgabe zurückgezogen wurde"
+    },
+    "extra": {
+      "fail": "Blatt {sheet} ist im hochgeladenen Satz vorhanden, aber nicht im Planverzeichnis aufgeführt",
+      "suggestion": "Nehmen Sie es in das Verzeichnis bzw. das Ausgaberegister auf oder entfernen Sie das überzählige Blatt"
+    },
+    "revision_mismatch": {
+      "fail": "Blatt {sheet} hat Revision {actual_rev}, das Verzeichnis erwartet jedoch {expected_rev}",
+      "suggestion": "Geben Sie die erwartete Revision aus oder aktualisieren Sie das Verzeichnis auf die aktuelle Revision"
+    }
+  },
   "errors": {
     "resource_not_found": "Ressource nicht gefunden",
     "project_not_found": "Projekt nicht gefunden",

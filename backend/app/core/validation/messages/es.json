@@ -53,5 +53,19 @@
       "invalid_rfc": "El RFC '{rfc}' no es un RFC válido de CFDI (12 caracteres para persona moral, 13 para persona física)",
       "suggestion": "Capture el RFC, régimen fiscal y uso CFDI del emisor en el perfil del proyecto para la facturación CFDI 4.0"
     }
+  },
+  "sheet_completeness": {
+    "missing": {
+      "fail": "El plano {sheet} figura en el índice de planos pero no está en el conjunto cargado",
+      "suggestion": "Cargue el plano que falta o confirme que se retiró de la emisión"
+    },
+    "extra": {
+      "fail": "El plano {sheet} está en el conjunto cargado pero no figura en el índice de planos",
+      "suggestion": "Añádalo al índice o registro de emisión, o elimine el plano sobrante"
+    },
+    "revision_mismatch": {
+      "fail": "El plano {sheet} está en la revisión {actual_rev} pero el índice espera {expected_rev}",
+      "suggestion": "Emita la revisión esperada o actualice el índice a la revisión actual"
+    }
   }
 }

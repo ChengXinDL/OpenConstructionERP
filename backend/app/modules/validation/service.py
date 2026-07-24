@@ -65,6 +65,11 @@ RULE_SET_DESCRIPTIONS: dict[str, str] = {
     "onorm": "ONORM compliance (Austria): position format and description rules.",
     "gbt50500": "GB/T 50500 compliance (China): code format and validity.",
     "cpwd": "CPWD compliance (India): code format and validity.",
+    "sheet_completeness": (
+        "Sheet completeness: reconciles the drawing index / issue register against the "
+        "uploaded sheet set - flags missing sheets (error), extra sheets and revision "
+        "mismatches (warning)."
+    ),
 }
 
 
@@ -251,6 +256,131 @@ class ValidationModuleService:
                 for r in engine_report.results
             ],
             "engine_error_count": len(engine_report.engine_errors),
+        }
+
+    # ── Sheet completeness (drawing index reconciliation) ─────────────────
+
+    async def run_sheet_completeness(
+        self,
+        project_id: uuid.UUID,
+        *,
+        target_id: str,
+        expected: list[dict[str, Any]],
+        actual: list[dict[str, Any]],
+        source_meta: dict[str, Any],
+        user_id: uuid.UUID | None = None,
+    ) -> dict[str, Any]:
+        """Run the ``sheet_completeness`` rule set and persist a document report.
+
+        Generic (non-BOQ) validation path. The caller (documents.SheetService)
+        has already parsed the drawing index into ``expected`` and loaded the
+        actual ``Sheet`` rows into ``actual``; this runs the rule set over them,
+        persists a :class:`ValidationReport` with ``target_type='document'`` and
+        the reconciliation snapshot in ``metadata.sheet_completeness``, and
+        returns the same summary shape as the BOQ path plus a ``completeness``
+        block. Keeping parsing in documents and persistence here mirrors how the
+        BOQ path splits position loading from :meth:`run_validation`.
+
+        Args:
+            project_id: Project owning the sheets (authorisation scope).
+            target_id: 36-char UUID string - the index document id, or the
+                project id for pasted-list mode (fits ``target_id String(36)``).
+            expected: Parsed expected sheets (``ExpectedSheet.__dict__`` shape).
+            actual: Actual ``Sheet`` rows as dicts (sheet_number/revision/...).
+            source_meta: Reconciliation snapshot stored under
+                ``metadata.sheet_completeness`` and echoed back as
+                ``completeness``.
+            user_id: Optional user who triggered the run.
+        """
+        from app.core.i18n import get_locale
+
+        engine_report: EngineReport = await validation_engine.validate(
+            data={"expected": expected, "actual": actual},
+            rule_sets=["sheet_completeness"],
+            target_type="document",
+            target_id=target_id,
+            project_id=str(project_id),
+            metadata={"locale": get_locale()},
+        )
+
+        results_json = [
+            {
+                "rule_id": r.rule_id,
+                "rule_name": r.rule_name,
+                "severity": r.severity.value if hasattr(r.severity, "value") else str(r.severity),
+                "status": "pass" if r.passed else r.severity.value,
+                "passed": r.passed,
+                "message": r.message,
+                "element_ref": r.element_ref,
+                "details": r.details or {},
+                "suggestion": r.suggestion,
+                "is_engine_error": r.is_engine_error,
+            }
+            for r in engine_report.results
+        ]
+
+        db_report = ValidationReport(
+            id=uuid.uuid4(),
+            project_id=project_id,
+            target_type="document",
+            target_id=target_id,
+            rule_set="sheet_completeness",
+            status=engine_report.status.value,
+            score=(None if engine_report.score is None else str(round(engine_report.score, 4))),
+            total_rules=len(engine_report.results),
+            passed_count=len(engine_report.passed_rules),
+            warning_count=len(engine_report.warnings),
+            error_count=len(engine_report.errors),
+            results=results_json,
+            created_by=user_id,
+            metadata_={
+                "duration_ms": engine_report.duration_ms,
+                "rule_sets": ["sheet_completeness"],
+                "supported_rule_sets": engine_report.supported_rule_sets,
+                "unsupported_rule_sets": engine_report.unsupported_rule_sets,
+                "sheet_completeness": source_meta,
+            },
+        )
+        await self.repo.create(db_report)
+
+        # Best-effort event so the vector indexer (and any future cross-module
+        # subscriber) can react. Only ``validation.report.created`` is emitted -
+        # never ``validation.results.errors_found`` - so a missing-sheet ERROR
+        # does not fan out into the NCR / escalation surface; sheet completeness
+        # is a document reconciliation, not a BOQ non-conformance. A publish
+        # failure must never break a successful run.
+        try:
+            from app.core.events import event_bus
+
+            event_bus.publish_detached(
+                "validation.report.created",
+                {
+                    "report_id": str(db_report.id),
+                    "project_id": str(project_id),
+                    "target_type": "document",
+                    "target_id": target_id,
+                    "status": engine_report.status.value,
+                },
+                source_module="oe_validation",
+            )
+        except Exception:
+            logger.debug("Failed to publish validation.report.created event", exc_info=True)
+
+        return {
+            "report_id": str(db_report.id),
+            "status": engine_report.status.value,
+            "score": engine_report.score,
+            "total_rules": len(engine_report.results),
+            "passed_count": len(engine_report.passed_rules),
+            "warning_count": len(engine_report.warnings),
+            "error_count": len(engine_report.errors),
+            "info_count": len(engine_report.infos),
+            "rule_sets": ["sheet_completeness"],
+            "supported_rule_sets": engine_report.supported_rule_sets,
+            "unsupported_rule_sets": engine_report.unsupported_rule_sets,
+            "duration_ms": engine_report.duration_ms,
+            "results": results_json,
+            "completeness": source_meta,
         }
 
     # ── Estimate audit (one-click) ────────────────────────────────────────

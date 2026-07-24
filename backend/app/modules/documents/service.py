@@ -2098,6 +2098,108 @@ class SheetService:
         )
         return sheets
 
+    # ── Sheet completeness (drawing index reconciliation) ──────────────────
+
+    async def check_completeness(
+        self,
+        project_id: uuid.UUID,
+        *,
+        user_id: uuid.UUID | None = None,
+        index_document_id: uuid.UUID | None = None,
+        index_page: int | None = None,
+        pasted_index: str | None = None,
+        expected_sheets: list[Any] | None = None,
+        current_only: bool = True,
+    ) -> dict[str, Any]:
+        """Reconcile the project's sheet set against a drawing index.
+
+        Builds the EXPECTED sheet set from whichever index source was supplied
+        (a structured override, a pasted list, or an uploaded index PDF), loads
+        the ACTUAL ``Sheet`` rows, and hands both to the validation module which
+        runs the ``sheet_completeness`` rule set and persists a document report.
+
+        Parsing lives here (documents owns sheets + the index PDF); persistence
+        lives in the validation module. Raises :class:`ValueError` (mapped to
+        404 / 422 by the router) for a missing/foreign index document or an
+        unreadable index.
+        """
+        from app.modules.documents.sheet_index import (
+            ExpectedSheet,
+            normalize_sheet_number,
+            parse_index_tables,
+            parse_pasted_index,
+            reconcile,
+        )
+
+        # 1. Build the EXPECTED set.
+        if expected_sheets:
+            expected = [
+                ExpectedSheet(
+                    sheet_number=s.sheet_number,
+                    sheet_number_norm=normalize_sheet_number(s.sheet_number),
+                    sheet_title=s.sheet_title,
+                    revision=s.revision,
+                )
+                for s in expected_sheets
+            ]
+        elif pasted_index:
+            expected = parse_pasted_index(pasted_index)
+        elif index_document_id:
+            doc = await DocumentRepository(self.session).get_by_id(index_document_id)
+            # Re-assert the index document belongs to this project (IDOR-safe):
+            # raise the same "not found" for missing and foreign so a caller on
+            # one project cannot probe another project's document ids.
+            if doc is None or doc.project_id != project_id:
+                raise ValueError("Index document not found")
+            expected = parse_index_tables(doc.file_path, index_page)
+        else:
+            raise ValueError("No index source provided")
+
+        if not expected:
+            raise ValueError("Could not read any sheet numbers from the index")
+
+        # 2. Load the ACTUAL sheet rows (current-only by default so superseded
+        #    revisions do not read as extra).
+        sheets, _ = await self.list_sheets(project_id, limit=2000, current_only=current_only)
+        actual = [
+            {
+                "id": str(s.id),
+                "sheet_number": s.sheet_number,
+                "revision": s.revision,
+                "sheet_title": s.sheet_title,
+                "discipline": s.discipline,
+                "page_number": s.page_number,
+            }
+            for s in sheets
+        ]
+
+        # 3. Reconcile for the summary snapshot, then persist via the validation
+        #    module (which re-runs the same diff through the rule set).
+        result = reconcile(expected, actual)
+        target_id = str(index_document_id) if index_document_id else str(project_id)
+        source_meta = {
+            "index_source": "document" if index_document_id else "pasted",
+            "index_document_id": str(index_document_id) if index_document_id else None,
+            "index_page": index_page,
+            "expected_count": result.expected_count,
+            "actual_count": result.actual_count,
+            "missing": result.missing,
+            "extra": result.extra,
+            "matched": result.matched,
+            "rev_mismatch": result.rev_mismatch,
+        }
+
+        from app.modules.validation.service import ValidationModuleService
+
+        return await ValidationModuleService(self.session).run_sheet_completeness(
+            project_id,
+            target_id=target_id,
+            expected=[e.__dict__ for e in expected],
+            actual=actual,
+            source_meta=source_meta,
+            user_id=user_id,
+        )
+
 
 # ── DocumentBIMLink service ──────────────────────────────────────────────
 
