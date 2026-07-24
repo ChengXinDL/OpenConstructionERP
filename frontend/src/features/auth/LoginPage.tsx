@@ -25,6 +25,7 @@ import {
   shouldQueryFirstRun,
   type FirstRunStatus,
 } from './desktopBootstrap';
+import { safeNextPath } from './nextPath';
 import { SUPPORTED_LANGUAGES } from '@/app/i18n';
 import { useThemeStore } from '@/stores/useThemeStore';
 
@@ -88,26 +89,10 @@ export function LoginPage() {
     void useBrandingStore.getState().hydrateFromServer();
   }, []);
   // `?next=/path` lets guarded routes send the user back to where they wanted
-  // to go after login. Falls back to `/` for direct visits.
-  const nextPath = (() => {
-    try {
-      const params = new URLSearchParams(location.search);
-      const next = params.get('next');
-      // Never bounce back into an auth route after a successful login - a
-      // next=/login (or /onboarding before completion) would dead-end or
-      // re-loop. Only honour an internal, non-auth path.
-      const authRoutes = ['/login', '/register', '/forgot-password', '/reset-password', '/onboarding'];
-      if (
-        next &&
-        next.startsWith('/') &&
-        !next.startsWith('//') &&
-        !authRoutes.some((r) => next === r || next.startsWith(`${r}/`) || next.startsWith(`${r}?`))
-      ) {
-        return next;
-      }
-    } catch { /* ignore */ }
-    return '/';
-  })();
+  // to go after login. Falls back to `/` for direct visits. Shared with the
+  // authenticated-route guard (AuthedHome) so a redirect race between the two
+  // cannot silently drop the `next` (the demo deep-link bug).
+  const nextPath = safeNextPath(location.search);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);

@@ -4,7 +4,7 @@ import { Suspense, lazy, useState, useCallback, useEffect, useLayoutEffect, useC
 import { Routes, Route, Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
 import { AppLayout } from './layout';
 import { DashboardPage } from '@/features/dashboard';
-import { LoginPage, RegisterPage, ForgotPasswordPage } from '@/features/auth';
+import { LoginPage, RegisterPage, ForgotPasswordPage, AuthedHome } from '@/features/auth';
 import { ProjectsPage, CreateProjectPage, ProjectDetailPage, ProjectSettingsPage } from '@/features/projects';
 // Import the lightweight BOQ pages from their source modules directly,
 // NOT via the `@/features/boq` barrel.  The barrel re-exports
@@ -1020,10 +1020,10 @@ export default function App() {
         />
 
         {/* Auth — public */}
-        <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} />
-        <Route path="/login-next" element={isAuthenticated ? <Navigate to="/" replace /> : <Suspense fallback={<LoadingScreen />}><LoginPageNext /></Suspense>} />
-        <Route path="/register" element={isAuthenticated ? <Navigate to="/" replace /> : <RegisterPage />} />
-        <Route path="/forgot-password" element={isAuthenticated ? <Navigate to="/" replace /> : <ForgotPasswordPage />} />
+        <Route path="/login" element={isAuthenticated ? <AuthedHome /> : <LoginPage />} />
+        <Route path="/login-next" element={isAuthenticated ? <AuthedHome /> : <Suspense fallback={<LoadingScreen />}><LoginPageNext /></Suspense>} />
+        <Route path="/register" element={isAuthenticated ? <AuthedHome /> : <RegisterPage />} />
+        <Route path="/forgot-password" element={isAuthenticated ? <AuthedHome /> : <ForgotPasswordPage />} />
 
         {/* Onboarding — full-screen, no layout */}
         <Route path="/onboarding" element={
