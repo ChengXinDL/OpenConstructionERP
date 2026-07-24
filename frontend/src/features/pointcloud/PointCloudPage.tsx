@@ -271,18 +271,18 @@ function ScanDetails({ scan }: { scan: ScanDataset }) {
 const CAPABILITY_CARDS: { icon: typeof Ruler; title: string; body: string }[] = [
   {
     icon: Ruler,
-    title: 'Verify built quantities',
-    body: 'Compare the as-built cloud against the model to confirm the quantities you are pricing.',
+    title: 'Check quantities against reality',
+    body: 'Measure what was actually built from the scan and check it against your model, so you price the quantities that are really there.',
   },
   {
     icon: Layers,
-    title: 'Cut and fill into the estimate',
-    body: 'Survey-grade earthwork volumes feed straight into the BOQ with the accuracy tier attached.',
+    title: 'Measure earthwork volumes',
+    body: 'Get cut and fill volumes, how much soil to dig out or bring in, measured from the scan and ready for your estimate.',
   },
   {
     icon: ShieldCheck,
-    title: 'Document site conditions',
-    body: 'A dated, georeferenced record of what was actually on site, kept with the project.',
+    title: 'Keep a dated site record',
+    body: 'Save an exact, dated 3D snapshot of how the site looked on the day, ready to back up claims or progress checks later.',
   },
 ];
 
@@ -1017,24 +1017,31 @@ export function PointCloudPage() {
              collapsed "Upload another scan" panel here at the bottom. ───── */}
       {activeScan && !noProjects && uploadSecondary}
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        {CAPABILITY_CARDS.map((cap, i) => {
-          const Icon = cap.icon;
-          return (
-            <Card key={i} className={`space-y-2 ${GLASS_CARD}`}>
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-secondary text-content-secondary">
-                <Icon size={16} />
-              </div>
-              <h3 className="text-sm font-semibold text-content-primary">
-                {t(`pointcloud.cap_${i}_title`, cap.title)}
-              </h3>
-              <p className="text-xs leading-relaxed text-content-tertiary">
-                {t(`pointcloud.cap_${i}_body`, cap.body)}
-              </p>
-            </Card>
-          );
-        })}
-      </div>
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold text-content-secondary">
+          {t('pointcloud.cap_section_title', {
+            defaultValue: 'What a scan does for your estimate',
+          })}
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {CAPABILITY_CARDS.map((cap, i) => {
+            const Icon = cap.icon;
+            return (
+              <Card key={i} className={`space-y-2 ${GLASS_CARD}`}>
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-secondary text-content-secondary">
+                  <Icon size={16} />
+                </div>
+                <h3 className="text-sm font-semibold text-content-primary">
+                  {t(`pointcloud.cap_${i}_title`, { defaultValue: cap.title })}
+                </h3>
+                <p className="text-xs leading-relaxed text-content-tertiary">
+                  {t(`pointcloud.cap_${i}_body`, { defaultValue: cap.body })}
+                </p>
+              </Card>
+            );
+          })}
+        </div>
+      </section>
     </div>
   );
 }
