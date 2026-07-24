@@ -71,6 +71,8 @@ import {
   type PaymentApplication,
   type PaymentApplicationStatus,
 } from './api';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildCvrInsights } from './cvrInsights';
 
 interface Project {
   id: string;
@@ -631,6 +633,20 @@ export function CvrPage() {
     URL.revokeObjectURL(url);
   }, [lines, summary, selectedReport, reportCurrency, t]);
 
+  // Module Insights - the toggleable visualization panel for this module. The
+  // CvrReport list carries no money on its rows, so the panel charts the
+  // project's payment applications (the money-bearing register the page also
+  // loads): gross, retention and net due, by status and over time. When the
+  // project has none, buildCvrInsights returns a labelled sample set so the
+  // panel is never empty on first open. Open state and any user-built charts
+  // persist per module via useModuleInsights. Declared above the no-project
+  // early return below so the hook order stays stable.
+  const insights = useModuleInsights('cvr', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildCvrInsights(payapps, reportCurrency || payapps[0]?.currency || '', t),
+    [payapps, reportCurrency, t],
+  );
+
   if (!projectId) {
     return <RequiresProject>{null}</RequiresProject>;
   }
@@ -644,11 +660,30 @@ export function CvrPage() {
             'Reconcile cost against value earned per cost head, forecast the final margin, and track project cashflow.',
         })}
         actions={
-          <Button variant="primary" size="sm" onClick={() => setShowNewReport((v) => !v)}>
-            <Plus size={16} className="mr-1.5 shrink-0" />
-            {t('cvr.new_report', { defaultValue: 'New CVR month' })}
-          </Button>
+          <>
+            {/* Insights toggle - shows or hides this module's visualization
+                panel. Leads the cluster so charts are one obvious click away. */}
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
+            <Button variant="primary" size="sm" onClick={() => setShowNewReport((v) => !v)}>
+              <Plus size={16} className="mr-1.5 shrink-0" />
+              {t('cvr.new_report', { defaultValue: 'New CVR month' })}
+            </Button>
+          </>
         }
+      />
+
+      {/* Module Insights panel - toggled by the header button. Placed high so
+          its charts (real, or labelled sample) are visible the moment the page
+          opens. */}
+      <InsightsPanel
+        open={insights.open}
+        title={t('cvr.insights.title', { defaultValue: 'Payment insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       {/* New report inline form */}

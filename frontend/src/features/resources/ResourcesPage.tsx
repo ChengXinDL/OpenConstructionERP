@@ -94,6 +94,8 @@ import {
 } from './api';
 import { projectsApi } from '@/features/projects/api';
 import { resourcesGuide } from './resourcesGuide';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildResourcesInsights } from './resourcesInsights';
 
 type Tab = 'resources' | 'requests' | 'assignments';
 
@@ -486,6 +488,18 @@ export function ResourcesPage() {
     return Array.from(seen).sort();
   }, [allResources]);
 
+  // Module Insights - the toggleable visualization panel for this module. Its
+  // charts are built client-side from the resources already loaded; when there
+  // are none, buildResourcesInsights returns a labelled sample set so the panel
+  // is never empty on first open. Declared before the first return below so the
+  // hook order stays stable.
+  const resourcesCurrency = allResources.find((r) => r.currency)?.currency || '';
+  const insights = useModuleInsights('resources', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildResourcesInsights(allResources, resourcesCurrency, t),
+    [allResources, resourcesCurrency, t],
+  );
+
   const filteredResources = useMemo(() => {
     const s = search.trim().toLowerCase();
     const filtered = allResources.filter((r) => {
@@ -563,6 +577,7 @@ export function ResourcesPage() {
         })}
         actions={
           <>
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             <ModuleGuideButton content={resourcesGuide} />
             {tab === 'assignments' && (
               <>
@@ -616,6 +631,17 @@ export function ResourcesPage() {
             )}
           </>
         }
+      />
+
+      <InsightsPanel
+        open={insights.open}
+        title={t('resources.insights.title', { defaultValue: 'Resource insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       <DismissibleInfo

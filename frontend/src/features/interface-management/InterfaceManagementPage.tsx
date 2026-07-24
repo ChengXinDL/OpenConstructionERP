@@ -62,6 +62,8 @@ import {
   type ActionWritePayload,
   type WorkPackageHealth,
 } from './api';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildInterfaceManagementInsights } from './interfaceManagementInsights';
 
 /* -- Vocabulary display maps ---------------------------------------------- */
 
@@ -1175,6 +1177,15 @@ export function InterfaceManagementPage() {
   const actions = useMemo(() => actionsQuery.data ?? [], [actionsQuery.data]);
   const report = healthQuery.data;
 
+  // Module Insights - toggleable charts built client-side from the interfaces
+  // already loaded; an empty project falls back to a labelled sample set.
+  // Declared here, above the page's first return, so the hook order stays stable.
+  const insights = useModuleInsights('interface-management', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildInterfaceManagementInsights(interfaces, '', t),
+    [interfaces, t],
+  );
+
   // Surface load failures as toasts (queries have no onError in React Query v5).
   useEffect(() => {
     if (interfacesQuery.isError) {
@@ -1327,17 +1338,31 @@ export function InterfaceManagementPage() {
             'Track the handshakes between work packages and contractors, and drive each one to agreement',
         })}
         actions={
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={openCreate}
-            disabled={!projectId}
-            title={!projectId ? t('interface_management.select_project', { defaultValue: 'Open a project first' }) : undefined}
-            icon={<Plus size={14} />}
-          >
-            {t('interface_management.new_interface', { defaultValue: 'New interface' })}
-          </Button>
+          <>
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={openCreate}
+              disabled={!projectId}
+              title={!projectId ? t('interface_management.select_project', { defaultValue: 'Open a project first' }) : undefined}
+              icon={<Plus size={14} />}
+            >
+              {t('interface_management.new_interface', { defaultValue: 'New interface' })}
+            </Button>
+          </>
         }
+      />
+
+      <InsightsPanel
+        open={insights.open}
+        title={t('interface_management.insights.title', { defaultValue: 'Interface insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       <RequiresProject

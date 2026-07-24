@@ -61,6 +61,8 @@ import {
   type CreateItemPayload,
   type CreatePermitPayload,
 } from './api';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildTemporaryWorksInsights } from './temporaryWorksInsights';
 
 /* -- Vocabularies + presentation config ------------------------------------ */
 
@@ -1193,6 +1195,15 @@ export function TemporaryWorksPage() {
   const loadStatus = loadStatusQuery.data;
   const register = registerQuery.data;
 
+  // Module Insights - toggleable charts built client-side from the items already
+  // loaded; an empty project falls back to a labelled sample set. Declared here,
+  // above the page's first return, so the hook order stays stable.
+  const insights = useModuleInsights('temporary-works', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildTemporaryWorksInsights(items, '', t),
+    [items, t],
+  );
+
   const permitsByItem = useMemo(() => {
     const m = new Map<string, TemporaryWorksPermit[]>();
     for (const p of permits) {
@@ -1445,16 +1456,30 @@ export function TemporaryWorksPage() {
             'Govern falsework, propping and excavation support from design check through permit to load and strike',
         })}
         actions={
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setItemModal({})}
-            disabled={!projectId}
-            icon={<Plus size={14} />}
-          >
-            {t('temporary_works.new_item', { defaultValue: 'New item' })}
-          </Button>
+          <>
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setItemModal({})}
+              disabled={!projectId}
+              icon={<Plus size={14} />}
+            >
+              {t('temporary_works.new_item', { defaultValue: 'New item' })}
+            </Button>
+          </>
         }
+      />
+
+      <InsightsPanel
+        open={insights.open}
+        title={t('temporary_works.insights.title', { defaultValue: 'Temporary works insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       <RequiresProject

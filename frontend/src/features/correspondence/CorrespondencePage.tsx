@@ -72,6 +72,8 @@ import {
 } from './api';
 import { correspondenceGuide } from './correspondenceGuide';
 import { CreateTaskFromSourceDialog } from '@/features/tasks';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildCorrespondenceInsights } from './correspondenceInsights';
 
 /* ── Constants ─────────────────────────────────────────────────────────── */
 
@@ -1464,6 +1466,16 @@ export function CorrespondencePage() {
     );
   }, [items, searchQuery]);
 
+  // ── Module Insights ──────────────────────────────────────────────────
+  // Built off the already-loaded register rows; the panel labels itself
+  // "Sample data" and shows illustrative entries until the register has real
+  // ones.
+  const insights = useModuleInsights('correspondence', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildCorrespondenceInsights(items, '', t),
+    [items, t],
+  );
+
   // Invalidation
   const invalidateAll = useCallback(() => {
     qc.invalidateQueries({ queryKey: ['correspondence'] });
@@ -1667,6 +1679,7 @@ export function CorrespondencePage() {
         })}
         actions={
           <>
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             <ModuleGuideButton content={correspondenceGuide} />
             <Button
               variant="primary"
@@ -1681,6 +1694,17 @@ export function CorrespondencePage() {
             </Button>
           </>
         }
+      />
+
+      <InsightsPanel
+        open={insights.open}
+        title={t('correspondence.insights.title', { defaultValue: 'Correspondence insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       {/* Canonical module info card \u2014 pain-named title + workflow body. */}

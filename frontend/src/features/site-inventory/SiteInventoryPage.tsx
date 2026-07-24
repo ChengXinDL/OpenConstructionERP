@@ -24,6 +24,7 @@ import { RequiresProject } from '@/shared/auth/RequiresProject';
 import { getErrorMessage } from '@/shared/lib/api';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
 import {
   createItem,
   createLocation,
@@ -42,6 +43,7 @@ import {
   type StockMovement,
   type StockOnHandRow,
 } from './api';
+import { buildSiteInventoryInsights } from './siteInventoryInsights';
 
 /* -- Shared styling + small helpers --------------------------------------- */
 
@@ -713,6 +715,21 @@ export function SiteInventoryPage() {
     return { tracked: stockRows.length, low, negative };
   }, [stockRows, balanceStatus]);
 
+  // Module Insights - the toggleable visualization panel for this module. Its
+  // charts are built client-side from the stock and movement ledgers already
+  // loaded; when the project has none, buildSiteInventoryInsights returns a
+  // labelled sample set so the panel is never empty on first open. Declared
+  // before the first return below so the hook order stays stable.
+  const inventoryCurrency =
+    items.find((i) => i.currency)?.currency ||
+    movements.find((m) => m.currency)?.currency ||
+    '';
+  const insights = useModuleInsights('site-inventory', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildSiteInventoryInsights(stockRows, movements, items, inventoryCurrency, t),
+    [stockRows, movements, items, inventoryCurrency, t],
+  );
+
   const itemName = useCallback(
     (id: string): string =>
       itemsById.get(id)?.name ?? t('site_inventory.unknown_item', { defaultValue: 'Unknown item' }),
@@ -854,7 +871,23 @@ export function SiteInventoryPage() {
         subtitle={t('site_inventory.subtitle', {
           defaultValue: 'Track on-site material stock, storage locations and every stock movement',
         })}
-        actions={headerAction}
+        actions={
+          <>
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
+            {headerAction}
+          </>
+        }
+      />
+
+      <InsightsPanel
+        open={insights.open}
+        title={t('site_inventory.insights.title', { defaultValue: 'Inventory insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       <RequiresProject

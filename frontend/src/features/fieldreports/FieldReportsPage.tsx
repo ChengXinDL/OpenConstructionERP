@@ -92,6 +92,8 @@ import { ManageTemplatesModal } from './ManageTemplatesModal';
 import { SiteLogEditor } from './SiteLogEditor';
 import { SignaturePad } from './SignaturePad';
 import { fieldreportsGuide } from './fieldreportsGuide';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildFieldReportsInsights } from './fieldReportsInsights';
 
 declare global {
   interface Window {
@@ -291,6 +293,15 @@ export function FieldReportsPage() {
     queryFn: () => fetchFieldReportSummary(projectId),
     enabled: !!projectId,
   });
+
+  // ── Module Insights ──────────────────────────────────────────────────
+  // Built off the already-loaded list rows; the panel labels itself "Sample
+  // data" and shows illustrative reports until the list view has real ones.
+  const insights = useModuleInsights('fieldreports', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildFieldReportsInsights(listReports, '', t),
+    [listReports, t],
+  );
 
   // ── Mutations ────────────────────────────────────────────────────────
 
@@ -510,6 +521,7 @@ export function FieldReportsPage() {
         })}
         actions={
           <>
+          <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
           <ModuleGuideButton content={fieldreportsGuide} />
           {/* View toggle */}
           <div className="flex rounded-lg border border-border-light bg-surface-primary p-0.5">
@@ -580,6 +592,17 @@ export function FieldReportsPage() {
           </Button>
           </>
         }
+      />
+
+      <InsightsPanel
+        open={insights.open}
+        title={t('fieldreports.insights.title', { defaultValue: 'Field report insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       {/* Info block */}

@@ -27,6 +27,8 @@ import { formatCurrency, toNum } from '@/shared/lib/money';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { EstimateRollupCard } from '@/features/estimate-rollup';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildAllowancesInsights } from './allowancesInsights';
 import {
   ALLOWANCE_TYPES,
   ALLOWANCE_TYPE_DEFAULT_LABELS,
@@ -464,6 +466,18 @@ export function AllowancesPage() {
 
   const currencyRows = useMemo(() => summary?.by_currency ?? [], [summary]);
 
+  // Module Insights - the toggleable visualization panel for this module. Its
+  // charts are built client-side from the allowances already loaded; when the
+  // project has none, buildAllowancesInsights returns a labelled sample set so
+  // the panel is never empty on first open. Open state and any user-built charts
+  // persist per module via useModuleInsights. Declared before the project-guard
+  // early return below so the hook order stays stable.
+  const insights = useModuleInsights('allowances', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildAllowancesInsights(allowances, summary?.primary_currency || '', t),
+    [allowances, summary, t],
+  );
+
   if (!projectId) {
     return <RequiresProject>{null}</RequiresProject>;
   }
@@ -477,11 +491,30 @@ export function AllowancesPage() {
             'Track provisional sums, prime-cost sums and contingencies carried in the estimate, and draw them down as scope firms up.',
         })}
         actions={
-          <Button variant="primary" size="sm" onClick={() => setShowAdd((v) => !v)}>
-            <Plus size={16} className="mr-1.5 shrink-0" />
-            {t('allowances.new', { defaultValue: 'New allowance' })}
-          </Button>
+          <>
+            {/* Insights toggle - shows or hides this module's visualization
+                panel. Leads the cluster so charts are one obvious click away. */}
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
+            <Button variant="primary" size="sm" onClick={() => setShowAdd((v) => !v)}>
+              <Plus size={16} className="mr-1.5 shrink-0" />
+              {t('allowances.new', { defaultValue: 'New allowance' })}
+            </Button>
+          </>
         }
+      />
+
+      {/* Module Insights panel - toggled by the header button. Placed high so
+          its charts (real, or labelled sample) are visible the moment the
+          register opens. */}
+      <InsightsPanel
+        open={insights.open}
+        title={t('allowances.insights.title', { defaultValue: 'Allowance insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       {/* How the remaining allowances roll into the whole estimate total. */}

@@ -89,6 +89,8 @@ import {
   type PrequalStatus,
 } from '@/features/subcontractors/api';
 import { bidManagementGuide } from './bidManagementGuide';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildBidManagementInsights } from './bidManagementInsights';
 
 const BID_TAB_IDS = ['packages', 'invitations', 'submissions', 'qa'] as const;
 type Tab = (typeof BID_TAB_IDS)[number];
@@ -552,6 +554,18 @@ export function BidManagementPage() {
 
   const isLoading = packagesQ.isLoading || projectsQ.isLoading;
 
+  // Module Insights - the toggleable visualization panel for this module. Its
+  // charts are built client-side from the packages already loaded; when the
+  // project has none, buildBidManagementInsights returns a labelled sample set
+  // so the panel is never empty on first open. Open state and any user-built
+  // charts persist per module via useModuleInsights. Declared above the
+  // no-project early return below so the hook order stays stable.
+  const insights = useModuleInsights('bid-management', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildBidManagementInsights(packagesQ.data ?? [], currentProject?.currency || '', t),
+    [packagesQ.data, currentProject, t],
+  );
+
   if (!projectId) {
     return (
       <div className="space-y-5 animate-fade-in">
@@ -593,12 +607,29 @@ export function BidManagementPage() {
         })}
         actions={
           <>
+            {/* Insights toggle - shows or hides this module's visualization
+                panel. Leads the cluster so charts are one obvious click away. */}
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             <Button variant="primary" icon={<Plus size={14} />} onClick={() => setCreateOpen(true)}>
               {t('bid_management.new_package', { defaultValue: 'New Package' })}
             </Button>
             <ModuleGuideButton content={bidManagementGuide} />
           </>
         }
+      />
+
+      {/* Module Insights panel - toggled by the header button. Placed high so
+          its charts (real, or labelled sample) are visible the moment the
+          register opens. */}
+      <InsightsPanel
+        open={insights.open}
+        title={t('bid_management.insights.title', { defaultValue: 'Bid insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       <DismissibleInfo

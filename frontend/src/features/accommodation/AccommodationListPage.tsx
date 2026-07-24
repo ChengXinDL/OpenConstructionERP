@@ -73,6 +73,8 @@ import {
 } from './api';
 import { HrAutobookModal } from './HrAutobookModal';
 import { accommodationGuide } from './accommodationGuide';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildAccommodationInsights } from './accommodationInsights';
 
 type KindFilter = 'all' | AccommodationKind;
 
@@ -219,6 +221,18 @@ export function AccommodationListPage() {
     };
   }, [accommodations, counts]);
 
+  // Module Insights - the toggleable visualization panel for this module. Its
+  // charts are built client-side from the accommodations already loaded; when
+  // the project has none, buildAccommodationInsights returns a labelled sample
+  // set so the panel is never empty on first open. Open state and any
+  // user-built charts persist per module via useModuleInsights. Declared among
+  // the top hooks so the hook order stays stable.
+  const insights = useModuleInsights('accommodation', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildAccommodationInsights(accommodations, '', t),
+    [accommodations, t],
+  );
+
   return (
     <div className="space-y-5 pb-20 sm:pb-0 animate-fade-in">
       <Breadcrumb items={[{ label: t('nav.accommodation', { defaultValue: 'Accommodation' }) }]} />
@@ -232,6 +246,9 @@ export function AccommodationListPage() {
         })}
         actions={
           <>
+            {/* Insights toggle - shows or hides this module's visualization
+                panel. Leads the cluster so charts are one obvious click away. */}
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             <ModuleGuideButton content={accommodationGuide} />
             <ModuleHelpButton tourId="accommodation" />
             <Button
@@ -266,6 +283,20 @@ export function AccommodationListPage() {
             </Button>
           </>
         }
+      />
+
+      {/* Module Insights panel - toggled by the header button. Placed high so
+          its charts (real, or labelled sample) are visible the moment the
+          register opens. */}
+      <InsightsPanel
+        open={insights.open}
+        title={t('accommodation.insights.title', { defaultValue: 'Accommodation insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       <DismissibleInfo

@@ -67,6 +67,8 @@ import { InlinePdfAnnotator } from './InlinePdfAnnotator';
 import { UnifiedMarkupsList } from './UnifiedMarkupsList';
 import { EditMarkupModal } from './EditMarkupModal';
 import { markupsGuide } from './markupsGuide';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildMarkupsInsights } from './markupsInsights';
 import {
   MARKUP_PRIORITIES,
   PRIORITY_LABELS,
@@ -1945,6 +1947,18 @@ export function MarkupsPage() {
     return result;
   }, [stamps]);
 
+  // Module Insights - the toggleable visualization panel for this module. Its
+  // charts are built client-side from the markups already loaded; when there
+  // are none, buildMarkupsInsights returns a labelled sample set so the panel
+  // is never empty on first open. Open state and any user-built charts persist
+  // per module via useModuleInsights. Declared among the top hooks so the hook
+  // order stays stable.
+  const insights = useModuleInsights('markups', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildMarkupsInsights(markups, '', t),
+    [markups, t],
+  );
+
   return (
     <div className="space-y-5 animate-fade-in">
       {/* Breadcrumb */}
@@ -1969,6 +1983,9 @@ export function MarkupsPage() {
         })}
         actions={
           <>
+            {/* Insights toggle - shows or hides this module's visualization
+                panel. Leads the cluster so charts are one obvious click away. */}
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             <ModuleGuideButton content={markupsGuide} />
 
             {/* Document selector — a within-project entity picker, stays. */}
@@ -2053,6 +2070,20 @@ export function MarkupsPage() {
             </Button>
           </>
         }
+      />
+
+      {/* Module Insights panel - toggled by the header button. Placed high,
+          outside the project gate, so its charts (real, or labelled sample)
+          are visible the moment the page opens. */}
+      <InsightsPanel
+        open={insights.open}
+        title={t('markups.insights.title', { defaultValue: 'Markup insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       {/* Project gate */}

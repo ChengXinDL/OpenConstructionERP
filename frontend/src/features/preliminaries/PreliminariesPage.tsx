@@ -28,6 +28,8 @@ import { formatCurrency } from '@/shared/lib/money';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { EstimateRollupCard } from '@/features/estimate-rollup';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildPreliminariesInsights } from './preliminariesInsights';
 import {
   fetchPrelimItems,
   createPrelimItem,
@@ -238,6 +240,18 @@ export function PreliminariesPage() {
     if (row && row.dirty) saveRowMut.mutate(row);
   };
 
+  // Module Insights - the toggleable visualization panel for this module. Its
+  // charts are built client-side from the preliminaries already loaded; when the
+  // project has none, buildPreliminariesInsights returns a labelled sample set so
+  // the panel is never empty on first open. Open state and any user-built charts
+  // persist per module via useModuleInsights. Declared before the project-guard
+  // early return below so the hook order stays stable.
+  const insights = useModuleInsights('preliminaries', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildPreliminariesInsights(itemsData ?? [], '', t),
+    [itemsData, t],
+  );
+
   if (!projectId) {
     return <RequiresProject>{null}</RequiresProject>;
   }
@@ -253,6 +267,21 @@ export function PreliminariesPage() {
           defaultValue:
             'Price the general conditions - site establishment, staff, temporary works, standing plant and welfare - as time-related items times the project duration plus fixed one-offs. The total adds to the estimate alongside the measured work.',
         })}
+        actions={<InsightsToggleButton open={insights.open} onClick={insights.toggle} />}
+      />
+
+      {/* Module Insights panel - toggled by the header button. Placed high so
+          its charts (real, or labelled sample) are visible the moment the
+          estimator opens. */}
+      <InsightsPanel
+        open={insights.open}
+        title={t('preliminaries.insights.title', { defaultValue: 'Preliminaries insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       {/* How these preliminaries roll into the whole estimate total. */}
