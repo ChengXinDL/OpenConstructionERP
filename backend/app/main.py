@@ -3202,6 +3202,19 @@ def create_app() -> FastAPI:
         except Exception:  # noqa: BLE001 - never block startup on the monitor
             logger.exception("Approval SLA monitor failed to start")
 
+        # Cross-module deadline sweeper (item #18): background sweep that nudges
+        # the owner when a tracked deadline (correspondence response, NCR
+        # corrective action, punch item) slips overdue and escalates it past the
+        # grace window. Same lightweight asyncio loop as the SLA monitor above;
+        # fail-soft so a hiccup never blocks startup.
+        try:
+            if not _fast_startup:
+                from app.modules.deadlines.sweeper import start_deadline_sweeper
+
+                start_deadline_sweeper()
+        except Exception:  # noqa: BLE001 - never block startup on the sweeper
+            logger.exception("Deadline sweeper failed to start")
+
         # Risk auto-escalation (item #24): hourly sweep that escalates risks
         # crossing their severity threshold or with a lapsed review date. The
         # review-lapse trigger has no update event, so a periodic sweep is the

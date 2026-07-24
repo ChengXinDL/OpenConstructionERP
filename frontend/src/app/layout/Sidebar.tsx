@@ -95,6 +95,7 @@ import {
   PackageCheck,
   Loader2,
   ScanEye,
+  AlarmClock,
   // Delivery-lifecycle register icons.
   Flag,
   Warehouse,
@@ -131,6 +132,10 @@ import {
 
 interface NavItem {
   labelKey: string;
+  /** Human English fallback shown until the `labelKey` locale string is
+   *  added, passed to i18next as `defaultValue` so the row never renders a
+   *  raw key (mirrors `NavGroup.defaultLabel`). */
+  defaultLabel?: string;
   to: string;
   icon: LucideIcon;
   badge?: string;
@@ -566,6 +571,7 @@ const navGroups: NavGroup[] = [
       { labelKey: 'construction_control.title', to: '/construction-control', icon: ClipboardList },
       { labelKey: 'ncr.title', to: '/ncr', icon: AlertOctagon },
       { labelKey: 'nav.punchlist', to: '/punchlist', icon: ListChecks },
+      { labelKey: 'deadlines.title', to: '/deadlines', icon: AlarmClock, defaultLabel: 'Deadlines' },
       { labelKey: 'review_authority.title', to: '/review-authority', icon: FileCheck, advancedOnly: true },
     ],
   },
@@ -1720,7 +1726,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
                 >
                   <SidebarItem
                     item={item}
-                    label={t(item.labelKey)}
+                    label={t(item.labelKey, { defaultValue: item.defaultLabel })}
                     onClick={onClose}
                     badge={badgeMap[item.to]}
                     isPinned={true}
@@ -1866,7 +1872,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
                     >
                       <SidebarItem
                         item={item}
-                        label={t(item.labelKey)}
+                        label={t(item.labelKey, { defaultValue: item.defaultLabel })}
                         onClick={onClose}
                         badge={badgeMap[item.to]}
                         seq={seq}
@@ -2733,7 +2739,7 @@ function AdminGrid({
         {items.map((item) => {
           const Icon = item.icon;
           const isActive = activeRoute === item.to;
-          const label = t(item.labelKey);
+          const label = t(item.labelKey, { defaultValue: item.defaultLabel });
           const tileClass = clsx(
             'relative flex h-9 w-9 items-center justify-center rounded-md transition-colors duration-fast ease-oe',
             isActive
@@ -2787,7 +2793,7 @@ function AdminGrid({
       {items.map((item) => {
         const Icon = item.icon;
         const isActive = activeRoute === item.to;
-        const label = t(item.labelKey);
+        const label = t(item.labelKey, { defaultValue: item.defaultLabel });
         const editable = editMode && !!onToggleHidden;
         const isHidden = editable ? (hiddenSet?.includes(item.to) ?? false) : false;
         const editLabel = isHidden

@@ -531,4 +531,20 @@ KNOWN_EVENT_TYPES: list[dict[str, str]] = [
         "module": "collaboration",
         "description": "New comment in a discussion you take part in",
     },
+    # Cross-module overdue escalation (deadlines register + sweep, item #18)
+    {
+        "event_type": "deadlines.correspondence.overdue",
+        "module": "deadlines",
+        "description": "Correspondence past its response deadline",
+    },
+    {
+        "event_type": "deadlines.qms_ncr_action.overdue",
+        "module": "deadlines",
+        "description": "NCR corrective action overdue",
+    },
+    {
+        "event_type": "deadlines.punchlist.overdue",
+        "module": "deadlines",
+        "description": "Punch item overdue",
+    },
 ]

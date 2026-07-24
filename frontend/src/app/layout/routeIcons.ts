@@ -87,6 +87,7 @@ import {
   Plus,
   PackageCheck,
   ScanEye,
+  AlarmClock,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -169,6 +170,7 @@ const ROUTE_ICON_MAP: Record<string, LucideIcon> = {
   '/inspections': ClipboardCheck,
   '/ncr': AlertOctagon,
   '/punchlist': ListChecks,
+  '/deadlines': AlarmClock,
   '/issues': CircleDot,
   '/closeout': PackageCheck,
   // ── 13. Safety & ESG ──────────────────────────────────────────────

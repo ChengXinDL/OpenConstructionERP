@@ -119,6 +119,9 @@ const PunchListPage = lazy(() =>
 const IssuesHubPage = lazy(() =>
   import('@/features/issues/IssuesHubPage').then((m) => ({ default: m.IssuesHubPage }))
 );
+const DeadlinesPage = lazy(() =>
+  import('@/features/deadlines/DeadlinesPage').then((m) => ({ default: m.DeadlinesPage }))
+);
 const BcfPage = lazy(() => import('@/features/bcf/BcfPage').then((m) => ({ default: m.BcfPage })));
 const ModelReviewPage = lazy(() =>
   import('@/features/bim/ModelReviewPage').then((m) => ({ default: m.ModelReviewPage }))
@@ -1170,6 +1173,7 @@ export default function App() {
         <Route path="/markups" element={<P title="Markups"><MarkupsPage /></P>} />
         <Route path="/markups/compare" element={<P title="Compare Revisions"><PdfComparePage /></P>} />
         <Route path="/punchlist" element={<P title="Punch List"><PunchListPage /></P>} />
+        <Route path="/deadlines" element={<P title="Deadlines"><DeadlinesPage /></P>} />
         <Route path="/issues" element={<P title="Issues"><IssuesHubPage /></P>} />
         <Route path="/closeout" element={<P title="Handover & Closeout"><CloseoutPage /></P>} />
         <Route path="/field-reports" element={<P title="Field Reports"><FieldReportsPage /></P>} />
