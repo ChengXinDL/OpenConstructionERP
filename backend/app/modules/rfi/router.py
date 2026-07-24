@@ -25,6 +25,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse, StreamingResponse
 
+from app.core.audit_log import get_activity_for_entity
 from app.core.bulk_ops import BulkDeleteRequest, BulkStatusRequest
 from app.core.file_signature import (
     SIGNATURE_BYTES_REQUIRED,
@@ -46,6 +47,7 @@ from app.modules.approval_routes.schemas import (
 )
 from app.modules.approval_routes.service import ApprovalRouteService
 from app.modules.rfi.schemas import (
+    RFIActivityEntry,
     RFIBatchDeleteResponse,
     RFIBatchStatusResponse,
     RFICreate,
@@ -772,6 +774,47 @@ async def get_rfi_approval(
     if instance is None:
         return None
     return await _instance_to_response(instance, ApprovalRouteService(session))
+
+
+# ── Activity journal (item #13) ────────────────────────────────────────────
+
+
+@router.get(
+    "/{rfi_id}/activity/",
+    response_model=list[RFIActivityEntry],
+    dependencies=[Depends(RequirePermission("rfi.read"))],
+)
+async def get_rfi_activity(
+    rfi_id: uuid.UUID,
+    user_id: CurrentUserId,
+    session: SessionDep,
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    service: RFIService = Depends(_get_service),
+) -> list[RFIActivityEntry]:
+    """Return the activity journal for one RFI (chronological, oldest first).
+
+    Reuses the generic ``get_activity_for_entity`` helper over the shared
+    ``oe_activity_log`` table - the RFI service already writes a row there on
+    every status transition (respond / close / reopen), so this read-only
+    endpoint surfaces the lifecycle history the RFI detail view visibly lacked,
+    with no new storage or migration.
+
+    Mirrors the documents ``/{document_id}/activity/`` endpoint shape and the
+    ``rfi.read`` + ``verify_project_access`` guard the other RFI read endpoints
+    use: the RFI's own project decides access (IDOR-safe), so a caller who
+    cannot see the project cannot read its journal by guessing the UUID.
+    """
+    existing = await service.get_rfi(rfi_id)
+    await verify_project_access(existing.project_id, str(user_id), session)
+    rows = await get_activity_for_entity(
+        session,
+        entity_type="rfi",
+        entity_id=rfi_id,
+        limit=limit,
+        offset=offset,
+    )
+    return [RFIActivityEntry.model_validate(r) for r in rows]
 
 
 # ── Attachments (R5 / BUG-RFI-ATT) ─────────────────────────────────────────

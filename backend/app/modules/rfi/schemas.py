@@ -250,3 +250,32 @@ class RFIBatchStatusResponse(BaseModel):
     requested: int = Field(ge=0, description="Number of ids supplied in the request.")
     updated: int = Field(ge=0, description="Number of RFIs whose status changed.")
     status: str = Field(description="The status value that was applied.")
+
+
+class RFIActivityEntry(BaseModel):
+    """One row from an RFI's activity journal (``oe_activity_log``).
+
+    Read-only projection of :class:`app.core.audit_log.ActivityLog`, used by
+    the ``GET /{rfi_id}/activity/`` timeline. The RFI service already writes a
+    row here on every status transition (respond / close / reopen), so the
+    journal reconstructs the RFI's lifecycle (useful for FIDIC / ISO 9001
+    contemporary records) without any new storage.
+
+    Follows the per-module activity-response pattern the other modules already
+    expose (documents' ``DocumentActivityResponse``, boq's
+    ``ActivityLogResponse``) instead of leaking the raw ORM row. The
+    ``metadata`` alias mirrors :class:`RFIResponse` so the ``metadata_`` column
+    name never reaches the wire.
+    """
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    id: UUID
+    actor_id: UUID | None = None
+    action: str
+    from_status: str | None = None
+    to_status: str | None = None
+    reason: str | None = None
+    module: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict, validation_alias="metadata_")
+    created_at: datetime

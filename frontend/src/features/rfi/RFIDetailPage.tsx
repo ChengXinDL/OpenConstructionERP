@@ -21,11 +21,13 @@ import clsx from 'clsx';
 import {
   AlertTriangle,
   ArrowLeft,
+  ArrowRight,
   CalendarClock,
   CheckCircle2,
   Clock,
   ExternalLink,
   FileText,
+  History,
   Loader2,
   MessageSquare,
   Paperclip,
@@ -48,6 +50,7 @@ import { apiGet } from '@/shared/lib/api';
 import { useAuthStore } from '@/stores/useAuthStore';
 import {
   closeRFI,
+  fetchRFIActivity,
   getRFI,
   respondToRFI,
   updateRFI,
@@ -211,6 +214,34 @@ function InlineRespondForm({
   );
 }
 
+/* ── Activity journal (item #13) ──────────────────────────────────────── */
+
+/**
+ * Render one lifecycle status as a coloured badge, reusing the same
+ * `STATUS_CONFIG` palette as the hero chip and the list rows so the three
+ * surfaces read with one eye-pattern. A null status (a create-type row) shows
+ * a neutral "Created" token, mirroring the projects StatusHistoryTimeline.
+ */
+function ActivityStatusToken({ status }: { status: string | null }) {
+  const { t } = useTranslation();
+  if (!status) {
+    return (
+      <Badge variant="neutral" size="sm">
+        {t('rfi.history_created', { defaultValue: 'Created' })}
+      </Badge>
+    );
+  }
+  const cfg =
+    STATUS_CONFIG[status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.draft;
+  return (
+    <Badge variant={cfg.variant} size="sm" className={cfg.cls}>
+      {t(`rfi.status_${status}`, {
+        defaultValue: status.charAt(0).toUpperCase() + status.slice(1),
+      })}
+    </Badge>
+  );
+}
+
 /* ── Main Page ─────────────────────────────────────────────────────────── */
 
 export function RFIDetailPage() {
@@ -239,6 +270,16 @@ export function RFIDetailPage() {
     queryKey: ['users-search'],
     queryFn: () => apiGet<UserResult[]>('/v1/users/?limit=100&is_active=true'),
     staleTime: 60_000,
+  });
+
+  // Activity journal (item #13) — the RFI's lifecycle history from
+  // oe_activity_log (respond / close / reopen transitions). Read-only; the
+  // backend already records these rows in the same transaction as each write.
+  const activityQuery = useQuery({
+    queryKey: ['rfi-activity', rfiId],
+    queryFn: () => fetchRFIActivity(rfiId as string),
+    enabled: !!rfiId,
+    staleTime: 30_000,
   });
 
   // Resolve the owning project's currency so the cost-exposure figure
@@ -313,6 +354,9 @@ export function RFIDetailPage() {
     qc.invalidateQueries({ queryKey: ['rfi', rfiId] });
     qc.invalidateQueries({ queryKey: ['rfis'] });
     qc.invalidateQueries({ queryKey: ['rfi-stats'] });
+    // Refresh the activity journal so a fresh respond/close row appears
+    // without a manual reload.
+    qc.invalidateQueries({ queryKey: ['rfi-activity', rfiId] });
   }, [qc, rfiId]);
 
   const respondMut = useMutation({
@@ -759,6 +803,80 @@ export function RFIDetailPage() {
               )}
             </Card>
           )}
+
+          {/* Activity journal (item #13) — RFI lifecycle history sourced
+              from oe_activity_log via GET /v1/rfi/{id}/activity/. Renders
+              each status transition as a "from -> to by {actor} at {time}"
+              row, reusing the shared Card/Badge primitives and the page's
+              existing user-name resolution (mirrors the projects
+              StatusHistoryTimeline pattern, kept inside the rfi feature). */}
+          <Card className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <History size={14} className="text-content-tertiary" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-content-tertiary">
+                {t('rfi.section_history', { defaultValue: 'History' })}
+              </span>
+            </div>
+            {activityQuery.isLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-4 w-4 animate-spin text-oe-blue" />
+              </div>
+            ) : activityQuery.isError ? (
+              <p className="text-sm text-content-tertiary">
+                {t('rfi.history_error', {
+                  defaultValue: 'Could not load the activity history.',
+                })}
+              </p>
+            ) : (activityQuery.data ?? []).length === 0 ? (
+              <p className="text-sm text-content-tertiary italic">
+                {t('rfi.history_empty', {
+                  defaultValue: 'No activity recorded yet.',
+                })}
+              </p>
+            ) : (
+              <ol className="space-y-2.5">
+                {(activityQuery.data ?? []).map((entry) => {
+                  const actor = displayUser(entry.actor_id);
+                  return (
+                    <li
+                      key={entry.id}
+                      className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-border-light bg-surface-secondary/40 px-3 py-2"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <ActivityStatusToken status={entry.from_status} />
+                        <ArrowRight
+                          size={13}
+                          className="shrink-0 text-content-tertiary"
+                          aria-label={t('rfi.history_changed_to', {
+                            defaultValue: 'changed to',
+                          })}
+                        />
+                        <ActivityStatusToken status={entry.to_status} />
+                      </div>
+                      <div className="ml-auto flex flex-wrap items-center gap-x-2 text-xs text-content-tertiary">
+                        {actor && actor !== '—' && (
+                          <span className="text-content-secondary">
+                            {t('rfi.history_by', {
+                              defaultValue: 'by {{name}}',
+                              name: actor,
+                            })}
+                          </span>
+                        )}
+                        <span className="whitespace-nowrap">
+                          {formatDateTime(entry.created_at)}
+                        </span>
+                      </div>
+                      {entry.reason && (
+                        <p className="w-full text-xs text-content-secondary">
+                          {entry.reason}
+                        </p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+          </Card>
 
           {/* Bottom actions when answered, in case user scrolled */}
           {rfi.status === 'answered' && (

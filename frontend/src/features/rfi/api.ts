@@ -84,6 +84,25 @@ export interface RFIFilters {
   limit?: number;
 }
 
+/**
+ * One row from an RFI's activity journal. Mirrors the backend
+ * `RFIActivityEntry` (read-only projection of `oe_activity_log`). The RFI
+ * service records a row on every status transition (respond / close /
+ * reopen), so the list reconstructs the RFI lifecycle. Ordered oldest-first
+ * (chronological) by the endpoint.
+ */
+export interface RFIActivityEntry {
+  id: string;
+  actor_id: string | null;
+  action: string;
+  from_status: string | null;
+  to_status: string | null;
+  reason: string | null;
+  module: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
 export interface RFIStats {
   total: number;
   by_status: Record<string, number>;
@@ -205,4 +224,11 @@ export async function createVariationFromRFI(id: string): Promise<CreateVariatio
   // Route is POST /{rfi_id}/create-variation/ WITH a trailing slash
   // (router.py); with redirect_slashes=False the no-slash form 404s.
   return apiPost<CreateVariationResponse>(`/v1/rfi/${id}/create-variation/`, {});
+}
+
+export async function fetchRFIActivity(id: string, limit = 50): Promise<RFIActivityEntry[]> {
+  // Route is GET /{rfi_id}/activity/ WITH a trailing slash (router.py); with
+  // redirect_slashes=False the no-slash form 404s. Returns the RFI's activity
+  // journal oldest-first.
+  return apiGet<RFIActivityEntry[]>(`/v1/rfi/${id}/activity/?limit=${limit}`);
 }
