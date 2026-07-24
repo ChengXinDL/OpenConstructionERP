@@ -63,6 +63,8 @@ import {
   type Subcontractor,
   type PrequalStatus,
 } from '@/features/subcontractors/api';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildTenderingInsights } from './tenderingInsights';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 
@@ -2073,6 +2075,17 @@ export function TenderingPage() {
   // symbol-less number rather than mislabelling amounts as EUR.
   const currency = selectedProject?.currency || '';
 
+  // Module Insights - the toggleable visualization panel for this module. Its
+  // charts are built client-side from the packages already loaded; when the
+  // project has none, buildTenderingInsights returns a labelled sample set so
+  // the panel is never empty on first open. Open state and any user-built
+  // charts persist per module via useModuleInsights.
+  const insights = useModuleInsights('tendering', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildTenderingInsights(packages ?? [], currency, t),
+    [packages, currency, t],
+  );
+
   const handlePackageCreated = useCallback(() => {
     queryClient.invalidateQueries({
       queryKey: ['tendering-packages', selectedProjectId],
@@ -2097,6 +2110,9 @@ export function TenderingPage() {
         )}
         actions={
           <>
+            {/* Insights toggle - shows or hides this module's visualization
+                panel. Leads the cluster so charts are one obvious click away. */}
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             {/* How it works guide - explains the package -> issue -> collect ->
                 compare -> award flow. Leads the action cluster as the help pill;
                 the CTA opens the New Tender Package dialog. */}
@@ -2119,6 +2135,20 @@ export function TenderingPage() {
             </span>
           </>
         }
+      />
+
+      {/* Module Insights panel - toggled by the header button. Placed high and
+          before the no-project gate so its charts (real, or labelled sample)
+          are visible the moment the module opens. */}
+      <InsightsPanel
+        open={insights.open}
+        title={t('tendering.insights.title', { defaultValue: 'Tendering insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       {/* Workflow explanation */}
