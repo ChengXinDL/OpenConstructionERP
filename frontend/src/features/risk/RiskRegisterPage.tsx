@@ -24,6 +24,8 @@ import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { useTabKeyboardNav } from '@/shared/hooks/useTabKeyboardNav';
 import { MonteCarloTab } from './MonteCarloTab';
 import { riskGuide } from './riskGuide';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildRiskInsights } from './riskInsights';
 
 const RISK_TAB_IDS = ['register', 'montecarlo'] as const;
 type RiskTab = (typeof RISK_TAB_IDS)[number];
@@ -699,6 +701,18 @@ export function RiskRegisterPage() {
 
   const refresh = useCallback(() => { qc.invalidateQueries({ queryKey: ['risks'] }); qc.invalidateQueries({ queryKey: ['risk-summary'] }); qc.invalidateQueries({ queryKey: ['risk-matrix'] }); }, [qc]);
 
+  // Module Insights - the toggleable visualization panel for this module. Its
+  // charts are built client-side from the risks already loaded; when the
+  // project has none, buildRiskInsights returns a labelled sample set so the
+  // panel is never empty on first open. Open state and any user-built charts
+  // persist per module via useModuleInsights. Declared before the detail-view
+  // early return below so the hook order stays stable.
+  const insights = useModuleInsights('risk', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildRiskInsights(risks, project?.currency || summary?.currency || 'EUR', t),
+    [risks, project, summary, t],
+  );
+
   // Client-side filtering
   const filteredRisks = useMemo(() => {
     let result = risks;
@@ -752,12 +766,29 @@ export function RiskRegisterPage() {
         })}
         actions={
           <>
+            {/* Insights toggle - shows or hides this module's visualization
+                panel. Leads the cluster so charts are one obvious click away. */}
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             <ModuleGuideButton content={riskGuide} />
             <Button variant="primary" onClick={() => setShowCreate(true)} disabled={!projectId}>
               <Plus size={16} className="mr-1.5" />{t('risk.new', { defaultValue: 'Add Risk' })}
             </Button>
           </>
         }
+      />
+
+      {/* Module Insights panel - toggled by the header button. Placed high so
+          its charts (real, or labelled sample) are visible the moment the
+          register opens. */}
+      <InsightsPanel
+        open={insights.open}
+        title={t('risk.insights.title', { defaultValue: 'Risk insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       <HowRiskWork />
