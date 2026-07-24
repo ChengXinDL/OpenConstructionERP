@@ -38,6 +38,13 @@ interface ChangelogEntry {
 // date, title and meaning intact; trim the prose, not the facts.
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '12.5.0',
+    date: '2026-07-24',
+    tag: 'NEW',
+    summary:
+      'Every module register can show a Module Insights panel with key counts, a breakdown chart and a build-your-own chart maker, now across dozens of registers, and the long how-it-works explainers fold into a single expandable line. Deadlines gains a cross-module overdue register with an escalation sweep, file approvals gets its own register page with Excel export and workflow notifications, and documents can reconcile a sheet set against the drawing index. Fixes include the correct router base under the /demo prefix, the BOQ resources toggle firing on the first click, and cost bases no longer doubling work names.',
+  },
+  {
     version: '12.4.0',
     date: '2026-07-23',
     tag: 'NEW',

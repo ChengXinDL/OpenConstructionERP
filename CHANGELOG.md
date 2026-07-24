@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [12.5.0] - 2026-07-24
+
+Every module register can now show a Module Insights panel, a toggleable summary of the rows already on screen with the key counts, a breakdown chart and a build-your-own chart maker, so a list turns into a quick read of where things stand without leaving the page or loading anything extra. It started on tendering and now reaches the risk register, subcontractors, variations, RFIs, non-conformances, safety, quality and dozens more operational registers across the platform.
+
+The long how-it-works explainers that used to sit open at the top of each module now fold into a single line you expand when you want the background, so the working screen leads with the work and the guidance stays one click away. This is applied the same way across more than thirty module pages, and a module info card also folds into a button next to How it works.
+
+Deadlines gained a cross-module overdue register that gathers every due date the platform tracks into one place and runs an escalation sweep, so nothing slips quietly. File approvals now has its own register page linked from Files, exports that register to Excel, and notifies the people in a document approval workflow when it is their turn. Documents can reconcile an uploaded sheet set against the drawing index and show what is missing or extra.
+
+The BIM requirements library now carries Revit rule-pack templates to start from, 3D mesh uploads route to the browser importer with clear guidance, and the Rule Library stays reachable in requirements mode. RFIs get a read-only activity journal on the detail page. Assembly unit pickers read in the current language and respect imperial units. Approval routes gained project approval-cycle analytics.
+
+A few fixes came with this release. The app now sets its router base correctly under the /demo prefix so deep links into the demo resolve, the Bill of Quantities resources toggle fires on the first click, and a cost base that ships the same name in more than one column no longer doubles the work name.
+
+On the public site the case gallery card copy, chips, roles and navigation are translated across nineteen languages, each localized gallery is self-canonical for search engines, and the home page own-your-stack section and hero reveal were tidied.
+
 ## [12.4.0] - 2026-07-23
 
 The Common Data Environment now lets a project adopt one of the three ISO 19650 approval presets and make it its own. The presets were tenant-wide and read-only, so you could see them but never tailor one to a project. Adopting a preset clones its steps into an editable project route, wired through the setup wizard and a new preset library on the CDE page, and a training case walks a team from the wizard to the go-live gate.
