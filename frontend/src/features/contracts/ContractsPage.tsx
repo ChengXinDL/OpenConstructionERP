@@ -91,6 +91,8 @@ import {
   type CounterpartyType,
   type ContractDashboard,
 } from './api';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildContractsInsights } from './contractsInsights';
 
 type Tab = 'contracts' | 'claims' | 'final_accounts';
 
@@ -501,6 +503,21 @@ export function ContractsPage() {
     () => (projectsQ.data ?? []).find((p) => p.id === projectId),
     [projectsQ.data, projectId],
   );
+
+  // Module Insights - reads the loaded contract register (charts, KPIs). Kept
+  // among the top hooks, above every conditional render, so hook order is
+  // stable no matter which tab or drawer is open.
+  const insights = useModuleInsights('contracts', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () =>
+      buildContractsInsights(
+        contracts,
+        selectedProject?.currency || contracts[0]?.currency || '',
+        t,
+      ),
+    [contracts, selectedProject, t],
+  );
+
   const [claimsContractId, setClaimsContractId] = useState<string>('');
   const effectiveClaimsContract = claimsContractId || contracts[0]?.id || '';
 
@@ -590,6 +607,7 @@ export function ContractsPage() {
         })}
         actions={
           <>
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             <ModuleGuideButton content={contractsGuide} />
             <Button
               variant="primary"
@@ -606,6 +624,17 @@ export function ContractsPage() {
             </Button>
           </>
         }
+      />
+
+      <InsightsPanel
+        open={insights.open}
+        title={t('contracts.insights.title', { defaultValue: 'Contract insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       <DismissibleInfo

@@ -66,6 +66,8 @@ import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { useActiveProjectId } from '@/shared/hooks/useActiveProjectId';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildFinanceInsights } from './financeInsights';
 import { ConnectorsTab } from './ConnectorsTab';
 import { InvoiceInboxTab } from './InvoiceInboxTab';
 import { StatementsTab } from './StatementsTab';
@@ -662,6 +664,33 @@ export function FinancePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Module Insights panel. Charts the project's invoices - the register that
+  // carries every payable and receivable together with its status and due
+  // date - so a chart slice reads like the badge on the row it came from. The
+  // list is fetched here at page level with no direction filter (payables and
+  // receivables come together) under the ['finance-invoices', projectId] key
+  // prefix, so the tabs' own invalidations keep it fresh. Currency rides the
+  // dashboard query the summary cards already load, so it is a cache hit.
+  // These hooks sit with the other top-level hooks, above any conditional
+  // render, so the hook order stays stable.
+  const { data: insightInvoices = [] } = useQuery({
+    queryKey: ['finance-invoices', projectId, 'all'],
+    queryFn: () => apiGet<InvoiceWire[]>(`/v1/finance/?project_id=${projectId}`),
+    select: (d): Invoice[] => normalizeListResponse<InvoiceWire>(d).map(normaliseInvoice),
+    enabled: !!projectId,
+  });
+  const { data: insightDashboard } = useQuery({
+    queryKey: ['finance', 'dashboard', projectId],
+    queryFn: () =>
+      apiGet<FinanceDashboardData>(`/v1/finance/dashboard/?project_id=${projectId}`),
+    enabled: !!projectId,
+  });
+  const insights = useModuleInsights('finance', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildFinanceInsights(insightInvoices, insightDashboard?.currency || 'EUR', t),
+    [insightInvoices, insightDashboard, t],
+  );
+
   const tabs: { key: FinanceTab; label: string; icon: React.ReactNode }[] = [
     {
       key: 'budgets',
@@ -725,10 +754,25 @@ export function FinancePage() {
         })}
         actions={
           <>
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             {projectId && <FinanceModuleLinks projectId={projectId} />}
             <ModuleGuideButton content={financeGuide} />
           </>
         }
+      />
+
+      {/* Module Insights panel - toggled by the header button. Placed high so
+          its charts (real, or a labelled sample when the project has no
+          invoices yet) are visible the moment Finance opens. */}
+      <InsightsPanel
+        open={insights.open}
+        title={t('finance.insights.title', { defaultValue: 'Invoice insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       {/* Canonical module intro — pain-named, copy from MODULE_INTRO_COPY.

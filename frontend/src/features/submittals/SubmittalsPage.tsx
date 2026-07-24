@@ -64,6 +64,8 @@ import {
   ApprovalTargetBadge,
 } from '@/features/approval-routes';
 import { submittalsGuide } from './submittalsGuide';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildSubmittalsInsights } from './submittalsInsights';
 
 /* ── Constants ─────────────────────────────────────────────────────────── */
 
@@ -950,6 +952,16 @@ export function SubmittalsPage() {
     return { total, pending, approved, rejected };
   }, [submittals]);
 
+  // Module Insights - KPIs and charts over the loaded submittals. When the
+  // project has none, buildSubmittalsInsights returns a labelled sample set so
+  // the panel is never empty on first open. Declared with the top-level hooks,
+  // above the single return, so the hook order stays stable.
+  const insights = useModuleInsights('submittals', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildSubmittalsInsights(submittals, '', t),
+    [submittals, t],
+  );
+
   // Invalidation
   const invalidateAll = useCallback(() => {
     qc.invalidateQueries({ queryKey: ['submittals'] });
@@ -1154,6 +1166,7 @@ export function SubmittalsPage() {
         })}
         actions={
           <>
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             <ModuleGuideButton content={submittalsGuide} />
             <Button
               variant="primary"
@@ -1168,6 +1181,20 @@ export function SubmittalsPage() {
             </Button>
           </>
         }
+      />
+
+      {/* Module Insights panel - toggled by the header button, placed high so
+          its charts (real, or labelled sample) show the moment the register
+          opens. */}
+      <InsightsPanel
+        open={insights.open}
+        title={t('submittals.insights.title', { defaultValue: 'Submittal insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       {/* Canonical module info card \u2014 pain-named title + workflow body. */}

@@ -43,6 +43,8 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { getPOMatchStatus, type POLineMatchTag } from './api';
 import { procurementGuide } from './procurementGuide';
 import { SupplierScorecardModal } from './SupplierScorecardModal';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildProcurementInsights } from './procurementInsights';
 import { VendorPrequalBadge } from './VendorPrequalBadge';
 import { RetainagePanel, RetainageBadge } from './RetainagePanel';
 import { POStatusPipeline } from './POStatusPipeline';
@@ -261,6 +263,39 @@ export function ProcurementPage() {
     navigate(location.pathname, { replace: true, state: null });
   }, [navigate, location.pathname]);
 
+  // Module Insights panel. Charts the project's purchase orders - the register
+  // that carries each order's committed value, supplier and delivery status -
+  // so a chart slice reads like the status badge on the row it came from. The
+  // list reuses the ['procurement-po', projectId] query the Purchase Orders
+  // tab already loads (same key and queryFn, so it is a cache hit and the
+  // tab's own invalidations keep it fresh). Currency rides the finance
+  // dashboard query. These hooks sit with the other top-level hooks, above any
+  // conditional render, so the hook order stays stable.
+  const { data: insightOrders = [] } = useQuery({
+    queryKey: ['procurement-po', projectId],
+    queryFn: () =>
+      apiGet<{ items: Array<PurchaseOrder & { vendor_contact_id?: string | null }>; total: number }>(
+        `/v1/procurement/?project_id=${projectId}`,
+      ).then((res) =>
+        res.items.map((po) => ({
+          ...po,
+          vendor_name: po.vendor_name ?? po.vendor_contact_id ?? '',
+        })),
+      ),
+    enabled: !!projectId,
+  });
+  const { data: insightDashboard } = useQuery({
+    queryKey: ['finance', 'dashboard', projectId],
+    queryFn: () =>
+      apiGet<{ currency: string }>(`/v1/finance/dashboard/?project_id=${projectId}`),
+    enabled: !!projectId,
+  });
+  const insights = useModuleInsights('procurement', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildProcurementInsights(insightOrders, insightDashboard?.currency || 'EUR', t),
+    [insightOrders, insightDashboard, t],
+  );
+
   const tabs: { key: ProcurementTab; label: string; icon: React.ReactNode }[] = [
     {
       key: 'purchase-orders',
@@ -293,7 +328,26 @@ export function ProcurementPage() {
         subtitle={t('procurement.subtitle', {
           defaultValue: 'Purchase orders and goods receipts',
         })}
-        actions={<ModuleGuideButton content={procurementGuide} />}
+        actions={
+          <>
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
+            <ModuleGuideButton content={procurementGuide} />
+          </>
+        }
+      />
+
+      {/* Module Insights panel - toggled by the header button. Placed high so
+          its charts (real, or a labelled sample when the project has no
+          purchase orders yet) are visible the moment Procurement opens. */}
+      <InsightsPanel
+        open={insights.open}
+        title={t('procurement.insights.title', { defaultValue: 'Procurement insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       {/* Canonical info block - where procurement sits in the money flow,

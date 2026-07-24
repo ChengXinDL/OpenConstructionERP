@@ -83,6 +83,8 @@ import { TypeFormModal } from './modals/TypeFormModal';
 import { EquipmentHealthDashboard } from './components/EquipmentHealthDashboard';
 import { FleetOptimizationPanel } from './components/FleetOptimizationPanel';
 import { equipmentGuide } from './equipmentGuide';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildEquipmentInsights } from './equipmentInsights';
 
 type DrawerTab =
   | 'utilization'
@@ -327,6 +329,15 @@ export function EquipmentPage() {
     );
   }, [eqQ.data, search]);
 
+  // Module Insights - reads the loaded fleet register (charts, KPIs). Kept
+  // among the top hooks, above every conditional render, so hook order is
+  // stable no matter which tab or drawer is open.
+  const insights = useModuleInsights('equipment', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildEquipmentInsights(eqQ.data ?? [], fleetCurrency || '', t),
+    [eqQ.data, fleetCurrency, t],
+  );
+
   return (
     <div className="space-y-5">
       <Breadcrumb
@@ -345,6 +356,7 @@ export function EquipmentPage() {
         })}
         actions={
           <>
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             {/* "How it works" guide - explains the fleet register, telemetry,
                 maintenance and certification flow. Sits at the head of the
                 action cluster; its closing CTA opens the New Asset form. */}
@@ -362,6 +374,17 @@ export function EquipmentPage() {
             </Button>
           </>
         }
+      />
+
+      <InsightsPanel
+        open={insights.open}
+        title={t('equipment.insights.title', { defaultValue: 'Fleet insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       <DismissibleInfo

@@ -61,6 +61,8 @@ import {
   type ChecklistEntryPayload,
 } from './api';
 import { inspectionsGuide } from './inspectionsGuide';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildInspectionsInsights } from './inspectionsInsights';
 
 /* -- Constants ------------------------------------------------------------- */
 
@@ -1206,6 +1208,16 @@ export function InspectionsPage() {
     return { total, scheduled, passed, failed };
   }, [inspections]);
 
+  // Module Insights - KPIs and charts over the loaded inspections. When the
+  // project has none, buildInspectionsInsights returns a labelled sample set so
+  // the panel is never empty on first open. Declared with the top-level hooks,
+  // above the single return, so the hook order stays stable.
+  const insights = useModuleInsights('inspections', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildInspectionsInsights(inspections, '', t),
+    [inspections, t],
+  );
+
   // Invalidation
   const invalidateAll = useCallback(() => {
     qc.invalidateQueries({ queryKey: ['inspections'] });
@@ -1525,6 +1537,7 @@ export function InspectionsPage() {
         })}
         actions={
           <>
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             <ModuleGuideButton content={inspectionsGuide} />
             <Button
               variant="secondary"
@@ -1553,6 +1566,20 @@ export function InspectionsPage() {
             </Button>
           </>
         }
+      />
+
+      {/* Module Insights panel - toggled by the header button, placed high so
+          its charts (real, or labelled sample) show the moment the register
+          opens. */}
+      <InsightsPanel
+        open={insights.open}
+        title={t('inspections.insights.title', { defaultValue: 'Inspection insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       <SectionIntro
