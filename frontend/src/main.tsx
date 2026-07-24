@@ -96,10 +96,19 @@ window.addEventListener('vite:preloadError', () => {
   }
 });
 
+// The public demo is served under /demo (Caddy strips the prefix before it
+// reaches the backend, but the browser URL keeps it), so react-router needs a
+// matching basename there. Desktop and localhost serve at the root, where the
+// path never starts with /demo, so the basename stays undefined ("/").
+const routerBasename =
+  window.location.pathname === '/demo' || window.location.pathname.startsWith('/demo/')
+    ? '/demo'
+    : undefined;
+
 ReactDOM.createRoot(__rootEl).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <BrowserRouter basename={routerBasename} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <App />
       </BrowserRouter>
     </QueryClientProvider>
