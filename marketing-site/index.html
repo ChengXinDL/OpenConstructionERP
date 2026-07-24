@@ -2044,6 +2044,26 @@
     }
     .three-canvas.is-ready { opacity: 1; }
 
+    /* Backdrop behind the transparent WebGL canvas: while three.js boots
+       (~1s) the canvas is opacity:0, so without this the panel showed the
+       flat --bg-0 grey and then the lit near-white district faded in over
+       it ("grey, then white"). This soft district-lit wash pre-empts that
+       tone so the reveal settles in seamlessly. Edges match --three-fog so
+       the scene's sky/fog merges into it exactly; both themes covered. */
+    .scene-backdrop {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      background: radial-gradient(ellipse 72% 62% at 50% 55%,
+        #fbfcfd 0%, #f5f6f7 46%, #f1f2f3 100%);
+    }
+    [data-theme="dark"] .scene-backdrop {
+      background: radial-gradient(ellipse 72% 62% at 50% 55%,
+        #12203a 0%, #0e1830 48%, #0b1220 100%);
+    }
+
     /* Static SVG fallback */
     .static-scene {
       position: absolute;
@@ -9786,7 +9806,7 @@
     }
     .cb-layer {
       display: grid;
-      grid-template-columns: 110px 1fr 110px;
+      grid-template-columns: 1fr auto;
       gap: 14px;
       align-items: center;
       position: relative; z-index: 1;
@@ -13274,6 +13294,7 @@
           <span data-i18n="hero.panel_status">live · 17 layers</span>
         </div>
 
+        <div class="scene-backdrop" aria-hidden="true"></div>
         <canvas id="three-canvas" class="three-canvas" role="img" aria-label="3D isometric city visualization with live cost, carbon and schedule overlays"></canvas>
 
         <div class="static-scene" aria-hidden="true">
@@ -16992,7 +17013,7 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
       </article>
     </div>
 
-    <!-- Free for students & educators - sits right under the price cards, where cost is on the mind -->
+    <!-- Free for universities - sits right under the price cards, where cost is on the mind -->
     <style>
       .student-band{max-width:1280px;margin:22px auto 0;position:relative;overflow:hidden;border:1px solid color-mix(in oklab,var(--accent,#2d5e8e) 30%,var(--line-1,rgba(15,23,42,.09)));border-radius:20px;padding:30px clamp(20px,3vw,40px);background:radial-gradient(120% 150% at 0% 0%,color-mix(in oklab,var(--accent,#2d5e8e) 13%,transparent) 0%,transparent 55%),radial-gradient(120% 150% at 100% 100%,color-mix(in oklab,var(--accent-5,#3c6fa0) 13%,transparent) 0%,transparent 55%),var(--card-bg,rgba(255,255,255,.6));display:grid;grid-template-columns:1.5fr .9fr;gap:28px;align-items:center}
       .student-band .sb-eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent,#2d5e8e);margin-bottom:12px}
@@ -17010,13 +17031,13 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
       .student-band .sb-note{font-size:12px;color:var(--ink-3,#94a3b8);line-height:1.5}
       @media(max-width:760px){.student-band{grid-template-columns:1fr;gap:18px;padding:24px 20px}}
     </style>
-    <div class="student-band reveal" aria-label="Free for students and educators">
+    <div class="student-band reveal" aria-label="Free for universities">
       <div>
         <div class="sb-eyebrow">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10L12 5 3 10l9 5 9-5z"/><path d="M7 12v4.5c0 1.4 2.2 2.5 5 2.5s5-1.1 5-2.5V12"/></svg>
-          <span data-i18n="pricing.student_eyebrow">Students &amp; education</span>
+          <span data-i18n="pricing.student_eyebrow">Universities</span>
         </div>
-        <h3 data-i18n-html="pricing.student_title">Free for students and educators - <em>everything, not just the app</em>.</h3>
+        <h3 data-i18n-html="pricing.student_title">Free for universities - <em>everything, not just the app</em>.</h3>
         <p data-i18n="pricing.student_desc">Learning, teaching or doing research? You get the whole thing for free: the full platform, the cad2data converters and the regional cost data. Build your coursework, a thesis, even your own student startup on it.</p>
         <div class="sb-chips">
           <span class="sb-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg><span data-i18n="pricing.student_chip1">Platform + converters + cost data</span></span>
@@ -17026,7 +17047,7 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
       </div>
       <div class="sb-aside">
         <a class="sb-cta" href="/license-request#students">
-          <span data-i18n="pricing.student_cta">Get free access</span>
+          <span data-i18n="pricing.student_cta">Get everything, free</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </a>
         <div class="sb-note" data-i18n="pricing.student_note">Also free for non-profits and open-source maintainers.</div>
@@ -17053,25 +17074,6 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
     </div>
 
     <div class="cb-stage">
-      <span class="cb-bracket cb-bracket-tl"></span>
-      <span class="cb-bracket cb-bracket-tr"></span>
-      <span class="cb-bracket cb-bracket-bl"></span>
-      <span class="cb-bracket cb-bracket-br"></span>
-
-      <div class="cb-corner cb-corner-tl" data-i18n="custom.corner_tl">FIVE LAYERS / ALL YOURS</div>
-      <div class="cb-corner cb-corner-tr" data-i18n="custom.corner_tr">REV. 2026.04 - DRAFT</div>
-      <div class="cb-corner cb-corner-bl" data-i18n="custom.corner_bl">YOU OWN ALL OF THIS</div>
-      <div class="cb-corner cb-corner-br" data-i18n="custom.corner_br">SCALE 1:1</div>
-
-      <!-- Mini-legend - explains what the tower depicts at a glance. -->
-      <div class="cb-legend">
-        <div class="cb-legend-step" data-i18n-html="custom.legend_step1"><span class="cb-legend-num">1</span><span>read top &darr; bottom</span></div>
-        <div class="cb-legend-step" data-i18n-html="custom.legend_step2"><span class="cb-legend-num">2</span><span>every layer = on your hardware</span></div>
-        <div class="cb-legend-step" data-i18n-html="custom.legend_step3"><span class="cb-legend-num">3</span><span>data never leaves the dashed boundary</span></div>
-      </div>
-
-      <div class="cb-badge cb-badge-1"><span class="cb-badge-dot"></span>AGPL-3.0</div>
-      <div class="cb-badge cb-badge-4"><span class="cb-badge-dot cb-badge-dot-g"></span><span data-i18n="custom.badge_data">your data, your laws</span></div>
 
       <div class="cb-boundary">
         <div class="cb-boundary-label">
@@ -17080,17 +17082,8 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
         </div>
 
         <div class="cb-tower">
-          <div class="cb-spine" aria-hidden="true">
-            <span class="cb-spine-dot"></span>
-            <span class="cb-spine-dot"></span>
-            <span class="cb-spine-dot"></span>
-          </div>
 
           <div class="cb-layer">
-            <div class="cb-rail-l">
-              <span class="cb-rail-tag">L5 · TEAM</span>
-              <span class="cb-rail-line"></span>
-            </div>
             <div class="cb-slab">
               <div class="cb-slab-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -17099,20 +17092,14 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
                 <div class="cb-slab-title" data-i18n="custom.l5_title">Your team</div>
                 <div class="cb-slab-sub" data-i18n="custom.l5_sub">engineers, not just users · trained</div>
               </div>
-              <div class="cb-slab-meta"><span class="cb-led"></span>5 / 5</div>
             </div>
             <div class="cb-rail-r">
-              <span class="cb-rail-line"></span>
               <svg class="cb-check" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
               <span data-i18n="custom.yours">yours</span>
             </div>
           </div>
 
           <div class="cb-layer cb-layer-accent">
-            <div class="cb-rail-l">
-              <span class="cb-rail-tag">L4 · MODULES</span>
-              <span class="cb-rail-line"></span>
-            </div>
             <div class="cb-slab">
               <div class="cb-slab-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/><line x1="12" y1="22" x2="12" y2="15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/><line x1="2" y1="15.5" x2="12" y2="8.5"/><line x1="22" y1="15.5" x2="12" y2="8.5"/></svg>
@@ -17121,20 +17108,14 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
                 <div class="cb-slab-title"><span data-i18n="custom.l4_title">Your modules</span> <span class="cb-tag" data-i18n="custom.l4_tag">custom</span></div>
                 <div class="cb-slab-sub" data-i18n="custom.l4_sub">BOQ · BIM · Tasks · custom reports</div>
               </div>
-              <div class="cb-slab-meta"><span class="cb-led"></span><span data-i18n="custom.l4_meta">built</span></div>
             </div>
             <div class="cb-rail-r">
-              <span class="cb-rail-line"></span>
               <svg class="cb-check" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
               <span data-i18n="custom.yours">yours</span>
             </div>
           </div>
 
           <div class="cb-layer">
-            <div class="cb-rail-l">
-              <span class="cb-rail-tag">L3 · CORE</span>
-              <span class="cb-rail-line"></span>
-            </div>
             <div class="cb-slab">
               <div class="cb-slab-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
@@ -17143,20 +17124,14 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
                 <div class="cb-slab-title" data-i18n="custom.l3_title">ERP core</div>
                 <div class="cb-slab-sub" data-i18n="custom.l3_sub">GitHub · AGPL-3.0 · audit any line</div>
               </div>
-              <div class="cb-slab-meta"><span class="cb-led"></span>v1.8</div>
             </div>
             <div class="cb-rail-r">
-              <span class="cb-rail-line"></span>
               <svg class="cb-check" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
               <span data-i18n="custom.yours">yours</span>
             </div>
           </div>
 
           <div class="cb-layer">
-            <div class="cb-rail-l">
-              <span class="cb-rail-tag">L2 · DATABASE</span>
-              <span class="cb-rail-line"></span>
-            </div>
             <div class="cb-slab">
               <div class="cb-slab-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
@@ -17165,20 +17140,14 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
                 <div class="cb-slab-title">PostgreSQL</div>
                 <div class="cb-slab-sub" data-i18n="custom.l2_sub">pg_dump → your S3 · daily · your keys</div>
               </div>
-              <div class="cb-slab-meta"><span class="cb-led"></span>16+</div>
             </div>
             <div class="cb-rail-r">
-              <span class="cb-rail-line"></span>
               <svg class="cb-check" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
               <span data-i18n="custom.yours">yours</span>
             </div>
           </div>
 
           <div class="cb-layer">
-            <div class="cb-rail-l">
-              <span class="cb-rail-tag">L1 · HARDWARE</span>
-              <span class="cb-rail-line"></span>
-            </div>
             <div class="cb-slab">
               <div class="cb-slab-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="6" rx="1"/><rect x="2" y="14" width="20" height="6" rx="1"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="17" x2="6.01" y2="17"/></svg>
@@ -17187,10 +17156,8 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
                 <div class="cb-slab-title" data-i18n="custom.l1_title">Your hardware</div>
                 <div class="cb-slab-sub" data-i18n="custom.l1_sub">Hetzner · AWS · on-prem · air-gapped</div>
               </div>
-              <div class="cb-slab-meta"><span class="cb-led"></span><span data-i18n="custom.l1_meta">online</span></div>
             </div>
             <div class="cb-rail-r">
-              <span class="cb-rail-line"></span>
               <svg class="cb-check" viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
               <span data-i18n="custom.yours">yours</span>
             </div>
@@ -22819,7 +22786,7 @@ manifest = <span class="tok-fn">ModuleManifest</span>(
         try {
           // Cache-bust on each release so updated copy reaches users without
           // a hard refresh. LOCALE_VERSION is bumped on every content change.
-          const LOCALE_VERSION = '20260722b';
+          const LOCALE_VERSION = '20260724e';
           const res = await fetch(`locales/${lang}.json?v=${LOCALE_VERSION}`, { cache: 'default' });
           if (!res.ok) throw 0;
           const json = await res.json();
