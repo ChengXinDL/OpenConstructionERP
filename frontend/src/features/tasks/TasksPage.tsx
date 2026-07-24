@@ -56,6 +56,8 @@ import {
 } from './api';
 import { tasksGuide } from './tasksGuide';
 import { VoiceEntry, getField } from '@/features/voice';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildTasksInsights } from './tasksInsights';
 
 /* ── Constants ─────────────────────────────────────────────────────────── */
 
@@ -1015,6 +1017,17 @@ export function TasksPage() {
     return map;
   }, [filtered, allStatuses]);
 
+  // Module Insights - the toggleable KPI and chart panel for this module. Its
+  // charts are built client-side from the tasks already loaded; when the
+  // project has none, buildTasksInsights returns a labelled sample set so the
+  // panel is never empty. Declared among the top-level hooks, above the single
+  // return below, so hook order stays stable on every render.
+  const insights = useModuleInsights('tasks', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildTasksInsights(tasks, '', t),
+    [tasks, t],
+  );
+
   // Invalidation
   const invalidateAll = useCallback(() => {
     qc.invalidateQueries({ queryKey: ['tasks'] });
@@ -1399,6 +1412,7 @@ export function TasksPage() {
         })}
         actions={
           <>
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             <ModuleGuideButton
               content={tasksGuide}
               onCta={() => setShowAddModal(true)}
@@ -1459,6 +1473,17 @@ export function TasksPage() {
             </Button>
           </>
         }
+      />
+
+      <InsightsPanel
+        open={insights.open}
+        title={t('tasks.insights.title', { defaultValue: 'Task insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       {/* Cross-module navigation — connects the planning value chain.

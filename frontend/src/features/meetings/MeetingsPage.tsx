@@ -90,6 +90,8 @@ import { ActionRegisterPanel } from './ActionRegisterPanel';
 import { MinutesDialog } from './MinutesDialog';
 import { RecurringSeriesDialog } from './RecurringSeriesDialog';
 import { meetingsGuide } from './meetingsGuide';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildMeetingsInsights } from './meetingsInsights';
 
 /* -- Constants ------------------------------------------------------------- */
 
@@ -2061,6 +2063,17 @@ export function MeetingsPage() {
     return { total, scheduled, completed, inProgress };
   }, [meetings]);
 
+  // Module Insights - the toggleable KPI and chart panel for this module. Its
+  // charts are built client-side from the meetings already loaded; when the
+  // project has none, buildMeetingsInsights returns a labelled sample set so
+  // the panel is never empty. Declared among the top-level hooks, above the
+  // single return below, so hook order stays stable on every render.
+  const insights = useModuleInsights('meetings', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildMeetingsInsights(meetings, '', t),
+    [meetings, t],
+  );
+
   // Invalidation
   const invalidateAll = useCallback(() => {
     qc.invalidateQueries({ queryKey: ['meetings'] });
@@ -2320,6 +2333,7 @@ export function MeetingsPage() {
         subtitle={t('meetings.subtitle', { defaultValue: 'Schedule, track, and document project meetings with action items' })}
         actions={
           <>
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             <ModuleGuideButton content={meetingsGuide} />
             <Button
               variant="secondary"
@@ -2354,6 +2368,17 @@ export function MeetingsPage() {
             </Button>
           </>
         }
+      />
+
+      <InsightsPanel
+        open={insights.open}
+        title={t('meetings.insights.title', { defaultValue: 'Meeting insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       {/* Canonical module info card — pain-named title + workflow body.

@@ -54,6 +54,8 @@ import {
   startApprovalChain,
   type ApprovalRow,
 } from './api';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildChangeordersInsights } from './changeordersInsights';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 
@@ -1980,6 +1982,17 @@ export function ChangeOrdersPage() {
     enabled: !!projectId,
   });
 
+  // Module Insights - the toggleable KPI/chart panel for this module. Its
+  // charts are built client-side from the change orders already loaded; when
+  // the project has none, buildChangeordersInsights supplies a labelled sample
+  // set so the panel is never empty on first open. Declared here, above the
+  // detail-view early return further down, so the hook order stays stable.
+  const insights = useModuleInsights('changeorders', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildChangeordersInsights(orders, project?.currency || summary?.currency || '', t),
+    [orders, project, summary, t],
+  );
+
   const deleteMut = useMutation({
     mutationFn: (id: string) => apiDelete(`/v1/changeorders/${id}`),
     onSuccess: () => {
@@ -2073,6 +2086,7 @@ export function ChangeOrdersPage() {
         subtitle={t('changeorders.subtitle', { defaultValue: 'Track scope changes with cost and schedule impact' })}
         actions={
           <>
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             <ModuleGuideButton content={changeordersGuide} />
             <Button variant="secondary" icon={<Download size={14} />} onClick={handleExportCSV} disabled={!filteredOrders || filteredOrders.length === 0}>
               {t('changeorders.export_csv', { defaultValue: 'Export CSV' })}
@@ -2087,6 +2101,17 @@ export function ChangeOrdersPage() {
             </Button>
           </>
         }
+      />
+
+      <InsightsPanel
+        open={insights.open}
+        title={t('changeorders.insights.title', { defaultValue: 'Change order insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       <DismissibleInfo

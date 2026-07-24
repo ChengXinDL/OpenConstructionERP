@@ -25,6 +25,8 @@ import {
   type Defect, type DefectCreate, type DefectStatus, type DefectSeverity,
   type DlpRegister, type RetentionReleaseReadiness,
 } from './api';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildDefectsLiabilityInsights } from './defectsLiabilityInsights';
 
 type BadgeVariant = 'neutral' | 'blue' | 'success' | 'warning' | 'error';
 
@@ -665,12 +667,46 @@ export function DefectsLiabilityPage() {
 
   const signalReady = !!registerQ.data && !!readinessQ.data && registerQ.data.total > 0;
 
+  // Module Insights - the toggleable visualization panel for this module. Its
+  // charts are built client-side from the defect notices already loaded; when
+  // the project has none, buildDefectsLiabilityInsights returns a labelled
+  // sample set so the panel is never empty on first open. Open state and any
+  // user-built charts persist per module via useModuleInsights. Declared among
+  // the top-level hooks (this component has no early return) so the hook order
+  // stays stable.
+  const insights = useModuleInsights('defects-liability', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildDefectsLiabilityInsights(defects, '', t),
+    [defects, t],
+  );
+
   return (
     <div className="space-y-5 animate-fade-in">
       <PageHeader
         srTitle={t('defects_liability.title', { defaultValue: 'Warranties & Defects Liability' })}
         subtitle={t('defects_liability.subtitle', { defaultValue: 'Post-handover warranties, defect notices and retention release readiness' })}
-        actions={<Button variant="primary" size="sm" onClick={openCreateWarranty} disabled={!projectId} icon={<Plus size={14} />}>{t('defects_liability.new_warranty', { defaultValue: 'New warranty' })}</Button>}
+        actions={
+          <>
+            {/* Insights toggle - shows or hides this module's visualization
+                panel. Leads the cluster so charts are one obvious click away. */}
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
+            <Button variant="primary" size="sm" onClick={openCreateWarranty} disabled={!projectId} icon={<Plus size={14} />}>{t('defects_liability.new_warranty', { defaultValue: 'New warranty' })}</Button>
+          </>
+        }
+      />
+
+      {/* Module Insights panel - toggled by the header button. Placed high so
+          its charts (real, or labelled sample) are visible the moment the
+          register opens. */}
+      <InsightsPanel
+        open={insights.open}
+        title={t('defects_liability.insights.title', { defaultValue: 'Defect insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       <RequiresProject emptyHint={t('defects_liability.select_project', { defaultValue: 'Open a project first to manage warranties and the defects liability period.' })}>

@@ -122,6 +122,8 @@ import {
   type DocumentItem,
 } from '@/features/documents/api';
 import { PublishRecordModal } from '@/features/record-publishing/PublishRecordModal';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildDailyDiaryInsights } from './dailyDiaryInsights';
 
 type Tab = 'diaries' | 'today' | 'archive';
 
@@ -336,6 +338,19 @@ export function DailyDiaryPage() {
     enabled: !!projectId && tab === 'archive',
   });
 
+  // Module Insights - the toggleable visualization panel for this module. Its
+  // charts are built client-side from the diaries the calendar already loaded;
+  // when the project has none, buildDailyDiaryInsights returns a labelled
+  // sample set so the panel is never empty on first open. Open state and any
+  // user-built charts persist per module via useModuleInsights. Declared among
+  // the top-level hooks (this component has no early return) so the hook order
+  // stays stable.
+  const insights = useModuleInsights('daily-diary', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildDailyDiaryInsights(diariesQ.data ?? [], '', t),
+    [diariesQ.data, t],
+  );
+
   return (
     <div className="space-y-5">
       <Breadcrumb
@@ -363,6 +378,9 @@ export function DailyDiaryPage() {
         })}
         actions={
           <>
+            {/* Insights toggle - shows or hides this module's visualization
+                panel. Leads the cluster so charts are one obvious click away. */}
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             <ModuleGuideButton content={dailyDiaryGuide} />
             <Button
               variant="secondary"
@@ -399,6 +417,20 @@ export function DailyDiaryPage() {
             </Button>
           </>
         }
+      />
+
+      {/* Module Insights panel - toggled by the header button. Placed high so
+          its charts (real, or labelled sample) are visible the moment the
+          diary register opens. */}
+      <InsightsPanel
+        open={insights.open}
+        title={t('daily_diary.insights.title', { defaultValue: 'Site diary insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       <DismissibleInfo

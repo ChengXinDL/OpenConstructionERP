@@ -88,6 +88,8 @@ import {
   type CreateImpactPayload,
 } from './api';
 import { mocGuide } from './mocGuide';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildMocInsights } from './mocInsights';
 
 /* -- Constants ------------------------------------------------------------- */
 
@@ -1304,6 +1306,18 @@ export function MoCPage() {
     enabled: !!projectId,
   });
 
+  // Module Insights - the toggleable KPI/chart panel for this module. Its
+  // charts are built client-side from the change requests already loaded; when
+  // the project has none, buildMocInsights supplies a labelled sample set so
+  // the panel is never empty on first open. The page has no early return, so
+  // this simply joins the other top-level hooks. Currency comes from the first
+  // entry that carries one (the MoC project record does not expose it).
+  const insights = useModuleInsights('moc', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildMocInsights(entries, entries.find((e) => e.currency)?.currency || '', t),
+    [entries, t],
+  );
+
   // Client-side narrowing: category + risk + free-text search, layered on top
   // of the server-side status filter that already scoped `entries`.
   const filtered = useMemo(() => {
@@ -1663,6 +1677,7 @@ export function MoCPage() {
         })}
         actions={
           <>
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             {/* How it works guide - explains the change-control concepts and
                 the raise / assess / review / approve flow. Sits as the
                 leading help pill ahead of the primary action. */}
@@ -1688,6 +1703,17 @@ export function MoCPage() {
             </Button>
           </>
         }
+      />
+
+      <InsightsPanel
+        open={insights.open}
+        title={t('moc.insights.title', { defaultValue: 'Management of Change insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       <SectionIntro
