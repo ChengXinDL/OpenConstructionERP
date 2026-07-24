@@ -40,6 +40,7 @@ import {
   DateDisplay,
   Skeleton,
   ModuleGuideButton,
+  CollapsibleSection,
 } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { payrollGuide } from './payrollGuide';
@@ -153,12 +154,12 @@ function HowPayrollWorks() {
   ];
 
   return (
-    <Card padding="md">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('payroll.flow_title', { defaultValue: 'How payroll fits together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="payroll.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('payroll.flow_title', { defaultValue: 'How payroll fits together' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('payroll.flow_intro', {
           defaultValue:
             'Payroll turns the hours worked on site into a posted, reconciled labour cost. Start by generating a draft batch from the latest field hours.',
@@ -214,7 +215,7 @@ function HowPayrollWorks() {
           <ModLink to="/reports">{t('payroll.mod_reports', { defaultValue: 'Reports' })}</ModLink>
         </span>
       </div>
-    </Card>
+    </CollapsibleSection>
   );
 }
 

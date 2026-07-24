@@ -31,6 +31,7 @@ import {
   SkeletonTable,
   DismissibleInfo,
   ModuleGuideButton,
+  CollapsibleSection,
 } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import {
@@ -128,14 +129,14 @@ function HowSupplierCatalogsWork() {
   ];
 
   return (
-    <Card padding="md">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('supplier_catalogs.flow_title', {
-          defaultValue: 'How the supplier library fits together',
-        })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="supplier_catalogs.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('supplier_catalogs.flow_title', {
+        defaultValue: 'How the supplier library fits together',
+      })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('supplier_catalogs.flow_intro', {
           defaultValue:
             'Build up your supply base step by step - vendors, then the items they sell, then the stock you hold - and hand off to Procurement when it is time to buy.',
@@ -188,7 +189,7 @@ function HowSupplierCatalogsWork() {
           </ModLink>
         </span>
       </div>
-    </Card>
+    </CollapsibleSection>
   );
 }
 

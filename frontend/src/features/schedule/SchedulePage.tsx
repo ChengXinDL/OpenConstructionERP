@@ -31,7 +31,7 @@ import {
   ArrowRight,
   ListPlus,
 } from 'lucide-react';
-import { Button, Card, Badge, Input, SkeletonTable, Breadcrumb, DismissibleInfo, IntroRichText, GanttChart as SVGGanttChart, ViewInBIMButton, ConfirmDialog, ModuleGuideButton } from '@/shared/ui';
+import { Button, Card, Badge, Input, SkeletonTable, Breadcrumb, DismissibleInfo, IntroRichText, GanttChart as SVGGanttChart, ViewInBIMButton, ConfirmDialog, ModuleGuideButton, CollapsibleSection } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import type { GanttActivity as SVGGanttActivity, GanttViewMode } from '@/shared/ui';
@@ -2428,12 +2428,12 @@ function HowScheduleWorks() {
   ];
 
   return (
-    <Card padding="md">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('schedule.flow_title', { defaultValue: 'How the 4D Schedule fits together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="schedule.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('schedule.flow_title', { defaultValue: 'How the 4D Schedule fits together' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('schedule.flow_intro', {
           defaultValue:
             'The schedule turns a priced estimate into a build timeline, then tracks it against what actually happens on site. This page is where that timeline is built.',
@@ -2490,7 +2490,7 @@ function HowScheduleWorks() {
           </ModLink>
         </span>
       </div>
-    </Card>
+    </CollapsibleSection>
   );
 }
 

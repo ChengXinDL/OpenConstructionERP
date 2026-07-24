@@ -71,6 +71,7 @@ import {
   DismissibleInfo,
   IntroRichText,
   ModuleGuideButton,
+  CollapsibleSection,
 } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { crmGuide } from './crmGuide';
@@ -261,12 +262,12 @@ function HowCrmWorks() {
   ];
 
   return (
-    <Card padding="md">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('crm.flow_title', { defaultValue: 'How the CRM fits together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="crm.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('crm.flow_title', { defaultValue: 'How the CRM fits together' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('crm.flow_intro', {
           defaultValue:
             'The CRM turns an enquiry into a qualified deal, moves it across the pipeline, and hands a win off to delivery. People come from Contacts; won work flows on to bids and contracts.',
@@ -326,7 +327,7 @@ function HowCrmWorks() {
           </ModLink>
         </span>
       </div>
-    </Card>
+    </CollapsibleSection>
   );
 }
 

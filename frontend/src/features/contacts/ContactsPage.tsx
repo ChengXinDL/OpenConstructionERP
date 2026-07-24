@@ -51,6 +51,7 @@ import {
   WideModalField,
   SideDrawer,
   ModuleGuideButton,
+  CollapsibleSection,
 } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { useConfirm } from '@/shared/hooks/useConfirm';
@@ -1218,12 +1219,12 @@ function HowContactsWork() {
   ];
 
   return (
-    <section className="rounded-xl border border-border-light bg-surface-secondary/40 p-4">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('contacts.how_title', { defaultValue: 'How the contact directory fits together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="contacts.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('contacts.how_title', { defaultValue: 'How the contact directory fits together' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('contacts.how_intro', {
           defaultValue:
             'Capture each company and person once, then reuse the same record across the platform so a party is never retyped.',
@@ -1267,7 +1268,7 @@ function HowContactsWork() {
           {t('contacts.how_mod_correspondence', { defaultValue: 'Correspondence' })}
         </ModLink>
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
 

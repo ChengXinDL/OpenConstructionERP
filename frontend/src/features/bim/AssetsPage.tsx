@@ -35,7 +35,7 @@ import {
   Search,
 } from 'lucide-react';
 
-import { Badge, Breadcrumb, Button, Card, DismissibleInfo, IntroRichText, EmptyState, Input } from '@/shared/ui';
+import { Badge, Breadcrumb, Button, Card, CollapsibleSection, DismissibleInfo, IntroRichText, EmptyState, Input } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { useToastStore } from '@/stores/useToastStore';
@@ -116,12 +116,12 @@ function HowAssetsWork() {
   ];
 
   return (
-    <Card padding="md">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('assets.flow_title', { defaultValue: 'How the asset register fits together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="assets.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('assets.flow_title', { defaultValue: 'How the asset register fits together' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('assets.flow_intro', {
           defaultValue:
             'The asset register carries your BIM model through to operations: model elements become tracked assets with manufacturer, warranty and status, ready for a COBie handover to facilities management.',
@@ -177,7 +177,7 @@ function HowAssetsWork() {
           </ModLink>
         </span>
       </div>
-    </Card>
+    </CollapsibleSection>
   );
 }
 

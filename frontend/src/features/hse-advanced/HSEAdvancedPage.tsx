@@ -42,6 +42,7 @@ import {
   SkeletonTable,
   IntroRichText,
   ModuleGuideButton,
+  CollapsibleSection,
 } from '@/shared/ui';
 import { RequiresProject } from '@/shared/auth/RequiresProject';
 import { DateDisplay } from '@/shared/ui/DateDisplay';
@@ -429,12 +430,12 @@ function HowHSEWork() {
   ];
 
   return (
-    <Card padding="md">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('hse_advanced.flow_title', { defaultValue: 'How HSE Advanced fits together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="hse_advanced.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('hse_advanced.flow_title', { defaultValue: 'How HSE Advanced fits together' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('hse_advanced.flow_intro', {
           defaultValue:
             'The formal side of site safety: it carries a finding from something happened all the way to fixed and verified, with the record an audit or insurance claim needs.',
@@ -484,7 +485,7 @@ function HowHSEWork() {
           </ModLink>
         </span>
       </div>
-    </Card>
+    </CollapsibleSection>
   );
 }
 

@@ -37,6 +37,7 @@ import {
   Card,
   CardContent,
   CardHeader,
+  CollapsibleSection,
   ConfirmDialog,
   DismissibleInfo,
   IntroRichText,
@@ -1503,12 +1504,12 @@ function HowFederationsWork() {
   ];
 
   return (
-    <Card padding="md">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('bim_federations.flow_title', { defaultValue: 'How BIM federations fit together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="bim_federations.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('bim_federations.flow_title', { defaultValue: 'How BIM federations fit together' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('bim_federations.flow_intro', {
           defaultValue:
             'A federation aligns the discipline models that share an origin into one coordinated set, so clash checking, takeoff and the bill of quantities all read the same models. This page is where that set is assembled.',
@@ -1564,7 +1565,7 @@ function HowFederationsWork() {
           </ModLink>
         </span>
       </div>
-    </Card>
+    </CollapsibleSection>
   );
 }
 

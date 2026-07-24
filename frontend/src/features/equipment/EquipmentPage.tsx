@@ -38,6 +38,7 @@ import {
   DismissibleInfo,
   IntroRichText,
   ModuleGuideButton,
+  CollapsibleSection,
 } from '@/shared/ui';
 import { MoneyDisplay } from '@/shared/ui/MoneyDisplay';
 import { DateDisplay } from '@/shared/ui/DateDisplay';
@@ -200,12 +201,12 @@ function HowEquipmentWorks() {
   ];
 
   return (
-    <Card padding="md">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('equipment.flow_title', { defaultValue: 'How the fleet fits together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="equipment.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('equipment.flow_title', { defaultValue: 'How the fleet fits together' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('equipment.flow_intro', {
           defaultValue:
             'The register keeps every machine safe, serviced and costed. Only active plant with a valid inspection can be assigned to a crew.',
@@ -261,7 +262,7 @@ function HowEquipmentWorks() {
           </ModLink>
         </span>
       </div>
-    </Card>
+    </CollapsibleSection>
   );
 }
 

@@ -49,7 +49,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 
-import { Button, Card, Badge, EmptyState, RecoveryCard, SkeletonTable } from '@/shared/ui';
+import { Button, Card, Badge, EmptyState, RecoveryCard, SkeletonTable, CollapsibleSection } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
@@ -138,12 +138,13 @@ function HowPortfolioWorks() {
   ];
 
   return (
-    <Card padding="md" className="mt-4">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('portfolio.flow_title', { defaultValue: 'How the portfolio fits together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="portfolio.how"
+      className="mt-4"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('portfolio.flow_title', { defaultValue: 'How the portfolio fits together' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('portfolio.flow_intro', {
           defaultValue:
             'The portfolio rolls many project schedules into one programme view and runs a single critical-path pass across them, so you can see the finish date and the longest chain that spans projects.',
@@ -199,7 +200,7 @@ function HowPortfolioWorks() {
           </ModLink>
         </span>
       </div>
-    </Card>
+    </CollapsibleSection>
   );
 }
 

@@ -47,6 +47,7 @@ import {
   ConfirmDialog,
   InfoHint,
   ModuleGuideButton,
+  CollapsibleSection,
 } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { RequiresProject } from '@/shared/auth/RequiresProject';
@@ -435,12 +436,12 @@ function HowScheduleAdvancedWorks() {
   ];
 
   return (
-    <Card padding="md">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('schedule_advanced.flow_title', { defaultValue: 'How Last Planner fits together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="schedule_advanced.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('schedule_advanced.flow_title', { defaultValue: 'How Last Planner fits together' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('schedule_advanced.flow_intro', {
           defaultValue:
             'Last Planner makes the master schedule reliable at the work face: plan in phases, clear what blocks the work, and hold weekly commitments the trades can actually keep.',
@@ -500,7 +501,7 @@ function HowScheduleAdvancedWorks() {
           </ModLink>
         </span>
       </div>
-    </Card>
+    </CollapsibleSection>
   );
 }
 

@@ -24,7 +24,7 @@ import {
   Users,
   Gauge,
 } from 'lucide-react';
-import { Button, Card, Badge, EmptyState, Breadcrumb, DateDisplay, ConfirmDialog, RecoveryCard, SkeletonTable, ModuleGuideButton } from '@/shared/ui';
+import { Button, Card, Badge, EmptyState, Breadcrumb, DateDisplay, ConfirmDialog, RecoveryCard, SkeletonTable, ModuleGuideButton, CollapsibleSection } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { DismissibleInfo, IntroRichText } from '@/shared/ui/DismissibleInfo';
 import { RequiresProject } from '@/shared/auth/RequiresProject';
@@ -1176,12 +1176,12 @@ function HowCdeWorks() {
   ];
 
   return (
-    <Card padding="md">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('cde.flow_title', { defaultValue: 'How the CDE fits together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="cde.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('cde.flow_title', { defaultValue: 'How the CDE fits together' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('cde.flow_intro', {
           defaultValue:
             'A common data environment is the agreed single source of truth for project documents. Files are organised into ISO 19650 containers, moved through the review states, and issued to the team, so everyone always works off the right version.',
@@ -1235,7 +1235,7 @@ function HowCdeWorks() {
           <ModLink to="/rfi">{t('cde.mod_rfi', { defaultValue: 'RFIs' })}</ModLink>
         </span>
       </div>
-    </Card>
+    </CollapsibleSection>
   );
 }
 

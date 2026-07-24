@@ -37,6 +37,7 @@ import {
   WideModalSection,
   WideModalField,
   ModuleGuideButton,
+  CollapsibleSection,
 } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { useConfirm } from '@/shared/hooks/useConfirm';
@@ -658,12 +659,12 @@ function HowAuthoritySubmissionWorks() {
   ];
 
   return (
-    <section className="rounded-xl border border-border-light bg-surface-secondary/40 p-4">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('authority_submission.how_title', { defaultValue: 'How the submission factory fits together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="authority_submission.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('authority_submission.how_title', { defaultValue: 'How the submission factory fits together' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('authority_submission.how_intro', {
           defaultValue:
             'Build the structured document an authority expects, validate it against its profile, then generate the machine XML and submit once the checks are clean.',
@@ -693,7 +694,7 @@ function HowAuthoritySubmissionWorks() {
           </React.Fragment>
         ))}
       </ol>
-    </section>
+    </CollapsibleSection>
   );
 }
 

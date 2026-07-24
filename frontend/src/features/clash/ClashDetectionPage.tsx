@@ -81,6 +81,7 @@ import {
   BetaBanner,
   Breadcrumb,
   ModuleGuideButton,
+  CollapsibleSection,
 } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { useConfirm } from '@/shared/hooks/useConfirm';
@@ -4666,12 +4667,12 @@ function HowClashWorks() {
   ];
 
   return (
-    <Card padding="md">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network className="h-4 w-4 text-oe-blue" />
-        {t('clash.flow_title', { defaultValue: 'How clash detection fits together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="clash.how"
+      icon={<Network className="h-4 w-4 text-oe-blue" />}
+      title={t('clash.flow_title', { defaultValue: 'How clash detection fits together' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('clash.flow_intro', {
           defaultValue:
             'Clash detection checks the federated BIM models for geometric interferences and clearance breaches, then hands each issue to coordination, the 3D viewer and BCF export, so problems are fixed before they reach the site.',
@@ -4724,7 +4725,7 @@ function HowClashWorks() {
           </ModLink>
         </span>
       </div>
-    </Card>
+    </CollapsibleSection>
   );
 }
 

@@ -36,7 +36,7 @@ import {
   Calculator,
   Wallet,
 } from 'lucide-react';
-import { Button, Card, Badge, EmptyState, RecoveryCard, SkeletonTable } from '@/shared/ui';
+import { Button, Card, Badge, EmptyState, RecoveryCard, SkeletonTable, CollapsibleSection } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { getErrorMessage } from '@/shared/lib/api';
 import { fmtNumber } from '@/shared/lib/formatters';
@@ -134,12 +134,12 @@ function HowNormsWork() {
   ];
 
   return (
-    <Card padding="md">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('normExpansion.flow_title', { defaultValue: 'How production norms fit together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="normExpansion.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('normExpansion.flow_title', { defaultValue: 'How production norms fit together' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('normExpansion.flow_intro', {
           defaultValue:
             'A production norm turns one unit of work into the hours and materials behind it, then into a priced rate you can reuse across estimates. This page is where that build-up starts.',
@@ -204,7 +204,7 @@ function HowNormsWork() {
           </ModLink>
         </span>
       </div>
-    </Card>
+    </CollapsibleSection>
   );
 }
 
