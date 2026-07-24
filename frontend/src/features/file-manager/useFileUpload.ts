@@ -25,6 +25,9 @@ import { useUploadQueueStore } from '@/stores/useUploadQueueStore';
 import { fileManagerKeys } from './hooks';
 import { uploadResumable, RESUMABLE_THRESHOLD_BYTES } from './resumableUpload';
 import type { FileKind } from './types';
+// Name-only mesh check (three.js-free) so recognising a 3D file here does not
+// pull the BIM viewer's loader graph into the file-manager bundle.
+import { isMeshImportFile } from '@/features/bim/meshImport/formats';
 
 /** Map FileKind -> documents-module category. Used only by the documents
  * pipeline (the kinds that don't have a dedicated endpoint). */
@@ -90,7 +93,19 @@ export function useFileUpload(projectId: string | null | undefined): UseFileUplo
       const directUrl = directUploadUrl(kind);
       setUploading(true);
 
+      // Count 3D mesh files in the batch so we can nudge the user toward the
+      // BIM Hub 3D uploader (which actually views/measures them) after queuing.
+      let meshCount = 0;
+
       for (const file of validFiles) {
+        // Common 3D mesh formats (OBJ/STL/glTF/GLB/DAE/FBX/PLY/3DS/…) are not
+        // server-convertible CAD: the raw-CAD ingest endpoint would reject
+        // them (400). Keep them on the documents pipeline so they are stored
+        // safely as a file, and point the user to the BIM Hub 3D uploader to
+        // actually view and measure them.
+        const isMesh = isMeshImportFile(file.name);
+        if (isMesh) meshCount += 1;
+        const fileDirectUrl = isMesh ? null : directUrl;
         const taskId = uuid();
         addQueueTask({
           id: taskId,
@@ -134,7 +149,7 @@ export function useFileUpload(projectId: string | null | undefined): UseFileUplo
           // progress and per-chunk retry. Small files keep the single-shot
           // multipart upload. BIM/DWG/photo always take the single-shot path
           // to their own endpoint (which streams server-side regardless).
-          if (!directUrl && file.size >= RESUMABLE_THRESHOLD_BYTES) {
+          if (!fileDirectUrl && file.size >= RESUMABLE_THRESHOLD_BYTES) {
             try {
               updateQueueTask(taskId, {
                 message: t('files.uploading_chunked', {
@@ -175,7 +190,7 @@ export function useFileUpload(projectId: string | null | undefined): UseFileUplo
             }, estimatedMs / 18);
 
             const res = await fetch(
-              directUrl ?? `/api/v1/documents/upload/?project_id=${projectId}&category=${cat}`,
+              fileDirectUrl ?? `/api/v1/documents/upload/?project_id=${projectId}&category=${cat}`,
               { method: 'POST', headers, body: formData },
             );
 
@@ -206,6 +221,22 @@ export function useFileUpload(projectId: string | null | undefined): UseFileUplo
           count: validFiles.length,
         }),
       });
+
+      // 3D mesh files are stored here as documents, but the place to actually
+      // view and measure them is the BIM Hub 3D uploader (it reads OBJ/STL/
+      // glTF/… in the browser). Surface that once per batch, not per file.
+      if (meshCount > 0) {
+        addToast({
+          type: 'info',
+          title: t('files.mesh_saved_title', {
+            defaultValue: '3D mesh saved',
+          }),
+          message: t('files.mesh_saved_hint', {
+            defaultValue:
+              'Open the BIM Hub 3D uploader and drop the file there to view, measure and extract geometry quantities.',
+          }),
+        });
+      }
 
       setUploading(false);
       onDone?.();

@@ -24,34 +24,13 @@ import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { USDLoader } from 'three/addons/loaders/USDLoader.js';
 import type { UpAxis } from './geometry';
+import { MESH_IMPORT_EXTENSIONS, isMeshImportFile, meshFormatFromName, type MeshFormat } from './formats';
 
-export type MeshFormat =
-  | 'obj'
-  | '3ds'
-  | 'dae'
-  | 'fbx'
-  | 'lwo'
-  | 'stl'
-  | 'ply'
-  | 'gltf'
-  | 'glb'
-  | 'usd'
-  | 'usdz';
-
-/** Every extension the mesh importer accepts, lower-case with the leading dot. */
-export const MESH_IMPORT_EXTENSIONS = [
-  '.obj',
-  '.3ds',
-  '.dae',
-  '.fbx',
-  '.lwo',
-  '.stl',
-  '.ply',
-  '.gltf',
-  '.glb',
-  '.usd',
-  '.usdz',
-] as const;
+// Re-export the pure format helpers so existing ``./loaders`` imports keep
+// working. The name-only classification lives in ``formats.ts`` (no three.js)
+// so lightweight callers can import it without pulling the loader graph.
+export { MESH_IMPORT_EXTENSIONS, isMeshImportFile, meshFormatFromName };
+export type { MeshFormat };
 
 /** Formats parsed only experimentally (may fail on complex files). */
 const EXPERIMENTAL_FORMATS: ReadonlySet<MeshFormat> = new Set<MeshFormat>(['usd', 'usdz']);
@@ -75,25 +54,6 @@ export interface LoadResult {
   format: MeshFormat;
   /** True for formats we support only experimentally (USD / USDZ). */
   experimental: boolean;
-}
-
-/** Lower-case file extension including the dot, or '' when there is none. */
-function extensionOf(filename: string): string {
-  const dot = filename.lastIndexOf('.');
-  return dot >= 0 ? filename.slice(dot).toLowerCase() : '';
-}
-
-/** Resolve a filename to a supported mesh format, or null. */
-export function meshFormatFromName(filename: string): MeshFormat | null {
-  const ext = extensionOf(filename);
-  if (!ext) return null;
-  const candidate = ext.slice(1) as MeshFormat;
-  return (MESH_IMPORT_EXTENSIONS as readonly string[]).includes(ext) ? candidate : null;
-}
-
-/** True when the file is one the mesh importer can handle. */
-export function isMeshImportFile(filename: string): boolean {
-  return meshFormatFromName(filename) !== null;
 }
 
 /**

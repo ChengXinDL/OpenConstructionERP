@@ -456,6 +456,21 @@ export default function MeshImportDialog({
 
           {!loading && !loadError && display && hasObjects && (
             <>
+              {/* Honest expectation-setting: a mesh is geometry only. The
+                  quantities below are measured from the shape; there are no
+                  BIM properties / classifications to extract (unlike IFC/RVT). */}
+              <div className="rounded-lg border border-blue-300/40 bg-blue-50/50 dark:bg-blue-950/20 px-3 py-2 text-[11px] text-blue-700 dark:text-blue-300">
+                <div className="flex items-start gap-2">
+                  <Info size={12} className="shrink-0 mt-0.5" />
+                  <span>
+                    {t('bim.mesh_import.geometry_only_note', {
+                      defaultValue:
+                        'Geometry-only import: the quantities below are measured from the mesh shape. Mesh files carry no BIM properties, materials or classifications - for those, import an IFC or RVT model instead.',
+                    })}
+                  </span>
+                </div>
+              </div>
+
               {/* Unit + up-axis controls */}
               <div className="grid grid-cols-2 gap-3">
                 <div>

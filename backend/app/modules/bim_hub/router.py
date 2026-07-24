@@ -81,6 +81,7 @@ from app.core.upload_streaming import StreamedUpload, stream_upload_to_temp
 from app.core.validation.messages import translate
 from app.dependencies import CurrentUserId, RequirePermission, RequireRole, SessionDep, accessible_project_ids
 from app.modules.bim_hub import file_storage as bim_file_storage
+from app.modules.bim_hub.mesh_formats import is_mesh_geometry_ext, mesh_upload_hint
 from app.modules.bim_hub.schemas import (
     AssetInfoUpdateRequest,
     AssetListResponse,
@@ -2154,6 +2155,18 @@ async def upload_cad_file(
         )
 
     ext = pathlib.Path(filename).suffix.lower()
+    # Geometry-only 3D mesh formats (OBJ/STL/glTF/GLB/DAE/FBX/PLY/3DS/…) are
+    # not server-convertible CAD - the BIM Hub 3D uploader reads them directly
+    # in the browser and posts a normalized GLB through the data+geometry
+    # upload. Short-circuit them here with a friendly pointer instead of the
+    # generic "unsupported" error (or a confusing magic-byte mismatch for the
+    # few whose extension is in the CAD set), so nothing is stored as a dead,
+    # never-converting model.
+    if is_mesh_geometry_ext(ext):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=mesh_upload_hint(ext, filename),
+        )
     if ext not in _ALLOWED_CAD_EXTENSIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -2482,6 +2495,14 @@ async def create_model_from_document(
             }
 
     ext = _Path(doc.name or "").suffix.lower()
+    # Geometry-only mesh formats are read in-browser by the BIM Hub 3D
+    # uploader, not converted on the server - point the user there instead of
+    # creating a model that could never render (mirrors the upload-cad guard).
+    if is_mesh_geometry_ext(ext):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=mesh_upload_hint(ext, doc.name),
+        )
     if ext not in _ALLOWED_CAD_EXTENSIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

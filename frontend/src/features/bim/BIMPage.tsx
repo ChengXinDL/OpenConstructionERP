@@ -854,6 +854,12 @@ function UploadPanel({
                   <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">.stl</span>
                   <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">{t('bim.mesh_import.more_formats', { defaultValue: '+ more' })}</span>
                 </div>
+                <p className="text-[10px] text-content-quaternary leading-relaxed max-w-[17rem]">
+                  {t('bim.upload_format_note', {
+                    defaultValue:
+                      'IFC and RVT import with full properties, quantities and classifications. Mesh formats (glTF, OBJ, STL, DAE, FBX, PLY, 3DS) are geometry only - view and measure, no BIM data.',
+                  })}
+                </p>
               </>
             )}
             <input id="bim-upload-file-input" ref={fileInputRef} type="file" accept={`.rvt,.ifc,.dwg,.dxf,${MESH_IMPORT_ACCEPT}`} className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelect(f); }} />
@@ -1571,12 +1577,21 @@ function LandingPage({ projectId, onUploadComplete: _onUploadComplete, breadcrum
                         <p className="text-sm font-semibold text-content-primary">{t('bim.landing_drop_here')}</p>
                         <p className="text-xs text-content-tertiary mt-1">{t('bim.landing_size_hint')}</p>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center justify-center gap-2">
                         <span className="text-[10px] font-mono px-2 py-1 rounded-md bg-oe-blue/8 text-oe-blue border border-oe-blue/15 font-semibold">.rvt</span>
                         <span className="text-[10px] font-mono px-2 py-1 rounded-md bg-oe-blue/8 text-oe-blue border border-oe-blue/15 font-semibold">.ifc</span>
+                        <span className="text-[10px] font-mono px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold">.glb</span>
+                        <span className="text-[10px] font-mono px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold">.obj</span>
+                        <span className="text-[10px] font-mono px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold">{t('bim.mesh_import.more_formats', { defaultValue: '+ more' })}</span>
                       </div>
                       <p className="text-[10px] text-content-quaternary leading-relaxed mt-1 text-center">
                         RVT 2015–2026 &middot; IFC 2x3, 4.0, 4.1, 4.3
+                      </p>
+                      <p className="text-[10px] text-content-quaternary leading-relaxed max-w-[20rem] text-center">
+                        {t('bim.upload_format_note', {
+                          defaultValue:
+                            'IFC and RVT import with full properties, quantities and classifications. Mesh formats (glTF, OBJ, STL, DAE, FBX, PLY, 3DS) are geometry only - view and measure, no BIM data.',
+                        })}
                       </p>
                     </>
                   )}
