@@ -39,6 +39,7 @@ import {
   WideModalField,
   IntroRichText,
   ModuleGuideButton,
+  CollapsibleSection,
 } from '@/shared/ui';
 import { RequiresProject } from '@/shared/auth/RequiresProject';
 import { PageHeader } from '@/shared/ui/PageHeader';
@@ -217,15 +218,12 @@ function HowQmsWork() {
   ];
 
   return (
-    <section
-      aria-label={t('qms.how_title', { defaultValue: 'How the quality chain fits together' })}
-      className="rounded-xl border border-border-light bg-surface-secondary/40 p-4"
+    <CollapsibleSection
+      storageKey="qms.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('qms.how_title', { defaultValue: 'How the quality chain fits together' })}
     >
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('qms.how_title', { defaultValue: 'How the quality chain fits together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+      <p className="text-xs text-content-tertiary">
         {t('qms.how_intro', {
           defaultValue:
             'Run the whole quality chain in one place: plan control points, inspect them and drive failures through to close-out. Start by building an ITP plan for a work package.',
@@ -272,7 +270,7 @@ function HowQmsWork() {
           {t('qms.mod_submittals', { defaultValue: 'Submittals' })}
         </ModLink>
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
 

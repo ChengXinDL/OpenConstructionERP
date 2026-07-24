@@ -32,6 +32,7 @@ import {
   Button,
   Card,
   Badge,
+  CollapsibleSection,
   EmptyState,
   Breadcrumb,
   RecoveryCard,
@@ -378,12 +379,12 @@ function HowContractsWork() {
   ];
 
   return (
-    <Card padding="md">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('contracts.flow_title', { defaultValue: 'How contracts fit together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="contracts.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('contracts.flow_title', { defaultValue: 'How contracts fit together' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('contracts.flow_intro', {
           defaultValue:
             'A won deal or an awarded bid becomes a contract with a counterparty, billed through progress claims and settled in a final account. Variations keep the sum honest, and certified amounts reconcile against committed cost.',
@@ -440,7 +441,7 @@ function HowContractsWork() {
           </ModLink>
         </span>
       </div>
-    </Card>
+    </CollapsibleSection>
   );
 }
 

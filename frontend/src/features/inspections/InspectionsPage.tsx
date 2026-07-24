@@ -35,7 +35,7 @@ import {
   Network,
   ArrowRight,
 } from 'lucide-react';
-import { Button, Card, Badge, EmptyState, Breadcrumb, ConfirmDialog, RecoveryCard, SkeletonTable, IntroRichText, ModuleGuideButton } from '@/shared/ui';
+import { Button, Card, Badge, EmptyState, Breadcrumb, ConfirmDialog, RecoveryCard, SkeletonTable, IntroRichText, ModuleGuideButton, CollapsibleSection } from '@/shared/ui';
 import { RequiresProject } from '@/shared/auth/RequiresProject';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { SectionIntro } from '@/features/validation';
@@ -1076,15 +1076,12 @@ function HowInspectionsWork() {
   ];
 
   return (
-    <section
-      aria-label={t('inspections.how_title', { defaultValue: 'How inspections fit together' })}
-      className="rounded-xl border border-border-light bg-surface-secondary/40 p-4"
+    <CollapsibleSection
+      storageKey="inspections.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('inspections.how_title', { defaultValue: 'How inspections fit together' })}
     >
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('inspections.how_title', { defaultValue: 'How inspections fit together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+      <p className="text-xs text-content-tertiary">
         {t('inspections.how_intro', {
           defaultValue:
             'Schedule quality checks, record pass or fail on site, and turn every failure into a tracked defect. Start by scheduling an inspection for the work you need to verify.',
@@ -1135,7 +1132,7 @@ function HowInspectionsWork() {
           {t('inspections.mod_closeout', { defaultValue: 'Handover & Closeout' })}
         </ModLink>
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
 

@@ -47,6 +47,7 @@ import {
   WideModalSection,
   WideModalField,
   ModuleGuideButton,
+  CollapsibleSection,
 } from '@/shared/ui';
 import { ContactSearchInput } from '@/shared/ui/ContactSearchInput';
 import { PageHeader } from '@/shared/ui/PageHeader';
@@ -1341,12 +1342,12 @@ function HowCorrespondenceWorks() {
   ];
 
   return (
-    <section className="rounded-xl border border-border-light bg-surface-secondary/40 p-4">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('correspondence.how_title', { defaultValue: 'How correspondence fits together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="correspondence.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('correspondence.how_title', { defaultValue: 'How correspondence fits together' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('correspondence.how_intro', {
           defaultValue:
             'Log every formal letter, notice, email and memo, attach its source file and link it into one traceable thread you can rely on if a claim arises.',
@@ -1394,7 +1395,7 @@ function HowCorrespondenceWorks() {
           {t('correspondence.how_mod_submittals', { defaultValue: 'Submittals' })}
         </ModLink>
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
 

@@ -33,6 +33,7 @@ import {
 import {
   Card,
   Badge,
+  CollapsibleSection,
   EmptyState,
   SkeletonTable,
   DismissibleInfo,
@@ -270,14 +271,14 @@ function HowReconciliationWork() {
   ];
 
   return (
-    <div className="rounded-xl border border-border-light bg-surface-secondary/40 p-4">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('reconciliation.flow_title', {
-          defaultValue: 'How reconciliation works, and what it connects to',
-        })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="reconciliation.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('reconciliation.flow_title', {
+        defaultValue: 'How reconciliation works, and what it connects to',
+      })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('reconciliation.flow_intro', {
           defaultValue:
             'One site event scatters into separate records across modules; assemble them into a single thread and confirm the links. Enter a seed record above to start.',
@@ -332,7 +333,7 @@ function HowReconciliationWork() {
           {t('reconciliation.mod_reports', { defaultValue: 'Reports' })}
         </ModLink>
       </div>
-    </div>
+    </CollapsibleSection>
   );
 }
 

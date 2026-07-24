@@ -30,6 +30,7 @@ import {
   Button,
   Card,
   Badge,
+  CollapsibleSection,
   DismissibleInfo,
   EmptyState,
   Breadcrumb,
@@ -425,12 +426,12 @@ function HowBidManagementWorks() {
   ];
 
   return (
-    <Card padding="md">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('bid_management.flow_title', { defaultValue: 'How bid management fits together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="bid_management.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('bid_management.flow_title', { defaultValue: 'How bid management fits together' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('bid_management.flow_intro', {
           defaultValue:
             'Bundle scope into packages, invite subcontractors, compare their bids like for like, then award. A won CRM deal feeds the work in, and the award flows on to Contracts. Use Tendering instead for a formal BOQ-driven tender.',
@@ -491,7 +492,7 @@ function HowBidManagementWorks() {
           </ModLink>
         </span>
       </div>
-    </Card>
+    </CollapsibleSection>
   );
 }
 

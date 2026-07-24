@@ -38,6 +38,7 @@ import {
   SkeletonTable,
   IntroRichText,
   ModuleGuideButton,
+  CollapsibleSection,
 } from '@/shared/ui';
 import { RequiresProject } from '@/shared/auth/RequiresProject';
 import { DateDisplay } from '@/shared/ui/DateDisplay';
@@ -578,12 +579,12 @@ function HowSafetyWork() {
   ];
 
   return (
-    <Card padding="md">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('safety.flow_title', { defaultValue: 'How Safety fits together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="safety.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('safety.flow_title', { defaultValue: 'How Safety fits together' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('safety.flow_intro', {
           defaultValue:
             'Record what happened and what was spotted on site, watch the trend, and escalate the serious findings for formal follow-up. This page is where site safety starts.',
@@ -633,7 +634,7 @@ function HowSafetyWork() {
           · <ModLink to="/ncr">{t('safety.mod_ncr', { defaultValue: 'NCR' })}</ModLink>
         </span>
       </div>
-    </Card>
+    </CollapsibleSection>
   );
 }
 

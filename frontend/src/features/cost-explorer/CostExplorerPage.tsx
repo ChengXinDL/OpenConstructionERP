@@ -25,7 +25,7 @@ import {
   Scale,
   Search,
 } from 'lucide-react';
-import { Button, Card, PageHeader, TabBar, tabIds } from '@/shared/ui';
+import { Button, CollapsibleSection, PageHeader, TabBar, tabIds } from '@/shared/ui';
 import { getErrorMessage } from '@/shared/lib/api';
 import { useToastStore } from '@/stores/useToastStore';
 import { getIndexStatus, reindex } from './api';
@@ -169,12 +169,12 @@ function HowCostExplorerWorks() {
   ];
 
   return (
-    <Card padding="md">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('costExplorer.flow_title', { defaultValue: 'How Cost Explorer fits together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="costExplorer.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('costExplorer.flow_title', { defaultValue: 'How Cost Explorer fits together' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('costExplorer.flow_intro', {
           defaultValue:
             'Cost Explorer is your search-first workspace over every loaded price base - look up priced work by the resources it consumes, search the catalogs, compare the same code across regions, and test material substitutions, then push what you find straight into an estimate.',
@@ -231,7 +231,7 @@ function HowCostExplorerWorks() {
           </ModLink>
         </span>
       </div>
-    </Card>
+    </CollapsibleSection>
   );
 }
 

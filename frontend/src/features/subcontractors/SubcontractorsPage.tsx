@@ -35,6 +35,7 @@ import {
   Button,
   Card,
   Badge,
+  CollapsibleSection,
   DismissibleInfo,
   IntroRichText,
   EmptyState,
@@ -263,14 +264,14 @@ function HowSubcontractorsWork() {
   ];
 
   return (
-    <Card padding="md">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('subcontractors.flow_title', {
-          defaultValue: 'How the subcontractor register fits together',
-        })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="subcontractors.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('subcontractors.flow_title', {
+        defaultValue: 'How the subcontractor register fits together',
+      })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('subcontractors.flow_intro', {
           defaultValue:
             'Your register of every subcontractor, with their qualification, scope, payments and performance in one place. Prequalify a firm before you invite it to bid or award it a subcontract.',
@@ -326,7 +327,7 @@ function HowSubcontractorsWork() {
           </ModLink>
         </span>
       </div>
-    </Card>
+    </CollapsibleSection>
   );
 }
 

@@ -10,7 +10,7 @@ import {
   AlertTriangle, Shield, Trash2, X, Search, Filter, CalendarDays, TrendingUp,
   LayoutGrid, Activity, Network, ArrowRight,
 } from 'lucide-react';
-import { Button, Card, Badge, EmptyState, Breadcrumb, ConfirmDialog, DismissibleInfo, IntroRichText, RecoveryCard, SkeletonTable, SkeletonCard, ModuleGuideButton } from '@/shared/ui';
+import { Button, Card, Badge, EmptyState, Breadcrumb, ConfirmDialog, DismissibleInfo, IntroRichText, RecoveryCard, SkeletonTable, SkeletonCard, ModuleGuideButton, CollapsibleSection } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { MultiCurrencyTotal } from '@/shared/ui/MultiCurrencyTotal';
 import { RequiresProject } from '@/shared/auth/RequiresProject';
@@ -571,12 +571,12 @@ function HowRiskWork() {
   ];
 
   return (
-    <Card padding="md">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('risk.flow_title', { defaultValue: 'How the Risk Register fits together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="risk.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('risk.flow_title', { defaultValue: 'How the Risk Register fits together' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('risk.flow_intro', {
           defaultValue:
             'Surface project threats before they cost money: log them, score them on the matrix, simulate the range, then feed the impacts into planning and reporting.',
@@ -625,7 +625,7 @@ function HowRiskWork() {
           · <ModLink to="/reports">{t('risk.mod_reports', { defaultValue: 'Reports' })}</ModLink>
         </span>
       </div>
-    </Card>
+    </CollapsibleSection>
   );
 }
 

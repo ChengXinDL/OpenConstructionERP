@@ -33,7 +33,7 @@ import {
   Ban,
   Save,
 } from 'lucide-react';
-import { Button, Card, Badge, EmptyState, Breadcrumb, ConfirmDialog, RecoveryCard, SkeletonTable, IntroRichText, ModuleGuideButton, MoneyDisplay } from '@/shared/ui';
+import { Button, Card, Badge, EmptyState, Breadcrumb, ConfirmDialog, RecoveryCard, SkeletonTable, IntroRichText, ModuleGuideButton, MoneyDisplay, CollapsibleSection } from '@/shared/ui';
 import { RequiresProject } from '@/shared/auth/RequiresProject';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { SectionIntro } from '@/features/validation';
@@ -1069,15 +1069,12 @@ function HowNcrWork() {
   ];
 
   return (
-    <section
-      aria-label={t('ncr.how_title', { defaultValue: 'How NCRs fit together' })}
-      className="rounded-xl border border-border-light bg-surface-secondary/40 p-4"
+    <CollapsibleSection
+      storageKey="ncr.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('ncr.how_title', { defaultValue: 'How NCRs fit together' })}
     >
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('ncr.how_title', { defaultValue: 'How NCRs fit together' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+      <p className="text-xs text-content-tertiary">
         {t('ncr.how_intro', {
           defaultValue:
             'Log work that fails specification as a numbered report, fix the root cause and keep the cost trail attached. Start by raising an NCR for the non-conforming work.',
@@ -1128,7 +1125,7 @@ function HowNcrWork() {
           {t('ncr.mod_closeout', { defaultValue: 'Handover & Closeout' })}
         </ModLink>
       </div>
-    </section>
+    </CollapsibleSection>
   );
 }
 

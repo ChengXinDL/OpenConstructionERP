@@ -36,6 +36,7 @@ import {
   WideModalSection,
   WideModalField,
   ModuleGuideButton,
+  CollapsibleSection,
 } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { useConfirm } from '@/shared/hooks/useConfirm';
@@ -986,12 +987,12 @@ function TransmittalsHowItWorks() {
   ];
 
   return (
-    <div className="rounded-xl border border-border-light bg-surface-secondary/40 p-4">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('transmittals.flow_title', { defaultValue: 'How transmittals work and connect' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="transmittals.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('transmittals.flow_title', { defaultValue: 'How transmittals work and connect' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('transmittals.flow_intro', {
           defaultValue:
             'A transmittal is the dated proof of who received which documents. Start by compiling a package and linking the CDE revisions it carries.',
@@ -1031,7 +1032,7 @@ function TransmittalsHowItWorks() {
         <span aria-hidden="true">·</span>
         <ModLink to="/rfi">{t('rfi.title', { defaultValue: 'RFIs' })}</ModLink>
       </div>
-    </div>
+    </CollapsibleSection>
   );
 }
 

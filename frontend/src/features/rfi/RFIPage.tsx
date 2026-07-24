@@ -40,6 +40,7 @@ import {
   WideModalSection,
   WideModalField,
   ModuleGuideButton,
+  CollapsibleSection,
 } from '@/shared/ui';
 import { RequiresProject } from '@/shared/auth/RequiresProject';
 import { PageHeader } from '@/shared/ui/PageHeader';
@@ -1657,12 +1658,12 @@ function RFIHowItWorks() {
   ];
 
   return (
-    <div className="rounded-xl border border-border-light bg-surface-secondary/40 p-4">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('rfi.flow_title', { defaultValue: 'How RFIs work and connect' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="rfi.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('rfi.flow_title', { defaultValue: 'How RFIs work and connect' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('rfi.flow_intro', {
           defaultValue:
             'An RFI turns an open question into a documented answer you can build on. The quickest start is to raise one and set who owns the next move.',
@@ -1700,7 +1701,7 @@ function RFIHowItWorks() {
         <span aria-hidden="true">·</span>
         <ModLink to="/contracts">{t('rfi.link_contracts', { defaultValue: 'Contracts' })}</ModLink>
       </div>
-    </div>
+    </CollapsibleSection>
   );
 }
 

@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { apiGet, apiPost } from '@/shared/lib/api';
 import { isModuleLoaded } from '@/shared/lib/moduleProbe';
-import { Breadcrumb, DismissibleInfo, IntroRichText, ModuleGuideButton } from '@/shared/ui';
+import { Breadcrumb, CollapsibleSection, DismissibleInfo, IntroRichText, ModuleGuideButton } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { quantitiesGuide } from './quantitiesGuide';
 import { useToastStore } from '@/stores/useToastStore';
@@ -1063,12 +1063,11 @@ export function QuantitiesPage() {
         />
       </div>
 
-      {/* How it works */}
-      <div className="rounded-xl border border-border-light bg-surface-primary p-6">
-        <h2 className="text-lg font-semibold text-content-primary">
-          {t('quantities.how_it_works', { defaultValue: 'How it works' })}
-        </h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+      <CollapsibleSection
+        storageKey="quantities.how"
+        title={t('quantities.how_it_works', { defaultValue: 'How it works' })}
+      >
+        <div className="grid gap-4 sm:grid-cols-3">
           {steps.map((step) => (
             <div key={step.num} className="flex gap-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-oe-blue/10 text-sm font-bold text-oe-blue">
@@ -1083,7 +1082,7 @@ export function QuantitiesPage() {
             </div>
           ))}
         </div>
-      </div>
+      </CollapsibleSection>
 
       {/* ── CAD/BIM Converter Modules ──────────────────────────────── */}
       <div className="space-y-4">

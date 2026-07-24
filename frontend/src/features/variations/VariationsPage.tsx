@@ -27,6 +27,7 @@ import {
   Button,
   Card,
   Badge,
+  CollapsibleSection,
   EmptyState,
   Breadcrumb,
   RecoveryCard,
@@ -299,12 +300,12 @@ function HowVariationsWork() {
   ];
 
   return (
-    <div className="rounded-xl border border-border-light bg-surface-secondary/40 p-4">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('variations.flow_title', { defaultValue: 'How variations work, and what they connect to' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="variations.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('variations.flow_title', { defaultValue: 'How variations work, and what they connect to' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('variations.flow_intro', {
           defaultValue:
             'Turn every site change into an agreed, priced variation order so nothing is lost at settlement. Start by raising a notice for the current project.',
@@ -351,7 +352,7 @@ function HowVariationsWork() {
         {' · '}
         <ModLink to="/reports">{t('variations.mod_reports', { defaultValue: 'Reports' })}</ModLink>
       </div>
-    </div>
+    </CollapsibleSection>
   );
 }
 

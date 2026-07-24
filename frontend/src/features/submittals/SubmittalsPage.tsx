@@ -35,6 +35,7 @@ import {
   WideModalSection,
   WideModalField,
   ModuleGuideButton,
+  CollapsibleSection,
 } from '@/shared/ui';
 import { RequiresProject } from '@/shared/auth/RequiresProject';
 import { PageHeader } from '@/shared/ui/PageHeader';
@@ -802,12 +803,12 @@ function SubmittalsHowItWorks() {
   ];
 
   return (
-    <div className="rounded-xl border border-border-light bg-surface-secondary/40 p-4">
-      <h2 className="flex items-center gap-1.5 text-sm font-semibold text-content-primary">
-        <Network size={15} className="text-oe-blue" />
-        {t('submittals.flow_title', { defaultValue: 'How submittals work and connect' })}
-      </h2>
-      <p className="mt-1 text-xs text-content-tertiary">
+    <CollapsibleSection
+      storageKey="submittals.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('submittals.flow_title', { defaultValue: 'How submittals work and connect' })}
+    >
+      <p className="text-xs text-content-tertiary">
         {t('submittals.flow_intro', {
           defaultValue:
             'A submittal proves the materials and shop drawings were approved before they reach site. Start by logging an item, then move it through review.',
@@ -847,7 +848,7 @@ function SubmittalsHowItWorks() {
         <span aria-hidden="true">·</span>
         <ModLink to="/qms">{t('submittals.link_qms', { defaultValue: 'Quality management' })}</ModLink>
       </div>
-    </div>
+    </CollapsibleSection>
   );
 }
 
