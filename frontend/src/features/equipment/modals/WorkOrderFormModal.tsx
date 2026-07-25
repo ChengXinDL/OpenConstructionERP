@@ -33,6 +33,61 @@ function num(v: number | string | null | undefined): string {
   return String(v);
 }
 
+/**
+ * The form state an existing work order opens with.
+ *
+ * Exported and pure so the save can rebuild the same baseline the fields were
+ * seeded from and send only what the user actually changed. Both sides have to
+ * come from one definition: if the baseline were derived any other way, a field
+ * nobody touched could still read as changed and get written back.
+ */
+export function workOrderFormBase(existing?: MaintenanceWorkOrder) {
+  return {
+    scheduledFor: existing?.scheduled_for ?? '',
+    status: (existing?.status ?? 'scheduled') as WorkOrderStatus,
+    technicianId: existing?.technician_id ?? '',
+    workSummary: existing?.work_summary ?? '',
+    cost: num(existing?.cost),
+    currency: existing?.currency ?? '',
+  };
+}
+
+export type WorkOrderFormState = ReturnType<typeof workOrderFormBase>;
+
+/**
+ * The body of an edit save: only the fields the user actually changed.
+ *
+ * Writing the whole form back on every save rewrites fields the user never
+ * opened with the values they held when this modal was opened, undoing anyone
+ * else's edit to them in the meantime without a word. The update route dumps
+ * with `exclude_unset=True`, so a field left out of the body is left alone in
+ * the database, which is what makes omission the right tool.
+ *
+ * Clearing a text field sends `null` rather than `undefined`: `JSON.stringify`
+ * drops an `undefined` key, so the old value would simply survive and the user
+ * would watch their deletion have no effect.
+ */
+export function buildWorkOrderPatch(
+  form: WorkOrderFormState,
+  base: WorkOrderFormState,
+): UpdateWorkOrderPayload {
+  const payload: UpdateWorkOrderPayload = {};
+  if (form.scheduledFor !== base.scheduledFor) payload.scheduled_for = form.scheduledFor || null;
+  if (form.status !== base.status) payload.status = form.status;
+  if (form.technicianId !== base.technicianId) {
+    payload.technician_id = form.technicianId.trim() || null;
+  }
+  if (form.workSummary !== base.workSummary) payload.work_summary = form.workSummary.trim() || null;
+  if (form.cost !== base.cost) {
+    // An unparseable cost is left out rather than sent as NaN, which would be
+    // serialised as null and wipe a figure the user never meant to clear.
+    const parsed = form.cost.trim() === '' ? undefined : Number(form.cost.replace(',', '.'));
+    if (Number.isFinite(parsed)) payload.cost = parsed;
+  }
+  if (form.currency !== base.currency) payload.currency = form.currency.trim() || undefined;
+  return payload;
+}
+
 export function WorkOrderFormModal({
   mode,
   equipmentId,
@@ -43,13 +98,16 @@ export function WorkOrderFormModal({
   const { t } = useTranslation();
   const addToast = useToastStore((s) => s.addToast);
   const [busy, setBusy] = useState(false);
+  // Seeded from the same function the save compares against, so the two can
+  // never drift apart. See `workOrderFormBase`.
+  const seed = workOrderFormBase(existing);
   const [scheduleId, setScheduleId] = useState<string>(existing?.schedule_id ?? '');
-  const [scheduledFor, setScheduledFor] = useState<string>(existing?.scheduled_for ?? '');
-  const [status, setStatus] = useState<WorkOrderStatus>(existing?.status ?? 'scheduled');
-  const [technicianId, setTechnicianId] = useState<string>(existing?.technician_id ?? '');
-  const [workSummary, setWorkSummary] = useState<string>(existing?.work_summary ?? '');
-  const [cost, setCost] = useState<string>(num(existing?.cost));
-  const [currency, setCurrency] = useState<string>(existing?.currency ?? '');
+  const [scheduledFor, setScheduledFor] = useState<string>(seed.scheduledFor);
+  const [status, setStatus] = useState<WorkOrderStatus>(seed.status);
+  const [technicianId, setTechnicianId] = useState<string>(seed.technicianId);
+  const [workSummary, setWorkSummary] = useState<string>(seed.workSummary);
+  const [cost, setCost] = useState<string>(seed.cost);
+  const [currency, setCurrency] = useState<string>(seed.currency);
   const [error, setError] = useState<string | null>(null);
 
   const isEdit = mode === 'edit';
@@ -80,14 +138,10 @@ export function WorkOrderFormModal({
     try {
       const costNum = cost.trim() === '' ? undefined : Number(cost.replace(',', '.'));
       if (isEdit && existing) {
-        const payload: UpdateWorkOrderPayload = {
-          scheduled_for: scheduledFor || null,
-          status,
-          technician_id: technicianId.trim() || null,
-          work_summary: workSummary.trim() || null,
-          cost: Number.isFinite(costNum) ? costNum : undefined,
-          currency: currency.trim() || undefined,
-        };
+        const payload = buildWorkOrderPatch(
+          { scheduledFor, status, technicianId, workSummary, cost, currency },
+          workOrderFormBase(existing),
+        );
         await updateWorkOrder(existing.id, payload);
         addToast({
           type: 'success',

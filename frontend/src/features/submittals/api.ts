@@ -74,7 +74,12 @@ export interface UpdateSubmittalPayload {
   description?: string;
   spec_section?: string;
   submittal_type?: SubmittalType;
-  date_required?: string;
+  /**
+   * `null` clears the date. It cannot be cleared with an empty string: the
+   * backend field is `str | None` behind a `^\d{4}-\d{2}-\d{2}$` pattern, so
+   * `''` is rejected with a 422 rather than treated as "no date".
+   */
+  date_required?: string | null;
 }
 
 export interface ReviewSubmittalPayload {

@@ -150,6 +150,59 @@ const EMPTY_FORM: SubmittalFormData = {
 };
 
 /**
+ * The form state a submittal opens with.
+ *
+ * Pure and exported so the edit handler can rebuild the same baseline the
+ * modal started from and send only what the user actually changed. Prefilling
+ * from a row and then PATCHing every field back overwrites edits made by
+ * somebody else in between, on fields the user never opened.
+ *
+ * `description` is read back out of the backend `metadata` blob by
+ * `normaliseSubmittal()` rather than from a dedicated column, so it is already
+ * a flat string here and the form never has to know about the metadata shape.
+ */
+export function submittalFormData(existing?: Submittal): SubmittalFormData {
+  if (!existing) return EMPTY_FORM;
+  return {
+    title: existing.title,
+    spec_section: existing.spec_section ?? '',
+    type: existing.type,
+    date_required: existing.date_required ?? '',
+    description: existing.description ?? '',
+  };
+}
+
+/**
+ * The body of an edit save: only the fields the user actually changed.
+ *
+ * Everything on the form used to go back on every save, so correcting a spec
+ * section also rewrote the description exactly as it stood when the list was
+ * last read, quietly undoing anyone else's edit to it. The update route dumps
+ * with `exclude_unset=True`, so a field left out of the body is left alone in
+ * the database, which is what makes omission the right tool here.
+ *
+ * Clearing is still a change, and it has to be expressed as something the wire
+ * can carry. `undefined` cannot: `JSON.stringify` drops the key and the old
+ * value simply survives, which is why emptying the description or the date
+ * used to have no effect at all. An emptied date goes as `null` specifically,
+ * because the backend pattern rejects an empty string.
+ */
+export function buildSubmittalPatch(
+  form: SubmittalFormData,
+  base: SubmittalFormData,
+): UpdateSubmittalPayload {
+  const data: UpdateSubmittalPayload = {};
+  if (form.title !== base.title) data.title = form.title;
+  if (form.description !== base.description) data.description = form.description;
+  if (form.spec_section !== base.spec_section) data.spec_section = form.spec_section;
+  if (form.type !== base.type) data.submittal_type = form.type;
+  if (form.date_required !== base.date_required) {
+    data.date_required = form.date_required || null;
+  }
+  return data;
+}
+
+/**
  * SubmittalFormModal — unified create/edit form for submittals.
  *
  * Both modes share the same field list (title / spec_section / type /
@@ -177,19 +230,7 @@ function SubmittalFormModal({
   const idPrefix = isEdit ? 'edit-submittal' : 'submittal';
 
   const [form, setForm] = useState<SubmittalFormData>(() =>
-    isEdit && existing
-      ? {
-          title: existing.title,
-          spec_section: existing.spec_section ?? '',
-          type: existing.type,
-          date_required: existing.date_required ?? '',
-          // Pre-fill from the normalised API response: `description` is read
-          // back out of the backend `metadata` blob by `normaliseSubmittal()`
-          // (it is not a dedicated column), so the form data already sees a
-          // flat string here and never has to know about the metadata shape.
-          description: existing.description ?? '',
-        }
-      : EMPTY_FORM,
+    submittalFormData(isEdit ? existing : undefined),
   );
   // Per-field touched tracking so validation surfaces as the user leaves each
   // field (onBlur) instead of only after a submit attempt. Submitting marks
@@ -1133,16 +1174,11 @@ export function SubmittalsPage() {
   const handleEditSubmit = useCallback(
     (formData: SubmittalFormData) => {
       if (!editingSubmittal) return;
-      updateMut.mutate({
-        id: editingSubmittal.id,
-        data: {
-          title: formData.title,
-          description: formData.description || undefined,
-          spec_section: formData.spec_section || undefined,
-          submittal_type: formData.type,
-          date_required: formData.date_required || undefined,
-        },
-      });
+      // Rebuild the baseline the modal started from, so the save carries only
+      // what the user actually edited. See `buildSubmittalPatch`.
+      const data = buildSubmittalPatch(formData, submittalFormData(editingSubmittal));
+
+      updateMut.mutate({ id: editingSubmittal.id, data });
     },
     [updateMut, editingSubmittal],
   );

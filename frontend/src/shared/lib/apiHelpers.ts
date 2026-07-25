@@ -52,3 +52,42 @@ export async function fetchAllPages<T>(
 
   return { items, truncated: true, ceiling };
 }
+
+/**
+ * Reduce an update payload to the fields the user actually edited.
+ *
+ * Edit forms here prefill from a record that was read at some earlier point and
+ * then PATCH every field back, whether or not it was touched. That silently
+ * undoes somebody else's work: you open a record, change the title, save, and
+ * the description you never looked at is written back as it stood when your
+ * copy was loaded, overwriting an edit made in between. Nobody sees an error,
+ * because from the server's side it is an ordinary write.
+ *
+ * The update routes are PATCH over Pydantic models dumped with
+ * `exclude_unset=True`, so a field left out of the body is left alone in the
+ * database. Sending only what changed therefore narrows the window from every
+ * field on the form to the single field two people edited at once, which no
+ * amount of client-side care can fix without a version token.
+ *
+ * `base` must be the form state as it was first initialized, not the raw
+ * record, so that both sides have been through the same normalization. That is
+ * what keeps a date rendered as `2026-08-01` from reading as different to the
+ * `2026-08-01T00:00:00` it came from, and stops a currency filled in from the
+ * project default from being written onto a record that never had one.
+ *
+ * Clearing a field is still a change: form `''` against a base holding a value
+ * is dirty, and the caller's payload maps it to `null`. Only an untouched field
+ * is dropped. An empty result means nothing was edited, and the resulting empty
+ * PATCH is a no-op the backend already handles.
+ */
+export function onlyChangedFields<P extends object, F extends object>(
+  payload: P,
+  form: F,
+  base: F,
+): Partial<P> {
+  const changed: Partial<P> = {};
+  for (const key of Object.keys(payload) as (keyof P & keyof F & string)[]) {
+    if (!Object.is(form[key], base[key])) changed[key] = payload[key];
+  }
+  return changed;
+}
