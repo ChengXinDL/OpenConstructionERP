@@ -448,7 +448,26 @@ class TakeoffMeasurementDiffRow(BaseModel):
 
 
 class TakeoffCompareResponse(BaseModel):
-    """Full revision-compare payload for two takeoff documents."""
+    """Full revision-compare payload for two takeoff documents.
+
+    ``summary`` carries:
+
+    * ``measurements`` - added / removed / modified / unchanged tally
+    * ``net_cost_impact`` / ``cost_currency`` - signed money delta
+    * ``from_measurement_count`` / ``to_measurement_count`` - rows actually
+      compared on each side
+    * ``from_measurement_total`` / ``to_measurement_total`` - rows each
+      document really holds
+    * ``truncated`` - True when a document exceeded the compare row ceiling,
+      so the diff covers only part of the drawing set. Clients MUST surface
+      this; a truncated compare read as a complete one lets a user conclude
+      "nothing changed" from measurements that were never looked at.
+    * ``truncation_limit`` - the ceiling that was hit, ``None`` otherwise
+    * ``collapsed_duplicate_keys`` - measurements that shared a compare key
+      and collapsed onto one diff row (by design, see
+      ``_measurement_compare_key``), which is why the row tally can be
+      smaller than the compared counts
+    """
 
     project_id: UUID
     from_document_id: str

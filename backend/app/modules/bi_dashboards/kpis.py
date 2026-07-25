@@ -9,6 +9,21 @@ Each KPI:
       / ``OperationalError``). The module is read-only across the platform
       and must never crash because an upstream module was uninstalled.
 
+Degrading gracefully is not the same as degrading quietly. Two different
+things reach the user as a zero, and the logs are the only place they can be
+told apart:
+
+    * ``ImportError`` means the source module is simply not installed. That
+      is the designed, expected condition, and it stays unlogged.
+    * Anything else means a probe that should have worked did not. The
+      dashboard still renders (one broken probe must not take the page
+      down) but the failure is logged through :func:`logging.Logger.exception`,
+      so it lands at ERROR with a traceback naming the probe.
+
+Production log level sits above DEBUG. A probe failure logged at DEBUG is
+invisible, and its zero is indistinguishable from a real zero, which is how a
+broken cost feed reads as "nothing spent yet".
+
 The registry is process-local. Custom KPIs registered by community
 modules survive a hot reload of this file but not a worker restart -
 modules should register inside their own ``on_startup`` hook.
@@ -132,7 +147,7 @@ async def _safe_count(session: AsyncSession, query: Any) -> int:
         rows = list(result.scalars().all())
         return len(rows)
     except Exception:
-        logger.debug("KPI safe_count: query failed", exc_info=True)
+        logger.exception("KPI safe_count: query failed")
         return 0
 
 
@@ -234,7 +249,7 @@ async def _project_currency_and_fx(
     except ImportError:
         return "", {}
     except Exception:
-        logger.debug("project currency/fx probe failed", exc_info=True)
+        logger.exception("project currency/fx probe failed")
         return "", {}
 
 
@@ -411,7 +426,7 @@ async def _evm_snapshot_for_project(
     except ImportError:
         pass
     except Exception:
-        logger.debug("evm: tasks probe failed", exc_info=True)
+        logger.exception("evm: tasks probe failed")
 
     # Project budget → BAC
     try:
@@ -426,7 +441,7 @@ async def _evm_snapshot_for_project(
     except ImportError:
         pass
     except Exception:
-        logger.debug("evm: project probe failed", exc_info=True)
+        logger.exception("evm: project probe failed")
     # CONN-78: when neither budget nor contract value is set, the cost
     # baseline (BAC) is the priced estimate - the sum of the project's BOQ
     # position totals. This ties the executive cost spine back to the
@@ -470,7 +485,7 @@ async def _evm_snapshot_for_project(
     except ImportError:
         pass
     except Exception:
-        logger.debug("evm: finance payment probe failed", exc_info=True)
+        logger.exception("evm: finance payment probe failed")
 
     # procurement.PurchaseOrder → AC (committed cost)
     try:
@@ -488,7 +503,7 @@ async def _evm_snapshot_for_project(
     except ImportError:
         pass
     except Exception:
-        logger.debug("evm: procurement probe failed", exc_info=True)
+        logger.exception("evm: procurement probe failed")
 
     snap.breakdown = {
         "bac": str(snap.bac),
@@ -545,7 +560,7 @@ async def _boq_baseline_for_project(
     except ImportError:
         return Decimal("0")
     except Exception:
-        logger.debug("evm: boq baseline probe failed", exc_info=True)
+        logger.exception("evm: boq baseline probe failed")
         return Decimal("0")
     return total
 
@@ -591,7 +606,7 @@ async def _evm_snapshot_portfolio(
     except ImportError:
         return snap
     except Exception:
-        logger.debug("evm portfolio: project list failed", exc_info=True)
+        logger.exception("evm portfolio: project list failed")
         return snap
 
     missing_codes: set[str] = set()
@@ -1015,7 +1030,7 @@ async def procurement_savings_kpi(
     except ImportError:
         pass
     except Exception:
-        logger.debug("procurement_savings: requisition probe failed", exc_info=True)
+        logger.exception("procurement_savings: requisition probe failed")
 
     try:
         from app.modules.procurement.models import PurchaseOrder  # type: ignore
@@ -1040,7 +1055,7 @@ async def procurement_savings_kpi(
     except ImportError:
         pass
     except Exception:
-        logger.debug("procurement_savings: probe failed", exc_info=True)
+        logger.exception("procurement_savings: probe failed")
 
     if budgeted <= 0:
         return KPIComputation(
@@ -1107,7 +1122,7 @@ async def change_order_ratio_kpi(
     except ImportError:
         pass
     except Exception:
-        logger.debug("change_order_ratio: probe failed", exc_info=True)
+        logger.exception("change_order_ratio: probe failed")
 
     contract_value = Decimal("0")
     try:
@@ -1122,7 +1137,7 @@ async def change_order_ratio_kpi(
     except ImportError:
         pass
     except Exception:
-        logger.debug("change_order_ratio: project probe failed", exc_info=True)
+        logger.exception("change_order_ratio: project probe failed")
 
     if contract_value <= 0:
         return KPIComputation(
@@ -1216,7 +1231,7 @@ async def cash_in_30d_kpi(
     except ImportError:
         pass
     except Exception:
-        logger.debug("cash_in_30d: probe failed", exc_info=True)
+        logger.exception("cash_in_30d: probe failed")
     if is_portfolio:
         value, breakdown = _portfolio_money_breakdown(by_currency)
     else:
@@ -1304,7 +1319,7 @@ async def cash_out_30d_kpi(
     except ImportError:
         pass
     except Exception:
-        logger.debug("cash_out_30d: invoice probe failed", exc_info=True)
+        logger.exception("cash_out_30d: invoice probe failed")
 
     # Committed purchase orders due within the horizon (not yet completed).
     try:
@@ -1338,7 +1353,7 @@ async def cash_out_30d_kpi(
     except ImportError:
         pass
     except Exception:
-        logger.debug("cash_out_30d: procurement probe failed", exc_info=True)
+        logger.exception("cash_out_30d: procurement probe failed")
 
     if is_portfolio:
         value, breakdown = _portfolio_money_breakdown(by_currency)
@@ -1405,7 +1420,7 @@ async def dso_kpi(
     except ImportError:
         pass
     except Exception:
-        logger.debug("dso: probe failed", exc_info=True)
+        logger.exception("dso: probe failed")
 
     avg = _safe_div(total_days, Decimal(count)) if count > 0 else Decimal("0")
     return KPIComputation(
@@ -1454,7 +1469,7 @@ async def first_pass_yield_kpi(
     except ImportError:
         pass
     except Exception:
-        logger.debug("first_pass_yield: probe failed", exc_info=True)
+        logger.exception("first_pass_yield: probe failed")
 
     if total == 0:
         return KPIComputation(
@@ -1535,7 +1550,7 @@ async def copq_kpi(
     except ImportError:
         pass
     except Exception:
-        logger.debug("copq: probe failed", exc_info=True)
+        logger.exception("copq: probe failed")
 
     if is_portfolio:
         value, breakdown = _portfolio_money_breakdown(by_currency)
@@ -1582,7 +1597,7 @@ async def punch_close_rate_kpi(
     except ImportError:
         pass
     except Exception:
-        logger.debug("punch_close_rate: probe failed", exc_info=True)
+        logger.exception("punch_close_rate: probe failed")
 
     if total == 0:
         return KPIComputation(
@@ -1653,7 +1668,7 @@ async def rfi_close_avg_days_kpi(
     except ImportError:
         pass
     except Exception:
-        logger.debug("rfi_close_avg_days: probe failed", exc_info=True)
+        logger.exception("rfi_close_avg_days: probe failed")
 
     avg = _safe_div(total_days, Decimal(count)) if count > 0 else Decimal("0")
     return KPIComputation(value=avg, unit="days", source_record_count=count)
@@ -1730,7 +1745,7 @@ async def safety_trir_kpi(
     except ImportError:
         pass
     except Exception:
-        logger.debug("safety_trir: probe failed", exc_info=True)
+        logger.exception("safety_trir: probe failed")
 
     trir = Decimal(incidents) * Decimal("200000") / hours_worked if hours_worked > 0 else Decimal("0")
     return KPIComputation(
@@ -1782,7 +1797,7 @@ async def embodied_carbon_per_m2_kpi(
     except ImportError:
         pass
     except Exception:
-        logger.debug("embodied_carbon_per_m2: carbon probe failed", exc_info=True)
+        logger.exception("embodied_carbon_per_m2: carbon probe failed")
 
     try:
         from app.modules.projects.models import Project  # type: ignore
@@ -1796,7 +1811,7 @@ async def embodied_carbon_per_m2_kpi(
     except ImportError:
         pass
     except Exception:
-        logger.debug("embodied_carbon_per_m2: project probe failed", exc_info=True)
+        logger.exception("embodied_carbon_per_m2: project probe failed")
 
     value = _safe_div(total_emissions, project_area)
     return KPIComputation(
@@ -1847,7 +1862,7 @@ async def equipment_utilization_kpi(
     except ImportError:
         pass
     except Exception:
-        logger.debug("equipment_utilization: probe failed", exc_info=True)
+        logger.exception("equipment_utilization: probe failed")
 
     if available <= 0:
         return KPIComputation(
@@ -1896,7 +1911,7 @@ async def subcontractor_avg_rating_kpi(
     except ImportError:
         pass
     except Exception:
-        logger.debug("subcontractor_avg_rating: probe failed", exc_info=True)
+        logger.exception("subcontractor_avg_rating: probe failed")
 
     avg = _safe_div(total, Decimal(count)) if count > 0 else Decimal("0")
     return KPIComputation(value=avg, unit="ratio", source_record_count=count)
@@ -1964,7 +1979,7 @@ async def bid_win_rate_kpi(
     except ImportError:
         pass
     except Exception:
-        logger.debug("bid_win_rate: tendering probe failed", exc_info=True)
+        logger.exception("bid_win_rate: tendering probe failed")
 
     # Fallback: bid_management (awards vs submissions) when no tender bids.
     if total == 0:
@@ -2008,7 +2023,7 @@ async def bid_win_rate_kpi(
         except ImportError:
             pass
         except Exception:
-            logger.debug("bid_win_rate: bid_management probe failed", exc_info=True)
+            logger.exception("bid_win_rate: bid_management probe failed")
 
     if total == 0:
         return KPIComputation(
@@ -2059,7 +2074,7 @@ async def project_count_active_kpi(
     except ImportError:
         pass
     except Exception:
-        logger.debug("project_count_active: probe failed", exc_info=True)
+        logger.exception("project_count_active: probe failed")
 
     return KPIComputation(
         value=Decimal(count),
@@ -2151,7 +2166,7 @@ async def risk_open_exposure_kpi(
     except ImportError:
         return KPIComputation(value=Decimal("0"), unit="currency", source_record_count=0)
     except Exception:
-        logger.debug("risk_open_exposure: probe failed", exc_info=True)
+        logger.exception("risk_open_exposure: probe failed")
 
     if project_id is None:
         value, breakdown = _portfolio_money_breakdown(by_currency)
@@ -2226,7 +2241,7 @@ async def risk_high_unmitigated_count_kpi(
     except ImportError:
         return KPIComputation(value=Decimal("0"), unit="count", source_record_count=0)
     except Exception:
-        logger.debug("risk_high_unmitigated_count: probe failed", exc_info=True)
+        logger.exception("risk_high_unmitigated_count: probe failed")
 
     return KPIComputation(
         value=Decimal(count),
@@ -2269,7 +2284,7 @@ async def ncr_open_count_kpi(
     except ImportError:
         return KPIComputation(value=Decimal("0"), unit="count", source_record_count=0)
     except Exception:
-        logger.debug("ncr_open_count: probe failed", exc_info=True)
+        logger.exception("ncr_open_count: probe failed")
 
     return KPIComputation(
         value=Decimal(count),
@@ -2320,7 +2335,7 @@ async def incident_count_kpi(
     except ImportError:
         return KPIComputation(value=Decimal("0"), unit="count", source_record_count=0)
     except Exception:
-        logger.debug("incident_count: probe failed", exc_info=True)
+        logger.exception("incident_count: probe failed")
 
     return KPIComputation(
         value=Decimal(count),
@@ -2388,7 +2403,7 @@ async def pending_variation_value_kpi(
     except ImportError:
         return KPIComputation(value=Decimal("0"), unit="currency", source_record_count=0)
     except Exception:
-        logger.debug("pending_variation_value: probe failed", exc_info=True)
+        logger.exception("pending_variation_value: probe failed")
 
     if project_id is None:
         value, breakdown = _portfolio_money_breakdown(by_currency)
@@ -2461,7 +2476,7 @@ async def _active_baseline_finishes(
     except ImportError:
         return {}
     except Exception:
-        logger.debug("milestone_slippage: baseline probe failed", exc_info=True)
+        logger.exception("milestone_slippage: baseline probe failed")
     return finishes
 
 
@@ -2538,7 +2553,7 @@ async def milestone_slippage_days_kpi(
     except ImportError:
         return KPIComputation(value=Decimal("0"), unit="days", source_record_count=0)
     except Exception:
-        logger.debug("milestone_slippage_days: probe failed", exc_info=True)
+        logger.exception("milestone_slippage_days: probe failed")
 
     return KPIComputation(
         value=Decimal(max_slip),
@@ -2658,7 +2673,7 @@ async def _project_cost_facts(
     except ImportError:
         return facts
     except Exception:
-        logger.debug("cost facts: project probe failed", exc_info=True)
+        logger.exception("cost facts: project probe failed")
         return facts
     if proj is None:
         return facts
@@ -2694,7 +2709,7 @@ async def _cost_portfolio_project_ids(
     except ImportError:
         return []
     except Exception:
-        logger.debug("cost portfolio: project list failed", exc_info=True)
+        logger.exception("cost portfolio: project list failed")
         return []
 
 
@@ -2766,7 +2781,7 @@ async def _cost_breakdown_by_category(
     except ImportError:
         return {}, "", 0, False
     except Exception:
-        logger.debug("cost_split_by_category: probe failed", exc_info=True)
+        logger.exception("cost_split_by_category: probe failed")
         return {}, "", 0, False
 
     multi_currency = len(bases_seen) > 1
@@ -3160,7 +3175,7 @@ async def _evm_drilldown_records(
     except ImportError:
         pass
     except Exception:
-        logger.debug("evm drilldown: tasks probe failed", exc_info=True)
+        logger.exception("evm drilldown: tasks probe failed")
     # Actual cost rows: settled payments (joined to the invoice for project
     # scope) - there is no finance.Expense model on this platform.
     try:
@@ -3184,7 +3199,7 @@ async def _evm_drilldown_records(
     except ImportError:
         pass
     except Exception:
-        logger.debug("evm drilldown: finance probe failed", exc_info=True)
+        logger.exception("evm drilldown: finance probe failed")
     # Committed cost rows: purchase orders.
     try:
         from app.modules.procurement.models import PurchaseOrder  # type: ignore
@@ -3208,7 +3223,7 @@ async def _evm_drilldown_records(
     except ImportError:
         pass
     except Exception:
-        logger.debug("evm drilldown: procurement probe failed", exc_info=True)
+        logger.exception("evm drilldown: procurement probe failed")
     return records
 
 
@@ -3256,7 +3271,7 @@ async def _cost_split_records(
     except ImportError:
         pass
     except Exception:
-        logger.debug("cost_split_by_category drilldown: probe failed", exc_info=True)
+        logger.exception("cost_split_by_category drilldown: probe failed")
     return records
 
 
@@ -3294,7 +3309,7 @@ async def _safety_trir_records(
     except ImportError:
         pass
     except Exception:
-        logger.debug("safety_trir drilldown: probe failed", exc_info=True)
+        logger.exception("safety_trir drilldown: probe failed")
     return records
 
 
@@ -3329,7 +3344,7 @@ async def _projects_active_records(
     except ImportError:
         pass
     except Exception:
-        logger.debug("project_count_active drilldown: probe failed", exc_info=True)
+        logger.exception("project_count_active drilldown: probe failed")
     return records
 
 
@@ -3373,7 +3388,7 @@ async def _risk_drilldown_records(
     except ImportError:
         pass
     except Exception:
-        logger.debug("risk drilldown: probe failed", exc_info=True)
+        logger.exception("risk drilldown: probe failed")
     return records
 
 
@@ -3416,7 +3431,7 @@ async def _ncr_open_records(
     except ImportError:
         pass
     except Exception:
-        logger.debug("ncr_open_count drilldown: probe failed", exc_info=True)
+        logger.exception("ncr_open_count drilldown: probe failed")
     return records
 
 
@@ -3451,7 +3466,7 @@ async def _incident_records(
     except ImportError:
         pass
     except Exception:
-        logger.debug("incident_count drilldown: probe failed", exc_info=True)
+        logger.exception("incident_count drilldown: probe failed")
     return records
 
 
@@ -3489,7 +3504,7 @@ async def _pending_variation_records(
     except ImportError:
         pass
     except Exception:
-        logger.debug("pending_variation_value drilldown: probe failed", exc_info=True)
+        logger.exception("pending_variation_value drilldown: probe failed")
     return records
 
 
@@ -3553,7 +3568,7 @@ async def _milestone_slippage_records(
     except ImportError:
         pass
     except Exception:
-        logger.debug("milestone_slippage_days drilldown: probe failed", exc_info=True)
+        logger.exception("milestone_slippage_days drilldown: probe failed")
     return records
 
 
@@ -3598,7 +3613,7 @@ async def _first_pass_yield_records(
     except ImportError:
         pass
     except Exception:
-        logger.debug("first_pass_yield drilldown: probe failed", exc_info=True)
+        logger.exception("first_pass_yield drilldown: probe failed")
     return records
 
 
@@ -3635,7 +3650,7 @@ async def _copq_records(
     except ImportError:
         pass
     except Exception:
-        logger.debug("copq drilldown: probe failed", exc_info=True)
+        logger.exception("copq drilldown: probe failed")
     return records
 
 
@@ -3672,7 +3687,7 @@ async def _rfi_close_records(
     except ImportError:
         pass
     except Exception:
-        logger.debug("rfi_close_avg_days drilldown: probe failed", exc_info=True)
+        logger.exception("rfi_close_avg_days drilldown: probe failed")
     return records
 
 
@@ -3712,7 +3727,7 @@ async def _change_order_records(
     except ImportError:
         pass
     except Exception:
-        logger.debug("change_order_ratio drilldown: probe failed", exc_info=True)
+        logger.exception("change_order_ratio drilldown: probe failed")
     return records
 
 
@@ -3769,21 +3784,35 @@ async def benchmark(
     except ImportError:
         return {}
     except Exception:
-        logger.debug("benchmark: project list failed", exc_info=True)
+        logger.exception("benchmark: project list failed")
         return {}
 
     project_values: list[Decimal] = []
     target_value: Decimal | None = None
+    failed_projects = 0
     for proj in rows:
         try:
             result = await compute(code, session, project_id=proj.id)
         except Exception:
+            # One project must not sink the whole benchmark, but a silently
+            # skipped project shifts the median and the percentile the user
+            # reads. Count them and report once after the loop rather than
+            # logging per project.
+            failed_projects += 1
             continue
         if result.source_record_count == 0:
             continue
         project_values.append(result.value)
         if proj.id == project_id:
             target_value = result.value
+    if failed_projects:
+        logger.warning(
+            "benchmark: KPI %s could not be computed for %s of %s projects - "
+            "the median and percentile are based on the remaining ones",
+            code,
+            failed_projects,
+            len(rows),
+        )
     if not project_values or target_value is None:
         return {}
     project_values.sort()
@@ -3825,7 +3854,13 @@ async def compute(
     """
     fn = KPI_FORMULAS.get(code)
     if fn is None:
-        logger.debug("compute: unknown KPI code=%s", code)
+        # A widget pointing at a KPI code nothing registers renders a
+        # permanent zero. That is a misconfiguration, not a data reading,
+        # so it must be visible above DEBUG.
+        logger.warning(
+            "compute: unknown KPI code=%s - the widget will render 0 until the code is registered",
+            code,
+        )
         return KPIComputation()
     try:
         return await fn(

@@ -112,6 +112,86 @@ class MeasurementRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def count_for_document(
+        self,
+        project_id: uuid.UUID,
+        document_id: str,
+    ) -> int:
+        """Count every measurement one document holds inside one project.
+
+        Used by the revision compare to report the true size of each side,
+        so a capped compare can say how much it did not look at instead of
+        presenting a partial diff as a complete one.
+
+        Args:
+            project_id: Owning project.
+            document_id: The takeoff document to count.
+
+        Returns:
+            The number of measurement rows, 0 when the document has none.
+        """
+        stmt = select(func.count(TakeoffMeasurement.id)).where(
+            TakeoffMeasurement.project_id == project_id,
+            TakeoffMeasurement.document_id == document_id,
+        )
+        result = await self.session.execute(stmt)
+        return int(result.scalar_one_or_none() or 0)
+
+    async def list_all_for_document(
+        self,
+        project_id: uuid.UUID,
+        document_id: str,
+        *,
+        max_rows: int,
+        chunk_size: int = 1000,
+    ) -> list[TakeoffMeasurement]:
+        """Read up to ``max_rows`` measurements of one document, in chunks.
+
+        The revision compare needs the WHOLE set of both documents, not an
+        arbitrary window: a diff computed over two differently sliced
+        windows invents added and removed rows. Rows are therefore paged
+        out in ``chunk_size`` batches up to a caller-supplied safety cap
+        that only exists to bound memory.
+
+        Paging uses the totally ordered key ``(created_at DESC, id DESC)``.
+        ``created_at`` alone is not unique, and ties reshuffle between
+        OFFSET pages, which would drop and duplicate rows across chunks.
+
+        Args:
+            project_id: Owning project.
+            document_id: The takeoff document to read.
+            max_rows: Hard ceiling on the number of rows returned.
+            chunk_size: Rows per round trip.
+
+        Returns:
+            The measurements in ``(created_at DESC, id DESC)`` order,
+            truncated at ``max_rows``. Compare the length against
+            :meth:`count_for_document` to detect that the cap was hit.
+        """
+        if max_rows <= 0:
+            return []
+        out: list[TakeoffMeasurement] = []
+        offset = 0
+        while len(out) < max_rows:
+            batch_limit = min(chunk_size, max_rows - len(out))
+            stmt = (
+                select(TakeoffMeasurement)
+                .where(
+                    TakeoffMeasurement.project_id == project_id,
+                    TakeoffMeasurement.document_id == document_id,
+                )
+                .order_by(TakeoffMeasurement.created_at.desc(), TakeoffMeasurement.id.desc())
+                .offset(offset)
+                .limit(batch_limit)
+            )
+            result = await self.session.execute(stmt)
+            batch = list(result.scalars().all())
+            out.extend(batch)
+            if len(batch) < batch_limit:
+                break
+            offset += batch_limit
+        return out
+
     async def create(self, measurement: TakeoffMeasurement) -> TakeoffMeasurement:
         """Insert a new measurement."""
         self.session.add(measurement)

@@ -1132,6 +1132,14 @@ def _measurement_compare_key(m: Any) -> str:
     return f"nat:{page}|{mtype}|{group}|{annotation}"
 
 
+# Safety ceiling for a single side of a revision compare. This is a memory
+# guard, not a page size: a compare is only meaningful over the COMPLETE
+# measurement set of both documents, so the normal path reads everything.
+# When a document is somehow larger than this, the compare says so through
+# ``summary.truncated`` rather than presenting a partial diff as a full one.
+MAX_COMPARE_MEASUREMENTS = 20000
+
+
 def _measure_to_float(value: Any) -> float | None:
     """Coerce a ``Decimal``/number measurement to ``float`` or ``None``."""
     if value is None:
@@ -1176,11 +1184,22 @@ def _build_pdf_revision_narrative(
     *,
     measurement_tally: dict[str, Any],
     changed_linked_count: int,
+    truncation_note: str = "",
 ) -> str:
     """Plain-text description of a PDF revision delta for a draft variation.
 
     Built only from the deterministic summary tally (no AI), so the
     estimator sees what moved before confirming the variation.
+
+    Args:
+        measurement_tally: The compare summary's added/removed/modified counts.
+        changed_linked_count: How many changed measurements are priced.
+        truncation_note: Warning sentence appended when the underlying
+            compare was capped, so the draft variation states on its face
+            that its cost impact was computed from a partial compare.
+
+    Returns:
+        The description text for the draft variation request.
     """
 
     def _n(key: str) -> int:
@@ -1194,6 +1213,7 @@ def _build_pdf_revision_narrative(
         f"{_n('added')} measurements added, {_n('removed')} removed, "
         f"{_n('modified')} changed; "
         f"{changed_linked_count} priced (linked-to-BOQ) measurement values changed. "
+        f"{truncation_note}"
         "Review and confirm before submitting this variation."
     )
 
@@ -2516,20 +2536,62 @@ class TakeoffService:
         Both document ids must reference documents the project owns; an
         empty result set is returned rather than an error when a document
         has no measurements (a freshly uploaded, not-yet-measured PDF).
-        """
-        from_measurements = await self.measurement_repo.list_for_project(
-            project_id,
-            document_id=from_document_id,
-            limit=500,
-        )
-        to_measurements = await self.measurement_repo.list_for_project(
-            project_id,
-            document_id=to_document_id,
-            limit=500,
-        )
 
-        from_by_key = {_measurement_compare_key(m): m for m in from_measurements}
-        to_by_key = {_measurement_compare_key(m): m for m in to_measurements}
+        Both sides are read in FULL, up to the
+        :data:`MAX_COMPARE_MEASUREMENTS` memory ceiling. A compare over two
+        differently sliced windows does not merely under-report, it invents
+        rows: a key that falls inside one document's window but outside the
+        other's is emitted as added or removed, and its money delta lands in
+        ``net_cost_impact``. When a document is bigger than the ceiling the
+        result carries ``summary.truncated = True`` plus the real row totals,
+        so no caller can mistake a partial compare for a complete one.
+        """
+        from_total = await self.measurement_repo.count_for_document(project_id, from_document_id)
+        to_total = await self.measurement_repo.count_for_document(project_id, to_document_id)
+        from_measurements = await self.measurement_repo.list_all_for_document(
+            project_id,
+            from_document_id,
+            max_rows=MAX_COMPARE_MEASUREMENTS,
+        )
+        to_measurements = await self.measurement_repo.list_all_for_document(
+            project_id,
+            to_document_id,
+            max_rows=MAX_COMPARE_MEASUREMENTS,
+        )
+        truncated = len(from_measurements) < from_total or len(to_measurements) < to_total
+        if truncated:
+            logger.warning(
+                "compare_documents: measurement set exceeds the %s row ceiling "
+                "(project=%s from=%s %s/%s rows to=%s %s/%s rows) - the compare is partial "
+                "and is reported as truncated",
+                MAX_COMPARE_MEASUREMENTS,
+                project_id,
+                from_document_id,
+                len(from_measurements),
+                from_total,
+                to_document_id,
+                len(to_measurements),
+                to_total,
+            )
+
+        # Measurements sharing a compare key collapse onto one entry by
+        # design (see _measurement_compare_key): a re-measured takeoff item
+        # keeps matching across revisions. Count the collapses anyway so the
+        # summary explains why the row tally is smaller than the row counts.
+        collapsed = 0
+
+        def _index(measurements: list[TakeoffMeasurement]) -> dict[str, TakeoffMeasurement]:
+            nonlocal collapsed
+            index: dict[str, TakeoffMeasurement] = {}
+            for m in measurements:
+                key = _measurement_compare_key(m)
+                if key in index:
+                    collapsed += 1
+                index[key] = m
+            return index
+
+        from_by_key = _index(from_measurements)
+        to_by_key = _index(to_measurements)
 
         rate_cache: dict[str, tuple[str | None, str | None]] = {}
 
@@ -2638,8 +2700,16 @@ class TakeoffService:
             "measurements": _tally(rows),
             "net_cost_impact": str(net_impact.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)) if has_cost else None,
             "cost_currency": cost_currency_out,
+            # *_measurement_count is what was actually compared,
+            # *_measurement_total is what the document really holds. They
+            # differ only when the compare hit the row ceiling.
             "from_measurement_count": len(from_measurements),
             "to_measurement_count": len(to_measurements),
+            "from_measurement_total": from_total,
+            "to_measurement_total": to_total,
+            "truncated": truncated,
+            "truncation_limit": MAX_COMPARE_MEASUREMENTS if truncated else None,
+            "collapsed_duplicate_keys": collapsed,
         }
 
         return {
@@ -2704,6 +2774,11 @@ class TakeoffService:
         confirms it in the variations module). Provenance is stamped into
         ``metadata.source = "pdf_revision_compare"``.
 
+        When the underlying compare was capped, the draft carries
+        ``metadata.compare_truncated`` plus the real row totals and says so
+        in its description: the estimator must never confirm a money figure
+        derived from a partial compare without knowing it was partial.
+
         Returns ``{variation_request_id, code, estimated_cost_impact,
         currency}``.
         """
@@ -2724,10 +2799,22 @@ class TakeoffService:
         except (InvalidOperation, ValueError, TypeError):
             estimated_cost_impact = Decimal("0")
 
+        truncated = bool(summary.get("truncated"))
+        truncation_note = ""
+        if truncated:
+            truncation_note = (
+                "WARNING: the source compare was truncated at "
+                f"{summary.get('truncation_limit')} measurements per document "
+                f"(baseline holds {summary.get('from_measurement_total')}, "
+                f"revision holds {summary.get('to_measurement_total')}), so this cost "
+                "impact covers only part of the drawing set. "
+            )
+
         resolved_title = title or "Drawing revision (PDF takeoff)"
         description = _build_pdf_revision_narrative(
             measurement_tally=measurement_tally,
             changed_linked_count=changed_linked_count,
+            truncation_note=truncation_note,
         )
 
         # Lazy import (mirrors the BOQService import) so the takeoff module
@@ -2750,6 +2837,9 @@ class TakeoffService:
                 "to_document_id": str(to_document_id),
                 "changed_measurement_ids": changed_measurement_ids,
                 "net_cost_impact": str(estimated_cost_impact),
+                "compare_truncated": truncated,
+                "compare_from_measurement_total": summary.get("from_measurement_total"),
+                "compare_to_measurement_total": summary.get("to_measurement_total"),
             },
         )
         variations_service = VariationsService(self.session)

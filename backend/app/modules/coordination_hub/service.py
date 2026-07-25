@@ -11,6 +11,12 @@ mid-migration deploy / dropped dependency on a smaller install never
 takes the whole dashboard down. The contract is "honest zero + a
 WARNING log line", not "500 + scary stack trace".
 
+That contract covers the optional-module imports too. A module that was
+never installed is the expected condition and stays at DEBUG; a module
+that IS installed and failed is logged with its traceback through
+:func:`_optional_module_unavailable`. A zero the operator cannot tell
+apart from a real zero is not an honest zero.
+
 A small in-memory dict caches the assembled dashboard payload per
 project for ``_DASHBOARD_TTL_SECONDS`` so the polling UI does not slam
 the count queries on every tick.
@@ -114,6 +120,29 @@ async def _safe_rollback(session: AsyncSession) -> None:
         await session.rollback()
     except Exception:  # noqa: BLE001
         pass
+
+
+def _optional_module_unavailable(label: str, exc: BaseException) -> None:
+    """Log a sibling-module import that did not resolve.
+
+    The sub-aggregators import their source module inside a broad ``try`` so
+    a smaller install (module never shipped) reports an empty section rather
+    than 500-ing the dashboard. That broad catch also swallows a module that
+    IS installed and blew up on import, which reaches the operator as a zero
+    with nothing anywhere to explain it.
+
+    Args:
+        label: The sibling module being imported, used to identify the probe.
+        exc: The exception the import raised.
+    """
+    if isinstance(exc, ImportError):
+        # Designed, expected condition on a smaller install.
+        logger.debug("coordination_hub: %s module not installed - reporting empty", label)
+    else:
+        logger.exception(
+            "coordination_hub: %s import failed unexpectedly - reporting empty",
+            label,
+        )
 
 
 async def _safe_count(
@@ -226,8 +255,8 @@ class CoordinationHubService:
                 BIMFederationModel,
                 BIMModel,
             )
-        except Exception:  # pragma: no cover - bim_hub always present today
-            logger.warning("coordination_hub: bim_hub models unavailable")
+        except Exception as exc:  # pragma: no cover - bim_hub always present today
+            _optional_module_unavailable("bim_hub", exc)
             return FederationStats()
 
         count = await _safe_count(
@@ -269,8 +298,8 @@ class CoordinationHubService:
                 ClashRun,
             )
             from app.modules.clash.schemas import OPEN_STATUSES
-        except Exception:  # pragma: no cover
-            logger.warning("coordination_hub: clash models unavailable")
+        except Exception as exc:  # pragma: no cover
+            _optional_module_unavailable("clash", exc)
             return ClashStats()
 
         base_join = (
@@ -350,7 +379,8 @@ class CoordinationHubService:
         """
         try:
             from app.modules.clash.models import ClashIssue
-        except Exception:
+        except Exception as exc:
+            _optional_module_unavailable("clash", exc)
             return ClashDelta()
 
         new_q = select(func.count(ClashIssue.id)).where(
@@ -390,8 +420,8 @@ class CoordinationHubService:
                 BIMRequirement,
                 BIMRequirementSet,
             )
-        except Exception:
-            logger.warning("coordination_hub: bim_requirements unavailable")
+        except Exception as exc:
+            _optional_module_unavailable("bim_requirements", exc)
             return RulePackStats()
 
         installed = await _safe_count(
@@ -451,8 +481,8 @@ class CoordinationHubService:
     async def _smart_view_stats(self, project_id: uuid.UUID) -> SmartViewStats:
         try:
             from app.modules.smart_views.models import SmartView
-        except Exception:
-            logger.warning("coordination_hub: smart_views unavailable")
+        except Exception as exc:
+            _optional_module_unavailable("smart_views", exc)
             return SmartViewStats()
 
         # Project-scoped views are addressed by ``scope_id == project_id``
@@ -485,8 +515,8 @@ class CoordinationHubService:
     async def _bcf_activity_stats(self, project_id: uuid.UUID) -> BCFActivityStats:
         try:
             from app.modules.bcf.models import BCFTopic
-        except Exception:
-            logger.warning("coordination_hub: bcf unavailable")
+        except Exception as exc:
+            _optional_module_unavailable("bcf", exc)
             return BCFActivityStats()
 
         thirty_days_ago = datetime.now(UTC) - timedelta(days=_BCF_ACTIVITY_WINDOW_DAYS)
@@ -532,7 +562,8 @@ class CoordinationHubService:
             from app.modules.clash_cost_impact.service import (
                 ClashCostImpactService,
             )
-        except Exception:
+        except Exception as exc:
+            _optional_module_unavailable("clash_cost_impact", exc)
             return 0.0
         try:
             svc = ClashCostImpactService(self.session)
@@ -552,6 +583,13 @@ class CoordinationHubService:
         try:
             return float(total)
         except (TypeError, ValueError):
+            # Not user data: the rollup is an internal contract that owes us a
+            # number. A non-numeric total means that contract broke, and the
+            # dashboard would otherwise show a confident zero cost impact.
+            logger.warning(
+                "coordination_hub: cost-impact rollup returned a non-numeric total %r - returning 0",
+                total,
+            )
             return 0.0
 
     # ── Public surface ──────────────────────────────────────────────────────
@@ -636,7 +674,8 @@ class CoordinationHubService:
         try:
             from app.modules.clash.models import ClashResult, ClashRun
             from app.modules.clash.schemas import OPEN_STATUSES
-        except Exception:
+        except Exception as exc:
+            _optional_module_unavailable("clash", exc)
             return TradeMatrixResponse(
                 project_id=project_id,
                 trades=list(CANONICAL_TRADES),
@@ -732,7 +771,8 @@ class CoordinationHubService:
             from app.modules.clash_cost_impact.service import (
                 ClashCostImpactService,
             )
-        except Exception:
+        except Exception as exc:
+            _optional_module_unavailable("clash / clash_cost_impact", exc)
             return {}
 
         cost_svc = ClashCostImpactService(self.session)
@@ -755,7 +795,11 @@ class CoordinationHubService:
                 )
             )
             open_clashes = list(result.scalars().all())
-        except SQLAlchemyError:
+        except SQLAlchemyError as exc:
+            logger.warning(
+                "coordination_hub: cost-matrix clash load failed - returning an empty cost matrix (%s)",
+                exc.__class__.__name__,
+            )
             await _safe_rollback(self.session)
             return {}
         except Exception:  # noqa: BLE001
@@ -767,7 +811,11 @@ class CoordinationHubService:
 
         try:
             positions = await cost_svc._positions_for_project(project_id)  # noqa: SLF001
-        except SQLAlchemyError:
+        except SQLAlchemyError as exc:
+            logger.warning(
+                "coordination_hub: cost-matrix positions load failed - returning an empty cost matrix (%s)",
+                exc.__class__.__name__,
+            )
             await _safe_rollback(self.session)
             return {}
         except Exception:  # noqa: BLE001
@@ -776,17 +824,29 @@ class CoordinationHubService:
             return {}
 
         out: dict[tuple[str, str], Decimal] = defaultdict(lambda: Decimal("0"))
+        skipped = 0
         for clash in open_clashes:
             try:
                 affected = cost_svc._affected_positions(clash, positions)  # noqa: SLF001
                 _, clash_total = cost_svc._compute_impact(clash, project, affected)  # noqa: SLF001
             except Exception:  # noqa: BLE001 - never let one bad row break the matrix
+                # Every skipped clash is money missing from the matrix the
+                # operator reads. Tally them and report once below rather
+                # than emitting a log line per row.
+                skipped += 1
                 continue
             a = _normalise_trade(getattr(clash, "a_discipline", None))
             b = _normalise_trade(getattr(clash, "b_discipline", None))
             if a > b:
                 a, b = b, a
             out[(a, b)] += clash_total
+        if skipped:
+            logger.warning(
+                "coordination_hub: cost-matrix skipped %s of %s open clashes that failed to price - "
+                "the matrix understates the cost impact",
+                skipped,
+                len(open_clashes),
+            )
         return dict(out)
 
     # ── Timeline ────────────────────────────────────────────────────────────
@@ -816,7 +876,8 @@ class CoordinationHubService:
     async def _timeline_clash_runs(self, project_id: uuid.UUID, window_start: datetime) -> list[TimelineEvent]:
         try:
             from app.modules.clash.models import ClashRun
-        except Exception:
+        except Exception as exc:
+            _optional_module_unavailable("clash", exc)
             return []
         stmt = (
             select(
@@ -869,7 +930,8 @@ class CoordinationHubService:
     async def _timeline_federations(self, project_id: uuid.UUID, window_start: datetime) -> list[TimelineEvent]:
         try:
             from app.modules.bim_hub.models import BIMFederation
-        except Exception:
+        except Exception as exc:
+            _optional_module_unavailable("bim_hub", exc)
             return []
         stmt = (
             select(
@@ -902,7 +964,8 @@ class CoordinationHubService:
     async def _timeline_rule_packs(self, project_id: uuid.UUID, window_start: datetime) -> list[TimelineEvent]:
         try:
             from app.modules.bim_requirements.models import BIMRequirementSet
-        except Exception:
+        except Exception as exc:
+            _optional_module_unavailable("bim_requirements", exc)
             return []
         stmt = (
             select(
@@ -936,7 +999,8 @@ class CoordinationHubService:
     async def _timeline_bcf_topics(self, project_id: uuid.UUID, window_start: datetime) -> list[TimelineEvent]:
         try:
             from app.modules.bcf.models import BCFTopic
-        except Exception:
+        except Exception as exc:
+            _optional_module_unavailable("bcf", exc)
             return []
         stmt = (
             select(
@@ -1131,7 +1195,8 @@ class CoordinationHubService:
         try:
             from app.modules.clash.models import ClashResult, ClashRun
             from app.modules.clash.schemas import OPEN_STATUSES
-        except Exception:
+        except Exception as exc:
+            _optional_module_unavailable("clash", exc)
             return 0
         stmt = (
             select(func.count(ClashResult.id))
@@ -1149,7 +1214,8 @@ class CoordinationHubService:
         try:
             from app.modules.clash.models import ClashResult, ClashRun
             from app.modules.clash.schemas import OPEN_STATUSES
-        except Exception:
+        except Exception as exc:
+            _optional_module_unavailable("clash", exc)
             return 0
         stmt = (
             select(func.count(ClashResult.id))
@@ -1172,7 +1238,8 @@ class CoordinationHubService:
         """
         try:
             from app.modules.projects.models import Project
-        except Exception:
+        except Exception as exc:
+            _optional_module_unavailable("projects", exc)
             return None
         stmt = select(Project.budget_estimate).where(Project.id == project_id)
         raw = await _safe_scalar(self.session, stmt, label="project_budget")
@@ -1206,7 +1273,8 @@ class CoordinationHubService:
         """
         try:
             from app.modules.bim_hub.models import BIMModel
-        except Exception:
+        except Exception as exc:
+            _optional_module_unavailable("bim_hub", exc)
             return Decimal("0")
         stmt = select(func.max(BIMModel.created_at)).where(BIMModel.project_id == project_id)
         last = await _safe_scalar(self.session, stmt, label="model_age_last")
