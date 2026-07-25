@@ -324,13 +324,20 @@ export function PointCloudPage() {
 
   // Mirror DWG Takeoff: fall back to the first server project when no project
   // is active so the page is never a dead end after a context reset.
-  const { data: projects = [], isLoading: projectsLoading } = useQuery({
+  const {
+    data: projects = [],
+    isLoading: projectsLoading,
+    isError: projectsFailed,
+  } = useQuery({
     queryKey: ['projects'],
     queryFn: projectsApi.list,
     staleTime: 5 * 60_000,
   });
   const projectId = activeProjectId || projects[0]?.id || '';
-  const noProjects = !projectsLoading && projects.length === 0;
+  // Requires a SUCCESSFUL empty result, not merely a finished one: the default
+  // above makes a failed request look like an account with no projects, and
+  // the empty state then tells the user to create one they may already have.
+  const noProjects = !projectsLoading && !projectsFailed && projects.length === 0;
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['pointcloud-scans', projectId],

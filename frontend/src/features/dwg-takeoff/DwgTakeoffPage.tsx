@@ -671,13 +671,22 @@ export function DwgTakeoffPage() {
   // reload, reported as losing every document on reload.
   // The drawings themselves are always persisted server-side; only the
   // client-side project context was lost.
-  const { data: projects = [], isLoading: projectsLoading } = useQuery({
+  const {
+    data: projects = [],
+    isLoading: projectsLoading,
+    isError: projectsFailed,
+  } = useQuery({
     queryKey: ['projects'],
     queryFn: projectsApi.list,
     staleTime: 5 * 60_000,
   });
   const projectId = activeProjectId || projects[0]?.id || '';
-  const noProjects = !projectsLoading && projects.length === 0;
+  // The default above turns a failed request into an empty array, so this must
+  // require the query to have SUCCEEDED before it calls the account empty.
+  // Otherwise an unreachable backend renders "Create a project first" to
+  // someone who already has projects, and the obvious response to that advice
+  // is to create a duplicate.
+  const noProjects = !projectsLoading && !projectsFailed && projects.length === 0;
 
   // Persist the fallback choice so subsequent reloads and sibling
   // modules (BIM, BOQ, CDE) see the same active project instead of each

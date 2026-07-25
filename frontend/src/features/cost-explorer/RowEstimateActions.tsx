@@ -266,8 +266,13 @@ function AddToBoqDialog({ row, onClose }: { row: EstimateRow; onClose: () => voi
 
   const projects = projectsQuery.data ?? [];
   const boqs = boqsQuery.data ?? [];
-  const noProjects = !projectsQuery.isLoading && projects.length === 0;
-  const noBoqs = projectId !== '' && !boqsQuery.isLoading && boqs.length === 0;
+  // Both fall back to an empty array, which a failed request is indistinguishable
+  // from. Gate the "nothing here" copy on the query having actually succeeded so
+  // a backend outage is never reported to the estimator as an empty account.
+  const noProjects =
+    !projectsQuery.isLoading && !projectsQuery.isError && projects.length === 0;
+  const noBoqs =
+    projectId !== '' && !boqsQuery.isLoading && !boqsQuery.isError && boqs.length === 0;
   const canAdd = boqId !== '' && !addMut.isPending;
 
   return (
