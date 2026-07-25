@@ -28,7 +28,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Iterable
+from typing import Iterable, Literal
 
 # Status strings for a back-charge record's commercial state.
 STATUS_PROPOSED = "proposed"
@@ -42,6 +42,22 @@ OPEN_STATUSES = frozenset({STATUS_PROPOSED, STATUS_AGREED, STATUS_DISPUTED})
 
 #: Statuses for a back-charge that is settled, whether collected or written off.
 CLOSED_STATUSES = frozenset({STATUS_RECOVERED, STATUS_WAIVED})
+
+#: Every valid commercial state, in lifecycle order.
+ALL_STATUSES = (
+    STATUS_PROPOSED,
+    STATUS_AGREED,
+    STATUS_DISPUTED,
+    STATUS_RECOVERED,
+    STATUS_WAIVED,
+)
+
+#: Wire type for the status field. The API used to accept any string, so a typo
+#: was written straight to the row: the record then sat in a state no filter or
+#: analytics bucket matches, and because the agreed / recovered timestamps are
+#: stamped by comparing against the constants above, neither one was set. A
+#: closed enumeration turns that into a 422 naming the accepted values.
+BackChargeStatus = Literal["proposed", "agreed", "disputed", "recovered", "waived"]
 
 #: Bucket label for a back-charge with no responsible party recorded.
 UNASSIGNED = "unassigned"

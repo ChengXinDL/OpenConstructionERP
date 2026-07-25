@@ -14,6 +14,8 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
+from app.modules.cost_recovery.back_charge import BackChargeStatus
+
 
 class BackChargeCreate(BaseModel):
     """Request body to record a new back-charge."""
@@ -25,7 +27,7 @@ class BackChargeCreate(BaseModel):
     gross_amount: Decimal = Decimal("0")
     chargeable_pct: Decimal = Decimal("1")
     currency: str = ""
-    status: str = "proposed"
+    status: BackChargeStatus = "proposed"
     # Optional link to a scored change subject. When both are set, create scores
     # the subject's provability and stamps its band onto the back-charge, so the
     # recovery-by-traceability cohort split is populated from real evidence
@@ -44,7 +46,7 @@ class BackChargeUpdate(BaseModel):
     basis: str | None = None
     gross_amount: Decimal | None = None
     chargeable_pct: Decimal | None = None
-    status: str | None = None
+    status: BackChargeStatus | None = None
     recovered_amount: Decimal | None = None
 
 
