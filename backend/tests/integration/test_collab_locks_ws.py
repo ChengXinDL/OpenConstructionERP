@@ -25,6 +25,12 @@ def ws_client() -> TestClient:
 
 
 def _register_and_login(client: TestClient, suffix: str) -> tuple[str, str]:
+    """Register a fresh user and return their access token and id.
+
+    Open registration ignores the requested role and creates a viewer, so a
+    second user reaches a project only through team membership, never through
+    the admin bypass. The tests below add that membership explicitly.
+    """
     unique = uuid.uuid4().hex[:8]
     email = f"wscollab-{suffix}-{unique}@test.io"
     password = f"Wscollab{unique}9"
@@ -38,13 +44,80 @@ def _register_and_login(client: TestClient, suffix: str) -> tuple[str, str]:
         },
     )
     assert reg.status_code == 201, reg.text
+    user_id = str(reg.json()["id"])
     login = client.post(
         "/api/v1/users/auth/login",
         json={"email": email, "password": password},
     )
     token = login.json().get("access_token", "")
     assert token, login.text
-    return token, email
+    return token, user_id
+
+
+def _add_project_member(
+    client: TestClient,
+    owner_token: str,
+    project_id: str,
+    user_id: str,
+) -> None:
+    """Put a second user on the project's default team."""
+    headers = {"Authorization": f"Bearer {owner_token}"}
+    teams = client.get(f"/api/v1/teams/?project_id={project_id}", headers=headers)
+    assert teams.status_code == 200, teams.text
+    team_id = teams.json()[0]["id"]
+    added = client.post(
+        f"/api/v1/teams/{team_id}/members/",
+        json={"user_id": user_id, "role": "member"},
+        headers=headers,
+    )
+    assert added.status_code == 201, added.text
+
+
+def _seed_boq_position(client: TestClient, token: str) -> tuple[str, str]:
+    """Create a real BOQ position and hand back its project id and its own id.
+
+    The presence socket gates on the caller being able to reach the entity's
+    owning project, so a random uuid resolves to no project and the socket
+    closes with 1008 before a single frame is sent. These tests used a random
+    uuid and had therefore been dead ever since that gate landed, silently,
+    because the suite they live in runs in a CI job nobody reads.
+    """
+    headers = {"Authorization": f"Bearer {token}"}
+    project = client.post(
+        "/api/v1/projects/",
+        json={"name": "WS Presence Project", "region": "DACH", "currency": "EUR"},
+        headers=headers,
+    )
+    assert project.status_code == 201, project.text
+    project_id = str(project.json()["id"])
+    boq = client.post(
+        "/api/v1/boq/boqs/",
+        json={"project_id": project_id, "name": "WS Presence Estimate"},
+        headers=headers,
+    )
+    assert boq.status_code == 201, boq.text
+    boq_id = boq.json()["id"]
+    section = client.post(
+        f"/api/v1/boq/boqs/{boq_id}/sections/",
+        json={"ordinal": "01", "description": "Substructure"},
+        headers=headers,
+    )
+    assert section.status_code == 201, section.text
+    position = client.post(
+        f"/api/v1/boq/boqs/{boq_id}/positions/",
+        json={
+            "boq_id": boq_id,
+            "ordinal": "01.001",
+            "description": "Concrete foundation",
+            "unit": "m3",
+            "quantity": 150,
+            "unit_rate": 285.00,
+            "parent_id": section.json()["id"],
+        },
+        headers=headers,
+    )
+    assert position.status_code == 201, position.text
+    return project_id, str(position.json()["id"])
 
 
 def test_ws_rejects_missing_token(ws_client: TestClient) -> None:
@@ -73,7 +146,7 @@ def test_ws_receives_presence_snapshot_then_lock_acquired(
     """
     alice_token, _ = _register_and_login(ws_client, "alice")
 
-    entity_id = str(uuid.uuid4())
+    _, entity_id = _seed_boq_position(ws_client, alice_token)
     path = f"/api/v1/collaboration_locks/presence/?entity_type=boq_position&entity_id={entity_id}&token={alice_token}"
     with ws_client.websocket_connect(path) as ws:
         snapshot = ws.receive_json()
@@ -113,8 +186,9 @@ def test_ws_two_users_see_each_others_join(
     ws_client: TestClient,
 ) -> None:
     alice_token, _ = _register_and_login(ws_client, "alicejoin")
-    bob_token, _ = _register_and_login(ws_client, "bobjoin")
-    entity_id = str(uuid.uuid4())
+    bob_token, bob_id = _register_and_login(ws_client, "bobjoin")
+    project_id, entity_id = _seed_boq_position(ws_client, alice_token)
+    _add_project_member(ws_client, alice_token, project_id, bob_id)
     base = f"/api/v1/collaboration_locks/presence/?entity_type=boq_position&entity_id={entity_id}"
 
     with ws_client.websocket_connect(f"{base}&token={alice_token}") as alice_ws:
