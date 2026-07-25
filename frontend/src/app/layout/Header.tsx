@@ -1156,6 +1156,11 @@ function buildBugReportUrl(
     `- User agent: ${navigator.userAgent}`,
     `- Build: ${APP_BUILD_FINGERPRINT}`,
     last ? `- Captured at: ${last.at}` : '',
+    // The page the error happened on, which is not always the page the user
+    // is filing from. Component/Page above name the current route and drive
+    // the title, so when the two disagree triage needs to see it rather than
+    // assume the stack belongs to the named surface (#391).
+    last ? `- Error page: ${last.url}` : '',
     '',
     '### Last error captured',
     errorBlock,

@@ -258,6 +258,57 @@ export function isTransientHttpStatus(status: number | undefined | null): boolea
   return TRANSIENT_HTTP_STATUSES.includes(status);
 }
 
+// ---------------------------------------------------------------------------
+// Staleness filter (entries replayed out of localStorage across sessions)
+// ---------------------------------------------------------------------------
+
+/**
+ * Maximum age of an entry that may still be attached to a bug report.
+ *
+ * The buffer is deliberately persisted (``loadFromStorage``) so a crash that
+ * reloads the page does not lose the very error the user is about to report.
+ * That same persistence lets an entry survive for as long as the browser
+ * profile does, and the bug-report dialog has no other notion of "recent" —
+ * so a week-old error from an unrelated screen gets attached to today's
+ * report and reads as the reason the user filed.
+ *
+ * A day is wide enough to cover the honest cases (the app broke, the user
+ * reloaded, filed a report over lunch or the next morning) and narrow enough
+ * that an error nobody remembers hitting never leads triage.
+ *
+ * Triggered by GitHub issue #391: a report filed on 2026-07-25 against
+ * 12.6.0 from /match-elements carried an Intl RangeError captured on
+ * 2026-07-16, on an earlier build and a different page. The issue was titled
+ * and triaged against the wrong surface for it.
+ */
+const STALE_ERROR_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Return true when an entry is too old, or from too old a build, to be the
+ * representative error of a bug report filed now.
+ *
+ * Two independent signals, either of which is disqualifying:
+ *
+ *  - ``appVersion`` differs from the running build. The entry was captured
+ *    before an upgrade, so it may well describe something already fixed, and
+ *    the report's own "App version" line would misattribute it.
+ *  - ``timestamp`` is older than {@link STALE_ERROR_MAX_AGE_MS}, or does not
+ *    parse. An unparseable timestamp is treated as stale because we cannot
+ *    show the user when it happened either.
+ *
+ * The entry stays in the buffer and in the exported JSON report — this only
+ * governs which one is promoted to the "Last error captured" payload.
+ *
+ * @param entry The captured entry.
+ * @param now Current epoch ms; injectable so tests need no fake timers.
+ */
+export function isStaleForReport(entry: ErrorLogEntry, now: number = Date.now()): boolean {
+  if (entry.appVersion && entry.appVersion !== APP_VERSION) return true;
+  const at = Date.parse(entry.timestamp);
+  if (Number.isNaN(at)) return true;
+  return now - at > STALE_ERROR_MAX_AGE_MS;
+}
+
 /**
  * Return true if the entry represents a benign network/transport blip
  * that should not be used as the "Last error captured" payload of a
@@ -687,6 +738,12 @@ export function getErrorCount(): number {
 /**
  * Return the most recent *meaningful* captured error for bug reports.
  *
+ * Entries that are stale (see ``isStaleForReport``: captured by an older
+ * build, or more than a day ago) are excluded from every pass, so a quiet
+ * session yields ``null`` rather than resurrecting week-old noise from
+ * localStorage and presenting it as the reason for the report. The dialog
+ * already renders "no error captured during this session" for ``null``.
+ *
  * Selection rules, in order:
  *   1) prefer the most recent level=error entry that is NOT a network blip
  *      (Failed to fetch / AbortError / 502/503/504 etc — see
@@ -705,6 +762,12 @@ export function getErrorCount(): number {
  *
  * Lookup window: scans the most recent 32 entries.
  *
+ * The returned ``url`` is the page the error was captured on, which is not
+ * necessarily the page the user is filing from. The report template names
+ * the current route, and triage reads the title as the affected surface, so
+ * the two have to be shown side by side or an error from another screen gets
+ * triaged against the wrong one (#391).
+ *
  * The stack is capped at ~2KB so the returned payload stays URL-safe even
  * when concatenated into a GitHub issue body.
  */
@@ -712,9 +775,11 @@ export function getLastError(): {
   message: string;
   stack: string;
   at: string;
+  url: string;
 } | null {
   if (memoryBuffer.length === 0) return null;
-  const window = memoryBuffer.slice(-32);
+  const window = memoryBuffer.slice(-32).filter((e) => e && !isStaleForReport(e));
+  if (window.length === 0) return null;
   // Pass 1: the most recent meaningful (non-blip) error.
   let pick: ErrorLogEntry | undefined;
   for (let i = window.length - 1; i >= 0; i--) {
@@ -736,8 +801,9 @@ export function getLastError(): {
       }
     }
   }
-  // Pass 3: any most-recent entry (preserves the warning-only contract).
-  if (!pick) pick = memoryBuffer[memoryBuffer.length - 1];
+  // Pass 3: any most-recent non-stale entry (preserves the warning-only
+  // contract from #115 without reaching back past the staleness bound).
+  if (!pick) pick = window[window.length - 1];
   if (!pick) return null;
   const stack = pick.stack ?? '';
   const cappedStack = stack.length > 2048 ? stack.slice(0, 2048) + '\n... [truncated]' : stack;
@@ -745,6 +811,7 @@ export function getLastError(): {
     message: pick.message,
     stack: cappedStack,
     at: pick.timestamp,
+    url: pick.url,
   };
 }
 
@@ -754,11 +821,13 @@ export function getLastError(): {
  * bug-report dialog uses to show a "looks like a network issue, not a
  * bug" banner before letting the user file anyway.
  *
- * Mirrors ``getLastError`` window (32) so the two stay in sync.
+ * Mirrors ``getLastError`` window (32) and its staleness bound so the two
+ * stay in sync: an entry that can never become the report payload must not
+ * drive the banner shown above it either.
  */
 export function isLastErrorNetworkOnly(): boolean {
   if (memoryBuffer.length === 0) return false;
-  const window = memoryBuffer.slice(-32);
+  const window = memoryBuffer.slice(-32).filter((e) => e && !isStaleForReport(e));
   let sawError = false;
   for (let i = window.length - 1; i >= 0; i--) {
     const e = window[i];

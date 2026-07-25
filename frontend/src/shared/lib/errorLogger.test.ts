@@ -11,7 +11,7 @@
 // `getLastError()` now prefers the most recent level=error entry over
 // warning-level noise. These tests lock that contract in.
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   getLastError,
   logApiError,
@@ -21,9 +21,12 @@ import {
   shouldSuppress,
   isLastErrorNetworkOnly,
   isNetworkErrorMessage,
+  isStaleForReport,
   isTransientHttpStatus,
   anonymize,
+  type ErrorLogEntry,
 } from './errorLogger';
+import { APP_VERSION } from './version';
 
 describe('errorLogger.getLastError - bug-report payload selection', () => {
   beforeEach(() => {
@@ -372,5 +375,130 @@ describe('errorLogger.anonymize - secret scrubbing before persistence', () => {
   it('does not mangle an ordinary error message', () => {
     const msg = 'Failed to load project BOQ: section 03.20 has no unit rate';
     expect(anonymize(msg)).toBe(msg);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Staleness filter (#391)
+//
+// The buffer is persisted to localStorage and replayed on the next boot,
+// which is what lets a crash-and-reload still report the crash. Nothing
+// bounded how far back that replay could reach, so issue #391 was filed on
+// 2026-07-25 against 12.6.0 from /match-elements carrying an Intl
+// RangeError captured on 2026-07-16, on an earlier build and a different
+// screen. The report was titled after the wrong surface and triaged there.
+//
+// getLastError() now skips entries from an older build or older than a day,
+// and returns null rather than promoting one.
+// ─────────────────────────────────────────────────────────────────────────
+
+describe('errorLogger staleness filter (#391)', () => {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  /** Build an entry directly so age and build can be set independently. */
+  const entry = (over: Partial<ErrorLogEntry> = {}): ErrorLogEntry => ({
+    id: 'err_001',
+    timestamp: new Date().toISOString(),
+    level: 'error',
+    category: 'js_error',
+    message: 'Computed minimumFractionDigits is larger than maximumFractionDigits',
+    url: '/dashboard',
+    userAgent: 'test',
+    appVersion: APP_VERSION,
+    locale: 'en',
+    ...over,
+  });
+
+  beforeEach(() => {
+    clearErrorLog();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    clearErrorLog();
+  });
+
+  it('keeps an entry from this build captured just now', () => {
+    expect(isStaleForReport(entry())).toBe(false);
+  });
+
+  it('keeps an entry from earlier today, so crash-then-reload still reports', () => {
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    expect(isStaleForReport(entry({ timestamp: twoHoursAgo }))).toBe(false);
+  });
+
+  it('drops an entry older than a day', () => {
+    const nineDaysAgo = new Date(Date.now() - 9 * DAY_MS).toISOString();
+    expect(isStaleForReport(entry({ timestamp: nineDaysAgo }))).toBe(true);
+  });
+
+  it('drops a fresh entry captured by a different build', () => {
+    expect(isStaleForReport(entry({ appVersion: '12.5.0' }))).toBe(true);
+  });
+
+  it('drops an entry whose timestamp does not parse', () => {
+    expect(isStaleForReport(entry({ timestamp: 'not a date' }))).toBe(true);
+  });
+
+  it('judges age against the injected clock, not the wall clock', () => {
+    const at = new Date('2026-07-16T01:00:55.859Z').toISOString();
+    const e = entry({ timestamp: at });
+    expect(isStaleForReport(e, Date.parse('2026-07-16T03:00:00Z'))).toBe(false);
+    expect(isStaleForReport(e, Date.parse('2026-07-25T00:08:25Z'))).toBe(true);
+  });
+
+  it('getLastError returns null when the only error is nine days old', () => {
+    // Capture the way a real session would, then come back nine days later
+    // and open the bug-report dialog. This is issue #391 end to end.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T01:00:55.859Z'));
+    logError(
+      new RangeError('Computed minimumFractionDigits is larger than maximumFractionDigits'),
+      'js_error',
+    );
+    expect(getLastError()).not.toBeNull();
+
+    vi.setSystemTime(new Date('2026-07-25T00:08:25.000Z'));
+    expect(getLastError()).toBeNull();
+    // The entry is only hidden from the picker, never dropped from the log
+    // the user can still download and attach.
+    expect(getErrorLog().length).toBe(1);
+  });
+
+  it('carries the page the error happened on, not just the message', () => {
+    // The report template names the current route and titles the issue after
+    // it. An error from another screen has to arrive with its own page
+    // attached or triage reads the stack as belonging to the named surface,
+    // which is how #391 ended up titled after CAD-BIM Match to Cost.
+    logError(new RangeError('boom'), 'js_error');
+    const last = getLastError();
+    expect(last).not.toBeNull();
+    expect(last!.url).toBe(window.location.pathname);
+  });
+
+  it('getLastError still prefers a fresh error over a stale one', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T01:00:55.859Z'));
+    logApiError('/v1/stale/', 500, 'old news');
+
+    vi.setSystemTime(new Date('2026-07-25T00:08:25.000Z'));
+    logApiError('/v1/fresh/', 500, 'happening now');
+
+    const last = getLastError();
+    expect(last).not.toBeNull();
+    expect(last!.message).toContain('/v1/fresh/');
+    expect(last!.message).not.toContain('/v1/stale/');
+  });
+
+  it('isLastErrorNetworkOnly ignores stale entries so the banner matches the payload', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T01:00:55.859Z'));
+    logError(new TypeError('Failed to fetch'), 'network');
+
+    vi.setSystemTime(new Date('2026-07-25T00:08:25.000Z'));
+    // Nothing recent at all: no payload, so no "looks like a network issue"
+    // banner either.
+    expect(getLastError()).toBeNull();
+    expect(isLastErrorNetworkOnly()).toBe(false);
   });
 });
