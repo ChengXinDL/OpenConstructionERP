@@ -2044,24 +2044,20 @@
     }
     .three-canvas.is-ready { opacity: 1; }
 
-    /* Backdrop behind the transparent WebGL canvas: while three.js boots
-       (~1s) the canvas is opacity:0, so without this the panel showed the
-       flat --bg-0 grey and then the lit near-white district faded in over
-       it ("grey, then white"). This soft district-lit wash pre-empts that
-       tone so the reveal settles in seamlessly. Edges match --three-fog so
-       the scene's sky/fog merges into it exactly; both themes covered. */
+    /* No backdrop behind the district. The WebGL canvas is transparent and
+       the buildings sit straight on the page, so the panel carries no wash
+       or tint of its own in either theme (the earlier light-grey / navy
+       radial read as a faint background box). */
     .scene-backdrop {
       position: absolute;
       inset: 0;
       z-index: 0;
       border-radius: inherit;
       pointer-events: none;
-      background: radial-gradient(ellipse 72% 62% at 50% 55%,
-        #fbfcfd 0%, #f5f6f7 46%, #f1f2f3 100%);
+      background: transparent;
     }
     [data-theme="dark"] .scene-backdrop {
-      background: radial-gradient(ellipse 72% 62% at 50% 55%,
-        #12203a 0%, #0e1830 48%, #0b1220 100%);
+      background: transparent;
     }
 
     /* Static SVG fallback */
@@ -13533,7 +13529,9 @@
     [data-theme="dark"] .dl-dev{box-shadow:0 2px 4px rgba(0,0,0,.25),0 34px 80px -44px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.06);}
     /* Centered header for cohesion with the section's own centered head. */
     .dl-dev-headwrap{text-align:center;max-width:64ch;margin:0 auto 30px;}
-    .dl-dev-eyebrow{display:inline-flex;align-items:center;gap:7px;margin:0 0 14px;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11.5px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-3);}
+    /* Own line above the title: as inline-flex it packed onto the same line as
+       the h3 whenever both fitted the centred wrapper. */
+    .dl-dev-eyebrow{display:flex;justify-content:center;align-items:center;gap:7px;margin:0 0 14px;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11.5px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-3);}
     .dl-dev-eyebrow svg{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:2.2;}
     .dl-dev-head{display:inline-flex;align-items:center;justify-content:center;gap:12px;margin:0 0 12px;}
     .dl-dev-head svg{width:22px;height:22px;flex:none;stroke:var(--accent-2);}
@@ -13568,6 +13566,25 @@
     .dl-dev .dl-copy{width:42px;height:42px;}
     @media(max-width:820px){.dl-dev{padding:30px 18px 26px;}.dl-dev-grid{grid-template-columns:1fr;gap:16px;}}
 
+    /* "What you actually get": the explainer row between the OS cards and the
+       pip/Docker panel. The cards above answer "how do I install it"; this row
+       answers the three questions people ask next - what is inside, where does
+       my data live, and what does keeping it running cost me. Same glass
+       surface as the cards so the section still reads as one block. */
+    .dl-why{margin:38px 0 0;padding:34px clamp(22px,3vw,40px) 30px;background:color-mix(in srgb,var(--card-bg) 48%,transparent);border:1px solid color-mix(in srgb,var(--line-1) 60%,transparent);border-radius:22px;backdrop-filter:blur(14px) saturate(150%);-webkit-backdrop-filter:blur(14px) saturate(150%);}
+    .dl-why-h3{font-family:"Inter Tight",Inter,sans-serif;font-size:clamp(20px,2.2vw,26px);font-weight:680;letter-spacing:-.02em;color:var(--ink-0);margin:0 0 22px;text-align:center;}
+    .dl-why-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:26px;}
+    .dl-why-col{min-width:0;}
+    .dl-why-icon{display:grid;place-items:center;width:34px;height:34px;margin:0 0 12px;border-radius:10px;color:var(--accent-3);background:color-mix(in srgb,var(--accent-3) 11%,transparent);border:1px solid color-mix(in srgb,var(--accent-3) 22%,transparent);}
+    .dl-why-icon svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;}
+    .dl-why-h4{font-family:"Inter Tight",Inter,sans-serif;font-size:16px;font-weight:660;letter-spacing:-.01em;color:var(--ink-0);margin:0 0 8px;}
+    .dl-why-p{font-size:14px;line-height:1.65;color:var(--ink-2);margin:0;}
+    .dl-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;margin:28px 0 0;padding:22px 0 0;border-top:1px solid var(--line-0);}
+    .dl-facts>div{min-width:0;}
+    .dl-facts dt{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-3);margin:0 0 7px;}
+    .dl-facts dd{font-size:13.5px;line-height:1.6;color:var(--ink-2);margin:0;}
+    @media(max-width:820px){.dl-why{padding:26px 18px 22px;}.dl-why-grid{grid-template-columns:1fr;gap:20px;}.dl-facts{grid-template-columns:1fr;gap:18px;}}
+
     @media(max-width:980px){.dl-grid{grid-template-columns:1fr 1fr;}#card-linux{grid-column:1 / -1;}}
     @media(max-width:720px){.dl-grid{grid-template-columns:1fr;}#card-linux{grid-column:auto;}}
     @media(prefers-reduced-motion:reduce){.dl-card,.dl-dl,.dl-copy{transition:none !important;}.dl-card:hover,.dl-dl:hover{transform:none !important;}}
@@ -13586,8 +13603,9 @@
       <p class="home-dl-eyebrow" data-i18n="home.download_cards.eyebrow">Download</p>
       <h2 class="home-dl-h2" id="home-dl-h2" data-i18n-html="home.download_cards.title">Get the <i>real</i> desktop app, free.</h2>
       <p class="home-dl-lede" data-i18n="home.download_cards.lede">
-        A native build of OpenConstructionERP. No Python, no pip, no Docker, no database to set up.
-        One file, run it, done. Your data stays on your machine.
+        A native build of OpenConstructionERP for Windows, macOS and Linux. No Python, no pip,
+        no Docker, no database to set up: one file, run it, and the full platform is on your
+        machine. It stays free, it stays open source, and your data never leaves your disk.
       </p>
       <div class="dl-recwrap">
         <div class="dl-rec" id="dl-rec" role="status" aria-live="polite">
@@ -13681,6 +13699,40 @@
       </article>
     </div>
 
+    <!-- The three questions people ask after "how do I install it". Kept as
+         plain prose: this is the block a site engineer or an estimator reads
+         before deciding the installer is worth a minute of their time. -->
+    <div class="dl-why">
+      <h3 class="dl-why-h3" data-i18n="home.download_cards.why_title">What you actually get</h3>
+      <div class="dl-why-grid">
+        <div class="dl-why-col">
+          <span class="dl-why-icon" aria-hidden="true"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.3 7 12 12 20.7 7"></polyline><line x1="12" y1="22" x2="12" y2="12"></line></svg></span>
+          <h4 class="dl-why-h4" data-i18n="home.download_cards.why1_h">The whole platform, not a trial</h4>
+          <p class="dl-why-p" data-i18n="home.download_cards.why1_p">Everything is in the download: estimating and the bill of quantities, quantity takeoff from drawings, the schedule, documents and RFIs, quality and safety, and the CAD and BIM import. Cost catalogues for 48 economies and 27 interface languages come with it. Nothing is locked behind a paid tier and nobody counts your seats.</p>
+        </div>
+        <div class="dl-why-col">
+          <span class="dl-why-icon" aria-hidden="true"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></span>
+          <h4 class="dl-why-h4" data-i18n="home.download_cards.why2_h">It runs on your own machine</h4>
+          <p class="dl-why-p" data-i18n="home.download_cards.why2_p">There is no account to create and no cloud in the middle. The app starts its own database beside itself, so drawings, prices and projects stay in a folder you choose on your own disk, and the whole thing keeps working with the network switched off.</p>
+        </div>
+        <div class="dl-why-col">
+          <span class="dl-why-icon" aria-hidden="true"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 11A8.9 8.9 0 1 0 21 13.5"></path><polyline points="21 4 21 11 14 11"></polyline></svg></span>
+          <h4 class="dl-why-h4" data-i18n="home.download_cards.why3_h">Nothing to maintain</h4>
+          <p class="dl-why-p" data-i18n="home.download_cards.why3_p">The database, the server and the interface ship as one program. Updating means running the next installer over the top, and removing it leaves nothing behind except the data folder, which you keep or delete as you like.</p>
+        </div>
+      </div>
+      <dl class="dl-facts">
+        <div>
+          <dt data-i18n="home.download_cards.req_label">System requirements</dt>
+          <dd data-i18n="home.download_cards.req_text">64-bit Windows 10 or 11, macOS 12 or newer on Apple Silicon, or a current Linux. Around 2 GB of disk and 4 GB of memory is enough to work in comfortably.</dd>
+        </div>
+        <div>
+          <dt data-i18n="home.download_cards.firstrun_label">The first minute</dt>
+          <dd data-i18n="home.download_cards.firstrun_text">The first launch unpacks the database and takes about a minute, later starts take seconds. The app opens in your browser on your own machine with a demo project already loaded, so you can read a complete estimate before importing anything of your own.</dd>
+        </div>
+      </dl>
+    </div>
+
     <!-- Install via pip or docker - the same one-command offer, enlarged
          and given clear hierarchy. Copy buttons reuse the shared .dl-copy
          handler. The hero block above carries the short version. -->
@@ -13694,7 +13746,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="8 6 2 12 8 18"></polyline><polyline points="16 6 22 12 16 18"></polyline></svg>
           <h3 class="dl-dev-h3" data-i18n="home.download_cards.dev_title">Install via pip or Docker</h3>
         </div>
-        <p class="dl-dev-lede" data-i18n="home.download_cards.dev_lede">Already have Python or Docker? Pick a line, paste it, and the full ERP is up. No build step, no extra database to set up, your data stays on your machine.</p>
+        <p class="dl-dev-lede" data-i18n="home.download_cards.dev_lede">Already have Python or Docker? Pick a line, paste it, and the full ERP is up. This is the route to take when it should sit on a server for the whole team or behind your own domain. Same code and same data model as the desktop app, no build step, no separate database to prepare.</p>
       </div>
       <div class="dl-dev-grid">
         <div class="dl-dev-col">

@@ -18,7 +18,7 @@
     "download_cards": {
       "eyebrow": "Download",
       "title": "Get the <i>real</i> desktop app, free.",
-      "lede": "A native build of OpenConstructionERP. No Python, no pip, no Docker, no database to set up. One file, run it, done. Your data stays on your machine.",
+      "lede": "A native build of OpenConstructionERP for Windows, macOS and Linux. No Python, no pip, no Docker, no database to set up: one file, run it, and the full platform is on your machine. It stays free, it stays open source, and your data never leaves your disk.",
       "chip_no_deps": "No Python, pip, Docker or DB",
       "chip_local": "Data stays local",
       "chip_fast": "First launch ~60s, then fast",
@@ -43,13 +43,24 @@
       "linux_step3": "Launch OpenConstructionERP from your app menu",
       "dev_eyebrow": "One command and you are running",
       "dev_title": "Install via pip or Docker",
-      "dev_lede": "Already have Python or Docker? Pick a line, paste it, and the full ERP is up. No build step, no extra database to set up, your data stays on your machine.",
+      "dev_lede": "Already have Python or Docker? Pick a line, paste it, and the full ERP is up. This is the route to take when it should sit on a server for the whole team or behind your own domain. Same code and same data model as the desktop app, no build step, no separate database to prepare.",
       "dev_pip_label": "Python package",
       "dev_docker_label": "Full stack",
       "dev_pip_sub": "Install, then run",
       "dev_docker_sub": "One line, app plus database",
       "dev_pip_hint": "Needs Python 3.12+. Installs, then opens at http://localhost:8080.",
-      "dev_docker_hint": "Bundles PostgreSQL and the app. Open http://localhost:8080 when it boots."
+      "dev_docker_hint": "Bundles PostgreSQL and the app. Open http://localhost:8080 when it boots.",
+      "why_title": "What you actually get",
+      "why1_h": "The whole platform, not a trial",
+      "why1_p": "Everything is in the download: estimating and the bill of quantities, quantity takeoff from drawings, the schedule, documents and RFIs, quality and safety, and the CAD and BIM import. Cost catalogues for 48 economies and 27 interface languages come with it. Nothing is locked behind a paid tier and nobody counts your seats.",
+      "why2_h": "It runs on your own machine",
+      "why2_p": "There is no account to create and no cloud in the middle. The app starts its own database beside itself, so drawings, prices and projects stay in a folder you choose on your own disk, and the whole thing keeps working with the network switched off.",
+      "why3_h": "Nothing to maintain",
+      "why3_p": "The database, the server and the interface ship as one program. Updating means running the next installer over the top, and removing it leaves nothing behind except the data folder, which you keep or delete as you like.",
+      "req_label": "System requirements",
+      "req_text": "64-bit Windows 10 or 11, macOS 12 or newer on Apple Silicon, or a current Linux. Around 2 GB of disk and 4 GB of memory is enough to work in comfortably.",
+      "firstrun_label": "The first minute",
+      "firstrun_text": "The first launch unpacks the database and takes about a minute, later starts take seconds. The app opens in your browser on your own machine with a demo project already loaded, so you can read a complete estimate before importing anything of your own."
     }
   },
   "hero": {
