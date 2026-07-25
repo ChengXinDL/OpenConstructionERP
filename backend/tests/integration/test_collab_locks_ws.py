@@ -11,6 +11,7 @@ from __future__ import annotations
 import uuid
 
 import pytest
+from fastapi import WebSocketDisconnect
 from fastapi.testclient import TestClient
 
 from app.main import create_app
@@ -47,12 +48,19 @@ def _register_and_login(client: TestClient, suffix: str) -> tuple[str, str]:
 
 
 def test_ws_rejects_missing_token(ws_client: TestClient) -> None:
+    """An anonymous handshake must be refused by policy, not by a crash.
+
+    ``pytest.raises(Exception)`` used to pass here whether the socket closed
+    with 1008 or blew up with a 500, which is how the RLS/HTTPBearer handshake
+    regression stayed invisible for four releases. Assert the close code.
+    """
     entity_id = str(uuid.uuid4())
-    with pytest.raises(Exception):
+    with pytest.raises(WebSocketDisconnect) as excinfo:
         with ws_client.websocket_connect(
             f"/api/v1/collaboration_locks/presence/?entity_type=boq_position&entity_id={entity_id}"
         ):
             pass
+    assert excinfo.value.code == 1008
 
 
 def test_ws_receives_presence_snapshot_then_lock_acquired(
