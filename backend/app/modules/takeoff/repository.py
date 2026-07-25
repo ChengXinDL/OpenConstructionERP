@@ -218,11 +218,56 @@ class MeasurementRepository:
             await self.session.delete(item)
             await self.session.flush()
 
-    async def all_for_project(self, project_id: uuid.UUID) -> list[TakeoffMeasurement]:
-        """Return all measurements for a project (used for summary/export)."""
+    async def all_for_project(self, project_id: uuid.UUID, *, confirmed_only: bool = True) -> list[TakeoffMeasurement]:
+        """Return a project's measurements for summary and export.
+
+        Defaults to confirmed rows only. A detector proposal is a suggestion
+        awaiting a human, not a quantity: counting one into a total or writing
+        it into an export hands somebody a number nobody agreed to. Rejected
+        rows are kept as a record of the decision and must not come back either.
+
+        The predicate is an allowlist rather than ``NOT IN ('proposed',
+        'rejected')`` so a status added later is excluded until someone decides
+        it belongs in a priced number. ``review_status`` defaults to
+        ``'confirmed'`` in the column, so every hand-drawn and pre-existing row
+        already satisfies it.
+
+        Args:
+            project_id: Owning project.
+            confirmed_only: Keep only human-confirmed rows. Pass ``False`` only
+                where the caller genuinely wants proposals too, such as a
+                review queue or usage telemetry.
+
+        Returns:
+            The matching measurements.
+        """
         stmt = select(TakeoffMeasurement).where(TakeoffMeasurement.project_id == project_id)
+        if confirmed_only:
+            stmt = stmt.where(TakeoffMeasurement.review_status == "confirmed")
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def count_confirmed_for_project(self, project_id: uuid.UUID) -> int:
+        """Count a project's human-confirmed measurements.
+
+        The project dashboard reports work that has been agreed, so this is
+        deliberately the same allowlist :meth:`all_for_project` uses rather
+        than a second copy of the predicate spelled out at the call site: one
+        definition of what counts as a quantity, so the tile and the totals
+        cannot drift apart.
+
+        Args:
+            project_id: Owning project.
+
+        Returns:
+            The number of confirmed measurements, 0 when there are none.
+        """
+        stmt = select(func.count(TakeoffMeasurement.id)).where(
+            TakeoffMeasurement.project_id == project_id,
+            TakeoffMeasurement.review_status == "confirmed",
+        )
+        result = await self.session.execute(stmt)
+        return int(result.scalar_one_or_none() or 0)
 
     async def list_proposals_for_run(self, run_id: uuid.UUID) -> list[TakeoffMeasurement]:
         """Return all proposal rows minted by one plan-read run.

@@ -1522,13 +1522,13 @@ async def project_dashboard(
 
     measurements_count = 0
     try:
-        from app.modules.takeoff.models import TakeoffMeasurement
+        # Confirmed rows only: the dashboard reports work that has been agreed,
+        # so an unreviewed detector proposal must not inflate the tile. The
+        # repository owns the predicate so this tile and the takeoff totals
+        # cannot drift apart.
+        from app.modules.takeoff.repository import MeasurementRepository
 
-        measurements_count = (
-            await session.execute(
-                select(func.count(TakeoffMeasurement.id)).where(TakeoffMeasurement.project_id == project_id)
-            )
-        ).scalar_one()
+        measurements_count = await MeasurementRepository(session).count_confirmed_for_project(project_id)
     except Exception:
         logger.debug("Dashboard: takeoff measurements query failed", exc_info=True)
 

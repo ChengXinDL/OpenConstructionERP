@@ -247,10 +247,19 @@ async def extract_takeoff(
     result = ExtractionResult()
 
     # PDF takeoff measurements.
+    # Confirmed rows only. A detector proposal is a suggestion nobody has
+    # signed off yet, and this function turns each row into a priced element -
+    # letting one through would fabricate exactly the quantity the docstring
+    # above promises never to fabricate.
     pdf_rows = (
         (
             await session.execute(
-                select(TakeoffMeasurement).where(TakeoffMeasurement.project_id == project_id).limit(_MAX_ELEMENTS)
+                select(TakeoffMeasurement)
+                .where(
+                    TakeoffMeasurement.project_id == project_id,
+                    TakeoffMeasurement.review_status == "confirmed",
+                )
+                .limit(_MAX_ELEMENTS)
             )
         )
         .scalars()
