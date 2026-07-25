@@ -126,6 +126,19 @@ def _row_value(row: dict[str, Any], path: str) -> Any:
     return cur
 
 
+def _position_row(p: Any) -> dict[str, Any]:
+    """Wire shape for one BOQ position, shared by every path that reads them."""
+    return {
+        "id": str(p.id),
+        "ordinal": p.ordinal,
+        "description": p.description,
+        "unit": p.unit,
+        "quantity": p.quantity,
+        "unit_rate": p.unit_rate,
+        "classification": dict(p.classification or {}),
+    }
+
+
 async def _resolve_full_rows(ctx: NodeContext, upstream: dict[str, Any]) -> list[dict[str, Any]]:
     """Return the full row set behind an envelope, not just the wire sample.
 
@@ -143,11 +156,36 @@ async def _resolve_full_rows(ctx: NodeContext, upstream: dict[str, Any]) -> list
     """
     if upstream.get("mutated"):
         return list(upstream.get("rows") or [])
+
+    from app.modules.boq.models import Position
+
+    # The id list is capped at _ROW_IDS_CAP so the node-state JSON stays small.
+    # Re-reading by that capped list is what made an aggregate silently short:
+    # a project past the cap reported a total over the first 5000 positions and
+    # called it the project total. When the source told us it had to cut the
+    # list, go back to the scope it came from and read the real set.
+    if upstream.get("row_ids_truncated"):
+        scope_ids: list[uuid.UUID] = []
+        for raw_id in upstream.get("source_boq_ids") or []:
+            try:
+                scope_ids.append(uuid.UUID(str(raw_id)))
+            except (ValueError, TypeError):
+                continue
+        if scope_ids:
+            scoped = (
+                (
+                    await ctx.db.execute(
+                        select(Position).where(Position.boq_id.in_(scope_ids)).order_by(Position.sort_order.asc())
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            return [_position_row(p) for p in scoped]
+
     row_ids = upstream.get("row_ids") or []
     if not row_ids:
         return list(upstream.get("rows") or [])
-
-    from app.modules.boq.models import Position
 
     ids: list[uuid.UUID] = []
     for rid in row_ids:
@@ -159,18 +197,7 @@ async def _resolve_full_rows(ctx: NodeContext, upstream: dict[str, Any]) -> list
         return list(upstream.get("rows") or [])
 
     positions = (await ctx.db.execute(select(Position).where(Position.id.in_(ids)))).scalars().all()
-    return [
-        {
-            "id": str(p.id),
-            "ordinal": p.ordinal,
-            "description": p.description,
-            "unit": p.unit,
-            "quantity": p.quantity,
-            "unit_rate": p.unit_rate,
-            "classification": dict(p.classification or {}),
-        }
-        for p in positions
-    ]
+    return [_position_row(p) for p in positions]
 
 
 # ── trigger.manual ───────────────────────────────────────────────────────
@@ -229,23 +256,17 @@ async def _run_source_boq(ctx: NodeContext) -> dict[str, Any]:
         .scalars()
         .all()
     )
-    rows = [
-        {
-            "id": str(p.id),
-            "ordinal": p.ordinal,
-            "description": p.description,
-            "unit": p.unit,
-            "quantity": p.quantity,
-            "unit_rate": p.unit_rate,
-            "classification": dict(p.classification or {}),
-        }
-        for p in positions
-    ]
+    rows = [_position_row(p) for p in positions]
     all_ids = [r["id"] for r in rows]
     return {
         "rows": rows[:_SAMPLE_LIMIT],
         "row_ids": all_ids[:_ROW_IDS_CAP],
         "row_ids_truncated": len(all_ids) > _ROW_IDS_CAP,
+        # The id list is capped to keep the node-state JSON small, which used to
+        # mean every downstream total was capped with it. Carrying the source
+        # scope instead costs a handful of ids and lets _resolve_full_rows
+        # re-read the real set when the id list was cut.
+        "source_boq_ids": [str(b) for b in boq_ids],
         "count": len(rows),
         "sample_truncated": len(rows) > _SAMPLE_LIMIT,
         "summary": f"{len(rows)} BOQ positions across {len(boq_ids)} BOQ(s)",
@@ -288,7 +309,14 @@ async def _run_transform_filter(ctx: NodeContext) -> dict[str, Any]:
     ``value`` (any). An empty predicate is an identity pass-through.
     """
     upstream = ctx.first_input()
-    rows: list[dict[str, Any]] = list(upstream.get("rows") or [])
+    # Filter over the FULL row set, not the wire preview. ``rows`` on an
+    # envelope is a bounded sample (``_SAMPLE_LIMIT``, 25) that exists for the
+    # UI, so reading it here silently reduced every downstream aggregate to at
+    # most 25 positions: a source -> filter -> rollup chain reported a grand
+    # total over a preview and presented it as the project total. Every other
+    # aggregate and gate in this module already resolves the full set the same
+    # way.
+    rows: list[dict[str, Any]] = await _resolve_full_rows(ctx, upstream)
     field = ctx.params.get("field")
     op = ctx.params.get("op", "eq")
     value = ctx.params.get("value")
@@ -1262,8 +1290,7 @@ async def _run_transform_currency_convert(ctx: NodeContext) -> dict[str, Any]:
         "mutated": True,
         "rate": str(rate) if rate is not None else None,
         "summary": (
-            f"Converted '{field}' by x{rate} on {converted} of {len(out)} rows"
-            + (f" → {currency}" if currency else "")
+            f"Converted '{field}' by x{rate} on {converted} of {len(out)} rows" + (f" → {currency}" if currency else "")
             if rate is not None
             else f"No rate given ({len(out)} rows)"
         ),
