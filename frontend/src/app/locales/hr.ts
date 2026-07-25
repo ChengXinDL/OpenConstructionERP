@@ -30742,6 +30742,7 @@ const resource = {
     "takeoff_compare.compare_short": "Usporedi",
     "takeoff_compare.count_from": "Prije: {{n}} mjerenja",
     "takeoff_compare.count_to": "Poslije: {{n}} mjerenja",
+    "takeoff_compare.truncated_notice": "Uspoređeno je samo prvih {{n}} mjerenja svake revizije. Promjene iznad te granice nisu uračunate u nastavku.",
     "takeoff_compare.error": "Nije moguće izračunati usporedbu. Molimo pokušajte ponovno.",
     "takeoff_compare.from_document": "Osnovna vrijednost (prije)",
     "takeoff_compare.hide_unchanged": "Sakri neizmijenjeno",

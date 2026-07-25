@@ -30713,6 +30713,7 @@ const resource = {
     "takeoff_compare.compare_short": "Comparar",
     "takeoff_compare.count_from": "Antes: {{n}} medidas",
     "takeoff_compare.count_to": "Después: {{n}} medidas",
+    "takeoff_compare.truncated_notice": "Solo se compararon las primeras {{n}} mediciones de cada revisión. Los cambios más allá de ese límite no se cuentan a continuación.",
     "takeoff_compare.error": "No se pudo calcular la comparación. Por favor intenta de nuevo.",
     "takeoff_compare.from_document": "Base (antes)",
     "takeoff_compare.hide_unchanged": "Ocultar sin cambios",

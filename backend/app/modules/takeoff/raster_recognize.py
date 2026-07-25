@@ -28,11 +28,13 @@ low-contrast scan cluster unreliably and tend to produce noise, and the brief
 for this module is to return a handful of good rooms rather than many shaky
 boxes. The vector recognizer still handles counts when a drawing layer exists.
 
-The module is pure (no DB, no FastAPI). ``cv2`` and ``numpy`` are imported at
-module top on purpose: the *caller* imports this module lazily and catches
-``ImportError``, so a default install without the ``cv`` extra never reaches
-here. Every risky OpenCV call is wrapped so a degenerate image yields ``[]``
-rather than raising.
+The module is pure (no DB, no FastAPI). ``cv2`` and ``numpy`` are base
+dependencies, so this detector runs in every default install; only the OCR
+engine sits behind the optional ``cv`` extra. They are imported at module top
+on purpose: the *caller* imports this module lazily and catches
+``ImportError``, so a broken OpenCV wheel degrades to an empty candidate set
+instead of taking the whole takeoff service down at import time. Every risky
+OpenCV call is wrapped so a degenerate image yields ``[]`` rather than raising.
 """
 
 from __future__ import annotations

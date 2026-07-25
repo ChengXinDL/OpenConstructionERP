@@ -33,7 +33,8 @@ const DOCS = [
   { id: 'doc-a', filename: 'rev-a.pdf', pages: 3 },
 ];
 
-function diff(net: string | null, modified: number) {
+function diff(net: string | null, modified: number, truncation?: { limit: number; total: number }) {
+  const compared = truncation ? truncation.limit : 4;
   return {
     project_id: 'p1',
     from_document_id: 'doc-a',
@@ -43,8 +44,12 @@ function diff(net: string | null, modified: number) {
       measurements: { added: 0, removed: 0, modified, unchanged: 4 },
       net_cost_impact: net,
       cost_currency: net ? 'EUR' : null,
-      from_measurement_count: 4,
-      to_measurement_count: 4 + modified,
+      from_measurement_count: compared,
+      to_measurement_count: compared + modified,
+      from_measurement_total: truncation ? truncation.total : 4,
+      to_measurement_total: truncation ? truncation.total : 4 + modified,
+      truncated: Boolean(truncation),
+      truncation_limit: truncation ? truncation.limit : null,
     },
   };
 }
@@ -113,5 +118,40 @@ describe('PdfCompareDrawer - create variation handoff', () => {
       expect(toasts[0].type).toBe('success');
       expect(typeof toasts[0].action?.onClick).toBe('function');
     });
+  });
+});
+
+describe('PdfCompareDrawer - truncated comparisons', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useToastStore.setState({ toasts: [], history: [] });
+  });
+
+  it('stays quiet when the backend compared everything', async () => {
+    (takeoffApi.compare as unknown as vi.Mock).mockResolvedValue(diff('500.00', 1));
+    renderDrawer();
+    await screen.findByTestId('takeoff-compare-create-variation');
+    expect(screen.queryByTestId('takeoff-compare-truncated')).toBeNull();
+  });
+
+  it('warns that the compare stopped at the row ceiling', async () => {
+    (takeoffApi.compare as unknown as vi.Mock).mockResolvedValue(
+      diff('500.00', 1, { limit: 20000, total: 31500 }),
+    );
+    renderDrawer();
+    const notice = await screen.findByTestId('takeoff-compare-truncated');
+    expect(notice.textContent).toContain('20000');
+  });
+
+  it('reports the document totals, not the truncated compare counts', async () => {
+    (takeoffApi.compare as unknown as vi.Mock).mockResolvedValue(
+      diff('500.00', 1, { limit: 20000, total: 31500 }),
+    );
+    renderDrawer();
+    await screen.findByTestId('takeoff-compare-truncated');
+    // A user pricing a variation off this panel must not read the compared
+    // count for a document that holds more. The drawer renders into a portal,
+    // so read the document rather than the render container.
+    expect(document.body.textContent).toContain('31500');
   });
 });

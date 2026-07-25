@@ -16,10 +16,9 @@ and a human-readable ``reason`` so the user confirms, edits or rejects it on
 the canvas (CLAUDE.md rule 7: AI-augmented, human-confirmed).
 
 The module is pure and DB-free so it unit-tests without a database or a real
-PDF. PyMuPDF is imported lazily by the *caller* (it is an optional ``cv``
-extra, absent on a default install); this module only consumes the already
-extracted primitives, accessing point-like / rect-like objects defensively so
-tests can feed plain tuples.
+PDF. PyMuPDF is a base dependency and is imported lazily by the *caller*; this
+module only consumes the already extracted primitives, accessing point-like /
+rect-like objects defensively so tests can feed plain tuples.
 """
 
 from __future__ import annotations

@@ -10,9 +10,10 @@ test. The vision model only PROPOSES (a scale reference, room polygons, symbol
 centroids); this module turns those proposals into checked geometry, and the
 service layer turns checked geometry into human-confirmed measurements.
 
-Nothing here calls a network or an AI provider. PyMuPDF is imported lazily by
-:func:`rasterize_page` (it is an optional ``cv`` extra, absent on a default
-install) so the rest of the module unit-tests with no dependency at all.
+Nothing here calls a network or an AI provider. PyMuPDF is a base dependency,
+but :func:`rasterize_page` imports it lazily so the rest of the module
+unit-tests with no dependency at all and a broken wheel surfaces as a clear
+error from one function rather than an import-time failure.
 
 Coordinate contract (matches the image, the canvas, and the PDF-point space):
 normalized ``[0, 1]``, origin top-left, ``x`` increases right, ``y`` increases
@@ -134,10 +135,11 @@ def rasterize_page(
         coordinate mapping.
 
     Raises:
-        ImportError: PyMuPDF (the optional ``cv`` extra) is not installed.
+        ImportError: PyMuPDF is unimportable. It ships with the platform, so
+            this means a broken install rather than a missing extra.
         ValueError: The page is out of range or the PDF cannot be opened.
     """
-    import pymupdf  # noqa: PLC0415 - lazy: optional 'cv' extra, absent on default installs
+    import pymupdf  # noqa: PLC0415 - base dep; lazy so a broken wheel degrades to a clear error here
 
     pdf = pymupdf.open(stream=content, filetype="pdf")
     try:

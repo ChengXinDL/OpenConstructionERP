@@ -30573,6 +30573,7 @@ const resource = {
     "takeoff_compare.compare_short": "Comparer",
     "takeoff_compare.count_from": "Avant : {{n}} mesures",
     "takeoff_compare.count_to": "Après : {{n}} mesures",
+    "takeoff_compare.truncated_notice": "Seules les {{n}} premières mesures de chaque révision ont été comparées. Les modifications au-delà de cette limite ne sont pas comptabilisées ci-dessous.",
     "takeoff_compare.error": "Impossible de calculer la comparaison. Veuillez réessayer.",
     "takeoff_compare.from_document": "Référence (avant)",
     "takeoff_compare.hide_unchanged": "Masquer les inchangés",

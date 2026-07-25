@@ -22,7 +22,15 @@ import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
-import { GitCompare, Loader2, ArrowRight, BarChart3, MessageSquare, FilePlus2 } from 'lucide-react';
+import {
+  GitCompare,
+  Loader2,
+  ArrowRight,
+  BarChart3,
+  MessageSquare,
+  FilePlus2,
+  AlertTriangle,
+} from 'lucide-react';
 
 import { SideDrawer, MoneyDisplay, Badge } from '@/shared/ui';
 import { useToastStore } from '@/stores/useToastStore';
@@ -348,6 +356,26 @@ function SummaryTab({
   ];
   return (
     <div className="flex flex-col gap-4">
+      {/* The backend stops at a row ceiling on very large revisions. Saying so
+          matters more than the tally itself: a silent cap reads as "nothing
+          else changed", which is exactly the wrong conclusion to hand someone
+          pricing a variation off this screen. */}
+      {summary.truncated && (
+        <div
+          data-testid="takeoff-compare-truncated"
+          className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3"
+        >
+          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-500" />
+          <p className="text-xs text-content-secondary">
+            {t('takeoff_compare.truncated_notice', {
+              defaultValue:
+                'Only the first {{n}} measurements of each revision were compared. Changes beyond that limit are not counted below.',
+              n: summary.truncation_limit ?? summary.from_measurement_count,
+            })}
+          </p>
+        </div>
+      )}
+
       <div className="rounded-lg border border-border-light p-3">
         <div className="text-[11px] font-medium text-content-tertiary mb-2">
           {t('takeoff_compare.measurements_heading', { defaultValue: 'Measurement changes' })}
@@ -412,14 +440,14 @@ function SummaryTab({
         <span>
           {t('takeoff_compare.count_from', {
             defaultValue: 'Before: {{n}} measurements',
-            n: summary.from_measurement_count,
+            n: summary.from_measurement_total,
           })}
         </span>
         <ArrowRight size={13} className="text-content-tertiary" />
         <span>
           {t('takeoff_compare.count_to', {
             defaultValue: 'After: {{n}} measurements',
-            n: summary.to_measurement_count,
+            n: summary.to_measurement_total,
           })}
         </span>
       </div>

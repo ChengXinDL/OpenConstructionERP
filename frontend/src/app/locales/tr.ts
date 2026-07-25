@@ -30744,6 +30744,7 @@ const resource = {
     "takeoff_compare.compare_short": "Karşılaştır",
     "takeoff_compare.count_from": "Önce: {{n}} ölçüm",
     "takeoff_compare.count_to": "Sonra: {{n}} ölçüm",
+    "takeoff_compare.truncated_notice": "Her revizyonun yalnızca ilk {{n}} ölçümü karşılaştırıldı. Bu sınırın ötesindeki değişiklikler aşağıda sayılmadı.",
     "takeoff_compare.error": "Karşılaştırma hesaplanamadı. Lütfen tekrar deneyin.",
     "takeoff_compare.from_document": "Temel (önce)",
     "takeoff_compare.hide_unchanged": "Değiştirilmeyeni gizle",

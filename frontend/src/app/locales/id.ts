@@ -30741,6 +30741,7 @@ const resource = {
     "takeoff_compare.compare_short": "Bandingkan",
     "takeoff_compare.count_from": "Sebelum: {{n}} pengukuran",
     "takeoff_compare.count_to": "Sesudah: {{n}} pengukuran",
+    "takeoff_compare.truncated_notice": "Hanya {{n}} pengukuran pertama dari setiap revisi yang dibandingkan. Perubahan di luar batas tersebut tidak dihitung di bawah ini.",
     "takeoff_compare.error": "Tidak dapat menghitung perbandingan. Silakan coba lagi.",
     "takeoff_compare.from_document": "Dasar (sebelum)",
     "takeoff_compare.hide_unchanged": "Sembunyikan tidak berubah",

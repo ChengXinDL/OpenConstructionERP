@@ -30752,6 +30752,7 @@ const resource = {
     "takeoff_compare.compare_short": "Comparație",
     "takeoff_compare.count_from": "Înainte: {{n}} măsurători",
     "takeoff_compare.count_to": "După: {{n}} măsurători",
+    "takeoff_compare.truncated_notice": "Au fost comparate doar primele {{n}} măsurători din fiecare revizie. Modificările peste această limită nu sunt numărate mai jos.",
     "takeoff_compare.error": "Nu s-a putut calcula comparația. Vă rugăm încercați din nou.",
     "takeoff_compare.from_document": "Linie de bază (înainte)",
     "takeoff_compare.hide_unchanged": "Ascundeți neschimbate",

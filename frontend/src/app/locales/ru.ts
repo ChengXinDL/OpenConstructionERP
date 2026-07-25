@@ -30841,6 +30841,7 @@ const resource = {
     "takeoff_compare.compare_short": "Сравнить",
     "takeoff_compare.count_from": "Перед: {{n}} измерений",
     "takeoff_compare.count_to": "После: {{n}} измерений",
+    "takeoff_compare.truncated_notice": "Сравнены только первые {{n}} измерений каждой ревизии. Изменения за этим пределом ниже не учтены.",
     "takeoff_compare.error": "Не удалось вычислить сравнение. Пожалуйста, повторите попытку.",
     "takeoff_compare.from_document": "Базовая линия (до)",
     "takeoff_compare.hide_unchanged": "Скрыть неизменённое",

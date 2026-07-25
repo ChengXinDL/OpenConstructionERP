@@ -30741,6 +30741,7 @@ const resource = {
     "takeoff_compare.compare_short": "Сравнение",
     "takeoff_compare.count_from": "Преди: {{n}} измервания",
     "takeoff_compare.count_to": "След: {{n}} измервания",
+    "takeoff_compare.truncated_notice": "Сравнени са само първите {{n}} измервания от всяка ревизия. Промените след този лимит не са отчетени по-долу.",
     "takeoff_compare.error": "Не можа да се изчисли сравнението. Моля, опитайте отново.",
     "takeoff_compare.from_document": "Базова (преди)",
     "takeoff_compare.hide_unchanged": "Скриване на непроменени",

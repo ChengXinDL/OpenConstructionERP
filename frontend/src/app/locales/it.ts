@@ -30750,6 +30750,7 @@ const resource = {
     "takeoff_compare.compare_short": "Confronta",
     "takeoff_compare.count_from": "Prima: {{n}} misurazioni",
     "takeoff_compare.count_to": "Dopo: {{n}} misurazioni",
+    "takeoff_compare.truncated_notice": "Sono state confrontate solo le prime {{n}} misurazioni di ogni revisione. Le modifiche oltre tale limite non sono conteggiate di seguito.",
     "takeoff_compare.error": "Impossibile calcolare il confronto. Riprova.",
     "takeoff_compare.from_document": "Baseline (prima)",
     "takeoff_compare.hide_unchanged": "Nascondi invariato",

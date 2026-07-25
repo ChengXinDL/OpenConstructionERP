@@ -28763,6 +28763,7 @@ const resource = {
     "takeoff_compare.no_cost_impact": "No cost impact - no linked BOQ measurement changed value between these revisions.",
     "takeoff_compare.count_from": "Before: {{n}} measurements",
     "takeoff_compare.count_to": "After: {{n}} measurements",
+    "takeoff_compare.truncated_notice": "Only the first {{n}} measurements of each revision were compared. Changes beyond that limit are not counted below.",
     "takeoff_compare.no_changes": "No measurement changes between these revisions.",
     "takeoff_compare.no_measurements": "No measurements on either revision.",
     "takeoff_compare.page_n": "p.{{n}}",

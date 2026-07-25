@@ -30800,6 +30800,7 @@ const resource = {
     "takeoff_compare.compare_short": "مقارنة",
     "takeoff_compare.count_from": "قبل: {{n}} قياس",
     "takeoff_compare.count_to": "بعد: {{n}} قياس",
+    "takeoff_compare.truncated_notice": "تمت مقارنة أول {{n}} قياس فقط من كل مراجعة. التغييرات بعد هذا الحد غير محتسبة أدناه.",
     "takeoff_compare.error": "لا يمكن حساب المقارنة. يرجى المحاولة مرة أخرى.",
     "takeoff_compare.from_document": "خط الأساس (قبل)",
     "takeoff_compare.hide_unchanged": "إخفاء غير المتغير",

@@ -30740,6 +30740,7 @@ const resource = {
     "takeoff_compare.compare_short": "Jämför",
     "takeoff_compare.count_from": "Före: {{n}} mätningar",
     "takeoff_compare.count_to": "Efter: {{n}} mätningar",
+    "takeoff_compare.truncated_notice": "Endast de första {{n}} mätningarna i varje revision jämfördes. Ändringar utöver den gränsen räknas inte nedan.",
     "takeoff_compare.error": "Kunde inte beräkna jämförelsen. Försök igen.",
     "takeoff_compare.from_document": "Baslinje (före)",
     "takeoff_compare.hide_unchanged": "Dölj oförändrad",

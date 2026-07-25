@@ -27938,6 +27938,7 @@ const resource = {
     "takeoff_compare.no_cost_impact": "Баага таасири жок - бул ревизиялардын ортосунда байланышкан Көлөмдөр тизмесинин өлчөө мааниси өзгөргөн жок.",
     "takeoff_compare.count_from": "Мурунку: {{n}} өлчөө",
     "takeoff_compare.count_to": "Кийинки: {{n}} өлчөө",
+    "takeoff_compare.truncated_notice": "Ар бир редакциянын алгачкы {{n}} өлчөөсү гана салыштырылды. Бул чектен ашкан өзгөрүүлөр төмөндө эсептелген жок.",
     "takeoff_compare.no_changes": "Бул ревизиялардын ортосунда өлчөө өзгөрүүлөрү жок.",
     "takeoff_compare.no_measurements": "Эки ревизияда тең өлчөөлөр жок.",
     "takeoff_compare.page_n": "б..{{n}}",

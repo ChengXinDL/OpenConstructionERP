@@ -30753,6 +30753,7 @@ const resource = {
     "takeoff_compare.compare_short": "Porovnat",
     "takeoff_compare.count_from": "Před: {{n}} měření",
     "takeoff_compare.count_to": "Po: {{n}} měření",
+    "takeoff_compare.truncated_notice": "Porovnáno bylo pouze prvních {{n}} měření z každé revize. Změny nad tento limit nejsou níže započítány.",
     "takeoff_compare.error": "Nepodařilo se vypočítat porovnání. Zkuste prosím znovu.",
     "takeoff_compare.from_document": "Základní (před)",
     "takeoff_compare.hide_unchanged": "Skrýt beze změny",

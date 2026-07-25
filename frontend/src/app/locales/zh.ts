@@ -30745,6 +30745,7 @@ const resource = {
     "takeoff_compare.compare_short": "比较",
     "takeoff_compare.count_from": "之前: {{n}} 个测量值",
     "takeoff_compare.count_to": "之后: {{n}} 个测量值",
+    "takeoff_compare.truncated_notice": "仅比较了每个版本的前 {{n}} 条测量记录。超出该上限的变更未计入下方统计。",
     "takeoff_compare.error": "无法计算比较。请重试。",
     "takeoff_compare.from_document": "基线 (之前)",
     "takeoff_compare.hide_unchanged": "隐藏未更改",

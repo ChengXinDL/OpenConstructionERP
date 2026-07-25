@@ -30751,6 +30751,7 @@ const resource = {
     "takeoff_compare.compare_short": "So Sánh",
     "takeoff_compare.count_from": "Trước: {{n}} phép đo",
     "takeoff_compare.count_to": "Sau: {{n}} phép đo",
+    "takeoff_compare.truncated_notice": "Chỉ so sánh {{n}} phép đo đầu tiên của mỗi bản sửa đổi. Các thay đổi vượt quá giới hạn đó không được tính bên dưới.",
     "takeoff_compare.error": "Không thể tính toán so sánh. Vui lòng thử lại.",
     "takeoff_compare.from_document": "Đường Cơ Sở (trước)",
     "takeoff_compare.hide_unchanged": "Ẩn Không Thay Đổi",

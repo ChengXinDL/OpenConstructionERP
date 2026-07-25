@@ -30741,6 +30741,7 @@ const resource = {
     "takeoff_compare.compare_short": "Sammenlign",
     "takeoff_compare.count_from": "Før: {{n}} målinger",
     "takeoff_compare.count_to": "Efter: {{n}} målinger",
+    "takeoff_compare.truncated_notice": "Kun de første {{n}} målinger i hver revision blev sammenlignet. Ændringer ud over denne grænse er ikke medregnet nedenfor.",
     "takeoff_compare.error": "Kunne ikke beregne sammenligningen. Prøv venligst igen.",
     "takeoff_compare.from_document": "Baseline (før)",
     "takeoff_compare.hide_unchanged": "Skjul uændret",

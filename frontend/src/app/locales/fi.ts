@@ -30744,6 +30744,7 @@ const resource = {
     "takeoff_compare.compare_short": "Vertaa",
     "takeoff_compare.count_from": "Aiemmin: {{n}} mittausta",
     "takeoff_compare.count_to": "Jälkeen: {{n}} mittausta",
+    "takeoff_compare.truncated_notice": "Vain kunkin revision ensimmäiset {{n}} mittausta verrattiin. Tämän rajan ylittäviä muutoksia ei lasketa alla.",
     "takeoff_compare.error": "Vertailua ei voitu laskea. Yritä uudelleen.",
     "takeoff_compare.from_document": "Perusviiva (aiemmin)",
     "takeoff_compare.hide_unchanged": "Piilota muuttamattomat",

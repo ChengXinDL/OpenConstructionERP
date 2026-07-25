@@ -30745,6 +30745,7 @@ const resource = {
     "takeoff_compare.compare_short": "Vergelijken",
     "takeoff_compare.count_from": "Voor: {{n}} metingen",
     "takeoff_compare.count_to": "Na: {{n}} metingen",
+    "takeoff_compare.truncated_notice": "Alleen de eerste {{n}} metingen van elke revisie zijn vergeleken. Wijzigingen daarbuiten zijn hieronder niet meegeteld.",
     "takeoff_compare.error": "Kon de vergelijking niet berekenen. Probeer het opnieuw.",
     "takeoff_compare.from_document": "Baseline (voor)",
     "takeoff_compare.hide_unchanged": "Verberg ongewijzigd",

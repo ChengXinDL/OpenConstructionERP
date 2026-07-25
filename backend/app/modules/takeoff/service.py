@@ -1886,8 +1886,9 @@ class TakeoffService:
         confirmed by the user on the canvas (CLAUDE.md rule 7).
 
         Returns ``{candidates, page, source, notes}``. Honest failure modes:
-        PyMuPDF absent -> a 400 pointing at the optional ``cv`` extra; no
-        vector layer (a scanned/raster PDF) -> an empty candidate set with
+        PyMuPDF unimportable -> a 400 naming a broken install, since PyMuPDF
+        is a base dependency and not an optional extra; no vector layer and no
+        raster fallback (a scanned/raster PDF) -> an empty candidate set with
         ``notes='no_vector_layer'`` rather than fabricated geometry, with a
         pointer to the online ``analyze`` path.
         """
@@ -1969,10 +1970,12 @@ class TakeoffService:
                 "notes": None if candidates else "no_features",
             }
 
-        # Scanned / raster page -> OpenCV room + wall detection (cv extra).
+        # Scanned / raster page -> OpenCV room + wall detection. OpenCV and
+        # numpy are base dependencies, so this runs in every default install;
+        # only the OCR engine sits behind the optional 'cv' extra.
         if raster_payload is not None:
             try:
-                import numpy as np  # noqa: PLC0415 - lazy: optional 'cv' extra
+                import numpy as np  # noqa: PLC0415 - base dep; lazy so a broken wheel degrades instead of failing at import
 
                 from app.modules.takeoff import raster_recognize as _raster  # noqa: PLC0415
 
@@ -1991,13 +1994,14 @@ class TakeoffService:
                     "notes": None if candidates else "raster_no_features",
                 }
             except ImportError:
-                # OpenCV / numpy (the 'cv' extra) is not installed - degrade
+                # OpenCV / numpy ship with the platform, so an ImportError here
+                # means a broken install rather than a missing extra. Degrade
                 # honestly instead of pretending nothing was found.
                 return {
                     "candidates": [],
                     "page": page,
                     "source": "raster_recognize",
-                    "notes": "raster_no_cv",
+                    "notes": "raster_cv_unavailable",
                 }
             except Exception:
                 logger.exception("takeoff.recognize raster detection failed for doc %s page %s", doc_id, page)

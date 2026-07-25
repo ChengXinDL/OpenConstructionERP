@@ -30744,6 +30744,7 @@ const resource = {
     "takeoff_compare.compare_short": "比較",
     "takeoff_compare.count_from": "前: {{n}} 計測値",
     "takeoff_compare.count_to": "後: {{n}} 計測値",
+    "takeoff_compare.truncated_notice": "各リビジョンの最初の {{n}} 件の計測値のみを比較しました。この上限を超える変更は下の集計に含まれていません。",
     "takeoff_compare.error": "比較を計算できませんでした。もう一度お試しください。",
     "takeoff_compare.from_document": "ベースライン (前)",
     "takeoff_compare.hide_unchanged": "変更されていないものを非表示",

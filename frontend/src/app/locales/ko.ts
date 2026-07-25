@@ -30747,6 +30747,7 @@ const resource = {
     "takeoff_compare.compare_short": "비교",
     "takeoff_compare.count_from": "이전: {{n}}개 측정값",
     "takeoff_compare.count_to": "이후: {{n}}개 측정값",
+    "takeoff_compare.truncated_notice": "각 리비전의 처음 {{n}}개 계측값만 비교했습니다. 이 한도를 넘는 변경 사항은 아래 집계에 포함되지 않습니다.",
     "takeoff_compare.error": "비교를 계산할 수 없습니다. 다시 시도하세요.",
     "takeoff_compare.from_document": "기준선 (이전)",
     "takeoff_compare.hide_unchanged": "변경되지 않은 항목 숨기기",

@@ -276,8 +276,18 @@ export interface TakeoffCompareResponse {
     measurements: Record<'added' | 'removed' | 'modified' | 'unchanged', number>;
     net_cost_impact: string | null;
     cost_currency: string | null;
+    /** How many measurements were actually compared. Below *_total when the
+     *  compare hit the row ceiling. */
     from_measurement_count: number;
     to_measurement_count: number;
+    /** How many measurements the document really holds. */
+    from_measurement_total: number;
+    to_measurement_total: number;
+    /** True when the compare stopped at the row ceiling, so changes past it
+     *  are absent from measurement_rows and from the tally. */
+    truncated: boolean;
+    /** The ceiling that was applied, or null when nothing was truncated. */
+    truncation_limit: number | null;
   };
 }
 

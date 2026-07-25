@@ -30199,6 +30199,7 @@ const resource = {
     "takeoff_compare.compare_short": "Харьцуулах",
     "takeoff_compare.count_from": "Өмнө: {{n}} хэмжилтүүд",
     "takeoff_compare.count_to": "Дараа: {{n}} хэмжилтүүд",
+    "takeoff_compare.truncated_notice": "Хувилбар тус бүрийн эхний {{n}} хэмжилтийг л харьцууллаа. Энэ хязгаараас цааших өөрчлөлтүүд доор тооцогдоогүй.",
     "takeoff_compare.error": "Харьцуулалтыг тооцоолж болохгүй. Дахин оролдоно уу.",
     "takeoff_compare.from_document": "Үндсэн үзүүлэлт (өмнө)",
     "takeoff_compare.hide_unchanged": "Өөрчлөгдөөгүй хэсгийг нуух",
