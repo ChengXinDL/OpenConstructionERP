@@ -449,3 +449,14 @@ frontend/scripts/_i18n_*.py
 # scripts/check_repo_hygiene.py and the wheel exclude enforce the same rule.
 **/_*.md
 **/_*.txt
+
+# --- Public website: never in the product repository (constraint #9) ---
+# marketing-site and the archived website-marketing tree are deployed on their
+# own and the live host is the source of truth. Tracking them here produced a
+# second copy that drifted from what visitors actually see.
+/marketing-site/
+/website-marketing/
+
+# Documentation build helpers: internal tooling, not for readers of the repo.
+/docs/expand_docs.py
+/docs/expand_docs2.py

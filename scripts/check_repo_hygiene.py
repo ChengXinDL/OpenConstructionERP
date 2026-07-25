@@ -73,6 +73,14 @@ DENY_PATTERNS = [
     # locally, gitignored, blocked here across git tree, CI and wheel/dir.
     r"(^|/)tools/watermark/",
     r"(^|/)scripts/integrity_check\.py$",
+    # The public website is not part of the product repository. It is built
+    # and deployed on its own, and the source of truth is the live host, not
+    # this tree, so tracking it here only produced a copy that drifted.
+    r"(^|/)marketing-site/",
+    r"(^|/)website-marketing/",
+    # Documentation build helpers: internal tooling, not something a reader of
+    # the project is meant to run.
+    r"(^|/)docs/expand_docs\d*\.py$",
 ]
 _RX = [re.compile(p) for p in DENY_PATTERNS]
 
