@@ -4494,6 +4494,7 @@ const resource = {
     "pointcloud.cap_1_body": "Get cut and fill volumes, how much soil to dig out or bring in, measured from the scan and ready for your estimate.",
     "pointcloud.cap_2_title": "Keep a dated site record",
     "pointcloud.cap_2_body": "Save an exact, dated 3D snapshot of how the site looked on the day, ready to back up claims or progress checks later.",
+    "pointcloud.cap_upcoming": "Not built yet",
     "pointcloud.view_scan": "View",
     "pointcloud.viewing": "Viewing",
     "pointcloud.delete_scan": "Delete scan",

@@ -81,12 +81,22 @@ export function formatCurrency(
   const code = (currency || '').trim().toUpperCase();
   const isValid = CURRENCY_CODE_RE.test(code);
 
+  const min = options?.minimumFractionDigits;
+  const max = options?.maximumFractionDigits;
+
   if (!isValid) {
     // No reliable currency: grouped number, no symbol. Defaults to 2 fraction
     // digits (the common money case) unless the caller overrides.
+    //
+    // The minimum is clamped to the maximum because Intl throws a RangeError
+    // when it exceeds it, and this branch has no try/catch around it. A caller
+    // asking for whole money passes maximumFractionDigits: 0 and nothing else,
+    // which would otherwise meet the default minimum of 2 and take the page
+    // down rather than degrade.
+    const maxDigits = max ?? 2;
     return new Intl.NumberFormat(loc, {
-      minimumFractionDigits: options?.minimumFractionDigits ?? 2,
-      maximumFractionDigits: options?.maximumFractionDigits ?? 2,
+      minimumFractionDigits: Math.min(min ?? 2, maxDigits),
+      maximumFractionDigits: maxDigits,
     }).format(amount);
   }
 
@@ -94,9 +104,10 @@ export function formatCurrency(
     return new Intl.NumberFormat(loc, {
       style: 'currency',
       currency: code,
-      // Omitting both lets Intl use the currency's natural minor units.
-      minimumFractionDigits: options?.minimumFractionDigits,
-      maximumFractionDigits: options?.maximumFractionDigits,
+      // Omitting both lets Intl use the currency's natural minor units, so
+      // only clamp when the caller pinned both ends and inverted them.
+      minimumFractionDigits: min !== undefined && max !== undefined ? Math.min(min, max) : min,
+      maximumFractionDigits: max,
     }).format(amount);
   } catch {
     const digits = options?.maximumFractionDigits ?? 2;

@@ -267,17 +267,31 @@ function ScanDetails({ scan }: { scan: ScanDataset }) {
 }
 
 /* The three things reality capture unlocks once a scan is registered against the
-   model - shown as guidance cards so the BETA surface explains its own value. */
-const CAPABILITY_CARDS: { icon: typeof Ruler; title: string; body: string }[] = [
+   model - shown as guidance cards so the BETA surface explains its own value.
+
+   ``upcoming`` marks a card whose backend is not built yet. On-screen
+   measurement and cut/fill both need the ingest pipeline first, so the copy
+   would otherwise promise in the present tense something a user cannot reach
+   from this page. A card that reads as shipped and is not is worse than an
+   honest label: the rule here is that a feature a site engineer cannot follow
+   in a minute is not done, and one they cannot do at all must say so. */
+const CAPABILITY_CARDS: {
+  icon: typeof Ruler;
+  title: string;
+  body: string;
+  upcoming?: boolean;
+}[] = [
   {
     icon: Ruler,
     title: 'Check quantities against reality',
     body: 'Measure what was actually built from the scan and check it against your model, so you price the quantities that are really there.',
+    upcoming: true,
   },
   {
     icon: Layers,
     title: 'Measure earthwork volumes',
     body: 'Get cut and fill volumes, how much soil to dig out or bring in, measured from the scan and ready for your estimate.',
+    upcoming: true,
   },
   {
     icon: ShieldCheck,
@@ -1031,9 +1045,16 @@ export function PointCloudPage() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface-secondary text-content-secondary">
                   <Icon size={16} />
                 </div>
-                <h3 className="text-sm font-semibold text-content-primary">
-                  {t(`pointcloud.cap_${i}_title`, { defaultValue: cap.title })}
-                </h3>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-sm font-semibold text-content-primary">
+                    {t(`pointcloud.cap_${i}_title`, { defaultValue: cap.title })}
+                  </h3>
+                  {cap.upcoming ? (
+                    <span className="rounded-full border border-border-medium px-1.5 py-0.5 text-2xs font-medium uppercase tracking-wide text-content-tertiary">
+                      {t('pointcloud.cap_upcoming', { defaultValue: 'Not built yet' })}
+                    </span>
+                  ) : null}
+                </div>
                 <p className="text-xs leading-relaxed text-content-tertiary">
                   {t(`pointcloud.cap_${i}_body`, { defaultValue: cap.body })}
                 </p>

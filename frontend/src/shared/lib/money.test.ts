@@ -86,6 +86,28 @@ describe('formatCurrency', () => {
     expect(whole).not.toContain('.56');
   });
 
+  it('accepts a maximum without a minimum and no currency', () => {
+    // A whole-money caller passes maximumFractionDigits alone. The blank
+    // currency branch used to keep its default minimum of 2, and Intl throws a
+    // RangeError when the minimum exceeds the maximum. The existing test above
+    // passed both ends, which is why the crash survived: dashboard cards that
+    // pass max only took the page down whenever the currency was blank.
+    expect(() => formatCurrency('1234.56', '', 'en-US', { maximumFractionDigits: 0 })).not.toThrow();
+    expect(formatCurrency('1234.56', '', 'en-US', { maximumFractionDigits: 0 })).toBe('1,235');
+    expect(formatCurrency('1234.56', undefined, 'en-US', { maximumFractionDigits: 1 })).toBe(
+      '1,234.6',
+    );
+  });
+
+  it('survives an inverted min / max pair on a real currency', () => {
+    expect(() =>
+      formatCurrency('1234.56', 'USD', 'en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 0,
+      }),
+    ).not.toThrow();
+  });
+
   it('coerces null / undefined / NaN to a formatted zero, never crashes', () => {
     expect(() => formatCurrency(null, 'USD', 'en-US')).not.toThrow();
     expect(formatCurrency(null, 'USD', 'en-US')).toContain('0');
