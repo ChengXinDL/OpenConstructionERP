@@ -184,7 +184,11 @@ interface ProjectStub {
 }
 
 function listProjectsLite(): Promise<ProjectStub[]> {
-  return apiGet<ProjectStub[]>('/v1/projects/?limit=200').catch(() => [] as ProjectStub[]);
+  // Left to fail on purpose. Swallowing it into an empty array made a project
+  // list that did not load look exactly like an account with no projects, and
+  // the page then told the user to go and create one they may well already
+  // have.
+  return apiGet<ProjectStub[]>('/v1/projects/?limit=200');
 }
 
 function listInvitationsForPackage(packageId: string): Promise<BidInvitation[]> {
@@ -565,6 +569,28 @@ export function BidManagementPage() {
     () => buildBidManagementInsights(packagesQ.data ?? [], currentProject?.currency || '', t),
     [packagesQ.data, currentProject, t],
   );
+
+  // A project list that failed to load is not an account without projects. Only
+  // say there is nothing here once the list has actually come back.
+  if (!projectId && (projectsQ.isError || projectsQ.isPending)) {
+    return (
+      <div className="space-y-5 animate-fade-in">
+        <Breadcrumb
+          items={[{ label: t('nav.bid_management', { defaultValue: 'Bid Management' }) }]}
+        />
+        {projectsQ.isError ? (
+          <RecoveryCard
+            error={projectsQ.error}
+            onRetry={() => {
+              void projectsQ.refetch();
+            }}
+          />
+        ) : (
+          <SkeletonTable rows={4} />
+        )}
+      </div>
+    );
+  }
 
   if (!projectId) {
     return (

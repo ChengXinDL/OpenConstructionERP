@@ -170,8 +170,16 @@ interface ProjectStub {
   currency?: string;
 }
 
+/**
+ * The failure is deliberately left to propagate.
+ *
+ * Swallowing it into an empty array made a project list that failed to load
+ * indistinguishable from an account with no projects, and the page then told
+ * the user to go and create one. That is worse than an error: it is confident,
+ * wrong, and it sends them off to fix a problem they do not have.
+ */
 function listProjectsLite(): Promise<ProjectStub[]> {
-  return apiGet<ProjectStub[]>('/v1/projects/?limit=200').catch(() => [] as ProjectStub[]);
+  return apiGet<ProjectStub[]>('/v1/projects/?limit=200');
 }
 
 /**
@@ -569,6 +577,27 @@ export function VariationsPage() {
     () => buildVariationsInsights(requestsQ.data ?? [], currency, t),
     [requestsQ.data, currency, t],
   );
+
+  // A project list that failed to load is not an account without projects, and
+  // the two must not lead to the same screen. Only say there is nothing here
+  // once the list has actually come back.
+  if (!projectId && (projectsQ.isError || projectsQ.isPending)) {
+    return (
+      <div className="space-y-5 animate-fade-in">
+        <Breadcrumb items={[{ label: t('nav.variations', { defaultValue: 'Variations' }) }]} />
+        {projectsQ.isError ? (
+          <RecoveryCard
+            error={projectsQ.error}
+            onRetry={() => {
+              void projectsQ.refetch();
+            }}
+          />
+        ) : (
+          <SkeletonTable rows={4} />
+        )}
+      </div>
+    );
+  }
 
   if (!projectId) {
     return (
