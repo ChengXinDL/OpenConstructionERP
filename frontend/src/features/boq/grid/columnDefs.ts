@@ -696,8 +696,8 @@ export function getColumnDefs(context: BOQColumnContext): ColDef[] {
         // never lock a cell whose edit the server would accept). Variant
         // rate edits happen on the synthetic VARIANT row inside the resource
         // panel and patch ``metadata.variant.price`` only (see
-        // onUpdateVariantHeader in BOQGrid). User design: "если есть ресурсы,
-        // не нужно трогать".
+        // onUpdateVariantHeader in BOQGrid). By design: when a position has
+        // resources, this cell is left alone.
         if (hasContributingResources(params.data?.metadata?.resources)) return false;
         return true;
       },

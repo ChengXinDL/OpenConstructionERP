@@ -8,7 +8,7 @@ canonical-format BIM elements (see ``data/bim_canonical/*.json``) for the
 predicates declared in each spec's ``<applicability>`` and ``<requirements>``.
 
 Design notes:
-    * NO IfcOpenShell - ban from the architecture guide §"Важные ограничения".  We treat
+    * NO IfcOpenShell - ban from the architecture guide, "hard constraints".  We treat
       IDS as plain XML and walk the DOM via :mod:`defusedxml` (XXE-safe).
     * Each spec becomes one rule.  ``rule_id`` is derived from the spec's
       ``identifier`` attribute when present, otherwise from the spec name +

@@ -176,7 +176,7 @@ Spec Module 1 is 75 % done. Wave 1 closes the gaps to ISO 19650-2 conformance.
 - **Tests first**: two-session concurrency — first lock wins, second gets HTTP 409. Lock auto-expires at TTL.
 - **Acceptance**: editing an XLSX in the UI claims a lock; another user sees a lock indicator.
 
-**Wave 1 deliverable:** CDE passes the spec's acceptance criterion: «загружается файл → автоматически создаётся версия с правильным state → можно перевести в SHARED и PUBLISHED → audit log пишет всё → preview работает для PDF и IFC».
+**Wave 1 deliverable:** CDE passes the spec's acceptance criterion: a file is uploaded, a version is created automatically in the correct state, it can be moved to SHARED and then PUBLISHED, the audit log records every step, and preview works for both PDF and IFC.
 
 ## 6. Wave 2 — BIM Diff Engine (5 weeks)
 
@@ -229,7 +229,7 @@ Largest gap (25 % → 100 %). Pure greenfield engine on top of canonical format.
 
 - Subscribes to `ModelDiffCompleted` event, marks affected `boq_item` rows as `requires_review` (Wave 4 consumes; we wire the event now to avoid future migration churn).
 
-**Wave 2 deliverable:** spec acceptance: «загружаются две версии IFC → diff за 5 минут → отчёт типизированный → BCF открывается в third-party». For us s/IFC/canonical/g.
+**Wave 2 deliverable:** spec acceptance: two IFC versions are uploaded, the diff completes within five minutes, the report is typed, and the BCF opens in a third-party tool. For us s/IFC/canonical/g.
 
 ## 7. Wave 3 — Validation EAC + Classification (5 weeks) — **superseded by RFC 35 (Wave EAC-1, EAC-2, EAC-3, EAC-5, EAC-7)**
 
@@ -353,7 +353,7 @@ Largest gap (25 % → 100 %). Pure greenfield engine on top of canonical format.
 - **Files**: extend existing `features/erp-chat/full-page/ChatFullPage.tsx`. Add citation pills (click → opens source document at the cited page).
 - **Visual**: `copilot-citation-click.png`.
 
-**Wave 5 deliverable:** spec acceptance: «загружается EIR PDF → задаётся вопрос на любом supported языке → ответ с цитированием 3+ источников → клик на цитату ведёт на нужную страницу».
+**Wave 5 deliverable:** spec acceptance: an EIR PDF is uploaded, a question is asked in any supported language, the answer cites three or more sources, and clicking a citation opens the page it came from.
 
 ## 9b. Wave 6 — 4D module (5 weeks; new — added by EAC v2 spec §6, deep plan in RFC 35 §10)
 
@@ -452,7 +452,7 @@ After Wave 5 ships:
 2. **Confirm new dependencies** — Celery (yes per L2), `bge-m3` (yes per L4), `simpleeval`, `python-magic`, `pyclamd` (gated). Any objections?
 3. **Approve creating per-wave RFCs** — RFC 35 has now landed (EAC v2 platform — supersedes the planned RFC 38 + RFC 39 + adds Wave 6). Remaining: RFC 36 (Wave 0 foundation), RFC 37 (Wave 1 CDE close-out), RFC 38 (Wave 2 BIM Diff), RFC 40 (Wave 5 AI Copilot). Each lands at the start of its wave.
 4. **Approve the verification-gate severity** — failing any of the 10 gates blocks merge. RFC 35 adds G11–G13 (schema parity, IDS round-trip parity, RLS-on-every-route).
-5. **Decide demo path** — minimum-viable demo per spec §"Минимально жизнеспособная цепочка": Wave 0 + W2.1 + W2.2 = 9 weeks; full Wave 0 + Wave 2 = 11 weeks; **EAC-led demo path** (Wave 0 + EAC-1 + EAC-3 + EAC-4) = 11 weeks and shows the unified rule editor + Excel import end-to-end.
+5. **Decide demo path** — minimum-viable demo per the spec's "minimum viable chain" section: Wave 0 + W2.1 + W2.2 = 9 weeks; full Wave 0 + Wave 2 = 11 weeks; **EAC-led demo path** (Wave 0 + EAC-1 + EAC-3 + EAC-4) = 11 weeks and shows the unified rule editor + Excel import end-to-end.
 6. **Confirm EAC-1 replaces Wave 3 entirely** — formally retire RFC 34 W3.1–W3.6 in favor of RFC 35 EAC-1.1..EAC-1.7 (already documented in §7 above).
 7. **Confirm Wave 6 (4D, +5 weeks)** — adds 4 weeks net to the parallel timeline (16 → 18 weeks). OK?
 8. **Confirm `eac_issues` separate from `PunchItem`** — bridged via `linked_punch_item_id`, or merge into `PunchItem`?

@@ -522,9 +522,9 @@ export function BIMConverterStatusBanner({
   // panel collapses to a single icon-only pill so the BIM page doesn't
   // waste real estate on a "0 problems found" banner. Click to expand the
   // full collapsed strip — and from there, "Show details" goes back to
-  // the full panel. Per Artem's request (2026-05-07): "если все конверторы
-  // на самом последней версии то это окно показывать не нужно и можно
-  // сделать только маленький значок где то на странице".
+  // the full panel. Per the founder (2026-05-07): when every converter is
+  // already on the latest version this panel has nothing to say, so it should
+  // shrink to a small badge somewhere on the page.
   if (collapsed && allHealthy && !anyFailed) {
     return (
       <button
@@ -925,9 +925,9 @@ function ConverterRow({
     case 'ok':
       // Green is reserved for "working AND on the latest upstream SHA". When
       // the version-check flags this row as outdated, downgrade to amber so
-      // green only ever means "fully up to date". Per Artem (2026-05-07):
-      // "нужно зелёным показыть только те конверторы которые обновлены до
-      //  последней версии".
+      // green only ever means "fully up to date". Per the founder
+      // (2026-05-07): show green only for converters that are updated to the
+      // latest version.
       if (updateAvailable) {
         icon = (
           <AlertTriangle
@@ -1017,8 +1017,8 @@ function ConverterRow({
   }
 
   // Background tint per state — subtle, gives each row a "card" feel
-  // without competing with the surrounding panel chrome. Per Artem
-  // (2026-05-07): "сделать более визуально красивой и понятной".
+  // without competing with the surrounding panel chrome. Per the founder
+  // (2026-05-07): make it visually cleaner and easier to read.
   const rowBg =
     health === 'failed'
       ? 'bg-rose-50/60 dark:bg-rose-950/30 border-rose-200/70 dark:border-rose-900/60'

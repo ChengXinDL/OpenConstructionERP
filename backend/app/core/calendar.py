@@ -375,11 +375,11 @@ def _holidays_ru(year: int) -> set[date]:
         date(year, 1, 6),
         date(year, 1, 7),  # Orthodox Christmas
         date(year, 1, 8),
-        date(year, 2, 23),  # День защитника Отечества
-        date(year, 3, 8),  # Международный женский день
-        date(year, 5, 1),  # Праздник Весны и Труда
-        date(year, 5, 9),  # День Победы
-        date(year, 6, 12),  # День России
+        date(year, 2, 23),  # Defender of the Fatherland Day
+        date(year, 3, 8),  # International Women's Day
+        date(year, 5, 1),  # Spring and Labour Day
+        date(year, 5, 9),  # Victory Day
+        date(year, 6, 12),  # Russia Day
         date(year, 11, 4),  # День народного единства
     }
 

@@ -265,7 +265,8 @@ function readProp(
  *             (the enumerated sub-type, e.g. `IfcWall.PredefinedType = SOLIDWALL`).
  *             Without these the IFC "Type Name" view collapsed every element
  *             into a single "Unspecified" row, which made the IFC filter look
- *             broken (founder: "в IFC вообще плохо продуман и работает фильтр").
+ *             broken (founder: the IFC filter is poorly thought through and
+ *             barely works).
  *
  * Falls back to the element name only when it carries real information (not a
  * generic "Walls 3" placeholder), then to "Unspecified".
@@ -585,8 +586,8 @@ export default function BIMFilterPanel({
   // really has 11 walls on L01), and the typename grouping still lists
   // every category with its original total - making the user think the
   // filter "broke" because the panel counts contradict the 3D viewport
-  // and the "Showing 64 Walls" summary. Reported repeatedly by Artem
-  // ("группировка на виде опять не работает").
+  // and the "Showing 64 Walls" summary. Reported repeatedly: grouping in
+  // the view stops working again.
   const counts = useMemo(() => {
     const byStorey = new Map<string, number>();
     const byType = new Map<string, number>();
@@ -657,8 +658,8 @@ export default function BIMFilterPanel({
       // so the user can navigate to it - even after they pick a storey
       // or type chip. Gating these on storey (the prior ba1887cb attempt
       // at facet UI) caused the entire tree to shrink to e.g. L02-only
-      // categories when the user picked storey L02, which the user
-      // reported as "грузировка опять не работает" (2026-05-25).
+      // categories when the user picked storey L02, reported as grouping
+      // being broken again (2026-05-25).
       //
       // Storey chip counts above DO respect facet semantics
       // (matchesTypeFilter) because that is the chip the user is

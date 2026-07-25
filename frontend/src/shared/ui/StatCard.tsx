@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
 //
 // StatCard - the canonical KPI tile for module pages (founder 2026-06-06:
-// "фон сделать немного полупрозрачным 90% и попробовать стиль этих карточек
-// на всех страницах сделать немного современней и красивей и понятней").
+// make the background slightly translucent at 90%, and carry this card style
+// across every page so it reads as more modern, cleaner and clearer).
 //
 // Design contract:
 //   * Surface is bg-surface-elevated/90 - 90% alpha, NO backdrop-blur. The

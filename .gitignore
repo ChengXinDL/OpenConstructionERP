@@ -460,3 +460,7 @@ frontend/scripts/_i18n_*.py
 # Documentation build helpers: internal tooling, not for readers of the repo.
 /docs/expand_docs.py
 /docs/expand_docs2.py
+
+# Session working directory: translation intermediates, audit dumps and one-off
+# scripts. Local only, and it holds source-language drafts we do not publish.
+/scratchpad/

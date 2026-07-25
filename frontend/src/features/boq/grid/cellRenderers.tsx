@@ -931,7 +931,7 @@ export function DescriptionCellRenderer(params: ICellRendererParams) {
     // ``nativeEvent.stopImmediatePropagation()`` in onClick + onMouseDown
     // — that proved unreliable when the description column was editable
     // and AG Grid attached its listener earlier in the event chain.
-    // Reported by user: "всё равно не работает - может перекрывается".
+    // Reported: still not working, possibly overlapped by something.
     const stopAndToggle = (e: Event) => {
       e.stopPropagation();
       e.stopImmediatePropagation();
@@ -1033,8 +1033,8 @@ export function DescriptionCellRenderer(params: ICellRendererParams) {
       // the V badge is clicked. Capture-phase listener handles activation.
       tabIndex={-1}
       // Stack above any AG Grid focus / selection overlay that may sit
-      // on top of the cell content (cause of the "ничего не происходит"
-      // case where the click landed on an invisible overlay).
+      // on top of the cell content (cause of the "nothing happens" case
+      // where the click landed on an invisible overlay).
       style={{ position: 'relative', zIndex: 10 }}
       className="shrink-0 inline-flex h-[18px] w-[18px] items-center justify-center
                  rounded-md cursor-pointer
@@ -4619,8 +4619,8 @@ function VariantHeaderResourceRow({
     [ctx, positionId, unitLabel],
   );
 
-  // When qty is unset / 0 we hide qty / rate / total entirely — the user's
-  // spec: "если количества нет - то ничего и не показывай". The picker
+  // When qty is unset / 0 we hide qty / rate / total entirely, per spec:
+  // when there is no quantity, show nothing at all. The picker
   // and the editable name still render so the user can pick a variant or
   // promote the row before entering a quantity.
   const showNumbers = qty > 0;

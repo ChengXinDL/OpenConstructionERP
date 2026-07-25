@@ -5,8 +5,8 @@
 //
 // Founder revision 2026-07-23: when a `DismissibleInfo` card is collapsed the
 // way back should be a clear button sitting right next to the module's
-// "How it works" button, not a stray icon somewhere else - "свернуть в кнопку
-// рядом с how to ... и если нужно её понятно развернуть". This pill is that
+// "How it works" button, not a stray icon somewhere else: collapse it into a
+// button next to "How it works", and expand it clearly. This pill is that
 // button. It is hosted by `ModuleGuideButton` so it always lands next to
 // "How it works", and it self-hides whenever nothing on the page is collapsed
 // (so a page with its info card open shows no extra chrome).

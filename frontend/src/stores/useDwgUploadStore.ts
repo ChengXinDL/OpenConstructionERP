@@ -113,9 +113,9 @@ export const useDwgUploadStore = create<DwgUploadState>((set, get) => {
    *  conversion off to a fire-and-forget asyncio task — without this
    *  poll the store would mark the job `ready` while the DDC pipeline
    *  was still running for several minutes, which is exactly the
-   *  "false loaded" bug the user reported ("показывает что проект
-   *  загружен — но ничего не показывается и только потом через 5 минут
-   *  происходит загрузка"). Max 20 min — beyond that the zombie
+   *  "false loaded" bug that was reported: the project shows as loaded,
+   *  nothing is rendered, and the real load only happens minutes
+   *  later. Max 20 min — beyond that the zombie
    *  janitor below sweeps the job.
    *
    *  Polling cadence uses gentle exponential back-off: 3.5 s for the

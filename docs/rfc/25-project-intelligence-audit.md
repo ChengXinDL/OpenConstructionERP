@@ -42,7 +42,7 @@ New route `/estimation-intelligence` with a clean slate; leave the existing page
 
 ### Option C — Do nothing — accept the page as a readiness checklist, move cost analytics to the Dashboard
 
-Ignores the user's explicit "нужна максимально профессиональная и понятная страница."
+Ignores the explicit requirement that the page be as professional and as easy to read as we can make it.
 
 ## 3. Decision
 

@@ -624,7 +624,7 @@ export const useBIMUploadStore = create<BIMUploadState>((set, get) => {
 // the backend, so a network-dropped upload or an early-returning browser
 // leaves a job forever stuck in ``uploading`` / ``converting`` state
 // — visible in ``GlobalUploadIndicator`` as a spinner that never clears.
-// (Reported by Artem as "конвертация проходит постоянно".)
+// (Reported as conversion appearing to run permanently.)
 //
 // Once at module load and then every 2 minutes, flip anything older than
 // 45 minutes to ``error`` with an explanation so the indicator drops.

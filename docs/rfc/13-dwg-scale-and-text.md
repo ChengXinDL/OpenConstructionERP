@@ -10,7 +10,7 @@ Two user reports at `/dwg-takeoff` that the agent initially bundled under one it
 
 ### Sub-issue A — drawing scale is wrong
 
-User: "Неправильно выбирается масштаб — нужна возможность задать масштаб чертежа вручную."
+Reported: the drawing scale is detected incorrectly, and there is no way to set it by hand.
 
 Concrete failure: a DXF with `$INSUNITS = 4` (millimetres) containing a 5 000 mm line renders a measurement label of `5000.00 m` instead of `5.00 m`. The bug is a **unit-scaling bug masquerading as a scale bug**:
 
@@ -21,7 +21,7 @@ Beyond the unit bug, a DWG is often drawn at a nominal scale (e.g. 1 : 50) — a
 
 ### Sub-issue B — annotation text not visible
 
-User: "Не работает функция добавления текста — ничего не видно в annotation."
+Reported: adding text does not work, nothing appears in the annotation layer.
 
 The text-pin pipeline **looks correct on a code read:**
 

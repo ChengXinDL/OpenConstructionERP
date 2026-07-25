@@ -3214,9 +3214,9 @@ class PropertyDevService:
             # straight into the "send for signature" step. Without this
             # the user was stuck on a draft SPA that the FSM rejected with
             # "SalesContract has no primary party - cannot send" and had
-            # no UI affordance to add a party (root cause of "Sales
-            # Contracts не работает": the only convert-from-reservation
-            # path produced a dead-end SPA).
+            # no UI affordance to add a party (root cause of the
+            # "Sales Contracts does not work" report: the only
+            # convert-from-reservation path produced a dead-end SPA).
             try:
                 await self.contract_parties.create(
                     ContractParty(
@@ -3605,8 +3605,8 @@ class PropertyDevService:
             # ``active`` 1-line schedule (so finance has *something* to
             # post against immediately). Allow a from-template rebuild
             # over that default IFF nothing has been paid yet - otherwise
-            # the user is stuck (UX dead-end the user reported as
-            # "Payment Schedules не работает"). The strict 409 still
+            # the user is stuck (UX dead-end reported as
+            # "Payment Schedules does not work"). The strict 409 still
             # applies to schedules with any paid/waived/cancelled rows.
             existing_md = dict(existing.metadata_ or {})
             ins_rows = await self.instalments.list_for_schedule(existing.id)

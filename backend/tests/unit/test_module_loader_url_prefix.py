@@ -8,8 +8,8 @@
 # and ``/api/v1/hse-advanced``. The loader, however, derived the URL
 # prefix straight from the Python package directory name (which uses
 # underscores), so the frontend got a 404 on every request and the
-# user reported pages like /bi-dashboards and /hse-advanced as "не
-# работает полностью" (completely broken).
+# pages like /bi-dashboards and /hse-advanced were reported as
+# completely broken.
 #
 # The fix mounts the router on the kebab-cased path AND mirrors it under
 # the legacy underscore form. This test pins exactly that: for each real

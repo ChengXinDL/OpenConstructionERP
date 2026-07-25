@@ -2841,7 +2841,7 @@ class MatchElementsService:
         # source-side fanout, candidate_count is what came back from the
         # ranker stack across all groups, hits_groups tracks how many of
         # those groups got *any* candidate (a 15-group run that returns
-        # 0 for every group is the user's "матчинг никакой не происходит"
+        # 0 for every group is the "no matching happens at all"
         # symptom). total_ms is wall-clock - slow runs jump out
         # immediately when grepping logs.
         total_ms = int((_time.perf_counter() - run_started) * 1000)

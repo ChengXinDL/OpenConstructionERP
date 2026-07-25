@@ -1644,7 +1644,7 @@ export function CDEPage() {
       // flipped when ``stateFilter`` was non-empty — but a stale
       // in-flight fetch plus the backend's 15-18 s create latency could
       // leave the list showing the pre-create snapshot for a beat, and
-      // the user reads that as "ничего не создаётся". Reset to empty
+      // the user reads that as nothing being created. Reset to empty
       // ("All") so the new row is visible regardless of which tab the
       // user was on.
       setStateFilter('');

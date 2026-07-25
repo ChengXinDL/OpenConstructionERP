@@ -358,7 +358,7 @@ export function PropertyDevPage() {
     // Handovers + Warranty tabs both need the plot list (HandoversTab filters
     // candidate plots; WarrantyTab joins claims to plot context). Without
     // 'handovers' / 'warranty' here those tabs rendered as if there were no
-    // plots at all - root cause of "Handovers вообще не работает".
+    // plots at all, the root cause of the "Handovers does not work" report.
     // The Buyers tab also needs plots now (new ``Plot`` column resolves
     // ``buyer.plot_id`` against this list).
     enabled:
@@ -6364,8 +6364,8 @@ function CreateModal({
   // The active project comes from the global app-shell context (top of
   // the page) - the user already picked one there. Reading it lets us
   // drop the duplicate project picker from the development create form
-  // entirely, which was the friction the user explicitly called out
-  // ("зачем выбирать проект - если он уже выбран в верхнем меню").
+  // entirely, which was the friction called out explicitly: why pick a
+  // project again when one is already selected in the top menu.
   const activeProjectId = useProjectContextStore((s) => s.activeProjectId);
   const activeProjectName = useProjectContextStore((s) => s.activeProjectName);
 

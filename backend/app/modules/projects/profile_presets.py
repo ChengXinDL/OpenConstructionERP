@@ -48,7 +48,7 @@ ALWAYS_ON: tuple[str, ...] = (
     "reporting",
 )
 
-# ── Cross-cutting (doc §3.3) - shown in the "Сквозные ∞" section, no
+# ── Cross-cutting (doc §3.3) - shown in the "cross-cutting ∞" section, no
 # numbered position. Included when the profile/preset selects them.
 CROSS_CUTTING: frozenset[str] = frozenset({"finance", "risk", "safety", "carbon"})
 

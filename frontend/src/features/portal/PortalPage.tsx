@@ -1373,8 +1373,8 @@ function GrantAccessModal({
     form.portal_user_id && form.resource_type && form.resource_id.length > 8;
 
   // Load projects so we can show a friendly project picker when the
-  // resource type is "project". This addresses the user's complaint
-  // ("нужно давать понять к какому проекту даётся доступ"): instead of
+  // resource type is "project". This addresses the complaint that it must
+  // be obvious which project access is being granted to: instead of
   // pasting a UUID, the inviter picks the project by name and we still
   // submit the UUID to the backend.
   const projectsQ = useQuery({

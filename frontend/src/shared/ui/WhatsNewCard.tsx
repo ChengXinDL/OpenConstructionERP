@@ -3,9 +3,9 @@
 /**
  * WhatsNewCard — friendly "what's new in vX.Y.Z" release-notes card.
  *
- * Compact single-row variant (audit 2026-05-23 — user feedback "сделай
- * компактней не два ряда а в один и что если пользователь один раз его
- * закроет показывай только кнопкой"):
+ * Compact single-row variant (audit 2026-05-23, requested: make it one row
+ * instead of two, and once the user has closed it, offer it only behind a
+ * button):
  *
  *   - One horizontal row: sparkle badge → version headline → short tagline
  *     → 6 chip pills (one per category, icon + label) → tour CTA + close.

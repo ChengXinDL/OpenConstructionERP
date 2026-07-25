@@ -2084,9 +2084,8 @@ function ConverterStatusPanel() {
       {/* Live health banner — same component used on /bim. Surfaces smoke
        *  tests (verify=true), one-click install / update / re-check actions
        *  with live progress, and a top-level "{{ok}}/{{total}} working"
-       *  pill. This is what the user wanted parity with: "проверки версий
-       *  и показа какие версии используются в платформе - похожи на ту что
-       *  есть в БИМ разделе". */}
+       *  pill. Requested for parity with the BIM section: version checks and
+       *  a view of which versions the platform is actually running. */}
       <BIMConverterStatusBanner />
 
       <Card>

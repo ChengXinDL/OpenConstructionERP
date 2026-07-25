@@ -1904,8 +1904,8 @@ sweep with 22 screenshots committed under `docs/qa/`.
   optional `onChange` callback fired from `tick()` on any frame the
   camera moved or pointer-lock was active; wired
   `BIMViewer.tsx` → `scene.requestRender()`.
-- **BIM Section Box buttons ("По выделению / По всей модели /
-  Сбросить") did nothing** - `applyToScene()` set
+- **BIM Section Box buttons ("To selection / To whole model /
+  Reset") did nothing** - `applyToScene()` set
   `material.clippingPlanes` + `localClippingEnabled=true` but no
   dirty signal reached the on-demand renderer. Same `onChange`
   pattern as walk-mode now fires from `enable()`, `disable()`, and
@@ -3672,9 +3672,9 @@ Source: https://github.com/datadrivenconstruction/OpenConstructionERP
 
 ### Added
 
-- **One-click DWG converter install on `/dwg-takeoff`.** The "Install converter" pill in the page header now opens a popover with an actual install button - clicking it POSTs to `/v1/takeoff/converters/dwg/install/` (the same endpoint the `/bim` page uses for RVT/IFC), and the offline-readiness query refetches so the badge flips to green "Offline Ready" the moment the binary is detected. On Linux the popover surfaces the apt one-liner from the backend instead of attempting an auto-shell-out. Closes the gap reported as "нужно одним нажатием установить актуальный последний конвертер".
+- **One-click DWG converter install on `/dwg-takeoff`.** The "Install converter" pill in the page header now opens a popover with an actual install button - clicking it POSTs to `/v1/takeoff/converters/dwg/install/` (the same endpoint the `/bim` page uses for RVT/IFC), and the offline-readiness query refetches so the badge flips to green "Offline Ready" the moment the binary is detected. On Linux the popover surfaces the apt one-liner from the backend instead of attempting an auto-shell-out. Closes the reported gap that installing the current converter build took more than a single click.
 - **"New version available - recommend updating" amber banner on the BIM converter panel** (dismissible per session). Previously the only signal that a newer SHA existed upstream was the small `→ def5678` tail - easy to miss. The expanded panel now renders an amber banner whenever `version-check.any_outdated` is true, with an X to hide it for the current session (sessionStorage; reappears on next visit). Banner is i18n-keyed.
-- **Mini-icon mode on the BIM converter panel when everything is fully up to date.** The panel now collapses to a single emerald `N/M` pill ("4/4" when all four converters are working AND on the latest SHA). Click expands to the full strip + details. Per Artem's spec: "если все конверторы на самом последней версии то это окно показывать не нужно и можно сделать только маленький значок".
+- **Mini-icon mode on the BIM converter panel when everything is fully up to date.** The panel now collapses to a single emerald `N/M` pill ("4/4" when all four converters are working AND on the latest SHA). Click expands to the full strip + details. By design: when every converter is already on the latest version the panel has nothing to report, so it steps out of the way and leaves only the small badge.
 - **Per-converter "card" rendering on the BIM converter panel.** Each row now has a tinted background + rounded border that mirrors the row's state (emerald = working & up to date, amber = working but outdated or missing binary, rose = broken). Replaces the dense single-line strip - one glance now tells you which row needs attention.
 
 ### Changed

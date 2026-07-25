@@ -1155,7 +1155,7 @@ async def test_cross_language_search_caps_output_at_limit(
     assert len(out) == 3
 
 
-# ── cross_lang_lookup — §6.2 "точный подход" ──────────────────────────────
+# ── cross_lang_lookup — §6.2 "exact approach" ─────────────────────────────
 
 
 def test_enumerate_target_codes_emits_bare_lang_unit_and_combos() -> None:

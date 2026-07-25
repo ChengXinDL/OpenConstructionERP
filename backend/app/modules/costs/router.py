@@ -2836,7 +2836,7 @@ async def list_loaded_databases(
 
 # ── User cost catalogs ─────────────────────────────────────────────────────
 #
-# A catalog is the user's own named "справочник работ и расценок": a
+# A catalog is the user's own named work-and-rate reference book: a
 # first-class container with a REQUIRED currency that imported / manually
 # created items belong to. Routes are registered BEFORE the ``/{item_id}``
 # wildcard below so ``/catalogs/...`` never gets swallowed by it.

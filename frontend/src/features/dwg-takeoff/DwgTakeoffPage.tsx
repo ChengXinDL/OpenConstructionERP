@@ -668,7 +668,7 @@ export function DwgTakeoffPage() {
   // ``clearProject`` wiped a stale id from localStorage), use the first
   // project from the server list. Without this, ``fetchDrawings('')``
   // short-circuits to ``[]`` and the DWG panel looks empty on every
-  // reload - reported as "при перезагрузке потеряются все документы".
+  // reload, reported as losing every document on reload.
   // The drawings themselves are always persisted server-side; only the
   // client-side project context was lost.
   const { data: projects = [], isLoading: projectsLoading } = useQuery({
@@ -6287,9 +6287,9 @@ function UploadProgressInline() {
  *
  * These render in place of the DxfViewer when the selected drawing has
  * not yet reached `status="ready"`. Before P1 the page silently rendered
- * an empty viewer for the entire 3-8 minute DDC conversion window - the
- * user reported it as "показывает что проект загружен - но ничего не
- * показывается и только потом через 5 минут происходит загрузка".
+ * an empty viewer for the entire 3-8 minute DDC conversion window, reported
+ * as the project showing up as loaded while nothing is rendered, with the
+ * actual load only arriving minutes later.
  *
  * ConversionProgressCard intentionally does NOT show a determinate
  * percentage. The DDC pipeline does not expose granular progress, and a

@@ -1132,8 +1132,8 @@ export function CostDatabaseSearchModal({
           // the expanded resource panel.
           // Append the variant as an additional resource line so the
           // position's total = sum of all resource totals (the contract
-          // the user expects: "если есть ресурсы — стоимость собирается
-          // из общей стоимости ресурсов"). Without this, position.unit_rate
+          // the user expects: when a position has resources, its cost is
+          // assembled from the resource total). Without this, position.unit_rate
           // would lose the variant's contribution and the resource panel
           // total would diverge from the cell display.
           //

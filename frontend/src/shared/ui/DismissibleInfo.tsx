@@ -170,8 +170,8 @@ export function DismissibleInfo({
   // toggle), and a dedicated header BUTTON carries aria-expanded for AT.
   // No default margin (audit fix S2): pages provide rhythm via the root
   // space-y-5; a built-in mb-5 doubled the gap below every info card.
-  // Tint at 80% of the first visible pass (founder 2026-06-06: "светло
-  // синий, добавь немного прозрачности, фон на 80%"): /10 -> /[0.08].
+  // Tint at 80% of the first visible pass (founder 2026-06-06: light blue,
+  // a little more transparency, background at 80%): /10 -> /[0.08].
   // NO backdrop-blur here (founder 2026-06-06: cards "look opaque"): the
   // app backdrop's texture is a 0.9px dot grid, and even blur-sm wipes it
   // out completely - the tint then reads as a solid plate. With the blur

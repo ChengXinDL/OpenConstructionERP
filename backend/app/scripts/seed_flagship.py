@@ -63,8 +63,7 @@ def _dec(x: Any) -> Decimal:
     return d
 
 
-# Founder principle: "Все позиции мы делаем с ресурсами" - every BOQ position
-# must carry a resource buildup. The flagship positions ship raw CWICR
+# Founding principle: every BOQ position we ship carries a resource buildup. The flagship positions ship raw CWICR
 # components in flagship.json, but those sum to whatever the source catalogue
 # row cost, not to the position's converted unit_rate. The BOQ resource
 # contract (boq/service.py) treats every leaf's ``unit_rate`` as a PER-UNIT

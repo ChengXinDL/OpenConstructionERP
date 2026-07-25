@@ -6,7 +6,7 @@
  * whitespace, soft gradients, subtle depth, micro-interactions, a single
  * unmistakable primary CTA. The wizard replaces the previous "everything
  * scattered, settings hidden until after a session is created" layout
- * that Artem reported as "ничего не работает".
+ * that was reported as simply not working.
  *
  * Flow:
  *   1. Stage      — what phase of work am I matching?
