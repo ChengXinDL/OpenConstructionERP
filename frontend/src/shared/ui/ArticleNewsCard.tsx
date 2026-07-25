@@ -87,7 +87,10 @@ export function ArticleNewsCard() {
           <Newspaper size={13} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block break-words pr-4 text-[13px] font-bold leading-tight text-content-primary">
+          {/* Sized to the nav labels (13px medium / 12px compact) rather than
+              above them, so the card reads as part of the menu instead of
+              shouting over it. */}
+          <span className="block break-words pr-4 text-[12px] font-semibold leading-snug text-content-primary">
             {title}
           </span>
           {/* Detail row: collapsed to zero height by default, expands on hover
