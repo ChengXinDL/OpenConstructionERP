@@ -6215,6 +6215,67 @@ class TakeoffLowConfidenceReviewRule(ValidationRule):
         return results
 
 
+#: Metadata key carrying the number of takeoff rows still awaiting review.
+#: Exported so the caller that gathers the count and the rule that reads it
+#: cannot drift apart on a spelling; a typo here would silence the rule
+#: permanently and look exactly like a clean review queue.
+UNREVIEWED_PROPOSALS_META_KEY = "unreviewed_takeoff_proposals"
+
+
+class TakeoffUnreviewedProposalsRule(ValidationRule):
+    """Report quantities the detector proposed and nobody has decided on.
+
+    A `proposed` row is a suggestion, not a measurement, so it is deliberately
+    excluded from totals, exports and the priced estimate. The correctness of
+    that exclusion is not in question here; what is missing without this rule
+    is any account of it. A user who ran plan reading, never worked the review
+    queue and then priced the project gets a number that is quietly short of
+    what the drawing shows, with nothing on screen to explain the difference.
+
+    Severity is WARNING on purpose. The estimator refuses to apply a run whose
+    report carries errors, and blocking the estimate would be the wrong answer:
+    pricing the confirmed subset is a legitimate thing to want, and the person
+    who left the queue unworked may have meant to. The report says what is not
+    included; the decision stays with them.
+
+    The count arrives in metadata rather than being queried here, because rules
+    receive data, not a database session. Absent the key the rule returns
+    nothing at all, which keeps it honest on the paths that do not supply it.
+    """
+
+    rule_id = "ai_takeoff.unreviewed_proposals"
+    name = "AI Takeoff Unreviewed Proposals"
+    standard = "ai_takeoff"
+    severity = Severity.WARNING
+    category = RuleCategory.COMPLETENESS
+    description = "Detector proposals awaiting review are excluded from priced quantities"
+
+    async def validate(self, context: ValidationContext) -> list[RuleResult]:
+        locale = _get_locale(context)
+        pending = _to_number(context.metadata.get(UNREVIEWED_PROPOSALS_META_KEY))
+        # No count supplied is not the same as a count of zero: stay silent
+        # rather than certify a project this caller never asked about.
+        if pending is None or pending is _NOT_A_NUMBER:
+            return []
+        count = int(pending)  # type: ignore[arg-type]
+        passed = count <= 0
+        message = (
+            _ok(locale) if passed else translate("ai_takeoff.unreviewed_proposals.fail", locale=locale, count=count)
+        )
+        suggestion = None if passed else translate("ai_takeoff.unreviewed_proposals.suggestion", locale=locale)
+        return [
+            RuleResult(
+                rule_id=self.rule_id,
+                rule_name=self.name,
+                severity=self.severity,
+                category=self.category,
+                passed=passed,
+                message=message,
+                suggestion=suggestion,
+            )
+        ]
+
+
 # ── Field Time (labour + plant field timesheets) ────────────────────────────
 #
 # Validate a foreman's field timesheet payload (see app.modules.field_time).
@@ -7639,6 +7700,12 @@ def register_builtin_rules() -> None:
         (TakeoffScaleSanityRule(), None),
         (TakeoffPolygonSelfIntersectionRule(), None),
         (TakeoffLowConfidenceReviewRule(), None),
+        # Registered into ai_estimator as well as its own standard. The
+        # ai_takeoff set has no caller anywhere in the backend, so a rule that
+        # lives only there never runs; ai_estimator is the path that prices
+        # confirmed quantities and therefore the one that owes the user an
+        # account of the quantities it left out.
+        (TakeoffUnreviewedProposalsRule(), ["ai_takeoff", "ai_estimator"]),
         # Field Time (cost-coded, signed labour + plant timesheets)
         (FieldTimeHoursPerDayMax(), None),
         (FieldTimeLineComplete(), None),

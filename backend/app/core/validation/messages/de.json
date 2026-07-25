@@ -47,6 +47,10 @@
     "low_confidence_review": {
       "fail": "Vorgeschlagenes Element '{name}' hat eine niedrige Konfidenz ({confidence})",
       "suggestion": "Diesen KI-Vorschlag sorgfältig prüfen und vor dem Übernehmen mit der Zeichnung abgleichen"
+    },
+    "unreviewed_proposals": {
+      "fail": "{count} Aufmaß-Vorschläge warten noch auf Prüfung und sind hier nicht bepreist",
+      "suggestion": "Prüfliste abarbeiten, damit die bestätigten Mengen zur Zeichnung passen"
     }
   },
   "boq_quality": {

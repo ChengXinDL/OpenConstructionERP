@@ -269,6 +269,31 @@ class MeasurementRepository:
         result = await self.session.execute(stmt)
         return int(result.scalar_one_or_none() or 0)
 
+    async def count_unreviewed_for_project(self, project_id: uuid.UUID) -> int:
+        """Count a project's detector proposals that nobody has decided on yet.
+
+        The counterpart to :meth:`count_confirmed_for_project`. Confirmed rows
+        are what a quantity, an export or a priced estimate is built from, so
+        anything still ``proposed`` is work the drawing shows and the numbers do
+        not. That gap is invisible unless somebody reports it, which is what
+        this count exists for.
+
+        Rejected rows are not counted: a decision was made about those.
+
+        Args:
+            project_id: Owning project.
+
+        Returns:
+            The number of measurements still awaiting review, 0 when there are
+            none.
+        """
+        stmt = select(func.count(TakeoffMeasurement.id)).where(
+            TakeoffMeasurement.project_id == project_id,
+            TakeoffMeasurement.review_status == "proposed",
+        )
+        result = await self.session.execute(stmt)
+        return int(result.scalar_one_or_none() or 0)
+
     async def list_proposals_for_run(self, run_id: uuid.UUID) -> list[TakeoffMeasurement]:
         """Return all proposal rows minted by one plan-read run.
 

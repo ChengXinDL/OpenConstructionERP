@@ -2047,6 +2047,23 @@ class AiEstimatorService:
             rule_sets.append(regional)
 
         missing_items = list((run.metadata_ or {}).get("missing_items") or [])
+        # Takeoff rows awaiting review are excluded from the priced elements on
+        # purpose (a proposal is not a quantity), so the estimate is short by
+        # however many of them there are. The number goes into the report rather
+        # than staying invisible: rules get data, not a session, so the count is
+        # gathered here and read by ai_takeoff.unreviewed_proposals.
+        from app.core.validation.rules import UNREVIEWED_PROPOSALS_META_KEY
+        from app.modules.takeoff.repository import MeasurementRepository
+
+        extra_meta: dict[str, Any] = {}
+        try:
+            extra_meta[UNREVIEWED_PROPOSALS_META_KEY] = await MeasurementRepository(
+                self.session
+            ).count_unreviewed_for_project(run.project_id)
+        except Exception as exc:  # noqa: BLE001 - a missing count must not cost the report
+            # The rule stays silent without the key, which is the right outcome:
+            # better no claim about the review queue than a wrong one.
+            logger.warning("ai_estimator could not count unreviewed takeoff proposals: %s", exc)
         try:
             report = await validation_engine.validate(
                 data={"positions": positions},
@@ -2054,7 +2071,7 @@ class AiEstimatorService:
                 target_type="boq",
                 target_id=str(run.id),
                 project_id=str(run.project_id),
-                metadata={"base_currency": base_currency, "missing_items": missing_items},
+                metadata={"base_currency": base_currency, "missing_items": missing_items, **extra_meta},
             )
         except Exception as exc:  # noqa: BLE001 - validation must not break the preview
             logger.warning("ai_estimator validation failed: %s", exc)
