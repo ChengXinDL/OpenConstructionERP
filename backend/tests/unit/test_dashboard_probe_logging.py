@@ -114,7 +114,12 @@ async def test_no_kpi_probe_still_reports_failure_only_at_debug() -> None:
         await kpis._safe_count(_BrokenSession(), "SELECT 1")  # noqa: SLF001
 
     assert handler.records, "the probe must log something"
-    assert all(r.levelno > logging.DEBUG for r in handler.records)
+    assert _above_debug(handler), "the failure has to be reported above DEBUG"
+    # A future unrelated DEBUG trace line is fine. What must never come back is
+    # a FAILURE, one carrying an exception, reported at DEBUG and nowhere else.
+    assert not [record for record in handler.records if record.levelno <= logging.DEBUG and record.exc_info], (
+        "a failure must not be reported at DEBUG"
+    )
 
 
 async def test_unknown_kpi_code_is_reported() -> None:
