@@ -658,8 +658,30 @@ class SubcontractorService:
         return entity
 
     async def delete_subcontractor(self, sub_id: uuid.UUID) -> None:
+        """Delete a subcontractor. Refused once they hold any agreement.
+
+        The delete cascades, so removing a firm that is on a job takes its
+        subcontract agreements with it, and with them the payment applications,
+        retention ledger and ratings hanging off those agreements. That is the
+        commercial history of work someone actually did. A firm you no longer
+        use is marked as such through its prequalification status; deleting is
+        only for a record created in error, before any agreement exists.
+        """
         await self.get_subcontractor(sub_id)
+
+        agreements = await self.agreements.list_for_subcontractor(sub_id)
+        if agreements:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"This subcontractor holds {len(agreements)} agreement(s) and cannot "
+                    "be deleted, because the payment applications, retention and ratings "
+                    "behind them would go too. Update the prequalification status instead."
+                ),
+            )
+
         await self.subs.delete(sub_id)
+        logger.info("Subcontractor deleted: %s", sub_id)
 
     # ── Contact CRUD ─────────────────────────────────────────────────────
 

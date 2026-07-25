@@ -20,6 +20,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.events import event_bus
@@ -760,7 +761,21 @@ class ContractsService:
             created_by=user_id,
             metadata_=data.metadata,
         )
-        contract = await self.contract_repo.create(contract)
+        # ``code`` carries a unique constraint. Without this the duplicate
+        # surfaced as an unhandled IntegrityError, which the caller sees as a
+        # 500: an error the user cannot act on, for a mistake that is entirely
+        # theirs to fix and takes one word to describe.
+        try:
+            contract = await self.contract_repo.create(contract)
+        except IntegrityError as exc:
+            await self.session.rollback()
+            if "uq_oe_contracts_contract_code" not in str(exc.orig):
+                raise
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"A contract with code '{data.code}' already exists.",
+            ) from exc
+
         logger.info(
             "Contract created: %s (%s) project=%s",
             contract.code,
@@ -853,8 +868,29 @@ class ContractsService:
         return contract
 
     async def delete_contract(self, contract_id: uuid.UUID) -> None:
-        await self.get_contract(contract_id)
+        """Delete a contract. Only a draft may be deleted.
+
+        The delete cascades to every child row: variations, progress claims,
+        payment certificates, retention, the lot. On a draft that is what you
+        want. On a contract that has been signed and is running, it is the
+        commercial record of the job, and one call used to take it and its
+        entire claim history away with no confirmation of any kind. A contract
+        that has left draft is closed or terminated through its status, not
+        deleted. This mirrors the guard change orders already applies.
+        """
+        contract = await self.get_contract(contract_id)
+
+        if contract.status != "draft":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Only draft contracts can be deleted. This contract is "
+                    f"'{contract.status}'; terminate or complete it instead."
+                ),
+            )
+
         await self.contract_repo.delete(contract_id)
+        logger.info("Contract deleted: %s", contract_id)
 
     async def clone_contract(
         self,
