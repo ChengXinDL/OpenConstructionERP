@@ -138,6 +138,30 @@ async def test_an_empty_queue_passes() -> None:
     assert results[0].passed is True
 
 
+def test_the_estimator_actually_reaches_this_rule() -> None:
+    """The rule is registered where the estimator will hand it a context.
+
+    This is the failure this whole change exists because of. Three sibling
+    ai_takeoff rules are registered under a set no caller ever validates
+    against, so they never run, and every test that calls a rule object
+    directly stays green while that is true. Asking the registry the same
+    question the engine asks is the only check that tells them apart.
+
+    Exactly once, not twice: the rule belongs to two sets and the estimator
+    could grow to pass both, which would otherwise put the same warning in one
+    report twice.
+    """
+    from app.core.validation.engine import rule_registry
+    from app.core.validation.rules import register_builtin_rules
+
+    register_builtin_rules()
+    # The sets ai_estimator._validate_positions passes, minus the optional
+    # regional one it appends per catalogue.
+    reachable = [r.rule_id for r in rule_registry.get_rules_for_sets(["boq_quality", "ai_estimator"]) if r.enabled]
+
+    assert reachable.count("ai_takeoff.unreviewed_proposals") == 1
+
+
 @pytest.mark.asyncio
 async def test_no_count_means_no_claim() -> None:
     """A caller that never asked about the queue gets no verdict about it.
