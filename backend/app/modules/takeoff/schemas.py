@@ -135,10 +135,19 @@ class RecognizeCandidate(BaseModel):
     count: int | None = None
     confidence: float = 0.0
     reason: str = ""
+    # Id of the ``proposed`` row this candidate was stored as, which is what
+    # the review endpoint addresses. Optional so a caller that only wants a
+    # geometry preview keeps parsing older payloads.
+    measurement_id: str | None = None
 
 
 class RecognizeResponse(BaseModel):
-    """Result of offline vector recognition for one page (nothing persisted)."""
+    """Result of offline vector recognition for one page.
+
+    Candidates are persisted as ``proposed`` rows before this returns, so a
+    review decision survives a reload and is visible to colleagues. They are
+    proposals, never billed work.
+    """
 
     candidates: list[RecognizeCandidate] = Field(default_factory=list)
     page: int
@@ -164,17 +173,22 @@ class SimilarSymbolHit(BaseModel):
 
 
 class SimilarSymbolsResponse(BaseModel):
-    """Result of a seeded similar-symbol search (nothing persisted).
+    """Result of a seeded similar-symbol search.
 
     ``note`` is ``no_vector_layer`` (the page is a scan with no drawing
     layer), ``no_symbol_at_point`` (nothing small enough under the click) or
     ``None`` on success.
+
+    A non-empty search is stored as one ``proposed`` count row carrying every
+    hit, and ``measurement_id`` addresses it for review. It stays ``None``
+    when nothing matched, since there is no proposal to review.
     """
 
     hits: list[SimilarSymbolHit] = Field(default_factory=list)
     seed_found: bool = False
     page: int
     note: str | None = None
+    measurement_id: str | None = None
 
 
 # ── Tier-1 scale detection from the PDF text layer ──────────────────────────
@@ -677,6 +691,36 @@ class PlanReadAcceptResponse(BaseModel):
     skipped: int = 0
     blocked: int = 0
     measurement_ids: list[str] = Field(default_factory=list)
+
+
+class MeasurementReviewRequest(BaseModel):
+    """Accept or reject one proposal, optionally correcting its geometry.
+
+    ``points`` rides along with an accept to mean "edit then accept": the
+    server replaces the geometry and re-derives the value from it, so the
+    correction cannot smuggle in a quantity the shape does not support.
+    """
+
+    action: Literal["accept", "reject"]
+    points: list[dict] | None = Field(default=None, max_length=10000)
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class ProposalQueueResponse(BaseModel):
+    """The pending review queue for one document, with progress counts.
+
+    The counts always cover the whole document even when ``proposals`` is
+    scoped to one page, so the progress line does not change meaning when the
+    reviewer filters.
+    """
+
+    proposals: list[TakeoffMeasurementResponse] = Field(default_factory=list)
+    page: int | None = None
+    proposed_count: int = 0
+    confirmed_count: int = 0
+    rejected_count: int = 0
+    reviewed_count: int = 0
+    total_count: int = 0
 
 
 class PlanReadMetaResponse(BaseModel):

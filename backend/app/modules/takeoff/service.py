@@ -14,6 +14,7 @@ import sys
 import tempfile
 import uuid
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
@@ -1139,6 +1140,14 @@ def _measurement_compare_key(m: Any) -> str:
 # ``summary.truncated`` rather than presenting a partial diff as a full one.
 MAX_COMPARE_MEASUREMENTS = 20000
 
+# Presentation of an offline-detector proposal. The group keeps proposals
+# visually separate from hand-drawn work on the canvas, and separate again
+# from the vision path's own purple group, so a reviewer can tell at a glance
+# which number came from where.
+_PROPOSAL_GROUP_NAME = "AI takeoff"
+_PROPOSAL_GROUP_COLOR = "#0EA5E9"
+_PROPOSAL_UNIT_BY_TYPE = {"area": "m2", "distance": "m", "count": "pcs"}
+
 
 def _measure_to_float(value: Any) -> float | None:
     """Coerce a ``Decimal``/number measurement to ``float`` or ``None``."""
@@ -1870,20 +1879,95 @@ class TakeoffService:
             "source": "text_layer",
         }
 
+    async def _persist_proposals(
+        self,
+        doc: TakeoffDocument,
+        page: int,
+        candidates: list[dict[str, Any]],
+        *,
+        detector: str,
+        scale_pixels_per_unit: float | None,
+        user_id: str,
+    ) -> list[dict[str, Any]]:
+        """Store detector candidates as ``proposed`` rows and stamp their ids.
+
+        The offline detectors used to hand candidates straight to the canvas
+        and keep nothing, so a rejection was a local drop the server never
+        learned about and a reload resurrected everything the estimator had
+        already dismissed. Persisting them as ordinary measurement rows with
+        ``review_status='proposed'`` turns CLAUDE.md rule 7 from a rendering
+        behaviour into an auditable record, and it is what lets a colleague
+        open the same sheet and see the same queue.
+
+        The stored value is always re-derived here from geometry and scale.
+        The detectors already compute it in-process, so this is not a trust
+        boundary, but it keeps one function owning every billed number
+        (Audit B8) instead of two that can drift apart.
+
+        Returns the candidates with ``measurement_id`` added, so the caller's
+        existing response shape keeps working and the canvas can address a
+        proposal it wants to review.
+        """
+        if not candidates:
+            return candidates
+
+        rows: list[TakeoffMeasurement] = []
+        for cand in candidates:
+            m_type = str(cand.get("type") or "area")
+            count_value = cand.get("count")
+            points = cand.get("points") or []
+            value = recompute_measurement_value(
+                measurement_type=m_type,
+                points=points,
+                scale_pixels_per_unit=scale_pixels_per_unit,
+                count_value=count_value,
+                client_value=cand.get("value"),
+            )
+            rows.append(
+                TakeoffMeasurement(
+                    project_id=doc.project_id,
+                    document_id=str(doc.id),
+                    page=page,
+                    type=m_type,
+                    group_name=_PROPOSAL_GROUP_NAME,
+                    group_color=_PROPOSAL_GROUP_COLOR,
+                    points=points,
+                    measurement_value=value,
+                    count_value=count_value,
+                    measurement_unit=_PROPOSAL_UNIT_BY_TYPE.get(m_type),
+                    scale_pixels_per_unit=scale_pixels_per_unit,
+                    source="ai_takeoff",
+                    confidence=cand.get("confidence"),
+                    review_status="proposed",
+                    metadata_={"detector": detector, "reason": cand.get("reason")},
+                    created_by=user_id,
+                )
+            )
+
+        stored = await self.measurement_repo.create_bulk(rows)
+        return [{**cand, "measurement_id": str(row.id)} for cand, row in zip(candidates, stored, strict=True)]
+
     async def recognize_candidates(
         self,
         doc_id: str,
         page: int,
         scale_pixels_per_unit: float | None,
+        *,
+        user_id: str = "",
     ) -> dict[str, Any]:
         """Detect candidate measurements from a PDF page's vector layer.
 
         Offline, deterministic complement to ``analyze_document`` (which
         sends text to an LLM): reads the stored PDF off disk, harvests the
         page's vector drawings with PyMuPDF ``page.get_drawings()`` and runs
-        the pure :mod:`app.modules.takeoff.recognize` detectors. Nothing is
-        persisted - the candidates carry a confidence and a reason and are
-        confirmed by the user on the canvas (CLAUDE.md rule 7).
+        the pure :mod:`app.modules.takeoff.recognize` detectors.
+
+        Candidates are persisted as ``review_status='proposed'`` rows before
+        they are returned, so a rejection outlives the browser tab and a
+        colleague opening the same sheet sees the same queue. They are
+        proposals, never billed work: confirming one is a separate, explicit
+        act by a human (CLAUDE.md rule 7), and the unreviewed-proposals
+        validation rule blocks a bill push while any are still pending.
 
         Returns ``{candidates, page, source, notes}``. Honest failure modes:
         PyMuPDF unimportable -> a 400 naming a broken install, since PyMuPDF
@@ -1963,6 +2047,14 @@ class TakeoffService:
         # Vector layer present -> deterministic vector detector.
         if drawings:
             candidates = _recognize.recognize_candidates(drawings, scale_pixels_per_unit)
+            candidates = await self._persist_proposals(
+                doc,
+                page,
+                candidates,
+                detector="vector_recognize",
+                scale_pixels_per_unit=scale_pixels_per_unit,
+                user_id=user_id,
+            )
             return {
                 "candidates": candidates,
                 "page": page,
@@ -1987,6 +2079,14 @@ class TakeoffService:
                 else:
                     image_bgr = arr.reshape(height, width)
                 candidates = _raster.recognize_raster(image_bgr, page_w_pt, page_h_pt, scale_pixels_per_unit)
+                candidates = await self._persist_proposals(
+                    doc,
+                    page,
+                    candidates,
+                    detector="raster_recognize",
+                    scale_pixels_per_unit=scale_pixels_per_unit,
+                    user_id=user_id,
+                )
                 return {
                     "candidates": candidates,
                     "page": page,
@@ -2019,15 +2119,21 @@ class TakeoffService:
         page: int,
         seed_x: float,
         seed_y: float,
+        *,
+        user_id: str = "",
     ) -> dict[str, Any]:
         """Find every symbol on a page matching the one under ``(seed_x, seed_y)``.
 
         Seeded "count by example": the user clicks one symbol on the vector PDF
         page and this returns the centroids of all near-identical symbols so
-        they can confirm them as a single count measurement. Vector-only and
-        DB-free - nothing is persisted (CLAUDE.md rule 7). A scanned/raster
-        page (no vector layer) returns an empty hit set with
+        they can confirm them as a single count measurement. Vector-only. A
+        scanned/raster page (no vector layer) returns an empty hit set with
         ``note='no_vector_layer'`` rather than fabricated geometry.
+
+        The hits land as one ``proposed`` count row carrying every centroid,
+        which mirrors how the vision path stores a symbol class and keeps the
+        seeded search in the same review queue as every other proposal. The
+        row is a proposal, not billed work (CLAUDE.md rule 7).
         """
         from app.modules.takeoff import recognize as _recognize
 
@@ -2079,7 +2185,134 @@ class TakeoffService:
 
         result = _recognize.find_similar_symbols(drawings, seed_x, seed_y)
         result["page"] = page
+
+        hits = result.get("hits") or []
+        if hits:
+            # One row for the whole set, not one per hit: the estimator is
+            # counting a symbol type, and the confidence that matters is the
+            # weakest match in the group rather than the average, which would
+            # hide a doubtful hit behind a pile of certain ones.
+            stored = await self._persist_proposals(
+                doc,
+                page,
+                [
+                    {
+                        "type": "count",
+                        "points": [{"x": h["x"], "y": h["y"]} for h in hits],
+                        "value": float(len(hits)),
+                        "count": len(hits),
+                        "confidence": round(min(float(h["confidence"]) for h in hits), 2),
+                        "reason": f"{len(hits)} symbols matching the one clicked",
+                    }
+                ],
+                detector="similar_symbols",
+                scale_pixels_per_unit=None,
+                user_id=user_id,
+            )
+            result["measurement_id"] = stored[0]["measurement_id"]
         return result
+
+    async def list_document_proposals(
+        self,
+        doc_id: str,
+        *,
+        page: int | None = None,
+        review_status: str = "proposed",
+    ) -> dict[str, Any]:
+        """Return the review queue for one document, with its progress counts.
+
+        One queue for every proposal path. The counts come from a grouped
+        query rather than from the returned rows, so "12 of 34 reviewed" stays
+        correct when the caller scopes the list to a single page.
+        """
+        doc = await self.repo.get_by_id(uuid.UUID(doc_id))
+        if doc is None:
+            raise HTTPException(status_code=404, detail="Takeoff document not found")
+
+        proposals = await self.measurement_repo.list_proposals_for_document(
+            str(doc.id), page=page, review_status=review_status
+        )
+        counts = await self.measurement_repo.count_by_review_status(str(doc.id))
+        proposed = counts.get("proposed", 0)
+        confirmed = counts.get("confirmed", 0)
+        rejected = counts.get("rejected", 0)
+        return {
+            "proposals": proposals,
+            "page": page,
+            "proposed_count": proposed,
+            "confirmed_count": confirmed,
+            "rejected_count": rejected,
+            "reviewed_count": confirmed + rejected,
+            "total_count": proposed + confirmed + rejected,
+        }
+
+    async def review_measurement(
+        self,
+        measurement_id: uuid.UUID,
+        *,
+        action: str,
+        points: list[Any] | None = None,
+        note: str | None = None,
+        user_id: str = "",
+    ) -> TakeoffMeasurement:
+        """Accept or reject one proposal, keeping the row either way.
+
+        A rejection is kept rather than deleted. That is the whole point of
+        the queue: the record of what a human turned down is what makes the
+        detector auditable, and it is what a later suppression pass needs in
+        order to stop offering the same wrong thing twice.
+
+        Corrected geometry may ride along with an accept. The value is always
+        re-derived from those points server side (Audit B8), so an edit cannot
+        be used to talk the server into a number the geometry does not support.
+        """
+        if action not in {"accept", "reject"}:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="action must be 'accept' or 'reject'",
+            )
+
+        item = await self.measurement_repo.get_by_id(measurement_id)
+        if item is None:
+            raise HTTPException(status_code=404, detail="Measurement not found")
+        if item.review_status != "proposed":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"This measurement was already reviewed ({item.review_status}). "
+                    "Reload the queue to see the current state."
+                ),
+            )
+
+        meta = dict(item.metadata_ or {})
+        meta["reviewed_by"] = user_id
+        meta["reviewed_at"] = datetime.now(UTC).isoformat()
+        if note:
+            meta["review_note"] = note
+
+        fields: dict[str, Any] = {
+            "review_status": "confirmed" if action == "accept" else "rejected",
+        }
+        if action == "accept" and points:
+            meta["geometry_edited"] = True
+            fields["points"] = points
+            fields["measurement_value"] = recompute_measurement_value(
+                measurement_type=item.type,
+                points=points,
+                scale_pixels_per_unit=item.scale_pixels_per_unit,
+                count_value=item.count_value,
+                client_value=item.measurement_value,
+            )
+        # The mapped attribute name, not the DB column name: bare ``metadata``
+        # resolves to SQLAlchemy's own MetaData on the declarative class and
+        # blows up inside the update compiler rather than writing the column.
+        fields["metadata_"] = meta
+
+        await self.measurement_repo.update_fields(measurement_id, **fields)
+        updated = await self.measurement_repo.get_by_id(measurement_id)
+        if updated is None:  # pragma: no cover - the row was just written
+            raise HTTPException(status_code=404, detail="Measurement not found")
+        return updated
 
     async def update_measurement(
         self,

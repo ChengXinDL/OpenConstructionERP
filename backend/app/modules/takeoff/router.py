@@ -72,10 +72,12 @@ from app.modules.takeoff.schemas import (
     CreateVariationFromCompareResponse,
     DocumentPageScalesUpdate,
     LinkToBoqRequest,
+    MeasurementReviewRequest,
     PlanReadAcceptRequest,
     PlanReadAcceptResponse,
     PlanReadMetaResponse,
     PlanReadRequest,
+    ProposalQueueResponse,
     RecognizeResponse,
     ScaleDetectionResponse,
     SimilarSymbolsResponse,
@@ -4949,7 +4951,9 @@ async def analyze_document(
 @router.post(
     "/documents/{doc_id}/recognize/",
     response_model=RecognizeResponse,
-    dependencies=[Depends(RequirePermission("takeoff.read"))],
+    # Recognition now stores its candidates as proposals, so it is a create
+    # and is gated as one. It was ``takeoff.read`` while it persisted nothing.
+    dependencies=[Depends(RequirePermission("takeoff.create"))],
 )
 async def recognize_document(
     doc_id: str,
@@ -4967,10 +4971,13 @@ async def recognize_document(
 
     The deterministic, offline complement to ``analyze`` (which sends text to
     an LLM): scans the PDF's vector drawings with PyMuPDF and proposes
-    confidence-scored area / length / count candidates. Nothing is persisted -
-    the user confirms or rejects each candidate on the canvas, then the
-    accepted ones flow through the normal bulk-create path where the server
-    re-derives the billed quantity (Audit B8).
+    confidence-scored area / length / count candidates.
+
+    Candidates are stored as ``proposed`` rows and each carries its
+    ``measurement_id``, so a review decision survives a reload and a colleague
+    on the same project sees the same queue. They are proposals, not billed
+    work: confirming one is a separate act through the review endpoint, where
+    the server re-derives the quantity (Audit B8).
     """
     doc = await service.get_document(doc_id)
     if doc is None:
@@ -4978,14 +4985,21 @@ async def recognize_document(
     # Audit B5 - IDOR: a document's geometry is as sensitive as its text.
     await _verify_takeoff_doc_access(doc, str(user_id) if user_id else "", session)
 
-    result = await service.recognize_candidates(doc_id, page, scale_pixels_per_unit or None)
+    result = await service.recognize_candidates(
+        doc_id,
+        page,
+        scale_pixels_per_unit or None,
+        user_id=str(user_id) if user_id else "",
+    )
     return RecognizeResponse(**result)
 
 
 @router.post(
     "/documents/{doc_id}/similar-symbols/",
     response_model=SimilarSymbolsResponse,
-    dependencies=[Depends(RequirePermission("takeoff.read"))],
+    # Same reasoning as recognize: the search now stores its hits as a
+    # proposal, so it is gated as a create rather than a read.
+    dependencies=[Depends(RequirePermission("takeoff.create"))],
 )
 async def similar_symbols(
     doc_id: str,
@@ -5001,8 +5015,9 @@ async def similar_symbols(
     The deterministic counterpart to drawing each count by hand: the user
     clicks one symbol on a vector PDF page and this returns the centroids of
     all near-identical symbols, which they confirm as a single count
-    measurement. Nothing is persisted (CLAUDE.md rule 7); accepted points flow
-    through the normal bulk-create path where the server re-derives quantity.
+    measurement. The hits are stored as one ``proposed`` count row so the
+    review decision is durable; confirming it stays a separate human act
+    (CLAUDE.md rule 7) and the server re-derives quantity there.
     """
     doc = await service.get_document(doc_id)
     if doc is None:
@@ -5010,8 +5025,78 @@ async def similar_symbols(
     # Same IDOR gate as recognize - a document's geometry is as sensitive as its text.
     await _verify_takeoff_doc_access(doc, str(user_id) if user_id else "", session)
 
-    result = await service.find_similar_symbols(doc_id, page, seed_x, seed_y)
+    result = await service.find_similar_symbols(doc_id, page, seed_x, seed_y, user_id=str(user_id) if user_id else "")
     return SimilarSymbolsResponse(**result)
+
+
+# ── Proposal review queue ──────────────────────────────────────────────────
+
+
+@router.get(
+    "/documents/{doc_id}/proposals/",
+    response_model=ProposalQueueResponse,
+    dependencies=[Depends(RequirePermission("takeoff.read"))],
+)
+async def list_proposals(
+    doc_id: str,
+    user_id: CurrentUserId,
+    session: SessionDep,
+    page: int | None = Query(None, ge=1, description="Scope the list to one page"),
+    review_status: str = Query(
+        "proposed",
+        pattern="^(proposed|confirmed|rejected)$",
+        description="Which review state to list",
+    ),
+    service: TakeoffService = Depends(_get_service),
+) -> ProposalQueueResponse:
+    """Return the review queue for a document, with document-wide progress.
+
+    One queue for every proposal path, the offline detectors and the vision
+    run alike, so the reviewer has a single place to work through rather than
+    a different panel per detector.
+    """
+    doc = await service.get_document(doc_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail=translate("errors.document_not_found", locale=get_locale()))
+    await _verify_takeoff_doc_access(doc, str(user_id) if user_id else "", session)
+
+    result = await service.list_document_proposals(doc_id, page=page, review_status=review_status)
+    return ProposalQueueResponse(
+        proposals=[_measurement_to_response(m) for m in result.pop("proposals")],
+        **result,
+    )
+
+
+@router.post(
+    "/measurements/{measurement_id}/review/",
+    response_model=TakeoffMeasurementResponse,
+    dependencies=[Depends(RequirePermission("takeoff.update"))],
+)
+async def review_measurement(
+    measurement_id: _uuid.UUID,
+    body: MeasurementReviewRequest,
+    user_id: CurrentUserId,
+    session: SessionDep,
+    service: TakeoffService = Depends(_get_service),
+) -> TakeoffMeasurementResponse:
+    """Accept or reject one proposal, keeping the row either way.
+
+    A rejection is recorded, not deleted. That record is what makes the
+    detector auditable and what a later suppression pass needs so the same
+    wrong proposal is not offered twice. Corrected geometry may ride along
+    with an accept, and the value is re-derived from it server side.
+    """
+    item = await service.get_measurement(measurement_id)
+    await verify_project_access(item.project_id, str(user_id), session)
+
+    updated = await service.review_measurement(
+        measurement_id,
+        action=body.action,
+        points=body.points,
+        note=body.note,
+        user_id=str(user_id) if user_id else "",
+    )
+    return _measurement_to_response(updated)
 
 
 # ── Detect scale (tier-1, AI-free, from the text layer) ────────────────────

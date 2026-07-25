@@ -240,6 +240,45 @@ class MeasurementRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def list_proposals_for_document(
+        self,
+        document_id: str,
+        *,
+        page: int | None = None,
+        review_status: str = "proposed",
+    ) -> list[TakeoffMeasurement]:
+        """Return proposal rows on one document, optionally scoped to a page.
+
+        Covers every proposal path, not just the plan-read run: the offline
+        vector recognizer and the seeded symbol search stamp the same
+        ``review_status`` so one queue reviews them all. Ordered oldest-first
+        so the reviewer walks the sheet in the order the detector produced,
+        which keeps the canvas highlight moving predictably.
+        """
+        stmt = (
+            select(TakeoffMeasurement)
+            .where(TakeoffMeasurement.document_id == document_id)
+            .where(TakeoffMeasurement.review_status == review_status)
+        )
+        if page is not None:
+            stmt = stmt.where(TakeoffMeasurement.page == page)
+        result = await self.session.execute(stmt.order_by(TakeoffMeasurement.created_at.asc()))
+        return list(result.scalars().all())
+
+    async def count_by_review_status(self, document_id: str) -> dict[str, int]:
+        """Return ``{review_status: count}`` for one document.
+
+        Drives the review panel's progress line without pulling every row over
+        the wire, and is what the unreviewed-proposals validation rule reads.
+        """
+        stmt = (
+            select(TakeoffMeasurement.review_status, func.count())
+            .where(TakeoffMeasurement.document_id == document_id)
+            .group_by(TakeoffMeasurement.review_status)
+        )
+        result = await self.session.execute(stmt)
+        return {str(status): int(count) for status, count in result.all()}
+
 
 class AiTakeoffRunRepository:
     """Data access for the vision-LLM plan-read run (issue #194)."""
