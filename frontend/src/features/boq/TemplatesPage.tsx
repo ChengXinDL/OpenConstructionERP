@@ -250,7 +250,18 @@ export function TemplatesPage() {
 
   /* ── Fetch templates from API (fall back to local data) ──────────── */
 
-  const { data: templates } = useQuery({
+  // Only a 404 means "this deployment has no template endpoint", which is the
+  // case the built-in list exists for. Anything else is a real failure and has
+  // to surface: swallowing a 500 or a dropped connection here used to show the
+  // built-in templates as if they had come from the server, so a broken backend
+  // looked like a working one.
+  const {
+    data,
+    isPending: templatesPending,
+    isError: templatesFailed,
+    error: templatesError,
+    refetch: refetchTemplates,
+  } = useQuery({
     queryKey: ['boq-templates'],
     queryFn: async () => {
       try {
@@ -259,12 +270,12 @@ export function TemplatesPage() {
         if (err instanceof ApiError && err.status === 404) {
           return FALLBACK_TEMPLATES;
         }
-        return FALLBACK_TEMPLATES;
+        throw err;
       }
     },
     staleTime: 5 * 60 * 1000,
-    initialData: FALLBACK_TEMPLATES,
   });
+  const templates = data ?? [];
 
   /* ── Fetch projects for selector ─────────────────────────────────── */
 
@@ -379,6 +390,34 @@ export function TemplatesPage() {
             'Pick a building type, set the floor area and generate a complete structured BOQ with sections, positions and benchmark rates per square metre. The result opens in the BOQ editor on your chosen project, ready to refine.',
         })}
       </DismissibleInfo>
+
+      {/* The list used to be seeded with the built-in templates, so a failed
+          fetch was indistinguishable from a working one. Say which of the two
+          is happening instead. */}
+      {templatesPending && (
+        <div className="flex items-center gap-2 text-content-tertiary text-sm">
+          <Loader2 size={14} className="animate-spin" />
+          {t('boq_templates.loading', { defaultValue: 'Loading templates' })}
+        </div>
+      )}
+
+      {templatesFailed && (
+        <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm dark:border-red-900 dark:bg-red-950/40">
+          <p className="font-medium text-red-700 dark:text-red-300">
+            {t('boq_templates.load_failed', { defaultValue: 'Could not load the templates' })}
+          </p>
+          <p className="mt-1 text-red-600 dark:text-red-400">
+            {templatesError instanceof Error
+              ? templatesError.message
+              : t('boq_templates.load_failed_generic', {
+                  defaultValue: 'The server did not answer.',
+                })}
+          </p>
+          <Button variant="secondary" className="mt-3" onClick={() => void refetchTemplates()}>
+            {t('common.retry', { defaultValue: 'Retry' })}
+          </Button>
+        </div>
+      )}
 
       {/* ── Template grid ────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">

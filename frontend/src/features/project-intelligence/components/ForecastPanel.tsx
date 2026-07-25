@@ -18,6 +18,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import {
   TrendingUp,
   TrendingDown,
@@ -574,13 +575,16 @@ export function ForecastPanel({ projectId, onAlertCountChange }: ForecastPanelPr
                               })}
                             </button>
                           )}
-                          <a
-                            href={`/costmodel?project_id=${projectId}`}
+                          {/* The cost model page is mounted at /5d. This pointed at
+                              /costmodel, which is only ever an API prefix and has no
+                              route, so the link landed on the catch-all NotFound. */}
+                          <Link
+                            to={`/5d?project_id=${projectId}`}
                             className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-content-tertiary text-2xs font-medium hover:text-oe-blue transition-colors"
                           >
                             <ExternalLink size={12} />
                             {t('project_intelligence.forecast.view', { defaultValue: 'View' })}
-                          </a>
+                          </Link>
                         </div>
                       </td>
                     </tr>
