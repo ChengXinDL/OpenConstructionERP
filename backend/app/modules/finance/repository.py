@@ -119,10 +119,18 @@ class InvoiceRepository:
     async def next_invoice_number(self, project_id: uuid.UUID, direction: str) -> str:
         """Generate the next invoice number for a project and direction.
 
-        Uses MAX of existing invoice numbers to avoid race conditions where
-        COUNT-based generation would produce duplicates under concurrency.
-        Extracts the numeric suffix from the highest existing invoice number
-        and increments it.
+        Takes the highest existing number and increments its numeric suffix.
+        Using MAX rather than COUNT is what makes this survive deletions: with
+        COUNT, removing an invoice makes the next one reuse a number already
+        issued.
+
+        It does NOT make the generation atomic, and the docstring here used to
+        claim it did. Two callers racing both read the same MAX and both derive
+        the same next number, because nothing between the read and the insert
+        holds a lock or a constraint. Closing that window needs a unique
+        constraint on the column, which cannot be added until existing data is
+        swept for duplicates. Until then this is best effort, and callers must
+        not treat the result as guaranteed unique.
         """
         prefix = "INV-P" if direction == "payable" else "INV-R"
         stmt = (
@@ -142,6 +150,29 @@ class InvoiceRepository:
             return f"{prefix}-{suffix + 1:03d}"
 
         return f"{prefix}-001"
+
+    async def invoice_number_taken(
+        self,
+        project_id: uuid.UUID,
+        direction: str,
+        invoice_number: str,
+    ) -> bool:
+        """Whether this number is already issued on this project and direction.
+
+        There is no unique constraint behind invoice_number, so a caller could
+        supply one that already existed and get a second invoice carrying it.
+        Two documents with the same number in the same ledger is not a display
+        problem: it is what reconciliation, payment matching and any external
+        accounting export key on.
+        """
+        stmt = (
+            select(func.count())
+            .select_from(Invoice)
+            .where(Invoice.project_id == project_id)
+            .where(Invoice.invoice_direction == direction)
+            .where(Invoice.invoice_number == invoice_number)
+        )
+        return bool((await self.session.execute(stmt)).scalar_one())
 
     async def aggregate_for_dashboard(
         self,

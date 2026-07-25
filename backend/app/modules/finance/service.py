@@ -287,9 +287,30 @@ class FinanceService:
                 ),
             )
 
-        # Auto-generate invoice number if not provided
+        # Auto-generate invoice number if not provided.
+        #
+        # A number supplied by the caller is checked, because nothing else
+        # checks it: there is no unique constraint on the column, so a repeat
+        # simply produced a second invoice carrying a number already in use.
+        # That is the key reconciliation, payment matching and every accounting
+        # export rely on, so the duplicate does not surface as a display quirk,
+        # it surfaces as two documents nobody can tell apart.
         invoice_number = data.invoice_number
-        if not invoice_number:
+        if invoice_number:
+            taken = await self.invoices.invoice_number_taken(
+                data.project_id,
+                data.invoice_direction,
+                invoice_number,
+            )
+            if taken:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        f"Invoice number '{invoice_number}' is already used on this "
+                        "project. Leave it empty to have one generated."
+                    ),
+                )
+        else:
             invoice_number = await self.invoices.next_invoice_number(data.project_id, data.invoice_direction)
 
         # Server-side total computation: always override amount_total
