@@ -27,6 +27,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import HTTPConnection
 
 # Stable DI container revision tag - fixed at design time so the
 # rate-limiter and the auth middleware can detect a binary skew
@@ -263,8 +264,27 @@ async def verify_user_exists_and_active(user_sub: str) -> "User":
         return user
 
 
+async def _optional_bearer_token(conn: HTTPConnection) -> str | None:
+    """Pull a Bearer token from an HTTP request OR a WebSocket handshake.
+
+    ``HTTPConnection`` is the shared base of ``Request`` and ``WebSocket``,
+    so ``conn.headers`` resolves on websocket routes too. The ``HTTPBearer``
+    security class cannot: its ``__call__`` takes a ``Request`` and raises on
+    a websocket scope, which is what made the global RLS dependency reject the
+    two websocket handshakes with a 500. Mirrors ``HTTPBearer(auto_error=
+    False)``: a missing or non-Bearer header resolves to ``None``.
+    """
+    auth = conn.headers.get("Authorization")
+    if not auth:
+        return None
+    scheme, _, param = auth.partition(" ")
+    if scheme.lower() != "bearer" or not param:
+        return None
+    return param
+
+
 async def get_optional_user_payload(
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+    token: Annotated[str | None, Depends(_optional_bearer_token)],
     settings: SettingsDep,
 ) -> dict[str, Any] | None:
     """Like get_current_user_payload but returns None if no token provided.
@@ -272,11 +292,15 @@ async def get_optional_user_payload(
     Still enforces user existence (BUG-323) - an unknown / inactive
     ``sub`` is treated the same as an anonymous request (``None``), not
     as an authenticated one with forged identity.
+
+    The token is read via ``HTTPConnection`` (not ``HTTPBearer``) so this
+    resolver, and everything built on it - the tenant id and the global RLS
+    request context - resolves on websocket routes as well as HTTP ones.
     """
-    if credentials is None:
+    if token is None:
         return None
     try:
-        payload = decode_access_token(credentials.credentials, settings)
+        payload = decode_access_token(token, settings)
         await verify_user_exists_and_active(payload["sub"])
         return payload
     except HTTPException:
