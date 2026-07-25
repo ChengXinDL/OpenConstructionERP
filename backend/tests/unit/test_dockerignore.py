@@ -22,8 +22,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pathspec
 import pytest
+
+# Declared in the dev extra, but degrade to a reported skip rather than an
+# import error if an environment lacks it. An uncollectable module aborts the
+# ENTIRE pytest run, so a single absent test dependency used to make the whole
+# suite unrunnable instead of costing us this one file.
+pathspec = pytest.importorskip("pathspec", reason="pathspec is required for .dockerignore coverage")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BACKEND_ROOT = REPO_ROOT / "backend"

@@ -226,6 +226,12 @@ dev = [
     "pytest-split>=0.8.2",
     "httpx>=0.28.0",
     "factory-boy>=3.3.0",
+    # Gitignore-grammar matcher used by the .dockerignore coverage test, which
+    # asserts that a docker build context cannot pick up .env files or customer
+    # uploads. It was never declared, so the test could not import anywhere, and
+    # an uncollectable module aborts the whole run rather than one file: the
+    # entire suite was unrunnable because of a single missing test dependency.
+    "pathspec>=0.12.0",
     # XSD validation oracle for the GAEB DA XML 3.3 exporter conformance suite
     # (tests/unit/test_gaeb_export_xsd.py validates exported X83/X84 against the
     # official GAEB schema). Test-only; the runtime XML path uses defusedxml.
