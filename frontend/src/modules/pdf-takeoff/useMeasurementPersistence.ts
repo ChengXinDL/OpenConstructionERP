@@ -88,8 +88,14 @@ interface Measurement {
   linkedPositionOrdinal?: string;
   linkedBoqId?: string;
   linkedPositionLabel?: string;
-  /** AI-suggested but unconfirmed (issue #194): excluded from server sync
-   *  and localStorage until the user accepts it (which clears the flag). */
+  /** AI-suggested but unconfirmed (issue #194).
+   *
+   *  The row itself already exists server-side: every detector stores what it
+   *  proposes as `review_status='proposed'` before answering. This flag is
+   *  what keeps it OUT of the ordinary create/PATCH sync and out of
+   *  localStorage, because its lifecycle belongs to the review endpoint, not
+   *  to the canvas autosave. Accepting clears the flag and hands the row back
+   *  to the normal sync; rejecting takes it off the canvas entirely. */
   suggested?: boolean;
   /** Recognition confidence 0..1 on AI-sourced measurements. */
   confidence?: number;
@@ -520,6 +526,11 @@ function fromApiFormat(r: MeasurementResponse): Measurement {
   return {
     id: (meta.frontend_id as string) || r.id,
     serverId: r.id,
+    // Carry the review state across the reload. Without this a stored
+    // proposal came back looking exactly like agreed work: still translucent
+    // nowhere, still in the review bar nowhere, and no way left to reject it.
+    suggested: r.review_status === 'proposed' ? true : undefined,
+    confidence: r.confidence ?? undefined,
     type: r.type as Measurement['type'],
     points: r.points as Point[],
     value: r.measurement_value ?? r.count_value ?? 0,
@@ -863,6 +874,10 @@ export function useMeasurementPersistence({
               return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
             });
             const mapped = ordered
+              // A rejected proposal is kept server-side as the record of a
+              // decision, not as work: putting it back on the canvas would
+              // undo the rejection every time somebody reloaded.
+              .filter((r) => r.review_status !== 'rejected')
               .map(fromApiFormat)
               .filter((m) => !(m.serverId && pending.has(m.serverId)));
 
@@ -967,7 +982,9 @@ export function useMeasurementPersistence({
   // the debounced auto-save, the manual ``saveNow`` button, and the teardown
   // flush so leaving a document always persists its latest measurements under
   // the right key. Reads refs (not the render closure) so a flush fired from a
-  // cleanup writes the correct document. Never persists AI suggestions.
+  // cleanup writes the correct document. Never persists AI suggestions: those
+  // rows live on the server under the review endpoint, so a localStorage copy
+  // would only be a second, staler answer about their state.
   const writeLocalNow = useCallback(() => {
     const key = localKeyRef.current;
     if (!key) return;

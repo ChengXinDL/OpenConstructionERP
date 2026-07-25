@@ -71,7 +71,7 @@ import { useAuthStore } from '../../stores/useAuthStore';
 import { usePreferencesStore } from '../../stores/usePreferencesStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { boqApi, type CreatePositionData, type Position } from '../../features/boq/api';
-import { takeoffApi } from '../../features/takeoff/api';
+import { takeoffApi, type MeasurementResponse } from '../../features/takeoff/api';
 import {
   measurementDimension,
   unitDimension,
@@ -350,12 +350,20 @@ interface Measurement {
   linkedBoqId?: string;
   /** Human label of the linked position (description), for tooltip. */
   linkedPositionLabel?: string;
-  /** AI-suggested but not yet confirmed by the user (issue #194 Recognize).
-   *  Suggested measurements render dashed/translucent and are NEVER persisted
-   *  until the user accepts them (which clears this flag). */
+  /** Proposed by a detector and not yet reviewed by a human (issue #194).
+   *  Renders dashed/translucent and stays out of the totals until someone
+   *  accepts it. It IS stored server-side as a `proposed` row - the flag
+   *  mirrors that state rather than meaning "unsaved", so a rejection is a
+   *  decision the next reload respects instead of an undo waiting to happen. */
   suggested?: boolean;
   /** Recognition confidence 0..1, present only on AI-sourced measurements. */
   confidence?: number;
+}
+
+/** Narrow to a measurement the server already holds, so a review decision can
+ *  be addressed to a real row without an assertion at the call site. */
+function isPersisted(m: Measurement): m is Measurement & { serverId: string } {
+  return Boolean(m.serverId);
 }
 
 /* ── Annotation Colors ───────────────────────────────────────────── */
@@ -4728,6 +4736,10 @@ export default function TakeoffViewerModule({
               : t('takeoff_viewer.recognize_uncalibrated', { defaultValue: 'calibrate for value' });
         return {
           id: `sug_${Date.now()}_${i}`,
+          // The detector stored this candidate as a `proposed` row before
+          // answering, so carry its id: accepting or rejecting is a server
+          // decision that outlives the reload, not a local flag.
+          serverId: c.measurement_id ?? undefined,
           type: mType,
           points: c.points.map((p) => ({ x: p.x, y: p.y })),
           value,
@@ -4807,9 +4819,15 @@ export default function TakeoffViewerModule({
           return;
         }
         const points = hits.map((h) => ({ x: h.x, y: h.y }));
-        const avgConfidence = hits.reduce((s, h) => s + (h.confidence ?? 0), 0) / hits.length;
+        // The weakest match in the set, matching what the server stores: the
+        // count is only as trustworthy as its worst hit, and an average lets
+        // one bad match hide behind several good ones.
+        const worstConfidence = hits.reduce((lo, h) => Math.min(lo, h.confidence ?? 0), 1);
         const suggestion: Measurement = {
           id: `sug_${Date.now()}_cnt`,
+          // The whole hit set is one stored `proposed` row; keeping its id
+          // means accepting or rejecting the count is a server decision.
+          serverId: result.measurement_id ?? undefined,
           type: 'count',
           points,
           value: points.length,
@@ -4819,7 +4837,7 @@ export default function TakeoffViewerModule({
           page: currentPage,
           group: activeGroup,
           suggested: true,
-          confidence: Math.round(avgConfidence * 100) / 100,
+          confidence: Math.round(worstConfidence * 100) / 100,
         };
         setMeasurements((prev) => [...prev, suggestion]);
         addToast({
@@ -4998,6 +5016,10 @@ export default function TakeoffViewerModule({
               : t('takeoff_viewer.recognize_uncalibrated', { defaultValue: 'calibrate for value' });
         return {
           id: `ai_${run.id}_${i}`,
+          // A plan-read proposal is already a stored row; without its id the
+          // review decision stayed local and left the row sitting `proposed`
+          // in the database forever.
+          serverId: p.id,
           type: mType,
           points: p.points.map((pt) => ({ x: pt.x, y: pt.y })),
           value: Number(value) || 0,
@@ -5043,26 +5065,215 @@ export default function TakeoffViewerModule({
     t,
   ]);
 
-  /** Accept one suggestion: clear the flag so it persists on the next sync. */
-  const acceptSuggestion = useCallback((id: string) => {
-    setMeasurements((prev) => prev.map((m) => (m.id === id ? { ...m, suggested: false } : m)));
-  }, []);
+  /* ── Reviewing a suggestion (issue #194) ─────────────────────────────────
+   * Every detector now stores what it proposes as a `proposed` row before it
+   * answers, so a review decision is a server call, not a local flag. That is
+   * the whole point: a rejection used to be a filter() the next reload undid,
+   * and a colleague opening the same sheet saw everything again.
+   *
+   * A confirmed row is what the totals, the export and the estimator count, so
+   * the accept path takes its value back FROM the server response rather than
+   * keeping the detector's claim. The server re-derives the quantity from the
+   * geometry it stored, and those two numbers genuinely differ when a detector
+   * over-claims; writing the local copy back would undo the correction on the
+   * next sync.
+   *
+   * Geometry is deliberately NOT sent on a plain accept. The server stamps
+   * `geometry_edited` whenever points arrive, and a truthful flag is what lets
+   * a later rule tell a real correction from a rubber stamp. */
 
-  /** Reject one suggestion: drop it (it was never persisted). */
-  const rejectSuggestion = useCallback((id: string) => {
-    setMeasurements((prev) => prev.filter((m) => m.id !== id));
-    setSelectedMeasurementId((cur) => (cur === id ? null : cur));
-  }, []);
+  /* A bulk decision is in flight. The ref is what the guard reads: two clicks
+   * inside one frame both see the old state value, and the second round would
+   * then collect a 409 per row from decisions the first round already made. */
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const reviewBusyRef = useRef(false);
 
-  /** Accept every pending suggestion at once. */
-  const acceptAllSuggestions = useCallback(() => {
-    setMeasurements((prev) => prev.map((m) => (m.suggested ? { ...m, suggested: false } : m)));
-  }, []);
+  /** Push one review decision for a row the server already holds.
+   *
+   *  Takes the id rather than the measurement on purpose. A suggestion with no
+   *  `serverId` was never persisted, and letting this quietly resolve to null
+   *  for one would make "never sent" indistinguishable from "server agreed" at
+   *  every call site. Each of them decides what to do about that explicitly. */
+  const submitReview = useCallback(
+    (serverId: string, action: 'accept' | 'reject') =>
+      takeoffApi.reviewMeasurement(serverId, { action }),
+    [],
+  );
 
-  /** Dismiss every pending suggestion at once. */
-  const dismissAllSuggestions = useCallback(() => {
-    setMeasurements((prev) => prev.filter((m) => !m.suggested));
-  }, []);
+  /** Fold a confirmed row back into its local copy.
+   *
+   *  `row` is null for a suggestion that only ever existed locally: there is
+   *  nothing to adopt, and clearing the flag is enough for the normal sync to
+   *  create it, at which point the server derives the quantity anyway.
+   *
+   *  The label is only rewritten while it is showing the quantity. On a row
+   *  hydrated from the server `label` carries the user's annotation (see
+   *  fromApiFormat), so overwriting it with a number would wipe typed text on
+   *  exactly the reload path this round-trip exists to support. */
+  const applyAcceptedRow = useCallback(
+    (m: Measurement, row: MeasurementResponse | null): Measurement => {
+      const accepted = { ...m, suggested: false };
+      if (!row) return accepted;
+      // Server-authoritative quantity: it recomputed this from the points it
+      // holds, and that number genuinely differs from the detector's claim
+      // when the detector over-claims.
+      const raw = m.type === 'count' ? (row.count_value ?? m.value) : (row.measurement_value ?? m.value);
+      const value = Number(raw) || 0;
+      const labelShowsQuantity = m.label !== m.annotation;
+      return {
+        ...accepted,
+        serverId: row.id,
+        value,
+        label: labelShowsQuantity
+          ? (m.type === 'count' ? String(value) : formatMeasurement(value, m.unit))
+          : m.label,
+      };
+    },
+    [],
+  );
+
+  /** Toast a failed decision. The row keeps its flag and stays on the canvas,
+   *  so the message only has to say the decision did not land. */
+  const reportReviewFailure = useCallback(
+    (err: unknown, action: 'accept' | 'reject') => {
+      addToast({
+        type: 'error',
+        title:
+          action === 'accept'
+            ? t('takeoff_viewer.review.accept_failed', { defaultValue: 'Could not accept the suggestion' })
+            : t('takeoff_viewer.review.reject_failed', { defaultValue: 'Could not reject the suggestion' }),
+        message:
+          err instanceof Error
+            ? err.message
+            : t('takeoff_viewer.review.retry', { defaultValue: 'Still pending, try again.' }),
+      });
+    },
+    [addToast, t],
+  );
+
+  /** Accept one suggestion: confirm it server-side, then adopt the stored row. */
+  const acceptSuggestion = useCallback(
+    async (id: string) => {
+      const target = measurementsRef.current.find((m) => m.id === id);
+      if (!target) return;
+      let row: MeasurementResponse | null = null;
+      if (target.serverId) {
+        try {
+          row = await submitReview(target.serverId, 'accept');
+        } catch (err) {
+          reportReviewFailure(err, 'accept');
+          return;
+        }
+      }
+      setMeasurements((prev) => prev.map((m) => (m.id === id ? applyAcceptedRow(m, row) : m)));
+    },
+    [submitReview, applyAcceptedRow, reportReviewFailure],
+  );
+
+  /** Reject one suggestion: record the decision, then take it off the canvas.
+   *  The row stays in the database as `rejected` - the record of what a human
+   *  turned down is the point of the queue, and it stops the same suggestion
+   *  coming back on the next run. */
+  const rejectSuggestion = useCallback(
+    async (id: string) => {
+      const target = measurementsRef.current.find((m) => m.id === id);
+      if (!target) return;
+      // A suggestion that was never persisted has no decision to record: taking
+      // it off the canvas IS the whole rejection.
+      if (target.serverId) {
+        try {
+          await submitReview(target.serverId, 'reject');
+        } catch (err) {
+          reportReviewFailure(err, 'reject');
+          return;
+        }
+      }
+      setMeasurements((prev) => prev.filter((m) => m.id !== id));
+      setSelectedMeasurementId((cur) => (cur === id ? null : cur));
+    },
+    [submitReview, reportReviewFailure],
+  );
+
+  /** Accept every pending suggestion at once.
+   *
+   *  Decisions go out in parallel and each one is judged on its own: a single
+   *  409 from a colleague who got there first must not strand the rest. Rows
+   *  the server refused stay flagged so the bar still shows work to do. */
+  const acceptAllSuggestions = useCallback(async () => {
+    if (reviewBusyRef.current) return;
+    const pending = measurementsRef.current.filter((m) => m.suggested);
+    if (pending.length === 0) return;
+    reviewBusyRef.current = true;
+    setReviewBusy(true);
+    try {
+      // Local-only rows carry no decision to send; they still count as accepted.
+      const remote = pending.filter(isPersisted);
+      const results = await Promise.allSettled(
+        remote.map((m) => submitReview(m.serverId, 'accept')),
+      );
+      const confirmed = new Map<string, MeasurementResponse | null>();
+      pending.filter((m) => !m.serverId).forEach((m) => confirmed.set(m.id, null));
+      let failures = 0;
+      remote.forEach((m, i) => {
+        const res = results[i];
+        if (res?.status === 'fulfilled') confirmed.set(m.id, res.value);
+        else failures += 1;
+      });
+      setMeasurements((prev) =>
+        prev.map((m) => (confirmed.has(m.id) ? applyAcceptedRow(m, confirmed.get(m.id) ?? null) : m)),
+      );
+      if (failures > 0) {
+        addToast({
+          type: 'error',
+          title: t('takeoff_viewer.review.accept_all_partial', {
+            defaultValue: '{{n}} suggestions could not be accepted',
+            n: failures,
+          }),
+          message: t('takeoff_viewer.review.retry', { defaultValue: 'Still pending, try again.' }),
+        });
+      }
+    } finally {
+      reviewBusyRef.current = false;
+      setReviewBusy(false);
+    }
+  }, [submitReview, applyAcceptedRow, addToast, t]);
+
+  /** Reject every pending suggestion at once, on the same terms as accept-all. */
+  const dismissAllSuggestions = useCallback(async () => {
+    if (reviewBusyRef.current) return;
+    const pending = measurementsRef.current.filter((m) => m.suggested);
+    if (pending.length === 0) return;
+    reviewBusyRef.current = true;
+    setReviewBusy(true);
+    try {
+      const remote = pending.filter(isPersisted);
+      const results = await Promise.allSettled(
+        remote.map((m) => submitReview(m.serverId, 'reject')),
+      );
+      const rejected = new Set(pending.filter((m) => !m.serverId).map((m) => m.id));
+      let failures = 0;
+      remote.forEach((m, i) => {
+        const res = results[i];
+        if (res?.status === 'fulfilled') rejected.add(m.id);
+        else failures += 1;
+      });
+      setMeasurements((prev) => prev.filter((m) => !rejected.has(m.id)));
+      setSelectedMeasurementId((cur) => (cur && rejected.has(cur) ? null : cur));
+      if (failures > 0) {
+        addToast({
+          type: 'error',
+          title: t('takeoff_viewer.review.reject_all_partial', {
+            defaultValue: '{{n}} suggestions could not be rejected',
+            n: failures,
+          }),
+          message: t('takeoff_viewer.review.retry', { defaultValue: 'Still pending, try again.' }),
+        });
+      }
+    } finally {
+      reviewBusyRef.current = false;
+      setReviewBusy(false);
+    }
+  }, [submitReview, addToast, t]);
 
   /* ── Export measurements to BOQ ────────────────────────────────── */
 
@@ -7462,10 +7673,12 @@ export default function TakeoffViewerModule({
                         : t('takeoff_viewer.scale_click_second', { defaultValue: 'Click second point' }))}
                 </div>
               )}
-              {/* AI suggestions review bar (#194) — appears when Recognize has
-                  dropped unconfirmed proposals. Accept-all clears the flags so
-                  they persist; dismiss-all drops them. Per-item accept/reject
-                  lives in the measurement list below. */}
+              {/* AI suggestions review bar (#194) - appears when a detector has
+                  left unconfirmed proposals. Both decisions now go to the
+                  server: accept-all confirms the rows so they count towards the
+                  totals, dismiss-all records the rejection so the same
+                  suggestion does not come back on the next run. Per-item
+                  accept/reject lives in the measurement list below. */}
               {suggestionCount > 0 && (
                 <div
                   className="absolute top-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 rounded-full border border-violet-300/60 bg-white/95 dark:bg-gray-800/95 px-3 py-1.5 shadow-lg backdrop-blur"
@@ -7476,15 +7689,17 @@ export default function TakeoffViewerModule({
                     {t('takeoff_viewer.suggestions_pending', { defaultValue: '{{n}} AI suggestions', n: suggestionCount })}
                   </span>
                   <button
-                    onClick={acceptAllSuggestions}
-                    className="rounded-full bg-emerald-500 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-emerald-600 transition-colors"
+                    onClick={() => void acceptAllSuggestions()}
+                    disabled={reviewBusy}
+                    className="rounded-full bg-emerald-500 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-emerald-600 transition-colors disabled:opacity-60 disabled:cursor-wait"
                     data-testid="accept-all-suggestions"
                   >
                     {t('takeoff_viewer.accept_all', { defaultValue: 'Accept all' })}
                   </button>
                   <button
-                    onClick={dismissAllSuggestions}
-                    className="rounded-full bg-surface-secondary px-2.5 py-1 text-[11px] font-semibold text-content-secondary hover:bg-surface-tertiary transition-colors"
+                    onClick={() => void dismissAllSuggestions()}
+                    disabled={reviewBusy}
+                    className="rounded-full bg-surface-secondary px-2.5 py-1 text-[11px] font-semibold text-content-secondary hover:bg-surface-tertiary transition-colors disabled:opacity-60 disabled:cursor-wait"
                     data-testid="dismiss-all-suggestions"
                   >
                     {t('takeoff_viewer.dismiss_all', { defaultValue: 'Dismiss all' })}
@@ -8956,7 +9171,7 @@ export default function TakeoffViewerModule({
                                   {m.suggested && (
                                     <>
                                       <button
-                                        onClick={(e) => { e.stopPropagation(); acceptSuggestion(m.id); }}
+                                        onClick={(e) => { e.stopPropagation(); void acceptSuggestion(m.id); }}
                                         className="p-0.5 rounded text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
                                         aria-label={t('takeoff_viewer.accept_suggestion', { defaultValue: 'Accept suggestion' })}
                                         title={t('takeoff_viewer.accept_suggestion', { defaultValue: 'Accept suggestion' })}
@@ -8965,7 +9180,7 @@ export default function TakeoffViewerModule({
                                         <Check size={13} />
                                       </button>
                                       <button
-                                        onClick={(e) => { e.stopPropagation(); rejectSuggestion(m.id); }}
+                                        onClick={(e) => { e.stopPropagation(); void rejectSuggestion(m.id); }}
                                         className="p-0.5 rounded text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-900/30 transition-colors"
                                         aria-label={t('takeoff_viewer.reject_suggestion', { defaultValue: 'Reject suggestion' })}
                                         title={t('takeoff_viewer.reject_suggestion', { defaultValue: 'Reject suggestion' })}

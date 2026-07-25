@@ -116,6 +116,10 @@ export interface RecognizeCandidate {
   count?: number | null;
   confidence: number;
   reason: string;
+  /** Id of the stored `proposed` row this candidate was persisted as. The
+   *  detector writes the row before answering, so a review decision is a
+   *  server call against this id rather than a change the reload forgets. */
+  measurement_id?: string | null;
 }
 
 export interface RecognizeResult {
@@ -143,6 +147,20 @@ export interface SimilarSymbolsResult {
   seed_found: boolean;
   page: number;
   note: string | null;
+  /** Id of the single stored `count` row covering the whole hit set. */
+  measurement_id?: string | null;
+}
+
+/** A review decision on one proposed measurement.
+ *
+ *  `points` is optional and only meaningful with `accept`: it corrects the
+ *  geometry before confirming. The server always re-derives the billed value
+ *  from the points it stores, so an edit cannot smuggle in a quantity the
+ *  shape does not support. */
+export interface MeasurementReviewRequest {
+  action: 'accept' | 'reject';
+  points?: MeasurementPoint[];
+  note?: string;
 }
 
 /* ── Vision-LLM plan reading (issue #194) ──────────────────────────────────
@@ -376,7 +394,11 @@ export const takeoffApi = {
 
   /** Recognize candidate measurements from a page's vector layer (offline,
    *  issue #194). Returns confidence-scored area/length/count candidates that
-   *  the user confirms on the canvas; nothing is persisted server-side. */
+   *  the user confirms on the canvas. Each candidate is also stored as a
+   *  `proposed` row and carries its `measurement_id`, so a decision survives a
+   *  reload and a colleague opening the same sheet sees it. Nothing counts as
+   *  a quantity until it is accepted. Needs `takeoff.create`, not read: the
+   *  call writes rows. */
   recognize: (docId: string, page: number, scalePixelsPerUnit?: number) => {
     const sp = scalePixelsPerUnit && scalePixelsPerUnit > 0 ? scalePixelsPerUnit : 0;
     return apiPost<RecognizeResult>(
@@ -388,11 +410,27 @@ export const takeoffApi = {
   /** Seeded "count by example": the user clicks one symbol on a vector page
    *  and the backend returns the centroids of every near-identical symbol so
    *  they can be confirmed as a single count measurement. Coordinates are in
-   *  PDF points. Nothing is persisted server-side. */
+   *  PDF points. The whole hit set is stored as ONE `proposed` count row whose
+   *  id comes back as `measurement_id`; its confidence is the weakest match in
+   *  the set, not the average, so one poor hit cannot hide behind good ones.
+   *  Needs `takeoff.create`, not read: the call writes a row. */
   similarSymbols: (docId: string, page: number, seedX: number, seedY: number) =>
     apiPost<SimilarSymbolsResult>(
       `/v1/takeoff/documents/${encodeURIComponent(docId)}/similar-symbols/?page=${page}&seed_x=${seedX}&seed_y=${seedY}`,
       {},
+    ),
+
+  /** Accept or reject one proposed measurement.
+   *
+   *  Accepting flips the stored row to `confirmed`, which is what brings it
+   *  into totals, exports and the estimator; rejecting flips it to `rejected`
+   *  and keeps it, because the record of what a human turned down is the point
+   *  of the queue. Reviewing an already-reviewed row answers 409 rather than
+   *  silently overwriting a colleague's decision. */
+  reviewMeasurement: (measurementId: string, body: MeasurementReviewRequest) =>
+    apiPost<MeasurementResponse>(
+      `/v1/takeoff/measurements/${encodeURIComponent(measurementId)}/review/`,
+      body,
     ),
 
   /** Detect an explicit drawing scale from the document's text layer (tier-1,

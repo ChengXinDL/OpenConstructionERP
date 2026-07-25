@@ -643,6 +643,62 @@ describe('useMeasurementPersistence', () => {
     expect(rows.map((r) => r.serverId)).toEqual(['a', 'b', 'c']);
   });
 
+  // ── Issue #194: the review state has to survive the reload ────────────────
+  // Once a detector stores what it proposes, a reload is what decides whether
+  // review means anything. Dropping `review_status` on the way in made a
+  // rejection something the next reload undid, and made a stored proposal come
+  // back looking exactly like agreed work.
+
+  it('does not resurrect a rejected proposal on reload (issue #194)', async () => {
+    const { takeoffApi } = await import('@/features/takeoff/api');
+    (takeoffApi.list as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      serverRow({ id: 'ok', review_status: 'confirmed', metadata: { frontend_id: 'ok' } }),
+      serverRow({ id: 'no', review_status: 'rejected', metadata: { frontend_id: 'no' } }),
+    ]);
+    const setM = vi.fn();
+    renderHook(() =>
+      useMeasurementPersistence({
+        fileName: 'reviewed.pdf', documentId: DOC, measurements: [],
+        setMeasurements: setM, pageScales: basePageScales, setPageScales: vi.fn(),
+        scale: defaultScale, projectId: PROJECT,
+      }),
+    );
+    await waitFor(() => expect(setM).toHaveBeenCalled());
+    const rows = setM.mock.calls[0]![0] as { serverId?: string }[];
+    // Somebody already said no to 'no'. Putting it back on the canvas asks them
+    // to say it again, and counts it towards the sheet until they do.
+    expect(rows.map((r) => r.serverId)).toEqual(['ok']);
+  });
+
+  it('brings a stored proposal back as a proposal, with its confidence (issue #194)', async () => {
+    const { takeoffApi } = await import('@/features/takeoff/api');
+    (takeoffApi.list as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce([
+      serverRow({
+        id: 'p1', review_status: 'proposed', confidence: 0.42,
+        metadata: { frontend_id: 'p1' },
+      }),
+      serverRow({ id: 'c1', review_status: 'confirmed', metadata: { frontend_id: 'c1' } }),
+    ]);
+    const setM = vi.fn();
+    renderHook(() =>
+      useMeasurementPersistence({
+        fileName: 'proposals.pdf', documentId: DOC, measurements: [],
+        setMeasurements: setM, pageScales: basePageScales, setPageScales: vi.fn(),
+        scale: defaultScale, projectId: PROJECT,
+      }),
+    );
+    await waitFor(() => expect(setM).toHaveBeenCalled());
+    const rows = setM.mock.calls[0]![0] as { serverId?: string; suggested?: boolean; confidence?: number }[];
+    const proposal = rows.find((r) => r.serverId === 'p1')!;
+    // Flagged, so it renders translucent, counts in the review bar, and can
+    // still be rejected. Confidence comes with it: without the number the user
+    // is asked to judge a proposal the detector was barely sure of.
+    expect(proposal.suggested).toBe(true);
+    expect(proposal.confidence).toBe(0.42);
+    // A confirmed row is agreed work and must carry no review flag at all.
+    expect(rows.find((r) => r.serverId === 'c1')!.suggested).toBeUndefined();
+  });
+
   it('fetches ALL measurement pages, not just the first (issue #377)', async () => {
     const { takeoffApi } = await import('@/features/takeoff/api');
     // Simulate the real (un-mocked) list contract: the hook must fetch every
