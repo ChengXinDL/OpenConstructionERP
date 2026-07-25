@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
-import { normalizeListResponse } from '@/shared/lib/apiHelpers';
+import { fetchAllPages, normalizeListResponse } from '@/shared/lib/apiHelpers';
 import {
   ShieldAlert,
   Eye,
@@ -371,19 +371,34 @@ function QualityDashboardSummary({
     enabled: !!projectId,
   });
 
+  // Both of these are counted below and rendered as a bare number on a dashboard
+  // tile. The routes cap `limit` at 100, so reading one page meant the "Pending
+  // Inspections" and "Open NCRs" tiles under-reported on any project past that
+  // mark, and the filtering happens after the cut rather than before it, so the
+  // shortfall does not even scale predictably. Read every page instead.
   const { data: inspections } = useQuery({
     queryKey: ['inspections-summary', projectId],
-    queryFn: () =>
-      apiGet<{ status: string }[]>(`/v1/inspections/?project_id=${projectId}&limit=100`),
-    select: (d): { status: string }[] => normalizeListResponse(d),
+    queryFn: async () =>
+      (
+        await fetchAllPages<{ status: string }>((offset, limit) =>
+          apiGet<{ status: string }[]>(
+            `/v1/inspections/?project_id=${projectId}&limit=${limit}&offset=${offset}`,
+          ),
+        )
+      ).items,
     enabled: !!projectId,
   });
 
   const { data: ncrs } = useQuery({
     queryKey: ['ncrs-summary', projectId],
-    queryFn: () =>
-      apiGet<{ status: string }[]>(`/v1/ncr/?project_id=${projectId}&limit=100`),
-    select: (d): { status: string }[] => normalizeListResponse(d),
+    queryFn: async () =>
+      (
+        await fetchAllPages<{ status: string }>((offset, limit) =>
+          apiGet<{ status: string }[]>(
+            `/v1/ncr/?project_id=${projectId}&limit=${limit}&offset=${offset}`,
+          ),
+        )
+      ).items,
     enabled: !!projectId,
   });
 

@@ -4,7 +4,7 @@ import { Fragment, useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
-import { normalizeListResponse } from '@/shared/lib/apiHelpers';
+import { fetchAllPages } from '@/shared/lib/apiHelpers';
 import {
   ShieldAlert, Plus, ChevronRight, ArrowLeft, DollarSign,
   AlertTriangle, Shield, Trash2, X, Search, Filter, CalendarDays, TrendingUp,
@@ -689,7 +689,21 @@ export function RiskRegisterPage() {
   const projectId = activeProjectId || projects[0]?.id || '';
   const project = useMemo(() => projects.find((p) => p.id === projectId), [projects, projectId]);
 
-  const { data: risks = [], isLoading, isError, error, refetch } = useQuery({ queryKey: ['risks', projectId], queryFn: () => apiGet<RiskItem[]>(`/v1/risk/?project_id=${projectId}&limit=100`), select: (d): RiskItem[] => normalizeListResponse(d), enabled: !!projectId });
+  // Read every page rather than the first one. This list feeds the Insights
+  // panel, whose "Total exposure" tile sums probability x impact_cost, so
+  // stopping at the route's 100-row ceiling made a money figure silently short
+  // on any project holding more risks than that, with nothing on screen saying
+  // so. The route caps `limit` at 100, which makes one request a page and not
+  // a data set.
+  const { data: risksPage, isLoading, isError, error, refetch } = useQuery({
+    queryKey: ['risks', projectId],
+    queryFn: () =>
+      fetchAllPages<RiskItem>((offset, limit) =>
+        apiGet<RiskItem[]>(`/v1/risk/?project_id=${projectId}&limit=${limit}&offset=${offset}`),
+      ),
+    enabled: !!projectId,
+  });
+  const risks = useMemo(() => risksPage?.items ?? [], [risksPage]);
   const { data: summary } = useQuery({ queryKey: ['risk-summary', projectId], queryFn: () => apiGet<RiskSummary>(`/v1/risk/summary/?project_id=${projectId}`), enabled: !!projectId });
   const { data: matrixData } = useQuery({ queryKey: ['risk-matrix', projectId], queryFn: () => apiGet<{ cells: MatrixCell[] }>(`/v1/risk/matrix/?project_id=${projectId}`), enabled: !!projectId });
 
