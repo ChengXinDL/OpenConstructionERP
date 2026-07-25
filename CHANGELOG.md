@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [12.6.1] - 2026-07-25
+
+Live notifications and shared editing presence work again. Both real-time channels refused every connection with a server error, so the notification bell only updated when you reloaded the page, and two people working on the same position could not see each other.
+
+The cause sat in the sign-in plumbing rather than in the channels. The tenant lookup that runs ahead of every request read the access token in a way that only exists on ordinary web requests, and a real-time connection has no such request, so the connection failed before any channel code ran. The token is now read from the part that both kinds of connection share. Ordinary sign-in and the strict authenticated routes are unchanged.
+
+The gap that let this reach four releases is closed as well. A handshake test now runs inside the PostgreSQL gate, and the presence test checks that an unauthenticated connection is refused on purpose instead of accepting any failure at all.
+
 ## [12.6.0] - 2026-07-24
 
 The case-study pages now open the running demo on the exact module the story is about. Each open-in-the-demo link points at the module route directly, so a reader following the 4D sequence case lands on the schedule board, a 5D cost model case lands on the BOQ, and so on across the workflow library.

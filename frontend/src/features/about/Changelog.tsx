@@ -38,6 +38,13 @@ interface ChangelogEntry {
 // date, title and meaning intact; trim the prose, not the facts.
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '12.6.1',
+    date: '2026-07-25',
+    tag: 'FIX',
+    summary:
+      'Live notifications and shared editing presence work again: both real-time channels were refusing every connection, so the notification bell only updated on reload and two people on the same position could not see each other. The handshake is now covered by a test in the database gate so it cannot break unnoticed again.',
+  },
+  {
     version: '12.6.0',
     date: '2026-07-24',
     tag: 'NEW',
