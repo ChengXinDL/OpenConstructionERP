@@ -82,11 +82,15 @@ def stock_alembic_width(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def pg_sync_admin_url() -> str:
-    """The session cluster's sync URL, as the test conftest published it."""
-    url = os.environ.get("DATABASE_SYNC_URL", "")
-    if not url:
-        pytest.skip("no DATABASE_SYNC_URL - the session cluster did not start")
-    return url
+    """The session cluster's sync URL, as the test conftest published it.
+
+    Indexed rather than fetched with a default on purpose, matching
+    ``tests/_pg.py``: a missing cluster has to fail loudly here. Skipping
+    instead would let the gate report green on a run where the three
+    PostgreSQL tests below never executed, which is the one outcome this file
+    exists to prevent.
+    """
+    return os.environ["DATABASE_SYNC_URL"]
 
 
 @pytest.fixture
