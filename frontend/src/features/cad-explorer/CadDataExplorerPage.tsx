@@ -19,7 +19,9 @@ import {
   TrendingUp, Hash, Clock, ShieldCheck, Bookmark, ScatterChart as ScatterIcon, Trash2,
   Box, Ruler, Square, Building2, Palette,
 } from 'lucide-react';
-import { Button, Card, Badge, Breadcrumb, DismissibleInfo, EmptyState, ModuleGuideButton } from '@/shared/ui';
+import { Button, Card, Badge, Breadcrumb, DismissibleInfo, EmptyState, ModuleGuideButton, ProjectFilePicker, projectDocumentToFile } from '@/shared/ui';
+import { CAD_EXPLORER_FORMATS } from '@/shared/lib/projectFileFormats';
+import type { DocumentItem } from '@/features/documents/api';
 import { useToastStore } from '@/stores/useToastStore';
 import { useUploadQueueStore } from '@/stores/useUploadQueueStore';
 import { apiGet, apiPost, ApiError, getErrorMessage, extractErrorMessageFromBody } from '@/shared/lib/api';
@@ -3084,6 +3086,12 @@ function UploadConvertZone({
   const { t } = useTranslation();
   const addToast = useToastStore((s) => s.addToast);
   const inputRef = useRef<HTMLInputElement>(null);
+  /** "Open from project files": lists the CAD files already stored in the
+   *  active project so a model that is already on the platform does not have
+   *  to be uploaded again just to explore its data. */
+  const pickerProjectId = useProjectContextStore((s) => s.activeProjectId) ?? '';
+  const [showProjectFilePicker, setShowProjectFilePicker] = useState(false);
+  const [pickingFileId, setPickingFileId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [fileName, setFileName] = useState('');
@@ -3201,6 +3209,34 @@ function UploadConvertZone({
     }
   }, [addToast, t, onSessionReady, addQueueTask, updateQueueTask]);
 
+  /** Adopt a CAD file already stored in the project's Files area. The bytes
+   *  are pushed through `handleFile`, the same entry point a local pick and a
+   *  drag-drop use, so conversion and the queue task behave identically. */
+  const handlePickProjectFile = useCallback(
+    async (doc: DocumentItem) => {
+      setPickingFileId(doc.id);
+      try {
+        const picked = await projectDocumentToFile(doc);
+        setShowProjectFilePicker(false);
+        await handleFile(picked);
+      } catch (err) {
+        addToast({
+          type: 'error',
+          title: t('project_files.pick_failed_title', { defaultValue: 'Could not open that file' }),
+          message:
+            err instanceof Error
+              ? err.message
+              : t('project_files.pick_failed_msg', {
+                  defaultValue: 'The file could not be read from the project. Try again.',
+                }),
+        });
+      } finally {
+        setPickingFileId(null);
+      }
+    },
+    [handleFile, addToast, t],
+  );
+
   return (
     <div>
       <div
@@ -3279,6 +3315,29 @@ function UploadConvertZone({
           </div>
         )}
       </div>
+
+      {/* Second way in: a CAD file already filed in this project. The local
+          upload above is unchanged; this only saves re-uploading a model the
+          project already holds. */}
+      <button
+        type="button"
+        onClick={() => setShowProjectFilePicker(true)}
+        disabled={!pickerProjectId || uploading}
+        data-testid="cad-explorer-open-from-project-files"
+        className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border-medium bg-surface-primary px-3 py-2 text-xs font-semibold text-content-secondary transition-colors hover:border-oe-blue/40 hover:text-oe-blue disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <FolderOpen size={14} />
+        {t('project_files.open_from_project', { defaultValue: 'Open from project files' })}
+      </button>
+
+      <ProjectFilePicker
+        open={showProjectFilePicker}
+        onClose={() => setShowProjectFilePicker(false)}
+        projectId={pickerProjectId}
+        accepted={CAD_EXPLORER_FORMATS}
+        onPick={handlePickProjectFile}
+        busyId={pickingFileId}
+      />
     </div>
   );
 }

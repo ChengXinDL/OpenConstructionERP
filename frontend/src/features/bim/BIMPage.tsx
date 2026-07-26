@@ -59,7 +59,9 @@ import {
   Palette,
   Footprints,
 } from 'lucide-react';
-import { Badge, EmptyState, Breadcrumb, ConfirmDialog, ModuleHelpButton, ModuleGuideButton, DismissibleInfo, IntroRichText } from '@/shared/ui';
+import { Badge, EmptyState, Breadcrumb, ConfirmDialog, ModuleHelpButton, ModuleGuideButton, DismissibleInfo, IntroRichText, ProjectFilePicker, projectDocumentToFile } from '@/shared/ui';
+import { BIM_VIEWER_FORMATS } from '@/shared/lib/projectFileFormats';
+import type { DocumentItem } from '@/features/documents/api';
 import { bimGuide } from './bimGuide';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { useDisplayQuantity } from '@/shared/hooks/useDisplayQuantity';
@@ -496,6 +498,13 @@ function UploadPanel({
   const [dataFile, setDataFile] = useState<File | null>(null);
   const [geometryFile, setGeometryFile] = useState<File | null>(null);
   const [meshImportFile, setMeshImportFile] = useState<File | null>(null);
+  /** "Open from project files": lists the models already stored in this
+   *  project that the BIM viewer can take. Picking one downloads the bytes
+   *  and hands them to `handleFileSelect`, the same entry point a local pick
+   *  and a drag-drop both use, so RVT/IFC conversion, mesh import and the
+   *  DWG handoff all keep behaving identically. */
+  const [showProjectFilePicker, setShowProjectFilePicker] = useState(false);
+  const [pickingFileId, setPickingFileId] = useState<string | null>(null);
   const [installPromptState, setInstallPromptState] =
     useState<InstallPromptState | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -548,6 +557,35 @@ function UploadPanel({
     setUploadError(ext === '.rvt' ? t('bim.upload_rvt_note') : null);
     if (!modelName) setModelName(f.name.replace(/\.[^.]+$/, ''));
   }, [modelName, t, addToast, navigate, projectId, discipline]);
+
+  /** Adopt a model already stored in the project's Files area. The bytes are
+   *  downloaded and pushed through `handleFileSelect`, so a picked file takes
+   *  exactly the same route as a dropped one - including the DWG handoff to
+   *  DWG Takeoff and the in-browser mesh import. */
+  const handlePickProjectFile = useCallback(
+    async (doc: DocumentItem) => {
+      setPickingFileId(doc.id);
+      try {
+        const picked = await projectDocumentToFile(doc);
+        setShowProjectFilePicker(false);
+        handleFileSelect(picked);
+      } catch (err) {
+        addToast({
+          type: 'error',
+          title: t('project_files.pick_failed_title', { defaultValue: 'Could not open that file' }),
+          message:
+            err instanceof Error
+              ? err.message
+              : t('project_files.pick_failed_msg', {
+                  defaultValue: 'The file could not be read from the project. Try again.',
+                }),
+        });
+      } finally {
+        setPickingFileId(null);
+      }
+    },
+    [handleFileSelect, addToast, t],
+  );
 
   const resetForm = useCallback(() => {
     setFile(null); setDataFile(null); setGeometryFile(null); setModelName(''); setUploadError(null);
@@ -895,6 +933,31 @@ function UploadPanel({
             </label>
           </div>
         )}
+
+        {/* Second way in: a model already filed in this project's Files area.
+            Sits OUTSIDE the drop-zone <label> on purpose - a button nested in
+            that label would also trigger the hidden file input. The local
+            upload above is untouched; this only spares the user from hunting
+            down a file the project already holds. */}
+        <button
+          type="button"
+          onClick={() => setShowProjectFilePicker(true)}
+          disabled={!projectId}
+          data-testid="bim-open-from-project-files"
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border-medium bg-surface-primary px-3 py-2 text-xs font-semibold text-content-secondary transition-colors hover:border-oe-blue/40 hover:text-oe-blue disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <FolderOpen size={14} />
+          {t('project_files.open_from_project', { defaultValue: 'Open from project files' })}
+        </button>
+
+        <ProjectFilePicker
+          open={showProjectFilePicker}
+          onClose={() => setShowProjectFilePicker(false)}
+          projectId={projectId}
+          accepted={BIM_VIEWER_FORMATS}
+          onPick={handlePickProjectFile}
+          busyId={pickingFileId}
+        />
 
         <div>
           <label className="block text-[10px] font-semibold text-content-tertiary mb-1.5 uppercase tracking-wider">{t('bim.upload_model_name_label')}</label>

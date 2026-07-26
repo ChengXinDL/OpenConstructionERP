@@ -44,7 +44,9 @@ import {
   Hourglass,
   Trash2,
 } from 'lucide-react';
-import { Badge, Breadcrumb, Card, DismissibleInfo, EmptyState, ModuleGuideButton } from '@/shared/ui';
+import { Badge, Breadcrumb, Card, DismissibleInfo, EmptyState, ModuleGuideButton, ProjectFilePicker, projectDocumentToFile } from '@/shared/ui';
+import { POINTCLOUD_FORMATS } from '@/shared/lib/projectFileFormats';
+import type { DocumentItem } from '@/features/documents/api';
 import type { ScanDataset, ScanMetadata } from './api';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { useToastStore } from '@/stores/useToastStore';
@@ -334,6 +336,11 @@ export function PointCloudPage() {
     staleTime: 5 * 60_000,
   });
   const projectId = activeProjectId || projects[0]?.id || '';
+  /** "Open from project files": lists the scans already filed in this project
+   *  so a container that is already on the platform does not have to be
+   *  uploaded a second time. */
+  const [showProjectFilePicker, setShowProjectFilePicker] = useState(false);
+  const [pickingFileId, setPickingFileId] = useState<string | null>(null);
   // Requires a SUCCESSFUL empty result, not merely a finished one: the default
   // above makes a failed request look like an account with no projects, and
   // the empty state then tells the user to create one they may already have.
@@ -397,6 +404,34 @@ export function PointCloudPage() {
       if (!scanName) setScanName(f.name.replace(/\.[^.]+$/, ''));
     },
     [scanName, t],
+  );
+
+  /** Adopt a scan already stored in the project's Files area. The bytes go
+   *  through `handleFileSelect`, the same entry point a local pick uses, so
+   *  the format guard and the name default behave identically. */
+  const handlePickProjectFile = useCallback(
+    async (doc: DocumentItem) => {
+      setPickingFileId(doc.id);
+      try {
+        const picked = await projectDocumentToFile(doc);
+        setShowProjectFilePicker(false);
+        handleFileSelect(picked);
+      } catch (err) {
+        addToast({
+          type: 'error',
+          title: t('project_files.pick_failed_title', { defaultValue: 'Could not open that file' }),
+          message:
+            err instanceof Error
+              ? err.message
+              : t('project_files.pick_failed_msg', {
+                  defaultValue: 'The file could not be read from the project. Try again.',
+                }),
+        });
+      } finally {
+        setPickingFileId(null);
+      }
+    },
+    [handleFileSelect, addToast, t],
   );
 
   const clearFile = useCallback(() => {
@@ -661,6 +696,29 @@ export function PointCloudPage() {
           }}
         />
       </label>
+
+      {/* Second way in: a scan already filed in this project. Sits OUTSIDE
+          the drop-zone <label> - a button nested in it would also trigger the
+          hidden file input. The local upload above is unchanged. */}
+      <button
+        type="button"
+        onClick={() => setShowProjectFilePicker(true)}
+        disabled={!projectId || uploading}
+        data-testid="pointcloud-open-from-project-files"
+        className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border-medium bg-surface-primary px-3 py-2 text-xs font-semibold text-content-secondary transition-colors hover:border-oe-blue/40 hover:text-oe-blue disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <FolderOpen size={14} />
+        {t('project_files.open_from_project', { defaultValue: 'Open from project files' })}
+      </button>
+
+      <ProjectFilePicker
+        open={showProjectFilePicker}
+        onClose={() => setShowProjectFilePicker(false)}
+        projectId={projectId}
+        accepted={POINTCLOUD_FORMATS}
+        onPick={handlePickProjectFile}
+        busyId={pickingFileId}
+      />
 
       {/* Capture metadata - the tier gates what the scan may drive. */}
       <div className="grid gap-3 sm:grid-cols-3">

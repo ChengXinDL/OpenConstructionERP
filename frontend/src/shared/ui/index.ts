@@ -248,3 +248,6 @@ export { OfflineFallback, markLastSync } from './OfflineFallback';
 
 export { Markdown, renderDocMarkdown } from './Markdown';
 export type { MarkdownProps } from './Markdown';
+
+export { ProjectFilePicker, projectDocumentToFile } from './ProjectFilePicker';
+export type { ProjectFilePickerProps } from './ProjectFilePicker';

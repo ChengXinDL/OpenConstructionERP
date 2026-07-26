@@ -67,8 +67,11 @@ import {
   GitCompare,
   FileStack,
   Hash,
+  FolderOpen,
 } from 'lucide-react';
-import { Badge, ConfirmDialog, DismissibleInfo, ElementInfoPopover, ModuleGuideButton, type DWGElementPayload } from '@/shared/ui';
+import { Badge, ConfirmDialog, DismissibleInfo, ElementInfoPopover, ModuleGuideButton, ProjectFilePicker, projectDocumentToFile, type DWGElementPayload } from '@/shared/ui';
+import { DWG_TAKEOFF_FORMATS } from '@/shared/lib/projectFileFormats';
+import type { DocumentItem } from '@/features/documents/api';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
@@ -911,6 +914,13 @@ export function DwgTakeoffPage() {
   // collides with the main new-drawing upload flow above.
   const revisionInputRef = useRef<HTMLInputElement>(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  /** "Open from project files" picker: lists the DWG/DXF already filed in
+   *  this project so the user does not have to find the drawing on their own
+   *  machine again. Picking one downloads its bytes into the SAME
+   *  `uploadFile` state a local pick fills, so the rest of the upload flow
+   *  (name, discipline, converter auto-install) is untouched. */
+  const [showProjectFilePicker, setShowProjectFilePicker] = useState(false);
+  const [pickingFileId, setPickingFileId] = useState<string | null>(null);
   /** Visual drop-zone hover state - flips on `dragenter`/`dragover` and
    *  back on `dragleave`/`drop`. The hero card and modal both bind to it
    *  so the dashed border highlights while a real file is hovering, not
@@ -2458,6 +2468,38 @@ export function DwgTakeoffPage() {
     setUploadName('');
     setUploadDiscipline('architectural');
   }, []);
+
+  /** Adopt a drawing already stored in the project's Files area. The bytes
+   *  are downloaded and handed to the SAME `uploadFile` state a local pick
+   *  fills, so conversion, naming and the converter auto-install all behave
+   *  identically whichever way the file arrived. */
+  const handlePickProjectFile = useCallback(
+    async (doc: DocumentItem) => {
+      setPickingFileId(doc.id);
+      try {
+        const file = await projectDocumentToFile(doc);
+        setUploadFile(file);
+        setUploadName((prev) => prev || doc.name.replace(/\.[^.]+$/, ''));
+        setShowProjectFilePicker(false);
+      } catch (err) {
+        addToast({
+          type: 'error',
+          title: t('project_files.pick_failed_title', {
+            defaultValue: 'Could not open that file',
+          }),
+          message:
+            err instanceof Error
+              ? err.message
+              : t('project_files.pick_failed_msg', {
+                  defaultValue: 'The file could not be read from the project. Try again.',
+                }),
+        });
+      } finally {
+        setPickingFileId(null);
+      }
+    },
+    [addToast, t],
+  );
 
   /* ── BOQ-link picker handlers ──────────────────────────────────────
    * Mirror the PDF-takeoff pattern: self-contained picker loads projects,
@@ -4877,6 +4919,23 @@ export function DwgTakeoffPage() {
               )}
             </button>
 
+            {/* Second way in: a drawing already filed in this project. The
+                local upload above stays exactly as it was - this only saves
+                the user from hunting down (and re-uploading) a file the
+                project already holds. */}
+            <button
+              type="button"
+              onClick={() => setShowProjectFilePicker(true)}
+              disabled={!projectId}
+              data-testid="dwg-open-from-project-files"
+              className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border-medium bg-surface-primary px-3 py-2 text-xs font-semibold text-content-secondary transition-colors hover:border-oe-blue/40 hover:text-oe-blue disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <FolderOpen size={14} />
+              {t('project_files.open_from_project', {
+                defaultValue: 'Open from project files',
+              })}
+            </button>
+
             {/* Auto-install of the local DWG converter (background, no click).
                 Shown when the user picks a .dwg and the converter is missing;
                 DXF uploads bypass it entirely. The notice renders only while
@@ -5052,6 +5111,17 @@ export function DwgTakeoffPage() {
           </div>
         </div>
       )}
+
+      {/* "Open from project files" - lists the DWG/DXF already stored in
+          this project so a filed drawing does not have to be re-uploaded. */}
+      <ProjectFilePicker
+        open={showProjectFilePicker}
+        onClose={() => setShowProjectFilePicker(false)}
+        projectId={projectId}
+        accepted={DWG_TAKEOFF_FORMATS}
+        onPick={handlePickProjectFile}
+        busyId={pickingFileId}
+      />
 
       {/* Delete drawing confirmation */}
       {confirmDeleteId && (
