@@ -39,6 +39,7 @@ import {
   CollapsibleSection,
 } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { apiGet } from '@/shared/lib/api';
 import { useToastStore } from '@/stores/useToastStore';
@@ -66,6 +67,7 @@ import {
   type CDERevision,
 } from '@/features/cde/api';
 import { transmittalsGuide } from './transmittalsGuide';
+import { buildTransmittalsInsights } from './transmittalsInsights';
 
 /* ── Constants ─────────────────────────────────────────────────────────── */
 
@@ -1127,6 +1129,15 @@ export function TransmittalsPage() {
     return { total, draft, issued, acknowledged, responded };
   }, [transmittals]);
 
+  // Insights read the whole loaded register rather than the search result, so
+  // the panel keeps answering "who owes us a receipt" while someone types in
+  // the search box. Same records the stats row counts, at recipient grain.
+  const insights = useModuleInsights('transmittals');
+  const { datasets, builtins } = useMemo(
+    () => buildTransmittalsInsights(transmittals, t),
+    [transmittals, t],
+  );
+
   // Invalidation — scope to the current project so we only refetch the cache
   // entry actually in view (queryKey is ['transmittals', projectId, status]).
   // React Query treats the partial key as a prefix, so every status variant of
@@ -1369,6 +1380,9 @@ export function TransmittalsPage() {
               content={transmittalsGuide}
               onCta={() => setShowCreateModal(true)}
             />
+            {/* Sits after the guide pill, which the comment above claims as the
+                lead of this cluster, and before the primary action. */}
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             <Button
               variant="primary"
               size="sm"
@@ -1467,6 +1481,20 @@ export function TransmittalsPage() {
           </p>
         </div>
       </div>
+
+      {/* Sits directly under the stats row because it elaborates those counts:
+          the tiles count transmittals, the panel breaks the same records down
+          per recipient, which is the grain you can actually chase. */}
+      <InsightsPanel
+        open={insights.open}
+        title={t('transmittals.insights.title', { defaultValue: 'Distribution insights' })}
+        datasets={datasets}
+        builtins={builtins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
+      />
 
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
