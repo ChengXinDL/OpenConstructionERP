@@ -74,6 +74,13 @@ export interface Measurement {
   /** Typical-multiplier: this measurement stands for N identical repeats
    *  (typical floors / bays). Effective qty = base x multiplier. Undefined = 1. */
   multiplier?: number;
+  /** Where this row's captured scale ratio came from, as the server recorded
+   *  it, or undefined when it was never recorded. Written together with the
+   *  ratio it describes and never on its own, so the two always refer to the
+   *  same capture. Surfaces render a missing value as "Unknown" rather than as
+   *  a blank, because "we do not know" is the useful answer when a sheet turns
+   *  out to be mis-scaled. */
+  scaleSource?: string;
   /** Explicit paint (z) order key (issue #379). Higher = painted later = on
    *  top; drives the canvas paint pass, the click hit-test, the sidebar list
    *  and the PDF export. Undefined = fall back to array (creation) order, so

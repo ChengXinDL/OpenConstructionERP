@@ -309,6 +309,35 @@ const CONFIDENCE_BAND_TEXT: Record<ConfidenceBand, { key: string; fallback: stri
   unknown: { key: 'takeoff_viewer.confidence_unknown', fallback: 'Not scored' },
 };
 
+/** How each stored scale provenance reads to an estimator. A value absent from
+ *  this map (including a source added server-side ahead of this client) falls
+ *  back to "Unknown", which is also what a row with no source at all shows -
+ *  the honest answer, and the one that matters when a sheet turns out to have
+ *  been measured at the wrong ratio. */
+const SCALE_SOURCE_TEXT: Record<string, { key: string; fallback: string }> = {
+  manual_calibration: {
+    key: 'takeoff_viewer.scale_source_manual_calibration',
+    fallback: 'Calibrated on this sheet',
+  },
+  preset: { key: 'takeoff_viewer.scale_source_preset', fallback: 'Document scale' },
+  inherited: {
+    key: 'takeoff_viewer.scale_source_inherited',
+    fallback: "Inherited from the sheet's scale",
+  },
+  page_text: {
+    key: 'takeoff_viewer.scale_source_page_text',
+    fallback: 'Read from the drawing text',
+  },
+  recovered_text: {
+    key: 'takeoff_viewer.scale_source_recovered_text',
+    fallback: 'Recovered from the sheet by OCR',
+  },
+  vision_read: {
+    key: 'takeoff_viewer.scale_source_vision_read',
+    fallback: 'Read from the drawing by the model',
+  },
+};
+
 interface Point {
   x: number;
   y: number;
@@ -8641,6 +8670,34 @@ export default function TakeoffViewerModule({
                     </div>
                   </div>
                 </div>
+
+                {/* Where the ratio behind that quantity came from. Read-only:
+                    it is recorded at capture, not chosen here. Shown for every
+                    measurement, including the ones with no source stored, so a
+                    sheet found to be mis-scaled can be narrowed to the rows
+                    that actually inherited the bad calibration instead of
+                    re-checking the whole document by hand. */}
+                {!isAnnotationType(selectedMeasurement.type) && (
+                  <div>
+                    <label className="text-[10px] font-semibold text-content-tertiary block mb-0.5">
+                      {t('takeoff_viewer.prop_scale_source', { defaultValue: 'Scale from' })}
+                    </label>
+                    <div
+                      className="w-full rounded border border-border/60 bg-surface-secondary/60 px-2 py-1 text-xs text-content-secondary"
+                      data-testid="prop-scale-source"
+                      data-scale-source={selectedMeasurement.scaleSource ?? 'unknown'}
+                    >
+                      {(() => {
+                        const stored = selectedMeasurement.scaleSource;
+                        const entry = stored ? SCALE_SOURCE_TEXT[stored] : undefined;
+                        if (entry) return t(entry.key, { defaultValue: entry.fallback });
+                        return t('takeoff_viewer.scale_source_unknown', {
+                          defaultValue: 'Unknown',
+                        });
+                      })()}
+                    </div>
+                  </div>
+                )}
 
                 {/* Opening deduction toggle - area measurements only. A
                     deduction (door / window / cut-out) is subtracted from the

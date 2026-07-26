@@ -12,6 +12,10 @@ import {
 import { QueryClientContext } from '@tanstack/react-query';
 import { takeoffApi, type MeasurementCreate, type MeasurementResponse } from '@/features/takeoff/api';
 import {
+  attributeScaleSource,
+  inferredCalibrationPages,
+} from '@/features/takeoff/lib/scaleSource';
+import {
   type PageScales,
   defaultScaleConfig,
   hydratePageScales,
@@ -285,6 +289,7 @@ function toApiFormat(
   projectId: string,
   documentId: string,
   pageScales?: PageScales,
+  inferredCalibrations?: ReadonlySet<number>,
 ): MeasurementCreate {
   // Area measurements carry the polygon area in `m.value`; volume
   // measurements carry the area separately in `m.area`. Persist the
@@ -330,6 +335,16 @@ function toApiFormat(
     // client value against the raw geometry (Audit B8) instead of
     // trusting it blindly.
     scale_pixels_per_unit: ppu,
+    // Where that ratio came from, so a sheet later found to be mis-scaled can
+    // be narrowed to the rows that inherited the bad one. Only the drawing
+    // surface knows this, so the client has to state it - but it states NULL
+    // rather than a guess when it cannot attribute the calibration, because a
+    // wrong provenance is the one a re-scale would trust.
+    scale_source: attributeScaleSource({
+      pixelsPerUnit: ppu,
+      pageHasOwnCalibration: scaleCalibrated,
+      calibrationIsInferred: inferredCalibrations?.has(m.page) ?? false,
+    }),
     // Opening deduction only applies to an area; the server enforces this
     // too but we keep the payload honest.
     is_deduction: m.type === 'area' ? Boolean(m.isDeduction) : false,
@@ -455,6 +470,7 @@ function toApiUpdate(
   scale?: ScaleConfig,
   scaleCalibrated = false,
   geometryChanged = true,
+  calibrationIsInferred = false,
 ): Partial<MeasurementCreate> {
   const ppu = scale && scale.pixelsPerUnit > 0 ? scale.pixelsPerUnit : null;
   const areaValue =
@@ -512,6 +528,16 @@ function toApiUpdate(
     body.depth = m.depth ?? null;
     body.count_value = m.type === 'count' ? Math.round(m.value) : null;
     body.scale_pixels_per_unit = ppu;
+    // The source describes the ratio on the line above, so the two are always
+    // written together and never apart. A reshape re-captures the geometry at
+    // whatever the page reads now, so its provenance is re-attributed now too;
+    // sending the ratio alone would leave a label describing a capture that no
+    // longer happened, which is exactly what the server-side guard clears.
+    body.scale_source = attributeScaleSource({
+      pixelsPerUnit: ppu,
+      pageHasOwnCalibration: scaleCalibrated,
+      calibrationIsInferred,
+    });
     // Per-page calibration intent (issue #277): re-sent with the geometry so a
     // reshape keeps the row's calibration provenance, but never on a
     // non-geometry edit (the server merges metadata, so omitting it preserves
@@ -531,6 +557,9 @@ function fromApiFormat(r: MeasurementResponse): Measurement {
     // nowhere, still in the review bar nowhere, and no way left to reject it.
     suggested: r.review_status === 'proposed' ? true : undefined,
     confidence: r.confidence ?? undefined,
+    // Read-only provenance of the row's captured scale; the properties panel
+    // and the exports render a missing value as "Unknown" rather than blank.
+    scaleSource: r.scale_source ?? undefined,
     type: r.type as Measurement['type'],
     points: r.points as Point[],
     value: r.measurement_value ?? r.count_value ?? 0,
@@ -759,6 +788,11 @@ export function useMeasurementPersistence({
   // baseline lets the edit-PATCH effect tell a geometry reshape from a pure
   // colour / label / opacity edit so the latter never rewrites a calibration.
   const geomSigRef = useRef<Map<string, string>>(new Map());
+  /** Pages whose per-page calibration we only INFERRED while restoring, so a
+   *  measurement drawn on them is stamped with no scale source rather than
+   *  with a calibration nobody stated. Empty whenever the document carries an
+   *  authoritative page_scales column, because then nothing was guessed. */
+  const inferredCalibrationsRef = useRef<ReadonlySet<number>>(new Set<number>());
   const patchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlightPatchRef = useRef<Set<string>>(new Set());
   // Pending server-side deletions (issue #282): serverIds of rows deleted in
@@ -907,6 +941,12 @@ export function useMeasurementPersistence({
             // scale stamps. Reconcile with the localStorage copy so a real
             // calibration on either side survives while a stale local DEFAULT
             // never overrides an explicit server one.
+            // Only the per-measurement fallback guesses: it treats any legacy
+            // row off the factory ratio as calibrated. The document column
+            // states its calibrations outright, so nothing there is inferred.
+            inferredCalibrationsRef.current = doc?.page_scales
+              ? new Set<number>()
+              : inferredCalibrationPages(serverData);
             const serverScales = doc?.page_scales
               ? hydratePageScales(doc.page_scales, null)
               : pageScalesFromServer(serverData);
@@ -1094,7 +1134,15 @@ export function useMeasurementPersistence({
         // Per-page scale: toApiFormat resolves each row's own page scale
         // from pageScales, so a multi-sheet set syncs correct ratios. The
         // document_id sent is the stable UUID, never the filename (#238).
-        .map((m) => toApiFormat(m, projectIdNow, documentIdNow, pageScalesNow));
+        .map((m) =>
+          toApiFormat(
+            m,
+            projectIdNow,
+            documentIdNow,
+            pageScalesNow,
+            inferredCalibrationsRef.current,
+          ),
+        );
       const createPromise =
         toCreate.length > 0 ? takeoffApi.bulkCreate(toCreate) : null;
 
@@ -1226,6 +1274,7 @@ export function useMeasurementPersistence({
                 scaleForPage(pageScales, m.page),
                 pageIsCalibrated(pageScales, m.page),
                 geometryChanged,
+                inferredCalibrationsRef.current.has(m.page),
               ),
             );
             // Mark this signature as known-on-server so we don't re-PATCH it.

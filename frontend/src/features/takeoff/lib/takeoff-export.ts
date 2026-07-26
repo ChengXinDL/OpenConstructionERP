@@ -97,6 +97,32 @@ export interface ExcelExportContext extends ExportContext {
 export const isAnnotationType = (type: string): boolean =>
   ANNOTATION_TYPES.has(type);
 
+/** Human wording for a stored scale provenance, for the exported sheet.
+ *
+ * The rest of the workbook is written in English regardless of UI locale, so
+ * this deliberately does not go through i18n. A row with no recorded source,
+ * or one carrying a value added server-side ahead of this client, reads
+ * "Unknown" rather than as an empty cell: a blank looks like a column that
+ * failed to populate, while "Unknown" is a statement about the measurement. */
+export function scaleSourceLabel(source: string | undefined | null): string {
+  switch (source) {
+    case 'manual_calibration':
+      return 'Calibrated on this sheet';
+    case 'preset':
+      return 'Document scale';
+    case 'inherited':
+      return "Inherited from the sheet's scale";
+    case 'page_text':
+      return 'Read from the drawing text';
+    case 'recovered_text':
+      return 'Recovered from the sheet by OCR';
+    case 'vision_read':
+      return 'Read from the drawing by the model';
+    default:
+      return 'Unknown';
+  }
+}
+
 /* ── Filename ────────────────────────────────────────────────────── */
 
 /**
@@ -725,6 +751,10 @@ export const EXCEL_COLUMNS = [
   { key: 'value', header: 'Value', width: 14 },
   { key: 'unit', header: 'Unit', width: 8 },
   { key: 'linkedBoq', header: 'Linked BOQ Position', width: 24 },
+  // Where each row's ratio came from. A quantity is only as trustworthy as the
+  // scale behind it, and this is the column that lets a reviewer sort a sheet
+  // by provenance instead of taking every number on equal footing.
+  { key: 'scaleSource', header: 'Scale From', width: 22 },
 ] as const;
 
 /**
@@ -786,6 +816,7 @@ export async function buildTakeoffWorkbook(
       value: '',
       unit: '',
       linkedBoq: '',
+      scaleSource: '',
     });
     headerRowVals.font = { bold: true, color: { argb: 'FFFFFFFF' } };
     headerRowVals.fill = {
@@ -811,6 +842,10 @@ export async function buildTakeoffWorkbook(
         value: cellValue,
         unit: isAnno ? m.unit : disp.unit,
         linkedBoq: m.linkedPositionOrdinal ?? '',
+        // Annotations carry no quantity, so no scale stands behind them.
+        // Everything else reports its provenance, and a row that never
+        // recorded one reports that plainly rather than reading as blank.
+        scaleSource: isAnno ? '' : scaleSourceLabel(m.scaleSource),
       });
     }
 
@@ -840,6 +875,7 @@ export async function buildTakeoffWorkbook(
         value: t === 'count' ? Math.round(total) : Number(disp.value.toFixed(3)),
         unit: t === 'count' ? 'pcs' : disp.unit,
         linkedBoq: '',
+        scaleSource: '',
       });
       subtotalRow.font = { bold: true };
       subtotalRow.fill = {

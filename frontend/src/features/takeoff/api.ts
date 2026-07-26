@@ -16,6 +16,22 @@ export interface MeasurementPoint {
   y: number;
 }
 
+/**
+ * Where a measurement's scale ratio came from. Mirrors the server's closed set
+ * (``app/modules/takeoff/schemas.py``); a value outside it is rejected there.
+ *
+ * The set exists so a sheet found to be mis-scaled can be narrowed to the rows
+ * that actually inherited the bad ratio instead of sending the whole document
+ * back for a manual re-check.
+ */
+export type ScaleSource =
+  | 'page_text'
+  | 'recovered_text'
+  | 'vision_read'
+  | 'manual_calibration'
+  | 'preset'
+  | 'inherited';
+
 export interface MeasurementCreate {
   project_id: string;
   document_id?: string | null;
@@ -32,6 +48,12 @@ export interface MeasurementCreate {
   perimeter?: number | null;
   count_value?: number | null;
   scale_pixels_per_unit?: number | null;
+  /** Where ``scale_pixels_per_unit`` came from. Omit when the client cannot
+   *  attribute it: the server stores NULL, which reads as "not recorded", and
+   *  that is the honest answer. Never send a plausible-looking guess here - a
+   *  wrong provenance is worse than a missing one, because it is the one a
+   *  re-scale would trust when deciding which rows to recompute. */
+  scale_source?: ScaleSource | null;
   linked_boq_position_id?: string | null;
   /** Mark an area measurement as an opening / void; its area is subtracted
    *  from the group's gross area (net = gross - openings). Area-only. */
@@ -58,6 +80,10 @@ export interface MeasurementResponse {
   perimeter: number | null;
   count_value: number | null;
   scale_pixels_per_unit: number | null;
+  /** Where the ratio above came from, or ``null`` when it was never recorded.
+   *  Typed loosely on the way in so a value added server-side ahead of this
+   *  client does not fail the parse; surfaces render an unknown value as-is. */
+  scale_source?: string | null;
   linked_boq_position_id: string | null;
   /** True when this area measurement is an opening / void subtracted from
    *  its group's gross area. False / absent for normal measurements. */
