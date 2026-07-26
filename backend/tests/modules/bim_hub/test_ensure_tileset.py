@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from unittest.mock import AsyncMock, patch
 
 import pytest
 import pytest_asyncio
@@ -142,6 +143,103 @@ async def test_ensure_tileset_returns_none_and_marks_skipped_for_small_model() -
         raw = await bim_file_storage.read_tiles_manifest(project_id, model_id)
         assert raw is not None
         assert json.loads(raw).get("skipped") is True
+    finally:
+        await _cleanup(project_id, model_id)
+
+
+@pytest.mark.asyncio
+async def test_low_disk_keeps_the_previous_tileset_when_geometry_is_unchanged() -> None:
+    """A tiler bump on a full volume must not destroy a usable tileset.
+
+    Bumping TILER_VERSION invalidates every stored manifest at once, so the
+    first open of each model triggers a bake. If the disk cannot take it we
+    keep serving the tiles we already have: the geometry did not change, so
+    they still describe this exact building, merely partitioned by the older
+    rules. Losing them would mean a slower load for no gain.
+    """
+    project_id = uuid.uuid4()
+    model_id = uuid.uuid4()
+    await _insert_model(project_id, model_id)
+    await bim_file_storage.save_geometry(project_id, model_id, ".glb", _grid_glb(16, 16, 2))
+
+    try:
+        async with async_session_factory() as session:
+            baked = await BIMHubService(session).ensure_tileset(model_id)
+        assert baked is not None
+
+        # Simulate a tiler bump, then run the next open against a full volume.
+        raw = await bim_file_storage.read_tiles_manifest(project_id, model_id)
+        stored = json.loads(raw)
+        stored["tiler_version"] = "0.0-old"
+        await bim_file_storage.save_tiles_manifest(project_id, model_id, json.dumps(stored).encode())
+
+        async with async_session_factory() as session:
+            svc = BIMHubService(session)
+            with patch.object(bim_file_storage, "free_space_bytes", AsyncMock(return_value=1024)):
+                kept = await svc.ensure_tileset(model_id)
+
+        # Served the existing tileset rather than re-baking or returning nothing.
+        assert kept is not None
+        # The version we planted is the discriminator. Content hashes cannot be:
+        # re-baking the same geometry with the same settings reproduces them
+        # exactly, so a hash comparison would pass whether or not we re-baked.
+        assert kept["tiler_version"] == "0.0-old"
+        assert [t["hash"] for t in kept["tiles"]] == [t["hash"] for t in baked["tiles"]]
+        # And it is still on disk: the refusal was non-destructive.
+        blob = await bim_file_storage.read_tile(project_id, model_id, baked["tiles"][0]["hash"])
+        assert blob is not None
+    finally:
+        await _cleanup(project_id, model_id)
+
+
+@pytest.mark.asyncio
+async def test_low_disk_drops_tiles_that_describe_the_wrong_geometry() -> None:
+    """Never serve tiles baked from geometry the model no longer has.
+
+    A stale fingerprint means the building itself changed. Showing the old
+    shape would be a correctness bug, so under disk pressure we drop the tiles
+    and let the monolithic GLB serve instead.
+    """
+    project_id = uuid.uuid4()
+    model_id = uuid.uuid4()
+    await _insert_model(project_id, model_id)
+    await bim_file_storage.save_geometry(project_id, model_id, ".glb", _grid_glb(16, 16, 2))
+
+    try:
+        async with async_session_factory() as session:
+            baked = await BIMHubService(session).ensure_tileset(model_id)
+        assert baked is not None
+        old_hash = baked["tiles"][0]["hash"]
+
+        # Re-convert the model, then open it on a full volume.
+        await bim_file_storage.save_geometry(project_id, model_id, ".glb", _grid_glb(16, 16, 3))
+        async with async_session_factory() as session:
+            svc = BIMHubService(session)
+            with patch.object(bim_file_storage, "free_space_bytes", AsyncMock(return_value=1024)):
+                result = await svc.ensure_tileset(model_id)
+
+        # Falls back to the monolith rather than serving the previous building.
+        assert result is None
+        assert await bim_file_storage.read_tile(project_id, model_id, old_hash) is None
+    finally:
+        await _cleanup(project_id, model_id)
+
+
+@pytest.mark.asyncio
+async def test_unknown_free_space_does_not_block_a_bake() -> None:
+    """The probe fails open: object storage reports None and must still bake."""
+    project_id = uuid.uuid4()
+    model_id = uuid.uuid4()
+    await _insert_model(project_id, model_id)
+    await bim_file_storage.save_geometry(project_id, model_id, ".glb", _grid_glb(16, 16, 2))
+
+    try:
+        async with async_session_factory() as session:
+            svc = BIMHubService(session)
+            with patch.object(bim_file_storage, "free_space_bytes", AsyncMock(return_value=None)):
+                manifest = await svc.ensure_tileset(model_id)
+        assert manifest is not None
+        assert manifest["tiles"]
     finally:
         await _cleanup(project_id, model_id)
 

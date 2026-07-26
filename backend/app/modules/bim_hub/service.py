@@ -79,6 +79,13 @@ from app.modules.bim_hub.schemas import (
 from app.modules.boq.models import BOQ, Position
 
 logger = logging.getLogger(__name__)
+
+# Free disk required before baking a tileset, as a multiple of the source GLB.
+# Tiles come out around 1.07x the monolith, so this is mostly headroom: a bake
+# must not be the write that fills the volume, and the instance still needs room
+# to work afterwards. Deliberately generous - declining costs a slower load,
+# while running the disk to zero costs the whole instance.
+_TILESET_DISK_SAFETY_FACTOR = 4
 _logger_events = logging.getLogger(__name__ + ".events")
 
 
@@ -804,6 +811,37 @@ class BIMHubService:
                 and cached.get("source_fingerprint") == fingerprint
             ):
                 return None if cached.get("skipped") else cached
+
+            # Decline the re-bake rather than fill the volume. A bump of
+            # TILER_VERSION invalidates every stored tileset at once, so the
+            # first person to open each model triggers a bake; on a nearly full
+            # disk that turns a deploy into an outage on someone's first
+            # request. Checked BEFORE the wipe so a refusal is non-destructive.
+            if not await self._has_room_to_bake(glb_key):
+                still_this_building = (
+                    isinstance(cached, dict)
+                    and cached.get("source_fingerprint") == fingerprint
+                    and not cached.get("skipped")
+                )
+                if still_this_building:
+                    # Only the tiler changed, so these tiles still describe this
+                    # exact building - just partitioned by the older rules.
+                    # Serving them beats serving nothing.
+                    logger.warning(
+                        "ensure_tileset: low disk, keeping the previous tileset for model %s",
+                        mid,
+                    )
+                    return cached
+                # The geometry itself changed, so the stored tiles are the wrong
+                # building. Drop them and let the monolithic GLB serve instead;
+                # showing stale geometry would be worse than a slower load.
+                logger.warning(
+                    "ensure_tileset: low disk and stale geometry, dropping tiles for model %s",
+                    mid,
+                )
+                await bim_file_storage.delete_tiles(project_id, mid)
+                return None
+
             # Stale (new geometry or new tiler): wipe before re-baking.
             await bim_file_storage.delete_tiles(project_id, mid)
 
@@ -832,6 +870,48 @@ class BIMHubService:
         # Manifest written last: its presence marks the tileset complete.
         await bim_file_storage.save_tiles_manifest(project_id, mid, json.dumps(manifest).encode())
         return manifest
+
+    async def _has_room_to_bake(self, glb_key: str) -> bool:
+        """Is there enough free disk to write a fresh tileset for this GLB?
+
+        A baked tileset lands slightly larger than its source GLB (measured at
+        roughly 7% on a real model: per-tile glTF headers and materials repeat
+        in every tile), and finer partitions push that up. We require several
+        times the source size so a bake cannot be the write that fills the
+        volume, and so an unrelated process still has room to work afterwards.
+
+        Fails open. An unknown size or an unreadable volume returns True: a
+        broken probe must never stop a model from loading, and the old
+        behaviour (bake unconditionally) is the safe default there.
+
+        Args:
+            glb_key: Storage key of the monolithic source GLB.
+
+        Returns:
+            True if the bake should proceed.
+        """
+        free = await bim_file_storage.free_space_bytes()
+        if free is None:
+            return True  # object storage, or the probe failed - do not block
+
+        from app.core.storage import get_storage_backend
+
+        try:
+            size = await get_storage_backend().size(glb_key)
+        except Exception:  # noqa: BLE001 - sizing is best-effort
+            return True
+        if not size or size <= 0:
+            return True
+
+        required = int(size * _TILESET_DISK_SAFETY_FACTOR)
+        if free >= required:
+            return True
+        logger.warning(
+            "ensure_tileset: refusing to bake, need %d bytes free but only %d remain",
+            required,
+            free,
+        )
+        return False
 
     async def _geometry_fingerprint(self, key: str) -> str:
         """Cheap change-detector for a geometry blob: ``size:sha256(head)``.

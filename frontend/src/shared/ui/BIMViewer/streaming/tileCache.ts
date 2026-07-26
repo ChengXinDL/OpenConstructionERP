@@ -16,7 +16,14 @@
 
 const DB_NAME = 'oce-bim-tiles';
 const STORE = 'tiles';
-const DB_VERSION = 1;
+// Bump alongside a backend TILER_VERSION change. Tiles are addressed by the
+// hash of their bytes, so a re-bake gives every tile a new address and the
+// blobs already on the device become unreachable: no manifest will ever name
+// them again, and nothing else evicts them. A device that had saved a large
+// model for offline use would carry that dead weight forever. Opening at a
+// higher version clears the store once, which is always safe because tiles are
+// pure cache and re-downloadable.
+const DB_VERSION = 2;
 
 let dbPromise: Promise<IDBDatabase | null> | null = null;
 
@@ -33,6 +40,14 @@ function openDb(): Promise<IDBDatabase | null> {
         const db = req.result;
         if (!db.objectStoreNames.contains(STORE)) {
           db.createObjectStore(STORE);
+          return;
+        }
+        // Existing cache from an older tiler: drop the now-unreachable blobs.
+        // Guarded because the upgrade transaction is absent in some fakes.
+        try {
+          req.transaction?.objectStore(STORE).clear();
+        } catch {
+          // A failed purge only costs disk space; never block opening the cache.
         }
       };
       req.onsuccess = () => resolve(req.result);

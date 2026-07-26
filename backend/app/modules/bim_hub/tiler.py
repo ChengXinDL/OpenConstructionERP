@@ -31,9 +31,16 @@ isolate, and colour-by-property functioning.
 The partition is a plain adaptive octree over per-mesh bounding-box centres:
 a cell subdivides into its eight octants until it holds at most
 ``max_meshes_per_tile`` meshes or the depth cap is reached, with a degenerate
-guard so a pile of co-located meshes cannot spin the recursion. World
+guard so a pile of co-located meshes cannot spin the recursion. If the result
+overshoots :data:`MAX_TILES_PER_MODEL` the threshold is relaxed and the model
+repartitioned, so tile count stays bounded on very large models. World
 transforms are baked into each tile mesh so a tile is self-contained in world
 space and the frontend just drops it into the scene at the origin.
+
+Tile granularity is a delivery decision, not a cosmetic one: the threshold has
+to stay below :data:`MIN_NODES_TO_TILE` or the smallest models we tile come out
+as a single tile and stream no better than the monolith. See the comment on
+:data:`DEFAULT_MAX_MESHES_PER_TILE`.
 """
 
 from __future__ import annotations
@@ -49,7 +56,7 @@ logger = logging.getLogger(__name__)
 
 # Bumping this invalidates every previously baked tileset (the service keys
 # stored manifests by version, so old tiles are simply re-baked on demand).
-TILER_VERSION = "1.0"
+TILER_VERSION = "1.1"
 
 # Below this mesh count the monolithic GLB already loads fast; tiling would
 # only add manifest + per-tile request overhead, so we skip it and let the
@@ -62,10 +69,31 @@ MIN_NODES_TO_TILE = 400
 MAX_GLB_BYTES = 400 * 1024 * 1024
 
 # An octree cell stops subdividing once it holds at most this many meshes.
-DEFAULT_MAX_MESHES_PER_TILE = 1200
+#
+# INVARIANT: this MUST stay below MIN_NODES_TO_TILE. The octree returns a cell
+# whole as soon as it holds at most this many meshes, so if the threshold sits
+# at or above the tiling floor then every model in the band just above that
+# floor collapses into a single tile - a "tileset" that costs a manifest round
+# trip to deliver exactly the monolithic GLB, with the viewer's progressive
+# reveal firing once, at the end. That was the case until 1.1 (the threshold
+# was 1200 against a floor of 400), which silently disabled streaming for every
+# model between 400 and 1200 meshes.
+#
+# 300 is measured rather than guessed. On a real 719-mesh model it yields 19
+# tiles instead of 1, dropping the bytes before the first tile can appear from
+# 2 643 KB to 33 KB, and it costs 6.6% in total payload (2.58 MB monolithic ->
+# 2.75 MB of tiles) from per-tile glTF headers and duplicated materials.
+DEFAULT_MAX_MESHES_PER_TILE = 300
 
 # Hard recursion cap so a pathological centroid distribution cannot spin.
 DEFAULT_MAX_DEPTH = 7
+
+# Upper bound on tiles per model. Each tile is a separate HTTP request, so on a
+# high-latency site connection a very large model partitioned too finely trades
+# a bandwidth win for a round-trip loss. When the partition overshoots we relax
+# the per-tile mesh threshold and repartition; the octree runs on centroids
+# only and is cheap, and the expensive GLB export happens once, afterwards.
+MAX_TILES_PER_MODEL = 256
 
 
 def build_tileset(
@@ -124,15 +152,7 @@ def build_tileset(
     root_min = lows.min(axis=0)
     root_max = highs.max(axis=0)
 
-    leaves = _octree(
-        list(range(len(meshes))),
-        centres,
-        root_min,
-        root_max,
-        max_meshes_per_tile,
-        0,
-        max_depth,
-    )
+    leaves = _partition(len(meshes), centres, root_min, root_max, max_meshes_per_tile, max_depth)
 
     tiles_bytes: dict[str, bytes] = {}
     tile_entries: list[dict[str, Any]] = []
@@ -238,6 +258,49 @@ def _flatten_scene(loaded: Any) -> list[tuple[str, Any]]:
                 logger.debug("tiler: transform failed for node %s", node_name)
         out.append((str(node_name), mesh))
     return out
+
+
+def _partition(
+    mesh_count: int,
+    centres: np.ndarray,
+    root_min: np.ndarray,
+    root_max: np.ndarray,
+    max_per_tile: int,
+    max_depth: int,
+) -> list[list[int]]:
+    """Octree the meshes, relaxing the leaf threshold if it overshoots the cap.
+
+    Splitting finely is what makes a model appear progressively, but every tile
+    costs an HTTP round trip, so a huge model must not shatter into thousands of
+    them. We partition, and while the result exceeds
+    :data:`MAX_TILES_PER_MODEL` we double the per-tile mesh threshold and try
+    again. Doubling terminates: once the threshold reaches ``mesh_count`` the
+    octree returns a single leaf.
+
+    Args:
+        mesh_count: Total number of meshes being partitioned.
+        centres: ``(mesh_count, 3)`` array of per-mesh bounding-box centres.
+        root_min: Lower corner of the model's bounding box.
+        root_max: Upper corner of the model's bounding box.
+        max_per_tile: Starting octree leaf threshold.
+        max_depth: Hard octree recursion cap.
+
+    Returns:
+        A list of leaf buckets, each a list of mesh indices.
+    """
+    indices = list(range(mesh_count))
+    cap = max(1, max_per_tile)
+    while True:
+        leaves = _octree(indices, centres, root_min, root_max, cap, 0, max_depth)
+        if len(leaves) <= MAX_TILES_PER_MODEL or cap >= mesh_count:
+            return leaves
+        cap *= 2
+        logger.info(
+            "tiler: %d tiles exceeds cap %d - repartitioning at %d meshes per tile",
+            len(leaves),
+            MAX_TILES_PER_MODEL,
+            cap,
+        )
 
 
 def _octree(

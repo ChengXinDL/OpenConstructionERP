@@ -121,6 +121,62 @@ def test_content_hashes_are_deterministic() -> None:
     assert hashes_1 == hashes_2
 
 
+def test_leaf_threshold_stays_below_the_tiling_floor() -> None:
+    """The smallest model we bother tiling must still split into several tiles.
+
+    The octree hands back a cell whole as soon as it holds at most
+    ``max_meshes_per_tile`` meshes. If that threshold reached the tiling floor,
+    every model just above the floor would bake to exactly one tile - a tileset
+    that delivers the monolithic GLB plus a manifest round trip, with the
+    viewer's progressive reveal firing once, at the end. Streaming would be
+    silently dead for that whole size band.
+    """
+    assert tiler.DEFAULT_MAX_MESHES_PER_TILE < tiler.MIN_NODES_TO_TILE
+
+
+def test_model_just_above_the_floor_splits_into_several_tiles() -> None:
+    # 450 boxes: over MIN_NODES_TO_TILE, and the size band that used to
+    # collapse into a single tile under the old 1200-mesh leaf threshold.
+    glb, names = _make_grid_glb(15, 15, 2)
+    assert tiler.MIN_NODES_TO_TILE < len(names) < 1200
+
+    result = tiler.build_tileset(glb)  # defaults, no explicit threshold
+    assert result is not None
+    manifest, _tiles = result
+    assert manifest["tile_count"] > 1, "a tiled model must have something to stream"
+
+
+def test_tile_count_is_capped_for_a_dense_model() -> None:
+    """A finely divisible model must not shatter into an unbounded tile count."""
+    glb, names = _make_grid_glb(12, 12, 12)  # 1728 boxes on a dense lattice
+    assert len(names) > tiler.MIN_NODES_TO_TILE
+
+    # A threshold of 1 would octree down to one mesh per tile without the cap.
+    result = tiler.build_tileset(glb, max_meshes_per_tile=1)
+    assert result is not None
+    manifest, _tiles = result
+    assert manifest["tile_count"] <= tiler.MAX_TILES_PER_MODEL
+    # Still genuinely partitioned, not collapsed back to a single tile.
+    assert manifest["tile_count"] > 1
+
+
+def test_capped_repartition_still_covers_every_mesh_exactly_once() -> None:
+    glb, _ = _make_grid_glb(12, 12, 12)
+    mono_nodes = _monolith_node_set(glb)
+
+    result = tiler.build_tileset(glb, max_meshes_per_tile=1)
+    assert result is not None
+    manifest, _tiles = result
+
+    tile_nodes: list[str] = []
+    for tile in manifest["tiles"]:
+        tile_nodes.extend(tile["nodes"])
+    # Relaxing the threshold must not lose or duplicate a mesh: element identity
+    # travels on these node names.
+    assert len(tile_nodes) == len(mono_nodes)
+    assert set(tile_nodes) == mono_nodes
+
+
 def test_manifest_bounds_enclose_the_model() -> None:
     glb, _ = _make_grid_glb(16, 16, 2)
     result = tiler.build_tileset(glb, max_meshes_per_tile=100)

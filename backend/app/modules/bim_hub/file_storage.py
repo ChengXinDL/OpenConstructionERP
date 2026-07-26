@@ -27,6 +27,7 @@ import asyncio
 import logging
 import pathlib
 import re
+import shutil
 import uuid
 from collections.abc import AsyncIterator
 from typing import Final
@@ -630,3 +631,26 @@ async def delete_tiles(
     except Exception as exc:  # noqa: BLE001 - cleanup must not block a re-bake
         logger.warning("Failed to delete BIM tiles at prefix=%s: %s", prefix, exc)
         return 0
+
+
+async def free_space_bytes() -> int | None:
+    """Free bytes on the volume backing BIM blobs, or ``None`` if not applicable.
+
+    Baking a tileset writes a fresh set of tile GLBs roughly the size of the
+    source model, so a bake on a nearly full volume can be the thing that fills
+    it. Callers use this to decline a bake instead of wedging the instance.
+
+    Returns ``None`` for object storage (no local volume to exhaust) and on any
+    error, which callers must read as "unknown, do not block" - a failed probe
+    should never stop a model from loading.
+    """
+    backend = _backend()
+    base_dir = getattr(backend, "base_dir", None)
+    if base_dir is None:
+        return None
+    try:
+        usage = await asyncio.to_thread(shutil.disk_usage, str(base_dir))
+    except Exception as exc:  # noqa: BLE001 - a probe must never raise
+        logger.warning("free_space_bytes probe failed for %s: %s", base_dir, exc)
+        return None
+    return int(usage.free)

@@ -2,8 +2,10 @@
 // Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
 import { describe, expect, it } from 'vitest';
 
+import { LARGE_TILESET, toTileInfo } from './__fixtures__/largeTileset';
 import {
   orderTilesForStreaming,
+  orderTilesByGeometryMass,
   orderTilesByViewport,
   tileCenterInViewerSpace,
   type CameraPose,
@@ -34,7 +36,7 @@ describe('orderTilesForStreaming', () => {
     expect(orderTilesForStreaming([])).toEqual([]);
   });
 
-  it('orders by node_count descending (most geometry first)', () => {
+  it('orders by node_count descending when the payloads are equal', () => {
     const out = orderTilesForStreaming([
       mkTile({ id: 'small', node_count: 5 }),
       mkTile({ id: 'big', node_count: 500 }),
@@ -43,12 +45,34 @@ describe('orderTilesForStreaming', () => {
     expect(ids(out)).toEqual(['big', 'mid', 'small']);
   });
 
-  it('breaks a node_count tie by byte_size descending', () => {
+  it('prefers the cheaper tile when two carry the same geometry', () => {
+    // Same meshes for a ninth of the bytes: it puts the same amount of building
+    // on screen far sooner, so it must go first.
     const out = orderTilesForStreaming([
-      mkTile({ id: 'light', node_count: 10, byte_size: 1_000 }),
       mkTile({ id: 'heavy', node_count: 10, byte_size: 9_000 }),
+      mkTile({ id: 'light', node_count: 10, byte_size: 1_000 }),
     ]);
-    expect(ids(out)).toEqual(['heavy', 'light']);
+    expect(ids(out)).toEqual(['light', 'heavy']);
+  });
+
+  it('prefers a small dense tile over a huge tile with more total geometry', () => {
+    // The regression this ordering exists to prevent: a 6 MB tile used to be
+    // fetched first purely because it held the most meshes, so nothing at all
+    // was drawn until megabytes had landed.
+    const out = orderTilesForStreaming([
+      mkTile({ id: 'bulky', node_count: 994, byte_size: 6_460_000 }),
+      mkTile({ id: 'quick', node_count: 40, byte_size: 10_000 }),
+    ]);
+    expect(ids(out)).toEqual(['quick', 'bulky']);
+  });
+
+  it('treats geometry with no recorded payload as free rather than as NaN', () => {
+    const out = orderTilesForStreaming([
+      mkTile({ id: 'sized', node_count: 100, byte_size: 1_000 }),
+      mkTile({ id: 'free', node_count: 1, byte_size: 0 }),
+      mkTile({ id: 'empty', node_count: 0, byte_size: 0 }),
+    ]);
+    expect(ids(out)).toEqual(['free', 'sized', 'empty']);
   });
 
   it('breaks a node+size tie by going ground-up (lower center Z first)', () => {
@@ -104,13 +128,95 @@ describe('orderTilesForStreaming', () => {
   });
 
   it('orders a realistic mix top to bottom by the full comparator', () => {
+    // Densities: floor1 / floor2 = 0.008, trim = 0.0067, core = 0.0022. The two
+    // floors tie on density and mass, so the ground-up rule puts floor1 first.
     const out = orderTilesForStreaming([
       mkTile({ id: 'trim', node_count: 2, byte_size: 300, center: [0, 0, 5] }),
       mkTile({ id: 'core', node_count: 200, byte_size: 90_000, center: [0, 0, 10] }),
       mkTile({ id: 'floor2', node_count: 40, byte_size: 5_000, center: [0, 0, 8] }),
       mkTile({ id: 'floor1', node_count: 40, byte_size: 5_000, center: [0, 0, 3] }),
     ]);
-    expect(ids(out)).toEqual(['core', 'floor1', 'floor2', 'trim']);
+    expect(ids(out)).toEqual(['floor1', 'floor2', 'trim', 'core']);
+  });
+});
+
+/**
+ * Regression gate built from a real baked tileset rather than synthetic tiles.
+ * These numbers are the reason the ordering changed, so they are asserted
+ * directly: if someone reverts to ranking by geometry mass, the first-paint
+ * assertions below fail loudly instead of the regression going unnoticed.
+ */
+describe('orderTilesForStreaming on a real 80-tile building', () => {
+  /** Mirrors the streamer's default `fetchConcurrency ?? 6` in tileStreamer. */
+  const CONCURRENCY = 6;
+
+  const tiles: TileInfo[] = LARGE_TILESET.map(toTileInfo);
+
+  /** Bytes that must land before the first tile can possibly be revealed: with
+   *  N downloads in flight, the earliest reveal is the smallest of the first N. */
+  function bytesToFirstPaint(order: TileInfo[]): number {
+    return Math.min(...order.slice(0, CONCURRENCY).map((t) => t.byte_size));
+  }
+
+  /** Share of the model's meshes drawn once `budget` bytes have been fetched. */
+  function drawnAfter(order: TileInfo[], budget: number): number {
+    const totalNodes = tiles.reduce((sum, t) => sum + t.node_count, 0);
+    let bytes = 0;
+    let nodes = 0;
+    for (const tile of order) {
+      if (bytes + tile.byte_size > budget) break;
+      bytes += tile.byte_size;
+      nodes += tile.node_count;
+    }
+    return nodes / totalNodes;
+  }
+
+  it('covers every tile exactly once', () => {
+    const out = orderTilesForStreaming(tiles);
+    expect(out).toHaveLength(tiles.length);
+    expect(new Set(out.map((t) => t.id)).size).toBe(tiles.length);
+  });
+
+  it('starts painting after kilobytes, not megabytes', () => {
+    const out = orderTilesForStreaming(tiles);
+    // Ranking by geometry mass needed ~5.2 MB here. Hold the line well under
+    // 100 KB so a regression cannot creep back in unnoticed.
+    expect(bytesToFirstPaint(out)).toBeLessThan(100 * 1024);
+  });
+
+  it('never fetches less of the building per byte than geometry-mass order', () => {
+    const out = orderTilesForStreaming(tiles);
+    const byMass = orderTilesByGeometryMass(tiles);
+    for (const budgetMb of [1, 10, 50, 100, 150]) {
+      const budget = budgetMb * 1024 * 1024;
+      expect(drawnAfter(out, budget)).toBeGreaterThanOrEqual(drawnAfter(byMass, budget));
+    }
+  });
+
+  it('draws a majority of the model within half the total payload', () => {
+    // 204 MB of tiles; by 100 MB the measured figure is ~67% against ~47% for
+    // geometry-mass order.
+    const out = orderTilesForStreaming(tiles);
+    expect(drawnAfter(out, 100 * 1024 * 1024)).toBeGreaterThan(0.6);
+  });
+
+  it('does not pay for the fast first paint with a longer tail', () => {
+    // The trade this ordering could have made and must not: buying an early
+    // first pixel by deferring bulk geometry, so the model takes noticeably
+    // longer to finish. Fully loaded means every tile fetched, so the total is
+    // identical by definition; what could regress is the approach to complete.
+    // Assert the late curve too, not just the early one.
+    const out = orderTilesForStreaming(tiles);
+    const byMass = orderTilesByGeometryMass(tiles);
+    const totalBytes = tiles.reduce((sum, t) => sum + t.byte_size, 0);
+
+    for (const fraction of [0.75, 0.9, 0.95]) {
+      expect(drawnAfter(out, totalBytes * fraction)).toBeGreaterThanOrEqual(
+        drawnAfter(byMass, totalBytes * fraction),
+      );
+    }
+    // Every tile is still scheduled, so the model does reach 100%.
+    expect(drawnAfter(out, totalBytes)).toBeCloseTo(1, 5);
   });
 });
 
