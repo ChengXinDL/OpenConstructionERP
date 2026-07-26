@@ -230,6 +230,25 @@ class TakeoffMeasurement(Base):
     # rollup. Migrating it would force every existing PDF takeoff session
     # in production to be re-calibrated for no precision gain.
     scale_pixels_per_unit: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Where that ratio came from. A wrong scale is the single error that
+    # multiplies through every quantity on a sheet, and today a takeoff found
+    # to be mis-scaled cannot be narrowed to the affected rows: the number is
+    # stored, its origin is not. With this the recompute is scoped to the rows
+    # that actually inherited the bad calibration.
+    #
+    # Deliberately nullable with no backfill. Every row created before this
+    # column reads NULL, and NULL means "we do not know", which is the truth -
+    # inventing a plausible source for historical rows would defeat the point
+    # of a provenance field. Surfaces render NULL as "Unknown", never blank.
+    #
+    # The accepted values live in ``schemas.ScaleSource``:
+    #   page_text          read from the PDF's own text layer
+    #   recovered_text     read by OCR from a scanned sheet
+    #   vision_read        read by a vision model off the rendered page
+    #   manual_calibration the user drew a known dimension and set it
+    #   preset             a standard ratio picked from the list (1:50, 1:100)
+    #   inherited          taken from the page the measurement was drawn on
+    scale_source: Mapped[str | None] = mapped_column(String(24), nullable=True)
     linked_boq_position_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # ── Vision-LLM plan reading (issue #194) ───────────────────────────────
     # Provenance and review state. All three are additive with a server_default

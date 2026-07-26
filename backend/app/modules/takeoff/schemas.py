@@ -303,6 +303,34 @@ class PointSchema(BaseModel):
         return v
 
 
+# Where a measurement's scale ratio came from. The client is the only place
+# that knows this for a hand-drawn measurement - it is the surface where the
+# user calibrated, picked a preset, or drew on a page that already had a scale
+# - so it is sent rather than guessed server-side. Server-generated proposals
+# stamp their own source instead of trusting the request.
+#
+# A closed set rather than free text: this feeds a "recompute these rows"
+# decision, and a field that can hold anything is a field nothing can filter on.
+ScaleSource = Literal[
+    # Read from the PDF's own text layer (``scale_detect.py``).
+    "page_text",
+    # Read by OCR from a scanned sheet that has no text layer.
+    "recovered_text",
+    # Read by a vision model off the rendered page. Kept apart from
+    # ``page_text`` on purpose: the same "1:100" carries a different weight
+    # depending on whether it was parsed from the text layer or inferred from
+    # pixels, and collapsing the two would hide exactly the distinction this
+    # column exists to record.
+    "vision_read",
+    # The user drew a known dimension and set the scale from it.
+    "manual_calibration",
+    # A standard ratio picked from the list (1:50, 1:100).
+    "preset",
+    # Taken from the page the measurement was drawn on.
+    "inherited",
+]
+
+
 class TakeoffMeasurementCreate(BaseModel):
     """Create a new takeoff measurement."""
 
@@ -343,6 +371,9 @@ class TakeoffMeasurementCreate(BaseModel):
     perimeter: float | None = None
     count_value: int | None = Field(default=None, ge=0)
     scale_pixels_per_unit: float | None = Field(default=None, gt=0)
+    # Optional, and NULL is a real answer: an older client does not send it,
+    # and recording "not stated" beats inventing a source that was never known.
+    scale_source: ScaleSource | None = None
     linked_boq_position_id: str | None = None
     is_deduction: bool = Field(
         default=False,
@@ -378,6 +409,9 @@ class TakeoffMeasurementUpdate(BaseModel):
     perimeter: float | None = None
     count_value: int | None = Field(default=None, ge=0)
     scale_pixels_per_unit: float | None = Field(default=None, gt=0)
+    # Recalibrating a measurement changes where its scale came from, so the
+    # source travels with the ratio on update as well as on create.
+    scale_source: ScaleSource | None = None
     linked_boq_position_id: str | None = None
     is_deduction: bool | None = None
     metadata: dict[str, Any] | None = None
@@ -406,6 +440,9 @@ class TakeoffMeasurementResponse(BaseModel):
     perimeter: float | None = None
     count_value: int | None = None
     scale_pixels_per_unit: float | None = None
+    # NULL on every row created before the column existed, and on any row whose
+    # client never stated a source. Surfaces show that as "Unknown".
+    scale_source: str | None = None
     linked_boq_position_id: str | None = None
     is_deduction: bool = False
     metadata: dict[str, Any] = Field(default_factory=dict, validation_alias="metadata_")

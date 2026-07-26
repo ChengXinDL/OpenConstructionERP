@@ -85,6 +85,31 @@ def _is_encrypted_pdf(content: bytes) -> bool:
     return bool(re.search(rb"/Encrypt\s+(?:\d|<<)", tail))
 
 
+def clear_stale_scale_source(fields: dict[str, Any]) -> dict[str, Any]:
+    """Drop a provenance label that a scale change has just invalidated.
+
+    A patch that moves ``scale_pixels_per_unit`` without saying where the new
+    ratio came from leaves the row with a new number and the old story about
+    it. Recording "not stated" is true; keeping the previous label is a claim
+    that has quietly become false, and a wrong provenance is worse than a
+    missing one because it is the one a later recompute would trust when
+    deciding which rows a bad calibration touched.
+
+    The check is on presence, not truthiness: clearing the ratio outright is
+    still a change of scale, and a falsy ``None`` must not slip past.
+
+    Args:
+        fields: The patch payload, dumped with ``exclude_unset`` so that a key
+            being absent really does mean the client said nothing about it.
+
+    Returns:
+        The same dict, mutated in place for the caller's convenience.
+    """
+    if "scale_pixels_per_unit" in fields and "scale_source" not in fields:
+        fields["scale_source"] = None
+    return fields
+
+
 _DEFAULT_MAX_UPLOAD_MB = 200
 
 
@@ -1787,6 +1812,11 @@ class TakeoffService:
             perimeter=data.perimeter,
             count_value=data.count_value,
             scale_pixels_per_unit=data.scale_pixels_per_unit,
+            # Only the drawing surface knows whether the user calibrated this
+            # page, picked a preset, or drew on a scale that was already set,
+            # so the source is taken from the request rather than guessed. An
+            # older client sends nothing and the row honestly reads NULL.
+            scale_source=data.scale_source,
             linked_boq_position_id=data.linked_boq_position_id,
             # A deduction only makes sense for an area; never tag a distance /
             # count / annotation as a void so the rollup can't subtract a
@@ -1936,6 +1966,10 @@ class TakeoffService:
                     count_value=count_value,
                     measurement_unit=_PROPOSAL_UNIT_BY_TYPE.get(m_type),
                     scale_pixels_per_unit=scale_pixels_per_unit,
+                    # A detector measures at whatever scale the page already
+                    # carries; it reads no scale of its own. NULL when the page
+                    # had none, because then nothing was inherited either.
+                    scale_source="inherited" if scale_pixels_per_unit else None,
                     source="ai_takeoff",
                     confidence=cand.get("confidence"),
                     review_status="proposed",
@@ -2375,6 +2409,8 @@ class TakeoffService:
             if effective_type_for_deduction != "area":
                 fields["is_deduction"] = False
 
+        clear_stale_scale_source(fields)
+
         # Recompute measurement_value if any geometry-relevant field
         # is touched. We need the *effective post-update* state, so
         # we merge patch over current.
@@ -2527,6 +2563,9 @@ class TakeoffService:
                 perimeter=data.perimeter,
                 count_value=data.count_value,
                 scale_pixels_per_unit=data.scale_pixels_per_unit,
+                # Same rule as the single create: the source travels with the
+                # ratio from the surface that knows it.
+                scale_source=data.scale_source,
                 linked_boq_position_id=data.linked_boq_position_id,
                 is_deduction=bool(data.is_deduction) and data.type == "area",
                 metadata_=data.metadata,
@@ -3464,6 +3503,17 @@ class TakeoffService:
             TAKEOFF_CONFIDENCE_MEDIUM_THRESHOLD,
         )
 
+        # Which scale survived decides the provenance stamp.
+        # ``resolve_scale_ratio`` hands back the user's calibration untouched
+        # when it passes the plausibility belt, so an exact match identifies
+        # that branch; anything else that survived was read off the sheet by
+        # the model. NULL when no scale survived at all - then the areas are
+        # empty too, and claiming a source for a number we do not have would
+        # be the kind of confident fiction this column is meant to prevent.
+        scale_source: str | None = None
+        if scale_ratio is not None:
+            scale_source = "inherited" if scale_ratio == run.scale_pixels_per_unit else "vision_read"
+
         out: list[TakeoffMeasurement] = []
         run_meta_base = {"ai_takeoff_run_id": str(run.id), "page_width_pt": page_w_pt, "page_height_pt": page_h_pt}
 
@@ -3498,6 +3548,7 @@ class TakeoffService:
                     measurement_value=value,
                     measurement_unit="m2",
                     scale_pixels_per_unit=scale_ratio,
+                    scale_source=scale_source,
                     source="ai_plan_read",
                     confidence=confidence,
                     review_status="proposed",
