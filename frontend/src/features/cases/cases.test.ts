@@ -5,6 +5,8 @@
 // the stepper) and the auto-discovery glob shape (the contract the parallel
 // data-file authors write against).
 
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import {
   clampStepIndex,
@@ -20,6 +22,7 @@ import {
 } from './progress';
 import { PLAYBOOKS, getPlaybook } from './playbooks';
 import { CATEGORY_META } from './categories';
+import { ICON_MAP } from './icons';
 import { COMPANY_TYPE_META } from './companyTypes';
 import type { Playbook, PlaybookProgress } from './types';
 
@@ -310,6 +313,87 @@ describe('shipped cases integrity', () => {
       }
       for (const s of strings) {
         expect(badChar.test(s), `bad character in "${s}"`).toBe(false);
+      }
+    }
+  });
+
+  it('every icon name a playbook references resolves to a real glyph', () => {
+    // Icons are runtime STRINGS resolved through ICON_MAP by `iconFor`, which
+    // falls back to Sparkles for anything it does not know. That means a typo
+    // or a name nobody added to the map is not a build error and not a runtime
+    // error - the card just quietly renders the wrong picture. This assertion
+    // is the only thing standing between a new playbook and that silence.
+    for (const pb of PLAYBOOKS) {
+      if (pb.icon) {
+        expect(pb.icon in ICON_MAP, `playbook "${pb.id}" uses unmapped icon "${pb.icon}"`).toBe(
+          true,
+        );
+      }
+      for (const step of pb.steps) {
+        if (!step.icon) continue;
+        expect(
+          step.icon in ICON_MAP,
+          `step "${pb.id}/${step.id}" uses unmapped icon "${step.icon}"`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('every step points at a route the app actually declares', () => {
+    // A playbook step whose `to` names no real route sends the user to the
+    // 404 page mid-case. Grepping App.tsx alone is not enough to check this:
+    // module routes are declared in `modules/*/manifest.ts` and mounted by
+    // `useModuleRouteElements`, so a manifest-only route looks dead to a naive
+    // scan and a genuinely dead one looks fine if the scan is too loose.
+    // Read both sources and compare on a normalised form.
+    // Resolved from the working directory, not from `import.meta.url`: under
+    // vitest the module URL is a vite-internal path, not a file: URL, so
+    // `fileURLToPath` throws on it. The run may be rooted at `frontend/` or at
+    // the repo, so accept either.
+    const srcRoot = [resolve(process.cwd(), 'src'), resolve(process.cwd(), 'frontend/src')].find(
+      (p) => existsSync(join(p, 'app/App.tsx')),
+    );
+    expect(srcRoot, 'could not locate frontend/src from the test working directory').toBeTruthy();
+    const readText = (p: string) => readFileSync(join(srcRoot!, p), 'utf8');
+
+    /** Strip query and hash, collapse `:param` segments, drop a trailing slash. */
+    const normalise = (route: string): string | null => {
+      const bare = route.split('?')[0]!.split('#')[0]!;
+      if (!bare.startsWith('/')) return null; // relative child route or the `*` catch-all
+      return bare.replace(/:[A-Za-z0-9_]+/g, '*').replace(/\/$/, '') || '/';
+    };
+
+    const declared = new Set<string>();
+    for (const raw of readText('app/App.tsx').matchAll(/path="([^"]+)"/g)) {
+      const n = normalise(raw[1]!);
+      if (n) declared.add(n);
+    }
+    // `import.meta.glob` is avoided here on purpose (it breaks the esbuild
+    // pass); the manifests are read as text, which is all this check needs.
+    for (const file of readdirSync(join(srcRoot!, 'modules'))) {
+      let text: string;
+      try {
+        text = readText(`modules/${file}/manifest.ts`);
+      } catch {
+        continue; // not a module directory, or no manifest
+      }
+      for (const raw of text.matchAll(/path:\s*'([^']+)'/g)) {
+        const n = normalise(raw[1]!);
+        if (n) declared.add(n);
+      }
+    }
+    // If this ever collapses to a handful, the readers above silently stopped
+    // finding routes and every assertion below would pass for the wrong reason.
+    expect(declared.size).toBeGreaterThan(100);
+
+    for (const pb of PLAYBOOKS) {
+      for (const step of pb.steps) {
+        const n = normalise(step.to);
+        expect(n, `step "${pb.id}/${step.id}" has a non-absolute target "${step.to}"`).not.toBeNull();
+        expect(
+          declared.has(n!),
+          `step "${pb.id}/${step.id}" points at "${step.to}", which no route declares`,
+        ).toBe(true);
       }
     }
   });
