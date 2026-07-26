@@ -13494,6 +13494,8 @@ const resource = {
     "schedule.cpm.leveling": "Nivellerar...",
     "schedule.cpm.level_result": "{{count}} aktivitet(er) förskjutna för att respektera resurstak.",
     "schedule.cpm.level_no_change": "Inga förskjutningar behövs - alla resurstak redan uppfyllda.",
+    "schedule.cpm.level_unresolvable": "{{count}} aktivitet(er) kräver på egen hand mer än taket tillåter. Att flytta dem löser det inte.",
+    "schedule.cpm.level_unresolvable_row": "{{resource}}: behöver {{required}}, tak {{limit}}",
     "schedule.cpm.summary_duration": "Projektets varaktighet: {{days}} dagar",
     "schedule.cpm.summary_critical": "Kritiska aktiviteter: {{count}}",
     "schedule.cpm.critical_badge": "KRITISK",

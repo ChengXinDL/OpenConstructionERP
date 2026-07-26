@@ -13421,6 +13421,8 @@ const resource = {
     "schedule.cpm.leveling": "Utjevner...",
     "schedule.cpm.level_result": "{{count}} aktivitet(er) forskjøvet for å overholde ressursgrenser.",
     "schedule.cpm.level_no_change": "Ingen forskyving nødvendig, alle ressursgrenser overholdes allerede.",
+    "schedule.cpm.level_unresolvable": "{{count}} aktivitet(er) krever alene mer enn taket tillater. Å flytte dem løser det ikke.",
+    "schedule.cpm.level_unresolvable_row": "{{resource}}: trenger {{required}}, tak {{limit}}",
     "schedule.cpm.summary_duration": "Prosjektvarighet: {{days}} dager",
     "schedule.cpm.summary_critical": "Kritiske aktiviteter: {{count}}",
     "schedule.cpm.critical_badge": "KRITISK",

@@ -14696,6 +14696,8 @@ const resource = {
     "schedule.cpm.level_modal_no_resources": "Энэ хуваарьт нөөц тодорхойлогдоогүй байна. Эхлээд үйл ажиллагаануудад нөөц нэмнэ үү.",
     "schedule.cpm.level_modal_title": "Нөөцийн тэнцвэржүүлэлт",
     "schedule.cpm.level_no_change": "Шилжилт шаардлагагүй, нөөцийн бүх хязгаарыг хангаж байна.",
+    "schedule.cpm.level_unresolvable": "{{count}} ажил дангаараа дээд хязгаараас илүүг шаардаж байна. Шилжүүлэх нь үүнийг шийдэхгүй.",
+    "schedule.cpm.level_unresolvable_row": "{{resource}}: {{required}} шаардлагатай, хязгаар {{limit}}",
     "schedule.cpm.level_resources": "Нөөцийг тэнцвэржүүлэх",
     "schedule.cpm.level_result": "{{count}} үйл ажиллагаа нөөцийн хязгаарыг хангахын тулд шилжүүлэгдлээ.",
     "schedule.cpm.leveling": "Тэнцвэржүүлж байна...",

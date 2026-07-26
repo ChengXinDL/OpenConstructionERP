@@ -13512,6 +13512,8 @@ const resource = {
     "schedule.cpm.leveling": "Tasataan...",
     "schedule.cpm.level_result": "{{count}} toimintoa siirretty resurssirajojen kunnioittamiseksi.",
     "schedule.cpm.level_no_change": "Siirtoja ei tarvita, kaikki resurssirajat täyttyvät jo.",
+    "schedule.cpm.level_unresolvable": "{{count}} tehtävä(ä) vaatii yksinään enemmän kuin katto sallii. Siirtäminen ei korjaa sitä.",
+    "schedule.cpm.level_unresolvable_row": "{{resource}}: tarvitsee {{required}}, katto {{limit}}",
     "schedule.cpm.summary_duration": "Projektin kesto: {{days}} päivää",
     "schedule.cpm.summary_critical": "Kriittiset toiminnot: {{count}}",
     "schedule.cpm.critical_badge": "KRIITTINEN",

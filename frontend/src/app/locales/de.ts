@@ -12402,6 +12402,8 @@ const resource = {
     "schedule.cpm.leveling": "Nivelliere ...",
     "schedule.cpm.level_result": "{{count}} Vorgang/Vorgänge wurden zur Einhaltung der Ressourcenobergrenzen verschoben.",
     "schedule.cpm.level_no_change": "Keine Verschiebung nötig, alle Ressourcenobergrenzen werden bereits eingehalten.",
+    "schedule.cpm.level_unresolvable": "{{count}} Vorgang/Vorgänge fordern allein mehr, als die Obergrenze zulässt. Verschieben löst das nicht.",
+    "schedule.cpm.level_unresolvable_row": "{{resource}}: benötigt {{required}}, Obergrenze {{limit}}",
     "schedule.cpm.summary_duration": "Projektdauer: {{days}} Tage",
     "schedule.cpm.summary_critical": "Kritische Vorgänge: {{count}}",
     "schedule.cpm.critical_badge": "KRITISCH",

@@ -1,6 +1,18 @@
 # DDC-CWICR-OE: DataDrivenConstruction · OpenConstructionERP
 # Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
-"""Resource leveling - serial-greedy heuristic (Slice 1).
+"""Resource leveling - serial-greedy heuristic, FS links only.
+
+Superseded and no longer on any request path. Every endpoint now levels
+through :func:`app.modules.resources.resource_engine.level_by_resource_units`,
+which honours all four PDM link types, splittable activities, fractional units
+and self-overloads. Build on that one; nothing new belongs here.
+
+What is kept here is the reference the equivalence test measures against:
+``test_resource_engine.test_fs_only_diff_is_byte_identical_to_shipped_leveler``
+runs both over an FS-only network and requires the same diff, which is how the
+successor's back-compat claim is checked against something rather than
+asserted. That check is worth an unused module; a second maintained leveler
+would not be.
 
 Given a CPM-scheduled network and a per-resource ceiling, shift activity
 start times forward (never backward) so that at no point in time the
@@ -18,9 +30,6 @@ Returns a dict ``{activity_id: new_es}`` - only includes activities
 whose ES changed. Callers can re-run :func:`cpm.compute_cpm` over a
 network rebuilt from the shifted activities if they need ES/EF/LS/LF
 re-derived after leveling.
-
-TODO(Slice 2): parallel SGS, splittable activities, contiguous-day
-resource calendars, multi-resource priority composites.
 """
 
 from __future__ import annotations
@@ -130,7 +139,9 @@ def level_by_resource_max(
         earliest = original_es[aid]
         for p_id, dep_type, lag in network.predecessors(aid):
             if dep_type != "FS":
-                # TODO(Slice 2): support SS/FF/SF in leveling.
+                # SS / FF / SF are ignored here on purpose - this function is
+                # frozen as the FS-only reference. The engine that honours them
+                # is resource_engine._earliest_legal_start.
                 continue
             if p_id in schedule:
                 _, p_finish = schedule[p_id]

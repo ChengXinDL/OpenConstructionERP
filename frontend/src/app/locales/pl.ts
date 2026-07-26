@@ -13813,6 +13813,8 @@ const resource = {
     "schedule.cpm.level_modal_no_resources": "Nie zasoby defined na ten harmonogram. Dodaj zasoby do czynności pierwszy.",
     "schedule.cpm.run_leveling": "Uruchom leveling",
     "schedule.cpm.level_no_change": "Nie shifts needed, wszystkie zasób ceilings już respected.",
+    "schedule.cpm.level_unresolvable": "{{count}} czynność(-ci) same wymagają więcej, niż pozwala limit. Przesunięcie tego nie rozwiąże.",
+    "schedule.cpm.level_unresolvable_row": "{{resource}}: potrzeba {{required}}, limit {{limit}}",
     "schedule.cpm.summary_duration": "Projekt czas trwania: {{days}} dni",
     "schedule.cpm.summary_critical": "Krytyczny czynności: {{count}}",
     "schedule.cpm.critical_badge": "Krytyczny",

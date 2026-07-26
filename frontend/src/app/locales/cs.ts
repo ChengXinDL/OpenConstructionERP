@@ -13445,6 +13445,8 @@ const resource = {
     "schedule.cpm.level_modal_no_resources": "Ne zdroje defined na tento harmonogram. Přidat zdroje na činnosti první.",
     "schedule.cpm.run_leveling": "Spustit leveling",
     "schedule.cpm.level_no_change": "Ne shifts needed, všechny zdroj ceilings již respected.",
+    "schedule.cpm.level_unresolvable": "{{count}} činnost(i) samy vyžadují více, než dovoluje limit. Posun to nevyřeší.",
+    "schedule.cpm.level_unresolvable_row": "{{resource}}: potřebuje {{required}}, limit {{limit}}",
     "schedule.cpm.summary_duration": "Projekt trvání: {{days}} dnů",
     "schedule.cpm.summary_critical": "Kritický činnosti: {{count}}",
     "schedule.cpm.critical_badge": "Kritický",

@@ -14927,6 +14927,8 @@ const resource = {
     "schedule.cpm.level_modal_hint": "为每种资源输入最大并发数量。活动将向后推移（绝不提前），以确保每天不超过上限。留空表示不限制。",
     "schedule.cpm.level_modal_title": "资源平衡",
     "schedule.cpm.level_no_change": "无需移位--所有资源上限均已满足。",
+    "schedule.cpm.level_unresolvable": "{{count}} 项作业单独就超出了上限。平移无法解决。",
+    "schedule.cpm.level_unresolvable_row": "{{resource}}：需要 {{required}}，上限 {{limit}}",
     "schedule.cpm.level_result": "已移位 {{count}} 个活动以满足资源上限。",
     "schedule.cpm.leveling": "平衡中...",
     "schedule.cpm.recompute": "重新计算 CPM",

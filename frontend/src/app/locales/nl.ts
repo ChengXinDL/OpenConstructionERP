@@ -14018,6 +14018,8 @@ const resource = {
     "schedule.cpm.level_modal_no_resources": "Geen resources gedefinieerd in dit schema. Voeg eerst resources toe aan activiteiten.",
     "schedule.cpm.level_modal_title": "Resource-nivellering",
     "schedule.cpm.level_no_change": "Geen verschuivingen nodig - alle resourceplafonds al gerespecteerd.",
+    "schedule.cpm.level_unresolvable": "{{count}} activiteit(en) vragen op zichzelf meer dan het plafond toestaat. Verschuiven lost dat niet op.",
+    "schedule.cpm.level_unresolvable_row": "{{resource}}: vraagt {{required}}, plafond {{limit}}",
     "schedule.cpm.level_resources": "Resources nivelleren",
     "schedule.cpm.level_result": "{{count}} activiteit(en) verschoven om resourceplafonds te respecteren.",
     "schedule.cpm.leveling": "Nivelleren...",

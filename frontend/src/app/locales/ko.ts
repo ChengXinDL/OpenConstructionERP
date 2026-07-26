@@ -14779,6 +14779,8 @@ const resource = {
     "schedule.cpm.level_modal_no_resources": "이 일정에 정의된 자원이 없습니다. 먼저 작업에 자원을 추가하세요.",
     "schedule.cpm.level_modal_title": "자원 평준화",
     "schedule.cpm.level_no_change": "이동 불필요, 모든 자원 상한선이 이미 준수되고 있습니다.",
+    "schedule.cpm.level_unresolvable": "{{count}}개 액티비티가 단독으로 상한을 초과하는 양을 요구합니다. 이동으로는 해결되지 않습니다.",
+    "schedule.cpm.level_unresolvable_row": "{{resource}}: 필요 {{required}}, 상한 {{limit}}",
     "schedule.cpm.level_resources": "자원 평준화",
     "schedule.cpm.level_result": "{{count}}개의 작업이 자원 상한선을 준수하도록 이동되었습니다.",
     "schedule.cpm.leveling": "평준화 중...",

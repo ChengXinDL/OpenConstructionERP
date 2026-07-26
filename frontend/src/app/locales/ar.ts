@@ -15095,6 +15095,8 @@ const resource = {
     "schedule.cpm.level_modal_no_resources": "لا توجد موارد معرّفة في هذا الجدول الزمني. أضف الموارد إلى الأنشطة أولاً.",
     "schedule.cpm.level_modal_title": "تسوية الموارد",
     "schedule.cpm.level_no_change": "لا حاجة لأي إزاحات، جميع سقوف الموارد مستوفاة بالفعل.",
+    "schedule.cpm.level_unresolvable": "{{count}} نشاط يطلب بمفرده أكثر مما يسمح به الحد الأقصى. الإزاحة لا تحل ذلك.",
+    "schedule.cpm.level_unresolvable_row": "{{resource}}: يحتاج {{required}}، الحد {{limit}}",
     "schedule.cpm.level_resources": "تسوية الموارد",
     "schedule.cpm.level_result": "تم إزاحة {{count}} نشاط لاستيفاء سقوف الموارد.",
     "schedule.cpm.leveling": "جارٍ التسوية...",

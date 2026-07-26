@@ -13494,6 +13494,8 @@ const resource = {
     "schedule.cpm.leveling": "Udjævner...",
     "schedule.cpm.level_result": "{{count}} aktivitet(er) forskudt for at overholde ressourcelofter.",
     "schedule.cpm.level_no_change": "Ingen forskydninger nødvendige, alle ressourcelofter overholdes allerede.",
+    "schedule.cpm.level_unresolvable": "{{count}} aktivitet(er) kræver alene mere, end loftet tillader. At flytte dem løser det ikke.",
+    "schedule.cpm.level_unresolvable_row": "{{resource}}: kræver {{required}}, loft {{limit}}",
     "schedule.cpm.summary_duration": "Projektvarighed: {{days}} dage",
     "schedule.cpm.summary_critical": "Kritiske aktiviteter: {{count}}",
     "schedule.cpm.critical_badge": "KRITISK",

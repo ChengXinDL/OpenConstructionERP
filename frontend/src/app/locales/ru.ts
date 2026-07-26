@@ -13202,6 +13202,8 @@ const resource = {
     "schedule.cpm.leveling": "Выравнивание...",
     "schedule.cpm.level_result": "{{count}} работ(ы) сдвинуты для соблюдения лимитов ресурсов.",
     "schedule.cpm.level_no_change": "Сдвиги не нужны, все лимиты уже соблюдаются.",
+    "schedule.cpm.level_unresolvable": "{{count}} работ(ы) сами по себе требуют больше, чем допускает лимит. Сдвиг это не решает.",
+    "schedule.cpm.level_unresolvable_row": "{{resource}}: нужно {{required}}, лимит {{limit}}",
     "schedule.cpm.summary_duration": "Длительность проекта: {{days}} дн.",
     "schedule.cpm.summary_critical": "Критических работ: {{count}}",
     "schedule.cpm.critical_badge": "КРИТИЧЕСКАЯ",

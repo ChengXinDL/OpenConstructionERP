@@ -13996,6 +13996,8 @@ const resource = {
     "schedule.cpm.level_modal_no_resources": "Няма дефинирани ресурси в този график. Първо добавете ресурси към дейностите.",
     "schedule.cpm.level_modal_title": "Нивелиране на ресурси",
     "schedule.cpm.level_no_change": "Не са необходими измествания, всички тавани на ресурси вече се спазват.",
+    "schedule.cpm.level_unresolvable": "{{count}} дейност(и) сами по себе си искат повече от допустимия таван. Преместването не го решава.",
+    "schedule.cpm.level_unresolvable_row": "{{resource}}: нужни са {{required}}, таван {{limit}}",
     "schedule.cpm.level_resources": "Нивелирай ресурси",
     "schedule.cpm.level_result": "{{count}} дейност(и) изместени за спазване на таваните на ресурси.",
     "schedule.cpm.leveling": "Нивелиране...",

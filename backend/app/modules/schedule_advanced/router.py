@@ -71,6 +71,7 @@ from app.modules.schedule_advanced.schemas import (
     LevelResourcesRequest,
     LevelResourcesResponse,
     LevelResourcesShift,
+    LevelResourcesUnresolvable,
     LineOfBalanceResponse,
     LocationCreate,
     LocationResponse,
@@ -1441,9 +1442,23 @@ async def level_resources_for_schedule(
     user_id: CurrentUserId,
     _perm: None = Depends(RequirePermission("schedule_advanced.update")),
 ) -> LevelResourcesResponse:
-    """Run serial-greedy resource leveling - returns shifted ES for changed activities only."""
+    """Run serial-greedy resource leveling - returns shifted ES for changed activities only.
+
+    The arithmetic is the same engine ``/level-preview`` and ``/level-apply``
+    run. This endpoint used to call an FS-only leveler, which meant a schedule
+    built on SS, FF or SF links was leveled as if those links did not exist and
+    the shifted dates came back breaking the schedule's own logic without
+    saying so. FS-only networks are unaffected: the two produce identical
+    diffs, and a test pins that.
+
+    Nothing is split here. Splitting is offered by ``/level-preview``, which
+    can report the resulting day-runs; this response carries starts alone, so a
+    split activity would be described by a start that is only part of the
+    truth.
+    """
     from sqlalchemy import select
 
+    from app.modules.resources.resource_engine import level_preview as _level_preview
     from app.modules.schedule.models import Activity as _Activity
     from app.modules.schedule.models import ScheduleRelationship as _Rel
     from app.modules.schedule_advanced.cpm import (
@@ -1452,10 +1467,6 @@ async def level_resources_for_schedule(
     from app.modules.schedule_advanced.cpm import (
         TaskNetwork as _CPMNetwork,
     )
-    from app.modules.schedule_advanced.cpm import (
-        compute_cpm as _compute_cpm,
-    )
-    from app.modules.schedule_advanced.leveling import level_by_resource_max
 
     project_id = await _project_id_for_schedule(schedule_id, session)
     await verify_project_access(project_id, user_id, session)
@@ -1506,23 +1517,30 @@ async def level_resources_for_schedule(
         )
 
     network = _CPMNetwork(cpm_acts)
-    base = _compute_cpm(network)
-    shifted = level_by_resource_max(network, base, data.resource_limits or {})
+    preview = _level_preview(network, dict(data.resource_limits or {}), splittable=set())
 
-    rows: list[LevelResourcesShift] = []
-    for aid, new_es in shifted.items():
-        rows.append(
-            LevelResourcesShift(
-                activity_id=uuid.UUID(str(aid)),
-                original_es=base[aid].es,
-                shifted_es=new_es,
-                delta_days=new_es - base[aid].es,
-            ),
+    rows = [
+        LevelResourcesShift(
+            activity_id=uuid.UUID(str(s.activity_id)),
+            original_es=s.base_es,
+            shifted_es=s.new_es,
+            delta_days=s.delta,
         )
+        for s in preview.shifts
+    ]
     return LevelResourcesResponse(
         schedule_id=schedule_id,
         shifts=rows,
         num_shifted=len(rows),
+        unresolvable=[
+            LevelResourcesUnresolvable(
+                activity_id=uuid.UUID(str(u.activity_id)),
+                resource=u.resource,
+                required=u.required,
+                limit=u.limit,
+            )
+            for u in preview.unresolvable
+        ],
     )
 
 

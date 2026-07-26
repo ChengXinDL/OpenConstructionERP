@@ -13450,6 +13450,8 @@ const resource = {
     "schedule.cpm.level_modal_no_resources": "Ne resursi defined na ovaj raspored. Dodaj resursi na aktivnosti prvi.",
     "schedule.cpm.run_leveling": "Pokreni leveling",
     "schedule.cpm.level_no_change": "Ne shifts needed, sve resurs ceilings već respected.",
+    "schedule.cpm.level_unresolvable": "{{count}} aktivnost(i) same traže više nego što ograničenje dopušta. Pomicanje to ne rješava.",
+    "schedule.cpm.level_unresolvable_row": "{{resource}}: treba {{required}}, ograničenje {{limit}}",
     "schedule.cpm.summary_duration": "Projekt trajanje: {{days}} dana",
     "schedule.cpm.summary_critical": "Kritičan aktivnosti: {{count}}",
     "schedule.cpm.critical_badge": "Kritičan",

@@ -14107,6 +14107,8 @@ const resource = {
     "schedule.cpm.level_modal_no_resources": "Nenhum recurso definido neste cronograma. Adicione recursos às atividades primeiro.",
     "schedule.cpm.level_modal_title": "Nivelamento de recursos",
     "schedule.cpm.level_no_change": "Nenhum deslocamento necessário, todos os limites de recursos já são respeitados.",
+    "schedule.cpm.level_unresolvable": "{{count}} atividade(s) pedem sozinhas mais do que o limite permite. Deslocar não resolve isso.",
+    "schedule.cpm.level_unresolvable_row": "{{resource}}: precisa de {{required}}, limite {{limit}}",
     "schedule.cpm.level_resources": "Nivelar recursos",
     "schedule.cpm.level_result": "{{count}} atividade(s) deslocada(s) para respeitar os limites de recursos.",
     "schedule.cpm.leveling": "Nivelando...",

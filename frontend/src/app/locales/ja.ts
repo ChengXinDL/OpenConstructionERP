@@ -14315,6 +14315,8 @@ const resource = {
     "schedule.cpm.leveling": "平準化中...",
     "schedule.cpm.level_result": "リソース上限を尊重するため {{count}} 件のアクティビティがシフトされました。",
     "schedule.cpm.level_no_change": "シフト不要、すべてのリソース上限が既に尊重されています。",
+    "schedule.cpm.level_unresolvable": "{{count}} 件のアクティビティが単独で上限を超える量を必要としています。移動しても解消しません。",
+    "schedule.cpm.level_unresolvable_row": "{{resource}}: 必要 {{required}}、上限 {{limit}}",
     "schedule.cpm.summary_duration": "プロジェクト期間：{{days}} 日",
     "schedule.cpm.summary_critical": "クリティカルアクティビティ：{{count}} 件",
     "schedule.cpm.critical_badge": "クリティカル",

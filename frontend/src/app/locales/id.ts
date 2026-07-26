@@ -14627,6 +14627,8 @@ const resource = {
     "schedule.cpm.level_modal_no_resources": "Tidak ada sumber daya yang ditentukan dalam jadwal ini. Tambahkan sumber daya ke aktivitas terlebih dahulu.",
     "schedule.cpm.level_modal_title": "Pemerataan sumber daya",
     "schedule.cpm.level_no_change": "Tidak ada pergeseran diperlukan, semua batas sumber daya sudah terpenuhi.",
+    "schedule.cpm.level_unresolvable": "{{count}} aktivitas sendiri meminta lebih dari batas yang diizinkan. Menggeser tidak menyelesaikannya.",
+    "schedule.cpm.level_unresolvable_row": "{{resource}}: butuh {{required}}, batas {{limit}}",
     "schedule.cpm.level_resources": "Ratakan sumber daya",
     "schedule.cpm.level_result": "{{count}} aktivitas digeser untuk memenuhi batas sumber daya.",
     "schedule.cpm.leveling": "Meratakan...",

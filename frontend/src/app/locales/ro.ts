@@ -13494,6 +13494,8 @@ const resource = {
     "schedule.cpm.level_modal_no_resources": "Nu resurse defined pe acest program. Adaugă resurse la activități primul.",
     "schedule.cpm.run_leveling": "Rulează leveling",
     "schedule.cpm.level_no_change": "Nu shifts needed, toate resursă ceilings deja respected.",
+    "schedule.cpm.level_unresolvable": "{{count}} activitate(-ăți) cer singure mai mult decât permite plafonul. Deplasarea nu rezolvă asta.",
+    "schedule.cpm.level_unresolvable_row": "{{resource}}: are nevoie de {{required}}, plafon {{limit}}",
     "schedule.cpm.summary_duration": "Proiect durată: {{days}} zile",
     "schedule.cpm.summary_critical": "Critic activități: {{count}}",
     "schedule.cpm.critical_badge": "Critic",

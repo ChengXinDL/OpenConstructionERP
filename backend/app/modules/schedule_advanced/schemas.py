@@ -734,12 +734,26 @@ class LevelResourcesShift(BaseModel):
     delta_days: int = 0
 
 
+class LevelResourcesUnresolvable(BaseModel):
+    """An activity whose own demand exceeds a ceiling on its own."""
+
+    activity_id: UUID
+    resource: str
+    required: float
+    limit: float
+
+
 class LevelResourcesResponse(BaseModel):
     """Response for /level-resources - only changed activities listed."""
 
     schedule_id: UUID
     shifts: list[LevelResourcesShift] = Field(default_factory=list)
     num_shifted: int = 0
+    # Shifting cannot clear an overload one activity causes by itself, so such
+    # an activity is placed at its earliest legal start and named here. Without
+    # this list it would be absent from `shifts` and read exactly like an
+    # activity that needed no shift, while its ceiling stays breached.
+    unresolvable: list[LevelResourcesUnresolvable] = Field(default_factory=list)
 
 
 class WeeklyCommitmentCreate(BaseModel):

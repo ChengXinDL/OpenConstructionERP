@@ -9721,6 +9721,8 @@ const resource = {
     "schedule.cpm.leveling": "Тегизделүүдө...",
     "schedule.cpm.level_result": "Ресурс чектерин сактоо үчүн {{count}} иш-аракет жылдырылды.",
     "schedule.cpm.level_no_change": "Жылдыруу керек эмес, бардык ресурс чектери мурунтан эле сакталган.",
+    "schedule.cpm.level_unresolvable": "{{count}} иш өз алдынча чектен ашык талап кылат. Жылдыруу муну чечпейт.",
+    "schedule.cpm.level_unresolvable_row": "{{resource}}: {{required}} керек, чек {{limit}}",
     "schedule.cpm.summary_duration": "Долбоордун узактыгы: {{days}} күн",
     "schedule.cpm.summary_critical": "Критикалык иш-аракеттер: {{count}}",
     "schedule.cpm.critical_badge": "КРИТИКАЛЫК",

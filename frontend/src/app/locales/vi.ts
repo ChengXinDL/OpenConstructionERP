@@ -14631,6 +14631,8 @@ const resource = {
     "schedule.cpm.level_modal_no_resources": "Không có nguồn lực nào được xác định cho tiến độ này. Hãy thêm nguồn lực vào công việc trước.",
     "schedule.cpm.level_modal_title": "Cân bằng nguồn lực",
     "schedule.cpm.level_no_change": "Không cần dời công việc, tất cả nguồn lực đều trong ngưỡng cho phép.",
+    "schedule.cpm.level_unresolvable": "{{count}} công việc tự nó đã cần nhiều hơn mức trần cho phép. Dời lịch không giải quyết được.",
+    "schedule.cpm.level_unresolvable_row": "{{resource}}: cần {{required}}, mức trần {{limit}}",
     "schedule.cpm.level_resources": "Cân bằng nguồn lực",
     "schedule.cpm.level_result": "{{count}} công việc đã được dời để tuân thủ ngưỡng nguồn lực.",
     "schedule.cpm.leveling": "Đang cân bằng...",

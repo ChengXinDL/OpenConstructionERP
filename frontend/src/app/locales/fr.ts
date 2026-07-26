@@ -14092,6 +14092,8 @@ const resource = {
     "schedule.cpm.level_modal_no_resources": "Aucune ressource définie dans ce planning. Ajoutez des ressources aux activités d'abord.",
     "schedule.cpm.level_modal_title": "Nivellement des ressources",
     "schedule.cpm.level_no_change": "Aucun décalage nécessaire, tous les plafonds de ressources sont déjà respectés.",
+    "schedule.cpm.level_unresolvable": "{{count}} activité(s) demandent à elles seules plus que le plafond autorise. Un décalage n'y change rien.",
+    "schedule.cpm.level_unresolvable_row": "{{resource}} : besoin de {{required}}, plafond {{limit}}",
     "schedule.cpm.level_resources": "Niveler les ressources",
     "schedule.cpm.level_result": "{{count}} activité(s) décalée(s) pour respecter les plafonds de ressources.",
     "schedule.cpm.leveling": "Nivellement…",

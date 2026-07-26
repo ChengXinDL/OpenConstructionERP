@@ -14624,6 +14624,8 @@ const resource = {
     "schedule.cpm.level_modal_no_resources": "Bu programda kaynak tanımlanmamış. Önce aktivitelere kaynak ekleyin.",
     "schedule.cpm.level_modal_title": "Kaynak düzeltme",
     "schedule.cpm.level_no_change": "Kaydırma gerekmiyor - tüm kaynak tavanları zaten uyuluyor.",
+    "schedule.cpm.level_unresolvable": "{{count}} faaliyet tek başına üst sınırın izin verdiğinden fazlasını istiyor. Kaydırmak bunu çözmez.",
+    "schedule.cpm.level_unresolvable_row": "{{resource}}: {{required}} gerekiyor, üst sınır {{limit}}",
     "schedule.cpm.level_resources": "Kaynakları düzelt",
     "schedule.cpm.level_result": "Kaynak tavanlarına uymak için {{count}} aktivite kaydırıldı.",
     "schedule.cpm.leveling": "Düzeltiliyor...",

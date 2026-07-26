@@ -10509,6 +10509,8 @@ const resource = {
     "schedule.cpm.leveling": "Leveling...",
     "schedule.cpm.level_result": "{{count}} activity(ies) shifted to respect resource ceilings.",
     "schedule.cpm.level_no_change": "No shifts needed, all resource ceilings already respected.",
+    "schedule.cpm.level_unresolvable": "{{count}} activity(ies) ask for more than a ceiling allows on their own. Shifting cannot clear that.",
+    "schedule.cpm.level_unresolvable_row": "{{resource}}: needs {{required}}, ceiling {{limit}}",
     "schedule.cpm.summary_duration": "Project duration: {{days}} days",
     "schedule.cpm.summary_critical": "Critical activities: {{count}}",
     "schedule.cpm.critical_badge": "CRITICAL",
