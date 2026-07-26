@@ -10,17 +10,28 @@
 // export trigger mirrors the RFI log export (authenticated binary GET +
 // client-side save + success/error toast).
 
-import { useState } from 'react';
+import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
-import { ClipboardCheck, Download, Loader2 } from 'lucide-react';
+import { Link, useParams } from 'react-router-dom';
+import {
+  ArrowRight,
+  ClipboardCheck,
+  Download,
+  FileCheck2,
+  GitBranch,
+  Loader2,
+  Send,
+  ShieldCheck,
+  Stamp,
+} from 'lucide-react';
 
 import {
   Badge,
   Breadcrumb,
   Button,
   Card,
+  CollapsibleSection,
   EmptyState,
   RecoveryCard,
   SkeletonTable,
@@ -28,11 +39,13 @@ import {
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { DateDisplay } from '@/shared/ui/DateDisplay';
 import { RequiresProject } from '@/shared/auth/RequiresProject';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
 import { apiGet } from '@/shared/lib/api';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { useToastStore } from '@/stores/useToastStore';
 
 import { downloadApprovalRegister } from './api';
+import { buildFileApprovalsInsights } from './fileApprovalsInsights';
 import { useApprovals } from './hooks';
 import type { ApprovalWorkflow, WorkflowStatus } from './types';
 
@@ -62,6 +75,121 @@ function currentStepLabel(w: ApprovalWorkflow): string {
   if (!pending) return '';
   const who = pending.role_label || pending.approver_id.slice(0, 8);
   return `#${pending.sort_order + 1}: ${who}`;
+}
+
+function ModLink({ to, children }: { to: string; children: ReactNode }) {
+  return (
+    <Link to={to} className="font-medium text-oe-blue-text hover:underline">
+      {children}
+    </Link>
+  );
+}
+
+/**
+ * One-glance explainer: what the approvals register is and how it connects.
+ *
+ * The table shows a status column but never says that the workflow is an
+ * ordered chain, that the first still-pending step is who the file is actually
+ * waiting on, or that a rejection stops the chain rather than passing it along.
+ * Those are what make the "waiting on which approver" chart mean anything.
+ */
+function HowApprovalsWork() {
+  const { t } = useTranslation();
+
+  const steps: { icon: ReactNode; title: string; desc: string }[] = [
+    {
+      icon: <Send size={14} className="text-oe-blue" />,
+      title: t('files.approvals.flow_1_title', { defaultValue: 'Submit a file' }),
+      desc: t('files.approvals.flow_1_desc', {
+        defaultValue:
+          'Send a drawing, model, report or document for approval from wherever it lives, and it enters the register as in review.',
+      }),
+    },
+    {
+      icon: <GitBranch size={14} className="text-oe-blue" />,
+      title: t('files.approvals.flow_2_title', { defaultValue: 'Steps in order' }),
+      desc: t('files.approvals.flow_2_desc', {
+        defaultValue:
+          'The workflow carries an ordered list of approvers. The first step still pending is who the file is waiting on right now.',
+      }),
+    },
+    {
+      icon: <Stamp size={14} className="text-oe-blue" />,
+      title: t('files.approvals.flow_3_title', { defaultValue: 'Each approver decides' }),
+      desc: t('files.approvals.flow_3_desc', {
+        defaultValue:
+          'Approve, reject or delegate. A rejection stops the chain and sends the file back for revision rather than passing it on.',
+      }),
+    },
+    {
+      icon: <FileCheck2 size={14} className="text-oe-blue" />,
+      title: t('files.approvals.flow_4_title', { defaultValue: 'Approved and recorded' }),
+      desc: t('files.approvals.flow_4_desc', {
+        defaultValue:
+          'Once the last step approves, the decision and its date stay against the file as the audit trail for handover.',
+      }),
+    },
+  ];
+
+  return (
+    <CollapsibleSection
+      storageKey="files.approvals.how"
+      icon={<ShieldCheck size={15} className="text-oe-blue" />}
+      title={t('files.approvals.flow_title', {
+        defaultValue: 'How file approvals fit together',
+      })}
+    >
+      <p className="text-xs text-content-tertiary">
+        {t('files.approvals.flow_intro', {
+          defaultValue:
+            'A record of who signed off which file and when. A file is submitted into a chain of approval steps, each approver takes a decision in turn, and the file is only approved once the last step is cleared.',
+        })}
+      </p>
+
+      <ol className="mt-3 flex flex-col gap-2 lg:flex-row lg:items-stretch">
+        {steps.map((s, i) => (
+          <Fragment key={s.title}>
+            <li className="flex-1 rounded-lg border border-border-light bg-surface-secondary/40 p-3">
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-oe-blue-subtle text-2xs font-bold text-oe-blue-text">
+                  {i + 1}
+                </span>
+                <span className="flex items-center gap-1 text-xs font-semibold text-content-primary">
+                  {s.icon}
+                  {s.title}
+                </span>
+              </div>
+              <p className="mt-1.5 text-2xs leading-relaxed text-content-tertiary">{s.desc}</p>
+            </li>
+            {i < steps.length - 1 && (
+              <li
+                aria-hidden="true"
+                className="hidden shrink-0 items-center self-center text-content-quaternary lg:flex"
+              >
+                <ArrowRight size={16} />
+              </li>
+            )}
+          </Fragment>
+        ))}
+      </ol>
+
+      <div className="mt-3 flex flex-col gap-1.5 border-t border-border-light pt-3 text-2xs text-content-tertiary sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-1">
+        <span>
+          <span className="font-medium text-content-secondary">
+            {t('files.approvals.flow_connects', { defaultValue: 'Connects with:' })}
+          </span>{' '}
+          <ModLink to="/plan-room">
+            {t('files.approvals.mod_planroom', { defaultValue: 'Plan Room' })}
+          </ModLink>{' '}
+          · <ModLink to="/files">{t('files.approvals.mod_files', { defaultValue: 'Files' })}</ModLink>{' '}
+          ·{' '}
+          <ModLink to="/closeout">
+            {t('files.approvals.mod_closeout', { defaultValue: 'Handover' })}
+          </ModLink>
+        </span>
+      </div>
+    </CollapsibleSection>
+  );
 }
 
 export function FileApprovalsRegisterPage() {
@@ -95,6 +223,12 @@ function RegisterInner() {
     error,
     refetch,
   } = useApprovals(projectId, statusFilter || undefined);
+
+  const insights = useModuleInsights('file-approvals', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildFileApprovalsInsights(workflows, t),
+    [workflows, t],
+  );
 
   const exportMut = useMutation({
     mutationFn: () => downloadApprovalRegister(projectId),
@@ -139,24 +273,40 @@ function RegisterInner() {
             'Every file submitted for approval, with its current approver, status and decision trail.',
         })}
         actions={
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={
-              exportMut.isPending ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Download size={14} />
-              )
-            }
-            onClick={() => exportMut.mutate()}
-            disabled={exportMut.isPending || !projectId || workflows.length === 0}
-            data-guide="file-approvals-export"
-          >
-            {t('files.approvals.export', { defaultValue: 'Export to Excel' })}
-          </Button>
+          <>
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={
+                exportMut.isPending ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Download size={14} />
+                )
+              }
+              onClick={() => exportMut.mutate()}
+              disabled={exportMut.isPending || !projectId || workflows.length === 0}
+              data-guide="file-approvals-export"
+            >
+              {t('files.approvals.export', { defaultValue: 'Export to Excel' })}
+            </Button>
+          </>
         }
       />
+
+      <InsightsPanel
+        open={insights.open}
+        title={t('files.approvals.insights.title', { defaultValue: 'Approval insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
+      />
+
+      <HowApprovalsWork />
 
       <div className="flex items-center gap-2">
         <label className="text-xs text-content-secondary">
@@ -183,7 +333,7 @@ function RegisterInner() {
       </div>
 
       {isLoading ? (
-        <SkeletonTable rows={5} columns={4} />
+        <SkeletonTable rows={5} columns={5} />
       ) : isError ? (
         <RecoveryCard error={error as Error} onRetry={() => void refetch()} />
       ) : workflows.length === 0 ? (
@@ -192,19 +342,22 @@ function RegisterInner() {
           title={t('files.approvals.empty_register_title', {
             defaultValue: 'No approvals yet',
           })}
-          description={t('files.approvals.empty_register_desc', {
+          description={t('files.approvals.empty_hint', {
             defaultValue:
-              'Files submitted for approval from the Files module appear here. Submit one to start the register.',
+              'Send a file for approval from the Plan Room or the Files register and it will appear here with its approval chain.',
           })}
         />
       ) : (
         <Card padding="none" className="overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[640px]">
+            <table className="w-full text-sm min-w-[760px]">
               <thead>
                 <tr className="border-b border-border-light bg-surface-secondary/40">
                   <th className="px-3 py-2 text-left text-2xs font-semibold uppercase tracking-wider text-content-tertiary">
                     {t('files.approvals.col_file', { defaultValue: 'File' })}
+                  </th>
+                  <th className="px-3 py-2 text-left text-2xs font-semibold uppercase tracking-wider text-content-tertiary w-[120px]">
+                    {t('files.approvals.col_kind', { defaultValue: 'Type' })}
                   </th>
                   <th className="px-3 py-2 text-left text-2xs font-semibold uppercase tracking-wider text-content-tertiary w-[140px]">
                     {t('files.approvals.col_submitted', {
@@ -230,14 +383,16 @@ function RegisterInner() {
                       className="hover:bg-surface-secondary/30 transition-colors"
                     >
                       <td className="px-3 py-2.5">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium text-content-primary break-all">
-                            {w.file_id}
-                          </span>
-                          <span className="text-2xs uppercase tracking-wide text-content-tertiary">
-                            {w.file_kind}
-                          </span>
-                        </div>
+                        <span className="text-sm font-medium text-content-primary break-all">
+                          {w.file_id}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 text-xs text-content-secondary">
+                        {t(`files.approvals.kind_${w.file_kind}`, {
+                          defaultValue:
+                            String(w.file_kind).charAt(0).toUpperCase() +
+                            String(w.file_kind).slice(1).replace(/_/g, ' '),
+                        })}
                       </td>
                       <td className="px-3 py-2.5 text-xs text-content-tertiary">
                         <DateDisplay value={w.submitted_at} />
