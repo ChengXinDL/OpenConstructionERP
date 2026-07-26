@@ -35,6 +35,8 @@ import {
 } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { DismissibleInfo } from '@/shared/ui/DismissibleInfo';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildPrefabInsights } from './prefabInsights';
 import { RequiresProject } from '@/shared/auth/RequiresProject';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { apiGet } from '@/shared/lib/api';
@@ -68,6 +70,8 @@ import {
 interface Project {
   id: string;
   name: string;
+  /** Optional here because this page only needs it to format prefab cost. */
+  currency?: string;
 }
 
 interface StageMeta {
@@ -1185,6 +1189,16 @@ export function PrefabPage() {
     [board],
   );
 
+  // Prefab is one of the few registers with real money on the record:
+  // cost_basis comes from the linked BOQ position or assembly, and
+  // earned_value is that basis times the stage machine's completed fraction.
+  const projectCurrency = projects.find((p) => p.id === projectId)?.currency || 'EUR';
+  const insights = useModuleInsights('prefab', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildPrefabInsights(allUnits, projectCurrency, t),
+    [allUnits, projectCurrency, t],
+  );
+
   // Board-level risk tallies, computed from the full register (never narrowed
   // by the search box) so the tiles stay stable, trustworthy KPIs.
   const riskCounts = useMemo(() => {
@@ -1293,6 +1307,7 @@ export function PrefabPage() {
         })}
         actions={
           <div className="flex items-center gap-2">
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             <Button
               variant="secondary"
               size="sm"
@@ -1328,6 +1343,17 @@ export function PrefabPage() {
             </Button>
           </div>
         }
+      />
+
+      <InsightsPanel
+        open={insights.open}
+        title={t('prefab.insights.title', { defaultValue: 'Prefab insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       <DismissibleInfo
