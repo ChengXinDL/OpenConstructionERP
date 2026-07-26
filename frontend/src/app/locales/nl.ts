@@ -4891,6 +4891,7 @@ const resource = {
     "takeoff_viewer.prop_group": "Groep",
     "takeoff_viewer.prop_color": "Kleur",
     "takeoff_viewer.prop_color_custom": "Aangepaste kleur",
+    "takeoff_viewer.prop_use_group_color": "Groepskleur gebruiken",
     "takeoff_viewer.clear_all": "Alles wissen",
     "takeoff_viewer.jump_to_page": "Klik om naar een pagina te springen",
     "takeoff_viewer.legend": "Legenda",
@@ -33902,6 +33903,20 @@ const resource = {
     "boq_templates.loading": "Templates laden",
     "boq_templates.load_failed": "Kon de templates niet laden",
     "boq_templates.load_failed_generic": "De server antwoordde niet.",
+    "project_files.open_from_project": "Openen uit projectbestanden",
+    "project_files.picker_title": "Openen uit projectbestanden",
+    "project_files.picker_subtitle": "Bestanden die al in dit project zijn opgeslagen en die deze module kan openen. Formaten: {{formats}}",
+    "project_files.picker_search_aria": "Projectbestanden op naam zoeken",
+    "project_files.picker_search_placeholder": "Zoeken op bestandsnaam...",
+    "project_files.picker_loading": "Projectbestanden laden...",
+    "project_files.picker_empty_title": "Nog geen geschikt bestand in dit project",
+    "project_files.picker_empty_body": "Dit project bevat nog geen {{formats}}-bestand. Voeg er een toe bij Bestanden of upload het hier vanaf uw computer.",
+    "project_files.picker_go_to_files": "Naar Bestanden",
+    "project_files.picker_no_search_match": "Geen bestand komt overeen met uw zoekopdracht.",
+    "project_files.picker_opens_elsewhere": "Wordt in een andere module geopend",
+    "project_files.picker_needs_conversion": "Wordt eerst geconverteerd",
+    "project_files.pick_failed_title": "Kan dat bestand niet openen",
+    "project_files.pick_failed_msg": "Het bestand kon niet uit het project worden gelezen. Probeer het opnieuw.",
   }
 } as { translation: Record<string, string> };
 

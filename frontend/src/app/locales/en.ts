@@ -1217,6 +1217,7 @@ const resource = {
     "takeoff_viewer.prop_group": "Group",
     "takeoff_viewer.prop_color": "Color",
     "takeoff_viewer.prop_color_custom": "Custom color",
+    "takeoff_viewer.prop_use_group_color": "Use group color",
     "takeoff_viewer.clear_all": "Clear all",
     "takeoff_viewer.jump_to_page": "Click to jump to a page",
     "takeoff_viewer.legend": "Legend",
@@ -30438,6 +30439,20 @@ const resource = {
     "boq_templates.loading": "Loading templates",
     "boq_templates.load_failed": "Could not load the templates",
     "boq_templates.load_failed_generic": "The server did not answer.",
+    "project_files.open_from_project": "Open from project files",
+    "project_files.picker_title": "Open from project files",
+    "project_files.picker_subtitle": "Files already stored in this project that this module can open. Formats: {{formats}}",
+    "project_files.picker_search_aria": "Search project files by name",
+    "project_files.picker_search_placeholder": "Search by file name...",
+    "project_files.picker_loading": "Loading project files...",
+    "project_files.picker_empty_title": "No compatible file in this project yet",
+    "project_files.picker_empty_body": "This project has no {{formats}} file stored yet. Add one in Files, or upload it here from your computer.",
+    "project_files.picker_go_to_files": "Go to Files",
+    "project_files.picker_no_search_match": "No file matches your search.",
+    "project_files.picker_opens_elsewhere": "Opens in another module",
+    "project_files.picker_needs_conversion": "Converts first",
+    "project_files.pick_failed_title": "Could not open that file",
+    "project_files.pick_failed_msg": "The file could not be read from the project. Try again.",
   }
 } as { translation: Record<string, string> };
 

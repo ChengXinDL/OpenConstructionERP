@@ -4891,6 +4891,7 @@ const resource = {
     "takeoff_viewer.prop_group": "Grupp",
     "takeoff_viewer.prop_color": "Färg",
     "takeoff_viewer.prop_color_custom": "Anpassad färg",
+    "takeoff_viewer.prop_use_group_color": "Använd gruppens färg",
     "takeoff_viewer.clear_all": "Rensa allt",
     "takeoff_viewer.jump_to_page": "Klicka för att hoppa till en sida",
     "takeoff_viewer.legend": "Teckenförklaring",
@@ -33897,6 +33898,20 @@ const resource = {
     "boq_templates.loading": "Laddar mallar",
     "boq_templates.load_failed": "Kunde inte ladda mallarna",
     "boq_templates.load_failed_generic": "Servern svarade inte.",
+    "project_files.open_from_project": "Öppna från projektfiler",
+    "project_files.picker_title": "Öppna från projektfiler",
+    "project_files.picker_subtitle": "Filer som redan är lagrade i det här projektet och som den här modulen kan öppna. Format: {{formats}}",
+    "project_files.picker_search_aria": "Sök projektfiler efter namn",
+    "project_files.picker_search_placeholder": "Sök efter filnamn...",
+    "project_files.picker_loading": "Läser in projektfiler...",
+    "project_files.picker_empty_title": "Ingen kompatibel fil i det här projektet ännu",
+    "project_files.picker_empty_body": "Det här projektet har ännu ingen {{formats}}-fil. Lägg till en under Filer eller ladda upp den här från din dator.",
+    "project_files.picker_go_to_files": "Gå till Filer",
+    "project_files.picker_no_search_match": "Ingen fil matchar din sökning.",
+    "project_files.picker_opens_elsewhere": "Öppnas i en annan modul",
+    "project_files.picker_needs_conversion": "Konverteras först",
+    "project_files.pick_failed_title": "Det gick inte att öppna filen",
+    "project_files.pick_failed_msg": "Filen kunde inte läsas från projektet. Försök igen.",
   }
 } as { translation: Record<string, string> };
 

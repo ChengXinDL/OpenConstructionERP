@@ -1217,6 +1217,7 @@ const resource = {
     "takeoff_viewer.prop_group": "Топ",
     "takeoff_viewer.prop_color": "Түс",
     "takeoff_viewer.prop_color_custom": "Ыңгайлаштырылган түс",
+    "takeoff_viewer.prop_use_group_color": "Топтун түсүн колдонуу",
     "takeoff_viewer.clear_all": "Баарын тазалоо",
     "takeoff_viewer.jump_to_page": "Беттерге өтүү үчүн чыкылдатыңыз",
     "takeoff_viewer.legend": "Шарттуу белгилер",
@@ -34001,6 +34002,20 @@ const resource = {
     "record_publishing.role_for_review": "Карап чыгуу үчүн",
     "record_publishing.role_fyi": "Маалымат үчүн",
     "record_publishing.role_for_construction": "Курулуш үчүн",
+    "project_files.open_from_project": "Долбоор файлдарынан ачуу",
+    "project_files.picker_title": "Долбоор файлдарынан ачуу",
+    "project_files.picker_subtitle": "Бул долбоордо сакталган жана бул модуль ача ала турган файлдар. Форматтар: {{formats}}",
+    "project_files.picker_search_aria": "Долбоор файлдарын аты боюнча издөө",
+    "project_files.picker_search_placeholder": "Файл аты боюнча издөө...",
+    "project_files.picker_loading": "Долбоор файлдары жүктөлүүдө...",
+    "project_files.picker_empty_title": "Бул долбоордо дал келген файл азырынча жок",
+    "project_files.picker_empty_body": "Бул долбоордо {{formats}} файлы азырынча жок. Аны «Файлдар» бөлүмүнө кошуңуз же бул жерден компьютериңизден жүктөңүз.",
+    "project_files.picker_go_to_files": "Файлдарга өтүү",
+    "project_files.picker_no_search_match": "Издөөгө дал келген файл жок.",
+    "project_files.picker_opens_elsewhere": "Башка модулда ачылат",
+    "project_files.picker_needs_conversion": "Алгач конвертацияланат",
+    "project_files.pick_failed_title": "Бул файлды ачуу мүмкүн болгон жок",
+    "project_files.pick_failed_msg": "Файлды долбоордон окуу мүмкүн болгон жок. Кайра аракет кылыңыз.",
   }
 } as { translation: Record<string, string> };
 

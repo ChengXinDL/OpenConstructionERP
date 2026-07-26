@@ -4891,6 +4891,7 @@ const resource = {
     "takeoff_viewer.prop_group": "Grupa",
     "takeoff_viewer.prop_color": "Kolor",
     "takeoff_viewer.prop_color_custom": "Kolor niestandardowy",
+    "takeoff_viewer.prop_use_group_color": "Użyj koloru grupy",
     "takeoff_viewer.clear_all": "Wyczyść wszystko",
     "takeoff_viewer.jump_to_page": "Kliknij, aby przejść do strony",
     "takeoff_viewer.legend": "Legenda",
@@ -33919,6 +33920,20 @@ const resource = {
     "boq_templates.loading": "Ładowanie szablonów",
     "boq_templates.load_failed": "Nie można załadować szablonów",
     "boq_templates.load_failed_generic": "Serwer nie odpowiedział.",
+    "project_files.open_from_project": "Otwórz z plików projektu",
+    "project_files.picker_title": "Otwórz z plików projektu",
+    "project_files.picker_subtitle": "Pliki już zapisane w tym projekcie, które ten moduł może otworzyć. Formaty: {{formats}}",
+    "project_files.picker_search_aria": "Szukaj plików projektu według nazwy",
+    "project_files.picker_search_placeholder": "Szukaj według nazwy pliku...",
+    "project_files.picker_loading": "Ładowanie plików projektu...",
+    "project_files.picker_empty_title": "W tym projekcie nie ma jeszcze zgodnego pliku",
+    "project_files.picker_empty_body": "Ten projekt nie zawiera jeszcze żadnego pliku {{formats}}. Dodaj go w sekcji Pliki lub prześlij tutaj ze swojego komputera.",
+    "project_files.picker_go_to_files": "Przejdź do Plików",
+    "project_files.picker_no_search_match": "Żaden plik nie pasuje do wyszukiwania.",
+    "project_files.picker_opens_elsewhere": "Otwiera się w innym module",
+    "project_files.picker_needs_conversion": "Najpierw konwersja",
+    "project_files.pick_failed_title": "Nie udało się otworzyć tego pliku",
+    "project_files.pick_failed_msg": "Nie udało się odczytać pliku z projektu. Spróbuj ponownie.",
   }
 } as { translation: Record<string, string> };
 

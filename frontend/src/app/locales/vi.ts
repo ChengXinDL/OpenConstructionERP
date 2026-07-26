@@ -4891,6 +4891,7 @@ const resource = {
     "takeoff_viewer.prop_group": "Nhóm",
     "takeoff_viewer.prop_color": "Màu",
     "takeoff_viewer.prop_color_custom": "Màu tùy chỉnh",
+    "takeoff_viewer.prop_use_group_color": "Dùng màu của nhóm",
     "takeoff_viewer.clear_all": "Xóa tất cả",
     "takeoff_viewer.jump_to_page": "Nhấp để chuyển đến trang",
     "takeoff_viewer.legend": "Chú giải",
@@ -33909,6 +33910,20 @@ const resource = {
     "boq_templates.loading": "Đang tải mẫu",
     "boq_templates.load_failed": "Không thể tải các mẫu",
     "boq_templates.load_failed_generic": "Máy chủ không phản hồi.",
+    "project_files.open_from_project": "Mở từ tệp của dự án",
+    "project_files.picker_title": "Mở từ tệp của dự án",
+    "project_files.picker_subtitle": "Các tệp đã lưu trong dự án này mà mô-đun này có thể mở. Định dạng: {{formats}}",
+    "project_files.picker_search_aria": "Tìm tệp của dự án theo tên",
+    "project_files.picker_search_placeholder": "Tìm theo tên tệp...",
+    "project_files.picker_loading": "Đang tải tệp của dự án...",
+    "project_files.picker_empty_title": "Dự án này chưa có tệp tương thích nào",
+    "project_files.picker_empty_body": "Dự án này chưa lưu tệp {{formats}} nào. Hãy thêm trong mục Tệp, hoặc tải lên tại đây từ máy tính của bạn.",
+    "project_files.picker_go_to_files": "Đến mục Tệp",
+    "project_files.picker_no_search_match": "Không có tệp nào khớp với tìm kiếm của bạn.",
+    "project_files.picker_opens_elsewhere": "Mở trong mô-đun khác",
+    "project_files.picker_needs_conversion": "Chuyển đổi trước",
+    "project_files.pick_failed_title": "Không thể mở tệp đó",
+    "project_files.pick_failed_msg": "Không thể đọc tệp từ dự án. Vui lòng thử lại.",
   }
 } as { translation: Record<string, string> };
 

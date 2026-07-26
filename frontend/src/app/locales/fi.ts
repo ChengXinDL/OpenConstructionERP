@@ -4891,6 +4891,7 @@ const resource = {
     "takeoff_viewer.prop_group": "Ryhmä",
     "takeoff_viewer.prop_color": "Väri",
     "takeoff_viewer.prop_color_custom": "Mukautettu väri",
+    "takeoff_viewer.prop_use_group_color": "Käytä ryhmän väriä",
     "takeoff_viewer.clear_all": "Tyhjennä kaikki",
     "takeoff_viewer.jump_to_page": "Siirry sivulle napsauttamalla",
     "takeoff_viewer.legend": "Selite",
@@ -33901,6 +33902,20 @@ const resource = {
     "boq_templates.loading": "Mallien lataus",
     "boq_templates.load_failed": "Mallien lataus epäonnistui",
     "boq_templates.load_failed_generic": "Palvelin ei vastannut.",
+    "project_files.open_from_project": "Avaa projektin tiedostoista",
+    "project_files.picker_title": "Avaa projektin tiedostoista",
+    "project_files.picker_subtitle": "Tähän projektiin jo tallennetut tiedostot, jotka tämä moduuli voi avata. Muodot: {{formats}}",
+    "project_files.picker_search_aria": "Hae projektin tiedostoja nimellä",
+    "project_files.picker_search_placeholder": "Hae tiedostonimellä...",
+    "project_files.picker_loading": "Ladataan projektin tiedostoja...",
+    "project_files.picker_empty_title": "Projektissa ei ole vielä yhteensopivaa tiedostoa",
+    "project_files.picker_empty_body": "Tässä projektissa ei ole vielä yhtään {{formats}}-tiedostoa. Lisää sellainen Tiedostot-osiossa tai lataa se tästä omalta tietokoneeltasi.",
+    "project_files.picker_go_to_files": "Siirry Tiedostoihin",
+    "project_files.picker_no_search_match": "Yksikään tiedosto ei vastaa hakuasi.",
+    "project_files.picker_opens_elsewhere": "Avautuu toisessa moduulissa",
+    "project_files.picker_needs_conversion": "Muunnetaan ensin",
+    "project_files.pick_failed_title": "Tiedostoa ei voitu avata",
+    "project_files.pick_failed_msg": "Tiedostoa ei voitu lukea projektista. Yritä uudelleen.",
   }
 } as { translation: Record<string, string> };
 

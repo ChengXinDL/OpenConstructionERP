@@ -4891,6 +4891,7 @@ const resource = {
     "takeoff_viewer.prop_group": "Grupa",
     "takeoff_viewer.prop_color": "Boja",
     "takeoff_viewer.prop_color_custom": "Prilagođena boja",
+    "takeoff_viewer.prop_use_group_color": "Koristi boju grupe",
     "takeoff_viewer.clear_all": "Obriši sve",
     "takeoff_viewer.jump_to_page": "Kliknite za prijelaz na stranicu",
     "takeoff_viewer.legend": "Legenda",
@@ -33910,6 +33911,20 @@ const resource = {
     "boq_templates.loading": "Učitavanje predložaka",
     "boq_templates.load_failed": "Predlošci se nisu mogli učitati",
     "boq_templates.load_failed_generic": "Poslužitelj nije odgovorio.",
+    "project_files.open_from_project": "Otvori iz datoteka projekta",
+    "project_files.picker_title": "Otvori iz datoteka projekta",
+    "project_files.picker_subtitle": "Datoteke već pohranjene u ovom projektu koje ovaj modul može otvoriti. Formati: {{formats}}",
+    "project_files.picker_search_aria": "Pretraži datoteke projekta po nazivu",
+    "project_files.picker_search_placeholder": "Pretraži po nazivu datoteke...",
+    "project_files.picker_loading": "Učitavanje datoteka projekta...",
+    "project_files.picker_empty_title": "U ovom projektu još nema kompatibilne datoteke",
+    "project_files.picker_empty_body": "Ovaj projekt još ne sadrži nijednu {{formats}} datoteku. Dodajte je u odjeljku Datoteke ili je ovdje prenesite sa svog računala.",
+    "project_files.picker_go_to_files": "Idi na Datoteke",
+    "project_files.picker_no_search_match": "Nijedna datoteka ne odgovara pretrazi.",
+    "project_files.picker_opens_elsewhere": "Otvara se u drugom modulu",
+    "project_files.picker_needs_conversion": "Najprije se pretvara",
+    "project_files.pick_failed_title": "Nije moguće otvoriti tu datoteku",
+    "project_files.pick_failed_msg": "Datoteku nije bilo moguće pročitati iz projekta. Pokušajte ponovno.",
   }
 } as { translation: Record<string, string> };
 

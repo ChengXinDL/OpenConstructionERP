@@ -4891,6 +4891,7 @@ const resource = {
     "takeoff_viewer.prop_group": "Skupina",
     "takeoff_viewer.prop_color": "Barva",
     "takeoff_viewer.prop_color_custom": "Vlastní barva",
+    "takeoff_viewer.prop_use_group_color": "Použít barvu skupiny",
     "takeoff_viewer.clear_all": "Vymazat vše",
     "takeoff_viewer.jump_to_page": "Kliknutím přejdete na stránku",
     "takeoff_viewer.legend": "Legenda",
@@ -33911,6 +33912,20 @@ const resource = {
     "boq_templates.loading": "Načítání šablon",
     "boq_templates.load_failed": "Nelze načíst šablony",
     "boq_templates.load_failed_generic": "Server neodpověděl.",
+    "project_files.open_from_project": "Otevřít ze souborů projektu",
+    "project_files.picker_title": "Otevřít ze souborů projektu",
+    "project_files.picker_subtitle": "Soubory již uložené v tomto projektu, které tento modul dokáže otevřít. Formáty: {{formats}}",
+    "project_files.picker_search_aria": "Hledat soubory projektu podle názvu",
+    "project_files.picker_search_placeholder": "Hledat podle názvu souboru...",
+    "project_files.picker_loading": "Načítání souborů projektu...",
+    "project_files.picker_empty_title": "V tomto projektu zatím není žádný kompatibilní soubor",
+    "project_files.picker_empty_body": "Tento projekt zatím neobsahuje žádný soubor {{formats}}. Přidejte jej v sekci Soubory nebo jej sem nahrajte ze svého počítače.",
+    "project_files.picker_go_to_files": "Přejít na Soubory",
+    "project_files.picker_no_search_match": "Vašemu hledání neodpovídá žádný soubor.",
+    "project_files.picker_opens_elsewhere": "Otevře se v jiném modulu",
+    "project_files.picker_needs_conversion": "Nejprve převod",
+    "project_files.pick_failed_title": "Tento soubor se nepodařilo otevřít",
+    "project_files.pick_failed_msg": "Soubor se nepodařilo načíst z projektu. Zkuste to znovu.",
   }
 } as { translation: Record<string, string> };
 

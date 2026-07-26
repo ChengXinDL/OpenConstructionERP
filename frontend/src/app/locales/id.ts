@@ -4891,6 +4891,7 @@ const resource = {
     "takeoff_viewer.prop_group": "Grup",
     "takeoff_viewer.prop_color": "Warna",
     "takeoff_viewer.prop_color_custom": "Warna kustom",
+    "takeoff_viewer.prop_use_group_color": "Gunakan warna grup",
     "takeoff_viewer.clear_all": "Hapus semua",
     "takeoff_viewer.jump_to_page": "Klik untuk lompat ke halaman",
     "takeoff_viewer.legend": "Legenda",
@@ -33900,6 +33901,20 @@ const resource = {
     "boq_templates.loading": "Memuat templat",
     "boq_templates.load_failed": "Tidak dapat memuat templat",
     "boq_templates.load_failed_generic": "Server tidak merespons.",
+    "project_files.open_from_project": "Buka dari berkas proyek",
+    "project_files.picker_title": "Buka dari berkas proyek",
+    "project_files.picker_subtitle": "Berkas yang sudah tersimpan di proyek ini dan dapat dibuka oleh modul ini. Format: {{formats}}",
+    "project_files.picker_search_aria": "Cari berkas proyek berdasarkan nama",
+    "project_files.picker_search_placeholder": "Cari berdasarkan nama berkas...",
+    "project_files.picker_loading": "Memuat berkas proyek...",
+    "project_files.picker_empty_title": "Belum ada berkas yang kompatibel di proyek ini",
+    "project_files.picker_empty_body": "Proyek ini belum memiliki berkas {{formats}}. Tambahkan di Berkas, atau unggah di sini dari komputer Anda.",
+    "project_files.picker_go_to_files": "Buka Berkas",
+    "project_files.picker_no_search_match": "Tidak ada berkas yang cocok dengan pencarian Anda.",
+    "project_files.picker_opens_elsewhere": "Dibuka di modul lain",
+    "project_files.picker_needs_conversion": "Dikonversi dulu",
+    "project_files.pick_failed_title": "Tidak dapat membuka berkas itu",
+    "project_files.pick_failed_msg": "Berkas tidak dapat dibaca dari proyek. Coba lagi.",
   }
 } as { translation: Record<string, string> };
 

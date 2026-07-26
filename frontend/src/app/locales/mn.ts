@@ -4891,6 +4891,7 @@ const resource = {
     "takeoff_viewer.prop_group": "Бүлэг",
     "takeoff_viewer.prop_color": "Өнгө",
     "takeoff_viewer.prop_color_custom": "Тусгай өнгө",
+    "takeoff_viewer.prop_use_group_color": "Бүлгийн өнгийг ашиглах",
     "takeoff_viewer.clear_all": "Бүгдийг арилгах",
     "takeoff_viewer.jump_to_page": "Хуудас руу шилжихийн тулд товшино уу",
     "takeoff_viewer.legend": "Тайлбар",
@@ -33900,6 +33901,20 @@ const resource = {
     "boq_templates.loading": "Загваруудыг ачаалж байна",
     "boq_templates.load_failed": "Загваруудыг ачаалж чадсангүй",
     "boq_templates.load_failed_generic": "Сервер хариу өгсөнгүй.",
+    "project_files.open_from_project": "Төслийн файлаас нээх",
+    "project_files.picker_title": "Төслийн файлаас нээх",
+    "project_files.picker_subtitle": "Энэ төсөлд аль хэдийн хадгалагдсан, энэ модуль нээж чадах файлууд. Формат: {{formats}}",
+    "project_files.picker_search_aria": "Төслийн файлыг нэрээр хайх",
+    "project_files.picker_search_placeholder": "Файлын нэрээр хайх...",
+    "project_files.picker_loading": "Төслийн файлуудыг ачаалж байна...",
+    "project_files.picker_empty_title": "Энэ төсөлд тохирох файл хараахан алга",
+    "project_files.picker_empty_body": "Энэ төсөлд {{formats}} файл хараахан хадгалагдаагүй байна. «Файлууд» хэсэгт нэмэх эсвэл эндээс компьютерээсээ байршуулна уу.",
+    "project_files.picker_go_to_files": "Файлууд руу очих",
+    "project_files.picker_no_search_match": "Хайлтад тохирох файл алга.",
+    "project_files.picker_opens_elsewhere": "Өөр модульд нээгдэнэ",
+    "project_files.picker_needs_conversion": "Эхлээд хөрвүүлнэ",
+    "project_files.pick_failed_title": "Тэр файлыг нээж чадсангүй",
+    "project_files.pick_failed_msg": "Файлыг төслөөс уншиж чадсангүй. Дахин оролдоно уу.",
   }
 } as { translation: Record<string, string> };
 

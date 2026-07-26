@@ -4891,6 +4891,7 @@ const resource = {
     "takeoff_viewer.prop_group": "分组",
     "takeoff_viewer.prop_color": "颜色",
     "takeoff_viewer.prop_color_custom": "自定义颜色",
+    "takeoff_viewer.prop_use_group_color": "使用分组颜色",
     "takeoff_viewer.clear_all": "全部清除",
     "takeoff_viewer.jump_to_page": "点击跳转到页面",
     "takeoff_viewer.legend": "图例",
@@ -33904,6 +33905,20 @@ const resource = {
     "boq_templates.loading": "正在加载模板",
     "boq_templates.load_failed": "无法加载模板",
     "boq_templates.load_failed_generic": "服务器未响应。",
+    "project_files.open_from_project": "从项目文件中打开",
+    "project_files.picker_title": "从项目文件中打开",
+    "project_files.picker_subtitle": "本项目中已存储且此模块可打开的文件。格式：{{formats}}",
+    "project_files.picker_search_aria": "按名称搜索项目文件",
+    "project_files.picker_search_placeholder": "按文件名搜索...",
+    "project_files.picker_loading": "正在加载项目文件...",
+    "project_files.picker_empty_title": "本项目中尚无兼容的文件",
+    "project_files.picker_empty_body": "本项目尚未存储任何 {{formats}} 文件。请在“文件”中添加，或从您的电脑在此上传。",
+    "project_files.picker_go_to_files": "前往文件",
+    "project_files.picker_no_search_match": "没有文件符合您的搜索。",
+    "project_files.picker_opens_elsewhere": "在其他模块中打开",
+    "project_files.picker_needs_conversion": "需先转换",
+    "project_files.pick_failed_title": "无法打开该文件",
+    "project_files.pick_failed_msg": "无法从项目中读取该文件。请重试。",
   }
 } as { translation: Record<string, string> };
 

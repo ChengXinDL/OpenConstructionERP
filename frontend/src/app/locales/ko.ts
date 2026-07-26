@@ -4891,6 +4891,7 @@ const resource = {
     "takeoff_viewer.prop_group": "그룹",
     "takeoff_viewer.prop_color": "색상",
     "takeoff_viewer.prop_color_custom": "사용자 지정 색상",
+    "takeoff_viewer.prop_use_group_color": "그룹 색상 사용",
     "takeoff_viewer.clear_all": "모두 지우기",
     "takeoff_viewer.jump_to_page": "클릭하여 페이지로 이동",
     "takeoff_viewer.legend": "범례",
@@ -33904,6 +33905,20 @@ const resource = {
     "boq_templates.loading": "템플릿 로딩 중",
     "boq_templates.load_failed": "템플릿을 로드할 수 없습니다",
     "boq_templates.load_failed_generic": "서버가 응답하지 않았습니다.",
+    "project_files.open_from_project": "프로젝트 파일에서 열기",
+    "project_files.picker_title": "프로젝트 파일에서 열기",
+    "project_files.picker_subtitle": "이 프로젝트에 이미 저장되어 있고 이 모듈에서 열 수 있는 파일입니다. 형식: {{formats}}",
+    "project_files.picker_search_aria": "이름으로 프로젝트 파일 검색",
+    "project_files.picker_search_placeholder": "파일 이름으로 검색...",
+    "project_files.picker_loading": "프로젝트 파일을 불러오는 중...",
+    "project_files.picker_empty_title": "이 프로젝트에는 아직 호환되는 파일이 없습니다",
+    "project_files.picker_empty_body": "이 프로젝트에는 아직 {{formats}} 파일이 없습니다. 파일에서 추가하거나 여기에서 컴퓨터로부터 업로드하세요.",
+    "project_files.picker_go_to_files": "파일로 이동",
+    "project_files.picker_no_search_match": "검색과 일치하는 파일이 없습니다.",
+    "project_files.picker_opens_elsewhere": "다른 모듈에서 열립니다",
+    "project_files.picker_needs_conversion": "먼저 변환됩니다",
+    "project_files.pick_failed_title": "해당 파일을 열 수 없습니다",
+    "project_files.pick_failed_msg": "프로젝트에서 파일을 읽을 수 없습니다. 다시 시도하세요.",
   }
 } as { translation: Record<string, string> };
 

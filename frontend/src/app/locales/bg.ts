@@ -4891,6 +4891,7 @@ const resource = {
     "takeoff_viewer.prop_group": "Група",
     "takeoff_viewer.prop_color": "Цвят",
     "takeoff_viewer.prop_color_custom": "Персонализиран цвят",
+    "takeoff_viewer.prop_use_group_color": "Използване на цвета на групата",
     "takeoff_viewer.clear_all": "Изчисти всичко",
     "takeoff_viewer.jump_to_page": "Кликни, за да преминеш към страница",
     "takeoff_viewer.legend": "Легенда",
@@ -33901,6 +33902,20 @@ const resource = {
     "boq_templates.loading": "Зареждане на шаблони",
     "boq_templates.load_failed": "Не можеха да се заредят шаблоните",
     "boq_templates.load_failed_generic": "Сървърът не отговори.",
+    "project_files.open_from_project": "Отваряне от файловете на проекта",
+    "project_files.picker_title": "Отваряне от файловете на проекта",
+    "project_files.picker_subtitle": "Файлове, вече съхранени в този проект, които този модул може да отвори. Формати: {{formats}}",
+    "project_files.picker_search_aria": "Търсене на файлове от проекта по име",
+    "project_files.picker_search_placeholder": "Търсене по име на файл...",
+    "project_files.picker_loading": "Зареждане на файловете на проекта...",
+    "project_files.picker_empty_title": "В този проект още няма съвместим файл",
+    "project_files.picker_empty_body": "В този проект още няма файл {{formats}}. Добавете такъв във „Файлове“ или го качете тук от вашия компютър.",
+    "project_files.picker_go_to_files": "Към Файлове",
+    "project_files.picker_no_search_match": "Няма файл, който да съответства на търсенето.",
+    "project_files.picker_opens_elsewhere": "Отваря се в друг модул",
+    "project_files.picker_needs_conversion": "Първо се конвертира",
+    "project_files.pick_failed_title": "Файлът не можа да бъде отворен",
+    "project_files.pick_failed_msg": "Файлът не можа да бъде прочетен от проекта. Опитайте отново.",
   }
 } as { translation: Record<string, string> };
 

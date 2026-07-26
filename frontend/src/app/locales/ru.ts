@@ -4889,6 +4889,7 @@ const resource = {
     "takeoff_viewer.prop_group": "Группа",
     "takeoff_viewer.prop_color": "Цвет",
     "takeoff_viewer.prop_color_custom": "Произвольный цвет",
+    "takeoff_viewer.prop_use_group_color": "Использовать цвет группы",
     "takeoff_viewer.clear_all": "Очистить всё",
     "takeoff_viewer.jump_to_page": "Нажмите, чтобы перейти к странице",
     "takeoff_viewer.legend": "Легенда",
@@ -34000,6 +34001,20 @@ const resource = {
     "boq_templates.loading": "Загрузка шаблонов",
     "boq_templates.load_failed": "Не удалось загрузить шаблоны",
     "boq_templates.load_failed_generic": "Сервер не ответил.",
+    "project_files.open_from_project": "Открыть из файлов проекта",
+    "project_files.picker_title": "Открыть из файлов проекта",
+    "project_files.picker_subtitle": "Файлы, уже сохранённые в этом проекте, которые модуль может открыть. Форматы: {{formats}}",
+    "project_files.picker_search_aria": "Поиск файлов проекта по имени",
+    "project_files.picker_search_placeholder": "Поиск по имени файла...",
+    "project_files.picker_loading": "Загрузка файлов проекта...",
+    "project_files.picker_empty_title": "В проекте пока нет подходящего файла",
+    "project_files.picker_empty_body": "В этом проекте пока нет файлов {{formats}}. Добавьте файл в разделе «Файлы» или загрузите его здесь с компьютера.",
+    "project_files.picker_go_to_files": "Перейти к файлам",
+    "project_files.picker_no_search_match": "Нет файлов, соответствующих запросу.",
+    "project_files.picker_opens_elsewhere": "Откроется в другом модуле",
+    "project_files.picker_needs_conversion": "Сначала конвертация",
+    "project_files.pick_failed_title": "Не удалось открыть файл",
+    "project_files.pick_failed_msg": "Не удалось прочитать файл из проекта. Попробуйте снова.",
   }
 } as { translation: Record<string, string> };
 

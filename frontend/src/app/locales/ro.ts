@@ -4891,6 +4891,7 @@ const resource = {
     "takeoff_viewer.prop_group": "Grup",
     "takeoff_viewer.prop_color": "Culoare",
     "takeoff_viewer.prop_color_custom": "Culoare personalizată",
+    "takeoff_viewer.prop_use_group_color": "Folosește culoarea grupului",
     "takeoff_viewer.clear_all": "Șterge tot",
     "takeoff_viewer.jump_to_page": "Clic pentru a sări la o pagină",
     "takeoff_viewer.legend": "Legendă",
@@ -33908,6 +33909,20 @@ const resource = {
     "boq_templates.loading": "Se încarcă șabloane",
     "boq_templates.load_failed": "Nu s-au putut încărca șabloanele",
     "boq_templates.load_failed_generic": "Serverul nu a răspuns.",
+    "project_files.open_from_project": "Deschide din fișierele proiectului",
+    "project_files.picker_title": "Deschide din fișierele proiectului",
+    "project_files.picker_subtitle": "Fișiere deja stocate în acest proiect pe care acest modul le poate deschide. Formate: {{formats}}",
+    "project_files.picker_search_aria": "Caută fișierele proiectului după nume",
+    "project_files.picker_search_placeholder": "Caută după numele fișierului...",
+    "project_files.picker_loading": "Se încarcă fișierele proiectului...",
+    "project_files.picker_empty_title": "Încă nu există niciun fișier compatibil în acest proiect",
+    "project_files.picker_empty_body": "Acest proiect nu conține încă niciun fișier {{formats}}. Adăugați unul în Fișiere sau încărcați-l aici de pe computerul dumneavoastră.",
+    "project_files.picker_go_to_files": "Mergi la Fișiere",
+    "project_files.picker_no_search_match": "Niciun fișier nu corespunde căutării.",
+    "project_files.picker_opens_elsewhere": "Se deschide în alt modul",
+    "project_files.picker_needs_conversion": "Se convertește întâi",
+    "project_files.pick_failed_title": "Fișierul nu a putut fi deschis",
+    "project_files.pick_failed_msg": "Fișierul nu a putut fi citit din proiect. Încercați din nou.",
   }
 } as { translation: Record<string, string> };
 

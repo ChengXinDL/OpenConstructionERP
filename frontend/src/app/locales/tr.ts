@@ -4891,6 +4891,7 @@ const resource = {
     "takeoff_viewer.prop_group": "Grup",
     "takeoff_viewer.prop_color": "Renk",
     "takeoff_viewer.prop_color_custom": "Özel renk",
+    "takeoff_viewer.prop_use_group_color": "Grup rengini kullan",
     "takeoff_viewer.clear_all": "Tümünü temizle",
     "takeoff_viewer.jump_to_page": "Bir sayfaya atlamak için tıklayın",
     "takeoff_viewer.legend": "Gösterge",
@@ -33901,6 +33902,20 @@ const resource = {
     "boq_templates.loading": "Şablonlar yükleniyor",
     "boq_templates.load_failed": "Şablonlar yüklenemedi",
     "boq_templates.load_failed_generic": "Sunucu yanıt vermedi.",
+    "project_files.open_from_project": "Proje dosyalarından aç",
+    "project_files.picker_title": "Proje dosyalarından aç",
+    "project_files.picker_subtitle": "Bu projede zaten saklanan ve bu modülün açabildiği dosyalar. Biçimler: {{formats}}",
+    "project_files.picker_search_aria": "Proje dosyalarını ada göre ara",
+    "project_files.picker_search_placeholder": "Dosya adına göre ara...",
+    "project_files.picker_loading": "Proje dosyaları yükleniyor...",
+    "project_files.picker_empty_title": "Bu projede henüz uyumlu bir dosya yok",
+    "project_files.picker_empty_body": "Bu projede henüz {{formats}} dosyası yok. Dosyalar bölümünden ekleyin veya buradan bilgisayarınızdan yükleyin.",
+    "project_files.picker_go_to_files": "Dosyalar'a git",
+    "project_files.picker_no_search_match": "Aramanızla eşleşen dosya yok.",
+    "project_files.picker_opens_elsewhere": "Başka bir modülde açılır",
+    "project_files.picker_needs_conversion": "Önce dönüştürülür",
+    "project_files.pick_failed_title": "Bu dosya açılamadı",
+    "project_files.pick_failed_msg": "Dosya projeden okunamadı. Tekrar deneyin.",
   }
 } as { translation: Record<string, string> };
 

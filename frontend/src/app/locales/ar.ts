@@ -4891,6 +4891,7 @@ const resource = {
     "takeoff_viewer.prop_group": "المجموعة",
     "takeoff_viewer.prop_color": "اللون",
     "takeoff_viewer.prop_color_custom": "لون مخصص",
+    "takeoff_viewer.prop_use_group_color": "استخدام لون المجموعة",
     "takeoff_viewer.clear_all": "مسح الكل",
     "takeoff_viewer.jump_to_page": "انقر للانتقال إلى صفحة",
     "takeoff_viewer.legend": "وسيلة الإيضاح",
@@ -33949,6 +33950,20 @@ const resource = {
     "boq_templates.loading": "جارٍ تحميل القوالب",
     "boq_templates.load_failed": "فشل تحميل القوالب",
     "boq_templates.load_failed_generic": "لم يستجب الخادم.",
+    "project_files.open_from_project": "فتح من ملفات المشروع",
+    "project_files.picker_title": "فتح من ملفات المشروع",
+    "project_files.picker_subtitle": "الملفات المخزَّنة بالفعل في هذا المشروع والتي يمكن لهذه الوحدة فتحها. الصيغ: {{formats}}",
+    "project_files.picker_search_aria": "البحث في ملفات المشروع بالاسم",
+    "project_files.picker_search_placeholder": "البحث باسم الملف...",
+    "project_files.picker_loading": "جارٍ تحميل ملفات المشروع...",
+    "project_files.picker_empty_title": "لا يوجد ملف متوافق في هذا المشروع بعد",
+    "project_files.picker_empty_body": "لا يحتوي هذا المشروع على أي ملف {{formats}} بعد. أضف ملفًا في الملفات، أو ارفعه هنا من جهازك.",
+    "project_files.picker_go_to_files": "الانتقال إلى الملفات",
+    "project_files.picker_no_search_match": "لا يوجد ملف يطابق بحثك.",
+    "project_files.picker_opens_elsewhere": "يُفتح في وحدة أخرى",
+    "project_files.picker_needs_conversion": "يُحوَّل أولاً",
+    "project_files.pick_failed_title": "تعذّر فتح هذا الملف",
+    "project_files.pick_failed_msg": "تعذّرت قراءة الملف من المشروع. حاول مرة أخرى.",
   }
 } as { translation: Record<string, string> };
 

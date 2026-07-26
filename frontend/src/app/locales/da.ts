@@ -4891,6 +4891,7 @@ const resource = {
     "takeoff_viewer.prop_group": "Gruppe",
     "takeoff_viewer.prop_color": "Farve",
     "takeoff_viewer.prop_color_custom": "Brugerdefineret farve",
+    "takeoff_viewer.prop_use_group_color": "Brug gruppens farve",
     "takeoff_viewer.clear_all": "Ryd alt",
     "takeoff_viewer.jump_to_page": "Klik for at springe til en side",
     "takeoff_viewer.legend": "Signaturforklaring",
@@ -33897,6 +33898,20 @@ const resource = {
     "boq_templates.loading": "Indlæser skabeloner",
     "boq_templates.load_failed": "Kunne ikke indlæse skabelonerne",
     "boq_templates.load_failed_generic": "Serveren svarede ikke.",
+    "project_files.open_from_project": "Åbn fra projektfiler",
+    "project_files.picker_title": "Åbn fra projektfiler",
+    "project_files.picker_subtitle": "Filer, der allerede er gemt i dette projekt, og som dette modul kan åbne. Formater: {{formats}}",
+    "project_files.picker_search_aria": "Søg i projektfiler efter navn",
+    "project_files.picker_search_placeholder": "Søg efter filnavn...",
+    "project_files.picker_loading": "Indlæser projektfiler...",
+    "project_files.picker_empty_title": "Ingen kompatibel fil i dette projekt endnu",
+    "project_files.picker_empty_body": "Dette projekt indeholder endnu ingen {{formats}}-fil. Tilføj en under Filer, eller upload den her fra din computer.",
+    "project_files.picker_go_to_files": "Gå til Filer",
+    "project_files.picker_no_search_match": "Ingen fil matcher din søgning.",
+    "project_files.picker_opens_elsewhere": "Åbnes i et andet modul",
+    "project_files.picker_needs_conversion": "Konverteres først",
+    "project_files.pick_failed_title": "Filen kunne ikke åbnes",
+    "project_files.pick_failed_msg": "Filen kunne ikke læses fra projektet. Prøv igen.",
   }
 } as { translation: Record<string, string> };
 

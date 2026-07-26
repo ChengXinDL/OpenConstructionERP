@@ -4891,6 +4891,7 @@ const resource = {
     "takeoff_viewer.prop_group": "グループ",
     "takeoff_viewer.prop_color": "色",
     "takeoff_viewer.prop_color_custom": "カスタムカラー",
+    "takeoff_viewer.prop_use_group_color": "グループの色を使用",
     "takeoff_viewer.clear_all": "すべてクリア",
     "takeoff_viewer.jump_to_page": "クリックでページに移動",
     "takeoff_viewer.legend": "凡例",
@@ -33904,6 +33905,20 @@ const resource = {
     "boq_templates.loading": "テンプレートを読み込んでいます",
     "boq_templates.load_failed": "テンプレートを読み込めませんでした",
     "boq_templates.load_failed_generic": "サーバーが応答しませんでした。",
+    "project_files.open_from_project": "プロジェクトファイルから開く",
+    "project_files.picker_title": "プロジェクトファイルから開く",
+    "project_files.picker_subtitle": "このプロジェクトに保存済みで、このモジュールが開けるファイルです。形式: {{formats}}",
+    "project_files.picker_search_aria": "プロジェクトファイルを名前で検索",
+    "project_files.picker_search_placeholder": "ファイル名で検索...",
+    "project_files.picker_loading": "プロジェクトファイルを読み込んでいます...",
+    "project_files.picker_empty_title": "このプロジェクトには対応するファイルがまだありません",
+    "project_files.picker_empty_body": "このプロジェクトにはまだ {{formats}} ファイルがありません。「ファイル」で追加するか、ここからお使いのコンピューターでアップロードしてください。",
+    "project_files.picker_go_to_files": "ファイルへ移動",
+    "project_files.picker_no_search_match": "検索に一致するファイルがありません。",
+    "project_files.picker_opens_elsewhere": "別のモジュールで開きます",
+    "project_files.picker_needs_conversion": "先に変換します",
+    "project_files.pick_failed_title": "そのファイルを開けませんでした",
+    "project_files.pick_failed_msg": "プロジェクトからファイルを読み取れませんでした。もう一度お試しください。",
   }
 } as { translation: Record<string, string> };
 

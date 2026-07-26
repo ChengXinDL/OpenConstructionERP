@@ -4891,6 +4891,7 @@ const resource = {
     "takeoff_viewer.prop_group": "Groupe",
     "takeoff_viewer.prop_color": "Couleur",
     "takeoff_viewer.prop_color_custom": "Couleur personnalisée",
+    "takeoff_viewer.prop_use_group_color": "Utiliser la couleur du groupe",
     "takeoff_viewer.clear_all": "Tout effacer",
     "takeoff_viewer.jump_to_page": "Cliquer pour accéder à une page",
     "takeoff_viewer.legend": "Légende",
@@ -33916,6 +33917,20 @@ const resource = {
     "boq_templates.loading": "Chargement des modèles",
     "boq_templates.load_failed": "Impossible de charger les modèles",
     "boq_templates.load_failed_generic": "Le serveur n'a pas répondu.",
+    "project_files.open_from_project": "Ouvrir depuis les fichiers du projet",
+    "project_files.picker_title": "Ouvrir depuis les fichiers du projet",
+    "project_files.picker_subtitle": "Fichiers déjà stockés dans ce projet que ce module peut ouvrir. Formats : {{formats}}",
+    "project_files.picker_search_aria": "Rechercher un fichier du projet par nom",
+    "project_files.picker_search_placeholder": "Rechercher par nom de fichier...",
+    "project_files.picker_loading": "Chargement des fichiers du projet...",
+    "project_files.picker_empty_title": "Aucun fichier compatible dans ce projet",
+    "project_files.picker_empty_body": "Ce projet ne contient encore aucun fichier {{formats}}. Ajoutez-en un dans Fichiers, ou téléversez-le ici depuis votre ordinateur.",
+    "project_files.picker_go_to_files": "Aller aux fichiers",
+    "project_files.picker_no_search_match": "Aucun fichier ne correspond à votre recherche.",
+    "project_files.picker_opens_elsewhere": "S'ouvre dans un autre module",
+    "project_files.picker_needs_conversion": "Conversion d'abord",
+    "project_files.pick_failed_title": "Impossible d'ouvrir ce fichier",
+    "project_files.pick_failed_msg": "Le fichier n'a pas pu être lu depuis le projet. Réessayez.",
   }
 } as { translation: Record<string, string> };
 

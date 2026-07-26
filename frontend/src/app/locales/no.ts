@@ -4891,6 +4891,7 @@ const resource = {
     "takeoff_viewer.prop_group": "Gruppe",
     "takeoff_viewer.prop_color": "Farge",
     "takeoff_viewer.prop_color_custom": "Egendefinert farge",
+    "takeoff_viewer.prop_use_group_color": "Bruk gruppens farge",
     "takeoff_viewer.clear_all": "Tøm alt",
     "takeoff_viewer.jump_to_page": "Klikk for å hoppe til en side",
     "takeoff_viewer.legend": "Tegnforklaring",
@@ -33897,6 +33898,20 @@ const resource = {
     "boq_templates.loading": "Laster maler",
     "boq_templates.load_failed": "Kunne ikke laste malene",
     "boq_templates.load_failed_generic": "Serveren svarte ikke.",
+    "project_files.open_from_project": "Åpne fra prosjektfiler",
+    "project_files.picker_title": "Åpne fra prosjektfiler",
+    "project_files.picker_subtitle": "Filer som allerede er lagret i dette prosjektet, og som denne modulen kan åpne. Formater: {{formats}}",
+    "project_files.picker_search_aria": "Søk i prosjektfiler etter navn",
+    "project_files.picker_search_placeholder": "Søk etter filnavn...",
+    "project_files.picker_loading": "Laster prosjektfiler...",
+    "project_files.picker_empty_title": "Ingen kompatibel fil i dette prosjektet ennå",
+    "project_files.picker_empty_body": "Dette prosjektet har ennå ingen {{formats}}-fil. Legg til én under Filer, eller last den opp her fra datamaskinen din.",
+    "project_files.picker_go_to_files": "Gå til Filer",
+    "project_files.picker_no_search_match": "Ingen filer samsvarer med søket ditt.",
+    "project_files.picker_opens_elsewhere": "Åpnes i en annen modul",
+    "project_files.picker_needs_conversion": "Konverteres først",
+    "project_files.pick_failed_title": "Kunne ikke åpne filen",
+    "project_files.pick_failed_msg": "Filen kunne ikke leses fra prosjektet. Prøv igjen.",
   }
 } as { translation: Record<string, string> };
 
