@@ -119,3 +119,105 @@ describe('formatCurrency', () => {
     expect(formatCurrency(1234.56, 'USD', 'en-US')).toContain('1,234.56');
   });
 });
+
+/**
+ * Fraction-digit safety (issue #391).
+ *
+ * `Intl.NumberFormat` answers `minimumFractionDigits > maximumFractionDigits`
+ * with a `RangeError` ("Computed minimumFractionDigits is larger than
+ * maximumFractionDigits" on WebKit). Money is rendered from React components,
+ * so that throw does not degrade one cell, it unmounts the page - which is how
+ * it was reported, from /match-elements.
+ *
+ * Two distinct sources of an invalid pair are covered here. Out-of-range digit
+ * counts reach `Intl` verbatim and it rejects them outright, and a one-sided
+ * override crosses the currency's own natural minor units (a whole-money
+ * `maximumFractionDigits: 0` against a two-decimal currency's default minimum
+ * of 2). Engines implementing the ES2023 clamping absorb the second case
+ * themselves, so these assertions pin the behaviour rather than depending on
+ * the browser the operator happens to bring.
+ */
+describe('formatCurrency fraction-digit safety', () => {
+  it('survives an out-of-range maximum and still renders a zero-decimal currency', () => {
+    // A negative ceiling is a caller bug that Intl rejects before it looks at
+    // the currency at all, and the old hand-rolled fallback then called
+    // `toFixed(-1)`, which throws again - out of the catch that was supposed
+    // to contain it. JPY doubles as the zero-decimal check: the amount must
+    // come back as yen with no cents, not padded to two digits.
+    const opts = { maximumFractionDigits: -1 };
+    expect(() => formatCurrency('1234', 'JPY', 'en-US', opts)).not.toThrow();
+
+    const out = formatCurrency('1234', 'JPY', 'en-US', opts);
+    expect(out).toContain('¥');
+    expect(out).toContain('1,234');
+    expect(out).not.toContain('.');
+  });
+
+  it('survives a non-finite and an over-large maximum with no currency', () => {
+    // The no-currency branch is the one with no safety net around it, and
+    // `Infinity` / 101 are both outside every engine's accepted window.
+    // Neither is a digit count, so both defer to the plain-number default.
+    expect(() =>
+      formatCurrency('1234.56', '', 'en-US', { maximumFractionDigits: Infinity }),
+    ).not.toThrow();
+    expect(formatCurrency('1234.56', '', 'en-US', { maximumFractionDigits: Infinity })).toBe(
+      '1,234.56',
+    );
+    expect(formatCurrency('1234.56', '', 'en-US', { maximumFractionDigits: 101 })).toBe('1,234.56');
+    expect(formatCurrency('1234.56', '', 'en-US', { minimumFractionDigits: NaN })).toBe('1,234.56');
+  });
+
+  it('clamps an explicit inverted pair down to the caller ceiling', () => {
+    // The ceiling is the caller's hard constraint: showing four digits when
+    // the call site declared a maximum of zero would break the layout it was
+    // sized for, so the floor is what gives way.
+    expect(
+      formatCurrency('1234.56', 'USD', 'en-US', {
+        minimumFractionDigits: 4,
+        maximumFractionDigits: 0,
+      }),
+    ).toBe('$1,235');
+    expect(
+      formatCurrency('1234.56', '', 'en-US', {
+        minimumFractionDigits: 4,
+        maximumFractionDigits: 1,
+      }),
+    ).toBe('1,234.6');
+  });
+
+  it('raises the ceiling for a floor a zero-decimal currency cannot meet', () => {
+    // Only a floor was declared, so it is honoured rather than discarded:
+    // JPY's natural maximum of 0 would otherwise invert the pair.
+    const out = formatCurrency('1234.5', 'JPY', 'en-US', { minimumFractionDigits: 2 });
+    expect(out).toContain('¥');
+    expect(out).toContain('1,234.50');
+  });
+
+  it('leaves ordinary formatting untouched', () => {
+    // Guard for the regression the fix could plausibly cause: resolving both
+    // ends locally must reproduce what Intl defaulted to before.
+    expect(formatCurrency('1234.56', 'USD', 'en-US')).toContain('1,234.56');
+    expect(formatCurrency('1234.56', 'EUR', 'de-DE')).toContain('1.234,56');
+    expect(formatCurrency('1.5', 'KWD', 'en-US')).toContain('1.500');
+    expect(formatCurrency('1234.56', '', 'en-US')).toBe('1,234.56');
+    expect(
+      formatCurrency('1234.56', 'USD', 'en-US', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }),
+    ).toBe('$1,235');
+  });
+
+  it('keeps the engine currency table, which our static minor-unit list contradicts', () => {
+    // formatCurrency reads the natural digit count from Intl, not from
+    // shared/ui/currencyMinorUnits. The two disagree on 16 codes where CLDR
+    // says zero decimals and the static list says two, so sourcing the count
+    // from the list would start printing forint and rupiah with cents.
+    //
+    // Asserted on the decimal marker rather than the whole string: hu-HU
+    // groups with a non-breaking space, so an assertion written with an
+    // ASCII space would pass no matter which source won.
+    expect(formatCurrency('1234', 'HUF', 'hu-HU')).not.toMatch(/,00/);
+    expect(formatCurrency('1234', 'IDR', 'en-US')).not.toMatch(/\.00/);
+  });
+});

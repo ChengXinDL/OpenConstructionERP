@@ -15,7 +15,7 @@
  *
  * `toNum` is the one safe coercion primitive: it accepts whatever the wire
  * actually delivers (string | number | null | undefined), and never returns
- * `NaN`/`Infinity` — those degrade to `0` so downstream arithmetic and
+ * `NaN`/`Infinity` - those degrade to `0` so downstream arithmetic and
  * `Intl.NumberFormat` can never blow up or render "NaN".
  *
  * `formatCurrency` is the locale-aware display formatter built on top of it.
@@ -24,23 +24,72 @@
  * an unknown/blank currency yields a plain grouped number with no symbol.
  */
 import { getIntlLocale } from './formatters';
+import { resolveFractionDigits } from './fractionDigits';
 
 /** Options controlling the fraction-digit policy of {@link formatCurrency}. */
 export interface FormatCurrencyOptions {
-  /** Minimum fraction digits. Defaults to the currency's natural minor units. */
+  /**
+   * Minimum fraction digits. Defaults to the currency's natural minor units.
+   * Out-of-range and non-finite values are clamped rather than forwarded, so
+   * a bad caller degrades the output instead of throwing.
+   */
   minimumFractionDigits?: number;
-  /** Maximum fraction digits. Defaults to the currency's natural minor units. */
+  /**
+   * Maximum fraction digits. Defaults to the currency's natural minor units.
+   * When given, it is the hard constraint: the minimum bends down to meet it.
+   */
   maximumFractionDigits?: number;
 }
 
 const CURRENCY_CODE_RE = /^[A-Z]{3}$/;
+
+/** Fraction digits used when there is no usable currency code. */
+const PLAIN_FRACTION_DIGITS = 2;
+
+/**
+ * Natural minor-unit count per ISO 4217 code, as the running engine sees it.
+ *
+ * Deliberately asks `Intl` instead of reusing `shared/ui/currencyMinorUnits`:
+ * the two tables disagree on 16 codes (AFN, ALL, COP, HUF, IDR, IQD, IRR,
+ * KPW, LAK, LBP, MGA, MMK, PKR, SOS, SYP, YER), where CLDR says zero decimals
+ * and the static table says two. Reading the engine keeps the digits this
+ * helper renders today byte-for-byte identical, which a static table would
+ * silently turn into "1.234,00 Ft". `MoneyDisplay` overriding the engine is a
+ * separate, deliberate choice for its own surface.
+ *
+ * Cached by code alone - currency digits come from CLDR `currencyData` and do
+ * not vary by locale, so keying on the locale would only multiply entries.
+ */
+const naturalDigitsCache = new Map<string, number>();
+
+function naturalFractionDigits(code: string): number {
+  const cached = naturalDigitsCache.get(code);
+  if (cached !== undefined) return cached;
+  let digits = PLAIN_FRACTION_DIGITS;
+  try {
+    // `maximumFractionDigits` is optional in the resolved options because a
+    // significant-digits formatter reports no fraction bounds at all. This one
+    // never asks for significant digits, so the fallback is unreachable in
+    // practice and only there to keep the value a plain number.
+    const resolved = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: code,
+    }).resolvedOptions();
+    digits = resolved.maximumFractionDigits ?? PLAIN_FRACTION_DIGITS;
+  } catch {
+    // A well-formed but unknown code never lands here (Intl treats it as a
+    // two-decimal currency); this only guards a host with no currency data.
+  }
+  naturalDigitsCache.set(code, digits);
+  return digits;
+}
 
 /**
  * Coerce a backend money value to a finite `number`, NaN-guarded.
  *
  * Accepts the Decimal-as-string the wire actually carries as well as a
  * genuine `number`. `null`, `undefined`, empty string, and any value that
- * does not parse to a finite number all collapse to `0` — never `NaN` or
+ * does not parse to a finite number all collapse to `0` - never `NaN` or
  * `Infinity`, so callers can safely do arithmetic and `.toFixed()` on the
  * result.
  *
@@ -60,10 +109,14 @@ export function toNum(v: string | number | null | undefined): number {
  * - A valid ISO 4217 `currency` renders with its symbol and (by default)
  *   its own minor-unit count (2 for EUR/USD, 0 for JPY, 3 for KWD…).
  * - A blank / unknown / malformed `currency` renders a plain grouped number
- *   with no symbol — never a wrong-currency symbol.
+ *   with no symbol - never a wrong-currency symbol.
  * - `options` overrides the fraction-digit policy (e.g. whole-number
- *   summaries pass `{ maximumFractionDigits: 0 }`).
- * - Any `Intl` error falls back to a hand-rolled string so this never throws.
+ *   summaries pass `{ maximumFractionDigits: 0 }`). A one-sided or inverted
+ *   override is reconciled with the currency's own minor units before it
+ *   reaches `Intl` - see {@link resolveFractionDigits}.
+ * - This never throws, for any input. Callers render money inside React
+ *   components, where a `RangeError` costs the whole page rather than one
+ *   cell, so a hand-rolled string backs up the `Intl` call as well.
  *
  * @param v The value (Decimal-string or number).
  * @param currency Optional ISO 4217 code.
@@ -81,36 +134,27 @@ export function formatCurrency(
   const code = (currency || '').trim().toUpperCase();
   const isValid = CURRENCY_CODE_RE.test(code);
 
-  const min = options?.minimumFractionDigits;
-  const max = options?.maximumFractionDigits;
-
-  if (!isValid) {
-    // No reliable currency: grouped number, no symbol. Defaults to 2 fraction
-    // digits (the common money case) unless the caller overrides.
-    //
-    // The minimum is clamped to the maximum because Intl throws a RangeError
-    // when it exceeds it, and this branch has no try/catch around it. A caller
-    // asking for whole money passes maximumFractionDigits: 0 and nothing else,
-    // which would otherwise meet the default minimum of 2 and take the page
-    // down rather than degrade.
-    const maxDigits = max ?? 2;
-    return new Intl.NumberFormat(loc, {
-      minimumFractionDigits: Math.min(min ?? 2, maxDigits),
-      maximumFractionDigits: maxDigits,
-    }).format(amount);
-  }
+  // Both ends are always resolved here rather than left for Intl to default,
+  // so the engine's own currency table can never combine with a one-sided
+  // caller override into an invalid pair. Money's default is a point rather
+  // than a range: an amount in a two-decimal currency shows both decimals or
+  // it does not look like money, so the floor and the ceiling are the same.
+  const natural = isValid ? naturalFractionDigits(code) : PLAIN_FRACTION_DIGITS;
+  const digits = resolveFractionDigits(options, { minimum: natural, maximum: natural });
 
   try {
     return new Intl.NumberFormat(loc, {
-      style: 'currency',
-      currency: code,
-      // Omitting both lets Intl use the currency's natural minor units, so
-      // only clamp when the caller pinned both ends and inverted them.
-      minimumFractionDigits: min !== undefined && max !== undefined ? Math.min(min, max) : min,
-      maximumFractionDigits: max,
+      ...(isValid ? { style: 'currency' as const, currency: code } : {}),
+      ...digits,
     }).format(amount);
   } catch {
-    const digits = options?.maximumFractionDigits ?? 2;
-    return `${amount.toFixed(digits)} ${code}`;
+    // Defence in depth. The digit pair is now valid by construction, which
+    // leaves a malformed `locale` tag as the only RangeError Intl can still
+    // raise here, and that one arrives from outside this module. `toFixed` is
+    // safe because the ceiling is already inside [0, 20] and `toNum`
+    // guarantees a finite amount. The code is appended only when it is a real
+    // ISO 4217 code - never echo back a malformed one as if it were a unit.
+    const text = amount.toFixed(digits.maximumFractionDigits);
+    return isValid ? `${text} ${code}` : text;
   }
 }
