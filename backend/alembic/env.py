@@ -133,42 +133,26 @@ except Exception:  # noqa: BLE001
 # Alembic's ``DefaultImpl.version_table_impl`` hardcodes
 # ``version_num VARCHAR(32)``. Several of this project's revision IDs are
 # long human-readable slugs - the longest, ``v3103_propdev_lead_reservation_
-# spa_schedule_parties``, is 51 characters, and 23 revisions exceed 32. SQLite
+# spa_schedule_parties``, is 51 characters, and 30 revisions exceed 32. SQLite
 # silently ignores declared VARCHAR length, so this was invisible there, but
 # PostgreSQL enforces it strictly: a plain ``alembic upgrade head`` (or any
 # incremental up/downgrade that records one of those revisions) fails with
 # ``value too long for type character varying(32)`` the moment alembic writes
-# the revision into its own version table. The production boot path never hits
-# this because it does create_all + stamp head, jumping straight to the short
-# head id - but the canonical incremental migration path on PostgreSQL was
-# broken. ``version_table_impl`` is a documented override hook, so we widen the
-# column to VARCHAR(255). Existing databases keep whatever table their stamp
-# already created (head id is short); the wider column only applies when the
-# version table is created fresh.
+# the revision into its own version table.
+#
+# This used to be a local monkeypatch here, which left the app's own boot-time
+# stamp on the stock 32-character column - and that path is the one that
+# creates the version table on the canonical install, so the widening applied
+# to every database except the ones that needed it (issue #399). The
+# implementation now lives in ``app.core.alembic_version_table`` and both entry
+# points call it. See that module for the full reasoning.
 # --------------------------------------------------------------------------
-from alembic.ddl.impl import DefaultImpl as _AlembicDefaultImpl  # noqa: E402
+from app.core.alembic_version_table import (  # noqa: E402
+    ensure_wide_version_table,
+    install_wide_version_table,
+)
 
-
-def _wide_version_table_impl(  # noqa: ANN202
-    self,  # noqa: ANN001
-    *,
-    version_table: str,
-    version_table_schema,  # noqa: ANN001
-    version_table_pk: bool,
-    **kw,  # noqa: ANN003, ARG001
-):
-    vt = sa.Table(
-        version_table,
-        sa.MetaData(),
-        sa.Column("version_num", sa.String(255), nullable=False),
-        schema=version_table_schema,
-    )
-    if version_table_pk:
-        vt.append_constraint(sa.PrimaryKeyConstraint("version_num", name=f"{version_table}_pkc"))
-    return vt
-
-
-_AlembicDefaultImpl.version_table_impl = _wide_version_table_impl
+install_wide_version_table()
 
 
 config = context.config
@@ -254,6 +238,16 @@ def run_migrations_online() -> None:
             mig_ctx.stamp(script, "heads")
             connection.commit()
         return
+
+    # Existing database: the version table is already there, so the creation
+    # hook above cannot help it. If it was created by an older release's boot
+    # stamp its ``version_num`` is VARCHAR(32) and the very first revision id
+    # over 32 characters aborts the upgrade. Repair it here, on a dedicated
+    # connection like the probe above, so the DDL is committed before (and
+    # never inside) the migration transaction.
+    with connectable.connect() as widen:
+        ensure_wide_version_table(widen)
+        widen.commit()
 
     with connectable.connect() as connection:
         context.configure(connection=connection, target_metadata=target_metadata)

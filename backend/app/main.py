@@ -2649,26 +2649,15 @@ def create_app() -> FastAPI:
             # only fires when ops run migrations before the app ever boots).
             # Only stamps when the version table is empty/absent so it never
             # clobbers an existing migration state. Non-fatal.
-            def _stamp_head_if_unstamped(sync_conn: object) -> str | None:
-                from pathlib import Path as _StampPath
-
-                from alembic.config import Config as _StampConfig
-                from alembic.runtime.migration import MigrationContext as _StampMigCtx
-                from alembic.script import ScriptDirectory as _StampScriptDir
-
-                mig_ctx = _StampMigCtx.configure(sync_conn)
-                if mig_ctx.get_current_revision() is not None:
-                    return None  # already stamped - leave existing state untouched
-                ini = _StampPath(__file__).resolve().parent.parent / "alembic.ini"
-                if not ini.is_file():
-                    return None
-                script = _StampScriptDir.from_config(_StampConfig(str(ini)))
-                mig_ctx.stamp(script, "heads")
-                return script.get_current_head()
+            #
+            # This is also where alembic's version table gets CREATED on the
+            # canonical install, so it is where its column width is settled -
+            # see app/core/alembic_version_table.py and issue #399.
+            from app.core.alembic_version_table import stamp_head_if_unstamped
 
             try:
                 async with engine.begin() as conn:
-                    stamped = await conn.run_sync(_stamp_head_if_unstamped)
+                    stamped = await conn.run_sync(stamp_head_if_unstamped)
                 if stamped:
                     logger.info("Alembic version stamped to head %s on fresh DB", stamped)
             except Exception:
