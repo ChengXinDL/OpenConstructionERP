@@ -8,12 +8,34 @@
  * running them through the submit / approve / reverse flow.
  */
 
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Clock, HardHat, Wrench, ChevronRight, Loader2 } from 'lucide-react';
-import { Button, Badge, EmptyState, ErrorState, KpiBand, PageHeader } from '@/shared/ui';
+import {
+  Plus,
+  Clock,
+  ClipboardCheck,
+  HardHat,
+  PenLine,
+  Tag,
+  ArrowRight,
+  Wrench,
+  ChevronRight,
+  Loader2,
+} from 'lucide-react';
+import {
+  Button,
+  Badge,
+  CollapsibleSection,
+  EmptyState,
+  ErrorState,
+  KpiBand,
+  PageHeader,
+} from '@/shared/ui';
 import type { KpiBandItem } from '@/shared/ui';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildFieldTimeInsights } from './fieldTimeInsights';
 import { RequiresProject } from '@/shared/auth/RequiresProject';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { useToastStore } from '@/stores/useToastStore';
@@ -40,6 +62,115 @@ const STATUS_BADGE: Record<TimesheetStatus, BadgeVariant> = {
 };
 
 const STATUS_ORDER: TimesheetStatus[] = ['draft', 'submitted', 'approved', 'reversed'];
+
+function ModLink({ to, children }: { to: string; children: ReactNode }) {
+  return (
+    <Link to={to} className="font-medium text-oe-blue-text hover:underline">
+      {children}
+    </Link>
+  );
+}
+
+/**
+ * One-glance explainer: what Field Time is for and how it connects.
+ *
+ * Step three carries the point most people miss. Daywork is recovered against
+ * a variation and measured work against the bill, so a week where daywork
+ * quietly grows is a week where the final account is drifting.
+ */
+function HowFieldTimeWorks() {
+  const { t } = useTranslation();
+
+  const steps: { icon: ReactNode; title: string; desc: string }[] = [
+    {
+      icon: <HardHat size={14} className="text-oe-blue" />,
+      title: t('field_time.flow_1_title', { defaultValue: 'Book the day' }),
+      desc: t('field_time.flow_1_desc', {
+        defaultValue:
+          'Record labour and plant hours as they happen, from the field app or here, one line per gang and activity.',
+      }),
+    },
+    {
+      icon: <Tag size={14} className="text-oe-blue" />,
+      title: t('field_time.flow_2_title', { defaultValue: 'Code the hours' }),
+      desc: t('field_time.flow_2_desc', {
+        defaultValue:
+          'Put every line against a cost code. Hours without a code cannot be recovered against anything later.',
+      }),
+    },
+    {
+      icon: <PenLine size={14} className="text-oe-blue" />,
+      title: t('field_time.flow_3_title', { defaultValue: 'Mark the basis' }),
+      desc: t('field_time.flow_3_desc', {
+        defaultValue:
+          'Flag daywork lines. Daywork is recovered against a variation, measured work against the bill, and the two must not be mixed.',
+      }),
+    },
+    {
+      icon: <ClipboardCheck size={14} className="text-oe-blue" />,
+      title: t('field_time.flow_4_title', { defaultValue: 'Approve and report' }),
+      desc: t('field_time.flow_4_desc', {
+        defaultValue:
+          'A submitted sheet is a claim until someone approves it. Approved hours land in cost reporting and the valuation.',
+      }),
+    },
+  ];
+
+  return (
+    <CollapsibleSection
+      storageKey="field_time.how"
+      icon={<Clock size={15} className="text-oe-blue" />}
+      title={t('field_time.flow_title', { defaultValue: 'How Field Time fits together' })}
+    >
+      <p className="text-xs text-content-tertiary">
+        {t('field_time.flow_intro', {
+          defaultValue:
+            'Turn hours worked on site into hours a valuation can defend: book the day against a cost code, mark what was daywork rather than measured work, get the sheet approved, and let the approved hours feed cost reporting.',
+        })}
+      </p>
+
+      <ol className="mt-3 flex flex-col gap-2 lg:flex-row lg:items-stretch">
+        {steps.map((s, i) => (
+          <Fragment key={s.title}>
+            <li className="flex-1 rounded-lg border border-border-light bg-surface-secondary/40 p-3">
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-oe-blue-subtle text-2xs font-bold text-oe-blue-text">
+                  {i + 1}
+                </span>
+                <span className="flex items-center gap-1 text-xs font-semibold text-content-primary">
+                  {s.icon}
+                  {s.title}
+                </span>
+              </div>
+              <p className="mt-1.5 text-2xs leading-relaxed text-content-tertiary">{s.desc}</p>
+            </li>
+            {i < steps.length - 1 && (
+              <li
+                aria-hidden="true"
+                className="hidden shrink-0 items-center self-center text-content-quaternary lg:flex"
+              >
+                <ArrowRight size={16} />
+              </li>
+            )}
+          </Fragment>
+        ))}
+      </ol>
+
+      <div className="mt-3 flex flex-col gap-1.5 border-t border-border-light pt-3 text-2xs text-content-tertiary sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-1">
+        <span>
+          <span className="font-medium text-content-secondary">
+            {t('field_time.flow_connects', { defaultValue: 'Connects with:' })}
+          </span>{' '}
+          <ModLink to="/variations">
+            {t('field_time.mod_variations', { defaultValue: 'Variations' })}
+          </ModLink>{' '}
+          · <ModLink to="/costs">{t('field_time.mod_cost', { defaultValue: 'Cost control' })}</ModLink>{' '}
+          · <ModLink to="/field">{t('field_time.mod_field', { defaultValue: 'Field app' })}</ModLink>
+        </span>
+      </div>
+    </CollapsibleSection>
+  );
+}
 
 export function FieldTimePage() {
   const { t } = useTranslation();
@@ -134,10 +265,23 @@ function FieldTimeContent() {
 
   const timesheets = listQ.data ?? [];
 
+  // Line level, not sheet level: cost code and daywork live on the line, and
+  // the KPI band above already answers "how many sheets and how many hours".
+  const insights = useModuleInsights('field-time', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildFieldTimeInsights(timesheets, t),
+    [timesheets, t],
+  );
+
   return (
     <div className="space-y-5">
+      <HowFieldTimeWorks />
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
+          {/* The toggle lives here rather than in PageHeader actions because
+              FieldTimePage owns the header while this component owns the data. */}
+          <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as TimesheetStatus | '')}
@@ -179,6 +323,17 @@ function FieldTimeContent() {
 
       {kpiItems.length > 0 && <KpiBand items={kpiItems} />}
 
+      <InsightsPanel
+        open={insights.open}
+        title={t('field_time.insights.title', { defaultValue: 'Field time insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
+      />
+
       {listQ.isLoading ? (
         <div className="flex items-center justify-center gap-2 py-16 text-sm text-content-tertiary">
           <Loader2 size={16} className="animate-spin" />
@@ -194,8 +349,9 @@ function FieldTimeContent() {
         <EmptyState
           icon={<Clock size={28} strokeWidth={1.5} />}
           title={t('field_time.empty_title', { defaultValue: 'No timesheets yet' })}
-          description={t('field_time.empty_description', {
-            defaultValue: 'Start a new timesheet to record the labour and plant that worked today.',
+          description={t('field_time.empty_hint', {
+            defaultValue:
+              'Create a timesheet here or book time from the field app, then add a line for each gang against its cost code.',
           })}
           action={{
             label: t('field_time.new_timesheet', { defaultValue: 'New timesheet' }),
