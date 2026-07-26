@@ -69,6 +69,7 @@ async def test_second_open_reuses_row_without_reparsing(_stub_parse):
     first = await svc.get_or_create_takeoff_from_source(
         source_document_id=src_id,
         source_project_id=project_id,
+        source_file_path="/srv/uploads/plan.pdf",
         filename="plan.pdf",
         content=content,
         size_bytes=len(content),
@@ -77,6 +78,7 @@ async def test_second_open_reuses_row_without_reparsing(_stub_parse):
     second = await svc.get_or_create_takeoff_from_source(
         source_document_id=src_id,
         source_project_id=project_id,
+        source_file_path="/srv/uploads/plan.pdf",
         filename="plan.pdf",
         content=content,
         size_bytes=len(content),
@@ -102,6 +104,7 @@ async def test_same_source_in_two_projects_is_two_rows(_stub_parse):
     a = await svc.get_or_create_takeoff_from_source(
         source_document_id=src_id,
         source_project_id=str(uuid.uuid4()),
+        source_file_path="/srv/uploads/plan.pdf",
         filename="plan.pdf",
         content=content,
         size_bytes=len(content),
@@ -110,6 +113,7 @@ async def test_same_source_in_two_projects_is_two_rows(_stub_parse):
     b = await svc.get_or_create_takeoff_from_source(
         source_document_id=src_id,
         source_project_id=str(uuid.uuid4()),
+        source_file_path="/srv/uploads/plan.pdf",
         filename="plan.pdf",
         content=content,
         size_bytes=len(content),
@@ -133,6 +137,7 @@ async def test_created_row_carries_source_and_is_indexable(_stub_parse):
     doc = await svc.get_or_create_takeoff_from_source(
         source_document_id=src_id,
         source_project_id=project_id,
+        source_file_path="/srv/uploads/plan.pdf",
         filename="plan.pdf",
         content=content,
         size_bytes=len(content),

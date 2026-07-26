@@ -4392,6 +4392,10 @@ async def create_takeoff_from_source(
     doc = await service.get_or_create_takeoff_from_source(
         source_document_id=str(src_uuid),
         source_project_id=str(src_doc.project_id),
+        # The resolved, containment-checked path from above. Takeoff references
+        # this blob rather than copying it; the documents module hands over a
+        # private copy if the project document is ever deleted.
+        source_file_path=str(file_path),
         filename=src_doc.name or "document.pdf",
         content=content,
         size_bytes=len(content),

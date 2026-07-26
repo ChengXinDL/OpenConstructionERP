@@ -1155,7 +1155,41 @@ class DocumentService:
         except Exception as exc:
             logger.debug("Failed to publish documents.document.deleted event: %s", exc)
 
+        # Takeoff can reference this blob instead of holding a second copy of
+        # it, so hand it its own copy BEFORE the unlink below. Called directly
+        # rather than driven off the deleted event above: that event is
+        # published detached, so a subscriber would race this unlink and lose
+        # nondeterministically - passing on a developer's box and failing on a
+        # loaded one. A False return means the copy did not happen, and we then
+        # keep the original on disk. That is the same trade the docstring above
+        # already makes: an orphaned file is recoverable, a document row
+        # pointing at a deleted blob is not.
+        may_unlink = True
+        if file_path_str:
+            try:
+                from app.modules.takeoff.service import preserve_blobs_for_deleted_source
+
+                may_unlink = await preserve_blobs_for_deleted_source(
+                    self.session,
+                    source_document_id=str(document_id),
+                    source_file_path=file_path_str,
+                )
+            except Exception:
+                # Never let this stop the deletion itself - the row is already
+                # gone. Keep the blob so nothing that referenced it breaks.
+                logger.exception(
+                    "Failed to preserve takeoff copies of %s; keeping the file",
+                    file_path_str,
+                )
+                may_unlink = False
+
         # Then remove file from disk (best-effort)
+        if not may_unlink:
+            logger.warning(
+                "File kept because a takeoff document still references it: %s",
+                file_path_str,
+            )
+            return
         try:
             file_path = Path(file_path_str)
             if file_path.exists():

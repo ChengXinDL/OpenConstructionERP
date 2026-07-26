@@ -34,6 +34,7 @@ def _kwargs(source_document_id: str, project_id: uuid.UUID) -> dict:
     return {
         "source_document_id": source_document_id,
         "source_project_id": str(project_id),
+        "source_file_path": "/srv/uploads/plan.pdf",
         "filename": "plan.pdf",
         "content": b"%PDF-1.4 fake",
         "size_bytes": 12,

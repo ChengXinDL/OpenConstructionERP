@@ -134,6 +134,7 @@ async def test_reopening_a_project_file_reuses_the_document_and_its_measurements
     second = await service.get_or_create_takeoff_from_source(
         source_document_id=str(source.id),
         source_project_id=str(project.id),
+        source_file_path=source.file_path,
         filename="A-201 Floor Plan.pdf",
         content=NOT_A_PDF,
         size_bytes=len(NOT_A_PDF),
@@ -272,6 +273,201 @@ async def test_deleting_the_source_leaves_the_takeoff_document_intact(pg_session
     )
     assert len(rows) == 1, "deleting the source orphaned the measurements"
     assert rows[0].measurement_value == 17
+
+
+@pytest.mark.asyncio
+async def test_opening_from_source_references_the_blob_instead_of_copying_it(pg_session):
+    """The bytes are not duplicated: the takeoff row points at the stored blob.
+
+    This is the whole point of the zero-copy change. Before it, opening a
+    project file in takeoff wrote a second identical PDF into the takeoff
+    documents directory, doubling disk for every drawing anyone opened.
+    """
+    owner, project, source = await _seed(pg_session, with_blob=True)
+    source_path = Path(source.file_path)
+
+    from app.modules.takeoff.service import _takeoff_documents_dir
+
+    takeoff_dir = _takeoff_documents_dir()
+    before = set(takeoff_dir.glob("*.pdf")) if takeoff_dir.is_dir() else set()
+
+    doc = await TakeoffService(pg_session).get_or_create_takeoff_from_source(
+        source_document_id=str(source.id),
+        source_project_id=str(project.id),
+        source_file_path=str(source_path),
+        filename="A-201 Floor Plan.pdf",
+        content=source_path.read_bytes(),
+        size_bytes=source_path.stat().st_size,
+        owner_id=str(owner.id),
+    )
+
+    assert doc.file_path == str(source_path), "takeoff did not reference the stored blob"
+
+    after = set(takeoff_dir.glob("*.pdf")) if takeoff_dir.is_dir() else set()
+    assert after == before, f"a second copy of the PDF was written: {sorted(after - before)}"
+
+
+@pytest.mark.asyncio
+async def test_a_parse_failure_on_a_borrowed_blob_never_deletes_the_project_file(pg_session):
+    """An unparseable from-source PDF must not take the user's document with it.
+
+    ``upload_document`` unlinks the bytes it wrote when the parser cannot read a
+    single page. On the from-source path that path is the user's stored project
+    document rather than a takeoff-owned copy, so the unlink has to be guarded
+    by provenance. Getting this wrong destroys a Project-Files document on what
+    should be a harmless 400.
+    """
+    owner, project, source = await _seed(pg_session, with_blob=True)
+    source_path = Path(source.file_path)
+    # Valid magic so the pre-parser gates pass, but nothing a parser can read.
+    source_path.write_bytes(b"%PDF-1.4\nnot really a pdf\n")
+
+    with pytest.raises(HTTPException) as exc:
+        await TakeoffService(pg_session).get_or_create_takeoff_from_source(
+            source_document_id=str(source.id),
+            source_project_id=str(project.id),
+            source_file_path=str(source_path),
+            filename="A-201 Floor Plan.pdf",
+            content=source_path.read_bytes(),
+            size_bytes=source_path.stat().st_size,
+            owner_id=str(owner.id),
+        )
+    assert exc.value.status_code == 400
+
+    assert source_path.is_file(), "a failed parse deleted the user's project document off disk"
+
+
+@pytest.mark.asyncio
+async def test_deleting_the_source_hands_takeoff_its_own_copy_of_the_bytes(pg_session):
+    """The delete hook copies the blob before the unlink, and repoints the row.
+
+    This is the test that actually exercises copy-on-delete. The decision-record
+    test above cannot: its source document has no blob on disk and its takeoff
+    document has no ``file_path``, so it passes whether the hook works, is
+    broken, or is absent entirely. Its green is a statement about the DB rows
+    surviving, not about the bytes.
+
+    Here the takeoff document shares the source's path, which is what a
+    from-source open now produces. After the delete the takeoff document must
+    point somewhere else, that somewhere must exist, and it must still be the
+    PDF - otherwise the zero-copy change has traded doubled disk for lost work.
+    """
+    owner, project, source = await _seed(pg_session, with_blob=True)
+    source_id = source.id
+    source_path = Path(source.file_path)
+    assert source_path.is_file(), "seed did not put the source blob on disk"
+
+    doc = _takeoff_doc(project, owner, source_id=str(source_id))
+    doc.file_path = str(source_path)
+    pg_session.add(doc)
+    await pg_session.flush()
+    takeoff_id = doc.id
+
+    await DocumentService(pg_session).delete_document(source_id, user_id=str(owner.id))
+    pg_session.expire_all()
+
+    survivor = (
+        (await pg_session.execute(select(TakeoffDocument).where(TakeoffDocument.id == takeoff_id))).scalars().one()
+    )
+    assert survivor.file_path, "takeoff document lost its file path entirely"
+    assert survivor.file_path != str(source_path), "takeoff document still points at the deleted source blob"
+
+    preserved = Path(survivor.file_path)
+    assert preserved.is_file(), "the copy the hook was supposed to make does not exist"
+    assert preserved.read_bytes().startswith(b"%PDF-"), "the preserved file is not the PDF"
+    assert not source_path.exists(), "the source blob should have been unlinked after the copy"
+
+
+@pytest.mark.asyncio
+async def test_a_failed_copy_keeps_the_source_blob_rather_than_orphaning_takeoff(pg_session, monkeypatch):
+    """If the copy fails the original file must survive the deletion.
+
+    This is the failure mode that would be strictly worse than the duplication
+    being removed: the DB row is already gone by this point, so unlinking after
+    a failed copy would leave the takeoff document pointing at nothing and every
+    measurement on it unreadable. Deleting the row but keeping the bytes is
+    recoverable; deleting both is not.
+    """
+    owner, project, source = await _seed(pg_session, with_blob=True)
+    source_id = source.id
+    source_path = Path(source.file_path)
+
+    doc = _takeoff_doc(project, owner, source_id=str(source_id))
+    doc.file_path = str(source_path)
+    pg_session.add(doc)
+    await pg_session.flush()
+
+    def _explode(*args, **kwargs):
+        raise OSError("no space left on device")
+
+    monkeypatch.setattr("app.modules.takeoff.service.shutil.copyfile", _explode)
+
+    await DocumentService(pg_session).delete_document(source_id, user_id=str(owner.id))
+    pg_session.expire_all()
+
+    remaining = (await pg_session.execute(select(Document).where(Document.id == source_id))).scalars().all()
+    assert remaining == [], "the document row should still be deleted"
+    assert source_path.is_file(), (
+        "the source blob was unlinked even though the takeoff copy failed - the takeoff document now points at nothing"
+    )
+
+
+@pytest.mark.asyncio
+async def test_deleting_the_source_leaves_a_pre_zero_copy_takeoff_row_alone(pg_session):
+    """A takeoff document that owns its bytes is not touched by the delete hook.
+
+    The mixed fleet this ships into: every takeoff document created BEFORE the
+    zero-copy change was handed its own copy at upload time, so it carries a
+    ``source_document_id`` but a ``file_path`` of its own. Those rows are already
+    safe and must be left exactly as they are.
+
+    What decides that is the path comparison in the hook, not the source id -
+    these rows are returned by its query just like the sharing ones. So the
+    failure this pins is a plausible future "fix": someone drops the path filter
+    on the reasoning that every row with a matching source id is a dependent, and
+    the hook then repoints a row onto a file it does not own. Because the legacy
+    file here is deliberately parked at the exact destination name the hook would
+    write to, a widened filter overwrites its bytes, which the content assertion
+    catches rather than letting a same-path repoint look like a no-op.
+    """
+    from app.modules.takeoff.service import _takeoff_documents_dir
+
+    owner, project, source = await _seed(pg_session, with_blob=True)
+    source_id = source.id
+    source_path = Path(source.file_path)
+
+    doc = _takeoff_doc(project, owner, source_id=str(source_id))
+    pg_session.add(doc)
+    await pg_session.flush()
+    takeoff_id = doc.id
+
+    # The legacy layout: takeoff owns a separate file, with bytes distinct from
+    # the source so an overwrite is visible rather than silent.
+    takeoff_dir = _takeoff_documents_dir()
+    takeoff_dir.mkdir(parents=True, exist_ok=True)
+    legacy_path = takeoff_dir / f"{takeoff_id}.pdf"
+    legacy_bytes = b"%PDF-1.4\nthe takeoff document's own pre-zero-copy copy\n"
+    legacy_path.write_bytes(legacy_bytes)
+    doc.file_path = str(legacy_path)
+    await pg_session.flush()
+
+    try:
+        await DocumentService(pg_session).delete_document(source_id, user_id=str(owner.id))
+        pg_session.expire_all()
+
+        survivor = (
+            (await pg_session.execute(select(TakeoffDocument).where(TakeoffDocument.id == takeoff_id))).scalars().one()
+        )
+        assert survivor.file_path == str(legacy_path), "the hook repointed a takeoff row that owned its own bytes"
+        assert legacy_path.is_file(), "the takeoff document's own file was removed"
+        assert legacy_path.read_bytes() == legacy_bytes, "the hook overwrote a file the takeoff document owned"
+
+        # Nothing shared the source blob, so removing it is correct here - the
+        # hook must not hold the original hostage for a row that never used it.
+        assert not source_path.exists(), "the source blob was kept even though no takeoff document referenced it"
+    finally:
+        legacy_path.unlink(missing_ok=True)
+        source_path.unlink(missing_ok=True)
 
 
 @pytest.mark.asyncio

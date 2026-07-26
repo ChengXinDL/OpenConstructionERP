@@ -9,6 +9,7 @@ import logging
 import math
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -752,6 +753,122 @@ def _find_existing_takeoff_pdf(doc_id: str) -> Path | None:
     return None
 
 
+async def preserve_blobs_for_deleted_source(
+    session: AsyncSession,
+    *,
+    source_document_id: str,
+    source_file_path: str,
+) -> bool:
+    """Give takeoff its own copy of a blob whose Project-Files owner is going away.
+
+    From-source opens reference the stored Project-Files blob instead of copying
+    it, so one PDF is on disk once no matter how often it is opened in takeoff.
+    That makes the documents-module delete the moment where the takeoff document
+    would otherwise be left pointing at a file that is about to be unlinked, and
+    every measurement built on it unreadable.
+
+    So: before the source blob is removed, copy it into the takeoff documents
+    directory and repoint every takeoff document that referenced it. The copy is
+    written to a temporary name in the destination directory and moved into place
+    with :func:`os.replace`, so a partially written file is never visible under
+    the final path.
+
+    Unlike :meth:`TakeoffRepository.get_by_source_document_id`, the lookup here is
+    deliberately not scoped to a project. Idempotency is per project, so the same
+    source can back a takeoff document in several of them, and every one of those
+    rows loses its bytes when the blob goes. Adding a project filter for symmetry
+    with the repository would silently strand the rows in the other projects.
+
+    Args:
+        session: The caller's session. The repoint is flushed into the caller's
+            transaction so it commits (or rolls back) atomically with the delete.
+        source_document_id: The documents-module id being deleted.
+        source_file_path: The blob the caller is about to unlink.
+
+    Returns:
+        ``True`` when the caller may go ahead and unlink the original: either
+        nothing referenced it, or every referencing takeoff document now owns a
+        copy. ``False`` when a copy failed, meaning the original must be left on
+        disk - an orphaned file is recoverable, a takeoff document pointing at a
+        deleted blob is not.
+    """
+    from sqlalchemy import select
+
+    rows = (
+        (await session.execute(select(TakeoffDocument).where(TakeoffDocument.source_document_id == source_document_id)))
+        .scalars()
+        .all()
+    )
+    if not rows:
+        return True
+
+    # Only documents actually sharing the blob need a copy, and the path
+    # comparison is what decides that - not source_document_id, which every row
+    # here already matches. A takeoff document whose file_path differs owns its
+    # bytes outright: it either predates zero-copy (uploaded before this change,
+    # so it was handed a copy at upload time) or was already preserved by an
+    # earlier run of this hook. Repointing those would move a row off a file it
+    # rightfully owns, so do not widen this filter.
+    origin = Path(source_file_path)
+    sharing = [doc for doc in rows if doc.file_path and Path(doc.file_path) == origin]
+    if not sharing:
+        return True
+
+    if not origin.is_file():
+        # Nothing to preserve. The rows keep their now-dangling path, which the
+        # download route already reports as a clean 404 rather than a 500.
+        logger.warning(
+            "takeoff.preserve_blobs_for_deleted_source: source blob %s is already "
+            "missing; %d takeoff document(s) keep a dangling path",
+            source_file_path,
+            len(sharing),
+        )
+        return True
+
+    documents_dir = _takeoff_documents_dir()
+    try:
+        documents_dir.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        logger.exception(
+            "takeoff.preserve_blobs_for_deleted_source: cannot create %s; "
+            "keeping the source blob so takeoff stays readable",
+            documents_dir,
+        )
+        return False
+
+    for doc in sharing:
+        # Copy unconditionally, even if the destination already exists. A file
+        # sitting at this name is not proof it holds the right bytes, and
+        # serving the wrong PDF is worse than one redundant copy; os.replace
+        # makes overwriting atomic, so a reader never sees a partial file.
+        destination = documents_dir / f"{doc.id}.pdf"
+        tmp_fd, tmp_name = tempfile.mkstemp(dir=str(documents_dir), suffix=".pdf.part")
+        os.close(tmp_fd)
+        tmp_path = Path(tmp_name)
+        try:
+            shutil.copyfile(origin, tmp_path)
+            os.replace(tmp_path, destination)
+        except OSError:
+            with contextlib.suppress(OSError):
+                tmp_path.unlink()
+            logger.exception(
+                "takeoff.preserve_blobs_for_deleted_source: failed to copy %s for "
+                "takeoff document %s; keeping the source blob on disk",
+                source_file_path,
+                doc.id,
+            )
+            return False
+        doc.file_path = str(destination)
+
+    await session.flush()
+    logger.info(
+        "takeoff.preserve_blobs_for_deleted_source: preserved %s for %d takeoff document(s)",
+        source_file_path,
+        len(sharing),
+    )
+    return True
+
+
 def _describe_pdf_input(content: bytes, *, filename: str | None = None) -> str:
     """Build a short server-side diagnostic string for a PDF blob.
 
@@ -1270,8 +1387,17 @@ class TakeoffService:
         owner_id: str,
         project_id: str | None = None,
         source_document_id: str | None = None,
+        source_file_path: str | None = None,
     ) -> TakeoffDocument:
         """Upload and process a PDF document for takeoff.
+
+        ``source_file_path`` switches this from owning the bytes to borrowing
+        them. A direct upload leaves it ``None`` and the content is written to
+        the takeoff documents directory as usual. A from-source open passes the
+        already-stored Project-Files blob, which is then referenced rather than
+        copied - the document exists on disk once, however many times it is
+        opened in takeoff. ``content`` is still required either way, because the
+        pre-parser gates below inspect it.
 
         Pre-parser gates:
 
@@ -1338,11 +1464,22 @@ class TakeoffService:
         # isolated, memory-capped child process (``_parse_pdf_isolated``): a
         # huge, vector-dense or malformed PDF can crash or OOM that child, but
         # it can never take down the API worker (the P0 this fix closes).
-        documents_dir = _takeoff_documents_dir()
-        documents_dir.mkdir(parents=True, exist_ok=True)
         doc_id = uuid.uuid4()
-        file_path = documents_dir / f"{doc_id}.pdf"
-        file_path.write_bytes(content)
+        # A from-source open REFERENCES the Project-Files blob instead of
+        # copying it, so a PDF opened in takeoff exists on disk exactly once no
+        # matter how many times it is opened. ``wrote_own_file`` records the
+        # provenance of what ``file_path`` points at, because the cleanup paths
+        # below unlink it: doing that to a borrowed path would destroy the
+        # user's project document. The blob is kept alive across a delete of
+        # that document by :func:`preserve_blobs_for_deleted_source`.
+        wrote_own_file = source_file_path is None
+        if wrote_own_file:
+            documents_dir = _takeoff_documents_dir()
+            documents_dir.mkdir(parents=True, exist_ok=True)
+            file_path = documents_dir / f"{doc_id}.pdf"
+            file_path.write_bytes(content)
+        else:
+            file_path = Path(str(source_file_path))
 
         parse_degraded = False
         parse_truncated = False
@@ -1411,8 +1548,11 @@ class TakeoffService:
             # historical 400. A DEGRADED parse (worker timeout / crash / OOM) is
             # NOT this case: it was persisted above so the user keeps the upload.
             # Remove the bytes we wrote before rejecting so nothing is orphaned.
-            with contextlib.suppress(OSError):
-                file_path.unlink()
+            # Only ever our own file: on the from-source path this points at the
+            # user's stored project document, which must survive a parse failure.
+            if wrote_own_file:
+                with contextlib.suppress(OSError):
+                    file_path.unlink()
             logger.warning(
                 "takeoff.upload_document produced zero pages and empty text for "
                 "filename=%r size=%dB - rejecting upload",
@@ -1473,8 +1613,15 @@ class TakeoffService:
             # to the winning row. Only the from-source path passes a
             # source_document_id and can trip this; a direct upload has a NULL
             # source id and never collides.
-            with contextlib.suppress(OSError):
-                file_path.unlink()
+            #
+            # In practice that means ``file_path`` here is the borrowed project
+            # blob, which must be left alone - the winning row references the
+            # very same file. The guard stays explicit rather than dropping the
+            # unlink outright, so a future caller that writes its own file and
+            # then loses a race still cleans up after itself.
+            if wrote_own_file:
+                with contextlib.suppress(OSError):
+                    file_path.unlink()
             raise
 
     async def get_or_create_takeoff_from_source(
@@ -1482,6 +1629,7 @@ class TakeoffService:
         *,
         source_document_id: str,
         source_project_id: str,
+        source_file_path: str,
         filename: str,
         content: bytes,
         size_bytes: int,
@@ -1499,6 +1647,11 @@ class TakeoffService:
         path (the same size/page-capped, memory-isolated parse and graceful
         degradation as a normal upload) and the new row is stamped with
         ``source_document_id`` so the next open reuses it.
+
+        ``source_file_path`` is required, not optional-with-a-default: the
+        caller has always resolved the blob already, and a default would let a
+        missed wiring silently fall back to duplicating the bytes with nothing
+        failing anywhere to reveal it.
         """
         project_uuid = uuid.UUID(source_project_id)
         existing = await self.repo.get_by_source_document_id(source_document_id, project_id=project_uuid)
@@ -1512,6 +1665,7 @@ class TakeoffService:
                 owner_id=owner_id,
                 project_id=source_project_id,
                 source_document_id=source_document_id,
+                source_file_path=source_file_path,
             )
         except IntegrityError:
             # Lost the find-or-create race: a concurrent request created the
