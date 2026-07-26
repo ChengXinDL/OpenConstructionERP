@@ -174,6 +174,34 @@ export const costDataControlModules: ModuleExplanation[] = [
     ],
   },
   {
+    id: 'progress',
+    route: '/progress',
+    icon: 'Activity',
+    category: 'cost_control',
+    keywords: 'progress physical percent complete s-curve period earned quantity variance field',
+    titleKey: 'howto.progress.title',
+    titleDefault: 'Progress',
+    summaryKey: 'howto.progress.summary',
+    summaryDefault: 'Track how much is actually built, not how much has been spent.',
+    whatKey: 'howto.progress.what',
+    whatDefault:
+      'Progress is the physical view of delivery. Somebody records a percent-complete observation against a BOQ position or against the project as a whole, and the page turns those observations into an actual versus planned S-curve, what each period added, and a comparison of design quantity against earned quantity for every position. The project percentage is rolled up from the position readings weighted by design quantity, which means a position nobody has measured counts as zero and still occupies its share, so the headline cannot be flattered by one finished line.',
+    how: [
+      { key: 'howto.progress.how.1', default: 'Press Record progress and enter a percent, a period label and either one position or the whole project.' },
+      { key: 'howto.progress.how.2', default: 'Read the S-curve to see cumulative actual against plan; the planned line only appears for periods that have a plan figure.' },
+      { key: 'howto.progress.how.3', default: 'Use By period to see what each period added and where the running total stood at its end.' },
+      { key: 'howto.progress.how.4', default: 'Check quantity variance to find positions running over or under their design quantity rather than merely late.' },
+    ],
+    tips: [
+      { key: 'howto.progress.tip.1', default: 'Write the period label the same way every time, because everything on the page is grouped by it.' },
+      { key: 'howto.progress.tip.2', default: 'Entries are append-only. Correct a reading by recording the corrected value again in the same period rather than editing the old one.' },
+      { key: 'howto.progress.tip.3', default: 'A project-level reading is the fallback used only while no individual position has been measured; once positions are measured it keeps its row but does not move the headline.' },
+    ],
+    whenKey: 'howto.progress.when',
+    whenDefault:
+      'Use it when you need to answer how much is built rather than how much is spent, and when a client asks why the money is ahead of the work.',
+  },
+  {
     id: 'risks',
     route: '/risks',
     icon: 'Dices',

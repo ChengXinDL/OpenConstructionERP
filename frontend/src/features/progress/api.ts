@@ -16,7 +16,7 @@
  *     for a progress-bar width, never do money/quantity math on them here.
  */
 
-import { apiGet } from '@/shared/lib/api';
+import { apiGet, apiPost } from '@/shared/lib/api';
 
 const BASE = '/v1/progress';
 
@@ -164,4 +164,60 @@ export function getQuantityVariance(
   return apiGet<QuantityVarianceResponse>(
     `${BASE}/quantity-variance/?project_id=${encodeURIComponent(projectId)}`,
   );
+}
+
+/* ── Recording an observation ────────────────────────────────────────────── */
+
+/**
+ * A percent-complete observation, as the server accepts it.
+ *
+ * Mirrors backend ``ProgressEntryCreate``. Two fields carry more meaning than
+ * their types suggest:
+ *
+ * ``boq_position_id`` is nullable, and the two cases are genuinely different
+ * readings rather than one with a shortcut. A position id records how far one
+ * line item has got, and those readings are what the project percentage is
+ * rolled up from. Omitting it records an overall reading for the project,
+ * which is the fallback the rollup uses only when no line has been measured -
+ * so a project-level entry alongside position readings keeps its own row and
+ * its entry count but does not move the headline number.
+ *
+ * ``period_label`` is a free string capped at 20 characters and is the axis
+ * everything is grouped by, so it has to be written the same way every time.
+ * The dialog defaults it to the current ISO month for exactly that reason.
+ */
+export interface ProgressEntryCreate {
+  project_id: string;
+  boq_position_id?: string | null;
+  period_label: string;
+  /** Percent in [0, 100]; the server rejects anything outside it. */
+  percent_complete: number;
+  notes?: string | null;
+}
+
+/** The stored observation, as echoed back. */
+export interface ProgressEntryResponse {
+  id: string;
+  project_id: string;
+  boq_position_id: string | null;
+  period_label: string;
+  percent_complete: number;
+  notes: string | null;
+  recorded_at: string;
+}
+
+/**
+ * Record one percent-complete observation.
+ *
+ * Entries are append-only: correcting a reading means recording the corrected
+ * value again in the same period, not editing the old row. Be aware that the
+ * project percentage takes the MAXIMUM reading within a period, so a downward
+ * correction does not currently lower it, while the contracts module reads the
+ * latest. That inconsistency is known and is a decision above this layer, so
+ * do not paper over it here.
+ */
+export function createProgressEntry(
+  data: ProgressEntryCreate,
+): Promise<ProgressEntryResponse> {
+  return apiPost<ProgressEntryResponse>(`${BASE}/entries/`, data);
 }

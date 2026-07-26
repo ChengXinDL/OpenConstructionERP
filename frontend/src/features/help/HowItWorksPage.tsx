@@ -17,6 +17,7 @@ import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import {
   // chrome
+  Activity,
   GraduationCap,
   Search,
   ChevronDown,
@@ -92,6 +93,7 @@ import { useHelpOrderStore, type HelpSortMode } from './useHelpOrderStore';
 /* ── Icon resolution ────────────────────────────────────────────────────── */
 
 const ICONS: Record<string, LucideIcon> = {
+  Activity,
   LayoutDashboard,
   FolderKanban,
   FolderOpen,

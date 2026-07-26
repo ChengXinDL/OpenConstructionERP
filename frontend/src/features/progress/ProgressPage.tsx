@@ -14,14 +14,16 @@
  * never coerced into money/quantity math (only a parseFloat for a bar width).
  */
 
-import { type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import {
   Activity,
   Inbox,
   Layers,
   ListChecks,
+  Plus,
   Ruler,
   Target,
   TrendingDown,
@@ -31,9 +33,11 @@ import { apiGet } from '@/shared/lib/api';
 import {
   Badge,
   Breadcrumb,
+  Button,
   Card,
   DismissibleInfo,
   EmptyState,
+  IntroRichText,
   PageHeader,
   RecoveryCard,
   SkeletonTable,
@@ -47,6 +51,7 @@ import {
   type PositionQuantityVarianceItem,
   type SCurvePoint,
 } from './api';
+import { RecordProgressDialog } from './RecordProgressDialog';
 
 interface ProjectLite {
   id: string;
@@ -92,6 +97,7 @@ function SectionState({
   emptyIcon,
   emptyTitle,
   emptyDescription,
+  emptyAction,
   children,
 }: {
   loading: boolean;
@@ -101,6 +107,10 @@ function SectionState({
   emptyIcon: ReactNode;
   emptyTitle: string;
   emptyDescription: string;
+  /** Way out of the empty state. An empty panel that names what is missing
+   *  without offering the action that fills it is where this page lost
+   *  people: every panel said "record entries" and none of them could. */
+  emptyAction?: { label: string; onClick: () => void };
   children: ReactNode;
 }) {
   if (loading) return <SkeletonTable rows={4} columns={4} />;
@@ -108,7 +118,15 @@ function SectionState({
   // on other errors - this is what covers the progress.read permission gate on
   // the quantity-variance endpoint.
   if (error) return <RecoveryCard error={error} onRetry={onRetry} />;
-  if (empty) return <EmptyState icon={emptyIcon} title={emptyTitle} description={emptyDescription} />;
+  if (empty)
+    return (
+      <EmptyState
+        icon={emptyIcon}
+        title={emptyTitle}
+        description={emptyDescription}
+        action={emptyAction}
+      />
+    );
   return <>{children}</>;
 }
 
@@ -158,12 +176,24 @@ function SCurveChart({ points }: { points: SCurvePoint[] }) {
           </svg>
           {t('progress.series_actual', { defaultValue: 'Actual' })}
         </span>
-        <span className="inline-flex items-center gap-1.5">
-          <svg width="20" height="8" aria-hidden="true">
-            <line x1="0" y1="4" x2="20" y2="4" stroke="currentColor" className="text-content-tertiary" strokeWidth="2" strokeDasharray="4 3" />
-          </svg>
-          {t('progress.series_planned', { defaultValue: 'Planned' })}
-        </span>
+        {/* Only when a plan line is actually drawn. A legend entry for a series
+         *  that is not on the chart reads as "the plan is at zero" rather than
+         *  as "no plan has been entered", which are very different answers. */}
+        {planned.length > 0 && (
+          <span className="inline-flex items-center gap-1.5">
+            <svg width="20" height="8" aria-hidden="true">
+              <line x1="0" y1="4" x2="20" y2="4" stroke="currentColor" className="text-content-tertiary" strokeWidth="2" strokeDasharray="4 3" />
+            </svg>
+            {t('progress.series_planned', { defaultValue: 'Planned' })}
+          </span>
+        )}
+        {planned.length === 0 && (
+          <span className="text-content-tertiary">
+            {t('progress.series_no_plan', {
+              defaultValue: 'No plan entered for these periods',
+            })}
+          </span>
+        )}
       </div>
 
       <div className="w-full overflow-x-auto">
@@ -336,8 +366,10 @@ function VarianceRow({ item }: { item: PositionQuantityVarianceItem }) {
 
 export function ProgressPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const activeProjectId = useProjectContextStore((s) => s.activeProjectId);
   const activeProjectName = useProjectContextStore((s) => s.activeProjectName);
+  const [recordOpen, setRecordOpen] = useState(false);
 
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],
@@ -390,17 +422,54 @@ export function ProgressPage() {
           defaultValue:
             'Physical progress across the project - the actual versus planned S-curve, per-period completion, and design versus earned quantity variance.',
         })}
+        actions={
+          projectId ? (
+            <Button size="sm" onClick={() => setRecordOpen(true)}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              {t('progress.record_open', { defaultValue: 'Record progress' })}
+            </Button>
+          ) : undefined
+        }
       />
 
       <DismissibleInfo
         storageKey="progress"
         title={t('progress.intro_title', { defaultValue: 'Track physical progress, not just cost' })}
+        links={[
+          {
+            label: t('progress.link_5d', { defaultValue: 'See the same entries in money' }),
+            onClick: () => navigate('/5d'),
+          },
+          {
+            label: t('progress.link_boq', { defaultValue: 'Open the bill of quantities' }),
+            onClick: () => navigate('/boq'),
+          },
+        ]}
+        more={
+          <IntroRichText
+            text={t('progress.intro_more', {
+              defaultValue:
+                'How a number gets here\nSomebody records an observation: a percent complete, a period label, and either one BOQ position or the project as a whole. Use "Record progress" at the top of the page. Entries are append-only, so correcting a reading means recording the corrected value again in the same period rather than editing the old one.\n\nHow the headline percentage is worked out\nThe project percentage is a quantity-weighted rollup of the latest reading for each position. Weighted means a large line counts for more than a small one. It also means a position nobody has measured counts as zero and still occupies its share, so a project where one line is finished and three hundred are untouched reads close to zero rather than close to done. If the bill of quantities carries no quantities at all, the rollup falls back to a plain average over the same positions. If no position has been measured at all, it falls back to your project-level readings.\n\nWhat the three panels show\nThe S-curve plots cumulative actual against plan over time; the planned line only appears for periods that have a plan figure. "By period" shows what each period added and where the cumulative total stood at its end. The quantity variance table compares design quantity against earned quantity per position, which is what tells you a line is running over or under rather than merely late.\n\nWhere it does not reach\nThis page is the physical view. The same entries are read in money terms by the 5D cost page, and progress recorded here feeds earned value there. Within a single period the highest reading wins here, which is worth knowing if a reading is corrected downward.',
+            })}
+          />
+        }
       >
         {t('progress.intro_body', {
           defaultValue:
-            'Field percent-complete entries roll up here into an actual versus planned S-curve, per-period completion deltas with a running cumulative percent, and a design versus earned quantity variance for every tracked position. This is the physical view of delivery, separate from the cost and earned-value 5D page that reads the same entries in money terms.',
+            'This page answers one question: how much of the work is actually built, as opposed to how much has been spent. It is fed by percent-complete observations recorded against BOQ positions or against the project as a whole, and it turns them into an actual versus planned S-curve, what each period added, and a design versus earned quantity comparison per position. If it is empty, nothing has been recorded yet - use "Record progress" to add the first observation.',
         })}
       </DismissibleInfo>
+
+      {/* Mounted only with a project, so the dialog can trust its project id
+       *  rather than defending against an empty one. */}
+      {projectId && (
+        <RecordProgressDialog
+          open={recordOpen}
+          onClose={() => setRecordOpen(false)}
+          projectId={projectId}
+          positions={variance?.positions ?? []}
+        />
+      )}
 
       {!projectId ? (
         <EmptyState
@@ -478,8 +547,12 @@ export function ProgressPage() {
                 emptyTitle={t('progress.s_curve_empty_title', { defaultValue: 'No progress recorded yet' })}
                 emptyDescription={t('progress.s_curve_empty_desc', {
                   defaultValue:
-                    'Record field percent-complete entries to plot actual against planned progress.',
+                    'The curve is drawn from percent-complete observations. Record the first one and it appears here from that period onward.',
                 })}
+                emptyAction={{
+                  label: t('progress.record_open', { defaultValue: 'Record progress' }),
+                  onClick: () => setRecordOpen(true),
+                }}
               >
                 {sCurve && <SCurveChart points={sCurve.points} />}
               </SectionState>
@@ -500,8 +573,13 @@ export function ProgressPage() {
                 emptyIcon={<ListChecks className="h-6 w-6" />}
                 emptyTitle={t('progress.periods_empty_title', { defaultValue: 'No periods yet' })}
                 emptyDescription={t('progress.periods_empty_desc', {
-                  defaultValue: 'Per-period completion appears once progress is recorded.',
+                  defaultValue:
+                    'A period appears here as soon as something is recorded in it, with what it added and where the total stood at its end.',
                 })}
+                emptyAction={{
+                  label: t('progress.record_open', { defaultValue: 'Record progress' }),
+                  onClick: () => setRecordOpen(true),
+                }}
               >
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
@@ -562,8 +640,15 @@ export function ProgressPage() {
               emptyTitle={t('progress.variance_empty_title', { defaultValue: 'No tracked positions yet' })}
               emptyDescription={t('progress.variance_empty_desc', {
                 defaultValue:
-                  'Design versus earned quantity appears for every BOQ position with a recorded progress entry.',
+                  'This table compares design quantity against earned quantity per BOQ position, so it needs a bill of quantities to compare against. Recording progress alone will not fill it.',
               })}
+              // Deliberately not "Record progress": with no positions there is
+              // nothing to compare a reading against, so sending the user to
+              // the recording dialog would be a dead end that looks like help.
+              emptyAction={{
+                label: t('progress.link_boq', { defaultValue: 'Open the bill of quantities' }),
+                onClick: () => navigate('/boq'),
+              }}
             >
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
