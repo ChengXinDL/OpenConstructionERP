@@ -21,6 +21,17 @@
  * explainer under the same string would otherwise have one silently unregister
  * the other.
  *
+ * Placement on a tabbed page: put the explainer at page level, ABOVE the tab
+ * strip, and put the module's `InsightsPanel` inside whichever tab owns the
+ * data. An explainer mounted inside a tab disappears when the user switches
+ * away and they have no way back to it, which is worse than having no explainer
+ * at all, because they stop believing the page has one. The two panels answer
+ * different questions and do not have to live in the same component.
+ *
+ * A page that already carries a `DismissibleInfo` explaining the module does not
+ * also need one of these. Two explanatory blocks on one page is the hollow
+ * outcome this pattern exists to avoid.
+ *
  * This replaces the previous behaviour, where a collapsed block kept its header
  * visible and animated its body shut with the grid `0fr`->`1fr` trick. That
  * animation and its `inert` handling are gone rather than left dormant: once a
