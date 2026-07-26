@@ -45,6 +45,8 @@ import {
 } from '@/shared/ui';
 import type { KpiBandItem } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildPunchlistInsights } from './punchlistInsights';
 import { RequiresProject } from '@/shared/auth/RequiresProject';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { SectionIntro } from '@/features/validation';
@@ -1112,6 +1114,14 @@ export function PunchListPage() {
     );
   }, [punchItems, searchQuery]);
 
+  // Insights read the full register, never the search-narrowed list: a KPI
+  // that moves while you type is not a KPI.
+  const insights = useModuleInsights('punchlist', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildPunchlistInsights(punchItems, t),
+    [punchItems, t],
+  );
+
   // Clear stale selection whenever the project switches
   useEffect(() => {
     setSelectedIds(new Set());
@@ -1359,6 +1369,7 @@ export function PunchListPage() {
         })}
         actions={
           <>
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             <ModuleGuideButton content={punchlistGuide} />
             {projectId && (
               <Button
@@ -1403,6 +1414,17 @@ export function PunchListPage() {
             </Button>
           </>
         }
+      />
+
+      <InsightsPanel
+        open={insights.open}
+        title={t('punch.insights.title', { defaultValue: 'Punch list insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       <SectionIntro
