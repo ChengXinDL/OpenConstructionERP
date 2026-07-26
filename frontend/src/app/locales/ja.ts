@@ -18809,6 +18809,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "まずこのPDFをプロジェクトにアップロードし、ドキュメント一覧から開いてAIで読み取ってください。",
     "takeoff_viewer.plan_read.none_title": "部屋が検出されませんでした",
     "takeoff_viewer.plan_read.none_msg": "このページでは、提案できるほど明確なものをモデルが見つけられませんでした。",
+    "takeoff_viewer.plan_read.scale_dropped_title": "ページの縮尺が正しくないようです",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "現在のキャリブレーションではページ寸法が成立しないため、提案された部屋は面積なしのままになりました。縮尺を設定し直してから、図面読み取りをやり直してください。",
     "takeoff_viewer.plan_read.added_title": "{{n}}件のAI提案を追加しました",
     "takeoff_viewer.plan_read.added_msg": "図面上で確認し、それぞれを承認または却下してください（AIが提案し、あなたが確定します）。",
     "takeoff_viewer.plan_read.failed": "AIによる図面読み取りに失敗しました",

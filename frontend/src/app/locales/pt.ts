@@ -18816,6 +18816,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "Envie este PDF para um projeto primeiro, depois abra-o na lista de documentos para lê-lo com IA.",
     "takeoff_viewer.plan_read.none_title": "Nenhum ambiente detectado",
     "takeoff_viewer.plan_read.none_msg": "O modelo não encontrou nada claro o suficiente para sugerir nesta página.",
+    "takeoff_viewer.plan_read.scale_dropped_title": "A escala da página parece incorreta",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "A calibração atual implica um tamanho de página impossível, por isso os ambientes propostos ficaram sem áreas. Calibre a escala novamente e repita a leitura da planta.",
     "takeoff_viewer.plan_read.added_title": "{{n}} sugestões de IA adicionadas",
     "takeoff_viewer.plan_read.added_msg": "Revise-as no desenho e depois aceite ou rejeite cada uma (a IA propõe, você confirma).",
     "takeoff_viewer.plan_read.failed": "Falha na leitura da planta com IA",

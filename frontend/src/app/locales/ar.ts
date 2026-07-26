@@ -17803,6 +17803,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "ارفع ملف PDF هذا إلى مشروع أولًا، ثم افتحه من قائمة المستندات لقراءته بالذكاء الاصطناعي.",
     "takeoff_viewer.plan_read.needs_upload_title": "تتطلب قراءة المخطط بالذكاء الاصطناعي رسمًا مرفوعًا",
     "takeoff_viewer.plan_read.none_msg": "لم يجد النموذج شيئًا واضحًا بما يكفي لاقتراحه في هذه الصفحة.",
+    "takeoff_viewer.plan_read.scale_dropped_title": "مقياس الصفحة يبدو غير صحيح",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "المعايرة الحالية تعطي حجم صفحة مستحيلًا، لذلك بقيت الغرف المقترحة بدون مساحات. أعد معايرة المقياس ثم أعد تشغيل قراءة المخطط.",
     "takeoff_viewer.plan_read.none_title": "لم تُكتشف غرف",
     "takeoff_viewer.plan_read.reason_cost_cap": "سيتجاوز هذا التشغيل سقف إنفاقك على الذكاء الاصطناعي. ارفع السقف أو انتظر تجدد الفترة.",
     "takeoff_viewer.plan_read.reason_pdf_not_on_disk": "ملف PDF المخزّن لهذا المستند لم يعد موجودًا على القرص. أعد رفعه لقراءته بالذكاء الاصطناعي.",

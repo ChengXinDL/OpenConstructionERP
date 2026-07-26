@@ -18820,6 +18820,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "Carica prima questo PDF in un progetto, poi aprilo dall'elenco documenti per leggerlo con l'IA.",
     "takeoff_viewer.plan_read.none_title": "Nessun locale rilevato",
     "takeoff_viewer.plan_read.none_msg": "Il modello non ha trovato nulla di abbastanza chiaro da suggerire su questa pagina.",
+    "takeoff_viewer.plan_read.scale_dropped_title": "La scala della pagina sembra errata",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "La calibrazione attuale implica una dimensione di pagina impossibile, quindi i locali proposti sono rimasti senza aree. Ricalibra la scala e ripeti la lettura della planimetria.",
     "takeoff_viewer.plan_read.added_title": "{{n}} suggerimenti IA aggiunti",
     "takeoff_viewer.plan_read.added_msg": "Rivedili sul disegno, poi accetta o rifiuta ciascuno (l'IA propone, tu confermi).",
     "takeoff_viewer.plan_read.failed": "Lettura della planimetria con IA non riuscita",

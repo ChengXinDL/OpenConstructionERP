@@ -4990,6 +4990,23 @@ export default function TakeoffViewerModule({
         });
         return;
       }
+      // The server refuses a calibration whose ratio implies an impossible page
+      // span, because that ratio is squared into every area it derives. Rooms
+      // then come back with no quantity at all, so say why rather than letting
+      // it read as the detector having failed to measure anything.
+      const droppedItems = current.validation_report?.dropped_items;
+      if (Array.isArray(droppedItems) && droppedItems.includes('scale:implausible_calibration')) {
+        addToast({
+          type: 'warning',
+          title: t('takeoff_viewer.plan_read.scale_dropped_title', {
+            defaultValue: 'Page scale looks wrong',
+          }),
+          message: t('takeoff_viewer.plan_read.scale_dropped_msg', {
+            defaultValue:
+              'The current calibration implies an impossible page size, so the suggested rooms were left without areas. Calibrate the scale again and re-run the plan read.',
+          }),
+        });
+      }
       const proposals = await takeoffApi.planRead.proposals(run.id);
       if (proposals.length === 0) {
         addToast({

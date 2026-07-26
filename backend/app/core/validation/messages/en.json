@@ -36,18 +36,6 @@
     }
   },
   "ai_takeoff": {
-    "scale_sanity": {
-      "fail": "The AI-detected scale implies an implausible page span of {span} m",
-      "suggestion": "Recalibrate the scale by hand before trusting AI areas"
-    },
-    "polygon_self_intersection": {
-      "fail": "Proposed room '{name}' has a self-intersecting outline",
-      "suggestion": "Redraw this room as a simple (non-crossing) polygon before accepting"
-    },
-    "low_confidence_review": {
-      "fail": "Proposed item '{name}' has low confidence ({confidence})",
-      "suggestion": "Review this AI proposal carefully and verify it against the drawing before accepting"
-    },
     "unreviewed_proposals": {
       "fail": "{count} takeoff proposals are still awaiting review and are not priced here",
       "suggestion": "Work through the review queue so the confirmed quantities match the drawing"

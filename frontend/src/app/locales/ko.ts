@@ -18809,6 +18809,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "먼저 이 PDF를 프로젝트에 업로드한 다음 문서 목록에서 열어 AI로 읽으세요.",
     "takeoff_viewer.plan_read.none_title": "감지된 실이 없습니다",
     "takeoff_viewer.plan_read.none_msg": "모델이 이 페이지에서 제안할 만큼 명확한 것을 찾지 못했습니다.",
+    "takeoff_viewer.plan_read.scale_dropped_title": "페이지 축척이 잘못된 것 같습니다",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "현재 보정값으로는 불가능한 페이지 크기가 나오므로 제안된 실은 면적 없이 남았습니다. 축척을 다시 보정한 뒤 도면 판독을 다시 실행하세요.",
     "takeoff_viewer.plan_read.added_title": "AI 제안 {{n}}개 추가됨",
     "takeoff_viewer.plan_read.added_msg": "도면에서 검토한 뒤 각각 수락하거나 거부하세요(AI가 제안하고, 사용자가 확정합니다).",
     "takeoff_viewer.plan_read.failed": "AI 도면 읽기에 실패했습니다",

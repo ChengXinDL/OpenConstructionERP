@@ -18814,6 +18814,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "Upload deze PDF eerst naar een project en open hem daarna vanuit de documentenlijst om hem met AI te lezen.",
     "takeoff_viewer.plan_read.none_title": "Geen ruimtes gedetecteerd",
     "takeoff_viewer.plan_read.none_msg": "Het model vond op deze pagina niets dat duidelijk genoeg was om voor te stellen.",
+    "takeoff_viewer.plan_read.scale_dropped_title": "De paginaschaal lijkt onjuist",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "De huidige kalibratie impliceert een onmogelijk paginaformaat, daarom bleven de voorgestelde ruimtes zonder oppervlakten. Kalibreer de schaal opnieuw en voer de planuitlezing nogmaals uit.",
     "takeoff_viewer.plan_read.added_title": "{{n}} AI-suggesties toegevoegd",
     "takeoff_viewer.plan_read.added_msg": "Beoordeel ze op de tekening en accepteer of wijs elk voorstel af (AI stelt voor, u bevestigt).",
     "takeoff_viewer.plan_read.failed": "AI-plattegrondlezing mislukt",

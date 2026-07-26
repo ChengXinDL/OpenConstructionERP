@@ -18668,6 +18668,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "Nejprve nahrajte toto PDF do projektu a pak jej otevřete ze seznamu dokumentů, abyste jej přečetli s AI.",
     "takeoff_viewer.plan_read.needs_upload_title": "Čtení plánu s AI vyžaduje nahraný výkres",
     "takeoff_viewer.plan_read.none_msg": "Model na této stránce nenašel nic dostatečně jasného k navržení.",
+    "takeoff_viewer.plan_read.scale_dropped_title": "Měřítko listu vypadá chybně",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "Aktuální kalibrace dává nemožnou velikost listu, proto navržené místnosti zůstaly bez ploch. Zkalibrujte měřítko znovu a spusťte čtení plánu znovu.",
     "takeoff_viewer.plan_read.none_title": "Nezjištěny žádné místnosti",
     "takeoff_viewer.plan_read.reason_cost_cap": "Tento běh by překročil váš limit útraty za AI. Zvyšte limit, nebo počkejte, až se okno obnoví.",
     "takeoff_viewer.plan_read.reason_pdf_not_on_disk": "Uložené PDF tohoto dokumentu už není na disku. Nahrajte jej znovu pro čtení s AI.",

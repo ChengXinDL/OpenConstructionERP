@@ -3402,9 +3402,9 @@ class TakeoffService:
             page_height_pt=page_h_pt,
         )
 
-        scale_ratio = run.scale_pixels_per_unit
-        if result.scale is not None and scale_ratio is None:
-            scale_ratio = _pr.scale_ratio_from_plan_scale(result.scale, page_w_pt, page_h_pt)
+        scale_ratio, scale_drop = _pr.resolve_scale_ratio(run.scale_pixels_per_unit, result.scale, page_w_pt, page_h_pt)
+        if scale_drop:
+            dropped.append(scale_drop)
 
         proposals = self._build_plan_read_proposals(
             run=run,

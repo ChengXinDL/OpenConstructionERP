@@ -36,18 +36,6 @@
     }
   },
   "ai_takeoff": {
-    "scale_sanity": {
-      "fail": "Der von der KI erkannte Maßstab ergibt eine unplausible Blattbreite von {span} m",
-      "suggestion": "Maßstab vor der Nutzung von KI-Flächen manuell neu kalibrieren"
-    },
-    "polygon_self_intersection": {
-      "fail": "Vorgeschlagener Raum '{name}' hat einen sich selbst schneidenden Umriss",
-      "suggestion": "Diesen Raum vor dem Übernehmen als einfaches (nicht kreuzendes) Polygon neu zeichnen"
-    },
-    "low_confidence_review": {
-      "fail": "Vorgeschlagenes Element '{name}' hat eine niedrige Konfidenz ({confidence})",
-      "suggestion": "Diesen KI-Vorschlag sorgfältig prüfen und vor dem Übernehmen mit der Zeichnung abgleichen"
-    },
     "unreviewed_proposals": {
       "fail": "{count} Aufmaß-Vorschläge warten noch auf Prüfung und sind hier nicht bepreist",
       "suggestion": "Prüfliste abarbeiten, damit die bestätigten Mengen zur Zeichnung passen"

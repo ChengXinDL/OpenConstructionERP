@@ -18707,6 +18707,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "Lataa tämä PDF ensin projektiin ja avaa se sitten asiakirjaluettelosta lukeaksesi sen tekoälyllä.",
     "takeoff_viewer.plan_read.none_title": "Huoneita ei havaittu",
     "takeoff_viewer.plan_read.none_msg": "Malli ei löytänyt tältä sivulta mitään riittävän selkeää ehdotettavaksi.",
+    "takeoff_viewer.plan_read.scale_dropped_title": "Sivun mittakaava vaikuttaa virheelliseltä",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "Nykyinen kalibrointi antaa mahdottoman sivukoon, joten ehdotetut tilat jäivät ilman pinta-aloja. Kalibroi mittakaava uudelleen ja aja pohjan luku uudestaan.",
     "takeoff_viewer.plan_read.added_title": "{{n}} tekoälyehdotusta lisätty",
     "takeoff_viewer.plan_read.added_msg": "Tarkista ne piirustuksessa ja hyväksy tai hylkää sitten jokainen (tekoäly ehdottaa, sinä vahvistat).",
     "takeoff_viewer.plan_read.failed": "Tekoälyn piirustuksenluku epäonnistui",

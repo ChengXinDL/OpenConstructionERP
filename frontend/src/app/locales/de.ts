@@ -18760,6 +18760,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "Laden Sie dieses PDF zuerst in ein Projekt hoch und öffnen Sie es dann aus der Dokumentenliste, um es mit KI zu lesen.",
     "takeoff_viewer.plan_read.needs_upload_title": "KI-Planlesen benötigt einen hochgeladenen Plan",
     "takeoff_viewer.plan_read.none_msg": "Das Modell hat auf dieser Seite nichts gefunden, das eindeutig genug für einen Vorschlag wäre.",
+    "takeoff_viewer.plan_read.scale_dropped_title": "Der Seitenmaßstab wirkt falsch",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "Die aktuelle Kalibrierung ergibt eine unmögliche Blattgröße, daher blieben die vorgeschlagenen Räume ohne Flächen. Kalibrieren Sie den Maßstab erneut und starten Sie die Planauswertung noch einmal.",
     "takeoff_viewer.plan_read.none_title": "Keine Räume erkannt",
     "takeoff_viewer.plan_read.reason_cost_cap": "Dieser Lauf würde Ihr KI-Ausgabenlimit überschreiten. Erhöhen Sie das Limit oder warten Sie, bis das Zeitfenster zurückgesetzt wird.",
     "takeoff_viewer.plan_read.reason_pdf_not_on_disk": "Das gespeicherte PDF zu diesem Dokument liegt nicht mehr auf der Festplatte. Laden Sie es erneut hoch, um es mit KI zu lesen.",

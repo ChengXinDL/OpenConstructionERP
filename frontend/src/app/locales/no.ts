@@ -18700,6 +18700,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "Last først opp denne PDF-en til et prosjekt, og åpne den deretter fra dokumentlisten for å lese den med AI.",
     "takeoff_viewer.plan_read.none_title": "Ingen rom funnet",
     "takeoff_viewer.plan_read.none_msg": "Modellen fant ikke noe tydelig nok å foreslå på denne siden.",
+    "takeoff_viewer.plan_read.scale_dropped_title": "Sidens målestokk ser feil ut",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "Den nåværende kalibreringen gir en umulig sidestørrelse, så de foreslåtte rommene ble stående uten arealer. Kalibrer målestokken på nytt og kjør planlesingen igjen.",
     "takeoff_viewer.plan_read.added_title": "{{n}} AI-forslag lagt til",
     "takeoff_viewer.plan_read.added_msg": "Gjennomgå dem på tegningen, og godta eller avvis deretter hver enkelt (AI foreslår, du bekrefter).",
     "takeoff_viewer.plan_read.failed": "AI-tegningslesing mislyktes",

@@ -18835,6 +18835,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "Najpierw prześlij ten PDF do projektu, a potem otwórz go z listy dokumentów, aby odczytać go z AI.",
     "takeoff_viewer.plan_read.needs_upload_title": "Odczyt planu przez AI wymaga przesłanego rysunku",
     "takeoff_viewer.plan_read.none_msg": "Model nie znalazł na tej stronie niczego wystarczająco wyraźnego, aby coś zaproponować.",
+    "takeoff_viewer.plan_read.scale_dropped_title": "Skala arkusza wygląda na błędną",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "Bieżąca kalibracja daje niemożliwy rozmiar arkusza, dlatego proponowane pomieszczenia pozostały bez powierzchni. Skalibruj skalę ponownie i powtórz odczyt planu.",
     "takeoff_viewer.plan_read.none_title": "Nie wykryto pomieszczeń",
     "takeoff_viewer.plan_read.reason_cost_cap": "To uruchomienie przekroczyłoby twój limit wydatków na AI. Podnieś limit albo poczekaj, aż okno się odnowi.",
     "takeoff_viewer.plan_read.reason_pdf_not_on_disk": "Zapisany PDF tego dokumentu nie znajduje się już na dysku. Prześlij go ponownie, aby odczytać z AI.",

@@ -141,11 +141,11 @@ async def test_an_empty_queue_passes() -> None:
 def test_the_estimator_actually_reaches_this_rule() -> None:
     """The rule is registered where the estimator will hand it a context.
 
-    This is the failure this whole change exists because of. Three sibling
-    ai_takeoff rules are registered under a set no caller ever validates
-    against, so they never run, and every test that calls a rule object
-    directly stays green while that is true. Asking the registry the same
-    question the engine asks is the only check that tells them apart.
+    This is the failure this whole change exists because of. A rule filed into
+    a set no caller ever validates against never runs, and every test that
+    calls a rule object directly stays green while that is true. Asking the
+    registry the same question the engine asks is the only check that tells a
+    working rule apart from one nothing will ever reach.
 
     Exactly once, not twice: the rule belongs to two sets and the estimator
     could grow to pass both, which would otherwise put the same warning in one

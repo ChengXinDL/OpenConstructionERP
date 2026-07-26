@@ -17867,6 +17867,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "Încărcați mai întâi acest PDF într-un proiect, apoi deschideți-l din lista de documente pentru a-l citi cu AI.",
     "takeoff_viewer.plan_read.needs_upload_title": "Citirea planului cu AI are nevoie de un desen încărcat",
     "takeoff_viewer.plan_read.none_msg": "Modelul nu a găsit nimic suficient de clar de sugerat pe această pagină.",
+    "takeoff_viewer.plan_read.scale_dropped_title": "Scara paginii pare greșită",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "Calibrarea curentă implică o dimensiune imposibilă a paginii, așa că încăperile propuse au rămas fără arii. Recalibrați scara și reluați citirea planului.",
     "takeoff_viewer.plan_read.none_title": "Nicio încăpere detectată",
     "takeoff_viewer.plan_read.reason_cost_cap": "Această rulare ar depăși plafonul de cheltuieli AI. Măriți plafonul sau așteptați reînnoirea ferestrei.",
     "takeoff_viewer.plan_read.reason_pdf_not_on_disk": "PDF-ul stocat pentru acest document nu mai este pe disc. Reîncărcați-l pentru a-l citi cu AI.",

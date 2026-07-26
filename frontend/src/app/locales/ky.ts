@@ -15748,6 +15748,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "Бул PDF-ти алгач долбоорго жүктөңүз, андан кийин аны AI менен окуу үчүн документтер тизмесинен ачыңыз.",
     "takeoff_viewer.plan_read.none_title": "Бөлмөлөр аныкталган жок",
     "takeoff_viewer.plan_read.none_msg": "Модель бул баракта сунуштоо үчүн жетишерлик даана нерсе тапкан жок.",
+    "takeoff_viewer.plan_read.scale_dropped_title": "Барактын масштабы туура эмес окшойт",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "Учурдагы калибрлөө барактын мүмкүн болбогон өлчөмүн берет, ошондуктан сунушталган бөлмөлөр аянтсыз калды. Масштабды кайра калибрлеп, план окууну кайра иштетиңиз.",
     "takeoff_viewer.plan_read.added_title": "{{n}} AI сунушу кошулду",
     "takeoff_viewer.plan_read.added_msg": "Аларды сызмада карап чыгыңыз, андан кийин ар биринин кабыл алыңыз же четке кагыңыз (AI сунуштайт, сиз ырастайсыз).",
     "takeoff_viewer.plan_read.failed": "AI пландын окуусу ишке ашкан жок",

@@ -17978,6 +17978,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "Сначала загрузите этот PDF в проект, затем откройте его из списка документов, чтобы прочитать с ИИ.",
     "takeoff_viewer.plan_read.needs_upload_title": "Для чтения плана с ИИ нужен загруженный чертёж",
     "takeoff_viewer.plan_read.none_msg": "Модель не нашла на этой странице ничего достаточно однозначного, чтобы предложить.",
+    "takeoff_viewer.plan_read.scale_dropped_title": "Масштаб листа выглядит неверным",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "Текущая калибровка даёт невозможный размер листа, поэтому предложенные помещения остались без площадей. Откалибруйте масштаб заново и повторите чтение плана.",
     "takeoff_viewer.plan_read.none_title": "Помещения не обнаружены",
     "takeoff_viewer.plan_read.reason_cost_cap": "Этот запуск превысил бы ваш лимит расходов на ИИ. Поднимите лимит или дождитесь обновления окна.",
     "takeoff_viewer.plan_read.reason_pdf_not_on_disk": "Сохранённый PDF этого документа больше не находится на диске. Загрузите его заново, чтобы прочитать с ИИ.",

@@ -18715,6 +18715,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "Hãy tải tệp PDF này lên một dự án trước, rồi mở từ danh sách tài liệu để đọc bằng AI.",
     "takeoff_viewer.plan_read.none_title": "Không phát hiện phòng nào",
     "takeoff_viewer.plan_read.none_msg": "Mô hình không tìm thấy gì đủ rõ ràng để đề xuất trên trang này.",
+    "takeoff_viewer.plan_read.scale_dropped_title": "Tỷ lệ trang có vẻ không đúng",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "Hiệu chuẩn hiện tại cho ra khổ trang không thể có, nên các phòng được đề xuất không có diện tích. Hãy hiệu chuẩn lại tỷ lệ rồi chạy lại việc đọc bản vẽ.",
     "takeoff_viewer.plan_read.added_title": "Đã thêm {{n}} đề xuất của AI",
     "takeoff_viewer.plan_read.added_msg": "Xem xét chúng trên bản vẽ, rồi chấp nhận hoặc từ chối từng mục (AI đề xuất, bạn xác nhận).",
     "takeoff_viewer.plan_read.failed": "Đọc bản vẽ bằng AI thất bại",

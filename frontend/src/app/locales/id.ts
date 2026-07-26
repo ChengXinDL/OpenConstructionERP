@@ -18703,6 +18703,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "Unggah PDF ini ke proyek terlebih dahulu, lalu buka dari daftar dokumen untuk membacanya dengan AI.",
     "takeoff_viewer.plan_read.none_title": "Tidak ada ruangan terdeteksi",
     "takeoff_viewer.plan_read.none_msg": "Model tidak menemukan apa pun yang cukup jelas untuk disarankan pada halaman ini.",
+    "takeoff_viewer.plan_read.scale_dropped_title": "Skala halaman tampak salah",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "Kalibrasi saat ini menghasilkan ukuran halaman yang mustahil, sehingga ruangan yang diusulkan tidak memiliki luas. Kalibrasi ulang skala lalu jalankan pembacaan denah kembali.",
     "takeoff_viewer.plan_read.added_title": "{{n}} saran AI ditambahkan",
     "takeoff_viewer.plan_read.added_msg": "Tinjau di gambar, lalu terima atau tolak satu per satu (AI mengusulkan, Anda mengonfirmasi).",
     "takeoff_viewer.plan_read.failed": "Pembacaan denah dengan AI gagal",

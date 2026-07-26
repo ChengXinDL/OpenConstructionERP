@@ -18667,6 +18667,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "Najprije učitajte ovaj PDF u projekt, zatim ga otvorite s popisa dokumenata da ga pročitate s AI.",
     "takeoff_viewer.plan_read.needs_upload_title": "AI čitanje nacrta treba učitani nacrt",
     "takeoff_viewer.plan_read.none_msg": "Model na ovoj stranici nije pronašao ništa dovoljno jasno za prijedlog.",
+    "takeoff_viewer.plan_read.scale_dropped_title": "Mjerilo lista djeluje pogrešno",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "Trenutna kalibracija daje nemoguću veličinu lista, pa su predložene prostorije ostale bez površina. Ponovno kalibrirajte mjerilo i pokrenite čitanje plana iznova.",
     "takeoff_viewer.plan_read.none_title": "Nisu otkrivene prostorije",
     "takeoff_viewer.plan_read.reason_cost_cap": "Ovo pokretanje premašilo bi vaš limit AI potrošnje. Povećajte limit ili pričekajte da se razdoblje obnovi.",
     "takeoff_viewer.plan_read.reason_pdf_not_on_disk": "Pohranjeni PDF ovog dokumenta više nije na disku. Ponovno ga učitajte za čitanje s AI.",

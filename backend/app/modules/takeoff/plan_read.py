@@ -535,6 +535,47 @@ def scale_ratio_from_plan_scale(
     return derive_scale_ratio(p1, p2, real, getattr(scale, "ref_unit", None) or getattr(scale, "unit", None))
 
 
+def resolve_scale_ratio(
+    calibrated_ratio: float | None,
+    detected_scale: Any,
+    page_width_pt: float,
+    page_height_pt: float,
+) -> tuple[float | None, str | None]:
+    """Pick the ratio the proposals are measured in, plausibility belt included.
+
+    A calibration the user drew on the canvas outranks anything the model read,
+    which is the human-confirm order we want. What it lacked is the belt: a
+    calibration arrives with only a "> 0" check on it, while a model-derived
+    scale has already been through ``scale_is_plausible`` inside
+    ``parse_plan_read_response``. The ratio is squared into every room area, so
+    a calibration off by a factor of a thousand (mm entered where metres were
+    meant) turns every quantity into nonsense that still reads like a number.
+
+    An implausible calibration is dropped rather than replaced. Falling back to
+    the model's scale would quietly measure the drawing at a ratio the user
+    never chose; leaving the values empty says plainly that the scale has to be
+    set again, and empty values are already the normal no-scale outcome.
+
+    Args:
+        calibrated_ratio: The run's ``scale_pixels_per_unit``, when the user set one.
+        detected_scale: The parsed ``PlanScale``, or ``None`` when nothing was read.
+        page_width_pt: Page width in PDF points.
+        page_height_pt: Page height in PDF points.
+
+    Returns:
+        ``(ratio, drop_reason)``. The ratio is ``None`` when no usable scale
+        survives; ``drop_reason`` names a discarded calibration for the run
+        report and is ``None`` when nothing was thrown away.
+    """
+    if calibrated_ratio is not None:
+        if scale_is_plausible(calibrated_ratio, page_width_pt, page_height_pt):
+            return calibrated_ratio, None
+        return None, "scale:implausible_calibration"
+    if detected_scale is not None:
+        return scale_ratio_from_plan_scale(detected_scale, page_width_pt, page_height_pt), None
+    return None, None
+
+
 def _normalize_scale_dict(raw: dict[str, Any]) -> dict[str, Any]:
     """Coerce a raw scale dict into the shape ``PlanScale`` expects.
 

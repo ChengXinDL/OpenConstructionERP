@@ -18813,6 +18813,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "Първо качете този PDF в проект, после го отворете от списъка с документи, за да го прочетете с ИИ.",
     "takeoff_viewer.plan_read.none_title": "Не са открити помещения",
     "takeoff_viewer.plan_read.none_msg": "Моделът не откри нищо достатъчно ясно, което да предложи на тази страница.",
+    "takeoff_viewer.plan_read.scale_dropped_title": "Мащабът на листа изглежда грешен",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "Текущата калибрация дава невъзможен размер на листа, затова предложените помещения останаха без площи. Калибрирайте мащаба отново и повторете разчитането на плана.",
     "takeoff_viewer.plan_read.added_title": "Добавени са {{n}} предложения от ИИ",
     "takeoff_viewer.plan_read.added_msg": "Прегледайте ги върху чертежа, после приемете или отхвърлете всяко (ИИ предлага, вие потвърждавате).",
     "takeoff_viewer.plan_read.failed": "Четенето на плана с ИИ е неуспешно",

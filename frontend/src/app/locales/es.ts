@@ -18704,6 +18704,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "Suba primero este PDF a un proyecto y luego ábralo desde la lista de documentos para leerlo con IA.",
     "takeoff_viewer.plan_read.needs_upload_title": "La lectura de planos con IA necesita un plano subido",
     "takeoff_viewer.plan_read.none_msg": "El modelo no encontró nada lo bastante claro para sugerir en esta página.",
+    "takeoff_viewer.plan_read.scale_dropped_title": "La escala de la página parece incorrecta",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "La calibración actual implica un tamaño de página imposible, por lo que las estancias propuestas quedaron sin áreas. Vuelva a calibrar la escala y repita la lectura del plano.",
     "takeoff_viewer.plan_read.none_title": "No se detectaron estancias",
     "takeoff_viewer.plan_read.reason_cost_cap": "Esta ejecución superaría su límite de gasto en IA. Suba el límite o espere a que la ventana se renueve.",
     "takeoff_viewer.plan_read.reason_pdf_not_on_disk": "El PDF almacenado de este documento ya no está en el disco. Vuelva a subirlo para leerlo con IA.",

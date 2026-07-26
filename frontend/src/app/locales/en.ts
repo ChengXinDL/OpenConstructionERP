@@ -16564,6 +16564,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "Upload this PDF to a project first, then open it from the documents list to read it with AI.",
     "takeoff_viewer.plan_read.none_title": "No rooms detected",
     "takeoff_viewer.plan_read.none_msg": "The model did not find anything clear enough to suggest on this page.",
+    "takeoff_viewer.plan_read.scale_dropped_title": "Page scale looks wrong",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "The current calibration implies an impossible page size, so the suggested rooms were left without areas. Calibrate the scale again and re-run the plan read.",
     "takeoff_viewer.plan_read.added_title": "{{n}} AI suggestions added",
     "takeoff_viewer.plan_read.added_msg": "Review them on the drawing, then accept or reject each (AI proposes, you confirm).",
     "takeoff_viewer.plan_read.failed": "AI plan reading failed",

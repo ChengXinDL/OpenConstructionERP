@@ -139,6 +139,67 @@ class TestScale:
 
 
 # ---------------------------------------------------------------------------
+# Choosing the ratio the proposals are measured in
+# ---------------------------------------------------------------------------
+
+# A 1:50 drawing on A1: one metre is about 56.7 PDF points, so the sheet spans
+# roughly 42 m. Enter the reference in millimetres by mistake and the ratio comes
+# out a thousand times smaller, which claims the sheet is 42 km across.
+CALIBRATION_1_50 = 56.7
+CALIBRATION_OFF_BY_MM = CALIBRATION_1_50 / 1000.0
+
+
+def _detected_scale() -> SimpleNamespace:
+    """A model-read scale: 0.2 of the A1 width standing for 4.10 m."""
+    return SimpleNamespace(
+        ref_pixels=(SimpleNamespace(x=0.1, y=0.5), SimpleNamespace(x=0.3, y=0.5)),
+        ref_real_value=4.10,
+        ref_unit="m",
+        unit="m",
+    )
+
+
+class TestScaleResolution:
+    """The user's calibration wins, but it no longer skips the belt.
+
+    A model-derived scale is already belted in ``parse_plan_read_response``, so
+    by the time a ratio is chosen only the calibration can still be absurd. It
+    gets squared into every room area, which is why an unchecked one produces
+    quantities that are wrong by six orders of magnitude and look ordinary.
+    """
+
+    def test_a_sane_calibration_is_used_as_given(self) -> None:
+        ratio, dropped = pr.resolve_scale_ratio(CALIBRATION_1_50, None, A1_W_PT, A1_H_PT)
+        assert ratio == CALIBRATION_1_50
+        assert dropped is None
+
+    def test_a_calibration_off_by_a_factor_of_a_thousand_is_refused(self) -> None:
+        ratio, dropped = pr.resolve_scale_ratio(CALIBRATION_OFF_BY_MM, None, A1_W_PT, A1_H_PT)
+        assert ratio is None, "measuring at this ratio would inflate every area a millionfold"
+        assert dropped == "scale:implausible_calibration"
+
+    def test_a_refused_calibration_is_not_swapped_for_the_model_reading(self) -> None:
+        """Silently measuring at a ratio the user never chose is the worse failure.
+
+        Empty values send them back to the calibration tool. A plausible number
+        derived from a scale they did not pick reads as though their own
+        calibration had been honoured.
+        """
+        ratio, dropped = pr.resolve_scale_ratio(CALIBRATION_OFF_BY_MM, _detected_scale(), A1_W_PT, A1_H_PT)
+        assert ratio is None
+        assert dropped == "scale:implausible_calibration"
+
+    def test_the_model_reading_is_used_when_nobody_calibrated(self) -> None:
+        ratio, dropped = pr.resolve_scale_ratio(None, _detected_scale(), A1_W_PT, A1_H_PT)
+        assert ratio == pytest.approx((0.2 * A1_W_PT) / 4.10, rel=1e-6)
+        assert dropped is None
+
+    def test_no_scale_at_all_is_silence_not_a_complaint(self) -> None:
+        """Rooms without a scale are the ordinary outcome, not a problem to report."""
+        assert pr.resolve_scale_ratio(None, None, A1_W_PT, A1_H_PT) == (None, None)
+
+
+# ---------------------------------------------------------------------------
 # Structured-output parsing and per-item rejection
 # ---------------------------------------------------------------------------
 

@@ -18809,6 +18809,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "请先将此 PDF 上传到项目，然后从文档列表打开后再用 AI 读取。",
     "takeoff_viewer.plan_read.none_title": "未检测到房间",
     "takeoff_viewer.plan_read.none_msg": "模型在此页上没有找到足够清晰、可供建议的内容。",
+    "takeoff_viewer.plan_read.scale_dropped_title": "图纸比例似乎有误",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "当前标定得出的图幅尺寸不可能成立，因此建议的房间没有面积。请重新标定比例后再次运行图纸识别。",
     "takeoff_viewer.plan_read.added_title": "已添加 {{n}} 条 AI 建议",
     "takeoff_viewer.plan_read.added_msg": "请在图纸上逐一审核，然后接受或拒绝（AI 提议，您来确认）。",
     "takeoff_viewer.plan_read.failed": "AI 读图失败",

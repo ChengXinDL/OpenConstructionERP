@@ -18707,6 +18707,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "Önce bu PDF'i bir projeye yükleyin, sonra yapay zeka ile okumak için belgeler listesinden açın.",
     "takeoff_viewer.plan_read.none_title": "Oda algılanmadı",
     "takeoff_viewer.plan_read.none_msg": "Model bu sayfada önerecek kadar net bir şey bulamadı.",
+    "takeoff_viewer.plan_read.scale_dropped_title": "Sayfa ölçeği hatalı görünüyor",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "Mevcut kalibrasyon imkânsız bir sayfa boyutu veriyor, bu nedenle önerilen mekanlar alansız kaldı. Ölçeği yeniden kalibre edip plan okumasını tekrar çalıştırın.",
     "takeoff_viewer.plan_read.added_title": "{{n}} yapay zeka önerisi eklendi",
     "takeoff_viewer.plan_read.added_msg": "Bunları çizim üzerinde inceleyin, sonra her birini kabul edin veya reddedin (yapay zeka önerir, siz onaylarsınız).",
     "takeoff_viewer.plan_read.failed": "Yapay zeka ile plan okuma başarısız",

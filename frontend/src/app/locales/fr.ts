@@ -18705,6 +18705,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "Téléversez d'abord ce PDF dans un projet, puis ouvrez-le depuis la liste des documents pour le lire avec l'IA.",
     "takeoff_viewer.plan_read.needs_upload_title": "La lecture de plan par IA nécessite un plan téléversé",
     "takeoff_viewer.plan_read.none_msg": "Le modèle n'a rien trouvé d'assez net à suggérer sur cette page.",
+    "takeoff_viewer.plan_read.scale_dropped_title": "L'échelle de la page semble incorrecte",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "L'étalonnage actuel implique une taille de page impossible, les pièces proposées sont donc restées sans surfaces. Réétalonnez l'échelle et relancez la lecture du plan.",
     "takeoff_viewer.plan_read.none_title": "Aucune pièce détectée",
     "takeoff_viewer.plan_read.reason_cost_cap": "Cette exécution dépasserait votre plafond de dépenses IA. Augmentez le plafond ou attendez le renouvellement de la fenêtre.",
     "takeoff_viewer.plan_read.reason_pdf_not_on_disk": "Le PDF stocké pour ce document n'est plus sur le disque. Téléversez-le à nouveau pour le lire avec l'IA.",

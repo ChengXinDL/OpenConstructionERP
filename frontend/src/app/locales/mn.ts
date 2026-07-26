@@ -18812,6 +18812,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "Эхлээд энэ PDF-ийг төсөлд байршуулж, дараа нь баримтын жагсаалтаас нээж AI-аар уншуулна уу.",
     "takeoff_viewer.plan_read.none_title": "Өрөө илрээгүй",
     "takeoff_viewer.plan_read.none_msg": "Загвар энэ хуудсанд санал болгоход хангалттай тодорхой зүйл олсонгүй.",
+    "takeoff_viewer.plan_read.scale_dropped_title": "Хуудасны масштаб буруу байх шиг байна",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "Одоогийн тохируулга боломжгүй хуудасны хэмжээ гаргаж байгаа тул санал болгосон өрөөнүүд талбайгүй үлдлээ. Масштабыг дахин тохируулаад төлөвлөгөө уншихыг дахин ажиллуулна уу.",
     "takeoff_viewer.plan_read.added_title": "{{n}} AI санал нэмэгдлээ",
     "takeoff_viewer.plan_read.added_msg": "Тэдгээрийг зураг дээр хянаад тус бүрийг нь зөвшөөрөх эсвэл татгалзана уу (AI санал болгож, та баталгаажуулна).",
     "takeoff_viewer.plan_read.failed": "AI-аар төлөвлөгөө унших амжилтгүй боллоо",

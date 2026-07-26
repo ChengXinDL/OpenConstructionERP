@@ -18806,6 +18806,8 @@ const resource = {
     "takeoff_viewer.plan_read.needs_upload_msg": "Ladda först upp denna PDF till ett projekt och öppna den sedan från dokumentlistan för att läsa den med AI.",
     "takeoff_viewer.plan_read.none_title": "Inga rum hittades",
     "takeoff_viewer.plan_read.none_msg": "Modellen hittade inget tillräckligt tydligt att föreslå på denna sida.",
+    "takeoff_viewer.plan_read.scale_dropped_title": "Sidans skala ser fel ut",
+    "takeoff_viewer.plan_read.scale_dropped_msg": "Den aktuella kalibreringen ger en omöjlig sidstorlek, så de föreslagna rummen blev utan areor. Kalibrera skalan igen och kör planläsningen på nytt.",
     "takeoff_viewer.plan_read.added_title": "{{n}} AI-förslag tillagda",
     "takeoff_viewer.plan_read.added_msg": "Granska dem på ritningen och acceptera eller avvisa sedan var och en (AI föreslår, du bekräftar).",
     "takeoff_viewer.plan_read.failed": "AI-ritningsläsning misslyckades",
