@@ -1,11 +1,17 @@
 // DDC-CWICR-OE: DataDrivenConstruction - OpenConstructionERP
 // Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { Fragment, useMemo, useState, useCallback, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import {
   ClipboardCheck,
+  ClipboardList,
+  ListChecks,
+  Gauge,
+  Network,
+  ArrowRight,
   Plus,
   X,
   ChevronRight,
@@ -23,11 +29,14 @@ import {
   Button,
   Card,
   Badge,
+  CollapsibleSection,
   EmptyState,
   SkeletonTable,
   ConfirmDialog,
 } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildCommissioningInsights } from './commissioningInsights';
 import { RequiresProject } from '@/shared/auth/RequiresProject';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { apiGet } from '@/shared/lib/api';
@@ -1034,6 +1043,117 @@ function CreateSystemModal({
 
 /* ── Stat card ─────────────────────────────────────────────────────────── */
 
+function ModLink({ to, children }: { to: string; children: ReactNode }) {
+  return (
+    <Link to={to} className="font-medium text-oe-blue-text hover:underline">
+      {children}
+    </Link>
+  );
+}
+
+/**
+ * One-glance explainer: what commissioning is for and how it connects.
+ *
+ * Readiness is the number people misread most often - it is the share of
+ * applicable checks passed, not a guess at how finished a system looks - so
+ * step four says what it is a percentage of.
+ */
+function HowCommissioningWorks() {
+  const { t } = useTranslation();
+
+  const steps: { icon: ReactNode; title: string; desc: string }[] = [
+    {
+      icon: <ClipboardList size={14} className="text-oe-blue" />,
+      title: t('commissioning.flow_1_title', { defaultValue: 'Register systems' }),
+      desc: t('commissioning.flow_1_desc', {
+        defaultValue:
+          'List every system to be commissioned with its type and location, so nothing turns up unclaimed at handover.',
+      }),
+    },
+    {
+      icon: <ListChecks size={14} className="text-oe-blue" />,
+      title: t('commissioning.flow_2_title', { defaultValue: 'Run the checks' }),
+      desc: t('commissioning.flow_2_desc', {
+        defaultValue:
+          'Work the pre-functional list first, then the functional tests, recording each check as passed, failed or not applicable.',
+      }),
+    },
+    {
+      icon: <AlertTriangle size={14} className="text-oe-blue" />,
+      title: t('commissioning.flow_3_title', { defaultValue: 'Raise issues' }),
+      desc: t('commissioning.flow_3_desc', {
+        defaultValue:
+          'A failed check becomes an issue with a severity and an owner, so it is closed out and retested rather than forgotten.',
+      }),
+    },
+    {
+      icon: <Gauge size={14} className="text-oe-blue" />,
+      title: t('commissioning.flow_4_title', { defaultValue: 'Reach readiness' }),
+      desc: t('commissioning.flow_4_desc', {
+        defaultValue:
+          'Readiness is the share of applicable checks passed. A system at 100 percent with no open critical issue is ready to commission.',
+      }),
+    },
+  ];
+
+  return (
+    <CollapsibleSection
+      storageKey="commissioning.how"
+      icon={<Network size={15} className="text-oe-blue" />}
+      title={t('commissioning.flow_title', { defaultValue: 'How Commissioning fits together' })}
+    >
+      <p className="text-xs text-content-tertiary">
+        {t('commissioning.flow_intro', {
+          defaultValue:
+            'Prove that what was built actually works before anyone signs for it: register the systems, check each one against a pre-functional and then a functional list, raise an issue wherever a check fails, and watch readiness climb until the system can be handed over.',
+        })}
+      </p>
+
+      <ol className="mt-3 flex flex-col gap-2 lg:flex-row lg:items-stretch">
+        {steps.map((s, i) => (
+          <Fragment key={s.title}>
+            <li className="flex-1 rounded-lg border border-border-light bg-surface-secondary/40 p-3">
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-oe-blue-subtle text-2xs font-bold text-oe-blue-text">
+                  {i + 1}
+                </span>
+                <span className="flex items-center gap-1 text-xs font-semibold text-content-primary">
+                  {s.icon}
+                  {s.title}
+                </span>
+              </div>
+              <p className="mt-1.5 text-2xs leading-relaxed text-content-tertiary">{s.desc}</p>
+            </li>
+            {i < steps.length - 1 && (
+              <li
+                aria-hidden="true"
+                className="hidden shrink-0 items-center self-center text-content-quaternary lg:flex"
+              >
+                <ArrowRight size={16} />
+              </li>
+            )}
+          </Fragment>
+        ))}
+      </ol>
+
+      <div className="mt-3 flex flex-col gap-1.5 border-t border-border-light pt-3 text-2xs text-content-tertiary sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-1">
+        <span>
+          <span className="font-medium text-content-secondary">
+            {t('commissioning.flow_connects', { defaultValue: 'Connects with:' })}
+          </span>{' '}
+          <ModLink to="/punchlist">
+            {t('commissioning.mod_punchlist', { defaultValue: 'Punch list' })}
+          </ModLink>{' '}
+          · <ModLink to="/qms">{t('commissioning.mod_qms', { defaultValue: 'Quality' })}</ModLink> ·{' '}
+          <ModLink to="/closeout">
+            {t('commissioning.mod_closeout', { defaultValue: 'Handover' })}
+          </ModLink>
+        </span>
+      </div>
+    </CollapsibleSection>
+  );
+}
+
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="flex flex-col rounded-xl border border-border-light bg-surface-elevated/90 p-3 shadow-xs">
@@ -1081,6 +1201,12 @@ export function CommissioningPage() {
     queryFn: () => fetchCxStats(projectId),
     enabled: !!projectId,
   });
+
+  const insights = useModuleInsights('commissioning', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildCommissioningInsights(systems, t),
+    [systems, t],
+  );
 
   const invalidateAll = useCallback(() => {
     qc.invalidateQueries({ queryKey: ['cx-systems'] });
@@ -1227,6 +1353,7 @@ export function CommissioningPage() {
         })}
         actions={
           <div className="flex items-center gap-2">
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             {systems.length > 0 && (
               <Button
                 variant="secondary"
@@ -1262,6 +1389,19 @@ export function CommissioningPage() {
           </div>
         }
       />
+
+      <InsightsPanel
+        open={insights.open}
+        title={t('commissioning.insights.title', { defaultValue: 'Commissioning insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
+      />
+
+      <HowCommissioningWorks />
 
       {projectId && stats && stats.total_systems > 0 && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -1311,8 +1451,9 @@ export function CommissioningPage() {
               ? t('commissioning.no_results', { defaultValue: 'No systems in this state' })
               : t('commissioning.no_systems', { defaultValue: 'No systems yet' })
           }
-          description={t('commissioning.no_systems_hint', {
-            defaultValue: 'Add each commissionable system, then build its functional checklist.',
+          description={t('commissioning.empty_hint', {
+            defaultValue:
+              'Add a system on the Systems tab, then attach a pre-functional or functional checklist to it. Readiness starts counting from the first check you record.',
           })}
           action={
             !statusFilter
