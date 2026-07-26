@@ -14425,6 +14425,7 @@ const resource = {
     "dwg_takeoff.snap_menu": "Режими на прихващане",
     "dwg_takeoff.undo_aria": "Отмени",
     "errors.timeout_title": "Заявката изтече",
+    "errors.query_failed_title": "Данните не можаха да бъдат заредени",
     "files.detail.size_converted_artifact": "(преобразуван артефакт)",
     "files.detail.size_converted_artifact_hint": "Оригиналният качен файл не е наличен; това е размерът на преобразувания геометричен артефакт.",
     "finance.mixed_currency_converted": "Записите обхващат няколко валути; сумите се преобразуват в {{currency}} по обменните курсове на проекта.",

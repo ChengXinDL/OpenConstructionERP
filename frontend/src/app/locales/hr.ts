@@ -14964,6 +14964,7 @@ const resource = {
     "dwg_takeoff.snap_menu": "Načini hvatanja",
     "dwg_takeoff.undo_aria": "Poništi",
     "errors.timeout_title": "Isteklo vrijeme zahtjeva",
+    "errors.query_failed_title": "Podatke nije bilo moguće učitati",
     "files.detail.size_converted_artifact": "(konvertirani artefakt)",
     "files.detail.size_converted_artifact_hint": "Izvorna učitana datoteka nije dostupna; ovo je veličina konvertiranog geometrijskog artefakta.",
     "finance.mixed_currency_converted": "Zapisi obuhvaćaju više valuta; ukupni iznosi konvertirani su u {{currency}} koristeći tečajeve projekta.",

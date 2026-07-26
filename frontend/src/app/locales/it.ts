@@ -14517,6 +14517,7 @@ const resource = {
     "dwg_takeoff.snap_menu": "Modalità di aggancio",
     "dwg_takeoff.undo_aria": "Annulla",
     "errors.timeout_title": "Richiesta scaduta",
+    "errors.query_failed_title": "Impossibile caricare i dati",
     "files.detail.size_converted_artifact": "(artefatto convertito)",
     "files.detail.size_converted_artifact_hint": "Il file di origine originale non è disponibile; questa è la dimensione dell'artefatto geometrico convertito.",
     "finance.mixed_currency_converted": "I record utilizzano più valute; i totali sono convertiti in {{currency}} utilizzando i tassi di cambio del progetto.",

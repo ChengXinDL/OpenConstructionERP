@@ -15043,6 +15043,7 @@ const resource = {
     "dwg_takeoff.snap_menu": "Tarttumistilat",
     "dwg_takeoff.undo_aria": "Kumoa",
     "errors.timeout_title": "Pyyntö aikakatkaistiin",
+    "errors.query_failed_title": "Tietoja ei voitu ladata",
     "files.detail.size_converted_artifact": "(muunnettu artefakti)",
     "files.detail.size_converted_artifact_hint": "Alkuperäistä lähdetiedostoa ei ole saatavilla; tämä on muunnetun geometria-artefaktin koko.",
     "finance.mixed_currency_converted": "Tietueet kattavat useita valuuttoja; summat muunnetaan valuuttaan {{currency}} projektin valuuttakursseilla.",

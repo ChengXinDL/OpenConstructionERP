@@ -15125,6 +15125,7 @@ const resource = {
     "dwg_takeoff.snap_menu": "Залгах горимууд",
     "dwg_takeoff.undo_aria": "Буцаах",
     "errors.timeout_title": "Хүсэлтийн хугацаа дууссан",
+    "errors.query_failed_title": "Өгөгдлийг ачаалж чадсангүй",
     "files.detail.size_converted_artifact": "(хөрвүүлсэн артефакт)",
     "files.detail.size_converted_artifact_hint": "Анхны эх файл байхгүй; энэ нь хөрвүүлсэн геометрийн артефактын хэмжээ юм.",
     "finance.mixed_currency_converted": "Бичлэгүүд олон валют хамардаг; нийт дүнг төслийн ханшаар {{currency}} руу хөрвүүлсэн.",

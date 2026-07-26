@@ -15189,6 +15189,7 @@ const resource = {
     "dwg_takeoff.snap_menu": "Режимы привязки",
     "dwg_takeoff.undo_aria": "Отменить",
     "errors.timeout_title": "Истекло время ожидания запроса",
+    "errors.query_failed_title": "Не удалось загрузить данные",
     "files.detail.size_converted_artifact": "(конвертированный артефакт)",
     "files.detail.size_converted_artifact_hint": "Исходный загруженный файл недоступен; это размер конвертированного геометрического артефакта.",
     "finance.mixed_currency_converted": "Записи охватывают несколько валют; итоги конвертированы в {{currency}} по проектным курсам обмена.",

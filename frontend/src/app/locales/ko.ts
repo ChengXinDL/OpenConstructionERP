@@ -15128,6 +15128,7 @@ const resource = {
     "dwg_takeoff.snap_menu": "스냅 모드",
     "dwg_takeoff.undo_aria": "실행 취소",
     "errors.timeout_title": "요청 시간이 초과되었습니다",
+    "errors.query_failed_title": "데이터를 불러오지 못했습니다",
     "files.detail.size_converted_artifact": "(변환된 산출물)",
     "files.detail.size_converted_artifact_hint": "원본 업로드 파일을 사용할 수 없습니다. 이것은 변환된 지오메트리 산출물의 크기입니다.",
     "finance.mixed_currency_converted": "기록이 여러 통화에 걸쳐 있어 프로젝트 환율을 사용하여 합계를 {{currency}}(으)로 변환합니다.",

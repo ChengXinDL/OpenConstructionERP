@@ -14963,6 +14963,7 @@ const resource = {
     "dwg_takeoff.snap_menu": "Režimy přichytávání",
     "dwg_takeoff.undo_aria": "Zpět",
     "errors.timeout_title": "Vypršel časový limit požadavku",
+    "errors.query_failed_title": "Data se nepodařilo načíst",
     "files.detail.size_converted_artifact": "(konvertovaný artefakt)",
     "files.detail.size_converted_artifact_hint": "Původní zdrojový nahraný soubor není k dispozici; toto je velikost konvertovaného geometrického artefaktu.",
     "finance.mixed_currency_converted": "Záznamy zahrnují více měn; součty jsou převedeny na {{currency}} pomocí kurzů projektu.",

@@ -15141,6 +15141,7 @@ const resource = {
     "dwg_takeoff.snap_menu": "スナップモード",
     "dwg_takeoff.undo_aria": "元に戻す",
     "errors.timeout_title": "リクエストがタイムアウトしました",
+    "errors.query_failed_title": "データを読み込めませんでした",
     "files.detail.size_converted_artifact": "（変換後の成果物）",
     "files.detail.size_converted_artifact_hint": "元のアップロード済みソースは利用できません。これは変換後のジオメトリ成果物のサイズです。",
     "finance.mixed_currency_converted": "レコードは複数の通貨にまたがっています。合計はプロジェクトの為替レートを使用して {{currency}} に換算されます。",

@@ -14285,6 +14285,7 @@ const resource = {
     "dwg_takeoff.snap_menu": "Modes d'accrochage",
     "dwg_takeoff.undo_aria": "Annuler",
     "errors.timeout_title": "Délai de la requête dépassé",
+    "errors.query_failed_title": "Impossible de charger les données",
     "files.detail.size_converted_artifact": "(artefact converti)",
     "files.detail.size_converted_artifact_hint": "Le fichier source d'origine n'est pas disponible ; il s'agit de la taille de l'artefact géométrique converti.",
     "finance.mixed_currency_converted": "Les enregistrements couvrent plusieurs devises ; les totaux sont convertis en {{currency}} à l'aide des taux de change du projet.",

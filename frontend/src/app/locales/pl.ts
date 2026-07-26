@@ -14966,6 +14966,7 @@ const resource = {
     "dwg_takeoff.snap_menu": "Tryby przyciągania",
     "dwg_takeoff.undo_aria": "Cofnij",
     "errors.timeout_title": "Przekroczono limit czasu żądania",
+    "errors.query_failed_title": "Nie udało się wczytać danych",
     "files.detail.size_converted_artifact": "(skonwertowany artefakt)",
     "files.detail.size_converted_artifact_hint": "Oryginalnie przesłany plik źródłowy jest niedostępny; to jest rozmiar skonwertowanego artefaktu geometrii.",
     "finance.mixed_currency_converted": "Rekordy obejmują wiele walut; sumy są przeliczane na {{currency}} przy użyciu kursów wymiany projektu.",

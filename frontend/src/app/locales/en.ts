@@ -12225,6 +12225,7 @@ const resource = {
   "dwg_takeoff.intro_link_boq": "Open BOQ",
   "dwg_takeoff.intro_link_bim": "BIM viewer",
     "errors.timeout_title": "Request timed out",
+    "errors.query_failed_title": "Could not load data",
     "files.detail.size_converted_artifact": "(converted artifact)",
     "files.detail.size_converted_artifact_hint": "The original source upload is unavailable; this is the size of the converted geometry artifact.",
     "finance.mixed_currency_converted": "Records span multiple currencies; totals are converted to {{currency}} using the project exchange rates.",

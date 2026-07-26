@@ -15117,6 +15117,7 @@ const resource = {
     "dwg_takeoff.snap_menu": "Fastgørelsestilstande",
     "dwg_takeoff.undo_aria": "Fortryd",
     "errors.timeout_title": "Forespørgslen fik timeout",
+    "errors.query_failed_title": "Data kunne ikke indlæses",
     "files.detail.size_converted_artifact": "(konverteret artefakt)",
     "files.detail.size_converted_artifact_hint": "Den oprindelige kildefil er ikke tilgængelig; dette er størrelsen på den konverterede geometriartefakt.",
     "finance.mixed_currency_converted": "Posterne spænder over flere valutaer; totaler er konverteret til {{currency}} ved hjælp af projektets vekselkurser.",

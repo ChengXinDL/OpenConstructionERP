@@ -15130,6 +15130,7 @@ const resource = {
     "dwg_takeoff.snap_menu": "捕捉模式",
     "dwg_takeoff.undo_aria": "撤销",
     "errors.timeout_title": "请求超时",
+    "errors.query_failed_title": "无法加载数据",
     "files.detail.size_converted_artifact": "（转换产物）",
     "files.detail.size_converted_artifact_hint": "原始上传文件不可用；此处显示的是转换后几何产物的大小。",
     "finance.mixed_currency_converted": "记录涉及多种货币；总额已使用项目汇率换算为 {{currency}}。",

@@ -15019,6 +15019,7 @@ const resource = {
     "dwg_takeoff.snap_menu": "Moduri de fixare",
     "dwg_takeoff.undo_aria": "Anulează",
     "errors.timeout_title": "Cererea a expirat",
+    "errors.query_failed_title": "Datele nu au putut fi încărcate",
     "files.detail.size_converted_artifact": "(artefact convertit)",
     "files.detail.size_converted_artifact_hint": "Încărcarea sursă originală nu este disponibilă; aceasta este dimensiunea artefactului de geometrie convertit.",
     "finance.mixed_currency_converted": "Înregistrările cuprind mai multe monede; totalurile sunt convertite în {{currency}} folosind cursurile de schimb ale proiectului.",

@@ -15276,6 +15276,7 @@ const resource = {
     "dwg_takeoff.snap_menu": "أوضاع الالتقاط",
     "dwg_takeoff.undo_aria": "تراجع",
     "errors.timeout_title": "انتهت مهلة الطلب",
+    "errors.query_failed_title": "تعذّر تحميل البيانات",
     "files.detail.size_converted_artifact": "(ناتج محوَّل)",
     "files.detail.size_converted_artifact_hint": "الملف المصدر الأصلي غير متاح؛ هذا هو حجم ناتج الهندسة المحوَّل.",
     "finance.mixed_currency_converted": "تشمل السجلات عملات متعددة؛ تُحوَّل الإجماليات إلى {{currency}} باستخدام أسعار صرف المشروع.",

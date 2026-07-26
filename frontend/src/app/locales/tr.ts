@@ -15053,6 +15053,7 @@ const resource = {
     "dwg_takeoff.snap_menu": "Yapışma modları",
     "dwg_takeoff.undo_aria": "Geri al",
     "errors.timeout_title": "İstek zaman aşımına uğradı",
+    "errors.query_failed_title": "Veriler yüklenemedi",
     "files.detail.size_converted_artifact": "(dönüştürülmüş çıktı)",
     "files.detail.size_converted_artifact_hint": "Orijinal kaynak yükleme mevcut değil; bu, dönüştürülen geometri çıktısının boyutudur.",
     "finance.mixed_currency_converted": "Kayıtlar birden fazla para birimi içeriyor; toplamlar proje döviz kurları kullanılarak {{currency}} para birimine dönüştürülür.",

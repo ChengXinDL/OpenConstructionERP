@@ -11437,6 +11437,7 @@ const resource = {
   "dwg_takeoff.intro_link_boq": "BOQ ачуу",
   "dwg_takeoff.intro_link_bim": "BIM көрүүчү",
     "errors.timeout_title": "Суроо мөөнөтү бүттү",
+    "errors.query_failed_title": "Маалыматтарды жүктөө мүмкүн болгон жок",
     "files.detail.size_converted_artifact": "(конвертирленген артефакт)",
     "files.detail.size_converted_artifact_hint": "Оригиналдуу булак жүктөмү жеткиликсиз; бул конвертирленген геометрия артефактынын өлчөмү.",
     "finance.mixed_currency_converted": "Жазуулар бир нече валютаны камтыйт; суммалар долбоордун алмашуу курстары боюнча {{currency}}'ге которулду.",

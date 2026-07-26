@@ -14478,6 +14478,7 @@ const resource = {
     "dwg_takeoff.snap_menu": "Snapmodi",
     "dwg_takeoff.undo_aria": "Ongedaan maken",
     "errors.timeout_title": "Time-out van verzoek",
+    "errors.query_failed_title": "Gegevens konden niet worden geladen",
     "files.detail.size_converted_artifact": "(geconverteerd artefact)",
     "files.detail.size_converted_artifact_hint": "De originele bronupload is niet beschikbaar; dit is de grootte van het geconverteerde geometrie-artefact.",
     "finance.mixed_currency_converted": "Records omvatten meerdere valuta's; totalen worden omgerekend naar {{currency}} met de wisselkoersen van het project.",

@@ -15044,6 +15044,7 @@ const resource = {
     "dwg_takeoff.snap_menu": "Festemoduser",
     "dwg_takeoff.undo_aria": "Angre",
     "errors.timeout_title": "Forespørselen tidsavbrutt",
+    "errors.query_failed_title": "Kunne ikke laste inn data",
     "files.detail.size_converted_artifact": "(konvertert artefakt)",
     "files.detail.size_converted_artifact_hint": "Den opprinnelige kildefilen er ikke tilgjengelig; dette er størrelsen på den konverterte geometriartefakten.",
     "finance.mixed_currency_converted": "Postene spenner over flere valutaer; summene konverteres til {{currency}} ved hjelp av prosjektets vekslingskurser.",

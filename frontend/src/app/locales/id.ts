@@ -15056,6 +15056,7 @@ const resource = {
     "dwg_takeoff.snap_menu": "Mode snap",
     "dwg_takeoff.undo_aria": "Urungkan",
     "errors.timeout_title": "Permintaan kehabisan waktu",
+    "errors.query_failed_title": "Data tidak dapat dimuat",
     "files.detail.size_converted_artifact": "(artefak terkonversi)",
     "files.detail.size_converted_artifact_hint": "Unggahan sumber asli tidak tersedia; ini adalah ukuran artefak geometri yang telah dikonversi.",
     "finance.mixed_currency_converted": "Catatan mencakup beberapa mata uang; total dikonversi ke {{currency}} menggunakan kurs proyek.",

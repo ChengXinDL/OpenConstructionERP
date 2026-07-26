@@ -15060,6 +15060,7 @@ const resource = {
     "dwg_takeoff.snap_menu": "Chế độ bắt điểm",
     "dwg_takeoff.undo_aria": "Hoàn tác",
     "errors.timeout_title": "Yêu cầu đã hết thời gian chờ",
+    "errors.query_failed_title": "Không thể tải dữ liệu",
     "files.detail.size_converted_artifact": "(sản phẩm đã chuyển đổi)",
     "files.detail.size_converted_artifact_hint": "Tệp nguồn gốc tải lên không khả dụng; đây là dung lượng của sản phẩm hình học đã chuyển đổi.",
     "finance.mixed_currency_converted": "Các bản ghi dùng nhiều loại tiền tệ; tổng được quy đổi sang {{currency}} theo tỷ giá hối đoái của dự án.",

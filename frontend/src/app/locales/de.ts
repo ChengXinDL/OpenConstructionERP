@@ -14570,6 +14570,7 @@ const resource = {
     "dwg_takeoff.snap_menu": "Fangmodi",
     "dwg_takeoff.undo_aria": "Rückgängig",
     "errors.timeout_title": "Zeitüberschreitung der Anfrage",
+    "errors.query_failed_title": "Daten konnten nicht geladen werden",
     "files.detail.size_converted_artifact": "(konvertiertes Artefakt)",
     "files.detail.size_converted_artifact_hint": "Der ursprüngliche Quell-Upload ist nicht verfügbar; dies ist die Größe des konvertierten Geometrie-Artefakts.",
     "finance.mixed_currency_converted": "Die Datensätze umfassen mehrere Währungen; die Summen werden anhand der Projekt-Wechselkurse in {{currency}} umgerechnet.",

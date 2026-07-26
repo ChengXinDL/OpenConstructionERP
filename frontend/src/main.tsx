@@ -1,9 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { QueryClient, QueryClientProvider, MutationCache } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, MutationCache, QueryCache } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 import App from './app/App';
 import { useToastStore } from '@/stores/useToastStore';
+import { notifyQueryError } from '@/shared/lib/queryErrorToast';
 import './app/i18n';
 import './index.css';
 
@@ -43,6 +44,13 @@ const queryClient = new QueryClient({
       retry: 0,
     },
   },
+  // Queries had no global error handling at all, so a request that came back
+  // with nothing showed as an empty screen: components read `data ?? []` and
+  // render the same table for "no rows" and "no answer". The handler decides
+  // what is worth saying; see `queryErrorToast.ts` for what it stays quiet on.
+  queryCache: new QueryCache({
+    onError: (error, query) => notifyQueryError(error, query),
+  }),
   mutationCache: new MutationCache({
     onSuccess: (_data, _variables, _context, mutation) => {
       // Global: after ANY successful mutation, invalidate related queries

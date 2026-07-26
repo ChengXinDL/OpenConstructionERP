@@ -15117,6 +15117,7 @@ const resource = {
     "dwg_takeoff.snap_menu": "Fästlägen",
     "dwg_takeoff.undo_aria": "Ångra",
     "errors.timeout_title": "Begäran tog för lång tid",
+    "errors.query_failed_title": "Det gick inte att läsa in data",
     "files.detail.size_converted_artifact": "(konverterad artefakt)",
     "files.detail.size_converted_artifact_hint": "Den ursprungliga källuppladdningen är inte tillgänglig; detta är storleken på den konverterade geometriartefakten.",
     "finance.mixed_currency_converted": "Posterna omfattar flera valutor; summorna konverteras till {{currency}} med projektets växelkurser.",
