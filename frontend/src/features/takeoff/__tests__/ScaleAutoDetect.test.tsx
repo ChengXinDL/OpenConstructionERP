@@ -2,18 +2,25 @@
 // Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
 /**
  * Tests for the self-contained scale auto-detect widget:
- *   1. While the detect request is in flight it shows a "checking" line.
+ *   1. While the detect request is in flight the widget paints nothing.
  *   2. When a scale is found it shows "Detected scale: 1:100" + evidence and a
  *      "Use this" button that calls onApply with the canonical preset scale.
  *   3. A candidate on the current page is preferred over the document-wide best.
- *   4. A null best -> "no scale detected" (quiet, never blocks the host).
- *   5. A fetch error -> "no scale detected" and never throws.
- *   6. A disabled module (null response) -> "no scale detected".
+ *   4. A null best paints nothing (quiet, never blocks the host).
+ *   5. A fetch error paints nothing and never throws.
+ *   6. A disabled module (null response) paints nothing.
+ *
+ * Cases 1, 4, 5 and 6 used to assert a "checking" line and a "no scale
+ * detected" line. Issue #387 removed both: neither offered an action, and
+ * together they held a strip under the toolbar on every uncalibrated page.
+ * The tests kept looking for the deleted markers and had been failing since,
+ * which is the more expensive half of that change - a red suite stops being
+ * read. They now assert the behaviour the component actually has.
  */
 
 // @ts-nocheck
 import { describe, it, expect, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ScaleAutoDetect } from '../components/ScaleAutoDetect';
 import { takeoffApi } from '../api';
 import { presetScale } from '../../../modules/pdf-takeoff/data/scale-helpers';
@@ -32,10 +39,14 @@ function candidate(over = {}) {
 }
 
 describe('ScaleAutoDetect', () => {
-  it('shows a checking state while detection is in flight', () => {
+  it('renders nothing while detection is in flight', () => {
     vi.spyOn(takeoffApi, 'detectScale').mockReturnValue(new Promise(() => {}));
-    render(<ScaleAutoDetect documentId="doc-1" pageNumber={1} onApply={vi.fn()} />);
-    expect(screen.getByTestId('scale-autodetect-loading')).toBeTruthy();
+    const { container } = render(<ScaleAutoDetect documentId="doc-1" pageNumber={1} onApply={vi.fn()} />);
+    // Issue #387 removed the "checking" line: a state that offers no action
+    // was holding a strip under the toolbar on every uncalibrated page. The
+    // assertion is on the whole container rather than one testid so that
+    // bringing any placeholder back is caught, whatever it is called.
+    expect(container.innerHTML).toBe('');
   });
 
   it('shows the detected scale and applies the canonical preset on click', async () => {
@@ -78,27 +89,48 @@ describe('ScaleAutoDetect', () => {
     expect(scale.pixelsPerUnit).toBeCloseTo(presetScale(20).pixelsPerUnit, 6);
   });
 
-  it('shows the quiet none state when no scale is detected', async () => {
-    vi.spyOn(takeoffApi, 'detectScale').mockResolvedValue({
+  /** Settle the detect promise and whatever state it sets.
+   *
+   *  An empty result paints nothing both before and after the request
+   *  resolves, so asserting on an unsettled component would pass for the
+   *  wrong reason. Waiting for the call and then flushing the microtask the
+   *  resolution schedules is what makes these assertions about the finished
+   *  state rather than about a component that has not answered yet.
+   */
+  async function settle(spy) {
+    await waitFor(() => expect(spy).toHaveBeenCalled());
+    await act(async () => {
+      await Promise.resolve();
+    });
+  }
+
+  it('paints nothing when no scale is detected', async () => {
+    const spy = vi.spyOn(takeoffApi, 'detectScale').mockResolvedValue({
       best: null,
       candidates: [],
       source: 'text_layer',
     });
-    render(<ScaleAutoDetect documentId="doc-1" onApply={vi.fn()} />);
-    await screen.findByTestId('scale-autodetect-none');
+    const { container } = render(<ScaleAutoDetect documentId="doc-1" onApply={vi.fn()} />);
+    await settle(spy);
+    expect(container.innerHTML).toBe('');
     expect(screen.queryByTestId('scale-autodetect-found')).toBeNull();
   });
 
-  it('degrades to the none state (no throw) when detection fails', async () => {
-    vi.spyOn(takeoffApi, 'detectScale').mockRejectedValue(new Error('network'));
-    render(<ScaleAutoDetect documentId="doc-1" onApply={vi.fn()} />);
-    await waitFor(() => expect(screen.getByTestId('scale-autodetect-none')).toBeTruthy());
+  it('swallows a detection failure instead of surfacing it', async () => {
+    // Auto-detect is a convenience beside the manual calibration control. A
+    // failed probe must not throw into the host or leave an error strip where
+    // the user is trying to work.
+    const spy = vi.spyOn(takeoffApi, 'detectScale').mockRejectedValue(new Error('network'));
+    const { container } = render(<ScaleAutoDetect documentId="doc-1" onApply={vi.fn()} />);
+    await settle(spy);
+    expect(container.innerHTML).toBe('');
   });
 
-  it('shows the none state when the module is disabled (null response)', async () => {
-    vi.spyOn(takeoffApi, 'detectScale').mockResolvedValue(null);
-    render(<ScaleAutoDetect documentId="doc-1" onApply={vi.fn()} />);
-    await screen.findByTestId('scale-autodetect-none');
+  it('paints nothing when the module is disabled (null response)', async () => {
+    const spy = vi.spyOn(takeoffApi, 'detectScale').mockResolvedValue(null);
+    const { container } = render(<ScaleAutoDetect documentId="doc-1" onApply={vi.fn()} />);
+    await settle(spy);
+    expect(container.innerHTML).toBe('');
   });
 
   it('does not call onApply for an invalid detected ratio', async () => {
