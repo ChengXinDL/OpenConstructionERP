@@ -55,6 +55,7 @@ Manager / ``pkill qdrant``.
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import logging
 import platform
@@ -64,6 +65,7 @@ import sys
 import tarfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 from dataclasses import dataclass
@@ -155,6 +157,53 @@ def find_qdrant_binary() -> Path | None:
     return None
 
 
+# A probe of a process on this machine must never traverse an HTTP proxy.
+# ``urllib.request.urlopen`` goes through the default opener, which installs a
+# ``ProxyHandler`` seeded from the environment, and on POSIX the bypass check
+# consults ``no_proxy`` alone - loopback is not exempt on its own. A machine
+# with ``http_proxy`` set and no loopback entry therefore sent this probe to
+# the proxy, which refused it, and the vector-database card concluded Qdrant
+# was not installed and offered to download it while Qdrant was running the
+# whole time. Downloads in ``install_qdrant_native`` deliberately keep the
+# default opener: GitHub Releases is a genuinely remote host.
+_DIRECT_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
+def _is_loopback(url: str) -> bool:
+    """Return ``True`` when ``url`` names this machine.
+
+    Literal addresses are classified by :mod:`ipaddress`, which covers all of
+    ``127.0.0.0/8`` and ``::1``. Only the name ``localhost`` is trusted without
+    resolution: looking up an arbitrary host would turn a 1.5 s health probe
+    into a DNS round trip, and a deployment that points ``QDRANT_URL`` at a
+    remote Qdrant behind a proxy still wants the proxy.
+    """
+
+    host = urllib.parse.urlsplit(url).hostname or ""
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def _probe_once(target: str, timeout_s: float, *, direct: bool) -> bool:
+    """One ``GET``; ``True`` on 2xx, ``False`` on any transport or HTTP error.
+
+    ``HTTPError`` subclasses ``URLError``, so a 4xx or 5xx lands in the same
+    branch as an unreachable port and the caller moves on to its fallback.
+    """
+
+    req = urllib.request.Request(target, method="GET")  # noqa: S310 - fixed http(s) URL from config
+    opener = _DIRECT_OPENER.open if direct else urllib.request.urlopen
+    try:
+        with opener(req, timeout=timeout_s) as resp:
+            return 200 <= resp.status < 300
+    except (urllib.error.URLError, TimeoutError, ConnectionError, OSError):
+        return False
+
+
 def probe_qdrant(url: str, *, timeout_s: float = 1.5) -> bool:
     """Return ``True`` if Qdrant answers ``GET /readyz`` quickly.
 
@@ -167,21 +216,13 @@ def probe_qdrant(url: str, *, timeout_s: float = 1.5) -> bool:
 
     if not url:
         return False
-    target = url.rstrip("/") + "/readyz"
-    try:
-        req = urllib.request.Request(target, method="GET")
-        with urllib.request.urlopen(req, timeout=timeout_s) as resp:
-            return 200 <= resp.status < 300
-    except (urllib.error.URLError, TimeoutError, ConnectionError, OSError):
-        pass
+    base = url.rstrip("/")
+    direct = _is_loopback(url)
+    if _probe_once(base + "/readyz", timeout_s, direct=direct):
+        return True
     # Some older builds return 4xx on /readyz before collections mount;
     # fall back to the root endpoint which always responds.
-    try:
-        req = urllib.request.Request(url.rstrip("/") + "/", method="GET")
-        with urllib.request.urlopen(req, timeout=timeout_s) as resp:
-            return 200 <= resp.status < 300
-    except (urllib.error.URLError, TimeoutError, ConnectionError, OSError):
-        return False
+    return _probe_once(base + "/", timeout_s, direct=direct)
 
 
 def _write_default_config() -> Path:
