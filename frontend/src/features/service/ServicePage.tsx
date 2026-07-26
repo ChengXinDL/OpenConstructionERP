@@ -38,6 +38,8 @@ import {
   ModuleGuideButton,
 } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildServiceInsights } from './serviceInsights';
 import { UserSearchInput } from '@/shared/ui/UserSearchInput';
 import { DismissibleInfo, IntroRichText } from '@/shared/ui/DismissibleInfo';
 import { MoneyDisplay } from '@/shared/ui/MoneyDisplay';
@@ -92,6 +94,27 @@ const PRIORITY_VARIANT: Record<TicketPriority, 'neutral' | 'blue' | 'success' | 
   high: 'warning',
   critical: 'error',
 };
+
+// The badges used to print the raw enum (`in_progress`, `med`), which reached
+// every language including English. These resolve the same keys the insight
+// panel uses, so a badge and a chart slice never disagree.
+function ticketStatusLabel(
+  status: TicketStatus,
+  t: (k: string, o?: Record<string, unknown>) => string,
+): string {
+  return t(`service.ticket_status_${status}`, {
+    defaultValue: status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' '),
+  });
+}
+
+function priorityLabel(
+  priority: TicketPriority,
+  t: (k: string, o?: Record<string, unknown>) => string,
+): string {
+  return t(`service.priority_${priority}`, {
+    defaultValue: priority.charAt(0).toUpperCase() + priority.slice(1),
+  });
+}
 
 const CONTRACT_STATUS_VARIANT: Record<ContractStatus, 'neutral' | 'blue' | 'success' | 'warning' | 'error'> = {
   draft: 'neutral',
@@ -334,6 +357,15 @@ export function ServicePage() {
     });
   }, [assetsQ.data, search, statusFilter]);
 
+  // Built from the unfiltered ticket list rather than the search result, so the
+  // panel keeps answering "where are the breaches" while somebody narrows the
+  // table down to one ticket.
+  const insights = useModuleInsights('service');
+  const { datasets, builtins } = useMemo(
+    () => buildServiceInsights(ticketsQ.data ?? [], t),
+    [ticketsQ.data, t],
+  );
+
   const isLoading =
     (tab === 'tickets' && ticketsQ.isLoading) ||
     (tab === 'work_orders' && workOrdersQ.isLoading) ||
@@ -376,6 +408,11 @@ export function ServicePage() {
                 -> work order -> billing flow. Leads the action cluster as the
                 help pill and shows on every tab, including Recurring. */}
             <ModuleGuideButton content={serviceGuide} />
+            {/* Only on the tab whose data the panel describes, so the button
+                never opens a panel the user cannot see. */}
+            {tab === 'tickets' && (
+              <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
+            )}
             {tab !== 'recurring' && (
               <Button
                 variant="primary"
@@ -547,11 +584,26 @@ export function ServicePage() {
             }}
           />
         ) : tab === 'tickets' ? (
-          <TicketTable
-            rows={filteredTickets}
-            onSelect={(id) => setSelected({ kind: 'tickets', id })}
-            emptyAction={() => setCreateOpen(true)}
-          />
+          <div className="space-y-4">
+            {/* Inside the tickets tab because that is the tab holding the data
+                it summarises. The explainer above the tab strip stays at page
+                level; this one belongs to the register underneath it. */}
+            <InsightsPanel
+              open={insights.open}
+              title={t('service.insights.title', { defaultValue: 'Service desk insights' })}
+              datasets={datasets}
+              builtins={builtins}
+              custom={insights.custom}
+              onAdd={insights.addCustom}
+              onUpdate={insights.updateCustom}
+              onRemove={insights.removeCustom}
+            />
+            <TicketTable
+              rows={filteredTickets}
+              onSelect={(id) => setSelected({ kind: 'tickets', id })}
+              emptyAction={() => setCreateOpen(true)}
+            />
+          </div>
         ) : tab === 'work_orders' ? (
           <WorkOrderTable
             rows={filteredWOs}
@@ -658,10 +710,12 @@ function TicketTable({
               <td className="px-4 py-2 font-mono text-xs text-content-secondary">{r.ticket_number}</td>
               <td className="px-4 py-2 font-medium text-content-primary truncate max-w-[360px]">{r.title}</td>
               <td className="px-4 py-2">
-                <Badge variant={PRIORITY_VARIANT[r.priority]}>{r.priority}</Badge>
+                <Badge variant={PRIORITY_VARIANT[r.priority]}>{priorityLabel(r.priority, t)}</Badge>
               </td>
               <td className="px-4 py-2">
-                <Badge variant={TICKET_STATUS_VARIANT[r.status]} dot>{r.status}</Badge>
+                <Badge variant={TICKET_STATUS_VARIANT[r.status]} dot>
+                  {ticketStatusLabel(r.status, t)}
+                </Badge>
               </td>
               <td className="px-4 py-2">
                 {chip ? (
@@ -1145,8 +1199,8 @@ function DetailDrawer({
                 <p className="mt-1 text-sm text-content-secondary whitespace-pre-wrap">{ticket.description}</p>
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <Field label={t('service.priority')} value={<Badge variant={PRIORITY_VARIANT[ticket.priority]}>{ticket.priority}</Badge>} />
-                <Field label={t('service.status')} value={<Badge variant={TICKET_STATUS_VARIANT[ticket.status]} dot>{ticket.status}</Badge>} />
+                <Field label={t('service.priority')} value={<Badge variant={PRIORITY_VARIANT[ticket.priority]}>{priorityLabel(ticket.priority, t)}</Badge>} />
+                <Field label={t('service.status')} value={<Badge variant={TICKET_STATUS_VARIANT[ticket.status]} dot>{ticketStatusLabel(ticket.status, t)}</Badge>} />
                 <Field label={t('service.reported_at')} value={<DateDisplay value={ticket.reported_at} />} />
                 <Field label={t('service.assigned_to', { defaultValue: 'Assigned to' })} value={resolveUserName(ticket.assigned_to) || '—'} />
                 <Field label={t('service.sla_due', { defaultValue: 'SLA due' })} value={ticket.sla_due_at ? <DateDisplay value={ticket.sla_due_at} /> : '—'} />
