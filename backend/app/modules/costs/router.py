@@ -4639,6 +4639,14 @@ async def load_cwicr_region(db_id: str, session: AsyncSession) -> dict:
     # shape is preserved so existing UIs that read ``error`` still work.
     if result_data.get("error") == "no rate_code column":
         return JSONResponse(content=result_data, status_code=422)
+
+    # A national base's home parquet holds English work-item text, so a freshly
+    # loaded base reads in English until a market card swaps the language. Open
+    # it in its own language instead (China in Chinese, Brazil in Portuguese).
+    # No-op for the global markets and for a base whose language has no parquet.
+    if result_data.get("imported", 0) > 0:
+        await _ensure_region_text_language(db_id, base_registry.home_language_code(db_id), session)
+
     return result_data
 
 
@@ -4810,9 +4818,11 @@ async def _ensure_region_text_language(base_region: str, lang_code: str | None, 
     """Ensure an already-loaded national base renders its work items in ``lang_code``.
 
     Swaps the region's text in place (see :func:`_swap_region_text_sync`). No-op
-    for a non-national base, a language we do not translate (e.g. ``en`` markets or
-    ``es-MX``, which keep the home English text), an unavailable translation
-    parquet, or a region already showing that language.
+    for a non-national base, a language we do not translate (e.g. ``en`` markets,
+    which keep the home English text), an unavailable translation parquet, or a
+    region already showing that language. Locales served by another language's
+    parquet, such as ``es-MX``, resolve through
+    :func:`~app.modules.costs.base_registry.normalize_lang_code` first.
     """
     if not lang_code:
         return
@@ -4849,20 +4859,41 @@ async def _ensure_region_text_language(base_region: str, lang_code: str | None, 
     logger.info("Swapped %s work-item text to %s (%d items updated)", base_region, lang_code, updated)
 
 
-def _join_work_name_columns(orig: pd.Series, final: pd.Series) -> pd.Series:  # noqa: F821
-    """Join the two CWICR work-name columns into one display description.
+def _join_work_name_columns(
+    orig: pd.Series,  # noqa: F821
+    final: pd.Series,  # noqa: F821
+    *,
+    join: bool = True,
+) -> pd.Series:  # noqa: F821
+    """Build one display description from the two CWICR work-name columns.
 
-    Classic CWICR parquets carry complementary text in ``rate_original_name``
-    (native language) and ``rate_final_name`` (English), so the description
-    joins both. Several national bases ship the SAME string in both columns
-    (single-language sources), and a blind join doubles every name ("cement
-    mortar cement mortar") - so the join happens per row and only when the two
-    sides actually differ; equal or half-empty rows keep a single copy.
+    The two columns mean different things depending on which base produced them,
+    and that is why ``join`` has to be decided by the caller rather than inferred
+    from the data:
 
+    * The classic CIS parquets split ONE sentence across the columns, a parent
+      description in ``rate_original_name`` and the variant that distinguishes it
+      in ``rate_final_name`` ("Soil excavation ... with a bucket capacity of:" +
+      "15 m3, soil group 1"), both already in the reader's language. Those must be
+      concatenated or every variant loses either its context or its specificity.
+    * The national bases carry two parallel FULL descriptions of the same item,
+      because the translation pipeline rendered each column separately. Joining
+      them prints the item twice ("Demolition of the Catalan vault, including
+      manual loading Demolition of the vault to the flat arch, including manual
+      loading"), so those keep a single copy.
+
+    Divergence between the columns cannot tell the two apart: it is ~100% in both
+    cases. Only the base type can, hence ``join`` and
+    :func:`~app.modules.costs.base_registry.is_national_region`.
+
+    With ``join=False`` the description is ``final``, falling back to ``orig``
+    only where ``final`` is empty. Nothing is discarded from the parquet itself.
     Both inputs must already be NaN-filled, stringified and stripped.
     """
-    joined = (orig + " " + final).str.strip()
     single = final.where(final != "", orig)
+    if not join:
+        return single
+    joined = (orig + " " + final).str.strip()
     return joined.where((orig != final) & (orig != "") & (final != ""), single)
 
 
@@ -4898,6 +4929,7 @@ def _process_and_insert_cwicr(parquet_path: str, db_id: str, db_file: str) -> di
         df["_desc"] = _join_work_name_columns(
             df["rate_original_name"].fillna("").astype(str).str.strip(),
             df["rate_final_name"].fillna("").astype(str).str.strip(),
+            join=not base_registry.is_national_region(db_id),
         )
     elif "rate_original_name" in df.columns:
         df["_desc"] = df["rate_original_name"].fillna("").astype(str)
@@ -5462,6 +5494,7 @@ def _build_cwicr_items(df: pd.DataFrame, db_id: str) -> list[dict[str, Any]]:  #
         df.loc[:, "_full_desc"] = _join_work_name_columns(
             df["rate_original_name"].fillna("").astype(str).str.strip(),
             df["rate_final_name"].fillna("").astype(str).str.strip(),
+            join=not base_registry.is_national_region(db_id),
         )
 
     if "rate_code" not in df.columns:

@@ -583,6 +583,27 @@ _MARKET_TOKENS: frozenset[str] = frozenset(m.token for m in _MARKET_CATALOGS)
 #: Home regions of the national bases - each ships per-language work-item parquets.
 _NATIONAL_REGIONS: frozenset[str] = frozenset(fam.variants[0].region for fam in _NATIONAL_FAMILIES)
 
+#: Prefix of the transient region a language swap stages its parquet into.
+_STAGING_REGION_PREFIX = "__xlate_"
+
+
+def is_national_region(region: str) -> bool:
+    """Return True when ``region`` belongs to a national base.
+
+    Covers the home region (``ZH_CHINA``), its per-language loader ids
+    (``ZH_CHINA_de``) and the transient staging region a language swap imports
+    into (``__xlate_ZH_CHINA_de``), because the work-item text is transformed on
+    the way into all three.
+
+    The global CIS base and its market variants (``RU_MOSCOW_ru``) return False.
+    """
+    if region.startswith(_STAGING_REGION_PREFIX):
+        region = region[len(_STAGING_REGION_PREFIX) :]
+    if region in _NATIONAL_REGIONS:
+        return True
+    base, _, _lang = region.rpartition("_")
+    return bool(base) and base in _NATIONAL_REGIONS
+
 
 def variant_by_region(region: str) -> BaseVariant | None:
     """Return the canonical (home) variant for a platform region id, or ``None``."""
@@ -653,6 +674,16 @@ NATIONAL_TRANSLATION_LANGS: tuple[str, ...] = (
 
 _WORKITEMS_SUFFIX = "_workitems_costs_resources_DDC_CWICR.parquet"
 
+#: App locales that ship no translation of their own and are served by another
+#: language's parquet. ``es-MX`` reads the Spanish text rather than falling back
+#: to the base's English home text.
+_LANG_ALIASES: dict[str, str] = {"es-MX": "es"}
+
+
+def normalize_lang_code(lang_code: str) -> str:
+    """Map an app locale onto the language whose parquet actually serves it."""
+    return _LANG_ALIASES.get(lang_code, lang_code)
+
 
 def _national_base_parts(base_region: str) -> tuple[str, str] | None:
     """Return ``(base_folder, file_token)`` for a national base, else ``None``.
@@ -673,8 +704,10 @@ def national_language_workitems_path(base_region: str, lang_code: str) -> str | 
     """Repo-relative path of a national base's per-language work-item parquet.
 
     ``None`` when ``base_region`` is not a national base or ``lang_code`` is not a
-    translated language.
+    translated language. Aliased locales (``es-MX``) resolve to the parquet of
+    the language that serves them.
     """
+    lang_code = normalize_lang_code(lang_code)
     if lang_code not in NATIONAL_TRANSLATION_LANGS:
         return None
     parts = _national_base_parts(base_region)
@@ -691,9 +724,28 @@ def national_language_region(base_region: str, lang_code: str) -> str | None:
     language (not national, or unknown language). Callers treat ``None`` as
     "keep the home parquet already loaded for ``base_region``".
     """
+    lang_code = normalize_lang_code(lang_code)
     if national_language_workitems_path(base_region, lang_code) is None:
         return None
     return f"{base_region}_{lang_code}"
+
+
+def home_language_code(base_region: str) -> str | None:
+    """Return a national base's own language code when it ships a translation.
+
+    Every national home parquet except Turkiye's carries English work-item text,
+    and ``_national`` deliberately skips the market card whose region matches the
+    home region, so a base has no card that selects its own language. Without
+    this, opening the China base shows English even though a Chinese parquet
+    exists. ``None`` when the region is not a national base, or when its language
+    has no translated parquet (Greek, which is not an app language).
+    """
+    home = _BY_REGION.get(base_region)
+    if home is None or base_region not in _NATIONAL_REGIONS:
+        return None
+    if national_language_workitems_path(base_region, home.lang_code) is None:
+        return None
+    return home.lang_code
 
 
 def national_language_workitems_files() -> dict[str, str]:
