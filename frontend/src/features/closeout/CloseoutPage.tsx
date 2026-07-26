@@ -30,7 +30,9 @@ import {
   ModuleGuideButton,
 } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
 import { closeoutGuide } from './closeoutGuide';
+import { buildCloseoutInsights } from './closeoutInsights';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import {
@@ -336,6 +338,16 @@ export default function CloseoutPage() {
   // clean build.
   const readinessGap = readinessChips.some((c) => c.gate && !c.ready);
 
+  // These two must stay ABOVE the no-project return below. Hooks placed after
+  // an early return run on one branch and not the other, and React fails the
+  // whole page with "rendered fewer hooks than expected" the moment a project
+  // is picked. Neither the build nor the tests catch it.
+  const insights = useModuleInsights('closeout');
+  const { datasets, builtins } = useMemo(
+    () => buildCloseoutInsights(pkg?.slots ?? [], t),
+    [pkg?.slots, t],
+  );
+
   // ── Render: no project selected ────────────────────────────────────────
   if (!activeProjectId) {
     return (
@@ -378,6 +390,9 @@ export default function CloseoutPage() {
                 the head of the action cluster as the leading help pill so it
                 is reachable whether or not a package exists yet. */}
             <ModuleGuideButton content={closeoutGuide} />
+            {/* After the guide pill the comment above claims as the head of
+                this cluster, before the package actions. */}
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             {pkg ? (
               <>
                 <Button
@@ -668,6 +683,22 @@ export default function CloseoutPage() {
               </div>
             </Card>
           ) : null}
+
+          {/* Sits between the gap list and the checklist because it explains
+              the gap list: which discipline the missing items belong to, and
+              how much of what looks delivered is only attached, not checked.
+              Inside the package branch on purpose, so a project with no
+              package yet gets the create prompt rather than a sample panel. */}
+          <InsightsPanel
+            open={insights.open}
+            title={t('closeout.insights.title', { defaultValue: 'Handover readiness insights' })}
+            datasets={datasets}
+            builtins={builtins}
+            custom={insights.custom}
+            onAdd={insights.addCustom}
+            onUpdate={insights.updateCustom}
+            onRemove={insights.removeCustom}
+          />
 
           {/* ── Checklist grouped by category ──────────────────────────── */}
           <div className="space-y-4">
