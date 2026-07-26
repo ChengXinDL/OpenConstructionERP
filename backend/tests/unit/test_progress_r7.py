@@ -60,6 +60,7 @@ class _StubSession:
 class _StubProgressRepo:
     def __init__(self) -> None:
         self.entries: list[Any] = []
+        self._next_seq = 0
         self.plans: dict[str, Any] = {}  # period_label -> plan
         # Customisable outputs for child-position tests
         self._child_ids: list[uuid.UUID] = []
@@ -91,6 +92,10 @@ class _StubProgressRepo:
             entry.recorded_at = now
             entry.created_at = now
             entry.updated_at = now
+            # Stands in for the DB identity column: strictly increasing per
+            # insert, so "latest" is well defined even when the clock ties.
+            self._next_seq += 1
+            entry.seq = self._next_seq
         self.entries.append(entry)
         return entry
 
@@ -119,26 +124,36 @@ class _StubProgressRepo:
     def _rows_for(self, project_id: uuid.UUID) -> list[Any]:
         return [e for e in self.entries if e.project_id == project_id]
 
+    @staticmethod
+    def _latest_first(rows: list[Any]) -> list[Any]:
+        """Mirror ``repository._latest_first``: the last row appended wins.
+
+        Leads with ``seq`` exactly as the real query does, so this double
+        cannot drift back to the old MAX rule - or to timestamp ordering -
+        without the unit tests noticing.
+        """
+        return sorted(
+            rows,
+            key=lambda e: (getattr(e, "seq", 0), e.recorded_at, e.created_at, e.id),
+            reverse=True,
+        )
+
     async def pct_by_period_for_position(
         self,
         project_id: uuid.UUID,
         boq_position_id: uuid.UUID,
     ) -> list[tuple[str, float]]:
         by_period: dict[str, float] = {}
-        for e in self._rows_for(project_id):
-            if getattr(e, "boq_position_id", None) != boq_position_id:
-                continue
-            pct = float(e.percent_complete)
-            by_period[e.period_label] = max(by_period.get(e.period_label, 0.0), pct)
+        rows = [e for e in self._rows_for(project_id) if getattr(e, "boq_position_id", None) == boq_position_id]
+        for e in self._latest_first(rows):
+            by_period.setdefault(e.period_label, float(e.percent_complete))
         return sorted(by_period.items(), key=lambda x: x[0])
 
     async def project_level_pct_by_period(self, project_id: uuid.UUID) -> list[tuple[str, float]]:
         by_period: dict[str, float] = {}
-        for e in self._rows_for(project_id):
-            if getattr(e, "boq_position_id", None) is not None:
-                continue
-            pct = float(e.percent_complete)
-            by_period[e.period_label] = max(by_period.get(e.period_label, 0.0), pct)
+        rows = [e for e in self._rows_for(project_id) if getattr(e, "boq_position_id", None) is None]
+        for e in self._latest_first(rows):
+            by_period.setdefault(e.period_label, float(e.percent_complete))
         return sorted(by_period.items(), key=lambda x: x[0])
 
     async def position_pct_by_period(
@@ -146,12 +161,9 @@ class _StubProgressRepo:
         project_id: uuid.UUID,
     ) -> list[tuple[str, uuid.UUID, float]]:
         by_key: dict[tuple[str, uuid.UUID], float] = {}
-        for e in self._rows_for(project_id):
-            pos_id = getattr(e, "boq_position_id", None)
-            if pos_id is None:
-                continue
-            key = (e.period_label, pos_id)
-            by_key[key] = max(by_key.get(key, 0.0), float(e.percent_complete))
+        rows = [e for e in self._rows_for(project_id) if getattr(e, "boq_position_id", None) is not None]
+        for e in self._latest_first(rows):
+            by_key.setdefault((e.period_label, e.boq_position_id), float(e.percent_complete))
         return sorted((label, pos_id, pct) for (label, pos_id), pct in by_key.items())
 
     async def period_labels(self, project_id: uuid.UUID) -> list[str]:
@@ -306,12 +318,19 @@ def test_compute_deltas_sequential_growth() -> None:
     assert result[2].cumulative_pct == 70.0
 
 
-def test_compute_deltas_clamps_negative_delta() -> None:
-    """A correction entry that lowers cumulative % produces delta=0 (not negative)."""
+def test_compute_deltas_reports_a_negative_delta() -> None:
+    """A correction that lowers cumulative % produces a NEGATIVE delta.
+
+    This test previously pinned the opposite (delta clamped to 0.0). The clamp
+    made sense while the series took the highest reading in a window, where a
+    downward move was an anomaly. Under latest-wins a correction downward is
+    the intended case, and a delta of 0 beside a cumulative that fell by 10
+    reads as a broken page. Expectation replaced, not adjusted to pass.
+    """
     rows = [("2026-W01", 50.0), ("2026-W02", 40.0)]  # correction lowered pct
     result = _compute_deltas(rows)
-    assert result[1].delta_pct == 0.0  # clamped
-    assert result[1].cumulative_pct == 40.0  # actual value still shown
+    assert result[1].delta_pct == -10.0
+    assert result[1].cumulative_pct == 40.0
 
 
 def test_compute_deltas_empty_returns_empty() -> None:
@@ -363,10 +382,11 @@ async def test_s_curve_merges_actual_and_planned() -> None:
 async def test_parent_rollup_averages_child_pcts() -> None:
     """A parent's current_pct is the quantity-weighted average of children's pct.
 
-    ``_fetch_child_ids`` returns ``{child_id: quantity}`` (the quantity is the
-    rollup weight). With equal weights the weighted average reduces to the
-    simple average, so the expected value stays 50.0 while still exercising the
-    weighted-sum branch.
+    ``_fetch_leaf_descendant_weights`` returns ``{leaf_id: quantity}`` (the
+    quantity is the rollup weight). With equal weights the weighted average
+    reduces to the simple average, so the expected value stays 50.0 while still
+    exercising the weighted-sum branch. Both children are measured here, so the
+    move to an all-leaves denominator does not change this number.
     """
     svc = _make_service()
     repo: _StubProgressRepo = svc.repo  # type: ignore[assignment]
@@ -378,13 +398,13 @@ async def test_parent_rollup_averages_child_pcts() -> None:
     # Inject child IDs and their latest pcts directly (avoids BOQ DB query)
     repo._child_pcts = {child_a: 60.0, child_b: 40.0}
 
-    # Override _fetch_child_ids to return our fake children -> equal weights.
+    # Override the leaf lookup to return our fake children -> equal weights.
     async def _fake_fetch(project_id: uuid.UUID, pid: uuid.UUID) -> dict[uuid.UUID, Decimal]:
         if pid == parent_id:
             return {child_a: Decimal("1"), child_b: Decimal("1")}
         return {}
 
-    svc._fetch_child_ids = _fake_fetch  # type: ignore[method-assign]
+    svc._fetch_leaf_descendant_weights = _fake_fetch  # type: ignore[method-assign]
 
     summary = await svc.get_position_summary(PROJECT_ID, parent_id)
     assert summary.is_rollup is True

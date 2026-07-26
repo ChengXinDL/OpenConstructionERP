@@ -144,7 +144,9 @@ class PeriodProgress(BaseModel):
 
     period_label: str
     delta_pct: float = 0.0
-    """Increase in completion % during this period (can be 0 but never negative by design)."""
+    """Change in completion % during this period. NEGATIVE when a correction
+    lowered the reading - entries are append-only and the latest one wins, so
+    a downward move is a real result, not an anomaly to floor at zero."""
     cumulative_pct: float = 0.0
     """Running total of percent_complete at end of this period."""
     entry_count: int = 0

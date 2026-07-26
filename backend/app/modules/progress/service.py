@@ -9,19 +9,32 @@ Handles:
 - S-curve: actual vs planned per period
 - Geo-tagging validation (lat ∈ [-90, 90], lon ∈ [-180, 180])
 
+Latest wins
+───────────
+Progress entries are append-only: a mistake is corrected by recording a new
+entry. So wherever several readings compete - two readings for one position
+inside one period, or a position's whole history - the LATEST one is the
+answer, never the largest. A foreman who corrects 90 % down to 30 % sees
+30 %, and ``/progress`` reports the same number ``/contracts`` bills against.
+The ordering and its tiebreakers live in
+:func:`app.modules.progress.repository._latest_first`.
+
 Rollups
 ───────
 :func:`weighted_rollup` is the module's only rollup implementation. Both
-callers hand it a quantity-weighted denominator; they differ solely in
-WHICH ids they put in it.
+callers hand it a quantity-weighted denominator over LEAF positions, and
+both keep unmeasured leaves in that denominator at 0 %.
 
 * Project headline (:meth:`ProgressService._project_pct_by_period`) rolls
-  up EVERY leaf BOQ position in the project. Positions nobody has measured
-  count as 0 and keep their weight in the denominator, so one line item at
-  90 % cannot speak for a four-hundred-line project.
+  up every leaf BOQ position in the project, so one line item at 90 % cannot
+  speak for a four-hundred-line project.
 * Parent drill-down (:meth:`ProgressService.get_position_summary`) rolls up
-  the parent's MEASURED children only, so the panel keeps reporting on the
-  work that has actually been observed.
+  every leaf descendant of the parent, so ten children with one at 100 %
+  report about 10 %, not 100 %.
+
+Leaves only, in both cases: readings live on leaves, so weighting an
+intermediate node would charge its full quantity against a reading it can
+never have.
 
 Both degrade to the unweighted mean over the same id set when the BOQ
 carries no quantities.
@@ -134,9 +147,12 @@ def _compute_deltas(
 
     delta_pct = cumulative_pct[i] - cumulative_pct[i-1]
 
-    Deltas are clamped to 0 when cumulative_pct decreases (correction entries
-    can lower the recorded value - we don't want negative deltas on the
-    S-curve chart).
+    Deltas may be NEGATIVE. Under the old "highest reading in the window"
+    rule a downward move was an anomaly worth flattening to 0. Under
+    latest-wins a correction downward is the intended case, so clamping made
+    the column contradict the cumulative figure beside it: a foreman who
+    corrects 90 % to 30 % saw the cumulative fall by 60 while the delta read
+    0, which reads as a broken page rather than as a deliberate floor.
 
     Args:
         period_rows: ``(period_label, cumulative_pct)`` sorted by period.
@@ -150,7 +166,7 @@ def _compute_deltas(
     results: list[PeriodProgress] = []
     prev_cumulative = 0.0
     for label, cum_pct in period_rows:
-        delta = max(0.0, round(cum_pct - prev_cumulative, 3))
+        delta = round(cum_pct - prev_cumulative, 3)
         results.append(
             PeriodProgress(
                 period_label=label,
@@ -354,7 +370,8 @@ class ProgressService:
         1. Build the cumulative series. For ONE position that is its own
            readings per period; for the PROJECT it is the quantity-weighted
            rollup of the positions (see :meth:`_project_pct_by_period`).
-        2. Compute delta_pct = cum_pct[i] - cum_pct[i-1] (clamped to ≥ 0).
+        2. Compute delta_pct = cum_pct[i] - cum_pct[i-1], which may be negative
+           when a correction lowered the reading.
         3. The last entry's cumulative_pct is the current overall completion.
 
         Args:
@@ -512,26 +529,29 @@ class ProgressService:
     ) -> PositionProgressSummary:
         """Compute current progress for a BOQ position.
 
-        Parent rollup: if this position has child positions in the BOQ
+        Parent rollup: if this position has descendants in the BOQ
         hierarchy, ``current_pct`` is the **quantity-weighted average** of
-        their latest percent_completes, weighting each child by its BOQ
-        ``quantity``. When the children carry no quantity (weights sum to
-        zero) it falls back to the unweighted mean. The ``is_rollup`` flag
-        signals a rolled-up value to the caller.
+        the latest percent_completes of its LEAF descendants, weighting each
+        by its BOQ ``quantity``. A leaf nobody has measured counts as 0 and
+        keeps its weight, so the number reports on the whole subtree rather
+        than only the observed part of it. When the leaves carry no quantity
+        (weights sum to zero) it falls back to the unweighted mean over the
+        same leaves. The ``is_rollup`` flag signals a rolled-up value.
         """
-        # Fetch child positions (id -> quantity) from BOQ
+        # Fetch leaf descendants (id -> quantity) from BOQ
         # (lazy import to avoid circular dep)
-        child_quantities = await self._fetch_child_ids(project_id, boq_position_id)
+        child_quantities = await self._fetch_leaf_descendant_weights(project_id, boq_position_id)
 
         if child_quantities:
             # Parent rollup path
             child_ids = list(child_quantities)
             child_pcts = await self.repo.latest_pct_for_positions(project_id, child_ids)
-            # Denominator: the MEASURED children only. Unlike the project
-            # headline, a parent drill-down keeps reporting on the children
-            # that have actually been observed. See the module docstring.
-            measured_weights = {pos_id: child_quantities.get(pos_id, Decimal("0")) for pos_id in child_pcts}
-            rolled = weighted_rollup(child_pcts, measured_weights)
+            # Denominator: EVERY leaf beneath this parent, exactly as the
+            # project headline does. A child nobody has measured counts as 0
+            # and keeps its weight, so a parent with ten children and one of
+            # them at 100 % reports about 10 %, not 100 %. See the module
+            # docstring.
+            rolled = weighted_rollup(child_pcts, child_quantities)
             current_pct = 0.0 if rolled is None else rolled
 
             entries = await self.repo.list_entries_for_project(project_id, boq_position_id=boq_position_id, limit=1000)
@@ -556,40 +576,74 @@ class ProgressService:
             is_rollup=False,
         )
 
-    async def _fetch_child_ids(
+    async def _fetch_leaf_descendant_weights(
         self,
         project_id: uuid.UUID,
         parent_id: uuid.UUID,
     ) -> dict[uuid.UUID, Decimal]:
-        """Return ``{child_id: quantity}`` for the parent's direct BOQ children.
+        """Return ``{leaf_descendant_id: quantity}`` beneath a BOQ parent.
 
-        The quantity is used as the rollup weight by
-        :meth:`get_position_summary`. ``Position.quantity`` is stored as a
-        String, so it is coerced to Decimal here; an unparseable or missing
-        value becomes ``Decimal("0")`` (i.e. it contributes no weight).
+        LEAF descendants, not direct children. Readings live on leaves, so an
+        intermediate node carries a quantity but never a percentage of its
+        own. Weighting direct children would hand an intermediate node its
+        full weight against a 0 % reading and drag the parent's rollup toward
+        zero even when every grandchild underneath it is finished. For a flat
+        parent - one level of children, no grandchildren - this returns
+        exactly the direct children, so the common case is unchanged.
+
+        This mirrors the project headline, which is also leaf-only; see
+        :meth:`_fetch_position_weights` and the module docstring.
+
+        ``Position.quantity`` is stored as a String, so it is coerced to
+        Decimal here; an unparseable, missing or non-finite value becomes
+        ``Decimal("0")`` (i.e. it contributes no weight).
         """
         try:
             from sqlalchemy import select as sa_select
 
-            from app.modules.boq.models import Position
+            from app.modules.boq.models import BOQ, Position
 
-            stmt = sa_select(Position.id, Position.quantity).where(
-                Position.parent_id == parent_id,
+            # Every position in the project, so the subtree can be walked
+            # without one query per level.
+            stmt = (
+                sa_select(Position.id, Position.parent_id, Position.quantity)
+                .join(BOQ, Position.boq_id == BOQ.id)
+                .where(BOQ.project_id == project_id)
             )
             rows = (await self.session.execute(stmt)).all()
-            result: dict[uuid.UUID, Decimal] = {}
-            for pos_id, quantity in rows:
-                try:
-                    result[pos_id] = Decimal(str(quantity)) if quantity is not None else Decimal("0")
-                except (ArithmeticError, ValueError):
-                    result[pos_id] = Decimal("0")
-            return result
         except Exception:
             logger.debug(
                 "Could not fetch BOQ children for position %s - treating as leaf",
                 parent_id,
             )
             return {}
+
+        children_of: dict[uuid.UUID, list[uuid.UUID]] = {}
+        quantity_of: dict[uuid.UUID, object] = {}
+        for pos_id, pos_parent_id, quantity in rows:
+            quantity_of[pos_id] = quantity
+            if pos_parent_id is not None:
+                children_of.setdefault(pos_parent_id, []).append(pos_id)
+
+        weights: dict[uuid.UUID, Decimal] = {}
+        stack = list(children_of.get(parent_id, []))
+        seen: set[uuid.UUID] = set()
+        while stack:
+            node = stack.pop()
+            if node in seen:  # a malformed cycle must not hang the request
+                continue
+            seen.add(node)
+            grandchildren = children_of.get(node)
+            if grandchildren:
+                stack.extend(grandchildren)
+                continue
+            quantity = quantity_of.get(node)
+            try:
+                weight = Decimal(str(quantity)) if quantity is not None else Decimal("0")
+            except (ArithmeticError, ValueError):
+                weight = Decimal("0")
+            weights[node] = weight if weight.is_finite() else Decimal("0")
+        return weights
 
     # --- Quantity variance (design vs earned quantity) --------------------
 

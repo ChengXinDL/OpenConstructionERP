@@ -12,6 +12,41 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.progress.models import ProgressEntry, ProgressPlan
 
 
+def _latest_first() -> tuple:
+    """Return the ORDER BY that puts the winning progress entry first.
+
+    Progress entries are append-only: a mistake is corrected by recording a
+    NEW entry, so the reading that counts is the LATEST one, never the
+    largest. The tiers are:
+
+    1. ``seq DESC`` - the database-assigned insertion counter. Strictly
+       increasing per INSERT, NOT NULL and unique, so it is a TOTAL order:
+       the row appended last always wins, including for rows written inside
+       one transaction where no timestamp can separate them.
+    2. ``recorded_at DESC``
+    3. ``created_at DESC``
+    4. ``id DESC``
+
+    Tiers 2 to 4 are unreachable while ``seq`` is populated, and are kept only
+    as a defensive fallback. They are not the guarantee; ``seq`` is.
+
+    Why the timestamps could not do this on their own: ``recorded_at``
+    defaults to the DB's ``now()``, which in PostgreSQL is the TRANSACTION
+    timestamp and is therefore identical for every row one transaction
+    writes, and ``created_at`` is a Python ``datetime.now()`` whose
+    granularity is ~1 ms on Windows against ~1 ns on Linux, so it ties on a
+    coarse clock. With both tied the winner used to fall to a random uuid4 -
+    stable, but arbitrary, which meant a bulk-imported correction won only by
+    luck. See migration ``v3258_progress_entry_seq``.
+    """
+    return (
+        ProgressEntry.seq.desc(),
+        ProgressEntry.recorded_at.desc(),
+        ProgressEntry.created_at.desc(),
+        ProgressEntry.id.desc(),
+    )
+
+
 class ProgressRepository:
     """Data access for ProgressEntry and ProgressPlan models."""
 
@@ -55,30 +90,34 @@ class ProgressRepository:
     ) -> dict[uuid.UUID, float]:
         """Return the most-recent percent_complete for each requested position.
 
-        Uses a correlated MAX(recorded_at) subquery so we get exactly one row
-        per position without loading all history.
+        Ranks each position's history with ROW_NUMBER and keeps rank 1, so
+        exactly one row per position comes back without loading all history.
+        The previous MAX(recorded_at) + join produced TWO rows when a position
+        had two entries sharing the same ``recorded_at`` and silently kept
+        whichever the planner emitted last; see :func:`_latest_first`.
         """
         if not position_ids:
             return {}
 
-        # Subquery: latest recorded_at per position
-        sub = (
+        ranked = (
             select(
                 ProgressEntry.boq_position_id,
-                func.max(ProgressEntry.recorded_at).label("max_ra"),
+                ProgressEntry.percent_complete,
+                func.row_number()
+                .over(
+                    partition_by=ProgressEntry.boq_position_id,
+                    order_by=_latest_first(),
+                )
+                .label("rn"),
             )
             .where(
                 ProgressEntry.project_id == project_id,
                 ProgressEntry.boq_position_id.in_(position_ids),
             )
-            .group_by(ProgressEntry.boq_position_id)
             .subquery()
         )
 
-        stmt = select(ProgressEntry.boq_position_id, ProgressEntry.percent_complete).join(
-            sub,
-            (ProgressEntry.boq_position_id == sub.c.boq_position_id) & (ProgressEntry.recorded_at == sub.c.max_ra),
-        )
+        stmt = select(ranked.c.boq_position_id, ranked.c.percent_complete).where(ranked.c.rn == 1)
         rows = (await self.session.execute(stmt)).all()
         return {row[0]: float(row[1]) for row in rows}
 
@@ -90,36 +129,39 @@ class ProgressRepository:
         """Return ``{position_id: (percent_complete, recorded_at)}`` for the
         most-recent entry of each requested position.
 
-        Same single-round-trip correlated-MAX(recorded_at) shape as
-        :meth:`latest_pct_for_positions`, but also surfaces the timestamp of
-        the winning entry so callers (the BIM "By progress" overlay) can show
-        *when* the headline percentage was recorded. ``recorded_at`` is a
-        timezone-aware datetime; the caller decides how to format it.
+        Same single-round-trip shape as :meth:`latest_pct_for_positions`, but
+        also surfaces the timestamp of the winning entry so callers (the BIM
+        "By progress" overlay) can show *when* the headline percentage was
+        recorded. ``recorded_at`` is a timezone-aware datetime; the caller
+        decides how to format it.
         """
         if not position_ids:
             return {}
 
-        sub = (
+        ranked = (
             select(
                 ProgressEntry.boq_position_id,
-                func.max(ProgressEntry.recorded_at).label("max_ra"),
+                ProgressEntry.percent_complete,
+                ProgressEntry.recorded_at,
+                func.row_number()
+                .over(
+                    partition_by=ProgressEntry.boq_position_id,
+                    order_by=_latest_first(),
+                )
+                .label("rn"),
             )
             .where(
                 ProgressEntry.project_id == project_id,
                 ProgressEntry.boq_position_id.in_(position_ids),
             )
-            .group_by(ProgressEntry.boq_position_id)
             .subquery()
         )
 
         stmt = select(
-            ProgressEntry.boq_position_id,
-            ProgressEntry.percent_complete,
-            ProgressEntry.recorded_at,
-        ).join(
-            sub,
-            (ProgressEntry.boq_position_id == sub.c.boq_position_id) & (ProgressEntry.recorded_at == sub.c.max_ra),
-        )
+            ranked.c.boq_position_id,
+            ranked.c.percent_complete,
+            ranked.c.recorded_at,
+        ).where(ranked.c.rn == 1)
         rows = (await self.session.execute(stmt)).all()
         return {row[0]: (float(row[1]), row[2]) for row in rows}
 
@@ -198,11 +240,11 @@ class ProgressRepository:
         project_id: uuid.UUID,
         boq_position_id: uuid.UUID,
     ) -> list[tuple[str, float]]:
-        """Return ``(period_label, max_pct)`` for ONE BOQ position, oldest period first.
+        """Return ``(period_label, latest_pct)`` for ONE BOQ position, oldest period first.
 
-        Several readings inside one period collapse to the MAXIMUM - the
-        established "most optimistic value in the window" rule for a single
-        position's series.
+        Several readings inside one period collapse to the LATEST one, not
+        the largest: a foreman who corrects 90 % down to 30 % must see 30 %.
+        See :func:`_latest_first` for the ordering and its tiebreakers.
 
         Args:
             project_id: Project the position belongs to (tenant scope).
@@ -211,17 +253,22 @@ class ProgressRepository:
         Returns:
             ``(period_label, percent_complete)`` pairs sorted by period label.
         """
-        stmt = (
+        ranked = (
             select(
                 ProgressEntry.period_label,
-                func.max(ProgressEntry.percent_complete),
+                ProgressEntry.percent_complete,
+                func.row_number().over(partition_by=ProgressEntry.period_label, order_by=_latest_first()).label("rn"),
             )
             .where(
                 ProgressEntry.project_id == project_id,
                 ProgressEntry.boq_position_id == boq_position_id,
             )
-            .group_by(ProgressEntry.period_label)
-            .order_by(ProgressEntry.period_label.asc())
+            .subquery()
+        )
+        stmt = (
+            select(ranked.c.period_label, ranked.c.percent_complete)
+            .where(ranked.c.rn == 1)
+            .order_by(ranked.c.period_label.asc())
         )
         rows = (await self.session.execute(stmt)).all()
         return [(row[0], float(row[1])) for row in rows]
@@ -230,13 +277,14 @@ class ProgressRepository:
         self,
         project_id: uuid.UUID,
     ) -> list[tuple[str, float]]:
-        """Return ``(period_label, max_pct)`` over PROJECT-LEVEL entries only.
+        """Return ``(period_label, latest_pct)`` over PROJECT-LEVEL entries only.
 
         A project-level entry is one with ``boq_position_id IS NULL`` - a
         manual overall-completion reading for the whole project. Position
         readings are deliberately excluded: pooling the two scopes in one
         aggregate is what used to let a single 90 % line item present itself
-        as the project's headline percentage.
+        as the project's headline percentage. Within a period the LATEST
+        reading wins (see :func:`_latest_first`).
 
         Args:
             project_id: Project to read.
@@ -244,17 +292,22 @@ class ProgressRepository:
         Returns:
             ``(period_label, percent_complete)`` pairs sorted by period label.
         """
-        stmt = (
+        ranked = (
             select(
                 ProgressEntry.period_label,
-                func.max(ProgressEntry.percent_complete),
+                ProgressEntry.percent_complete,
+                func.row_number().over(partition_by=ProgressEntry.period_label, order_by=_latest_first()).label("rn"),
             )
             .where(
                 ProgressEntry.project_id == project_id,
                 ProgressEntry.boq_position_id.is_(None),
             )
-            .group_by(ProgressEntry.period_label)
-            .order_by(ProgressEntry.period_label.asc())
+            .subquery()
+        )
+        stmt = (
+            select(ranked.c.period_label, ranked.c.percent_complete)
+            .where(ranked.c.rn == 1)
+            .order_by(ranked.c.period_label.asc())
         )
         rows = (await self.session.execute(stmt)).all()
         return [(row[0], float(row[1])) for row in rows]
@@ -263,14 +316,13 @@ class ProgressRepository:
         self,
         project_id: uuid.UUID,
     ) -> list[tuple[str, uuid.UUID, float]]:
-        """Return ``(period_label, boq_position_id, max_pct)`` per position and period.
+        """Return ``(period_label, boq_position_id, latest_pct)`` per position and period.
 
         The grain is one row per (period, position): several readings for the
-        SAME position inside one period collapse to the maximum, preserving
-        the "most optimistic value in the window" rule, while different
-        positions stay separate so the service can weight them. Project-level
-        entries (``boq_position_id IS NULL``) are excluded - they are the
-        fallback series, not rollup input.
+        SAME position inside one period collapse to the LATEST one, while
+        different positions stay separate so the service can weight them.
+        Project-level entries (``boq_position_id IS NULL``) are excluded -
+        they are the fallback series, not rollup input.
 
         Args:
             project_id: Project to read.
@@ -278,18 +330,28 @@ class ProgressRepository:
         Returns:
             Rows sorted by period label, then position id.
         """
-        stmt = (
+        ranked = (
             select(
                 ProgressEntry.period_label,
                 ProgressEntry.boq_position_id,
-                func.max(ProgressEntry.percent_complete),
+                ProgressEntry.percent_complete,
+                func.row_number()
+                .over(
+                    partition_by=(ProgressEntry.period_label, ProgressEntry.boq_position_id),
+                    order_by=_latest_first(),
+                )
+                .label("rn"),
             )
             .where(
                 ProgressEntry.project_id == project_id,
                 ProgressEntry.boq_position_id.is_not(None),
             )
-            .group_by(ProgressEntry.period_label, ProgressEntry.boq_position_id)
-            .order_by(ProgressEntry.period_label.asc(), ProgressEntry.boq_position_id.asc())
+            .subquery()
+        )
+        stmt = (
+            select(ranked.c.period_label, ranked.c.boq_position_id, ranked.c.percent_complete)
+            .where(ranked.c.rn == 1)
+            .order_by(ranked.c.period_label.asc(), ranked.c.boq_position_id.asc())
         )
         rows = (await self.session.execute(stmt)).all()
         return [(row[0], row[1], float(row[2])) for row in rows]
