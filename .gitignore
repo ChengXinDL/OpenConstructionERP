@@ -103,6 +103,7 @@ data/approvals/
 data/transmittals/
 data/tilesets/
 data/reports/
+data/takeoff_documents/
 frontend/debug-bim/
 
 # MCP artifacts
