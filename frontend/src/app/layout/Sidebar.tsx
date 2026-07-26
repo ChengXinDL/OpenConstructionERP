@@ -260,7 +260,26 @@ const navGroups: NavGroup[] = [
       { labelKey: 'nav.quantities', to: '/quantities', icon: Ruler },
     ],
   },
-  // ── 3. ESTIMATING ──────────────────────────────────────────────────
+  // ── 3. COST DATA ───────────────────────────────────────────────────
+  // Cross-project reference data: cost databases, catalogues, assemblies,
+  // and the cost-benchmark surface (re-added - it was dropped before).
+  // Sits ahead of Estimating for the same reason Takeoff does: the rates and
+  // catalogues have to be in place before there is anything to price a
+  // quantity against, so the menu reads in the order the work happens.
+  {
+    id: 'grp_cost_data',
+    labelKey: 'sidebar.group.cost_data',
+    defaultLabel: 'Cost Data',
+    defaultOpen: true,
+    items: [
+      { labelKey: 'costs.title', to: '/costs', icon: Database, tourId: 'costs' },
+      { labelKey: 'catalog.title', to: '/catalog', icon: Boxes },
+      { labelKey: 'nav.cost_explorer', to: '/cost-explorer', icon: Compass },
+      { labelKey: 'nav.assemblies', to: '/assemblies', icon: Layers },
+      { labelKey: 'nav.benchmarks', to: '/benchmarks', icon: BarChart3, moduleKey: 'cost-benchmark', advancedOnly: true },
+    ],
+  },
+  // ── 4. ESTIMATING ──────────────────────────────────────────────────
   // The project's cost work-product: BOQ, the BIM↔catalogue match, the
   // AI estimate and the estimation intelligence dashboard.
   {
@@ -276,7 +295,7 @@ const navGroups: NavGroup[] = [
       { labelKey: 'nav.methodologies', to: '/methodologies', icon: SlidersHorizontal },
     ],
   },
-  // ── 3b. ESTIMATE DETAIL ────────────────────────────────────────────
+  // ── 4b. ESTIMATE DETAIL ────────────────────────────────────────────
   // The advanced refinements layered on top of the BOQ: the basis of
   // estimate, preliminaries and allowances. Split out of Estimating so
   // that group stays at five rows (all advanced-mode only).
@@ -291,22 +310,6 @@ const navGroups: NavGroup[] = [
       { labelKey: 'nav.preliminaries', to: '/preliminaries', icon: ClipboardList, advancedOnly: true },
       { labelKey: 'nav.allowances', to: '/allowances', icon: Wallet, advancedOnly: true },
       { labelKey: 'nav.design_options', to: '/design-options', icon: Scale, advancedOnly: true },
-    ],
-  },
-  // ── 4. COST DATA ───────────────────────────────────────────────────
-  // Cross-project reference data: cost databases, catalogues, assemblies,
-  // and the cost-benchmark surface (re-added - it was dropped before).
-  {
-    id: 'grp_cost_data',
-    labelKey: 'sidebar.group.cost_data',
-    defaultLabel: 'Cost Data',
-    defaultOpen: true,
-    items: [
-      { labelKey: 'costs.title', to: '/costs', icon: Database, tourId: 'costs' },
-      { labelKey: 'catalog.title', to: '/catalog', icon: Boxes },
-      { labelKey: 'nav.cost_explorer', to: '/cost-explorer', icon: Compass },
-      { labelKey: 'nav.assemblies', to: '/assemblies', icon: Layers },
-      { labelKey: 'nav.benchmarks', to: '/benchmarks', icon: BarChart3, moduleKey: 'cost-benchmark', advancedOnly: true },
     ],
   },
   // ── 5. REALITY CAPTURE & 3D ─────────────────────────────────────────

@@ -15,6 +15,15 @@
  * ``react-i18next`` and ``window.localStorage`` are mocked globally in
  * ``src/test/setup.ts`` (t returns ``defaultValue``; localStorage is an
  * in-memory store with a working ``clear()``).
+ *
+ * Persistence moved (2026-07-23): collapsing a card is now recorded per USER
+ * in ``useInfoBlockPrefsStore`` so the preference follows someone across
+ * browsers, and the old per-browser ``oce.intro.<key>`` flag is only READ, as
+ * a one-time fallback for cards that store has never seen. Five tests here
+ * still asserted a WRITE to the old flag, and to the registry keying by it,
+ * so they had been failing against a contract that no longer exists. They now
+ * assert the stored preference and the bare storage key; the two legacy cases
+ * stay, because reading the old flag is still real behaviour worth pinning.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -22,9 +31,20 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 
 import { DismissibleInfo } from './DismissibleInfo';
 import { useModuleInfoStore } from '@/stores/useModuleInfoStore';
+import { useInfoBlockPrefsStore } from '@/stores/useInfoBlockPrefsStore';
 
 const KEY = 'demo-card';
-const LS_KEY = `oce.intro.${KEY}`;
+/** The LEGACY per-card flag. Still READ once as a fallback for cards the
+ *  preferences store has never seen, which is what the two "legacy stored"
+ *  tests below cover. It is no longer WRITTEN: collapsing a card now records
+ *  the choice per user in `useInfoBlockPrefsStore`, so asserting a write here
+ *  would pin behaviour that moved. */
+const LEGACY_LS_KEY = `oce.intro.${KEY}`;
+
+/** The collapsed flag as the component actually stores it now. */
+function storedCollapsed(key = KEY): boolean | undefined {
+  return useInfoBlockPrefsStore.getState().blocks[key];
+}
 
 function renderCard(props?: { links?: { label: string; onClick: () => void }[] }) {
   return render(
@@ -51,6 +71,9 @@ beforeEach(() => {
   window.localStorage.clear();
   vi.clearAllMocks();
   useModuleInfoStore.setState({ entries: [] });
+  // The preferences store is module-level and survives between tests, so a
+  // collapse in one case would otherwise decide the next case's initial state.
+  useInfoBlockPrefsStore.setState({ blocks: {} });
 });
 
 describe('DismissibleInfo', () => {
@@ -76,11 +99,11 @@ describe('DismissibleInfo', () => {
     expect(screen.queryByText('Demo title')).not.toBeInTheDocument();
     expect(screen.queryByText('Module information')).not.toBeInTheDocument();
     expect(container.firstChild).toBeNull();
-    // Collapsed state persisted under "1".
-    expect(window.localStorage.getItem(LS_KEY)).toBe('1');
-    // Registered for the top-bar icon.
+    // Collapsed state recorded per user, not under the legacy per-card flag.
+    expect(storedCollapsed()).toBe(true);
+    // Registered for the top-bar icon, under the bare storage key.
     expect(storeEntries()).toHaveLength(1);
-    expect(storeEntries()[0]!.key).toBe(LS_KEY);
+    expect(storeEntries()[0]!.key).toBe(KEY);
   });
 
   it('the store expand entry (top-bar icon) re-expands and persists "0"', () => {
@@ -93,7 +116,7 @@ describe('DismissibleInfo', () => {
 
     expect(screen.getByText('Demo title')).toBeInTheDocument();
     expect(screen.getByText('Body copy explaining the page.')).toBeInTheDocument();
-    expect(window.localStorage.getItem(LS_KEY)).toBe('0');
+    expect(storedCollapsed()).toBe(false);
     // Expanded card unregisters - the top-bar icon disappears.
     expect(storeEntries()).toHaveLength(0);
   });
@@ -105,7 +128,7 @@ describe('DismissibleInfo', () => {
 
     // Gone from the page, registered for the top bar.
     expect(screen.queryByText('Body copy explaining the page.')).not.toBeInTheDocument();
-    expect(window.localStorage.getItem(LS_KEY)).toBe('1');
+    expect(storedCollapsed()).toBe(true);
     expect(storeEntries()).toHaveLength(1);
 
     // Remount with the SAME storageKey -> still collapsed, still registered.
@@ -117,7 +140,7 @@ describe('DismissibleInfo', () => {
   });
 
   it('legacy stored "1" maps to collapsed (nothing in page, registered)', () => {
-    window.localStorage.setItem(LS_KEY, '1');
+    window.localStorage.setItem(LEGACY_LS_KEY, '1');
     const { container } = renderCard();
 
     expect(container.firstChild).toBeNull();
@@ -125,7 +148,7 @@ describe('DismissibleInfo', () => {
   });
 
   it('legacy stored "2" (old "dismissed") maps to collapsed and stays reachable', () => {
-    window.localStorage.setItem(LS_KEY, '2');
+    window.localStorage.setItem(LEGACY_LS_KEY, '2');
     const { container } = renderCard();
 
     // No longer hidden forever: registered, so the top-bar icon re-opens it.
@@ -136,7 +159,7 @@ describe('DismissibleInfo', () => {
   });
 
   it('unmount while collapsed unregisters from the store (navigation)', () => {
-    window.localStorage.setItem(LS_KEY, '1');
+    window.localStorage.setItem(LEGACY_LS_KEY, '1');
     const { unmount } = renderCard();
     expect(storeEntries()).toHaveLength(1);
     unmount();
@@ -154,7 +177,7 @@ describe('DismissibleInfo', () => {
     // nothing was persisted (still no toggle write).
     expect(onClick).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Body copy explaining the page.')).toBeInTheDocument();
-    expect(window.localStorage.getItem(LS_KEY)).toBeNull();
+    expect(storedCollapsed()).toBeUndefined();
     expect(storeEntries()).toHaveLength(0);
   });
 
@@ -173,9 +196,9 @@ describe('DismissibleInfo', () => {
     // Card A gone from the page and registered; Card B still expanded.
     expect(screen.queryByText('Card A')).not.toBeInTheDocument();
     expect(screen.getByText('Card B')).toBeInTheDocument();
-    expect(window.localStorage.getItem('oce.intro.a')).toBe('1');
-    expect(window.localStorage.getItem('oce.intro.b')).toBeNull();
+    expect(storedCollapsed('a')).toBe(true);
+    expect(storedCollapsed('b')).toBeUndefined();
     expect(storeEntries()).toHaveLength(1);
-    expect(storeEntries()[0]!.key).toBe('oce.intro.a');
+    expect(storeEntries()[0]!.key).toBe('a');
   });
 });

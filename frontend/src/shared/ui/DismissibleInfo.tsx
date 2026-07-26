@@ -172,12 +172,18 @@ export function DismissibleInfo({
   // space-y-5; a built-in mb-5 doubled the gap below every info card.
   // Tint at 80% of the first visible pass (founder 2026-06-06: light blue,
   // a little more transparency, background at 80%): /10 -> /[0.08].
+  // Lightened again (founder 2026-07-26: the card still reads too blue, make
+  // it lighter): /[0.08] -> /[0.045] on light, /[0.11] -> /[0.07] on dark,
+  // hover /[0.06] -> /[0.035]. The card must still read as its own surface
+  // rather than as bare page, so the tint is halved rather than dropped: the
+  // left accent bar and the border carry the identity at this weight, which
+  // is why they are left alone.
   // NO backdrop-blur here (founder 2026-06-06: cards "look opaque"): the
   // app backdrop's texture is a 0.9px dot grid, and even blur-sm wipes it
   // out completely - the tint then reads as a solid plate. With the blur
   // gone the grid shows through the 8% tint and the card is visibly
   // translucent.
-  const wrapper = `group rounded-xl border border-oe-blue/20 border-l-2 border-l-oe-blue/70 bg-oe-blue/[0.08] dark:bg-oe-blue/[0.11] shadow-sm animate-fade-in ${
+  const wrapper = `group rounded-xl border border-oe-blue/20 border-l-2 border-l-oe-blue/70 bg-oe-blue/[0.045] dark:bg-oe-blue/[0.07] shadow-sm animate-fade-in ${
     className ?? ''
   }`;
 
@@ -188,7 +194,7 @@ export function DismissibleInfo({
           so the wrapper itself stays a plain div. */}
       <div
         onClick={collapse}
-        className="flex cursor-pointer items-start gap-3 rounded-xl px-4 py-4 transition-colors hover:bg-oe-blue/[0.06]"
+        className="flex cursor-pointer items-start gap-3 rounded-xl px-4 py-4 transition-colors hover:bg-oe-blue/[0.035]"
       >
         {/* Chip and title share the same 28px midline (uniformity sweep: the
             mt-0.5 chip on an items-start row read ~5px low on every page). */}

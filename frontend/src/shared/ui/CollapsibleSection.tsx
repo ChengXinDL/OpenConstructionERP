@@ -3,22 +3,36 @@
 /**
  * A titled section a user can collapse when they do not need it. Built for the
  * "How this module fits together" / explainer blocks that lead many module
- * pages: helpful the first time, noise once you know the module. The header
- * always shows (so it is obvious what the collapsed block is and that it can be
- * reopened); the body expands and collapses with a smooth height animation and
- * the choice is remembered per `storageKey`, so it stays the way each user left
- * it across reloads.
+ * pages: helpful the first time, noise once you know the module. The choice is
+ * remembered per `storageKey`, so it stays the way each user left it across
+ * reloads.
  *
- * Height animates with the grid `0fr`->`1fr` trick (no measuring, no fixed
- * max-height guesswork): a grid wrapper animates its single track, an
- * `overflow-hidden min-h-0` child clips as it shrinks, and the padding lives one
- * level deeper so a collapsed block leaves no residual height. Collapsed content
- * is taken out of the tab order and the a11y tree with `inert` rather than
- * `hidden`, because `display:none` cannot animate.
+ * Collapsing (founder 2026-07-26: "нужно чтобы подобные блоки сворачивались в
+ * кнопку рядом с кнопкой кейсы"): a collapsed block renders NOTHING in the page
+ * and hands itself to the re-open pill that sits next to the module's Cases
+ * button. It registers in `useModuleInfoStore` while collapsed, exactly the way
+ * `DismissibleInfo` does, so `ModuleInfoButton` (hosted by `ModuleGuideButton`,
+ * rendered immediately after `ModuleCasesButton`) shows up and brings the block
+ * back. On the rare page with no guide button the Header's top-bar info icon is
+ * the fallback, so a collapsed explainer is never stranded.
+ *
+ * The registration key is namespaced `section:<storageKey>` because the store is
+ * shared with `DismissibleInfo`: a page carrying both an info card and an
+ * explainer under the same string would otherwise have one silently unregister
+ * the other.
+ *
+ * This replaces the previous behaviour, where a collapsed block kept its header
+ * visible and animated its body shut with the grid `0fr`->`1fr` trick. That
+ * animation and its `inert` handling are gone rather than left dormant: once a
+ * collapsed block unmounts there is no element left to animate or to keep out of
+ * the a11y tree, and a zero-height leftover would still have drawn a gap from
+ * the page's `space-y` rhythm.
  */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { ChevronUp } from 'lucide-react';
 import clsx from 'clsx';
+
+import { useModuleInfoStore } from '@/stores/useModuleInfoStore';
 
 function readCollapsed(key: string, fallback: boolean): boolean {
   try {
@@ -67,32 +81,46 @@ export function CollapsibleSection({
   bodyClassName,
 }: CollapsibleSectionProps) {
   const [collapsed, setCollapsed] = useState<boolean>(() => readCollapsed(storageKey, defaultCollapsed));
-  const clipRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => persistCollapsed(storageKey, collapsed), [storageKey, collapsed]);
 
-  // Keep collapsed content out of the tab order and the a11y tree without the
-  // `display:none` that would kill the height animation. `inert` is a no-op in
-  // browsers that lack it, so this degrades gracefully to a purely visual hide.
-  useEffect(() => {
-    const el = clipRef.current;
-    if (!el) return;
-    if (collapsed) el.setAttribute('inert', '');
-    else el.removeAttribute('inert');
-  }, [collapsed]);
+  const collapse = useCallback(() => setCollapsed(true), []);
+  const expand = useCallback(() => setCollapsed(false), []);
 
-  const toggle = useCallback(() => setCollapsed((c) => !c), []);
+  // While collapsed the block is out of the page, so the way back is the pill
+  // next to the Cases button. Unmount (navigation) unregisters automatically.
+  const register = useModuleInfoStore((s) => s.register);
+  const unregister = useModuleInfoStore((s) => s.unregister);
+  const registryKey = `section:${storageKey}`;
+  useEffect(() => {
+    if (!collapsed) return undefined;
+    register({ key: registryKey, expand });
+    return () => unregister(registryKey);
+  }, [collapsed, registryKey, expand, register, unregister]);
+
+  if (collapsed) return null;
 
   const bodyId = `collapsible-${storageKey.replace(/[^a-z0-9]+/gi, '-')}`;
 
+  // A white, lightly translucent card (founder 2026-07-26: "сделай чтобы у
+  // блока был белый фон немного полупрозрачный"). `surface-primary` is #ffffff
+  // in light mode and the deep blue-gray in dark mode, so taking it at 70%
+  // keeps the block theme-correct instead of pinning a literal white that would
+  // glare in dark mode. The app backdrop's dot grid reads faintly through it,
+  // which is what makes the card look laid ON the page rather than cut into it.
   return (
-    <section className={clsx('overflow-hidden rounded-xl border border-border-light bg-surface-secondary/40', className)}>
+    <section
+      className={clsx(
+        'overflow-hidden rounded-xl border border-border-light bg-surface-primary/70 shadow-sm',
+        className,
+      )}
+    >
       <button
         type="button"
-        onClick={toggle}
-        aria-expanded={!collapsed}
+        onClick={collapse}
+        aria-expanded
         aria-controls={bodyId}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-secondary/60"
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-secondary/40"
       >
         <span className="flex min-w-0 items-center gap-1.5">
           {icon}
@@ -101,26 +129,12 @@ export function CollapsibleSection({
             {subtitle && <span className="truncate text-2xs text-content-tertiary">{subtitle}</span>}
           </span>
         </span>
-        <ChevronDown
-          size={16}
-          aria-hidden
-          className={clsx(
-            'shrink-0 text-content-tertiary transition-transform duration-300 ease-oe motion-reduce:transition-none',
-            collapsed ? '' : 'rotate-180',
-          )}
-        />
+        {/* The block only renders while open, so the chevron always points at
+            the action it performs: close this and put it in the pill. */}
+        <ChevronUp size={16} aria-hidden className="shrink-0 text-content-tertiary" />
       </button>
-      {/* grid-rows 0fr->1fr animates height with no measuring. */}
-      <div
-        id={bodyId}
-        className={clsx(
-          'grid transition-[grid-template-rows] duration-300 ease-oe motion-reduce:transition-none',
-          collapsed ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]',
-        )}
-      >
-        <div ref={clipRef} className="min-h-0 overflow-hidden">
-          <div className={bodyClassName ?? 'px-4 pb-4'}>{children}</div>
-        </div>
+      <div id={bodyId} className={bodyClassName ?? 'px-4 pb-4'}>
+        {children}
       </div>
     </section>
   );
