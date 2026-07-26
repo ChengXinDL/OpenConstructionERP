@@ -57,6 +57,8 @@ import {
   PieChart,
   FoldVertical,
   UnfoldVertical,
+  ListTree,
+  ListCollapse,
 } from 'lucide-react';
 import { Button } from '@/shared/ui';
 import { useBoqDescDensityStore, type BoqDescDensity } from '@/stores/useBoqDescDensityStore';
@@ -128,6 +130,19 @@ export interface BOQToolbarProps {
   // Expand / collapse every section at once
   onToggleCollapseAll?: () => void;
   allSectionsCollapsed?: boolean;
+  /**
+   * Show or hide the resource breakdown under every position at once. Showing
+   * also expands the sections, because a position inside a collapsed section
+   * renders nothing and the button would look broken.
+   */
+  onToggleAllResources?: () => void;
+  resourcesAllExpanded?: boolean;
+  /**
+   * How many positions carry resources. Zero disables the toggle: on a BOQ
+   * priced with flat unit rates there is no breakdown to show, and a live
+   * button that does nothing reads as a bug.
+   */
+  expandableResourceCount?: number;
   /**
    * ── Grand-Total summary, rendered as its own card to the right of the
    * toolbar card. Falls back to wrapping below on narrow screens. Pass `null`
@@ -204,6 +219,9 @@ export function BOQToolbar({
   onShowShortcuts,
   onToggleCollapseAll,
   allSectionsCollapsed,
+  onToggleAllResources,
+  resourcesAllExpanded,
+  expandableResourceCount,
   summary,
 }: BOQToolbarProps) {
   /* ── Export dropdown (portaled so it floats above the grid) ────────── */
@@ -393,6 +411,30 @@ export function BOQToolbar({
               onClick={onToggleCollapseAll}
               active={allSectionsCollapsed}
               testId="boq-collapse-all-toggle"
+            />
+          )}
+          {onToggleAllResources && (
+            <IconBtn
+              icon={resourcesAllExpanded ? <ListCollapse size={15} /> : <ListTree size={15} />}
+              title={
+                expandableResourceCount === 0
+                  ? t('boq.no_resources_to_expand', {
+                      defaultValue: 'No position has a resource breakdown to show',
+                    })
+                  : resourcesAllExpanded
+                    ? t('boq.hide_all_resources', {
+                        defaultValue: 'Hide the resource breakdown everywhere',
+                      })
+                    : t('boq.show_all_resources', {
+                        defaultValue:
+                          'Open every position and show its resources ({{count}} priced)',
+                        count: expandableResourceCount ?? 0,
+                      })
+              }
+              onClick={onToggleAllResources}
+              active={resourcesAllExpanded}
+              disabled={expandableResourceCount === 0}
+              testId="boq-expand-all-resources-toggle"
             />
           )}
 

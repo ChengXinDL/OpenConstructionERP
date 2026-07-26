@@ -62,6 +62,7 @@ import BOQGrid from './BOQGrid';
 import { exportBOQToExcel } from './exportExcel';
 import { generateBOQPdf } from './pdfReport';
 import type { BOQGridHandle } from './BOQGrid';
+import { allResourcesExpanded, type ResourceExpansionState } from './resourceExpansion';
 import { BatchActionBar } from './BatchActionBar';
 import { ScenarioDialog } from './ScenarioDialog';
 import { SendToTenderDialog } from './SendToTenderDialog';
@@ -1046,6 +1047,29 @@ export function BOQEditorPage() {
       return allIn ? new Set<string>() : new Set(allSectionIds);
     });
   }, [allSectionIds]);
+
+  /* ── Show / hide every position's resources at once ────────────────
+   * The grid owns the expansion state (see BOQGridHandle.setAllResourcesExpanded
+   * for why it is not lifted); the page only mirrors the counts so the toolbar
+   * can label the button and disable it on a BOQ with nothing to open.
+   *
+   * Showing also expands the sections. Resources live inside positions, and a
+   * position inside a collapsed section is not rendered, so "show all
+   * resources" with a collapsed section would open rows nobody can see and the
+   * button would read as broken. Hiding deliberately does NOT re-collapse the
+   * sections: the user asked to put the resources away, not to undo whatever
+   * grouping they had set up. */
+  const [resourceExpansion, setResourceExpansion] = useState<ResourceExpansionState>({
+    expandable: 0,
+    expanded: 0,
+  });
+  const resourcesAllExpanded = allResourcesExpanded(resourceExpansion);
+
+  const handleToggleAllResources = useCallback(() => {
+    const next = !allResourcesExpanded(resourceExpansion);
+    if (next) setCollapsedSections(new Set<string>());
+    boqGridRef.current?.setAllResourcesExpanded(next);
+  }, [resourceExpansion]);
 
   /* ── Search + quick QA filters (grid view only) ────────────────────── */
   const [boqSearch, setBoqSearch] = useState('');
@@ -4737,6 +4761,9 @@ export function BOQEditorPage() {
           onShowShortcuts={() => setShowShortcuts(true)}
           onToggleCollapseAll={handleToggleAllSections}
           allSectionsCollapsed={allSectionsCollapsed}
+          onToggleAllResources={handleToggleAllResources}
+          resourcesAllExpanded={resourcesAllExpanded}
+          expandableResourceCount={resourceExpansion.expandable}
           summary={hasPositions ? {
             sectionCount: miniSummaryStats.sectionCount,
             positionCount: miniSummaryStats.positionCount,
@@ -4802,6 +4829,10 @@ export function BOQEditorPage() {
           onDeleteSection={handleDeleteSection}
           collapsedSections={effectiveCollapsedSections}
           onToggleSection={toggleSection}
+          // `positions` here is the FILTERED set, so the toggle counts and acts
+          // on what the user can actually see - searching down to eight rows and
+          // hitting "show resources" opens those eight, not the whole BOQ.
+          onResourceExpansionChange={setResourceExpansion}
           highlightPositionId={newPositionId ?? bimScrollTargetId ?? undefined}
           currencySymbol={currencySymbol}
           currencyCode={currencyCode}
