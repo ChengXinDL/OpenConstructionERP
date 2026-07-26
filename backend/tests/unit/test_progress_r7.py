@@ -116,19 +116,59 @@ class _StubProgressRepo:
             rows = [e for e in rows if e.period_label == period_label]
         return sorted(rows, key=lambda e: e.recorded_at)[offset : offset + limit]
 
-    async def entries_grouped_by_period(
+    def _rows_for(self, project_id: uuid.UUID) -> list[Any]:
+        return [e for e in self.entries if e.project_id == project_id]
+
+    async def pct_by_period_for_position(
         self,
         project_id: uuid.UUID,
-        boq_position_id: uuid.UUID | None = None,
+        boq_position_id: uuid.UUID,
     ) -> list[tuple[str, float]]:
-        rows = [e for e in self.entries if e.project_id == project_id]
-        if boq_position_id is not None:
-            rows = [e for e in rows if getattr(e, "boq_position_id", None) == boq_position_id]
         by_period: dict[str, float] = {}
-        for e in rows:
+        for e in self._rows_for(project_id):
+            if getattr(e, "boq_position_id", None) != boq_position_id:
+                continue
             pct = float(e.percent_complete)
             by_period[e.period_label] = max(by_period.get(e.period_label, 0.0), pct)
         return sorted(by_period.items(), key=lambda x: x[0])
+
+    async def project_level_pct_by_period(self, project_id: uuid.UUID) -> list[tuple[str, float]]:
+        by_period: dict[str, float] = {}
+        for e in self._rows_for(project_id):
+            if getattr(e, "boq_position_id", None) is not None:
+                continue
+            pct = float(e.percent_complete)
+            by_period[e.period_label] = max(by_period.get(e.period_label, 0.0), pct)
+        return sorted(by_period.items(), key=lambda x: x[0])
+
+    async def position_pct_by_period(
+        self,
+        project_id: uuid.UUID,
+    ) -> list[tuple[str, uuid.UUID, float]]:
+        by_key: dict[tuple[str, uuid.UUID], float] = {}
+        for e in self._rows_for(project_id):
+            pos_id = getattr(e, "boq_position_id", None)
+            if pos_id is None:
+                continue
+            key = (e.period_label, pos_id)
+            by_key[key] = max(by_key.get(key, 0.0), float(e.percent_complete))
+        return sorted((label, pos_id, pct) for (label, pos_id), pct in by_key.items())
+
+    async def period_labels(self, project_id: uuid.UUID) -> list[str]:
+        return sorted({e.period_label for e in self._rows_for(project_id)})
+
+    async def entry_counts_by_period(
+        self,
+        project_id: uuid.UUID,
+        *,
+        boq_position_id: uuid.UUID | None = None,
+    ) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for e in self._rows_for(project_id):
+            if boq_position_id is not None and getattr(e, "boq_position_id", None) != boq_position_id:
+                continue
+            counts[e.period_label] = counts.get(e.period_label, 0) + 1
+        return counts
 
     async def latest_pct_for_positions(
         self,

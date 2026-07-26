@@ -193,25 +193,158 @@ class ProgressRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def entries_grouped_by_period(
+    async def pct_by_period_for_position(
         self,
         project_id: uuid.UUID,
-        boq_position_id: uuid.UUID | None = None,
+        boq_position_id: uuid.UUID,
     ) -> list[tuple[str, float]]:
-        """Return (period_label, max_pct) pairs ordered by period_label.
+        """Return ``(period_label, max_pct)`` for ONE BOQ position, oldest period first.
 
-        For each period we take the MAXIMUM percent_complete recorded - this
-        handles multiple same-period entries by using the most optimistic value.
+        Several readings inside one period collapse to the MAXIMUM - the
+        established "most optimistic value in the window" rule for a single
+        position's series.
+
+        Args:
+            project_id: Project the position belongs to (tenant scope).
+            boq_position_id: The position whose series is wanted.
+
+        Returns:
+            ``(period_label, percent_complete)`` pairs sorted by period label.
         """
-        stmt = select(
-            ProgressEntry.period_label,
-            func.max(ProgressEntry.percent_complete),
-        ).where(ProgressEntry.project_id == project_id)
-        if boq_position_id is not None:
-            stmt = stmt.where(ProgressEntry.boq_position_id == boq_position_id)
-        stmt = stmt.group_by(ProgressEntry.period_label).order_by(ProgressEntry.period_label.asc())
+        stmt = (
+            select(
+                ProgressEntry.period_label,
+                func.max(ProgressEntry.percent_complete),
+            )
+            .where(
+                ProgressEntry.project_id == project_id,
+                ProgressEntry.boq_position_id == boq_position_id,
+            )
+            .group_by(ProgressEntry.period_label)
+            .order_by(ProgressEntry.period_label.asc())
+        )
         rows = (await self.session.execute(stmt)).all()
         return [(row[0], float(row[1])) for row in rows]
+
+    async def project_level_pct_by_period(
+        self,
+        project_id: uuid.UUID,
+    ) -> list[tuple[str, float]]:
+        """Return ``(period_label, max_pct)`` over PROJECT-LEVEL entries only.
+
+        A project-level entry is one with ``boq_position_id IS NULL`` - a
+        manual overall-completion reading for the whole project. Position
+        readings are deliberately excluded: pooling the two scopes in one
+        aggregate is what used to let a single 90 % line item present itself
+        as the project's headline percentage.
+
+        Args:
+            project_id: Project to read.
+
+        Returns:
+            ``(period_label, percent_complete)`` pairs sorted by period label.
+        """
+        stmt = (
+            select(
+                ProgressEntry.period_label,
+                func.max(ProgressEntry.percent_complete),
+            )
+            .where(
+                ProgressEntry.project_id == project_id,
+                ProgressEntry.boq_position_id.is_(None),
+            )
+            .group_by(ProgressEntry.period_label)
+            .order_by(ProgressEntry.period_label.asc())
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return [(row[0], float(row[1])) for row in rows]
+
+    async def position_pct_by_period(
+        self,
+        project_id: uuid.UUID,
+    ) -> list[tuple[str, uuid.UUID, float]]:
+        """Return ``(period_label, boq_position_id, max_pct)`` per position and period.
+
+        The grain is one row per (period, position): several readings for the
+        SAME position inside one period collapse to the maximum, preserving
+        the "most optimistic value in the window" rule, while different
+        positions stay separate so the service can weight them. Project-level
+        entries (``boq_position_id IS NULL``) are excluded - they are the
+        fallback series, not rollup input.
+
+        Args:
+            project_id: Project to read.
+
+        Returns:
+            Rows sorted by period label, then position id.
+        """
+        stmt = (
+            select(
+                ProgressEntry.period_label,
+                ProgressEntry.boq_position_id,
+                func.max(ProgressEntry.percent_complete),
+            )
+            .where(
+                ProgressEntry.project_id == project_id,
+                ProgressEntry.boq_position_id.is_not(None),
+            )
+            .group_by(ProgressEntry.period_label, ProgressEntry.boq_position_id)
+            .order_by(ProgressEntry.period_label.asc(), ProgressEntry.boq_position_id.asc())
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return [(row[0], row[1], float(row[2])) for row in rows]
+
+    async def period_labels(self, project_id: uuid.UUID) -> list[str]:
+        """Return every period label the project has an observation in, oldest first.
+
+        This is the period AXIS of the cumulative series, kept separate from
+        the values so that a period is never dropped just because none of the
+        readings inside it feed the rollup. A period holding only a
+        project-level entry, or only readings against positions that are not
+        in the project's BOQs, still happened and still has to render a row.
+
+        Args:
+            project_id: Project to read.
+
+        Returns:
+            Distinct period labels sorted ascending.
+        """
+        stmt = (
+            select(ProgressEntry.period_label)
+            .where(ProgressEntry.project_id == project_id)
+            .distinct()
+            .order_by(ProgressEntry.period_label.asc())
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return [row[0] for row in rows]
+
+    async def entry_counts_by_period(
+        self,
+        project_id: uuid.UUID,
+        *,
+        boq_position_id: uuid.UUID | None = None,
+    ) -> dict[str, int]:
+        """Return ``{period_label: number_of_entries_recorded_in_it}``.
+
+        Counts observations, not positions: every row recorded in the period
+        is counted, project-level and position-level alike, because the
+        caller renders it as an "entries" column. Passing a position narrows
+        the count to that position's own observations.
+
+        Args:
+            project_id: Project to count within.
+            boq_position_id: Optional position filter.
+
+        Returns:
+            Period label mapped to its entry count. Periods with no entries
+            are simply absent.
+        """
+        stmt = select(ProgressEntry.period_label, func.count()).where(ProgressEntry.project_id == project_id)
+        if boq_position_id is not None:
+            stmt = stmt.where(ProgressEntry.boq_position_id == boq_position_id)
+        stmt = stmt.group_by(ProgressEntry.period_label)
+        rows = (await self.session.execute(stmt)).all()
+        return {row[0]: int(row[1]) for row in rows}
 
     # ── ProgressPlan ─────────────────────────────────────────────────────
 

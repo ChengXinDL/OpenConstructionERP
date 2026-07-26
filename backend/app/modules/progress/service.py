@@ -7,16 +7,31 @@ Handles:
 - percent_complete range enforcement [0, 100]
 - Per-period delta calculation from the cumulative series
 - S-curve: actual vs planned per period
-- Parent rollup: a BOQ parent's current_pct is the quantity-weighted
-  average of its direct children's latest percent_completes (falls back
-  to the unweighted mean when the children carry no quantity)
 - Geo-tagging validation (lat ∈ [-90, 90], lon ∈ [-180, 180])
+
+Rollups
+───────
+:func:`weighted_rollup` is the module's only rollup implementation. Both
+callers hand it a quantity-weighted denominator; they differ solely in
+WHICH ids they put in it.
+
+* Project headline (:meth:`ProgressService._project_pct_by_period`) rolls
+  up EVERY leaf BOQ position in the project. Positions nobody has measured
+  count as 0 and keep their weight in the denominator, so one line item at
+  90 % cannot speak for a four-hundred-line project.
+* Parent drill-down (:meth:`ProgressService.get_position_summary`) rolls up
+  the parent's MEASURED children only, so the panel keeps reporting on the
+  work that has actually been observed.
+
+Both degrade to the unweighted mean over the same id set when the BOQ
+carries no quantities.
 """
 
 from __future__ import annotations
 
 import logging
 import uuid
+from collections.abc import Mapping
 from decimal import Decimal
 from typing import Any
 
@@ -61,18 +76,77 @@ def _validate_geo(lat: float | None, lon: float | None) -> None:
         )
 
 
-def _compute_deltas(period_rows: list[tuple[str, float]]) -> list[PeriodProgress]:
-    """Convert (period_label, max_pct_in_period) rows into PeriodProgress with deltas.
+def weighted_rollup(
+    pct_by_id: Mapping[uuid.UUID, float],
+    weight_by_id: Mapping[uuid.UUID, Decimal],
+) -> float | None:
+    """Roll percent-complete readings up to a quantity-weighted average.
 
-    ``max_pct_in_period`` is treated as the *cumulative* percentage at the
-    end of that period (i.e. the highest reading recorded during the period).
+    This is the single rollup implementation in the module. Both the BOQ
+    parent summary and the project headline call it; they differ only in
+    which ids they hand over, never in the arithmetic.
+
+    Contract, and the whole point of the function:
+
+    * ``weight_by_id`` **is** the denominator. Every id in it is rolled up.
+    * An id absent from ``pct_by_id`` contributes 0 to the numerator while
+      still contributing its full weight to the denominator - unmeasured
+      work is not evidence of completed work.
+    * When every weight is zero the result degrades to the unweighted mean
+      over the same id set, so a rollup still reports something when the
+      BOQ carries no quantities.
+
+    Args:
+        pct_by_id: Latest percent-complete [0, 100] per position id. Ids not
+            present in ``weight_by_id`` are ignored - the caller decides the
+            denominator, this function does not widen it.
+        weight_by_id: Design quantity per position id, the rollup weight.
+
+    Returns:
+        The rolled-up percentage rounded to 3 decimals, or None when
+        ``weight_by_id`` is empty (nothing to roll up).
+    """
+    if not weight_by_id:
+        return None
+
+    weighted_sum = Decimal("0")
+    weight_total = Decimal("0")
+    for pos_id, weight in weight_by_id.items():
+        weighted_sum += weight * Decimal(str(pct_by_id.get(pos_id, 0.0)))
+        weight_total += weight
+
+    if weight_total > 0:
+        return round(float(weighted_sum / weight_total), 3)
+
+    # No quantities anywhere: fall back to the unweighted mean over the same
+    # denominator, so an unmeasured id still counts as 0 rather than vanishing.
+    plain_sum = sum(pct_by_id.get(pos_id, 0.0) for pos_id in weight_by_id)
+    return round(plain_sum / len(weight_by_id), 3)
+
+
+def _compute_deltas(
+    period_rows: list[tuple[str, float]],
+    entry_counts: Mapping[str, int] | None = None,
+) -> list[PeriodProgress]:
+    """Convert (period_label, cumulative_pct) rows into PeriodProgress with deltas.
+
+    ``cumulative_pct`` is the completion percentage at the end of that period.
 
     delta_pct = cumulative_pct[i] - cumulative_pct[i-1]
 
     Deltas are clamped to 0 when cumulative_pct decreases (correction entries
     can lower the recorded value - we don't want negative deltas on the
     S-curve chart).
+
+    Args:
+        period_rows: ``(period_label, cumulative_pct)`` sorted by period.
+        entry_counts: ``{period_label: entries recorded}``. A period missing
+            from the mapping reports 0 entries.
+
+    Returns:
+        One :class:`PeriodProgress` per input row, in the same order.
     """
+    counts = entry_counts or {}
     results: list[PeriodProgress] = []
     prev_cumulative = 0.0
     for label, cum_pct in period_rows:
@@ -82,7 +156,7 @@ def _compute_deltas(period_rows: list[tuple[str, float]]) -> list[PeriodProgress
                 period_label=label,
                 delta_pct=delta,
                 cumulative_pct=round(cum_pct, 3),
-                entry_count=1,  # aggregated at the repo level
+                entry_count=counts.get(label, 0),
             )
         )
         prev_cumulative = cum_pct
@@ -277,12 +351,26 @@ class ProgressService:
 
         Algorithm
         ─────────
-        1. Fetch (period_label, max_pct) pairs from the DB, sorted by period.
+        1. Build the cumulative series. For ONE position that is its own
+           readings per period; for the PROJECT it is the quantity-weighted
+           rollup of the positions (see :meth:`_project_pct_by_period`).
         2. Compute delta_pct = cum_pct[i] - cum_pct[i-1] (clamped to ≥ 0).
         3. The last entry's cumulative_pct is the current overall completion.
+
+        Args:
+            project_id: Project to summarise.
+            boq_position_id: Restrict to a single position's own series.
+
+        Returns:
+            Per-period rows plus the project's (or position's) current
+            cumulative percentage.
         """
-        period_rows = await self.repo.entries_grouped_by_period(project_id, boq_position_id=boq_position_id)
-        periods = _compute_deltas(period_rows)
+        entry_counts = await self.repo.entry_counts_by_period(project_id, boq_position_id=boq_position_id)
+        if boq_position_id is not None:
+            period_rows = await self.repo.pct_by_period_for_position(project_id, boq_position_id)
+        else:
+            period_rows = await self._project_pct_by_period(project_id)
+        periods = _compute_deltas(period_rows, entry_counts)
         current = periods[-1].cumulative_pct if periods else 0.0
         return CumulativeProgressResponse(
             project_id=project_id,
@@ -290,6 +378,130 @@ class ProgressService:
             periods=periods,
             current_cumulative_pct=current,
         )
+
+    # ── Project rollup ────────────────────────────────────────────────────
+
+    async def _project_pct_by_period(self, project_id: uuid.UUID) -> list[tuple[str, float]]:
+        """Return the project's cumulative completion per period.
+
+        The project percentage is the QUANTITY-WEIGHTED rollup of the latest
+        per-position reading as of the end of each period, weighted by the
+        BOQ design quantity of every leaf position in the project.
+
+        Untracked positions count as 0 and stay in the denominator. That is
+        the only reading of "percent complete" a client-facing report can
+        defend: excluding them would let one measured line out of four
+        hundred present itself as the whole project, which is the defect
+        this method exists to remove.
+
+        Falls back to the project-level manual readings
+        (``boq_position_id IS NULL``) when there is no usable weighted
+        denominator - no position readings at all, no readable BOQ, or
+        readings that no longer match any position in the project's BOQs.
+
+        Args:
+            project_id: Project to roll up.
+
+        Returns:
+            ``(period_label, cumulative_pct)`` sorted by period label.
+        """
+        position_rows = await self.repo.position_pct_by_period(project_id)
+        if not position_rows:
+            return await self.repo.project_level_pct_by_period(project_id)
+
+        weights = await self._fetch_position_weights(project_id)
+        if weights is None:
+            # The BOQ read failed. Rolling up against the measured positions
+            # alone would silently restore the optimistic number, so use the
+            # documented fallback series instead.
+            logger.warning(
+                "Project %s: BOQ positions unreadable - project progress falls back to "
+                "project-level entries instead of the position rollup",
+                project_id,
+            )
+            return await self.repo.project_level_pct_by_period(project_id)
+
+        measured_ids = {pos_id for _label, pos_id, _pct in position_rows}
+        orphan_ids = measured_ids - set(weights)
+        if orphan_ids:
+            logger.warning(
+                "Project %s: %d progress position(s) are not in the project's BOQs and are excluded from the rollup",
+                project_id,
+                len(orphan_ids),
+            )
+        if not measured_ids - orphan_ids:
+            # Readings exist but none of them lands on a live BOQ position,
+            # so there is nothing to weight.
+            return await self.repo.project_level_pct_by_period(project_id)
+
+        # Group readings per period, then walk periods oldest-first carrying
+        # each position's last known reading forward: a position measured in
+        # W21 and not touched in W22 still counts in W22.
+        readings_by_period: dict[str, dict[uuid.UUID, float]] = {}
+        for label, pos_id, pct in position_rows:
+            if pos_id in orphan_ids:
+                continue
+            readings_by_period.setdefault(label, {})[pos_id] = pct
+
+        # The axis is every period the project has an observation in, NOT just
+        # the periods that contribute to the rollup. A period holding only a
+        # project-level reading, or only readings against positions outside
+        # the BOQ, still happened: it keeps its row and its entry count, and
+        # reports the rollup carried forward from the last measured period.
+        # Dropping it would silently delete a week the user recorded work in.
+        series: list[tuple[str, float]] = []
+        carried: dict[uuid.UUID, float] = {}
+        for label in await self.repo.period_labels(project_id):
+            carried.update(readings_by_period.get(label, {}))
+            rolled = weighted_rollup(carried, weights)
+            series.append((label, rolled if rolled is not None else 0.0))
+        return series
+
+    async def _fetch_position_weights(self, project_id: uuid.UUID) -> dict[uuid.UUID, Decimal] | None:
+        """Return ``{leaf_position_id: design_quantity}`` for the project's BOQs.
+
+        Only LEAF positions carry weight. A parent's quantity, where it has
+        one, restates work already counted in its children, so weighting
+        both would count that work twice.
+
+        ``Position.quantity`` is stored as a String; an unparseable, missing
+        or non-finite value becomes ``Decimal("0")`` (no weight) rather than
+        poisoning the whole rollup.
+
+        Args:
+            project_id: Project whose BOQ positions are wanted.
+
+        Returns:
+            Leaf position ids mapped to their design quantity, or None when
+            the lookup itself failed - the caller must not treat that as
+            "the project has no positions".
+        """
+        try:
+            from sqlalchemy import select as sa_select
+
+            from app.modules.boq.models import BOQ, Position
+
+            stmt = (
+                sa_select(Position.id, Position.parent_id, Position.quantity)
+                .join(BOQ, Position.boq_id == BOQ.id)
+                .where(BOQ.project_id == project_id)
+            )
+            rows = (await self.session.execute(stmt)).all()
+        except Exception:
+            logger.debug("Could not read BOQ positions for project %s", project_id, exc_info=True)
+            return None
+
+        parent_ids = {parent_id for _pos_id, parent_id, _quantity in rows if parent_id is not None}
+        weights: dict[uuid.UUID, Decimal] = {}
+        for pos_id, _parent_id, quantity in rows:
+            if pos_id in parent_ids:
+                continue
+            try:
+                weight = Decimal(str(quantity)) if quantity is not None else Decimal("0")
+            except (ArithmeticError, ValueError):
+                weight = Decimal("0")
+            weights[pos_id] = weight if weight.is_finite() else Decimal("0")
+        return weights
 
     # ── Position summary (with parent rollup) ─────────────────────────────
 
@@ -315,21 +527,12 @@ class ProgressService:
             # Parent rollup path
             child_ids = list(child_quantities)
             child_pcts = await self.repo.latest_pct_for_positions(project_id, child_ids)
-            if child_pcts:
-                weighted_sum = Decimal("0")
-                weight_total = Decimal("0")
-                for pos_id, pct in child_pcts.items():
-                    weight = child_quantities.get(pos_id, Decimal("0"))
-                    weighted_sum += weight * Decimal(str(pct))
-                    weight_total += weight
-                if weight_total > 0:
-                    current_pct = round(float(weighted_sum / weight_total), 3)
-                else:
-                    # All children carry zero quantity: fall back to the
-                    # unweighted mean so a parent still reports progress.
-                    current_pct = round(sum(child_pcts.values()) / len(child_pcts), 3)
-            else:
-                current_pct = 0.0
+            # Denominator: the MEASURED children only. Unlike the project
+            # headline, a parent drill-down keeps reporting on the children
+            # that have actually been observed. See the module docstring.
+            measured_weights = {pos_id: child_quantities.get(pos_id, Decimal("0")) for pos_id in child_pcts}
+            rolled = weighted_rollup(child_pcts, measured_weights)
+            current_pct = 0.0 if rolled is None else rolled
 
             entries = await self.repo.list_entries_for_project(project_id, boq_position_id=boq_position_id, limit=1000)
             return PositionProgressSummary(
@@ -468,18 +671,22 @@ class ProgressService:
     async def get_s_curve(self, project_id: uuid.UUID) -> SCurveResponse:
         """Build actual vs planned S-curve for a project.
 
-        1. Fetch actual per-period cumulative % (max reading per period).
+        1. Fetch the actual per-period cumulative % - the same quantity-weighted
+           project rollup the headline uses, so the curve and the headline can
+           never disagree.
         2. Fetch planned data points.
         3. Merge on period_label; gaps in either series are filled with None
            (planned) or carry-forward (actual).
+
+        Args:
+            project_id: Project to chart.
+
+        Returns:
+            One point per period present in either series.
         """
         # Actual data
-        actual_rows = await self.repo.entries_grouped_by_period(project_id)
-        actual_by_period: dict[str, float] = {}
-        prev = 0.0
-        for label, max_pct in actual_rows:
-            actual_by_period[label] = round(max_pct, 3)
-            prev = max_pct
+        actual_rows = await self._project_pct_by_period(project_id)
+        actual_by_period: dict[str, float] = {label: round(pct, 3) for label, pct in actual_rows}
 
         # Planned data
         plan_rows = await self.repo.list_plan(project_id)
