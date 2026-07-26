@@ -17,9 +17,65 @@
  * so existing measurements are painted exactly as before.
  */
 
-/** Minimal shape the ordering helpers need: an optional numeric order key. */
+/** Minimal shape the ordering helpers need: an optional numeric order key and
+ *  the group the row belongs to (issue #394 bands the projection by group). */
 export interface Orderable {
   order?: number;
+  group?: string;
+}
+
+/** Group name a row with no group of its own is filed under. Matches the
+ *  `m.group || 'General'` idiom the sidebar and the exporters bucket with, so a
+ *  row whose group is an empty string bands where it is displayed. A `??`
+ *  fallback would band it separately from the bucket it renders in. */
+const DEFAULT_GROUP = 'General';
+
+/** Empty band map. Every group then resolves to band 0, so a banded sort
+ *  collapses to the single-level behaviour and callers that pass nothing are
+ *  unaffected. */
+const NO_GROUP_ORDER: Readonly<Record<string, number>> = {};
+
+/**
+ * Resolve the group a row bands, buckets and scopes under.
+ *
+ * Exported so every surface that groups measurements normalises the same way.
+ * A raw `a.group === b.group` comparison splits an empty-string group away from
+ * the General bucket it actually renders in, which silently scopes an operation
+ * to the wrong set; going through here is what keeps banding, bucketing and the
+ * band-scoped bring-to-front / send-to-back agreeing on what a group is.
+ */
+export const groupOf = (item: Orderable): string => item.group || DEFAULT_GROUP;
+
+/**
+ * Assign each group a band, deciding where its block sits relative to the other
+ * groups (issue #394).
+ *
+ * Until now a group's position was a side effect of its members' paint keys: a
+ * group block sat wherever its earliest member happened to land, so restacking
+ * one measurement relocated its whole group. A band gives the group a position
+ * of its own, and defaults it to first appearance in the array - creation order,
+ * which no per-measurement reorder can change.
+ *
+ * ``explicit`` wins where it is set, and any group missing from it is banded
+ * after the highest explicit band, in first-appearance order. Passing nothing
+ * makes the whole map derived: opening a document writes nothing, and two
+ * clients looking at the same measurements compute the same bands without
+ * either having to store them (issue #400 is what fills ``explicit`` in).
+ */
+export function groupBands<T extends Orderable>(
+  items: readonly T[],
+  explicit: Readonly<Record<string, number>> = NO_GROUP_ORDER,
+): Record<string, number> {
+  const bands: Record<string, number> = { ...explicit };
+  // Derived bands start above every explicit one so an un-banded group never
+  // displaces a group the user positioned deliberately.
+  let next = 0;
+  for (const band of Object.values(explicit)) next = Math.max(next, band + 1);
+  for (const item of items) {
+    const group = groupOf(item);
+    if (bands[group] === undefined) bands[group] = next++;
+  }
+  return bands;
 }
 
 /**
@@ -31,13 +87,74 @@ export interface Orderable {
  * key equal to another row's index, or two equal keys) break on the original
  * index, keeping the sort deterministic and stable.
  *
+ * ``groupOrder`` makes the projection band-major (issue #394): rows sort by
+ * their group's band first, so every group paints as one contiguous block and a
+ * measurement-level reorder can no longer move its group. Omitting it leaves
+ * every row in band 0, which collapses the comparator to the ``key`` / ``index``
+ * tie-breaks above - so every existing caller keeps its current behaviour.
+ *
  * Does not mutate the input.
  */
-export function sortByPaintOrder<T extends Orderable>(items: T[]): T[] {
+export function sortByPaintOrder<T extends Orderable>(
+  items: T[],
+  groupOrder: Readonly<Record<string, number>> = NO_GROUP_ORDER,
+): T[] {
   return items
-    .map((item, index) => ({ item, index, key: item.order ?? index }))
-    .sort((a, b) => a.key - b.key || a.index - b.index)
+    .map((item, index) => ({
+      item,
+      index,
+      band: groupOrder[groupOf(item)] ?? 0,
+      key: item.order ?? index,
+    }))
+    .sort((a, b) => a.band - b.band || a.key - b.key || a.index - b.index)
     .map((entry) => entry.item);
+}
+
+/**
+ * Compute the band map that drops one group next to another (issue #400).
+ *
+ * Unlike a measurement drop, this renumbers every group sequentially rather
+ * than handing the moved group a fractional key between its new neighbours.
+ * The reason is {@link groupBands}' creation-order default: it bands every
+ * group with no explicit entry AFTER the highest explicit one. Banding the
+ * dragged group alone would therefore push every untouched group above it -
+ * dropping ``C`` between ``A`` and ``B`` with nothing banded yet would give
+ * ``C`` 0.5 and then re-derive ``A`` and ``B`` above it, landing ``C`` at the
+ * front instead of the middle. Stamping every group in one pass is what makes
+ * the result the order the user actually dropped.
+ *
+ * ``displayed`` must list EVERY group in the document, not just the groups on
+ * the current page: the band map is per document, so renumbering only the
+ * visible subset would drop the band of every group that lives on another page.
+ *
+ * Returns ``null`` when the move changes nothing (same group, either name
+ * missing, or the drop resolves to the slot the group already occupies), so the
+ * caller can skip a write that would otherwise re-stamp every measurement.
+ */
+export function reorderGroups(
+  displayed: readonly string[],
+  draggedGroup: string,
+  targetGroup: string,
+  place: 'before' | 'after',
+): Record<string, number> | null {
+  if (draggedGroup === targetGroup) return null;
+  if (!displayed.includes(draggedGroup) || !displayed.includes(targetGroup)) return null;
+  // Remove the dragged group BEFORE resolving the target's index. Splicing at
+  // the target's index in the original list would put a group dragged from
+  // above the target straight back where it started, so the move would silently
+  // no-op in exactly the direction users try first.
+  const rest = displayed.filter((g) => g !== draggedGroup);
+  const targetIdx = rest.indexOf(targetGroup);
+  if (targetIdx === -1) return null;
+  const insertAt = place === 'before' ? targetIdx : targetIdx + 1;
+  const next = [...rest.slice(0, insertAt), draggedGroup, ...rest.slice(insertAt)];
+  // A drop back into the same slot is not worth a document-wide write.
+  if (next.every((g, i) => g === displayed[i])) return null;
+  const bands: Record<string, number> = {};
+  next.forEach((g, i) => {
+    bands[g] = i;
+  });
+  return bands;
 }
 
 /**

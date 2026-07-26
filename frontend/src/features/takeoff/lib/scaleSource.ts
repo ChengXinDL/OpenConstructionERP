@@ -19,6 +19,34 @@
 
 import type { ScaleSource } from '../api';
 
+/** The union's members at runtime, so the guard below cannot drift from it. */
+const SCALE_SOURCES: readonly ScaleSource[] = [
+  'page_text',
+  'recovered_text',
+  'vision_read',
+  'manual_calibration',
+  'preset',
+  'inherited',
+];
+
+/**
+ * Narrow a scale source that arrived over the wire.
+ *
+ * The response field is typed as a plain string on purpose: it is data from
+ * the network, and claiming it is already one of the six would be an assertion
+ * this side cannot make. Callers that want the closed set run it through here,
+ * so a value this build does not recognise degrades to "unknown" the way a
+ * missing one does, instead of reaching a label lookup that assumes it exists.
+ *
+ * It lives here rather than next to the type in ``api.ts`` for a practical
+ * reason: the api module is mocked wholesale in the persistence tests, and a
+ * runtime helper exported from there would be undefined under every such mock.
+ * The type import above is erased, so this file still pulls no runtime graph.
+ */
+export function isScaleSource(value: string | null | undefined): value is ScaleSource {
+  return typeof value === 'string' && (SCALE_SOURCES as readonly string[]).includes(value);
+}
+
 /**
  * The factory ratio a page sits on before anyone calibrates it.
  *

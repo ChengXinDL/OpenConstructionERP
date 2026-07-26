@@ -38,7 +38,12 @@ export interface MeasurementCreate {
   page: number;
   type: string;
   group_name?: string;
-  group_color?: string;
+  /** Per-measurement colour override. ``null`` CLEARS it so the measurement
+   *  follows its group again (issue #396) - a real stored state, matching
+   *  {@link MeasurementResponse.group_color}. Omitted on create (nothing to
+   *  clear); sent explicitly on update, where an omitted key would mean
+   *  "leave unchanged". */
+  group_color?: string | null;
   annotation?: string | null;
   points: MeasurementPoint[];
   measurement_value?: number | null;

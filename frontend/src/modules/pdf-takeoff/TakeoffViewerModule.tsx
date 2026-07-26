@@ -159,6 +159,14 @@ import {
   formatGroupTotal,
 } from '../../features/takeoff/lib/takeoff-groups';
 import {
+  groupColorCommit,
+  groupColorIdentity,
+  hydrateGroupColors,
+  resolveMeasurementColor,
+  retargetGroupColor,
+  stampGroupColors,
+} from '../../features/takeoff/lib/takeoff-colors';
+import {
   sortByPaintOrder,
   orderKeyForEdge,
   orderKeyForDrop,
@@ -191,6 +199,9 @@ import {
 } from '../../features/takeoff/lib/takeoff-display-units';
 import { ElementCostMatchPanel } from '@/features/match';
 import { openLink } from '@/shared/lib/desktop';
+// Type-only: the scale-source vocabulary is a closed set owned by the backend
+// contract, so the viewer reuses it instead of restating it as a bare string.
+import type { ScaleSource } from '@/features/takeoff/api';
 
 // Configure PDF.js worker — bundled locally (no CDN dependency)
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -314,7 +325,10 @@ const CONFIDENCE_BAND_TEXT: Record<ConfidenceBand, { key: string; fallback: stri
  *  back to "Unknown", which is also what a row with no source at all shows -
  *  the honest answer, and the one that matters when a sheet turns out to have
  *  been measured at the wrong ratio. */
-const SCALE_SOURCE_TEXT: Record<string, { key: string; fallback: string }> = {
+// Keyed by the closed union rather than by `string`, so adding a source to the
+// backend vocabulary without giving it a label here is a build error instead of
+// a row that silently renders as "Unknown".
+const SCALE_SOURCE_TEXT: Record<ScaleSource, { key: string; fallback: string }> = {
   manual_calibration: {
     key: 'takeoff_viewer.scale_source_manual_calibration',
     fallback: 'Calibrated on this sheet',
@@ -415,6 +429,14 @@ interface Measurement {
   suggested?: boolean;
   /** Recognition confidence 0..1, present only on AI-sourced measurements. */
   confidence?: number;
+  /** Where the scale used to compute this measurement came from, or undefined
+   *  when it was never recorded. This is CAPTURE provenance: it is written
+   *  together with the ratio it describes and never on its own, so the two
+   *  always refer to the same moment. Rendered as "Unknown" when missing,
+   *  because on a mis-scaled sheet "we do not know" is the useful answer.
+   *  Mirrors the field of the same name on the shared `Measurement` in
+   *  `features/takeoff/lib/takeoff-types.ts`. */
+  scaleSource?: ScaleSource;
 }
 
 /** Narrow to a measurement the server already holds, so a review decision can
@@ -1358,45 +1380,41 @@ export default function TakeoffViewerModule({
     }
   }, [documentId, customGroupColors]);
 
-  /* Server-side group-colour persistence (issue #313). localStorage alone left
-   * a re-coloured group blue for a second user / another machine. The metadata
-   * blob on each measurement DOES round-trip to the server (like the #311/#312
-   * per-measurement styles), so mirror each group's custom colour onto its
-   * measurements' `groupColor`: that stamps the sync-signature, PATCHes the
-   * rows, and comes back through `fromApiFormat` -> the reconstruction effect
-   * below. Guarded so it only re-renders when a colour actually drifts (no
-   * migration, no new schema). */
+  /* Server-side group-colour persistence (issues #313/#398). localStorage alone
+   * left a re-coloured group blue for a second user / another machine. The
+   * metadata blob on each measurement DOES round-trip to the server (like the
+   * #311/#312 per-measurement styles), so each group's custom colour is
+   * mirrored onto its measurements' `groupColor`: that stamps the
+   * sync-signature, PATCHes the rows, and comes back through `fromApiFormat`.
+   *
+   * `customGroupColors` is the authority and the mirror is its cache, so this
+   * runs in ONE direction. It used to be two standing effects writing at each
+   * other, each reading a snapshot the other had already invalidated; once the
+   * two copies disagreed neither could win, so the pair alternated forever,
+   * kept the affected rows permanently dirty (which re-armed the debounced save
+   * before it could ever fire) and persisted the inconsistent map, so a reload
+   * resumed the loop rather than ending it.
+   *
+   * The one moment the mirror feeds the map is hydration, which is how a colour
+   * chosen elsewhere arrives at all. {@link groupColorCommit} owns that gate;
+   * hydration runs once per document and does not also stamp, so exactly one
+   * copy is written per commit. Both writes go through functional updaters so
+   * they compose with anything an earlier effect queued in the same batch. */
+  const colorIdentity = groupColorIdentity(activeProjectId, documentId, fileName);
+  const [groupColorsHydratedFor, setGroupColorsHydratedFor] = useState<string | null>(null);
   useEffect(() => {
-    setMeasurements((prev) => {
-      let changed = false;
-      const next = prev.map((m) => {
-        const gc = customGroupColors[m.group];
-        if (gc === undefined || m.groupColor === gc) return m;
-        changed = true;
-        return { ...m, groupColor: gc };
-      });
-      return changed ? next : prev;
-    });
-  }, [customGroupColors, measurements]);
-
-  /* Rebuild the group-colour map from measurements loaded off the server
-   * (issue #313): a colour set on another machine arrives in each measurement's
-   * `groupColor`, so fold it back into `customGroupColors` where the canvas,
-   * legend and colour picker read it. Guarded to avoid a render loop with the
-   * stamping effect above (they converge to the same value). */
-  useEffect(() => {
-    setCustomGroupColors((prev) => {
-      let changed = false;
-      const next = { ...prev };
-      for (const m of measurements) {
-        if (m.groupColor && next[m.group] !== m.groupColor) {
-          next[m.group] = m.groupColor;
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
-  }, [measurements]);
+    const action = groupColorCommit(
+      { colors: customGroupColors, measurements, hydratedFor: groupColorsHydratedFor },
+      colorIdentity,
+    );
+    if (action.colors) {
+      setCustomGroupColors((prev) => hydrateGroupColors(prev, measurements));
+      setGroupColorsHydratedFor(action.hydratedFor);
+    }
+    if (action.measurements) {
+      setMeasurements((prev) => stampGroupColors(prev, customGroupColors));
+    }
+  }, [customGroupColors, measurements, groupColorsHydratedFor, colorIdentity]);
 
   /* ── Reset per-document caches when the open PDF changes ──────────────
    * Thumbnails and extracted text layers are keyed by page number, so they
@@ -1767,7 +1785,7 @@ export default function TakeoffViewerModule({
       // A per-measurement colour (set via the properties swatch) wins over the
       // group default so a recoloured measurement paints in its chosen colour
       // (issue #299); annotation markups already resolve `m.color` below.
-      const color = m.color || groupColorMap[m.group] || '#3B82F6';
+      const color = resolveMeasurementColor(m, groupColorMap);
       ctx.strokeStyle = color;
       ctx.fillStyle = color;
       // Optional per-measurement stroke width (issues #312/#339). A real-world
@@ -4153,15 +4171,28 @@ export default function TakeoffViewerModule({
     return Array.from(names);
   }, [measurements]);
 
-  /** Patch an arbitrary set of fields on the currently-selected measurement. */
+  /** Patch an arbitrary set of fields on the currently-selected measurement.
+   *
+   *  A patch that reassigns `group` re-points the row's mirrored group colour at
+   *  the DESTINATION group in the same step (issue #397). Left alone, the row
+   *  arrives in its new group still carrying the colour of the one it left, and
+   *  that stale mirror is what a later hydration publishes to the whole
+   *  destination group - so one property edit silently rewrote a group-level
+   *  setting. The retarget happens BEFORE the rest of the patch is applied, so
+   *  an explicit `groupColor` in the same patch still wins. */
   const updateSelectedMeasurement = useCallback(
     (patch: Partial<Measurement>) => {
       if (!selectedMeasurementId) return;
       setMeasurements((prev) =>
-        prev.map((m) => (m.id === selectedMeasurementId ? { ...m, ...patch } : m)),
+        prev.map((m) => {
+          if (m.id !== selectedMeasurementId) return m;
+          return patch.group === undefined
+            ? { ...m, ...patch }
+            : { ...retargetGroupColor(m, patch.group, customGroupColors), ...patch };
+        }),
       );
     },
-    [selectedMeasurementId],
+    [selectedMeasurementId, customGroupColors],
   );
 
   // Latest selected measurement in a ref so the width-seed effect can read it
@@ -4434,9 +4465,13 @@ export default function TakeoffViewerModule({
   const handleExportCSV = useCallback(() => {
     if (measurements.length === 0) return;
     const rows: string[] = ['Group,Type,Annotation,Value,Unit,Page'];
-    // Group measurements by group name for subtotals
+    // Bucket by group for subtotals, walking the SCREEN order rather than the
+    // raw array: `orderedMeasurements` is what the canvas and the list paint,
+    // so a user who reordered rows gets a CSV in the order they are looking at.
+    // Bucketing preserves the walk order within each group, which is why the
+    // sort has to happen here rather than per bucket.
     const byGroup: Record<string, Measurement[]> = {};
-    for (const m of measurements) {
+    for (const m of orderedMeasurements) {
       const g = m.group || 'General';
       if (!byGroup[g]) byGroup[g] = [];
       byGroup[g]!.push(m);
@@ -4506,7 +4541,10 @@ export default function TakeoffViewerModule({
     link.click();
     URL.revokeObjectURL(url);
     addToast({ type: 'success', title: t('takeoff.csv_exported', { defaultValue: 'Measurements exported to CSV' }) });
-  }, [measurements, addToast, t, measurementSystem]);
+    // `measurements` stays in the deps alongside `orderedMeasurements`: the
+    // early return still reads its length, so dropping it would staleness-trap
+    // the empty check.
+  }, [measurements, orderedMeasurements, addToast, t, measurementSystem]);
 
   /**
    * Resolve the human-friendly project name for export filenames.
@@ -5429,7 +5467,10 @@ export default function TakeoffViewerModule({
     setIsExporting(true);
     try {
       let ordinalCounter = 1;
-      const exportableMeasurements = measurements.filter((m) => !isAnnotationType(m.type));
+      // Screen order, not array order: `ordinalCounter` numbers the BOQ
+      // positions as it walks, so reading from the raw array would hand the
+      // bill an ordering the user never saw after they reordered rows.
+      const exportableMeasurements = orderedMeasurements.filter((m) => !isAnnotationType(m.type));
       for (const m of exportableMeasurements) {
         const unitMap: Record<string, string> = { m: 'm', 'm\u00B2': 'm2', 'm\u00B3': 'm3', pcs: 'pcs' };
         const posData: CreatePositionData = {
@@ -5453,7 +5494,8 @@ export default function TakeoffViewerModule({
     } finally {
       setIsExporting(false);
     }
-  }, [selectedBoqId, measurements, addToast, t]);
+    // As in the CSV handler, `measurements` stays for the length guard above.
+  }, [selectedBoqId, measurements, orderedMeasurements, addToast, t]);
 
   const clearAll = useCallback(() => {
     // Queue a server-side delete for every synced row before wiping state
@@ -8379,7 +8421,7 @@ export default function TakeoffViewerModule({
                     ))}
                     <input
                       type="color"
-                      value={selectedMeasurement.color || groupColorMap[selectedMeasurement.group] || '#3B82F6'}
+                      value={resolveMeasurementColor(selectedMeasurement, groupColorMap)}
                       onChange={(e) => updateSelectedMeasurement({ color: e.target.value })}
                       className="h-5 w-6 cursor-pointer rounded border border-border bg-transparent p-0"
                       title={t('takeoff_viewer.prop_color_custom', { defaultValue: 'Custom color' })}
@@ -8387,6 +8429,51 @@ export default function TakeoffViewerModule({
                       data-testid="prop-color-custom"
                     />
                   </div>
+                  {/* Un-pin the override (issue #396). Every control above SETS
+                      a colour and none of them unsets one, so picking a colour
+                      for a single measurement used to be a one-way door: the
+                      row stopped following its group and could never be put
+                      back, because hand-matching the group's current hex pins
+                      that hex instead of restoring following. "No override" is
+                      a real stored state (group_color NULL), which is where
+                      every new measurement starts. A checkbox rather than a
+                      clear button, because the state is binary and the box also
+                      shows at a glance whether this row is pinned.
+                      Annotations (arrow, rectangle, highlight, cloud, text) are
+                      created with an explicit colour by design, so they are not
+                      offered the choice. */}
+                  {!isAnnotationType(selectedMeasurement.type) && (
+                    <label
+                      className="mt-1.5 flex cursor-pointer items-center gap-1.5"
+                      data-testid="prop-use-group-color"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!selectedMeasurement.color}
+                        onChange={(e) =>
+                          updateSelectedMeasurement(
+                            e.target.checked
+                              ? { color: undefined }
+                              : {
+                                  // Un-checking pins whatever is on screen right
+                                  // now, so the control is symmetric with the
+                                  // swatches: both land on an explicit colour.
+                                  color: resolveMeasurementColor(
+                                    selectedMeasurement,
+                                    groupColorMap,
+                                  ),
+                                },
+                          )
+                        }
+                        className="h-3.5 w-3.5 accent-oe-blue"
+                      />
+                      <span className="text-[11px] text-content-secondary">
+                        {t('takeoff_viewer.prop_use_group_color', {
+                          defaultValue: 'Use group color',
+                        })}
+                      </span>
+                    </label>
+                  )}
                 </div>
 
                 {/* Fill opacity (issue #311): area, volume and count carry a

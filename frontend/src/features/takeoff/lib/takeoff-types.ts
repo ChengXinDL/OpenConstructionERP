@@ -8,6 +8,11 @@
  * `frontend/src/modules/pdf-takeoff/TakeoffViewerModule.tsx`.
  */
 
+// Type-only, so it is erased at compile time and this file still pulls no
+// runtime graph. The scale-source vocabulary is the backend's, so it is
+// defined once next to the API contract rather than restated here.
+import type { ScaleSource } from '../api';
+
 export type MeasureTool =
   | 'select'
   | 'distance'
@@ -80,7 +85,7 @@ export interface Measurement {
    *  same capture. Surfaces render a missing value as "Unknown" rather than as
    *  a blank, because "we do not know" is the useful answer when a sheet turns
    *  out to be mis-scaled. */
-  scaleSource?: string;
+  scaleSource?: ScaleSource;
   /** Explicit paint (z) order key (issue #379). Higher = painted later = on
    *  top; drives the canvas paint pass, the click hit-test, the sidebar list
    *  and the PDF export. Undefined = fall back to array (creation) order, so

@@ -1,5 +1,5 @@
-// OpenConstructionERP — DataDrivenConstruction (DDC)
-// CAD2DATA Pipeline · PDF Takeoff exports — unit tests
+// OpenConstructionERP - DataDrivenConstruction (DDC)
+// CAD2DATA Pipeline · PDF Takeoff exports - unit tests
 // Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
 // DDC-CWICR-OE-2026
 import { beforeAll, describe, expect, it, vi } from 'vitest';
@@ -16,7 +16,7 @@ import {
 /**
  * jsdom omits the `canvas` package by default, so `<canvas>.getContext('2d')`
  * returns `null`.  The PDF exporter uses an offscreen canvas to bake
- * annotations — stub a minimal 2D context surface with the methods the
+ * annotations - stub a minimal 2D context surface with the methods the
  * renderer touches.  No pixel correctness needed for unit tests; we only
  * care that the exporter wires page-count, page-order and DOM round-tripping.
  */
@@ -50,7 +50,7 @@ beforeAll(() => {
     if (contextId === '2d') return makeCtxStub() as unknown as CanvasRenderingContext2D;
     return null;
   } as typeof HTMLCanvasElement.prototype.getContext;
-  // A 1×1 JPEG (red pixel) — gives jsPDF a valid bitstream to embed
+  // A 1×1 JPEG (red pixel) - gives jsPDF a valid bitstream to embed
   // without triggering filesystem fallback.
   const TINY_JPEG_DATA_URL =
     'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/2wBDAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQH/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAr/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAAAP/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/AL+AH//Z';
@@ -112,7 +112,7 @@ const SAMPLE_MEASUREMENTS: Measurement[] = [
     page: 2,
     group: 'Structural',
   },
-  // Annotation-only — has no numeric value, should not feed totals.
+  // Annotation-only - has no numeric value, should not feed totals.
   {
     id: 'm4',
     type: 'cloud',
@@ -228,7 +228,7 @@ describe('selectAnnotatedPages + buildTakeoffPdf page count', () => {
         width: 100 * scale,
         height: 100 * scale,
       }),
-      // Lazily resolve render() — exporter awaits .promise.
+      // Lazily resolve render() - exporter awaits .promise.
       render: () => ({ promise: Promise.resolve() }),
     };
     const fakeDoc = {
@@ -372,5 +372,194 @@ describe('buildTakeoffWorkbook', () => {
     expect(text).toContain('ft');
     expect(text).not.toContain('"m"');
     expect(text).not.toContain('m²');
+  });
+});
+
+/* ── 6. Paint order reaches the workbook (issue #395) ─────────────
+ * Reordering measurements in the sidebar (bring-to-front / send-to-back /
+ * drag) writes an explicit `order` key that the canvas, the click hit-test,
+ * the sidebar list and the annotated PDF all honour via `sortByPaintOrder`.
+ * The Excel exporter used to walk `ctx.measurements` raw, so a takeoff the
+ * user had deliberately arranged came out of the workbook in the order the
+ * shapes happened to be drawn, with nothing on screen saying the arrangement
+ * had been dropped. These tests pin the workbook to the on-screen order. */
+
+/**
+ * Reorder fixture, listed in CREATION order (the raw array order).
+ *
+ * The explicit keys reproduce two real sidebar gestures:
+ *   - "Delta" was dragged between Alpha and Bravo, so it carries the midpoint
+ *     key 1.5 that `orderKeyBetween` produces there;
+ *   - "Echo" was sent to the back, so it carries a key below every other row.
+ *
+ * Alpha, Bravo and Charlie were never reordered and fall back to their array
+ * index. Bravo sits in a different group ON PURPOSE: it makes the global
+ * creation index (2) of Charlie differ from its index inside the General
+ * bucket (1), which is what distinguishes a correct global projection from a
+ * per-group one. Effective keys are therefore Echo -1, Alpha 0, Bravo 1,
+ * Delta 1.5, Charlie 2.
+ */
+const REORDERED_MEASUREMENTS: Measurement[] = [
+  {
+    id: 'r1',
+    type: 'distance',
+    points: [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+    ],
+    value: 1,
+    unit: 'm',
+    label: '1.00 m',
+    annotation: 'Alpha',
+    page: 1,
+    group: 'General',
+  },
+  {
+    id: 'r2',
+    type: 'distance',
+    points: [
+      { x: 0, y: 10 },
+      { x: 100, y: 10 },
+    ],
+    value: 2,
+    unit: 'm',
+    label: '2.00 m',
+    annotation: 'Bravo',
+    page: 1,
+    group: 'Structural',
+  },
+  {
+    id: 'r3',
+    type: 'distance',
+    points: [
+      { x: 0, y: 20 },
+      { x: 100, y: 20 },
+    ],
+    value: 3,
+    unit: 'm',
+    label: '3.00 m',
+    annotation: 'Charlie',
+    page: 1,
+    group: 'General',
+  },
+  {
+    id: 'r4',
+    type: 'distance',
+    points: [
+      { x: 0, y: 30 },
+      { x: 100, y: 30 },
+    ],
+    value: 4,
+    unit: 'm',
+    label: '4.00 m',
+    annotation: 'Delta',
+    page: 1,
+    group: 'General',
+    order: 1.5,
+  },
+  {
+    id: 'r5',
+    type: 'distance',
+    points: [
+      { x: 0, y: 40 },
+      { x: 100, y: 40 },
+    ],
+    value: 5,
+    unit: 'm',
+    label: '5.00 m',
+    annotation: 'Echo',
+    page: 1,
+    group: 'General',
+    order: -1,
+  },
+];
+
+describe('buildTakeoffWorkbook paint order (issue #395)', () => {
+  /** Row shape read back off the Measurements sheet, by column key. */
+  interface SheetRow {
+    group: string;
+    type: string;
+    annotation: string;
+  }
+
+  /**
+   * Read the Measurements sheet by COLUMN KEY rather than column index.
+   * The sheet gains columns over time (a "Scale From" column landed recently),
+   * so index-based reads rot; keyed reads survive a layout change.
+   */
+  function readMeasurementRows(ws: import('exceljs').Worksheet): SheetRow[] {
+    const out: SheetRow[] = [];
+    ws.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return; // column header band
+      out.push({
+        group: String(row.getCell('group').value ?? ''),
+        type: String(row.getCell('type').value ?? ''),
+        annotation: String(row.getCell('annotation').value ?? ''),
+      });
+    });
+    return out;
+  }
+
+  async function buildReorderedSheet() {
+    const wb = await buildTakeoffWorkbook({
+      measurements: REORDERED_MEASUREMENTS,
+      scale: { pixelsPerUnit: 100, unitLabel: 'm' },
+      groupColorMap: GROUP_COLORS,
+      projectName: 'Test Project',
+    });
+    const ws = wb.getWorksheet('Measurements');
+    expect(ws).toBeDefined();
+    return readMeasurementRows(ws!);
+  }
+
+  it('writes the rows of a group in paint order, not creation order', async () => {
+    const rows = await buildReorderedSheet();
+    const general = rows
+      .filter((r) => r.group === 'General' && r.type === 'distance')
+      .map((r) => r.annotation);
+    // On-screen order after the two gestures. Creation order would be
+    // Alpha, Charlie, Delta, Echo - that is the bug this pins.
+    expect(general).toEqual(['Echo', 'Alpha', 'Delta', 'Charlie']);
+  });
+
+  it('projects paint order over the whole list, not within each group', async () => {
+    const rows = await buildReorderedSheet();
+    const general = rows
+      .filter((r) => r.group === 'General' && r.type === 'distance')
+      .map((r) => r.annotation);
+    // Charlie has no explicit key, so its effective key is its index. Bucketing
+    // the list before sorting would renumber Charlie from its real index 2 down
+    // to 1 inside the General bucket and float it above Delta's explicit 1.5,
+    // giving Echo, Alpha, Charlie, Delta - an order the canvas never paints.
+    expect(general.indexOf('Delta')).toBeLessThan(general.indexOf('Charlie'));
+  });
+
+  it('keeps the group header / data / subtotal structure around the sorted rows', async () => {
+    const rows = await buildReorderedSheet();
+    // Reordering must not flatten the sheet: each section still opens with its
+    // bold group header row (which carries the item count in the annotation
+    // column) and closes with its per-type subtotal.
+    const generalHeader = rows.findIndex(
+      (r) => r.group === 'General' && r.type === '' && r.annotation === '4 item(s)',
+    );
+    const generalSubtotal = rows.findIndex((r) => r.group === 'General - Subtotal');
+    const firstGeneralData = rows.findIndex(
+      (r) => r.group === 'General' && r.type === 'distance',
+    );
+    expect(generalHeader).toBeGreaterThanOrEqual(0);
+    expect(generalSubtotal).toBeGreaterThanOrEqual(0);
+    expect(generalHeader).toBeLessThan(firstGeneralData);
+    expect(firstGeneralData).toBeLessThan(generalSubtotal);
+  });
+
+  it('leaves the group sections themselves in alphabetical order', async () => {
+    const rows = await buildReorderedSheet();
+    // Paint order decides the rows INSIDE a section. The sections stay sorted
+    // by name so a reader can find a group without scanning the whole sheet,
+    // and so the sheet stays diffable between exports.
+    const sectionNames = rows
+      .filter((r) => r.type === '' && r.annotation.endsWith('item(s)'))
+      .map((r) => r.group);
+    expect(sectionNames).toEqual(['General', 'Structural']);
   });
 });

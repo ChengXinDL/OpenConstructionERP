@@ -10,8 +10,14 @@ import {
   useState,
 } from 'react';
 import { QueryClientContext } from '@tanstack/react-query';
-import { takeoffApi, type MeasurementCreate, type MeasurementResponse } from '@/features/takeoff/api';
 import {
+  takeoffApi,
+  type MeasurementCreate,
+  type MeasurementResponse,
+  type ScaleSource,
+} from '@/features/takeoff/api';
+import {
+  isScaleSource,
   attributeScaleSource,
   inferredCalibrationPages,
 } from '@/features/takeoff/lib/scaleSource';
@@ -103,6 +109,11 @@ interface Measurement {
   suggested?: boolean;
   /** Recognition confidence 0..1 on AI-sourced measurements. */
   confidence?: number;
+  /** Capture provenance for the scale this measurement was computed with,
+   *  read back off the server row so the properties panel can say where a
+   *  ratio came from. Mirrors the field of the same name on the shared
+   *  `Measurement` in `features/takeoff/lib/takeoff-types.ts`. */
+  scaleSource?: ScaleSource;
 }
 
 interface ScaleConfig {
@@ -412,7 +423,13 @@ function syncSignature(m: Measurement): string {
     // never reached the server. They are now part of the signature so a
     // group / colour / annotation / notes edit re-syncs.
     g: m.group || 'General',
-    col: m.color || '#3B82F6',
+    // Per-measurement colour override (issues #299/#396). Unset must NOT fold
+    // into the default hex here: a row pinned to '#3B82F6' and the same row
+    // with the pin cleared used to hash identically, so clearing an override
+    // back to "follow the group" never marked the row dirty and no PATCH was
+    // ever sent. Null is the honest encoding of "no override" and it is what
+    // {@link toApiUpdate} puts on the wire.
+    col: m.color || null,
     // Appearance overrides (issues #311/#312/#332): an opacity or stroke-width
     // edit must re-sync so the server copy carries it.
     fa: m.fillAlpha ?? null,
@@ -461,10 +478,14 @@ function geometrySignature(m: Measurement): string {
  *  through this path) PLUS the non-geometry properties (group, colour,
  *  annotation/label, notes) that must now persist on an in-place edit.
  *
- *  ``metadata`` is sent merged: the server replaces the metadata blob
- *  wholesale, so we re-send the same fields {@link toApiFormat} writes on
- *  create (notes/dimensions/calibration intent/BOQ link mirror) to avoid
- *  dropping them on an annotation-only edit. */
+ *  The server MERGES the incoming metadata over the stored blob rather than
+ *  replacing it (``new = {**existing, **incoming}``), which it does so that
+ *  server-stamped keys the client never echoes back (recognition run id,
+ *  verdict, compare key) survive a client PATCH. Two consequences for anything
+ *  written here: re-sending the fields {@link toApiFormat} writes on create is
+ *  harmless, and an omitted key does NOT clear the stored one. Clearing a
+ *  metadata value therefore has to be an explicit ``null`` - ``undefined`` is
+ *  dropped by ``JSON.stringify`` and leaves the old value in place. */
 function toApiUpdate(
   m: Measurement,
   scale?: ScaleConfig,
@@ -492,9 +513,12 @@ function toApiUpdate(
     slope_factor: m.slopeFactor,
     wastage_pct: m.wastagePct,
     multiplier: m.multiplier,
-    // Group colour (issue #313): re-sent on PATCH so a group re-colour /
-    // rename persists server-side (the server replaces metadata wholesale).
-    group_custom_color: m.groupColor,
+    // Group colour (issues #313/#397): re-sent on PATCH so a group re-colour /
+    // rename persists server-side. Explicitly NULL when the row has no
+    // mirrored colour, because the server merges metadata: omitting the key
+    // would leave the previous group's colour stored, and the next load would
+    // fold that stale value back in and repaint the destination group.
+    group_custom_color: m.groupColor ?? null,
     // Paint (z) order key (issue #379): re-sent on PATCH so a bring-to-front /
     // send-to-back persists (the server replaces the metadata blob wholesale).
     order: m.order,
@@ -508,8 +532,12 @@ function toApiUpdate(
   // billed quantity and never touch the page scale.
   const body: Partial<MeasurementCreate> = {
     group_name: m.group || 'General',
-    // Only persist a user-chosen colour (issue #299); see toApiFormat.
-    group_color: m.color || undefined,
+    // Per-measurement colour override (issues #299/#396). On CREATE an omitted
+    // key and a null mean the same thing, so toApiFormat omits it. On UPDATE
+    // they do not: the update schema is exclude_unset, so an omitted key means
+    // "leave unchanged" and would preserve a pin the user just cleared. Send
+    // the clear explicitly.
+    group_color: m.color || null,
     annotation: m.annotation || m.label || null,
     linked_boq_position_id: m.linkedPositionId ?? null,
     is_deduction: m.type === 'area' ? Boolean(m.isDeduction) : false,
@@ -559,7 +587,10 @@ function fromApiFormat(r: MeasurementResponse): Measurement {
     confidence: r.confidence ?? undefined,
     // Read-only provenance of the row's captured scale; the properties panel
     // and the exports render a missing value as "Unknown" rather than blank.
-    scaleSource: r.scale_source ?? undefined,
+    // Narrowed rather than asserted: a value the server has that this build
+    // does not know about is treated as unknown, which is what the surfaces
+    // already render, instead of reaching a label lookup that assumes it.
+    scaleSource: isScaleSource(r.scale_source) ? r.scale_source : undefined,
     type: r.type as Measurement['type'],
     points: r.points as Point[],
     value: r.measurement_value ?? r.count_value ?? 0,

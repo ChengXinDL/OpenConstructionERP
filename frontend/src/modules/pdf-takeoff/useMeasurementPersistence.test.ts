@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { useState } from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import {
   useMeasurementPersistence,
@@ -39,6 +40,10 @@ type TestMeasurement = {
   group: string;
   serverId?: string;
   color?: string;
+  /** Mirror of the row's GROUP colour (issue #313), distinct from ``color``
+   *  which is this measurement's own override. Needed by the #396/#397 wire
+   *  tests below, which assert on how each of the two is cleared. */
+  groupColor?: string;
   text?: string;
   strokeWidthReal?: number;
 };
@@ -894,6 +899,348 @@ describe('useMeasurementPersistence', () => {
     expect(body.group_color).toBe('#FF0000');
     expect(body.annotation).toBe('External wall');
     expect(body.metadata.text).toBe('note');
+
+    vi.useRealTimers();
+  });
+
+  /* ── Issue #396 / #397: clearing a colour has to reach the server ────── */
+
+  /**
+   * #396, layer 3. The dirty check is the only thing that decides whether a
+   * PATCH is attempted at all, and it used to fold "no override" into the
+   * default hex (``m.color || '#3B82F6'``). A measurement pinned to that exact
+   * hex and the same measurement with the pin cleared therefore hashed
+   * identically: the row never looked dirty and no request was ever sent. This
+   * is the case that survives a fix to the request body alone, so it needs its
+   * own test - a UI that clears the override would otherwise appear to work and
+   * silently do nothing.
+   */
+  it('fires a PATCH when an override equal to the default colour is cleared (issue #396)', async () => {
+    vi.useFakeTimers();
+    const { takeoffApi } = await import('@/features/takeoff/api');
+    (takeoffApi.update as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      measurement_value: 2.5, metadata: {},
+    });
+    // Pinned to the very colour the old signature substituted for "unset".
+    const m1 = { ...makeSyncedMeasurement('m1', 'srv-1'), color: '#3B82F6' };
+    let rows: TestMeasurement[] = [m1];
+    const setM = vi.fn();
+    const setPS = vi.fn();
+
+    const { rerender } = renderHook(() =>
+      useMeasurementPersistence({
+        fileName: 'clear-default.pdf', documentId: DOC, measurements: rows,
+        setMeasurements: setM, pageScales: basePageScales, setPageScales: setPS,
+        scale: defaultScale, projectId: PROJECT,
+      }),
+    );
+    await act(async () => { await Promise.resolve(); });
+    expect(takeoffApi.update).not.toHaveBeenCalled();
+
+    // The user ticks "Use group color": the override goes away.
+    rows = [{ ...m1, color: undefined }];
+    rerender();
+
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+      await Promise.resolve();
+    });
+    expect(takeoffApi.update).toHaveBeenCalledTimes(1);
+
+    vi.useRealTimers();
+  });
+
+  /**
+   * #396, layer 2. ``undefined`` is dropped by ``JSON.stringify`` and the
+   * server's update schema is exclude_unset, so an omitted ``group_color``
+   * means "leave unchanged" - it preserves the pin the user just cleared.
+   * Omission and clearing used to share one encoding; only an explicit null
+   * distinguishes them on the wire.
+   */
+  it('clears a per-measurement override with an explicit null (issue #396)', async () => {
+    vi.useFakeTimers();
+    const { takeoffApi } = await import('@/features/takeoff/api');
+    (takeoffApi.update as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      measurement_value: 2.5, metadata: {},
+    });
+    const m1 = { ...makeSyncedMeasurement('m1', 'srv-1'), color: '#EF4444' };
+    let rows: TestMeasurement[] = [m1];
+    const setM = vi.fn();
+    const setPS = vi.fn();
+
+    const { rerender } = renderHook(() =>
+      useMeasurementPersistence({
+        fileName: 'clear-override.pdf', documentId: DOC, measurements: rows,
+        setMeasurements: setM, pageScales: basePageScales, setPageScales: setPS,
+        scale: defaultScale, projectId: PROJECT,
+      }),
+    );
+    await act(async () => { await Promise.resolve(); });
+
+    rows = [{ ...m1, color: undefined }];
+    rerender();
+
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+      await Promise.resolve();
+    });
+    const body = (takeoffApi.update as unknown as ReturnType<typeof vi.fn>)
+      .mock.calls[0]![1];
+    expect(body.group_color).toBeNull();
+    // Present in the payload, not merely undefined: a key that survives
+    // JSON.stringify is the whole point.
+    expect(JSON.parse(JSON.stringify(body))).toHaveProperty('group_color', null);
+
+    vi.useRealTimers();
+  });
+
+  /**
+   * The server half of #397. The retarget clears the moved row's mirrored group
+   * colour in memory, but the server MERGES the incoming metadata over the
+   * stored blob, so an omitted ``group_custom_color`` leaves the OLD group's
+   * colour sitting on the row. The next load folds that stale value into the
+   * colour map as though it were the destination group's chosen colour, and the
+   * destination is repainted after all - a reload later, which is what made the
+   * defect read as intermittent.
+   */
+  it('clears the mirrored group colour on the wire when a row changes group (issue #397)', async () => {
+    vi.useFakeTimers();
+    const { takeoffApi } = await import('@/features/takeoff/api');
+    (takeoffApi.update as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      measurement_value: 2.5, metadata: {},
+    });
+    // A row in a colour-customised group, carrying that group's colour.
+    const m1 = { ...makeSyncedMeasurement('m1', 'srv-1'), group: 'Walls', groupColor: '#EF4444' };
+    let rows: TestMeasurement[] = [m1];
+    const setM = vi.fn();
+    const setPS = vi.fn();
+
+    const { rerender } = renderHook(() =>
+      useMeasurementPersistence({
+        fileName: 'group-move.pdf', documentId: DOC, measurements: rows,
+        setMeasurements: setM, pageScales: basePageScales, setPageScales: setPS,
+        scale: defaultScale, projectId: PROJECT,
+      }),
+    );
+    await act(async () => { await Promise.resolve(); });
+
+    // Moved into a group with no custom colour; the viewer's retarget drops the
+    // mirror as part of the same edit.
+    rows = [{ ...m1, group: 'Slab', groupColor: undefined }];
+    rerender();
+
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+      await Promise.resolve();
+    });
+    const body = (takeoffApi.update as unknown as ReturnType<typeof vi.fn>)
+      .mock.calls[0]![1];
+    expect(body.group_name).toBe('Slab');
+    expect(JSON.parse(JSON.stringify(body)).metadata).toHaveProperty(
+      'group_custom_color',
+      null,
+    );
+
+    vi.useRealTimers();
+  });
+
+  /* ── Issue #396: the corrective write on first load, MEASURED ─────────
+   *
+   * The #396 fix changes what "no override" hashes to, which changes what the
+   * dirty check considers dirty on the very first load after deploy. The claim
+   * that this is a bounded one-time correction rather than a write storm was
+   * originally reasoned, not tested, so these two tests measure it instead.
+   *
+   * They assert on REQUEST COUNTS, not on resulting state, because the failure
+   * mode being ruled out is "the document saves correctly but hammers the API
+   * doing it". `update` is the PATCH, `bulkCreate` the POST and `list` the GET,
+   * so a count of zero PATCHes is only meaningful alongside a non-zero GET and
+   * loaded rows that CARRY a serverId - otherwise zero would just mean the spy
+   * never saw a request it could have made.
+   */
+
+  /** The hook's own Measurement type, without exporting it: these tests feed
+   *  the loaded rows back in as state, exactly as the viewer does, so they must
+   *  hold what the hook hands them. */
+  type HookMeasurement = Parameters<typeof useMeasurementPersistence>[0]['measurements'][number];
+
+  /** Advance well past every debounce in the hook (400ms edit PATCH, 500ms
+   *  auto-save, 3s server sync) while flushing microtasks between advances, so
+   *  a promise that resolves and THEN arms a timer still gets its timer run.
+   *  A single advance would let a storm that fires on a later effect pass slip
+   *  through as a pass. */
+  const settleAllTimers = async () => {
+    await act(async () => {
+      for (let i = 0; i < 12; i += 1) {
+        vi.advanceTimersByTime(1000);
+        await Promise.resolve();
+      }
+    });
+  };
+
+  /** ~40 rows as an older build left them server-side: the group's colour
+   *  written into the per-measurement `group_color` column. */
+  const legacyServerRows = (count: number) =>
+    Array.from({ length: count }, (_, i) =>
+      serverRow({
+        id: `srv-${i}`,
+        group_color: '#3B82F6',
+        created_at: `2026-01-01T00:00:${String(i % 60).padStart(2, '0')}Z`,
+        metadata: { frontend_id: `m${i}`, scale_calibrated: false },
+      }),
+    );
+
+  /**
+   * A pure load must write NOTHING. This is the case that would hit every user
+   * at once on the first open after deploy, so a per-row corrective PATCH here
+   * would be a storm on every large sheet in the project, not a correction.
+   *
+   * It is safe because the load effect seeds the sync baseline from the SERVER
+   * copy of each row (`mapped`), and the rows put into state are hydrated from
+   * that same payload, so both sides of the dirty comparison are computed from
+   * one source. The test exists to keep that true: the seeding and the
+   * hydration are two separate statements in the load effect, and nothing but
+   * this assertion stops a later edit to one of them from drifting.
+   *
+   * Its control is the test below, which uses the identical harness and settle
+   * pattern and observes 40 PATCHes: a zero here therefore means "no write was
+   * made", not "this harness cannot see a write".
+   */
+  it('sends no request at all when loading a document written by an older build (issue #396)', async () => {
+    vi.useFakeTimers();
+    const { takeoffApi } = await import('@/features/takeoff/api');
+    const ROWS = 40;
+    (takeoffApi.list as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      legacyServerRows(ROWS),
+    );
+    const setPS = vi.fn();
+
+    // State is fed back into the hook the way the viewer does it. Without this
+    // the loaded rows would never become the `measurements` the sync effect
+    // compares against, and the test would pass by never looking at anything.
+    const { result } = renderHook(() => {
+      const [rows, setRows] = useState<HookMeasurement[]>([]);
+      useMeasurementPersistence({
+        fileName: 'legacy-sheet.pdf', documentId: DOC, measurements: rows,
+        setMeasurements: setRows, pageScales: basePageScales, setPageScales: setPS,
+        scale: defaultScale, projectId: PROJECT,
+      });
+      return rows;
+    });
+
+    // Twice, and the second pass is not decoration: the async load's state
+    // update flushes when the enclosing act() exits, so the effect that would
+    // arm a PATCH debounce does not even run until the first pass is over.
+    // Asserting after one pass would report zero writes for a storm that had
+    // simply not been given a tick to start - which is exactly how a test like
+    // this passes while the bug ships.
+    await settleAllTimers();
+    await settleAllTimers();
+
+    // The load really happened, and it really produced synced rows - so a PATCH
+    // was available to be made and simply was not made.
+    expect(takeoffApi.list).toHaveBeenCalledTimes(1);
+    expect(result.current).toHaveLength(ROWS);
+    expect(result.current.every((m) => Boolean(m.serverId))).toBe(true);
+    // No corrective writes of any kind. bulkCreate is checked too: rows that
+    // lost their serverId on the way through would be re-CREATED, which is the
+    // same outage wearing a different verb.
+    expect(takeoffApi.update).toHaveBeenCalledTimes(0);
+    expect(takeoffApi.bulkCreate).toHaveBeenCalledTimes(0);
+    expect(takeoffApi.delete).toHaveBeenCalledTimes(0);
+
+    // Quiet on the next pass too: a loop would only show up after the first
+    // round trip re-entered the effect.
+    await settleAllTimers();
+    expect(takeoffApi.update).toHaveBeenCalledTimes(0);
+    expect(takeoffApi.bulkCreate).toHaveBeenCalledTimes(0);
+
+    vi.useRealTimers();
+  });
+
+  /**
+   * The case that DOES write: a localStorage copy that has no override for
+   * rows the server still has the default hex on. The local copy wins in the
+   * merge while the baseline comes from the server, so those rows are
+   * genuinely dirty and the clear is real work that must reach the server.
+   *
+   * What is being pinned down is that it is bounded: exactly one PATCH per
+   * affected row on the first pass and NONE on the second. One-per-row is a
+   * migration; anything that repeats is the #398 failure mode reappearing on
+   * the wire, and on a 40-row sheet the two look identical for the first
+   * second.
+   */
+  it('corrects a stale server colour once per row and then goes quiet (issue #396)', async () => {
+    vi.useFakeTimers();
+    const { takeoffApi } = await import('@/features/takeoff/api');
+    const ROWS = 40;
+    (takeoffApi.list as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      legacyServerRows(ROWS),
+    );
+    // Resolve with the value the row already carries, so the server-authoritative
+    // recompute cannot itself change state and muddy the count.
+    (takeoffApi.update as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      measurement_value: 1, metadata: {},
+    });
+    // The same rows as this client last saved them: no per-measurement override.
+    localStorage.setItem(
+      compositeKey,
+      JSON.stringify({
+        measurements: Array.from({ length: ROWS }, (_, i) => ({
+          id: `m${i}`, serverId: `srv-${i}`, type: 'distance',
+          points: [{ x: 0, y: 0 }, { x: 10, y: 0 }], value: 1, unit: 'm',
+          label: '', annotation: '', page: 1, group: 'General',
+        })),
+        pageScales: basePageScales,
+        scale: defaultScale,
+        savedAt: Date.now(),
+      }),
+    );
+    const setPS = vi.fn();
+
+    // `touch` re-renders with the same rows under a new array identity, which
+    // is what makes the "goes quiet" assertion mean anything - see below.
+    const { result } = renderHook(() => {
+      const [rows, setRows] = useState<HookMeasurement[]>([]);
+      useMeasurementPersistence({
+        fileName: 'stale-colour.pdf', documentId: DOC, measurements: rows,
+        setMeasurements: setRows, pageScales: basePageScales, setPageScales: setPS,
+        scale: defaultScale, projectId: PROJECT,
+      });
+      return { rows, touch: () => setRows((prev) => [...prev]) };
+    });
+
+    await settleAllTimers();
+
+    // A second pass is required to OBSERVE the first: the async load's state
+    // update flushes when the enclosing act() exits, so the effect that arms
+    // the PATCH debounce only runs after the first pass has advanced all its
+    // timers. Asserting on the first pass alone would report zero writes for a
+    // storm that had merely not been given a tick to start.
+    await settleAllTimers();
+
+    const calls = (takeoffApi.update as unknown as ReturnType<typeof vi.fn>).mock.calls;
+    expect(result.current.rows).toHaveLength(ROWS);
+    // One per row, and one ROW per call: 40 calls against 5 ids would be a loop
+    // that happens to add up to the right total.
+    expect(calls).toHaveLength(ROWS);
+    expect(new Set(calls.map((c) => c[0])).size).toBe(ROWS);
+    // And every one of them is the clear, not some unrelated churn.
+    expect(calls.every((c) => c[1].group_color === null)).toBe(true);
+
+    // The correction is one-time. Simply letting more time pass does NOT show
+    // that: the PATCH effect is keyed on the `measurements` identity, so with
+    // nothing re-rendering it cannot fire again whether or not the baseline
+    // moved, and the assertion would hold even against a server that rejected
+    // every request. Re-render with the same rows under a new array identity -
+    // the cheapest thing the viewer does constantly - and the effect re-runs
+    // its dirty check for real. If the baseline had not advanced, all 40 rows
+    // would still look dirty and PATCH again.
+    await act(async () => {
+      result.current.touch();
+    });
+    await settleAllTimers();
+    expect(takeoffApi.update).toHaveBeenCalledTimes(ROWS);
 
     vi.useRealTimers();
   });

@@ -794,8 +794,17 @@ export async function buildTakeoffWorkbook(
   headerRow.alignment = { vertical: 'middle' };
 
   // Group measurements by group name so subtotal rows live with their data.
+  // Walk the paint-order projection (issue #395), the same one the canvas, the
+  // hit-test, the sidebar and the annotated PDF use, so a takeoff the user
+  // rearranged exports in the order they arranged it. The projection is taken
+  // once over the whole list rather than per group: sortByPaintOrder falls back
+  // to the array index for rows with no explicit key, and only the global index
+  // reproduces what the canvas paints - bucketing first would restart that
+  // fallback inside every group and reorder rows whose explicit key was chosen
+  // relative to another group's rows. The group sections themselves stay
+  // alphabetical (sorted just below); only the rows within a section move.
   const byGroup = new Map<string, Measurement[]>();
-  for (const m of ctx.measurements) {
+  for (const m of sortByPaintOrder(ctx.measurements)) {
     const g = m.group || 'General';
     const list = byGroup.get(g) ?? [];
     list.push(m);
