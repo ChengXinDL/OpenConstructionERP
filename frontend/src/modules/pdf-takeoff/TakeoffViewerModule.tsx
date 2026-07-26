@@ -77,6 +77,12 @@ import {
   unitDimension,
   type MeasureDimension,
 } from '../../features/takeoff/lib/units';
+import {
+  confidenceBand,
+  countConfidenceBands,
+  type ConfidenceBand,
+  type ConfidenceThresholds,
+} from '../../features/takeoff/lib/confidenceBand';
 import { apiGet, apiPost } from '../../shared/lib/api';
 import { formatFileSize } from '../../shared/lib/formatters';
 import { convertBetween } from '../../shared/lib/unitConversion';
@@ -279,6 +285,28 @@ const DIMENSION_LABELS: Readonly<Record<MeasureDimension, { key: string; fallbac
   count: { key: 'takeoff.dim_count', fallback: 'count' },
   lsum: { key: 'takeoff.dim_lsum', fallback: 'lump sum' },
   time: { key: 'takeoff.dim_time', fallback: 'time' },
+};
+
+/** Badge colours per confidence band.
+ *
+ *  Green / amber / red is the platform's agreed reading for an AI result, so
+ *  the band is legible before the number is read. ``unknown`` keeps the violet
+ *  "this came from a detector" tone rather than borrowing red: the offline
+ *  Recognize path proposes geometry without scoring it, and painting that as
+ *  low confidence would invent a judgement nothing made. */
+const CONFIDENCE_BAND_CLASSES: Record<ConfidenceBand, string> = {
+  high: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+  medium: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+  low: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
+  unknown: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
+};
+
+/** Plain wording for each band, used in the badge tooltip and the review bar. */
+const CONFIDENCE_BAND_TEXT: Record<ConfidenceBand, { key: string; fallback: string }> = {
+  high: { key: 'takeoff_viewer.confidence_high', fallback: 'High confidence' },
+  medium: { key: 'takeoff_viewer.confidence_medium', fallback: 'Medium confidence' },
+  low: { key: 'takeoff_viewer.confidence_low', fallback: 'Low confidence' },
+  unknown: { key: 'takeoff_viewer.confidence_unknown', fallback: 'Not scored' },
 };
 
 interface Point {
@@ -4686,10 +4714,30 @@ export default function TakeoffViewerModule({
   const [armCountSimilar, setArmCountSimilar] = useState(false);
   const [countSimilarBusy, setCountSimilarBusy] = useState(false);
 
+  /** The server's own confidence cut points, so a suggestion is described in
+   *  the viewer exactly as the server counts it. Null until /plan-read/meta
+   *  resolves (see the probe effect below, which fills both this and vision
+   *  availability from one call); the band helper falls back meanwhile. */
+  const [confidenceThresholds, setConfidenceThresholds] = useState<ConfidenceThresholds | null>(null);
+
   /** Number of unconfirmed AI suggestions currently on the canvas. */
   const suggestionCount = useMemo(
     () => measurements.filter((m) => m.suggested).length,
     [measurements],
+  );
+
+  /** How the pending suggestions split across the confidence bands.
+   *
+   *  "Accept all" over forty high-confidence proposals and "Accept all" over
+   *  forty the detector is unsure about are different decisions, and the bar
+   *  could not tell them apart while the score lived only inside each row. */
+  const suggestionBands = useMemo(
+    () =>
+      countConfidenceBands(
+        measurements.filter((m) => m.suggested).map((m) => m.confidence),
+        confidenceThresholds,
+      ),
+    [measurements, confidenceThresholds],
   );
 
   /** Scan the current page's vector layer and drop suggested measurements.
@@ -4928,6 +4976,13 @@ export default function TakeoffViewerModule({
         const meta = await takeoffApi.planRead.meta();
         if (!cancelled && meta) {
           setPlanReadVision({ available: meta.vision_available, reason: meta.reason });
+          // Bands come from the same call. They are useful even when no vision
+          // key is configured: the offline Recognize path scores its proposals
+          // too, and those are banded against the same cut points.
+          setConfidenceThresholds({
+            high: meta.confidence_high_threshold,
+            medium: meta.confidence_medium_threshold,
+          });
         } else if (!cancelled) {
           setPlanReadVision({ available: false, reason: null });
         }
@@ -7705,6 +7760,25 @@ export default function TakeoffViewerModule({
                   <span className="text-xs font-medium text-content-primary whitespace-nowrap">
                     {t('takeoff_viewer.suggestions_pending', { defaultValue: '{{n}} AI suggestions', n: suggestionCount })}
                   </span>
+                  {/* "Accept all" confirms the weak proposals along with the
+                      strong ones, and the bar had no way to say so: the score
+                      was visible only per row, in a list the user had to open.
+                      Naming the count here is what makes the button an
+                      informed decision rather than a gamble. */}
+                  {suggestionBands.low > 0 && (
+                    <span
+                      className="rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 dark:bg-rose-900/40 dark:text-rose-300 whitespace-nowrap"
+                      title={t('takeoff_viewer.suggestions_low_hint', {
+                        defaultValue: 'Accept all confirms these too. Check them first.',
+                      })}
+                      data-testid="suggestions-low-confidence"
+                    >
+                      {t('takeoff_viewer.suggestions_low_confidence', {
+                        defaultValue: '{{n}} low confidence',
+                        n: suggestionBands.low,
+                      })}
+                    </span>
+                  )}
                   <button
                     onClick={() => void acceptAllSuggestions()}
                     disabled={reviewBusy}
@@ -9162,15 +9236,31 @@ export default function TakeoffViewerModule({
                                         user's system (m -> ft); identity for metric. */}
                                     {measurementLabel(m, scale, measurementSystem)}
                                   </span>
-                                  {m.suggested && (
-                                    <span
-                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 text-[9px] font-semibold shrink-0"
-                                      title={t('takeoff_viewer.suggested_hint', { defaultValue: 'AI suggestion - accept to keep it' })}
-                                    >
-                                      <Sparkles size={8} />
-                                      {typeof m.confidence === 'number' ? `${Math.round(m.confidence * 100)}%` : t('takeoff_viewer.suggested', { defaultValue: 'AI' })}
-                                    </span>
-                                  )}
+                                  {m.suggested && (() => {
+                                    // The percentage on its own told a reviewer
+                                    // nothing: 62 is either fine or alarming
+                                    // depending on cut points only the server
+                                    // knows. The band carries that judgement,
+                                    // the number stays for anyone comparing two
+                                    // suggestions inside the same band.
+                                    const band = confidenceBand(m.confidence, confidenceThresholds);
+                                    const bandText = CONFIDENCE_BAND_TEXT[band];
+                                    const bandLabel = t(bandText.key, { defaultValue: bandText.fallback });
+                                    return (
+                                      <span
+                                        className={clsx(
+                                          'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold shrink-0',
+                                          CONFIDENCE_BAND_CLASSES[band],
+                                        )}
+                                        title={`${bandLabel} - ${t('takeoff_viewer.suggested_hint', { defaultValue: 'AI suggestion - accept to keep it' })}`}
+                                        data-testid="suggestion-confidence"
+                                        data-band={band}
+                                      >
+                                        <Sparkles size={8} />
+                                        {typeof m.confidence === 'number' ? `${Math.round(m.confidence * 100)}%` : t('takeoff_viewer.suggested', { defaultValue: 'AI' })}
+                                      </span>
+                                    );
+                                  })()}
                                   {m.linkedPositionOrdinal && (
                                     <button
                                       type="button"
