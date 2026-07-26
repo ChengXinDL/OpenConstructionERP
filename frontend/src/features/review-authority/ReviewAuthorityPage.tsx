@@ -1,6 +1,6 @@
 // DDC-CWICR-OE: DataDrivenConstruction · OpenConstructionERP
 // Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
@@ -44,6 +44,8 @@ import {
   ModuleGuideButton,
 } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
+import { buildReviewAuthorityInsights } from './reviewAuthorityInsights';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { apiGet, triggerDownload } from '@/shared/lib/api';
 import { useToastStore } from '@/stores/useToastStore';
@@ -1496,6 +1498,15 @@ export function ReviewAuthorityPage() {
 
   const activeCycleId = selectedCycleId ?? cycles[0]?.id ?? null;
 
+  // Cycle level, not remark level: remarks are fetched per cycle inside
+  // CycleDetailPanel, so a remark dataset would need a query this page does
+  // not make.
+  const insights = useModuleInsights('review-authority', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildReviewAuthorityInsights(cycles, t),
+    [cycles, t],
+  );
+
   const createMut = useMutation({
     mutationFn: (data: CreateCyclePayload) => createCycle(data),
     onSuccess: (created) => {
@@ -1553,6 +1564,7 @@ export function ReviewAuthorityPage() {
         })}
         actions={
           <>
+            <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
             <ModuleGuideButton content={reviewAuthorityGuide} />
             <Button
               variant="primary"
@@ -1571,6 +1583,17 @@ export function ReviewAuthorityPage() {
             </Button>
           </>
         }
+      />
+
+      <InsightsPanel
+        open={insights.open}
+        title={t('review_authority.insights.title', { defaultValue: 'Review authority insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
       />
 
       <DismissibleInfo
