@@ -530,9 +530,13 @@ interface TakeoffViewerModuleProps {
   /** Optional filename to associate with the pre-loaded PDF (display only). */
   initialPdfName?: string;
   /** Stable document UUID for this PDF (issue #238). Measurement identity is
-   *  ``projectId`` + this id, never the filename. Openers that know the id
-   *  (Project Files, filmstrip, deep-link) pass it explicitly; when omitted
-   *  it is recovered from ``initialPdfUrl``. The explicit prop wins. */
+   *  ``projectId`` + this id, never the filename. Every opener that has a
+   *  server document passes it explicitly; omitting it means "this PDF has no
+   *  server document", which is exactly the state a fresh local drop is in.
+   *  The id is never recovered by parsing ``initialPdfUrl``: that URL can point
+   *  at either namespace (``/takeoff/documents/{id}/`` or Project Files
+   *  ``/documents/{id}/``) and the two ids are not interchangeable, so a parsed
+   *  id was liable to be sent to the endpoints of the wrong namespace. */
   initialDocumentId?: string | null;
   /** Optional measurement id to auto-select + scroll-to once the measurement
    *  list lands (used by the /markups → /takeoff deep-link). Matches either
@@ -1287,19 +1291,15 @@ export default function TakeoffViewerModule({
   }, [initialPdfUrl, initialPdfName]);
 
   /* ── Fetch server-side document metadata (text-layer audit) ───────── */
-  // When a PDF is opened from the server (filmstrip / deep link) the URL is
-  // ``/v1/takeoff/documents/{id}/download/``. We pull the document metadata so
-  // the viewer can flag pages that came back with no text layer (likely
-  // scanned drawings that need OCR). Best-effort: any failure leaves the
-  // banner hidden rather than blocking the drawing.
+  // When a PDF is opened from the server (filmstrip / deep link) we pull the
+  // document metadata so the viewer can flag pages that came back with no text
+  // layer (likely scanned drawings that need OCR). Keyed off ``documentId`` so
+  // that dropping a local file takes the banner down with it instead of
+  // leaving the previous drawing's OCR verdict on screen. Best-effort: any
+  // failure leaves the banner hidden rather than blocking the drawing.
   useEffect(() => {
     setNoTextLayer(null);
-    if (!initialPdfUrl) {
-      setNoTextBannerDismissed(false);
-      return;
-    }
-    const match = initialPdfUrl.match(/\/documents\/([^/?#]+)/);
-    const docId = match?.[1];
+    const docId = documentId;
     if (!docId) {
       setNoTextBannerDismissed(false);
       return;
@@ -1310,8 +1310,7 @@ export default function TakeoffViewerModule({
     // following the takeoff.groupColors.<id> idiom used in this component.
     let dismissed = false;
     try {
-      dismissed =
-        localStorage.getItem(`takeoff.ocrBannerDismissed.${decodeURIComponent(docId)}`) === 'true';
+      dismissed = localStorage.getItem(`takeoff.ocrBannerDismissed.${docId}`) === 'true';
     } catch {
       /* ignore private-mode / quota read failures */
     }
@@ -1319,7 +1318,7 @@ export default function TakeoffViewerModule({
     let cancelled = false;
     (async () => {
       try {
-        const meta = await takeoffApi.getDocument(decodeURIComponent(docId));
+        const meta = await takeoffApi.getDocument(docId);
         if (cancelled || !meta) return;
         const count = meta.pages_without_text ?? 0;
         if (count > 0) {
@@ -1330,31 +1329,21 @@ export default function TakeoffViewerModule({
       }
     })();
     return () => { cancelled = true; };
-  }, [initialPdfUrl]);
+  }, [documentId]);
 
-  /* ── Resolve the stable document UUID (issue #238) ────────────────────
-   * Measurement identity is projectId + this id, never the filename. The
-   * explicit ``initialDocumentId`` prop wins (the opener knows it); when
-   * absent we recover the id from the download URL. Both the takeoff
-   * (``/takeoff/documents/{id}/``) and Project Files (``/documents/{id}/``)
-   * URLs carry it in the same capture group. A fresh local drop has neither
-   * a prop nor a server URL, so documentId stays null and the persistence
-   * hook keeps that file local-only until an upload yields a real id. */
+  /* ── Track the stable document UUID (issue #238) ──────────────────────
+   * Measurement identity is projectId + this id, never the filename. The id
+   * comes from the opener and from nowhere else. It is deliberately NOT
+   * recovered from ``initialPdfUrl``: that URL may belong to either document
+   * namespace, and a Project Files id sent to a takeoff endpoint 404s.
+   *
+   * This effect only mirrors the prop. ``documentId`` is the live truth and
+   * can diverge from it: dropping a local file clears the id while the prop
+   * and the URL still describe the previously opened server document. Server
+   * calls must therefore read ``documentId``, never the prop. */
   useEffect(() => {
-    if (initialDocumentId) {
-      setDocumentId(initialDocumentId);
-      return;
-    }
-    if (initialPdfUrl) {
-      const m = initialPdfUrl.match(/\/documents\/([^/?#]+)/);
-      if (m?.[1]) {
-        setDocumentId(decodeURIComponent(m[1]));
-        return;
-      }
-    }
-    // No explicit id and no server URL to recover one from.
-    setDocumentId(null);
-  }, [initialDocumentId, initialPdfUrl]);
+    setDocumentId(initialDocumentId ?? null);
+  }, [initialDocumentId]);
 
   /* Custom group colours (issue #313) persist per document so a colour scheme
    * survives a reload. A still-local file (documentId null) keeps them for the
@@ -4811,9 +4800,10 @@ export default function TakeoffViewerModule({
    *  Suggestions are flagged (never persisted) until the user accepts them. */
   const handleRecognize = useCallback(async () => {
     if (recognizeBusy) return;
-    // The server reads the stored PDF off disk, so it needs the document's
-    // id, which the deep-link download URL carries.
-    const docId = initialPdfUrl?.match(/\/documents\/([^/?#]+)\/(?:download|recognize)/)?.[1];
+    // The server reads the stored PDF off disk, so it needs the takeoff
+    // document's id. Null means the on-screen PDF has no server document
+    // (a local drop), and recognition cannot run against it.
+    const docId = documentId;
     if (!docId) {
       addToast({
         type: 'info',
@@ -4882,7 +4872,7 @@ export default function TakeoffViewerModule({
     } finally {
       setRecognizeBusy(false);
     }
-  }, [recognizeBusy, initialPdfUrl, currentPage, scale, activeGroup, nextAnnotation, addToast, t]);
+  }, [recognizeBusy, documentId, currentPage, scale, activeGroup, nextAnnotation, addToast, t]);
 
   /* ── Count similar: seeded "count by example" (issue #194) ──────────────
    * The user arms the tool and clicks one symbol (a door, socket, column).
@@ -4894,7 +4884,7 @@ export default function TakeoffViewerModule({
    * through (identical to how handleRecognize consumes its candidate points). */
   const handleCountByExampleSeed = useCallback(
     async (seed: Point) => {
-      const docId = initialPdfUrl?.match(/\/documents\/([^/?#]+)\/(?:download|recognize)/)?.[1];
+      const docId = documentId;
       if (!docId) {
         addToast({
           type: 'info',
@@ -4978,7 +4968,7 @@ export default function TakeoffViewerModule({
         armCountSimilarRef.current = false;
       }
     },
-    [initialPdfUrl, currentPage, activeGroup, nextAnnotation, addToast, t],
+    [documentId, currentPage, activeGroup, nextAnnotation, addToast, t],
   );
   // Keep the ref handleCanvasClick reads in sync with the latest closure.
   handleCountByExampleSeedRef.current = handleCountByExampleSeed;
@@ -4987,7 +4977,7 @@ export default function TakeoffViewerModule({
    *  half-drawn shape never swallows the seed click) and prompts the user to
    *  click a symbol; clicking the button again cancels. */
   const toggleCountSimilar = useCallback(() => {
-    const docId = initialPdfUrl?.match(/\/documents\/([^/?#]+)\/(?:download|recognize)/)?.[1];
+    const docId = documentId;
     if (!docId) {
       addToast({
         type: 'info',
@@ -5018,7 +5008,7 @@ export default function TakeoffViewerModule({
       }
       return next;
     });
-  }, [initialPdfUrl, addToast, t]);
+  }, [documentId, addToast, t]);
 
   /* ── Read plan with AI: vision-LLM plan reading (issue #194) ────────────
    * The opt-in, bring-your-own-key, cost-capped complement to the offline
@@ -5067,7 +5057,7 @@ export default function TakeoffViewerModule({
    *  reviews and accepts (human-confirmed). Never auto-applies. */
   const handleReadWithAi = useCallback(async () => {
     if (planReadBusy) return;
-    const docId = initialPdfUrl?.match(/\/documents\/([^/?#]+)\/(?:download|recognize)/)?.[1];
+    const docId = documentId;
     const projectId = selectedProjectId || activeProjectId || '';
     if (!docId || !projectId) {
       addToast({
@@ -5193,7 +5183,7 @@ export default function TakeoffViewerModule({
     }
   }, [
     planReadBusy,
-    initialPdfUrl,
+    documentId,
     selectedProjectId,
     activeProjectId,
     currentPage,
