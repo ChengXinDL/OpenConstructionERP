@@ -774,10 +774,15 @@ async def preserve_blobs_for_deleted_source(
     the final path.
 
     Unlike :meth:`TakeoffRepository.get_by_source_document_id`, the lookup here is
-    deliberately not scoped to a project. Idempotency is per project, so the same
-    source can back a takeoff document in several of them, and every one of those
-    rows loses its bytes when the blob goes. Adding a project filter for symmetry
-    with the repository would silently strand the rows in the other projects.
+    deliberately not scoped to a project, and the asymmetry is worth a sentence so
+    nobody "fixes" it. Today the only caller derives ``source_project_id`` from
+    the stored source row, so one source resolves to exactly one project and a
+    project filter would make no difference. But the service contract allows any
+    project (idempotency is per project - see
+    ``test_same_source_in_two_projects_is_two_rows``), so a filter added for
+    symmetry would be a trap that costs nothing until the day a second caller
+    passes something else, and then silently strands those rows on a deleted blob.
+    Matching on the blob alone is what the correctness argument actually needs.
 
     Args:
         session: The caller's session. The repoint is flushed into the caller's

@@ -291,20 +291,29 @@ async def test_opening_from_source_references_the_blob_instead_of_copying_it(pg_
     takeoff_dir = _takeoff_documents_dir()
     before = set(takeoff_dir.glob("*.pdf")) if takeoff_dir.is_dir() else set()
 
-    doc = await TakeoffService(pg_session).get_or_create_takeoff_from_source(
-        source_document_id=str(source.id),
-        source_project_id=str(project.id),
-        source_file_path=str(source_path),
-        filename="A-201 Floor Plan.pdf",
-        content=source_path.read_bytes(),
-        size_bytes=source_path.stat().st_size,
-        owner_id=str(owner.id),
-    )
+    try:
+        doc = await TakeoffService(pg_session).get_or_create_takeoff_from_source(
+            source_document_id=str(source.id),
+            source_project_id=str(project.id),
+            source_file_path=str(source_path),
+            filename="A-201 Floor Plan.pdf",
+            content=source_path.read_bytes(),
+            size_bytes=source_path.stat().st_size,
+            owner_id=str(owner.id),
+        )
 
-    assert doc.file_path == str(source_path), "takeoff did not reference the stored blob"
+        assert doc.file_path == str(source_path), "takeoff did not reference the stored blob"
 
-    after = set(takeoff_dir.glob("*.pdf")) if takeoff_dir.is_dir() else set()
-    assert after == before, f"a second copy of the PDF was written: {sorted(after - before)}"
+        after = set(takeoff_dir.glob("*.pdf")) if takeoff_dir.is_dir() else set()
+        assert after == before, f"a second copy of the PDF was written: {sorted(after - before)}"
+    finally:
+        # The database rolls back after each test, the filesystem does not.
+        # Also sweep any copy a regression wrote, so a red run does not leave
+        # the duplicate behind that the test exists to forbid.
+        source_path.unlink(missing_ok=True)
+        strays = (set(takeoff_dir.glob("*.pdf")) if takeoff_dir.is_dir() else set()) - before
+        for stray in strays:
+            stray.unlink(missing_ok=True)
 
 
 @pytest.mark.asyncio
@@ -322,19 +331,24 @@ async def test_a_parse_failure_on_a_borrowed_blob_never_deletes_the_project_file
     # Valid magic so the pre-parser gates pass, but nothing a parser can read.
     source_path.write_bytes(b"%PDF-1.4\nnot really a pdf\n")
 
-    with pytest.raises(HTTPException) as exc:
-        await TakeoffService(pg_session).get_or_create_takeoff_from_source(
-            source_document_id=str(source.id),
-            source_project_id=str(project.id),
-            source_file_path=str(source_path),
-            filename="A-201 Floor Plan.pdf",
-            content=source_path.read_bytes(),
-            size_bytes=source_path.stat().st_size,
-            owner_id=str(owner.id),
-        )
-    assert exc.value.status_code == 400
+    try:
+        with pytest.raises(HTTPException) as exc:
+            await TakeoffService(pg_session).get_or_create_takeoff_from_source(
+                source_document_id=str(source.id),
+                source_project_id=str(project.id),
+                source_file_path=str(source_path),
+                filename="A-201 Floor Plan.pdf",
+                content=source_path.read_bytes(),
+                size_bytes=source_path.stat().st_size,
+                owner_id=str(owner.id),
+            )
+        assert exc.value.status_code == 400
 
-    assert source_path.is_file(), "a failed parse deleted the user's project document off disk"
+        assert source_path.is_file(), "a failed parse deleted the user's project document off disk"
+    finally:
+        # Surviving the parse failure is the assertion, so this test always
+        # leaves the blob behind unless it is cleaned up explicitly.
+        source_path.unlink(missing_ok=True)
 
 
 @pytest.mark.asyncio
@@ -363,19 +377,29 @@ async def test_deleting_the_source_hands_takeoff_its_own_copy_of_the_bytes(pg_se
     await pg_session.flush()
     takeoff_id = doc.id
 
-    await DocumentService(pg_session).delete_document(source_id, user_id=str(owner.id))
-    pg_session.expire_all()
+    preserved: Path | None = None
+    try:
+        await DocumentService(pg_session).delete_document(source_id, user_id=str(owner.id))
+        pg_session.expire_all()
 
-    survivor = (
-        (await pg_session.execute(select(TakeoffDocument).where(TakeoffDocument.id == takeoff_id))).scalars().one()
-    )
-    assert survivor.file_path, "takeoff document lost its file path entirely"
-    assert survivor.file_path != str(source_path), "takeoff document still points at the deleted source blob"
+        survivor = (
+            (await pg_session.execute(select(TakeoffDocument).where(TakeoffDocument.id == takeoff_id))).scalars().one()
+        )
+        # Captured before the assertions so the copy is cleaned up even when
+        # one of them fails.
+        preserved = Path(survivor.file_path) if survivor.file_path else None
 
-    preserved = Path(survivor.file_path)
-    assert preserved.is_file(), "the copy the hook was supposed to make does not exist"
-    assert preserved.read_bytes().startswith(b"%PDF-"), "the preserved file is not the PDF"
-    assert not source_path.exists(), "the source blob should have been unlinked after the copy"
+        assert survivor.file_path, "takeoff document lost its file path entirely"
+        assert survivor.file_path != str(source_path), "takeoff document still points at the deleted source blob"
+
+        assert preserved is not None
+        assert preserved.is_file(), "the copy the hook was supposed to make does not exist"
+        assert preserved.read_bytes().startswith(b"%PDF-"), "the preserved file is not the PDF"
+        assert not source_path.exists(), "the source blob should have been unlinked after the copy"
+    finally:
+        source_path.unlink(missing_ok=True)
+        if preserved is not None:
+            preserved.unlink(missing_ok=True)
 
 
 @pytest.mark.asyncio
@@ -402,14 +426,19 @@ async def test_a_failed_copy_keeps_the_source_blob_rather_than_orphaning_takeoff
 
     monkeypatch.setattr("app.modules.takeoff.service.shutil.copyfile", _explode)
 
-    await DocumentService(pg_session).delete_document(source_id, user_id=str(owner.id))
-    pg_session.expire_all()
+    try:
+        await DocumentService(pg_session).delete_document(source_id, user_id=str(owner.id))
+        pg_session.expire_all()
 
-    remaining = (await pg_session.execute(select(Document).where(Document.id == source_id))).scalars().all()
-    assert remaining == [], "the document row should still be deleted"
-    assert source_path.is_file(), (
-        "the source blob was unlinked even though the takeoff copy failed - the takeoff document now points at nothing"
-    )
+        remaining = (await pg_session.execute(select(Document).where(Document.id == source_id))).scalars().all()
+        assert remaining == [], "the document row should still be deleted"
+        assert source_path.is_file(), (
+            "the source blob was unlinked even though the takeoff copy failed - "
+            "the takeoff document now points at nothing"
+        )
+    finally:
+        # Keeping the blob is the assertion here, so it is always left behind.
+        source_path.unlink(missing_ok=True)
 
 
 @pytest.mark.asyncio
