@@ -2920,7 +2920,11 @@ async def restore_snapshot(
 # ── Validation ────────────────────────────────────────────────────────────────
 
 
-async def _unreviewed_proposal_meta(session: SessionDep, project_id: uuid.UUID) -> dict[str, int]:
+async def _unreviewed_proposal_meta(
+    session: SessionDep,
+    project_id: uuid.UUID,
+    rule_sets: list[str],
+) -> dict[str, int]:
     """Count takeoff rows still awaiting review, for the validation report.
 
     A proposal is a suggestion, not a measurement, so it is deliberately kept
@@ -2930,12 +2934,23 @@ async def _unreviewed_proposal_meta(session: SessionDep, project_id: uuid.UUID) 
     ``ai_takeoff.unreviewed_proposals`` says so, but only if it is handed a
     count.
 
+    Nothing is counted when ``rule_sets`` does not reach that rule. A project
+    that configures its own sets and leaves out the one the rule belongs to
+    has opted out of the warning, and a count nobody reads is a query per
+    validation for nothing. The registry is asked the same question the engine
+    asks, so this stays true if the rule is ever filed elsewhere.
+
     Returns an empty dict when the count cannot be taken. The rule reads an
     absent key as "no claim" rather than as zero, so a failed query stays
     quiet instead of certifying a review queue nobody has looked at.
     """
-    from app.core.validation.rules import UNREVIEWED_PROPOSALS_META_KEY
+    from app.core.validation.engine import rule_registry
+    from app.core.validation.rules import UNREVIEWED_PROPOSALS_META_KEY, TakeoffUnreviewedProposalsRule
     from app.modules.takeoff.repository import MeasurementRepository
+
+    wanted = TakeoffUnreviewedProposalsRule.rule_id
+    if not any(rule.rule_id == wanted and rule.enabled for rule in rule_registry.get_rules_for_sets(rule_sets)):
+        return {}
 
     try:
         pending = await MeasurementRepository(session).count_unreviewed_for_project(project_id)
@@ -3122,7 +3137,7 @@ async def _run_import_validation(
             standard=project.classification_standard,
             metadata={
                 "locale": get_locale(),
-                **await _unreviewed_proposal_meta(session, boq_data.project_id),
+                **await _unreviewed_proposal_meta(session, boq_data.project_id, rule_sets),
             },
         )
 
@@ -3280,7 +3295,7 @@ async def validate_boq(
         standard=project.classification_standard,
         metadata={
             "locale": get_locale(),
-            **await _unreviewed_proposal_meta(session, boq_data.project_id),
+            **await _unreviewed_proposal_meta(session, boq_data.project_id, rule_sets),
         },
     )
 

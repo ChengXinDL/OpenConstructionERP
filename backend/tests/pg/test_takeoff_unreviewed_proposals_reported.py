@@ -181,7 +181,10 @@ def test_the_boq_report_reaches_this_rule_too() -> None:
 @pytest.mark.asyncio
 async def test_the_boq_helper_hands_the_rule_a_real_count(pg_session) -> None:
     """The BOQ path gathers the same number the estimator does."""
+    from app.core.validation.rules import register_builtin_rules
     from app.modules.boq.router import _unreviewed_proposal_meta
+
+    register_builtin_rules()
 
     project = await _seed_project(pg_session)
     pg_session.add_all(
@@ -193,7 +196,9 @@ async def test_the_boq_helper_hands_the_rule_a_real_count(pg_session) -> None:
     )
     await pg_session.flush()
 
-    assert await _unreviewed_proposal_meta(pg_session, project.id) == {UNREVIEWED_PROPOSALS_META_KEY: 2}
+    assert await _unreviewed_proposal_meta(pg_session, project.id, ["boq_quality"]) == {
+        UNREVIEWED_PROPOSALS_META_KEY: 2
+    }
 
 
 @pytest.mark.asyncio
@@ -211,7 +216,41 @@ async def test_a_count_that_could_not_be_taken_stays_silent() -> None:
         async def execute(self, *args, **kwargs):  # noqa: ANN002, ANN003, ANN201, ARG002
             raise RuntimeError("database is unavailable")
 
-    assert await _unreviewed_proposal_meta(_BrokenSession(), uuid.uuid4()) == {}  # type: ignore[arg-type]
+    result = await _unreviewed_proposal_meta(_BrokenSession(), uuid.uuid4(), ["boq_quality"])  # type: ignore[arg-type]
+
+    assert result == {}
+
+
+@pytest.mark.asyncio
+async def test_rule_sets_that_cannot_reach_the_rule_are_not_counted_for() -> None:
+    """A project that configured the rule away is not charged for the query.
+
+    ``validation_rule_sets`` is per project, so a project can legitimately
+    replace the universal set with its own. Counting rows for a report that
+    will not carry the warning is work done for nobody, once per validation
+    and once per import.
+    """
+    from app.core.validation.rules import register_builtin_rules
+    from app.modules.boq.router import _unreviewed_proposal_meta
+
+    # Registered, so the skip is the sets not reaching the rule and not an
+    # empty registry agreeing with the assertion for the wrong reason.
+    register_builtin_rules()
+
+    class _CountingSession:
+        def __init__(self) -> None:
+            self.queries = 0
+
+        async def execute(self, *args, **kwargs):  # noqa: ANN002, ANN003, ANN201, ARG002
+            self.queries += 1
+            raise RuntimeError("this session must never be asked")
+
+    session = _CountingSession()
+
+    result = await _unreviewed_proposal_meta(session, uuid.uuid4(), ["din276", "gaeb"])  # type: ignore[arg-type]
+
+    assert result == {}
+    assert session.queries == 0, "skipped is not the same as failed - a failed count also returns {}"
 
 
 @pytest.mark.asyncio
