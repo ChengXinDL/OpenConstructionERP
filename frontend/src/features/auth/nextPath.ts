@@ -21,6 +21,34 @@
  *
  * @param search - a location search string, with or without the leading `?`.
  */
+/**
+ * Sentinel origin used to prove a candidate path cannot navigate off-site.
+ *
+ * `.invalid` is reserved by RFC 2606 and can never resolve, so this is a pure
+ * parsing device and never a reachable host.
+ */
+const ORIGIN_PROBE = 'http://redirect-probe.invalid';
+
+/**
+ * True when `candidate` resolves to somewhere other than the current site.
+ *
+ * A prefix test alone is not enough. `/\evil.example.com` starts with a single
+ * slash and does not start with `//`, so it passes any startsWith pair, yet the
+ * URL parser treats the backslash as an authority separator and resolves it to
+ * `http://evil.example.com/`. Verified in a browser, along with `/\\host` and
+ * `/\/host`. Resolving against a sentinel origin and comparing what comes back
+ * asks the same parser the browser will use, instead of trying to enumerate the
+ * separators it happens to accept.
+ */
+function leavesOrigin(candidate: string): boolean {
+  try {
+    return new URL(candidate, ORIGIN_PROBE).origin !== ORIGIN_PROBE;
+  } catch {
+    // Unparseable is not safe to navigate to either.
+    return true;
+  }
+}
+
 export function safeNextPath(search: string): string {
   // Never bounce back into an auth route after a successful login - a
   // next=/login (or /onboarding before completion) would dead-end or re-loop.
@@ -30,7 +58,7 @@ export function safeNextPath(search: string): string {
     if (
       next &&
       next.startsWith('/') &&
-      !next.startsWith('//') &&
+      !leavesOrigin(next) &&
       !authRoutes.some((r) => next === r || next.startsWith(`${r}/`) || next.startsWith(`${r}?`))
     ) {
       return next;

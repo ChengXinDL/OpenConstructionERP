@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Button, Input, Logo, CountryFlag } from '@/shared/ui';
+import { safeNextPath } from './nextPath';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { extractErrorMessageFromBody } from '@/shared/lib/api';
 import { AuthBackground } from './AuthBackground';
@@ -59,14 +60,11 @@ export function LoginPageNext() {
   const navigate = useNavigate();
   const location = useLocation();
   const setTokens = useAuthStore((s) => s.setTokens);
-  const nextPath = (() => {
-    try {
-      const params = new URLSearchParams(location.search);
-      const next = params.get('next');
-      if (next && next.startsWith('/') && !next.startsWith('//')) return next;
-    } catch { /* ignore */ }
-    return '/';
-  })();
+  // Routed at /login-next, so this is a second front door and has to validate
+  // the redirect exactly as /login does. It used to carry its own weaker copy
+  // of the check, which accepted auth routes and let a backslash authority
+  // through. Both doors now share one helper so they cannot drift again.
+  const nextPath = safeNextPath(location.search);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);

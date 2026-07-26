@@ -35,6 +35,24 @@ describe('safeNextPath', () => {
     expect(safeNextPath('?next=../schedule')).toBe('/');
   });
 
+  it('rejects a backslash authority, which passes a naive slash-prefix check', () => {
+    // Each of these starts with exactly one forward slash, so a
+    // startsWith('/') plus !startsWith('//') pair accepts all of them, and a
+    // browser still resolves every one to http://evil.example.com/. Confirmed
+    // against a real URL parser before this guard was written.
+    expect(safeNextPath('?next=/\\evil.example.com')).toBe('/');
+    expect(safeNextPath('?next=/\\\\evil.example.com')).toBe('/');
+    expect(safeNextPath('?next=/\\/evil.example.com')).toBe('/');
+    // Percent-encoded, since the value arrives through URLSearchParams decoding.
+    expect(safeNextPath('?next=%2F%5Cevil.example.com')).toBe('/');
+  });
+
+  it('still accepts an internal path that merely contains a backslash later on', () => {
+    // The authority position is what matters. A backslash deeper in the path is
+    // an ordinary character and must not cost a legitimate deep link.
+    expect(safeNextPath('?next=/files/a%5Cb')).toBe('/files/a\\b');
+  });
+
   it('never bounces back into an auth route', () => {
     expect(safeNextPath('?next=/login')).toBe('/');
     expect(safeNextPath('?next=/register')).toBe('/');
