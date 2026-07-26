@@ -12,7 +12,7 @@
 //   6. clicking the "Overdue" filter issues a new fetch with status=overdue.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -40,6 +40,11 @@ vi.mock('react-i18next', () => ({
       return s;
     },
   }),
+  // Replacing the module wholesale hides every export the stub omits, and the
+  // page pulls in ErrorBoundary, which imports the real i18n singleton and
+  // calls `.use(initReactI18next)` at module scope. Without this the suite
+  // fails to collect at all.
+  initReactI18next: { type: '3rdParty', init: () => {} },
 }));
 
 /* ── Project context - a fixed active project id. ─────────────────────── */
@@ -127,9 +132,11 @@ describe('DeadlinesPage', () => {
     renderPage();
     expect(await screen.findByText('Seal roof penetration')).toBeInTheDocument();
     expect(screen.getByText('Reply to variation notice')).toBeInTheDocument();
-    // Group headers for both modules.
-    expect(screen.getByText('Punch list')).toBeInTheDocument();
-    expect(screen.getByText('Correspondence')).toBeInTheDocument();
+    // Group headers for both modules. Scoped to the table because the "how it
+    // fits together" explainer links to the same modules by name.
+    const table = within(screen.getByRole('table'));
+    expect(table.getByText('Punch list')).toBeInTheDocument();
+    expect(table.getByText('Correspondence')).toBeInTheDocument();
     // Owner name resolved.
     expect(screen.getAllByText('Dana Lee').length).toBeGreaterThan(0);
   });
@@ -171,7 +178,8 @@ describe('DeadlinesPage', () => {
     apiMocks.apiGet.mockResolvedValue(makeRegister({ overdue_count: 1 }));
     renderPage();
     await screen.findByText('All');
-    fireEvent.click(screen.getByText('Overdue'));
+    // By role, because the explainer mentions "Overdue" as prose too.
+    fireEvent.click(screen.getByRole('button', { name: /Overdue/ }));
     await waitFor(() => {
       const urls = apiMocks.apiGet.mock.calls.map((c) => String(c[0]));
       expect(urls.some((u) => u.includes('status=overdue'))).toBe(true);

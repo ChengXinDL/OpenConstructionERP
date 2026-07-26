@@ -8,15 +8,27 @@
  * register, grouped by module and filterable by all / overdue / approaching.
  * Server state lives entirely in React Query - no new Zustand store.
  */
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { AlarmClock, ArrowRight, CalendarClock, CheckCircle2, Loader2, XCircle } from 'lucide-react';
+import {
+  AlarmClock,
+  AlertTriangle,
+  ArrowRight,
+  CalendarClock,
+  CheckCircle2,
+  Hourglass,
+  Inbox,
+  Loader2,
+  XCircle,
+} from 'lucide-react';
 import clsx from 'clsx';
-import { Button } from '@/shared/ui';
+import { Button, CollapsibleSection } from '@/shared/ui';
+import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { fetchDeadlines, type DeadlineItem, type DeadlineStatusFilter } from './api';
+import { buildDeadlinesInsights } from './deadlinesInsights';
 
 const FILTERS: DeadlineStatusFilter[] = ['all', 'overdue', 'approaching'];
 
@@ -30,6 +42,123 @@ const MODULE_LABELS: Record<string, { key: string; def: string }> = {
 function humaniseStatus(status: string): string {
   const s = status.replace(/_/g, ' ').trim();
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+function ModLink({ to, children }: { to: string; children: ReactNode }) {
+  return (
+    <Link to={to} className="font-medium text-oe-blue-text hover:underline">
+      {children}
+    </Link>
+  );
+}
+
+/**
+ * One-glance explainer: what the deadline register is and, just as importantly,
+ * what it is not.
+ *
+ * This page owns nothing. It creates no deadlines of its own, it aggregates
+ * only the three sources that carry a date - correspondence response
+ * deadlines, NCR corrective actions and punch items - and an item leaves the
+ * list by being answered in its own module, not here. A site manager who reads
+ * it as "everything that is late on the project" is trusting it wrongly, so
+ * the intro says the boundary out loud.
+ */
+function HowDeadlinesWork() {
+  const { t } = useTranslation();
+
+  const steps: { icon: ReactNode; title: string; desc: string }[] = [
+    {
+      icon: <CalendarClock size={14} className="text-oe-blue" />,
+      title: t('deadlines.flow_1_title', { defaultValue: 'Dates are set upstream' }),
+      desc: t('deadlines.flow_1_desc', {
+        defaultValue:
+          'A response date on a letter, a due date on an NCR corrective action, a due date on a punch item. Each is set in its own module.',
+      }),
+    },
+    {
+      icon: <Inbox size={14} className="text-oe-blue" />,
+      title: t('deadlines.flow_2_title', { defaultValue: 'The register gathers them' }),
+      desc: t('deadlines.flow_2_desc', {
+        defaultValue:
+          'Everything still outstanding with a date is pulled together here, grouped by the module it came from.',
+      }),
+    },
+    {
+      icon: <AlertTriangle size={14} className="text-oe-blue" />,
+      title: t('deadlines.flow_3_title', { defaultValue: 'Standing and severity' }),
+      desc: t('deadlines.flow_3_desc', {
+        defaultValue:
+          'Each item is marked overdue, approaching or on time, and carries a severity so the critical ones stand out.',
+      }),
+    },
+    {
+      icon: <ArrowRight size={14} className="text-oe-blue" />,
+      title: t('deadlines.flow_4_title', { defaultValue: 'Act in the source' }),
+      desc: t('deadlines.flow_4_desc', {
+        defaultValue:
+          'Open the item to answer it where it lives. Once it is answered or the date is met it drops off this list.',
+      }),
+    },
+  ];
+
+  return (
+    <CollapsibleSection
+      storageKey="deadlines.how"
+      icon={<Hourglass size={15} className="text-oe-blue" />}
+      title={t('deadlines.flow_title', {
+        defaultValue: 'How the Deadline register fits together',
+      })}
+    >
+      <p className="text-xs text-content-tertiary">
+        {t('deadlines.flow_intro', {
+          defaultValue:
+            'One list of everything on the project that has a date attached and has not been answered yet. It does not create deadlines of its own; it gathers the dates other modules already hold so nothing quietly runs out of time.',
+        })}
+      </p>
+
+      <ol className="mt-3 flex flex-col gap-2 lg:flex-row lg:items-stretch">
+        {steps.map((s, i) => (
+          <Fragment key={s.title}>
+            <li className="flex-1 rounded-lg border border-border-light bg-surface-secondary/40 p-3">
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-oe-blue-subtle text-2xs font-bold text-oe-blue-text">
+                  {i + 1}
+                </span>
+                <span className="flex items-center gap-1 text-xs font-semibold text-content-primary">
+                  {s.icon}
+                  {s.title}
+                </span>
+              </div>
+              <p className="mt-1.5 text-2xs leading-relaxed text-content-tertiary">{s.desc}</p>
+            </li>
+            {i < steps.length - 1 && (
+              <li
+                aria-hidden="true"
+                className="hidden shrink-0 items-center self-center text-content-quaternary lg:flex"
+              >
+                <ArrowRight size={16} />
+              </li>
+            )}
+          </Fragment>
+        ))}
+      </ol>
+
+      <div className="mt-3 flex flex-col gap-1.5 border-t border-border-light pt-3 text-2xs text-content-tertiary sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-1">
+        <span>
+          <span className="font-medium text-content-secondary">
+            {t('deadlines.flow_connects', { defaultValue: 'Connects with:' })}
+          </span>{' '}
+          <ModLink to="/correspondence">
+            {t('deadlines.mod_correspondence', { defaultValue: 'Correspondence' })}
+          </ModLink>{' '}
+          · <ModLink to="/ncr">{t('deadlines.mod_ncr', { defaultValue: 'NCR register' })}</ModLink> ·{' '}
+          <ModLink to="/punchlist">
+            {t('deadlines.mod_punchlist', { defaultValue: 'Punch list' })}
+          </ModLink>
+        </span>
+      </div>
+    </CollapsibleSection>
+  );
 }
 
 export function DeadlinesPage() {
@@ -58,6 +187,12 @@ export function DeadlinesPage() {
 
   const overdueCount = query.data?.overdue_count ?? 0;
   const approachingCount = query.data?.approaching_count ?? 0;
+
+  const insights = useModuleInsights('deadlines', { defaultOpen: true });
+  const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
+    () => buildDeadlinesInsights(query.data?.items ?? [], t),
+    [query.data, t],
+  );
 
   function daysChip(it: DeadlineItem): { text: string; overdue: boolean } {
     if (it.days_overdue > 0) {
@@ -108,14 +243,32 @@ export function DeadlinesPage() {
             </p>
           </div>
         </div>
-        <Link
-          to="/notifications"
-          className="inline-flex items-center gap-1 text-sm font-medium text-oe-blue hover:underline"
-        >
-          {t('deadlines.settings_link', { defaultValue: 'Notification settings' })}
-          <ArrowRight size={14} />
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <InsightsToggleButton open={insights.open} onClick={insights.toggle} />
+          <Link
+            to="/notifications"
+            className="inline-flex items-center gap-1 text-sm font-medium text-oe-blue hover:underline"
+          >
+            {t('deadlines.settings_link', { defaultValue: 'Notification settings' })}
+            <ArrowRight size={14} />
+          </Link>
+        </div>
       </div>
+
+      <div className="mb-4">
+        <HowDeadlinesWork />
+      </div>
+
+      <InsightsPanel
+        open={insights.open}
+        title={t('deadlines.insights.title', { defaultValue: 'Deadline insights' })}
+        datasets={insightDatasets}
+        builtins={insightBuiltins}
+        custom={insights.custom}
+        onAdd={insights.addCustom}
+        onUpdate={insights.updateCustom}
+        onRemove={insights.removeCustom}
+      />
 
       {/* Filter segmented control */}
       <div className="mb-4 inline-flex rounded-lg border border-border-light bg-surface-secondary p-0.5">
@@ -181,6 +334,14 @@ export function DeadlinesPage() {
           <p className="text-sm text-content-secondary">
             {t('deadlines.empty', {
               defaultValue: "Nothing overdue or approaching. You're on top of it.",
+            })}
+          </p>
+          {/* An empty register usually means dates are missing upstream, not
+              that nothing is outstanding. Name the three surfaces that feed it. */}
+          <p className="mx-auto mt-2 max-w-md text-xs text-content-tertiary">
+            {t('deadlines.empty_hint', {
+              defaultValue:
+                'Nothing is waiting on a date. Items appear here once a letter has a response date, an NCR has a corrective action due date, or a punch item has a due date.',
             })}
           </p>
         </div>
