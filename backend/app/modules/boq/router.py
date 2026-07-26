@@ -2920,6 +2920,31 @@ async def restore_snapshot(
 # ── Validation ────────────────────────────────────────────────────────────────
 
 
+async def _unreviewed_proposal_meta(session: SessionDep, project_id: uuid.UUID) -> dict[str, int]:
+    """Count takeoff rows still awaiting review, for the validation report.
+
+    A proposal is a suggestion, not a measurement, so it is deliberately kept
+    out of priced quantities. That exclusion is correct and silent, which is
+    the problem: a BOQ total can be short of what the drawings show with
+    nothing on the report to explain the difference.
+    ``ai_takeoff.unreviewed_proposals`` says so, but only if it is handed a
+    count.
+
+    Returns an empty dict when the count cannot be taken. The rule reads an
+    absent key as "no claim" rather than as zero, so a failed query stays
+    quiet instead of certifying a review queue nobody has looked at.
+    """
+    from app.core.validation.rules import UNREVIEWED_PROPOSALS_META_KEY
+    from app.modules.takeoff.repository import MeasurementRepository
+
+    try:
+        pending = await MeasurementRepository(session).count_unreviewed_for_project(project_id)
+    except Exception as exc:  # noqa: BLE001 - a missing count must not cost the whole report
+        logger.warning("BOQ validation could not count unreviewed takeoff proposals: %s", exc)
+        return {}
+    return {UNREVIEWED_PROPOSALS_META_KEY: pending}
+
+
 def _build_rule_sets(
     project_rule_sets: list[str],
     classification_standard: str,
@@ -3095,7 +3120,10 @@ async def _run_import_validation(
             project_id=str(boq_data.project_id),
             region=project.region,
             standard=project.classification_standard,
-            metadata={"locale": get_locale()},
+            metadata={
+                "locale": get_locale(),
+                **await _unreviewed_proposal_meta(session, boq_data.project_id),
+            },
         )
 
         summary = report.summary()
@@ -3250,7 +3278,10 @@ async def validate_boq(
         project_id=str(boq_data.project_id),
         region=project.region,
         standard=project.classification_standard,
-        metadata={"locale": get_locale()},
+        metadata={
+            "locale": get_locale(),
+            **await _unreviewed_proposal_meta(session, boq_data.project_id),
+        },
     )
 
     # Build response: summary + full results

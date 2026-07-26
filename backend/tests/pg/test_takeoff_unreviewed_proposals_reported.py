@@ -162,6 +162,58 @@ def test_the_estimator_actually_reaches_this_rule() -> None:
     assert reachable.count("ai_takeoff.unreviewed_proposals") == 1
 
 
+def test_the_boq_report_reaches_this_rule_too() -> None:
+    """A BOQ validation resolves to boq_quality when a project configures nothing.
+
+    Gathering the count on the BOQ path is wasted work unless the rule sits in
+    the set that path validates against, and boq_quality alone is what an
+    untagged project resolves to.
+    """
+    from app.core.validation.engine import rule_registry
+    from app.core.validation.rules import register_builtin_rules
+
+    register_builtin_rules()
+    reachable = [r.rule_id for r in rule_registry.get_rules_for_sets(["boq_quality"]) if r.enabled]
+
+    assert reachable.count("ai_takeoff.unreviewed_proposals") == 1
+
+
+@pytest.mark.asyncio
+async def test_the_boq_helper_hands_the_rule_a_real_count(pg_session) -> None:
+    """The BOQ path gathers the same number the estimator does."""
+    from app.modules.boq.router import _unreviewed_proposal_meta
+
+    project = await _seed_project(pg_session)
+    pg_session.add_all(
+        [
+            _measurement(project.id, review_status="confirmed", annotation="Agreed slab"),
+            _measurement(project.id, review_status="proposed", annotation="First guess"),
+            _measurement(project.id, review_status="proposed", annotation="Second guess"),
+        ]
+    )
+    await pg_session.flush()
+
+    assert await _unreviewed_proposal_meta(pg_session, project.id) == {UNREVIEWED_PROPOSALS_META_KEY: 2}
+
+
+@pytest.mark.asyncio
+async def test_a_count_that_could_not_be_taken_stays_silent() -> None:
+    """A broken query must not turn into a clean review queue on the report.
+
+    Validation runs on the BOQ path as a secondary diagnostic that must never
+    fail the request, so the count is caught. Catching it and passing zero
+    would certify something nobody checked, so the key is omitted instead and
+    the rule makes no claim at all.
+    """
+    from app.modules.boq.router import _unreviewed_proposal_meta
+
+    class _BrokenSession:
+        async def execute(self, *args, **kwargs):  # noqa: ANN002, ANN003, ANN201, ARG002
+            raise RuntimeError("database is unavailable")
+
+    assert await _unreviewed_proposal_meta(_BrokenSession(), uuid.uuid4()) == {}  # type: ignore[arg-type]
+
+
 @pytest.mark.asyncio
 async def test_no_count_means_no_claim() -> None:
     """A caller that never asked about the queue gets no verdict about it.

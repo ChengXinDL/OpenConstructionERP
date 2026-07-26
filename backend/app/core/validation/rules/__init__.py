@@ -7513,7 +7513,11 @@ def register_builtin_rules() -> None:
         # lives only there never runs; ai_estimator is the path that prices
         # confirmed quantities and therefore the one that owes the user an
         # account of the quantities it left out.
-        (TakeoffUnreviewedProposalsRule(), ["ai_takeoff", "ai_estimator"]),
+        # Both sets that actually price a project: boq_quality is the universal
+        # default every BOQ validation passes, ai_estimator is the estimate run.
+        # Filed under its own "ai_takeoff" standard the rule would never run,
+        # because no caller validates against that set.
+        (TakeoffUnreviewedProposalsRule(), ["boq_quality", "ai_estimator"]),
         # Field Time (cost-coded, signed labour + plant timesheets)
         (FieldTimeHoursPerDayMax(), None),
         (FieldTimeLineComplete(), None),
