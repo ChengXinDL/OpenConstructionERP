@@ -33305,6 +33305,7 @@ const resource = {
     "takeoff_viewer.legend_drag_hint": "ドラッグして移動、ダブルクリックしてリセット",
     "takeoff_viewer.width_unit_m": "m",
     "takeoff_viewer.drag_to_reorder": "並べ替えにはドラッグしてください",
+    "takeoff_viewer.drag_group_to_reorder": "グループの並べ替えにはドラッグしてください",
     "takeoff_viewer.show_measurement": "測定を表示",
     "takeoff_viewer.hide_measurement": "測定を非表示",
     "takeoff_viewer.bring_to_front": "前面に表示",

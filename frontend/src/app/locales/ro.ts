@@ -33307,6 +33307,7 @@ const resource = {
     "takeoff_viewer.legend_drag_hint": "Trage pentru a muta, dublu clic pentru a reseta",
     "takeoff_viewer.width_unit_m": "m",
     "takeoff_viewer.drag_to_reorder": "Trageți pentru a reordona",
+    "takeoff_viewer.drag_group_to_reorder": "Trageți pentru a reordona grupul",
     "takeoff_viewer.show_measurement": "Afișează măsurătoarea",
     "takeoff_viewer.hide_measurement": "Ascunde măsurătoarea",
     "takeoff_viewer.bring_to_front": "Adu în față",

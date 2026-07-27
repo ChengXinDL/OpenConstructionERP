@@ -33301,6 +33301,7 @@ const resource = {
     "takeoff_viewer.legend_drag_hint": "Dra for å flytte, dobbeltklikk for å tilbakestille",
     "takeoff_viewer.width_unit_m": "m",
     "takeoff_viewer.drag_to_reorder": "Dra for å omorganisere",
+    "takeoff_viewer.drag_group_to_reorder": "Dra for å omorganisere gruppen",
     "rfi.insights.f_age": "Dager åpne",
     "rfi.insights.f_open": "Åpen",
     "rfi.insights.f_overdue": "Forfalt",

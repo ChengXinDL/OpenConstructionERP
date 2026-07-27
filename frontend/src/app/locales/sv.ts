@@ -33295,6 +33295,7 @@ const resource = {
     "takeoff_viewer.legend_drag_hint": "Dra för att flytta, dubbelklicka för att återställa",
     "takeoff_viewer.width_unit_m": "m",
     "takeoff_viewer.drag_to_reorder": "Dra för att sortera om",
+    "takeoff_viewer.drag_group_to_reorder": "Dra för att sortera om gruppen",
     "takeoff_viewer.show_measurement": "Visa mått",
     "takeoff_viewer.hide_measurement": "Dölj mått",
     "takeoff_viewer.bring_to_front": "Flytta till framsidan",

@@ -33300,6 +33300,7 @@ const resource = {
     "takeoff_viewer.legend_drag_hint": "Taşımak için sürükleyin, sıfırlamak için çift tıklayın",
     "takeoff_viewer.width_unit_m": "m",
     "takeoff_viewer.drag_to_reorder": "Yeniden sıralamak için sürükleyin",
+    "takeoff_viewer.drag_group_to_reorder": "Grubu yeniden sıralamak için sürükleyin",
     "takeoff_viewer.show_measurement": "Ölçümü göster",
     "takeoff_viewer.hide_measurement": "Ölçümü gizle",
     "takeoff_viewer.bring_to_front": "Öne getir",

@@ -33313,6 +33313,7 @@ const resource = {
     "takeoff_viewer.legend_drag_hint": "Arrastrar para mover, hacer doble clic para restablecer",
     "takeoff_viewer.width_unit_m": "m",
     "takeoff_viewer.drag_to_reorder": "Arrastrar para reordenar",
+    "takeoff_viewer.drag_group_to_reorder": "Arrastrar para reordenar el grupo",
     "takeoff_viewer.show_measurement": "Mostrar medida",
     "takeoff_viewer.hide_measurement": "Ocultar medida",
     "takeoff_viewer.bring_to_front": "Traer al frente",

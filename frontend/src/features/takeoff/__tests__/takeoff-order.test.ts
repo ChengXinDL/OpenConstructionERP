@@ -568,3 +568,69 @@ describe('a drop can land after the target, not only before it (issue #392)', ()
     expect(ids.indexOf('b')).toBeLessThan(ids.length - 1);
   });
 });
+
+/**
+ * Dragging a whole group block (issue #400). ``reorderGroups`` is covered above
+ * on its own; these pin the composition the viewer actually performs, which is
+ * where the per-document rule is easy to get wrong.
+ */
+describe('dragging a group block to a new slot (issue #400)', () => {
+  const gRow = (id: string, group: string, page = 1) => ({ id, group, page });
+
+  /** The viewer's step: current bands, current on-screen group order, reorder. */
+  const dragGroup = (
+    rows: { id: string; group: string; page: number }[],
+    pinned: Record<string, number>,
+    dragged: string,
+    target: string,
+    place: 'before' | 'after',
+  ) => {
+    const current = groupBands(rows, pinned);
+    const displayed = [...new Set(rows.map(groupOf))].sort(
+      (a, b) => (current[a] ?? 0) - (current[b] ?? 0),
+    );
+    return reorderGroups(displayed, dragged, target, place);
+  };
+
+  it('moves the dragged block and leaves the others in their order', () => {
+    const rows = [gRow('a', 'A'), gRow('b', 'B'), gRow('c', 'C')];
+    const next = dragGroup(rows, {}, 'C', 'A', 'before')!;
+    expect(next).not.toBeNull();
+    const ids = sortByPaintOrder(rows, groupBands(rows, next)).map((r) => r.group);
+    expect(ids).toEqual(['C', 'A', 'B']);
+  });
+
+  it('drops a group into the middle rather than the front', () => {
+    // The trap the reorderGroups docstring calls out: banding only the dragged
+    // group would re-derive the untouched ones above it.
+    const rows = [gRow('a', 'A'), gRow('b', 'B'), gRow('c', 'C')];
+    const next = dragGroup(rows, {}, 'C', 'B', 'before')!;
+    const order = sortByPaintOrder(rows, groupBands(rows, next)).map((r) => r.group);
+    expect(order).toEqual(['A', 'C', 'B']);
+  });
+
+  it('keeps the band of a group that lives only on another page', () => {
+    // The sidebar renders one page. Renumbering only what is on screen would
+    // silently drop the band of every group on the other sheets.
+    const rows = [gRow('a', 'A', 1), gRow('b', 'B', 1), gRow('z', 'Z', 7)];
+    const next = dragGroup(rows, {}, 'B', 'A', 'before')!;
+    expect(Object.keys(next).sort()).toEqual(['A', 'B', 'Z']);
+    const order = sortByPaintOrder(rows, groupBands(rows, next)).map((r) => r.group);
+    expect(order).toEqual(['B', 'A', 'Z']);
+  });
+
+  it('composes with an already pinned map instead of starting over', () => {
+    // Two drags in a row: the second must read the map the first produced.
+    const rows = [gRow('a', 'A'), gRow('b', 'B'), gRow('c', 'C')];
+    const first = dragGroup(rows, {}, 'C', 'A', 'before')!;
+    const second = dragGroup(rows, first, 'B', 'C', 'before')!;
+    const order = sortByPaintOrder(rows, groupBands(rows, second)).map((r) => r.group);
+    expect(order).toEqual(['B', 'C', 'A']);
+  });
+
+  it('reports a drop back into the same slot as nothing to write', () => {
+    const rows = [gRow('a', 'A'), gRow('b', 'B'), gRow('c', 'C')];
+    expect(dragGroup(rows, {}, 'B', 'A', 'after')).toBeNull();
+    expect(dragGroup(rows, {}, 'B', 'C', 'before')).toBeNull();
+  });
+});

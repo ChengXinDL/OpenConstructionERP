@@ -33294,6 +33294,7 @@ const resource = {
     "takeoff_viewer.legend_drag_hint": "Povuci za premještanje, dvoklik za poništavanje",
     "takeoff_viewer.width_unit_m": "m",
     "takeoff_viewer.drag_to_reorder": "Povuci za promjenu redoslijeda",
+    "takeoff_viewer.drag_group_to_reorder": "Povuci za promjenu redoslijeda grupe",
     "takeoff_viewer.show_measurement": "Prikaži mjerenje",
     "takeoff_viewer.hide_measurement": "Sakrij mjerenje",
     "takeoff_viewer.bring_to_front": "Donesi na vrh",

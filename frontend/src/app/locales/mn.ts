@@ -33145,6 +33145,7 @@ const resource = {
     "takeoff_viewer.legend_drag_hint": "Зөөхийн тулд чирнэ үү, буцааж тавихаар давхар товшино уу",
     "takeoff_viewer.width_unit_m": "м",
     "takeoff_viewer.drag_to_reorder": "Дахин захиалахын тулд чирнэ үү",
+    "takeoff_viewer.drag_group_to_reorder": "Бүлгийг эмхэтгэхийн тулд чирнэ үү",
     "takeoff_viewer.show_measurement": "Хэмжилтийг харуулах",
     "takeoff_viewer.hide_measurement": "Хэмжилтийг нуух",
     "takeoff_viewer.bring_to_front": "Урд талд нь авчрах",

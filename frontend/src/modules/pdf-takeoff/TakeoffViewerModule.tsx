@@ -171,6 +171,7 @@ import {
   groupBands,
   groupBandCommit,
   groupOf,
+  reorderGroups,
   freezeGroupBands,
   hydrateGroupBands,
   stampGroupBands,
@@ -532,6 +533,16 @@ type UndoOperation =
       regrouped?: boolean;
       previousGroup?: string;
       nextGroup?: string;
+    }
+  // Dragging a group block to a new slot (issue #400). Unlike a measurement
+  // reorder this rewrites the band of EVERY group in one step, so the frame
+  // carries whole maps rather than one key. The previous map is frequently
+  // empty, which is a real state and not a missing value: it means no group had
+  // ever been pinned and every band was derived.
+  | {
+      kind: 'reorder_groups';
+      previousBands: Record<string, number>;
+      nextBands: Record<string, number>;
     };
 
 /* ── Component ─────────────────────────────────────────────────────── */
@@ -3173,6 +3184,12 @@ export default function TakeoffViewerModule({
   currentPageRef.current = currentPage;
   const hiddenGroupsRef = useRef(hiddenGroups);
   hiddenGroupsRef.current = hiddenGroups;
+  // Read by the group drag (issue #400), which must see the pinned map as it
+  // stands at the moment of the drop rather than as it stood when the handler
+  // was created, or two drags in a row would compute the second from a stale
+  // map and undo the first.
+  const explicitGroupBandsRef = useRef(explicitGroupBands);
+  explicitGroupBandsRef.current = explicitGroupBands;
   const hiddenMeasurementsRef = useRef(hiddenMeasurements);
   hiddenMeasurementsRef.current = hiddenMeasurements;
   const selectedMeasurementIdRef = useRef(selectedMeasurementId);
@@ -4550,6 +4567,48 @@ export default function TakeoffViewerModule({
           : m,
       ),
     );
+  }, [pushUndo]);
+
+  // Group-block drag state (issue #400), the group-level twin of the row drag
+  // above. Separate from it so a half-finished row drag can never be read as a
+  // group drag: the two gestures start on different handles and drop on
+  // different targets, and sharing one slot would let a stray dragOver on a
+  // group header pick up a row id.
+  const [draggingGroup, setDraggingGroup] = useState<string | null>(null);
+  const [dragOverGroup, setDragOverGroup] = useState<
+    { name: string; place: 'before' | 'after' } | null
+  >(null);
+
+  /** Move a whole group block to a new slot in the sidebar (issue #400).
+   *
+   *  Until now a group had no gesture of its own: the only way to get one block
+   *  above another was to move its measurements one at a time, and after #394
+   *  that stopped working entirely, correctly, since a measurement can no longer
+   *  drag its group anywhere.
+   *
+   *  Renumbers every group in the document rather than handing the dragged one a
+   *  fractional band. Bands with no explicit entry are derived AFTER the highest
+   *  explicit one, so pinning the dragged group alone would push every untouched
+   *  group above it and land the drop nowhere near where it was made. */
+  const reorderGroupByDrag = useCallback((
+    draggedGroup: string,
+    targetGroup: string,
+    place: 'before' | 'after',
+  ) => {
+    const all = measurementsRef.current;
+    // EVERY group in the document in its current on-screen order, not the groups
+    // on this page. The band map is per document, so renumbering only the
+    // visible subset would drop the band of every group living on another sheet
+    // and reshuffle pages the user was not even looking at.
+    const currentBands = groupBands(all, explicitGroupBandsRef.current);
+    const displayed = [...new Set(all.map(groupOf))].sort(
+      (a, b) => (currentBands[a] ?? 0) - (currentBands[b] ?? 0),
+    );
+    const nextBands = reorderGroups(displayed, draggedGroup, targetGroup, place);
+    if (nextBands === null) return;
+    const previousBands = explicitGroupBandsRef.current;
+    pushUndo({ kind: 'reorder_groups', previousBands, nextBands });
+    setExplicitGroupBands(nextBands);
   }, [pushUndo]);
 
   /** Toggle collapse of a measurement group in sidebar */
@@ -6341,6 +6400,13 @@ export default function TakeoffViewerModule({
           ),
         );
         break;
+
+      case 'reorder_groups':
+        // Restore the whole pinned map (issue #400). An empty previous map is a
+        // real state, the one where nothing had ever been pinned, so it is
+        // written back as-is rather than treated as nothing to do.
+        setExplicitGroupBands(op.previousBands);
+        break;
     }
 
     // Push the (possibly-adjusted) forward op onto redo.
@@ -6458,6 +6524,11 @@ export default function TakeoffViewerModule({
               : m,
           ),
         );
+        break;
+
+      case 'reorder_groups':
+        // Re-apply the pinned map (issue #400).
+        setExplicitGroupBands(op.nextBands);
         break;
     }
 
@@ -9358,8 +9429,60 @@ export default function TakeoffViewerModule({
                   const isCollapsed = collapsedGroups.has(groupName);
                   return (
                     <div key={groupName}>
-                      {/* Group header */}
-                      <div className="flex items-center gap-1.5 mb-1">
+                      {/* Group header. Doubles as the drop target for a group
+                          drag (issue #400); the same half-of-the-row rule as the
+                          measurement rows decides which side the block lands on. */}
+                      <div
+                        className={clsx(
+                          'flex items-center gap-1.5 mb-1',
+                          dragOverGroup?.name === groupName
+                            && (dragOverGroup.place === 'before'
+                              ? 'border-t-2 border-t-oe-blue'
+                              : 'border-b-2 border-b-oe-blue'),
+                          draggingGroup === groupName && 'opacity-40',
+                        )}
+                        onDragOver={(e) => {
+                          if (!draggingGroup || draggingGroup === groupName) return;
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = 'move';
+                          const box = e.currentTarget.getBoundingClientRect();
+                          const place = e.clientY < box.top + box.height / 2 ? 'before' : 'after';
+                          if (dragOverGroup?.name !== groupName || dragOverGroup.place !== place) {
+                            setDragOverGroup({ name: groupName, place });
+                          }
+                        }}
+                        onDrop={(e) => {
+                          if (!draggingGroup || draggingGroup === groupName) return;
+                          e.preventDefault();
+                          const box = e.currentTarget.getBoundingClientRect();
+                          const place = e.clientY < box.top + box.height / 2 ? 'before' : 'after';
+                          reorderGroupByDrag(draggingGroup, groupName, place);
+                          setDraggingGroup(null);
+                          setDragOverGroup(null);
+                        }}
+                      >
+                        {/* Grip for the group block (issue #400). Only the grip
+                            is draggable, so collapsing or hiding a group never
+                            starts a drag by accident. */}
+                        <span
+                          draggable
+                          onDragStart={(e) => {
+                            e.stopPropagation();
+                            e.dataTransfer.effectAllowed = 'move';
+                            e.dataTransfer.setData('text/plain', groupName);
+                            setDraggingGroup(groupName);
+                          }}
+                          onDragEnd={() => {
+                            setDraggingGroup(null);
+                            setDragOverGroup(null);
+                          }}
+                          className="shrink-0 -ml-1 cursor-grab active:cursor-grabbing text-content-tertiary opacity-40 hover:opacity-100 transition-opacity"
+                          aria-label={t('takeoff_viewer.drag_group_to_reorder', { defaultValue: 'Drag to reorder group' })}
+                          title={t('takeoff_viewer.drag_group_to_reorder', { defaultValue: 'Drag to reorder group' })}
+                          data-testid="group-drag-handle"
+                        >
+                          <GripVertical size={12} />
+                        </span>
                         <button
                           onClick={() => toggleGroupCollapse(groupName)}
                           className="p-0.5 rounded hover:bg-surface-secondary text-content-tertiary transition-colors"

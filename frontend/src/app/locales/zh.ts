@@ -33305,6 +33305,7 @@ const resource = {
     "takeoff_viewer.legend_drag_hint": "拖动以移动，双击以重置",
     "takeoff_viewer.width_unit_m": "米",
     "takeoff_viewer.drag_to_reorder": "拖动以重新排序",
+    "takeoff_viewer.drag_group_to_reorder": "拖动以重新排序分组",
     "takeoff_viewer.show_measurement": "显示测量",
     "takeoff_viewer.hide_measurement": "隐藏测量",
     "takeoff_viewer.bring_to_front": "置于顶层",

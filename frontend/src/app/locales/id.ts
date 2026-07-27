@@ -33301,6 +33301,7 @@ const resource = {
     "takeoff_viewer.legend_drag_hint": "Seret untuk memindahkan, klik dua kali untuk mengatur ulang",
     "takeoff_viewer.width_unit_m": "m",
     "takeoff_viewer.drag_to_reorder": "Seret untuk mengurutkan ulang",
+    "takeoff_viewer.drag_group_to_reorder": "Seret untuk mengurutkan ulang grup",
     "takeoff_viewer.show_measurement": "Tampilkan pengukuran",
     "takeoff_viewer.hide_measurement": "Sembunyikan pengukuran",
     "takeoff_viewer.bring_to_front": "Bawa ke depan",

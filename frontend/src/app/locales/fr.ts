@@ -33252,6 +33252,7 @@ const resource = {
     "takeoff_viewer.legend_drag_hint": "Faire glisser pour déplacer, double-cliquer pour réinitialiser",
     "takeoff_viewer.width_unit_m": "m",
     "takeoff_viewer.drag_to_reorder": "Faites glisser pour réorganiser",
+    "takeoff_viewer.drag_group_to_reorder": "Faites glisser pour réorganiser le groupe",
     "takeoff_viewer.show_measurement": "Afficher la mesure",
     "takeoff_viewer.hide_measurement": "Masquer la mesure",
     "takeoff_viewer.bring_to_front": "Mettre au premier plan",

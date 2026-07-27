@@ -33319,6 +33319,7 @@ const resource = {
     "takeoff_viewer.legend_drag_hint": "Przeciągnij, aby przesunąć, kliknij dwukrotnie, aby zresetować",
     "takeoff_viewer.width_unit_m": "m",
     "takeoff_viewer.drag_to_reorder": "Przeciągnij, aby zmienić kolejność",
+    "takeoff_viewer.drag_group_to_reorder": "Przeciągnij, aby zmienić kolejność grupy",
     "takeoff_viewer.show_measurement": "Pokaż pomiar",
     "takeoff_viewer.hide_measurement": "Ukryj pomiar",
     "takeoff_viewer.bring_to_front": "Przenieś na wierzch",

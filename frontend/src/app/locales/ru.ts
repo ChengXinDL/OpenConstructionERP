@@ -33152,6 +33152,7 @@ const resource = {
     "takeoff_viewer.legend_drag_hint": "Перетащите, чтобы переместить, дважды щелкните, чтобы сбросить",
     "takeoff_viewer.width_unit_m": "м",
     "takeoff_viewer.drag_to_reorder": "Перетащите для изменения порядка",
+    "takeoff_viewer.drag_group_to_reorder": "Перетащите для изменения порядка групп",
     "takeoff_viewer.show_measurement": "Показать измерение",
     "takeoff_viewer.hide_measurement": "Скрыть измерение",
     "site_supervision.no_date": "Дата не установлена",

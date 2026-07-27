@@ -33301,6 +33301,7 @@ const resource = {
     "takeoff_viewer.legend_drag_hint": "Slepen om te verplaatsen, dubbelklikken om opnieuw in te stellen",
     "takeoff_viewer.width_unit_m": "m",
     "takeoff_viewer.drag_to_reorder": "Slepen om te herschikken",
+    "takeoff_viewer.drag_group_to_reorder": "Slepen om groep te herschikken",
     "takeoff_viewer.show_measurement": "Meten weergeven",
     "takeoff_viewer.hide_measurement": "Meten verbergen",
     "takeoff_viewer.bring_to_front": "Naar voren halen",

@@ -29965,6 +29965,7 @@ const resource = {
     "takeoff_viewer.no_measurements_this_page": "No measurements on page {{page}}. {{count}} measurement(s) on other pages - open the Ledger tab to see them all.",
     "takeoff_viewer.no_measurements": "No measurements yet. Select a tool and click on the drawing.",
     "takeoff_viewer.drag_to_reorder": "Drag to reorder",
+    "takeoff_viewer.drag_group_to_reorder": "Drag to reorder group",
     "takeoff.add_label": "Add label...",
     "takeoff_viewer.suggested_hint": "AI suggestion - accept to keep it",
     "takeoff_viewer.suggested": "AI",

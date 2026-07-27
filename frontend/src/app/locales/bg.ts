@@ -33303,6 +33303,7 @@ const resource = {
     "takeoff_viewer.legend_drag_hint": "Плъзнете, за да преместите, щракнете двукратно, за да нулирате",
     "takeoff_viewer.width_unit_m": "m",
     "takeoff_viewer.drag_to_reorder": "Плъзни, за да пренаредиш",
+    "takeoff_viewer.drag_group_to_reorder": "Плъзни, за да пренаредиш групата",
     "takeoff_viewer.show_measurement": "Показване на измерване",
     "takeoff_viewer.hide_measurement": "Скриване на измерване",
     "subcontractors.insights.status_pending": "Чакащо",

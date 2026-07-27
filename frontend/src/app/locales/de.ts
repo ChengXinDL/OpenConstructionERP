@@ -33366,6 +33366,7 @@ const resource = {
     "takeoff_viewer.legend_drag_hint": "Ziehen zum Verschieben, Doppelklick zum Zurücksetzen",
     "takeoff_viewer.width_unit_m": "m",
     "takeoff_viewer.drag_to_reorder": "Zum Neuordnen ziehen",
+    "takeoff_viewer.drag_group_to_reorder": "Gruppe zum Neuordnen ziehen",
     "takeoff_viewer.show_measurement": "Messung anzeigen",
     "takeoff_viewer.hide_measurement": "Messung ausblenden",
     "takeoff_viewer.bring_to_front": "Nach vorne bringen",

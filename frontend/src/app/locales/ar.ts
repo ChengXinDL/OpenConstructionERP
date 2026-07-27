@@ -33349,6 +33349,7 @@ const resource = {
     "takeoff_viewer.legend_drag_hint": "السحب للتحريك، النقر المزدوج لإعادة الضبط",
     "takeoff_viewer.width_unit_m": "م",
     "takeoff_viewer.drag_to_reorder": "اسحب لإعادة الترتيب",
+    "takeoff_viewer.drag_group_to_reorder": "اسحب لإعادة ترتيب المجموعة",
     "takeoff_viewer.show_measurement": "إظهار القياس",
     "takeoff_viewer.hide_measurement": "إخفاء القياس",
     "takeoff_viewer.bring_to_front": "إحضار إلى الأمام",

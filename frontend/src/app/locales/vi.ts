@@ -33309,6 +33309,7 @@ const resource = {
     "takeoff_viewer.width_unit_m": "m",
     "takeoff_viewer.prop_delete": "Xóa phép đo",
     "takeoff_viewer.drag_to_reorder": "Kéo để sắp xếp lại",
+    "takeoff_viewer.drag_group_to_reorder": "Kéo để sắp xếp lại nhóm",
     "takeoff_viewer.show_measurement": "Hiển thị phép đo",
     "takeoff_viewer.hide_measurement": "Ẩn phép đo",
     "takeoff_viewer.bring_to_front": "Đưa lên trước",

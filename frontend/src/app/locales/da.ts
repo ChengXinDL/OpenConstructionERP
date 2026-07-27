@@ -33245,6 +33245,7 @@ const resource = {
     "takeoff_viewer.legend_drag_hint": "Træk for at flytte, dobbeltklik for at nulstille",
     "takeoff_viewer.width_unit_m": "m",
     "takeoff_viewer.drag_to_reorder": "Træk for at omarrangere",
+    "takeoff_viewer.drag_group_to_reorder": "Træk for at omarrangere gruppen",
     "takeoff_viewer.show_measurement": "Vis måling",
     "takeoff_viewer.hide_measurement": "Skjul måling",
     "takeoff_viewer.bring_to_front": "Bring til front",

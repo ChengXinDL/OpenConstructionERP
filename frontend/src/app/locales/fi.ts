@@ -33300,6 +33300,7 @@ const resource = {
     "takeoff_viewer.legend_drag_hint": "Vedä siirtääksesi, kaksoisklikkaa palauttaaksesi",
     "takeoff_viewer.width_unit_m": "m",
     "takeoff_viewer.drag_to_reorder": "Vedä järjestelläksesi uudelleen",
+    "takeoff_viewer.drag_group_to_reorder": "Vedä järjestelläksesi ryhmät uudelleen",
     "takeoff_viewer.show_measurement": "Näytä mittaus",
     "takeoff_viewer.hide_measurement": "Piilota mittaus",
     "takeoff_viewer.bring_to_front": "Tuo etualalle",

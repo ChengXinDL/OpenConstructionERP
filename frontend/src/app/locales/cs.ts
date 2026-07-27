@@ -33311,6 +33311,7 @@ const resource = {
     "takeoff_viewer.legend_drag_hint": "Přetáhněte pro přesunutí, dvojklikem resetujte",
     "takeoff_viewer.width_unit_m": "m",
     "takeoff_viewer.drag_to_reorder": "Přetáhněte pro změnu pořadí",
+    "takeoff_viewer.drag_group_to_reorder": "Přetáhněte pro změnu pořadí skupiny",
     "takeoff_viewer.show_measurement": "Zobrazit měření",
     "takeoff_viewer.hide_measurement": "Skrýt měření",
     "takeoff_viewer.bring_to_front": "Přesunout do popředí",

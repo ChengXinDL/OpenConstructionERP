@@ -33302,6 +33302,7 @@ const resource = {
     "takeoff_viewer.legend_drag_hint": "이동하려면 드래그하고, 재설정하려면 더블 클릭하세요.",
     "takeoff_viewer.width_unit_m": "m",
     "takeoff_viewer.drag_to_reorder": "재정렬하려면 드래그하세요",
+    "takeoff_viewer.drag_group_to_reorder": "그룹을 재정렬하려면 드래그하세요",
     "takeoff_viewer.show_measurement": "측정값 표시",
     "takeoff_viewer.hide_measurement": "측정값 숨기기",
     "takeoff_viewer.bring_to_front": "맨 앞으로 가져오기",
