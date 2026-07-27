@@ -10,6 +10,9 @@ from typing import Any
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import set_committed_value
+from sqlalchemy.orm.util import identity_key
+from sqlalchemy.sql.elements import ClauseElement
 
 from app.modules.subcontractors.models import (
     Certificate,
@@ -43,11 +46,40 @@ class _BaseRepo:
         return entity
 
     async def update_fields(self, entity_id: uuid.UUID, **fields: object) -> None:
+        """Update specific fields on one row.
+
+        A Core UPDATE bypasses the ORM, so the in-memory copy of the row is
+        stale afterwards. This used to reconcile that with
+        ``session.expire_all()``, which invalidated every instance in the
+        session rather than the one row being written. On an async session
+        reading an expired attribute raises MissingGreenlet instead of
+        lazy-loading, so callers crashed on objects this update never touched,
+        and a long tail of services carry snapshot-the-scalars workarounds for
+        it.
+
+        Expiring just the written row is not enough either, because the caller
+        usually still holds that very instance. Instead the values that were
+        just written are copied onto it as its loaded state: the database now
+        holds exactly these values, so recording them is truthful and leaves
+        nothing expired for anyone to trip over.
+
+        SQL expressions are skipped - their result is only known to the
+        database, so those attributes are expired individually and re-read on
+        next access.
+        """
         if not fields:
             return
         await self.session.execute(update(self.model).where(self.model.id == entity_id).values(**fields))
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(self.model, entity_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, entity_id: uuid.UUID) -> None:
         entity = await self.get_by_id(entity_id)
