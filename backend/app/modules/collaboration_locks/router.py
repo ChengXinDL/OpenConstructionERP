@@ -561,8 +561,10 @@ async def presence_ws(
     except Exception:
         logger.exception("presence websocket crashed")
     finally:
-        left_uid = await presence_hub.leave(key, websocket)
-        if left_uid is not None:
+        # One event per departing user: a single disconnect can be the moment
+        # several users stop being accounted for, and announcing only one of
+        # them left the rest showing as present in every peer's UI.
+        for left_uid in await presence_hub.leave(key, websocket):
             await presence_hub.broadcast(
                 key,
                 {

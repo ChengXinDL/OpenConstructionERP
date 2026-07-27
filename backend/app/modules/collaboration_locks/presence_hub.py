@@ -88,25 +88,33 @@ class PresenceHub:
             roster = [{"user_id": str(uid), "user_name": name} for uid, name in state.users.items()]
         return roster
 
-    async def leave(self, key: PresenceKey, ws: WebSocket) -> uuid.UUID | None:
-        """Drop ``ws`` from ``key`` and return the user id that left
-        iff the user has no remaining sockets on this key.  Callers
-        use the return value to decide whether to broadcast a
-        ``presence_leave`` event to the rest of the room.
+    async def leave(self, key: PresenceKey, ws: WebSocket) -> list[uuid.UUID]:
+        """Drop ``ws`` from ``key`` and return every user id that left.
+
+        A user "left" once they have no remaining socket on this key, so a
+        second tab still open means no departure.  Callers broadcast one
+        ``presence_leave`` per returned id to the rest of the room.
+
+        Returns a list, not a single id: more than one user can stop being
+        accounted for on a single disconnect, and returning only one of them
+        left the others visible in every peer's UI forever.  Order follows the
+        roster, so the result is deterministic.
         """
         state = self._keys.get(key)
         if state is None:
-            return None
+            return []
         async with state.lock:
             state.sockets.discard(ws)
             if not state.sockets:
-                left_uid = next(iter(state.users), None)
+                # The room is empty: everyone still on the roster has left,
+                # not merely the first of them.
+                departed = list(state.users)
                 state.users.clear()
                 # Clean up the empty key so memory does not grow
                 # unbounded as users browse across many entities.
                 async with self._map_lock:
                     self._keys.pop(key, None)
-                return left_uid
+                return departed
 
             # Check whether the departing socket belonged to a user
             # who no longer has any other open tab on this entity.
@@ -119,12 +127,10 @@ class PresenceHub:
                 uid = getattr(other_ws, "_collab_lock_user_id", None)
                 if isinstance(uid, uuid.UUID):
                     remaining_uids.add(uid)
-            left_uid: uuid.UUID | None = None
-            for uid in list(state.users.keys()):
-                if uid not in remaining_uids:
-                    state.users.pop(uid, None)
-                    left_uid = uid
-            return left_uid
+            departed = [uid for uid in state.users if uid not in remaining_uids]
+            for uid in departed:
+                state.users.pop(uid, None)
+            return departed
 
     async def broadcast(
         self,
