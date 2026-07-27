@@ -6,7 +6,8 @@ At the approval decision point a reviewer needs one number that the change
 board does not give them: not "what will this change cost", but "what does
 approving this change ADD on top of everything already committed". This engine
 answers exactly that. It takes the set of changes that are already committed
-(those whose status is in :data:`COMMITTED_STATUSES`) plus the one candidate
+(those whose status is committed for their own kind, see
+:data:`COMMITTED_STATUSES_BY_KIND`) plus the one candidate
 change being decided, and produces a before / after position per change-kind
 and per currency: the currently committed cost and days, the candidate's signed
 delta, and the resulting position if the candidate is approved.
@@ -20,12 +21,13 @@ signed whole-or-fractional day counts summed as :class:`~decimal.Decimal`
 (acceleration may be negative) and are likewise currency-scoped so the
 before / after table reads as one coherent row per (kind, currency).
 
-The committed-status vocabulary mirrors the change-intelligence service layer
-(``_CO_APPROVED_STATUSES``), where a change order counts as committed once it is
-``approved`` or ``executed``. It is duplicated here as the documented
-:data:`COMMITTED_STATUSES` constant so this stays a self-contained pure module:
-no database, no ORM, no ``app.*`` imports - stdlib plus ``Decimal`` only - and
-it unit-tests on the local Python 3.11 runner exactly like the sibling engines.
+The committed-status vocabularies mirror the change-intelligence service layer
+(``_CO_APPROVED_STATUSES`` and ``_VO_AGREED_STATUSES``): a change order counts as
+committed once it is ``approved`` or ``executed``, a variation order once it is
+issued or beyond. Both are duplicated here as :data:`COMMITTED_STATUSES_BY_KIND`
+so this stays a self-contained pure module: no database, no ORM, no ``app.*``
+imports, stdlib plus ``Decimal`` only, and it unit-tests on the local Python
+3.11 runner exactly like the sibling engines.
 A thin service layer gathers the committed change rows and the candidate and
 feeds them in; this engine reads no clock and no I/O, so identical inputs always
 produce an identical result.
@@ -44,17 +46,36 @@ from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 
 # --------------------------------------------------------------------------- #
-# Committed-status vocabulary.
+# Committed-status vocabulary, per change family.
 #
-# Mirrors app.modules.change_intelligence.service._CO_APPROVED_STATUSES: a change
-# is "committed" - part of the baseline the candidate is measured against - once
-# it has been approved or executed. Duplicated (not imported) so this module
-# pulls in nothing heavy; the values match the service layer exactly. Compared
-# case-insensitively after trimming, so callers can pass raw stored statuses.
+# The families do NOT share a status vocabulary and a single set cannot serve
+# both. A change order commits at ``approved`` / ``executed``; a variation
+# order's FSM is ``issued -> in_progress -> completed | voided`` and never
+# passes through either of those words. One shared set therefore matched no
+# variation order at all, and the baseline silently understated committed cost
+# and days by the whole value of every agreed VO.
+#
+# Mirrors ``service._CO_APPROVED_STATUSES`` and ``service._VO_AGREED_STATUSES``.
+# Duplicated rather than imported so this module pulls in nothing heavy; a test
+# pins the two copies together. Compared case-insensitively after trimming, so
+# callers can pass raw stored statuses.
 # --------------------------------------------------------------------------- #
 
-#: Change statuses that count as committed (part of the current baseline).
-COMMITTED_STATUSES: frozenset[str] = frozenset({"approved", "executed"})
+#: Change-family kind tokens this engine knows how to commit. Spelled out
+#: locally for the same reason the status sets are: the engine imports nothing.
+KIND_CHANGE_ORDER = "change_order"
+KIND_VARIATION_ORDER = "variation_order"
+
+#: Statuses that count as committed, by change-family kind.
+COMMITTED_STATUSES_BY_KIND: dict[str, frozenset[str]] = {
+    KIND_CHANGE_ORDER: frozenset({"approved", "executed"}),
+    KIND_VARIATION_ORDER: frozenset({"issued", "in_progress", "completed"}),
+}
+
+#: Change-order statuses that count as committed. Kept as a module constant
+#: because it is part of the published surface; new code should read
+#: :data:`COMMITTED_STATUSES_BY_KIND` so the kind is never implicit.
+COMMITTED_STATUSES: frozenset[str] = COMMITTED_STATUSES_BY_KIND[KIND_CHANGE_ORDER]
 
 #: Two-decimal-place quantum for money rounding (mirrors the sibling engines).
 TWOPLACES = Decimal("0.01")
@@ -69,14 +90,35 @@ def quantize_money(amount: Decimal) -> Decimal:
     return amount.quantize(TWOPLACES, rounding=ROUND_HALF_UP)
 
 
-def is_committed(status: str) -> bool:
-    """Whether a change *status* counts as committed.
+def is_committed(status: str, kind: str = KIND_CHANGE_ORDER) -> bool:
+    """Whether a change *status* counts as committed for its *kind*.
 
     The status is trimmed and lower-cased before the membership test, so the
     raw stored value (which may carry surrounding whitespace or mixed case) is
     accepted directly. A blank or unrecognised status is not committed.
+
+    Args:
+        status: The raw stored status string.
+        kind: The change-family kind token the status belongs to. Defaults to
+            the change order, which is what the single-vocabulary version of
+            this function meant.
+
+    Returns:
+        True when the status puts the change in the committed baseline.
+
+    Raises:
+        ValueError: The kind has no committed vocabulary. Raised rather than
+            answered False on purpose: a kind added to the baseline query
+            without a vocabulary here would otherwise contribute a silent zero,
+            which is the exact failure this function was fixed for.
     """
-    return (status or "").strip().lower() in COMMITTED_STATUSES
+    try:
+        vocabulary = COMMITTED_STATUSES_BY_KIND[kind]
+    except KeyError:
+        raise ValueError(
+            f"no committed-status vocabulary for change kind {kind!r}; add it to COMMITTED_STATUSES_BY_KIND"
+        ) from None
+    return (status or "").strip().lower() in vocabulary
 
 
 @dataclass(frozen=True)
@@ -89,9 +131,10 @@ class ChangeImpact:
     ``currency`` is the ISO code the cost is expressed in; an empty string is
     its own bucket rather than an error, so an unpriced change is still
     surfaced. ``status`` is the raw change-status string; an item counts toward
-    the committed baseline only when it is in :data:`COMMITTED_STATUSES` (see
-    :func:`is_committed`). ``kind`` is the change-family kind token used to
-    group the before / after rows.
+    the committed baseline only when it is committed for its own ``kind`` (see
+    :func:`is_committed`), which is why the two fields have to travel together.
+    ``kind`` is also the change-family token used to group the before / after
+    rows.
     """
 
     kind: str
@@ -194,7 +237,7 @@ def _accumulate(
         return cell
 
     for item in committed:
-        if not is_committed(item.status):
+        if not is_committed(item.status, item.kind):
             continue
         cell = cell_for(item.kind, item.currency)
         cell.committed_cost += item.cost_impact
@@ -300,6 +343,9 @@ def project_with_pending_many(
 
 __all__ = [
     "COMMITTED_STATUSES",
+    "COMMITTED_STATUSES_BY_KIND",
+    "KIND_CHANGE_ORDER",
+    "KIND_VARIATION_ORDER",
     "TWOPLACES",
     "ChangeImpact",
     "DecisionImpactRow",
