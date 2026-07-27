@@ -1022,6 +1022,60 @@ export function BIMViewer({
     return false;
   }, [elements, modelMetadata]);
 
+  /** "Generated geometry" caption dismissal, same per-model persistence as the
+   *  placeholder banner above but a separate decision (and a separate key) so
+   *  dismissing one never silences the other. */
+  const proceduralDismissKey = modelId
+    ? `oe_bim_procedural_banner_dismissed:${modelId}`
+    : null;
+  const [proceduralBannerDismissed, setProceduralBannerDismissedState] = useState<boolean>(() => {
+    if (!proceduralDismissKey) return false;
+    try {
+      return localStorage.getItem(proceduralDismissKey) === '1';
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    if (!proceduralDismissKey) {
+      setProceduralBannerDismissedState(false);
+      return;
+    }
+    try {
+      setProceduralBannerDismissedState(
+        localStorage.getItem(proceduralDismissKey) === '1',
+      );
+    } catch {
+      setProceduralBannerDismissedState(false);
+    }
+  }, [proceduralDismissKey]);
+  const setProceduralBannerDismissed = useCallback(
+    (val: boolean) => {
+      setProceduralBannerDismissedState(val);
+      if (!proceduralDismissKey) return;
+      try {
+        if (val) localStorage.setItem(proceduralDismissKey, '1');
+        else localStorage.removeItem(proceduralDismissKey);
+      } catch {
+        /* storage unavailable */
+      }
+    },
+    [proceduralDismissKey],
+  );
+  /** True for a model whose mesh was generated from the project data rather
+   *  than converted from a CAD file, i.e. the seeded showcase buildings the
+   *  backend stamps ``geometry_quality: "procedural"`` (see
+   *  ``seed_demo_assets.py``). Boxes rendered without a caption read as
+   *  converted geometry, so the viewer says where the mesh came from.
+   *  Deliberately NOT the placeholder banner: there is no converter to install
+   *  here and nothing is degraded, so the copy must not nudge an install the
+   *  same way ``geometry_quality: "data_only"`` must not. */
+  const isProceduralGeometry = useMemo(() => {
+    const quality = modelMetadata?.['geometry_quality'];
+    const geomType = modelMetadata?.['geometry_type'];
+    return quality === 'procedural' || geomType === 'procedural';
+  }, [modelMetadata]);
+
   /** Context menu state -- null when closed. */
   const [contextMenu, setContextMenu] = useState<BIMContextMenuState | null>(null);
   /** Set of element IDs that the user has manually hidden via the context
@@ -3416,6 +3470,50 @@ export function BIMViewer({
               aria-label={t('bim.placeholder_banner.dismiss', { defaultValue: 'Dismiss' })}
               data-testid="bim-placeholder-banner-dismiss"
               className="ml-1 rounded p-0.5 text-amber-700/80 hover:bg-amber-200/60 hover:text-amber-900 dark:text-amber-300/80 dark:hover:bg-amber-900/40 dark:hover:text-amber-100"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Generated-geometry caption. The showcase buildings are meshed from the
+          project data, not converted from a CAD file, and a box model with no
+          caption reads as converted geometry. Neutral slate rather than amber:
+          nothing here is broken or degraded and there is no converter to
+          install, so this states provenance and stops. Suppressed while the
+          placeholder banner is up so the two never stack. */}
+      {isProceduralGeometry && !isPlaceholderGeometry && !proceduralBannerDismissed && (
+        <div
+          data-testid="bim-procedural-banner"
+          className="absolute top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none flex justify-center px-2 max-w-[90%]"
+        >
+          <div
+            className="pointer-events-auto flex items-start gap-3 rounded-lg border border-slate-300/80 bg-slate-50/95 px-4 py-2.5 text-slate-800 shadow-md backdrop-blur-sm dark:border-slate-600/60 dark:bg-slate-900/90 dark:text-slate-100"
+            role="status"
+            aria-live="polite"
+          >
+            <Boxes size={18} className="mt-0.5 shrink-0 text-slate-500 dark:text-slate-400" />
+            <div className="text-xs leading-relaxed">
+              <span className="font-semibold">
+                {t('bim.procedural_banner.title', {
+                  defaultValue: 'Generated geometry',
+                })}
+              </span>
+              <span>{' - '}</span>
+              <span>
+                {t('bim.procedural_banner.body', {
+                  defaultValue:
+                    'this model was built from the project data, not converted from a CAD file.',
+                })}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setProceduralBannerDismissed(true)}
+              aria-label={t('bim.procedural_banner.dismiss', { defaultValue: 'Dismiss' })}
+              data-testid="bim-procedural-banner-dismiss"
+              className="ml-1 rounded p-0.5 text-slate-500 hover:bg-slate-200/60 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-700/40 dark:hover:text-slate-100"
             >
               <X size={14} />
             </button>
