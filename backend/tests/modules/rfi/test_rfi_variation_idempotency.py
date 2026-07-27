@@ -8,12 +8,17 @@ Scope (BUG-RFI-VARIATION-DUP):
        call (it is not re-pointed at a freshly-minted duplicate, which
        would orphan the first CO whose metadata still references this RFI).
 
-The suite mirrors ``test_rfi_attachments.py``: the RFI router is mounted on
-a FastAPI ``TestClient`` with dependency overrides for session / auth /
-project access, and each test runs against a PostgreSQL session wrapped in
-an outer transaction rolled back on teardown (see
-``tests._pg.transactional_session``). The change-orders module is a real
-dependency here, so this exercises the genuine cross-module create path.
+The suite mirrors ``test_rfi_attachments.py``: the RFI router is mounted on an
+``httpx.AsyncClient`` with dependency overrides for session / auth / project
+access, and each test runs against a PostgreSQL session wrapped in an outer
+transaction rolled back on teardown (see ``tests._pg.transactional_session``).
+The change-orders module is a real dependency here, so this exercises the
+genuine cross-module create path.
+
+The client has to be the async one. The synchronous ``TestClient`` drives the
+app from a private event loop in a worker thread, while ``db_session`` is bound
+to the loop the test runs on, and a single asyncpg connection cannot be shared
+across both.
 """
 
 from __future__ import annotations
@@ -21,10 +26,10 @@ from __future__ import annotations
 import uuid
 from typing import AsyncIterator
 
+import httpx
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
 from app.dependencies import (
@@ -151,14 +156,15 @@ class TestCreateVariationIdempotency:
         rfi = await _seed_answered_cost_rfi(db_session, owner, project_id)
 
         app = _build_app(db_session, caller_id=owner)
-        client = TestClient(app)
+        transport = httpx.ASGITransport(app=app)
 
-        first = client.post(f"/v1/rfi/{rfi.id}/create-variation/")
-        assert first.status_code == 201, first.text
-        first_co = first.json()["change_order_id"]
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            first = await client.post(f"/v1/rfi/{rfi.id}/create-variation/")
+            assert first.status_code == 201, first.text
+            first_co = first.json()["change_order_id"]
 
-        # Second call = double-submit / retry. Must NOT mint a new CO.
-        second = client.post(f"/v1/rfi/{rfi.id}/create-variation/")
+            # Second call = double-submit / retry. Must NOT mint a new CO.
+            second = await client.post(f"/v1/rfi/{rfi.id}/create-variation/")
         assert second.status_code == 201, second.text
         second_co = second.json()["change_order_id"]
 
@@ -174,23 +180,24 @@ class TestCreateVariationIdempotency:
         rfi = await _seed_answered_cost_rfi(db_session, owner, project_id)
 
         app = _build_app(db_session, caller_id=owner)
-        client = TestClient(app)
+        transport = httpx.ASGITransport(app=app)
 
-        first = client.post(f"/v1/rfi/{rfi.id}/create-variation/")
-        assert first.status_code == 201, first.text
-        linked_co = first.json()["change_order_id"]
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            first = await client.post(f"/v1/rfi/{rfi.id}/create-variation/")
+            assert first.status_code == 201, first.text
+            linked_co = first.json()["change_order_id"]
 
-        # Re-fetch the RFI: it points at the CO we just minted.
-        got = client.get(f"/v1/rfi/{rfi.id}")
-        assert got.status_code == 200, got.text
-        assert got.json()["change_order_id"] == linked_co
+            # Re-fetch the RFI: it points at the CO we just minted.
+            got = await client.get(f"/v1/rfi/{rfi.id}")
+            assert got.status_code == 200, got.text
+            assert got.json()["change_order_id"] == linked_co
 
-        # A repeated create-variation keeps the same link (no re-pointing at a
-        # duplicate, which would orphan the first CO).
-        again = client.post(f"/v1/rfi/{rfi.id}/create-variation/")
-        assert again.status_code == 201, again.text
-        assert again.json()["change_order_id"] == linked_co
+            # A repeated create-variation keeps the same link (no re-pointing at
+            # a duplicate, which would orphan the first CO).
+            again = await client.post(f"/v1/rfi/{rfi.id}/create-variation/")
+            assert again.status_code == 201, again.text
+            assert again.json()["change_order_id"] == linked_co
 
-        got2 = client.get(f"/v1/rfi/{rfi.id}")
+            got2 = await client.get(f"/v1/rfi/{rfi.id}")
         assert got2.status_code == 200, got2.text
         assert got2.json()["change_order_id"] == linked_co

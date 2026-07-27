@@ -13,8 +13,11 @@ Scope:
     4. Magic-byte uploads — OLE (.doc/.xls legacy) and DWG positive tests (both
        are in _ALLOWED_ATTACHMENT_TYPES but not yet exercised individually).
 
-Pattern: PostgreSQL transaction-isolated session + TestClient dependency
-overrides, mirrors test_submittals_attachments.py conventions.
+Pattern: PostgreSQL transaction-isolated session + dependency overrides,
+mirrors test_submittals_attachments.py conventions. Requests go through
+``httpx.AsyncClient`` over ``ASGITransport`` so the app runs on the same event
+loop as the session fixture; the synchronous ``TestClient`` uses a loop of its
+own in a worker thread, which no asyncpg connection can be shared across.
 """
 
 from __future__ import annotations
@@ -23,10 +26,10 @@ import logging
 import uuid
 from typing import AsyncIterator
 
+import httpx
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 
 from app.dependencies import (
     get_current_user_id,
@@ -306,54 +309,52 @@ class TestAttachmentVersioning:
             user_id=owner,
         )
         await db_session.commit()
-        # Snapshot the primary key BEFORE entering the sync TestClient context
-        # (accessing `sub.id` inside the sync context trips MissingGreenlet because
-        # the expired async-session attribute refresh is not greenlet-aware).
         sub_id = sub.id
 
         app = _build_app(db_session, caller_id=owner)
-        client = TestClient(app)
+        transport = httpx.ASGITransport(app=app)
 
-        # Round 1: upload a PDF attachment (submittal is still in draft — allowed).
-        pdf_r1 = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\nround-1-content"
-        resp = client.post(
-            f"/v1/submittals/{sub_id}/attachments/upload/",
-            files={"file": ("round1.pdf", pdf_r1, "application/pdf")},
-            params={"label": "Round 1 drawing"},
-        )
-        assert resp.status_code == 201, resp.text
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            # Round 1: upload a PDF attachment (submittal is still in draft, so
+            # uploads are allowed).
+            pdf_r1 = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\nround-1-content"
+            resp = await client.post(
+                f"/v1/submittals/{sub_id}/attachments/upload/",
+                files={"file": ("round1.pdf", pdf_r1, "application/pdf")},
+                params={"label": "Round 1 drawing"},
+            )
+            assert resp.status_code == 201, resp.text
 
-        # Advance through submit → under_review → revise_and_resubmit via HTTP
-        # (no async session writes after TestClient has started — all transitions
-        # go through the router endpoints to avoid MissingGreenlet).
-        submit_resp = client.post(f"/v1/submittals/{sub_id}/submit/")
-        assert submit_resp.status_code == 200, submit_resp.text
+            # Advance through submit -> under_review -> revise_and_resubmit via
+            # HTTP, which is what the versioning behaviour is defined against.
+            submit_resp = await client.post(f"/v1/submittals/{sub_id}/submit/")
+            assert submit_resp.status_code == 200, submit_resp.text
 
-        patch_resp = client.patch(
-            f"/v1/submittals/{sub_id}",
-            json={"status": "under_review"},
-        )
-        assert patch_resp.status_code == 200, patch_resp.text
+            patch_resp = await client.patch(
+                f"/v1/submittals/{sub_id}",
+                json={"status": "under_review"},
+            )
+            assert patch_resp.status_code == 200, patch_resp.text
 
-        # under_review → revise_and_resubmit via the /review endpoint.
-        review_resp = client.post(
-            f"/v1/submittals/{sub_id}/review/",
-            json={"status": "revise_and_resubmit"},
-        )
-        assert review_resp.status_code == 200, review_resp.text
-        assert review_resp.json()["status"] == "revise_and_resubmit"
+            # under_review -> revise_and_resubmit via the /review endpoint.
+            review_resp = await client.post(
+                f"/v1/submittals/{sub_id}/review/",
+                json={"status": "revise_and_resubmit"},
+            )
+            assert review_resp.status_code == 200, review_resp.text
+            assert review_resp.json()["status"] == "revise_and_resubmit"
 
-        # Round 2: upload another PDF attachment.
-        pdf_r2 = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\nround-2-revised-content"
-        resp2 = client.post(
-            f"/v1/submittals/{sub_id}/attachments/upload/",
-            files={"file": ("round2.pdf", pdf_r2, "application/pdf")},
-            params={"label": "Round 2 revised drawing"},
-        )
-        assert resp2.status_code == 201, resp2.text
+            # Round 2: upload another PDF attachment.
+            pdf_r2 = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\nround-2-revised-content"
+            resp2 = await client.post(
+                f"/v1/submittals/{sub_id}/attachments/upload/",
+                files={"file": ("round2.pdf", pdf_r2, "application/pdf")},
+                params={"label": "Round 2 revised drawing"},
+            )
+            assert resp2.status_code == 201, resp2.text
 
-        # List attachments: both rounds must be present.
-        list_resp = client.get(f"/v1/submittals/{sub_id}/attachments/")
+            # List attachments: both rounds must be present.
+            list_resp = await client.get(f"/v1/submittals/{sub_id}/attachments/")
         assert list_resp.status_code == 200, list_resp.text
         entries = list_resp.json()
         assert len(entries) == 2, f"Expected 2 attachment entries (one per round), got {len(entries)}"
@@ -385,18 +386,19 @@ class TestAttachmentVersioning:
         sub_id = sub.id
 
         app = _build_app(db_session, caller_id=owner)
-        client = TestClient(app)
+        transport = httpx.ASGITransport(app=app)
 
         pdf = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n"
-        for label in ("alpha", "beta", "gamma"):
-            r = client.post(
-                f"/v1/submittals/{sub_id}/attachments/upload/",
-                files={"file": (f"{label}.pdf", pdf + label.encode(), "application/pdf")},
-                params={"label": label},
-            )
-            assert r.status_code == 201, r.text
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            for label in ("alpha", "beta", "gamma"):
+                r = await client.post(
+                    f"/v1/submittals/{sub_id}/attachments/upload/",
+                    files={"file": (f"{label}.pdf", pdf + label.encode(), "application/pdf")},
+                    params={"label": label},
+                )
+                assert r.status_code == 201, r.text
 
-        list_resp = client.get(f"/v1/submittals/{sub_id}/attachments/")
+            list_resp = await client.get(f"/v1/submittals/{sub_id}/attachments/")
         entries = list_resp.json()
         assert [e["label"] for e in entries] == ["alpha", "beta", "gamma"]
 
@@ -424,26 +426,27 @@ class TestAttachmentVersioning:
         sub_id = sub.id
 
         app = _build_app(db_session, caller_id=owner)
-        client = TestClient(app)
+        transport = httpx.ASGITransport(app=app)
 
         pdf = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n"
-        r1 = client.post(
-            f"/v1/submittals/{sub_id}/attachments/upload/",
-            files={"file": ("keep.pdf", pdf + b"keep", "application/pdf")},
-            params={"label": "keep"},
-        )
-        r2 = client.post(
-            f"/v1/submittals/{sub_id}/attachments/upload/",
-            files={"file": ("remove.pdf", pdf + b"remove", "application/pdf")},
-            params={"label": "remove"},
-        )
-        assert r1.status_code == 201 and r2.status_code == 201
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            r1 = await client.post(
+                f"/v1/submittals/{sub_id}/attachments/upload/",
+                files={"file": ("keep.pdf", pdf + b"keep", "application/pdf")},
+                params={"label": "keep"},
+            )
+            r2 = await client.post(
+                f"/v1/submittals/{sub_id}/attachments/upload/",
+                files={"file": ("remove.pdf", pdf + b"remove", "application/pdf")},
+                params={"label": "remove"},
+            )
+            assert r1.status_code == 201 and r2.status_code == 201
 
-        doc_to_remove = r2.json()["document_id"]
-        del_resp = client.delete(f"/v1/submittals/{sub_id}/attachments/{doc_to_remove}")
-        assert del_resp.status_code == 204, del_resp.text
+            doc_to_remove = r2.json()["document_id"]
+            del_resp = await client.delete(f"/v1/submittals/{sub_id}/attachments/{doc_to_remove}")
+            assert del_resp.status_code == 204, del_resp.text
 
-        list_resp = client.get(f"/v1/submittals/{sub_id}/attachments/")
+            list_resp = await client.get(f"/v1/submittals/{sub_id}/attachments/")
         entries = list_resp.json()
         assert len(entries) == 1
         assert entries[0]["label"] == "keep"
@@ -527,14 +530,15 @@ class TestMagicByteExtendedFormats:
         sub_id = sub.id
 
         app = _build_app(db_session, caller_id=owner)
-        client = TestClient(app)
+        transport = httpx.ASGITransport(app=app)
 
         # OLE compound document magic bytes (Word 97-2003 .doc, Excel 97-2003 .xls)
         ole_magic = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 64
-        resp = client.post(
-            f"/v1/submittals/{sub_id}/attachments/upload/",
-            files={"file": ("spec.doc", ole_magic, "application/msword")},
-        )
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post(
+                f"/v1/submittals/{sub_id}/attachments/upload/",
+                files={"file": ("spec.doc", ole_magic, "application/msword")},
+            )
         assert resp.status_code == 201, f"OLE upload rejected: {resp.text}"
         assert resp.json()["label"] == "spec.doc"
 
@@ -560,14 +564,15 @@ class TestMagicByteExtendedFormats:
         sub_id = sub.id
 
         app = _build_app(db_session, caller_id=owner)
-        client = TestClient(app)
+        transport = httpx.ASGITransport(app=app)
 
         # DWG magic: "AC10" (DWG 2000+ format)
         dwg_magic = b"AC1015" + b"\x00" * 64
-        resp = client.post(
-            f"/v1/submittals/{sub_id}/attachments/upload/",
-            files={"file": ("structure.dwg", dwg_magic, "application/octet-stream")},
-        )
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post(
+                f"/v1/submittals/{sub_id}/attachments/upload/",
+                files={"file": ("structure.dwg", dwg_magic, "application/octet-stream")},
+            )
         assert resp.status_code == 201, f"DWG upload rejected: {resp.text}"
         payload = resp.json()
         assert payload["label"] == "structure.dwg"
@@ -594,12 +599,13 @@ class TestMagicByteExtendedFormats:
         sub_id = sub.id
 
         app = _build_app(db_session, caller_id=owner)
-        client = TestClient(app)
+        transport = httpx.ASGITransport(app=app)
 
         # Shell script posing as a DWG
         bad_body = b"#!/bin/bash\nrm -rf /\n" + b"A" * 64
-        resp = client.post(
-            f"/v1/submittals/{sub_id}/attachments/upload/",
-            files={"file": ("evil.dwg", bad_body, "application/octet-stream")},
-        )
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post(
+                f"/v1/submittals/{sub_id}/attachments/upload/",
+                files={"file": ("evil.dwg", bad_body, "application/octet-stream")},
+            )
         assert resp.status_code == 415, f"Expected 415, got {resp.status_code}: {resp.text}"

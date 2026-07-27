@@ -26,10 +26,10 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any, AsyncIterator
 
+import httpx
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 
 from app.dependencies import (
     get_current_user_id,
@@ -575,14 +575,15 @@ class TestRFIAttachmentOLE:
         rfi_id = rfi.id
 
         app = _build_app(db_session, caller_id=owner)
-        client = TestClient(app)
+        transport = httpx.ASGITransport(app=app)
 
         # OLE compound-document magic: D0 CF 11 E0 A1 B1 1A E1
         ole_magic = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 64
-        resp = client.post(
-            f"/v1/rfi/{rfi_id}/attachments/",
-            files={"file": ("schedule.doc", ole_magic, "application/msword")},
-        )
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post(
+                f"/v1/rfi/{rfi_id}/attachments/",
+                files={"file": ("schedule.doc", ole_magic, "application/msword")},
+            )
         assert resp.status_code == 200, f"OLE RFI attachment rejected: {resp.text}"
         attachments = resp.json().get("attachments", [])
         assert len(attachments) == 1
@@ -646,9 +647,10 @@ class TestRFIExportFormulaInjection:
         await db_session.commit()
 
         app = _build_app(db_session, caller_id=owner)
-        client = TestClient(app)
+        transport = httpx.ASGITransport(app=app)
 
-        resp = client.get(f"/v1/rfi/export/?project_id={project_id}")
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.get(f"/v1/rfi/export/?project_id={project_id}")
         assert resp.status_code == 200, f"Export failed: {resp.text}"
         assert "spreadsheetml" in resp.headers.get("content-type", "")
 
