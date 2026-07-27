@@ -156,9 +156,13 @@ async def test_fire_due_agent_advances_clock(session: AsyncSession) -> None:
     now = _dt.datetime.now(_dt.UTC) + _dt.timedelta(hours=1)
     agent = await svc.custom_repo.get_for_user(agent_id, owner)
     assert agent is not None
-    before = agent.automation.get("next_run_at")
+    # Mirror what fire_due_runs() passes: plain snapshotted values, not the ORM
+    # instance. The helper takes the fields it needs so the caller can read them
+    # off every due agent before the loop starts mutating the session.
+    auto = dict(agent.automation)
+    before = auto.get("next_run_at")
 
-    await _fire_due_agent(svc, agent, now)
+    await _fire_due_agent(svc, agent_id, agent.user_id, agent.agent_name, auto, now)
 
     refreshed = await svc.custom_repo.get_for_user(agent_id, owner)
     assert refreshed is not None
