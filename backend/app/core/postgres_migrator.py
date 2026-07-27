@@ -36,7 +36,8 @@ failure cannot poison the rest of the heal.
 
 import logging
 
-from sqlalchemy import Column, inspect, text
+from sqlalchemy import CheckConstraint, Column, UniqueConstraint, inspect, text
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,7 @@ async def postgres_auto_migrate(engine: AsyncEngine, base) -> int:
     """
     columns_added = 0
     indexes_added = 0
+    constraints_added = 0
 
     async with engine.begin() as conn:
         # Serialise the heal across processes: on a shared external database
@@ -231,11 +233,267 @@ async def postgres_auto_migrate(engine: AsyncEngine, base) -> int:
                         exc,
                     )
 
-    if columns_added > 0 or indexes_added > 0:
+            constraints_added += await _heal_constraints(conn, table, existing_names, existing_col_tuples)
+
+    if columns_added > 0 or indexes_added > 0 or constraints_added > 0:
         logger.info(
-            "PostgreSQL auto-migration complete: %d columns, %d indexes added",
+            "PostgreSQL auto-migration complete: %d columns, %d indexes, %d constraints added",
             columns_added,
             indexes_added,
+            constraints_added,
         )
 
-    return columns_added + indexes_added
+    return columns_added + indexes_added + constraints_added
+
+
+#: PostgreSQL's identifier limit (NAMEDATALEN - 1).
+_PG_IDENTIFIER_LIMIT = 63
+
+#: The preparer SQLAlchemy uses to render constraint names in DDL.
+_PREPARER = postgresql.dialect().identifier_preparer
+
+
+def _effective_name(constraint) -> str:
+    """The name this constraint actually has in the database.
+
+    Do not compare ``constraint.name`` against what the database reports. The
+    metadata naming convention in ``app.database`` re-wraps an already-prefixed
+    name, so several model-declared constraints resolve to more than 63 bytes.
+    ``create_all`` did not store those chopped at 63, it stored them
+    **hash-mangled**: 64 characters of
+    ``ck_oe_erp_chat_turn_feedback_ck_oe_erp_chat_turn_feedback_rating`` live in
+    PostgreSQL as ``ck_oe_erp_chat_turn_feedback_ck_oe_erp_chat_turn_feedba_b8d8``.
+    Neither the full name nor a plain ``[:63]`` slice matches that, so a name
+    comparison decides the constraint is missing, and re-adding it under a raw
+    ``ALTER TABLE`` produces a *second* constraint enforcing the same rule under a
+    differently mangled name, on every upgrade.
+
+    Comparing the expression instead does not work either: PostgreSQL rewrites
+    what it stores, so ``rating IN (-1, 1)`` comes back as
+    ``rating = ANY (ARRAY['-1'::integer, 1])``.
+
+    So ask the component that produced the name in the first place. This is the
+    same preparer ``create_all`` used, and it returns the identical string.
+    """
+    return _PREPARER.format_constraint(constraint)
+
+
+async def _heal_constraints(conn, table, existing_names: set[str], existing_col_tuples: set[tuple[str, ...]]) -> int:
+    """Add unique, check and foreign-key constraints the live table is missing.
+
+    ``create_all`` builds a brand-new table with every constraint it declares, so
+    a fresh install is never short of one. The gap is a constraint *added to a
+    table that already exists*: alembic knows how to do that, this path did not,
+    and an install upgraded through ``create_all`` lost it silently.
+
+    The unique constraints are the ones that carry weight. Six tables generate
+    their document number as ``MAX(suffix) + 1``, flush inside a savepoint, and
+    catch ``IntegrityError`` to retry. The constraint is not a backstop sitting
+    behind an application check, it **is** the check. Without it two people
+    raising an NCR in the same moment both commit NCR-001, with no error, no
+    warning and no log line, on an instrument that gets quoted by number in
+    contractual claims.
+
+    Two rules keep this from turning a broken install into an install that will
+    not boot, which is the real hazard: the databases missing a constraint are
+    exactly the ones that may hold rows violating it.
+
+    * A unique is pre-flighted with ``GROUP BY ... HAVING count(*) > 1``. If the
+      table already holds duplicates the constraint cannot be added at all, so we
+      log loudly, name the columns, and leave the table alone rather than raise.
+    * Check and foreign-key constraints go on as ``NOT VALID``. PostgreSQL then
+      enforces them for every new row without scanning the rows already there, so
+      an install with bad history keeps running and can be cleaned up later with
+      ``VALIDATE CONSTRAINT``.
+
+    ``NOT NULL`` is deliberately not healed. It needs a backfill decision per
+    column and it is the one that can destroy data.
+
+    Every statement gets its own SAVEPOINT for the same reason the rest of this
+    module does, and nothing here raises to the caller.
+
+    **Names must be compared truncated, and this is not a detail.** The metadata
+    naming convention in ``app.database`` re-wraps an already-prefixed constraint
+    name, so a handful of model-declared names come out longer than PostgreSQL's
+    63-byte identifier limit. ``create_all`` stored those truncated. Comparing the
+    full model-side name against what the database reports therefore never
+    matches, and the heal concludes a constraint is missing when it is sitting
+    right there. Re-adding it does not collide either, because a raw ``ALTER
+    TABLE`` truncates by a plain byte chop while SQLAlchemy's own compiler
+    hash-mangles, so the result is a second constraint enforcing the same rule
+    under a different name, added on every upgrade. Measured on
+    ``oe_erp_chat_turn_feedback`` and ``oe_takeoff_measurement``. The index loop
+    above has carried the same guard for the same reason since it was written.
+
+    Uniques get a column-tuple fallback on top of the name check, since that is
+    what actually identifies the constraint when its name cannot be trusted.
+
+    Args:
+        conn: The open async connection running inside the heal transaction.
+        table: The SQLAlchemy table to heal.
+        existing_names: Constraint and index names already live on the table.
+        existing_col_tuples: Column tuples already covered by a live index or
+            unique constraint, used to recognise a constraint whose name was
+            truncated or mangled.
+
+    Returns:
+        Number of constraints added.
+    """
+    added = 0
+
+    try:
+        live_checks = await conn.run_sync(lambda sync_conn, tn=table.name: inspect(sync_conn).get_check_constraints(tn))
+        live_fks = await conn.run_sync(lambda sync_conn, tn=table.name: inspect(sync_conn).get_foreign_keys(tn))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "PostgreSQL migration: could not inspect constraints on %s: %s",
+            table.name,
+            exc,
+        )
+        return 0
+
+    live_check_names = {c["name"] for c in live_checks if c.get("name")}
+    live_fk_names = {fk["name"] for fk in live_fks if fk.get("name")}
+    live_fk_shapes = {
+        (
+            tuple(fk.get("constrained_columns") or ()),
+            fk.get("referred_table"),
+            tuple(fk.get("referred_columns") or ()),
+        )
+        for fk in live_fks
+    }
+
+    for constraint in table.constraints:
+        if not isinstance(constraint, UniqueConstraint) or not constraint.name:
+            continue
+        # An unnamed unique cannot be matched on the next boot, so we would add a
+        # fresh copy every time. SQLAlchemy also renders ``unique=True, index=True``
+        # as an Index, which the loop above already heals; that lands in
+        # ``existing_names`` so it is not duplicated here.
+        name = _effective_name(constraint)
+        if name in existing_names or constraint.name[:_PG_IDENTIFIER_LIMIT] in existing_names:
+            continue
+        cols = [c.name for c in constraint.columns]
+        if not cols:
+            continue
+        if tuple(cols) in existing_col_tuples:
+            # Same columns are already covered live, under a name we cannot match
+            # because it was truncated or hash-mangled. Adding it again would
+            # duplicate the constraint on every upgrade.
+            continue
+
+        cols_sql = ", ".join(f'"{c}"' for c in cols)
+        # NULLs never collide under a unique constraint, but GROUP BY treats them
+        # as equal, so exclude them or a column of NULLs reads as a duplicate and
+        # we would skip a constraint that would have applied cleanly.
+        not_null = " AND ".join(f'"{c}" IS NOT NULL' for c in cols)
+        probe = (
+            f'SELECT 1 FROM "{table.name}" WHERE {not_null} '  # noqa: S608 - identifiers come from the models
+            f"GROUP BY {cols_sql} HAVING count(*) > 1 LIMIT 1"
+        )
+        try:
+            async with conn.begin_nested():
+                duplicated = (await conn.execute(text(probe))).first() is not None
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "PostgreSQL migration: could not check %s (%s) for duplicates: %s",
+                table.name,
+                ", ".join(cols),
+                exc,
+            )
+            continue
+
+        if duplicated:
+            # Loud on purpose. This install has already lost the guarantee, and
+            # the duplicate rows have to be reconciled by a human before the
+            # constraint can go on.
+            logger.warning(
+                "PostgreSQL migration: %s already holds duplicate rows for (%s), so the unique "
+                "constraint %s cannot be restored. Records sharing a value here were created "
+                "without the protection this constraint provides and need reconciling by hand.",
+                table.name,
+                ", ".join(cols),
+                constraint.name,
+            )
+            continue
+
+        sql = f'ALTER TABLE "{table.name}" ADD CONSTRAINT {name} UNIQUE ({cols_sql})'
+        if await _run_ddl(conn, sql, f"unique constraint {name} on {table.name}"):
+            added += 1
+
+    for constraint in table.constraints:
+        if not isinstance(constraint, CheckConstraint) or not constraint.name:
+            continue
+        name = _effective_name(constraint)
+        if name in live_check_names or constraint.name in live_check_names:
+            continue
+        try:
+            expression = str(
+                constraint.sqltext.compile(
+                    dialect=postgresql.dialect(),
+                    compile_kwargs={"literal_binds": True},
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            # An expression we cannot render verbatim is not one to guess at.
+            logger.warning(
+                "PostgreSQL migration: cannot render check constraint %s on %s: %s",
+                constraint.name,
+                table.name,
+                exc,
+            )
+            continue
+
+        sql = f'ALTER TABLE "{table.name}" ADD CONSTRAINT {name} CHECK ({expression}) NOT VALID'
+        if await _run_ddl(conn, sql, f"check constraint {name} on {table.name}"):
+            added += 1
+
+    for fk in table.foreign_key_constraints:
+        if not fk.name:
+            continue
+        cols = [c.name for c in fk.columns]
+        elements = list(fk.elements)
+        if not cols or not elements:
+            continue
+        referred_table = elements[0].column.table.name
+        referred_cols = [element.column.name for element in elements]
+        shape = (tuple(cols), referred_table, tuple(referred_cols))
+        if fk.name[:_PG_IDENTIFIER_LIMIT] in live_fk_names or shape in live_fk_shapes:
+            continue
+
+        cols_sql = ", ".join(f'"{c}"' for c in cols)
+        ref_sql = ", ".join(f'"{c}"' for c in referred_cols)
+        # Emit ON DELETE / ON UPDATE from the model. Healing a foreign key
+        # without them would replace one divergence from alembic with another,
+        # and a missing ON DELETE CASCADE turns a later delete into an error
+        # rather than a cascade.
+        actions = ""
+        if fk.ondelete:
+            actions += f" ON DELETE {fk.ondelete}"
+        if fk.onupdate:
+            actions += f" ON UPDATE {fk.onupdate}"
+
+        sql = (
+            f'ALTER TABLE "{table.name}" ADD CONSTRAINT "{fk.name}" '
+            f'FOREIGN KEY ({cols_sql}) REFERENCES "{referred_table}" ({ref_sql}){actions} NOT VALID'
+        )
+        if await _run_ddl(conn, sql, f"foreign key {fk.name} on {table.name}"):
+            added += 1
+
+    return added
+
+
+async def _run_ddl(conn, sql: str, description: str) -> bool:
+    """Run one DDL statement inside its own SAVEPOINT. Never raises.
+
+    A failure here must not stop the boot. The heal is best effort by design, and
+    every install that reaches this code is already running.
+    """
+    try:
+        async with conn.begin_nested():
+            await conn.execute(text(sql))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("PostgreSQL migration: failed to add %s: %s", description, exc)
+        return False
+    logger.info("PostgreSQL migration: added %s", description)
+    return True
