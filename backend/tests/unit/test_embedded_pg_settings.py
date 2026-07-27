@@ -13,6 +13,7 @@ no cluster and cannot disturb the session's own.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -83,5 +84,45 @@ def test_a_truncated_block_is_repaired(pgdata: Path) -> None:
 
 
 def test_a_missing_cluster_is_not_an_error(tmp_path: Path) -> None:
-    """boot() calls this before the cluster exists on a first run."""
+    """Pre-init can decline (running as root, no binary), and boot must go on."""
     assert embedded_pg._apply_server_settings(tmp_path / "nope") is False
+
+
+def test_the_cluster_is_pre_initialised_on_every_platform(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The settings have nowhere to go until a cluster exists.
+
+    ``get_server()`` runs initdb and starts the postmaster in one call, so if we
+    let it create the cluster there is no moment at which we can write
+    ``postgresql.conf`` before the postmaster reads it. ``max_locks_per_transaction``
+    needs a restart to take effect, so a config written after that first start
+    would not apply until the second boot -- and the first boot on a fresh
+    machine is precisely the case this exists to serve. Skipping the pre-init on
+    POSIX made the whole fix a no-op for ``make quickstart`` on Linux.
+    """
+    calls: list[tuple[str, tuple[str, ...]]] = []
+
+    def fake_pgexec(command: str, args: tuple[str, ...]) -> None:
+        calls.append((command, args))
+        (tmp_path / "PG_VERSION").write_text("16\n", encoding="utf-8")
+        (tmp_path / "postgresql.conf").write_text(BASE_CONF, encoding="utf-8")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "pixeltable_pgserver.pgexec",
+        type("_FakeModule", (), {"pgexec": staticmethod(fake_pgexec)}),
+    )
+
+    assert embedded_pg._pre_initialize_cluster(tmp_path) is True
+
+    assert [command for command, _ in calls] == ["initdb"]
+    assert "--locale=C" in calls[0][1]
+    # The point of the whole exercise: a config to write, before any postmaster.
+    assert embedded_pg._apply_server_settings(tmp_path) is True
+    assert "max_locks_per_transaction = 512" in read(tmp_path)
+
+
+def test_an_initialised_cluster_is_left_alone(tmp_path: Path) -> None:
+    """Second and later boots must not re-run initdb over live data."""
+    (tmp_path / "PG_VERSION").write_text("16\n", encoding="utf-8")
+
+    assert embedded_pg._pre_initialize_cluster(tmp_path) is False

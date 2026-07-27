@@ -180,10 +180,14 @@ def boot(data_dir: Path | str) -> bool:
     # ... contains non-ASCII characters`, then pixeltable crashes a second time
     # decoding that CP1254 error text as UTF-8, and the cluster is left stuck
     # "Recovering the local database" forever. Force the C locale for every PG
-    # child process, and on Windows -- where env vars do NOT override the OS
-    # locale that initdb reads -- pre-create the cluster ourselves with an
-    # explicit --locale=C so pixeltable's own (locale-inheriting) initdb is
-    # skipped. Both are no-ops once the cluster exists.
+    # child process, and pre-create the cluster ourselves with an explicit
+    # --locale=C so pixeltable's own (locale-inheriting) initdb is skipped: on
+    # Windows env vars do NOT override the OS locale that initdb reads.
+    #
+    # Order matters. Pre-creating the cluster is also what gives us a
+    # postgresql.conf to write before the postmaster first starts, which the
+    # settings below need to be effective on a fresh machine. All three are
+    # no-ops once the cluster exists and is configured.
     _apply_ascii_locale_env()
     _pre_initialize_cluster(resolved_pgdata)
     _apply_server_settings(resolved_pgdata)
@@ -590,22 +594,26 @@ def _apply_server_settings(pgdata: Path) -> bool:
 
 
 def _pre_initialize_cluster(pgdata: Path) -> bool:
-    """On Windows, create the PG cluster with an ASCII-safe locale, once.
+    """Create the PG cluster ourselves, once, before pixeltable starts it.
 
     Returns ``True`` if this call initialised the cluster, ``False`` if it was
-    already initialised, not applicable (non-Windows), or the pre-init failed --
-    in which case we leave it to pixeltable's own path, so we are never worse off
-    than before.
+    already initialised or the pre-init failed -- in which case we leave it to
+    pixeltable's own path, so we are never worse off than before.
 
-    Windows-only on purpose: on POSIX, initdb honours the ``LC_*``/``LANG``
-    environment, so :func:`_apply_ascii_locale_env` already steers it to C. On
-    Windows the C runtime's locale comes from the OS regional settings, not env
-    vars, so the only reliable way to dodge a non-ASCII OS locale is to pass
-    ``--locale=C`` to initdb explicitly, which we do here before pixeltable's
-    ``get_server()`` runs.
+    Two reasons to own this step rather than let ``get_server()`` do it:
+
+    * **Locale, on Windows.** initdb rejects a locale *name* containing non-ASCII
+      characters and reads it from the OS regional settings, which env vars do
+      not override, so a Turkish box needs an explicit ``--locale=C``.
+    * **Settings, everywhere.** ``get_server()`` runs initdb and starts the
+      postmaster in one call, leaving no point in between to write
+      ``postgresql.conf``. ``max_locks_per_transaction`` is a postmaster-level
+      setting, so a config written afterwards would not take effect until the
+      *next* boot -- meaning a first run on a fresh machine, which is exactly
+      ``make quickstart``, would still hit the lock ceiling this module exists to
+      raise. Initialising here means the config is in place before the postmaster
+      ever starts.
     """
-    if os.name != "nt":
-        return False
     if (pgdata / "PG_VERSION").exists():
         return False
     # A previous build (e.g. the released one without this fix) may have aborted
