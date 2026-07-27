@@ -9,6 +9,7 @@ import { ExternalLink, FileText, Image as ImageIcon, Layout, Box, Pencil, File, 
 import { DateDisplay } from '@/shared/ui/DateDisplay';
 import { AuthImage } from '@/shared/ui';
 import { primaryModule } from '../kindModule';
+import { SnippetHighlight } from '@/features/file-search/SnippetHighlight';
 import { CDEBadge } from './CDEBadge';
 import { favoriteKey, type FileRow, type FileKind } from '../types';
 
@@ -46,6 +47,10 @@ interface FileGridProps {
   onToggleFavorite?: (row: FileRow, isFavorite: boolean) => void;
   /** Right-click a tile — opens the shared FileContextMenu at the cursor. */
   onContextMenu?: (row: FileRow, x: number, y: number) => void;
+  /** The live content-search term, so matched text can be highlighted.
+      Only set while the page is in content mode; filename mode leaves the
+      tiles untouched. */
+  searchQuery?: string;
 }
 
 function fmtBytes(bytes: number): string {
@@ -65,6 +70,7 @@ export function FileGrid({
   favoriteKeys,
   onToggleFavorite,
   onContextMenu,
+  searchQuery,
 }: FileGridProps) {
   const { t } = useTranslation();
 
@@ -283,12 +289,29 @@ export function FileGrid({
                     </span>
                   )}
                 </div>
-                <div className="mt-1 flex items-center justify-between text-[10px] text-content-tertiary tabular-nums">
-                  <span>{fmtBytes(row.size_bytes)}</span>
-                  {row.modified_at && (
-                    <DateDisplay value={row.modified_at} format="relative" className="ms-2 shrink-0" />
-                  )}
-                </div>
+                {typeof row.extra?.snippet === 'string' && row.extra.snippet && (
+                  <p className="mt-1 text-[10px] leading-snug text-content-secondary line-clamp-2">
+                    <SnippetHighlight text={row.extra.snippet} query={searchQuery ?? ''} />
+                  </p>
+                )}
+                {/* A content-search hit is built from the index, not from a
+                    directory listing: it carries no size and no modified date.
+                    Printing the placeholder zero would claim the file is empty,
+                    so the hit shows how much text was searched instead. */}
+                {typeof row.extra?.snippet === 'string' && row.extra.snippet ? (
+                  typeof row.extra?.page_count === 'number' && (
+                    <div className="mt-1 text-[10px] text-content-tertiary tabular-nums">
+                      {t('files.search.pages', { count: row.extra.page_count })}
+                    </div>
+                  )
+                ) : (
+                  <div className="mt-1 flex items-center justify-between text-[10px] text-content-tertiary tabular-nums">
+                    <span>{fmtBytes(row.size_bytes)}</span>
+                    {row.modified_at && (
+                      <DateDisplay value={row.modified_at} format="relative" className="ms-2 shrink-0" />
+                    )}
+                  </div>
+                )}
               </div>
             </button>
 

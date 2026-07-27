@@ -1,170 +1,53 @@
-# File Search (W3) — Integration Instructions
+# File Search (W3) — integration status
 
-This feature ships independently from the shared file-manager UI. Splice the
-following snippets into the shared files to wire it in. **Do not modify the
-shared files yourself** — these are the exact splices a maintainer should
-make.
+**This feature is wired in. Do not follow splice instructions here; there are
+none left.** An earlier version of this file listed snippets for a maintainer
+to paste into the shared file-manager UI. Those splices were superseded: the
+integration that actually shipped takes a different and better shape, and
+pasting the old snippets on top of it would render the results twice.
 
-## 1. `FileActionsBar.tsx` — Add the mode toggle
+## What is wired, and where
 
-**File:** `frontend/src/features/file-manager/components/FileActionsBar.tsx`
+| Piece | Lives in | Notes |
+|---|---|---|
+| Mode toggle | `file-manager/components/FileActionsBar.tsx` | Renders `SearchModeToggle`; defaults to `filename`. |
+| Re-index button | same file | Shown only in content mode. |
+| Search state | `file-manager/FileManagerPage.tsx` | `searchMode` state plus `contentActive`. |
+| The query | same file | `useContentSearch`, fires only in content mode with a non-empty term. |
+| Result rendering | same file | Hits are mapped to `FileRow` and rendered by the existing `FileGrid` / `FileList`. |
+| Snippet + match highlight | `FileGrid.tsx`, `FileList.tsx` | `row.extra.snippet` through `SnippetHighlight`, with the live term passed down as `searchQuery`. |
+| Failed-search banner | `FileManagerPage.tsx` | A search that does not return says so instead of drawing an empty result. |
 
-### 1a. Add the import (near the existing imports)
+Mapping hits onto `FileRow` rather than rendering a separate results list is
+deliberate: selection, open, context menu, favourites and the preview pane all
+work on search hits for free, because they are the same rows the grid already
+knows how to drive.
 
-```tsx
-import { SearchModeToggle } from '@/features/file-search/SearchModeToggle';
-import type { SearchMode } from '@/features/file-search/types';
-```
+Two consequences of that choice are handled explicitly in the two view
+components, and are worth knowing before you touch them. A hit comes from the
+search index, not from a directory listing, so it carries no size and no
+modified date. The grid and the list both suppress those columns for a hit
+rather than printing the placeholder zero, which would read as an empty file.
 
-### 1b. Extend the props interface
+## `SearchResults.tsx` is not mounted
 
-```tsx
-interface FileActionsBarProps {
-  // ...existing props
-  searchMode?: SearchMode;
-  onSearchModeChange?: (mode: SearchMode) => void;
-}
-```
+It is the standalone results list from the original design, kept because it is
+the natural renderer if the search ever needs a surface of its own (a global
+search palette, for instance). Today nothing imports it. If you are adding a
+new search surface, start there; if you are editing the file manager, you want
+`FileGrid` / `FileList`.
 
-### 1c. Splice the toggle inside the search input wrapper
+## Optional index maintenance, still open
 
-Find the existing `<div className="relative flex-1 min-w-[200px] max-w-md">`
-block that wraps the `<input type="search">` (around line 89). **Immediately
-after that wrapper**, splice:
+Neither of these is wired, and both are cheap:
 
-```tsx
-{onSearchModeChange && (
-  <SearchModeToggle
-    mode={searchMode ?? 'filename'}
-    onChange={onSearchModeChange}
-  />
-)}
-```
+* Index on upload. Call `useIndexFile` in the upload mutation's `onSuccess`.
+  Until then a freshly uploaded file is findable by name but not by content
+  until someone presses re-index.
+* Drop from the index on delete. Call `removeFromIndex` after a successful
+  delete, so a deleted file stops appearing in content results.
 
-The toggle defaults to **Filename** so the existing search behaviour is
-preserved unless the parent opts in.
-
-## 2. `FileManagerPage.tsx` — Drive the toggle + results pane
-
-**File:** `frontend/src/features/file-manager/FileManagerPage.tsx`
-
-### 2a. Add the imports
-
-```tsx
-import { useContentSearch } from '@/features/file-search/hooks';
-import { SearchResults } from '@/features/file-search/SearchResults';
-import type { SearchMode } from '@/features/file-search/types';
-```
-
-### 2b. Add state next to the existing query state
-
-```tsx
-const [searchMode, setSearchMode] = useState<SearchMode>('filename');
-```
-
-### 2c. Wire the hook (only fires when mode === 'content')
-
-```tsx
-const contentSearch = useContentSearch(
-  projectId,
-  searchMode === 'content' ? query : '',
-  undefined,
-  searchMode,
-);
-```
-
-### 2d. Pass props into the actions bar
-
-```tsx
-<FileActionsBar
-  /* ...existing props */
-  searchMode={searchMode}
-  onSearchModeChange={setSearchMode}
-/>
-```
-
-### 2e. When `searchMode === 'content' && query.trim()`, render `<SearchResults>`
-instead of (or above) the file grid:
-
-```tsx
-{searchMode === 'content' && query.trim() ? (
-  <SearchResults
-    hits={contentSearch.data?.hits ?? []}
-    query={query}
-    isLoading={contentSearch.isLoading}
-    onOpen={(hit) => navigate(`/projects/${projectId}/files/${hit.kind}/${hit.file_id}`)}
-  />
-) : (
-  /* the existing <FileGrid> / <FileList> render */
-)}
-```
-
-## 3. (Optional) Index files on upload
-
-**File:** wherever the file-manager's upload mutation succeeds (likely
-`frontend/src/features/file-manager/components/UploadDialog.tsx`).
-
-### 3a. Add the import
-
-```tsx
-import { useIndexFile } from '@/features/file-search/hooks';
-```
-
-### 3b. Inside the component, after the upload mutation:
-
-```tsx
-const indexFileMutation = useIndexFile();
-```
-
-### 3c. In the upload `onSuccess` callback, fire-and-forget the indexer:
-
-```tsx
-indexFileMutation.mutate({
-  project_id: projectId,
-  file_kind: 'document',
-  file_id: uploaded.id,
-});
-```
-
-OCR runs synchronously in the backend service call; the toast / mutation
-result is non-blocking because the user already sees the upload success
-toast.
-
-## 4. (Optional) Drop from index on delete
-
-**File:** `frontend/src/features/file-manager/components/BulkActionsBar.tsx`
-
-### 4a. Add the import
-
-```tsx
-import { removeFromIndex } from '@/features/file-search/api';
-```
-
-### 4b. After a successful delete, fire-and-forget:
-
-```ts
-await Promise.allSettled(
-  selectedRows.map((row) =>
-    removeFromIndex(projectId, row.id, row.kind).catch(() => {}),
-  ),
-);
-```
-
-## New translation keys
-
-Add to `frontend/src/app/locales/en.ts` (and other locales as you translate):
-
-```ts
-'files.search.mode_label': 'Search mode',
-'files.search.mode_filename': 'Filename',
-'files.search.mode_content': 'Content',
-'files.search.empty': 'No matching files yet.',
-'files.search.results': 'Search results',
-'files.search.pages': '{{count}} pages',
-'files.search.score': 'Score {{score}}',
-```
-
-## API summary (for backend deploy notes)
+## API
 
 | Method | Path | Permission | Purpose |
 |--------|------|------------|---------|
@@ -173,19 +56,12 @@ Add to `frontend/src/app/locales/en.ts` (and other locales as you translate):
 | POST | `/api/v1/file-search/reindex/` | `file_search.index` | Re-OCR every file |
 | DELETE | `/api/v1/file-search/{file_id}/` | `file_search.index` | Drop one row |
 
-The migration is `backend/alembic/versions/v3061_file_search_tags.py`. Run
-`alembic upgrade head` to apply.
+The migration is `backend/alembic/versions/v3061_file_search_tags.py`.
 
-## Optional dependencies
+## Extraction dependencies
 
-The OCR pipeline is **graceful-degradation by design**:
-
-* `PyMuPDF` (a.k.a. `fitz`) — embedded PDF text extraction. If missing,
-  PDFs fall through to OCR.
-* `pytesseract` + `Pillow` — Tesseract OCR for scanned PDFs and image
-  files. If missing, image content is not searchable but the file is
-  still findable by filename.
-
-`requirements.txt` is unchanged; existing deployments without these
-libraries will see `ocr_engine = 'none'` for indexed files. The endpoint
-never crashes.
+`pymupdf` and `opencv-python-headless` are base dependencies, not extras: an
+`ImportError` on either means a broken install, not a missing optional. Only
+`paddleocr` and `Pillow` sit behind the `cv` extra. Without them, image content
+is not searchable but the file is still findable by name, and the endpoint
+reports `ocr_engine = 'none'` rather than failing.

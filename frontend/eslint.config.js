@@ -1,13 +1,19 @@
 // ESLint v9 flat config for the OpenConstructionERP frontend.
 //
 // We intentionally keep this lightweight: type-checking is already
-// covered by `tsc --noEmit` (and is enforced by `npm run typecheck`),
-// and Prettier handles formatting. ESLint here only catches the small
-// set of correctness issues that the TypeScript compiler can't see.
+// covered by `tsc --noEmit` (and is enforced by `npm run typecheck`).
+// ESLint here only catches the small set of correctness issues that the
+// TypeScript compiler can't see.
+//
+// Nothing formats this codebase automatically. There is no Prettier config
+// and no format script, which is a decision rather than an oversight: the
+// tree predates any formatter and running one now would rewrite almost
+// every file, burying real changes in reflowed lines forever after. Match
+// the style of the file you are editing.
 //
 // Existing inline `// eslint-disable-next-line react-hooks/exhaustive-deps`
-// comments throughout the codebase reference a plugin we don't ship —
-// instead of installing the plugin (which would surface ~100 warnings),
+// comments throughout the codebase reference a plugin we don't ship.
+// Instead of installing the plugin (which would surface ~100 warnings),
 // we tell ESLint to silently ignore disable directives for unknown rules.
 //
 // To run: `npm run lint`

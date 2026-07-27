@@ -993,6 +993,32 @@ export function FileManagerPage() {
                 onDragLeave={handlePageDragLeave}
                 onDrop={handlePageDrop}
               >
+                {/* A failed content search returns no hits, which the grid
+                    below would draw as "nothing matched" - the same picture a
+                    successful search of an unindexed project gives. Say which
+                    one it was, and offer the retry, because a search the user
+                    believes came back empty is worse than one that admits it
+                    broke. */}
+                {contentActive && contentSearch.isError && (
+                  <div
+                    role="alert"
+                    className="mx-3 mt-3 flex items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200"
+                  >
+                    <span>
+                      {t('files.search.failed', {
+                        defaultValue:
+                          'The content search did not come back, so these results are incomplete.',
+                      })}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void contentSearch.refetch()}
+                      className="shrink-0 rounded-md border border-amber-400 px-2 py-0.5 font-medium hover:bg-amber-100 dark:border-amber-800 dark:hover:bg-amber-900/40"
+                    >
+                      {t('common.retry', { defaultValue: 'Retry' })}
+                    </button>
+                  </div>
+                )}
                 {view === 'grid' ? (
                   <FileGrid
                     items={displayItems}
@@ -1003,6 +1029,7 @@ export function FileManagerPage() {
                     favoriteKeys={favorites.keys}
                     onToggleFavorite={handleToggleFavorite}
                     onContextMenu={(row, x, y) => setMenu({ row, x, y })}
+                    searchQuery={contentActive ? query : undefined}
                   />
                 ) : (
                   <FileList
@@ -1016,6 +1043,7 @@ export function FileManagerPage() {
                     favoriteKeys={favorites.keys}
                     onToggleFavorite={handleToggleFavorite}
                     onContextMenu={(row, x, y) => setMenu({ row, x, y })}
+                    searchQuery={contentActive ? query : undefined}
                   />
                 )}
 

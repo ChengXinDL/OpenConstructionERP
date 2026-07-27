@@ -8,6 +8,7 @@ import { ArrowDown, ArrowUp, ExternalLink, FileText, Image as ImageIcon, Layout,
 import clsx from 'clsx';
 import { DateDisplay } from '@/shared/ui/DateDisplay';
 import { primaryModule } from '../kindModule';
+import { SnippetHighlight } from '@/features/file-search/SnippetHighlight';
 import { CDEBadge } from './CDEBadge';
 import { favoriteKey, type FileRow, type FileKind, type FileFilters } from '../types';
 
@@ -36,6 +37,10 @@ interface FileListProps {
   onToggleFavorite?: (row: FileRow, isFavorite: boolean) => void;
   /** Right-click a row — opens the shared FileContextMenu at the cursor. */
   onContextMenu?: (row: FileRow, x: number, y: number) => void;
+  /** The live content-search term, so matched text can be highlighted.
+      Only set while the page is in content mode; filename mode leaves the
+      rows untouched. */
+  searchQuery?: string;
 }
 
 function fmtBytes(bytes: number): string {
@@ -75,6 +80,7 @@ export function FileList({
   favoriteKeys,
   onToggleFavorite,
   onContextMenu,
+  searchQuery,
 }: FileListProps) {
   const { t } = useTranslation();
   const showStar = Boolean(onToggleFavorite);
@@ -288,6 +294,11 @@ export function FileList({
                       )}
                       {/* CDE state moved to its own dedicated Status column. */}
                     </div>
+                    {typeof row.extra?.snippet === 'string' && row.extra.snippet && (
+                      <p className="mt-0.5 ms-6 text-[11px] leading-snug text-content-secondary line-clamp-2">
+                        <SnippetHighlight text={row.extra.snippet} query={searchQuery ?? ''} />
+                      </p>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-content-secondary text-xs">
                     {t(`files.category.${row.kind}`, { defaultValue: row.kind })}
@@ -302,8 +313,14 @@ export function FileList({
                   <td className="px-3 py-2 text-center text-content-secondary tabular-nums text-xs">
                     {versionLabel(row.extra?.version)}
                   </td>
+                  {/* A content-search hit comes from the index, not from a
+                      directory listing, so it has no size and no modified date.
+                      The placeholder zero would read as an empty file, hence
+                      the dash. */}
                   <td className="px-3 py-2 text-right text-content-secondary tabular-nums text-xs">
-                    {fmtBytes(row.size_bytes)}
+                    {typeof row.extra?.snippet === 'string' && row.extra.snippet
+                      ? '—'
+                      : fmtBytes(row.size_bytes)}
                   </td>
                   <td className="px-3 py-2 text-right text-content-secondary text-xs">
                     {row.modified_at ? <DateDisplay value={row.modified_at} format="relative" /> : '—'}
