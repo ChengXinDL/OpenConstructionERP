@@ -38,6 +38,10 @@ logger = logging.getLogger(__name__)
 #: Module-level handle to the running server, kept so :func:`shutdown` can stop it.
 _server = None
 
+#: Set by :func:`retain` when something outside the application owns the cluster's
+#: lifetime, so an application shutdown inside that owner's run leaves it running.
+_retained = False
+
 _TRUTHY = {"1", "true", "yes", "on"}
 _FALSY = {"0", "false", "no", "off"}
 
@@ -728,11 +732,34 @@ def auto_migrate_legacy_sqlite(data_dir: Path | str) -> str:
     return msg
 
 
-def shutdown() -> None:
-    """Stop the embedded cluster if this process booted one (safe to always call)."""
-    global _server
+def retain() -> None:
+    """Pin the cluster so an application shutdown in this process leaves it running.
+
+    The application stops the embedded cluster from its own shutdown handler,
+    which is right when the application booted it. It is wrong when something
+    longer-lived did: the test session boots one cluster for the whole run, and
+    without this pin the first test that exercises the application's shutdown
+    takes the database down for every test after it.
+
+    The owner keeps the cluster and stops it with ``shutdown(force=True)``.
+    """
+    global _retained
+    _retained = True
+
+
+def shutdown(*, force: bool = False) -> None:
+    """Stop the embedded cluster if this process booted one (safe to always call).
+
+    A cluster pinned by :func:`retain` is left alone unless ``force`` is passed,
+    which only its owner should do.
+    """
+    global _server, _retained
     if _server is None:
         return
+    if _retained and not force:
+        logger.debug("embedded PostgreSQL is retained by its owner, leaving it running")
+        return
+    _retained = False
     try:
         _server.cleanup()
         # Routine stop: keep it at debug so a shutdown that happens BECAUSE

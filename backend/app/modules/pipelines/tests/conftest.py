@@ -33,4 +33,7 @@ if not os.environ.get("DATABASE_URL", "").strip():
             "could not boot embedded PostgreSQL for the pipelines module tests; "
             "set DATABASE_URL to point at an external PostgreSQL instead"
         )
-    atexit.register(embedded_pg.shutdown)
+    # The session owns this cluster, so the application's own shutdown handler
+    # must not stop it when a test exercises the app lifespan.
+    embedded_pg.retain()
+    atexit.register(lambda: embedded_pg.shutdown(force=True))

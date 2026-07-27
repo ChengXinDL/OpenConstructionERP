@@ -58,7 +58,11 @@ if not os.environ.get("DATABASE_URL", "").strip():
             "could not boot embedded PostgreSQL for the test session; set "
             "DATABASE_URL to point the suite at an external PostgreSQL instead"
         )
-    atexit.register(embedded_pg.shutdown)
+    # One cluster serves the whole session, so the application's shutdown handler
+    # must leave it alone: without this pin the first test that exercises the app
+    # lifespan stops the postmaster and every test after it errors on connect.
+    embedded_pg.retain()
+    atexit.register(lambda: embedded_pg.shutdown(force=True))
 
 # ── Rate-limiter relaxation for tests ──────────────────────────────────────
 # The integration suites repeatedly hit ``/auth/register`` and ``/auth/login``
