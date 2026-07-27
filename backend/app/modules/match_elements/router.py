@@ -1362,7 +1362,16 @@ async def qdrant_health(_current_user_id: CurrentUserId) -> dict[str, object]:
     from app.modules.match_elements.qdrant_supervisor import ensure_qdrant_running
 
     settings = get_settings()
-    health = ensure_qdrant_running(settings.qdrant_url, spawn_if_installed=True)
+    # The spawn path prepares directories under QDRANT_HOME, and a permission
+    # problem there raises with a message that names the path and the fix.
+    # Without this arm it reaches the app-wide handler, which strips the text by
+    # design and answers 500 "Internal server error", so the operator is told
+    # only that vector search will not start. Same translation the install
+    # endpoint below already performs.
+    try:
+        health = ensure_qdrant_running(settings.qdrant_url, spawn_if_installed=True)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     if getattr(health, "reachable", False) and getattr(health, "spawn_attempted", False):
         # Spawning just succeeded → invalidate any cached "Qdrant not
         # reachable" state elsewhere in the process.
@@ -1397,7 +1406,10 @@ async def qdrant_install(_current_user_id: CurrentUserId) -> dict[str, object]:
         install_qdrant_native(force=False)
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
-    health = ensure_qdrant_running(settings.qdrant_url, spawn_if_installed=True)
+    try:
+        health = ensure_qdrant_running(settings.qdrant_url, spawn_if_installed=True)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
     if getattr(health, "reachable", False):
         reset_qdrant_client()
     return _qdrant_health_to_dict(health)

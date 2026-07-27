@@ -235,9 +235,28 @@ def _write_default_config() -> Path:
     rest of the schema from its compiled-in defaults.
     """
 
-    QDRANT_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    QDRANT_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
-    QDRANT_SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)
+    # A permission error here has to say so. ``mkdir(exist_ok=True)`` is a trap
+    # on a pre-created directory: it no-ops without probing whether anything can
+    # be written, so the first real signal is a write further down. Unguarded,
+    # an OSError from these three lines travels all the way to the app-wide
+    # handler, which strips the text by design and answers HTTP 500 with
+    # "Internal server error" - the operator is told the vector service will not
+    # start and given nothing to act on. The download path one level up already
+    # translates its OSError into a readable 502; this makes the directory setup
+    # behave the same way.
+    for directory in (QDRANT_CONFIG_DIR, QDRANT_STORAGE_DIR, QDRANT_SNAPSHOTS_DIR):
+        try:
+            directory.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            msg = (
+                f"Cannot prepare the vector service directory at {directory}: {exc}. "
+                f"Vector search stores its data under {QDRANT_HOME}, which is outside "
+                f"the container's declared data volume, so a bind mount added there is "
+                f"owned by root while the application runs as a non-root user. Either "
+                f"grant that path to the application user or point QDRANT_HOME at a "
+                f"writable location."
+            )
+            raise RuntimeError(msg) from exc
 
     config_path = QDRANT_CONFIG_DIR / "config.yaml"
     if config_path.exists():
