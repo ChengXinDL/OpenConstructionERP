@@ -56,6 +56,14 @@ export interface Measurement {
   annotation: string;
   page: number;
   group: string;
+  /** This measurement's copy of its group's band, deciding where the group's
+   *  block sits relative to the other groups (issues #393/#394). Mirrored onto
+   *  every measurement so a pinned group order round-trips via the metadata blob
+   *  like the group colour scheme, with no schema change. The map held by the
+   *  viewer is authoritative; this is a cache of it, read back only when
+   *  rehydrating a document. Undefined means the group was never pinned and its
+   *  band is derived from first appearance. */
+  groupBand?: number;
   depth?: number;
   area?: number;
   text?: string;

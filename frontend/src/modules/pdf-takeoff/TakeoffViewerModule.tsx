@@ -169,6 +169,11 @@ import {
 import {
   sortByPaintOrder,
   groupBands,
+  groupBandCommit,
+  groupOf,
+  freezeGroupBands,
+  hydrateGroupBands,
+  stampGroupBands,
   orderKeyForEdge,
   orderKeyForDrop,
 } from '../../features/takeoff/lib/takeoff-order';
@@ -369,6 +374,8 @@ interface Measurement {
   annotation: string; // User-provided text label (e.g. "Living room wall")
   page: number;
   group: string; // Measurement group (e.g. "General", "Structural")
+  /** Mirrored copy of the group's band (issue #393); see takeoff-types.ts. */
+  groupBand?: number;
   depth?: number; // Depth in real units, only for volume type
   area?: number; // Area in real units, only for volume type
   text?: string; // Text content for text annotations
@@ -510,7 +517,22 @@ type UndoOperation =
   // previous and next `order` keys (undefined = "no explicit order") so undo
   // restores the persisted key rather than a remembered list index, keeping the
   // stack correct under concurrent edits.
-  | { kind: 'reorder_measurement'; measurementId: string; previousOrder: number | undefined; nextOrder: number };
+  // ``regrouped`` marks a drop that also moved the row between groups (issue
+  // #393), and is the only thing undo and redo may branch on. A group name is
+  // legitimately the empty string, so testing the names for truthiness would
+  // read a real move out of an unnamed group as no move at all and undo would
+  // leave the row where the redo put it. The two names cannot collapse into one
+  // field either, since undoing needs the name to go back to and that is gone
+  // once the move has been applied.
+  | {
+      kind: 'reorder_measurement';
+      measurementId: string;
+      previousOrder: number | undefined;
+      nextOrder: number;
+      regrouped?: boolean;
+      previousGroup?: string;
+      nextGroup?: string;
+    };
 
 /* ── Component ─────────────────────────────────────────────────────── */
 
@@ -672,14 +694,24 @@ export default function TakeoffViewerModule({
   // top. A measurement with an explicit `order` sorts by it; one without falls
   // back to its array position (creation order, the stable #375 baseline), so
   // rows the user never reordered paint exactly as before.
+  // Groups the user has pinned to a position (issues #393/#400). Authoritative:
+  // the copy mirrored onto each measurement is a cache of this, and is read back
+  // only when rehydrating a document. Empty until something pins, so an
+  // untouched document stores nothing and every client derives the same bands.
+  const [explicitGroupBands, setExplicitGroupBands] = useState<Record<string, number>>({});
+
   // Where each group's block sits relative to the other groups (issue #394).
   // A group used to have no position of its own: it rendered wherever its
   // earliest member happened to land in the flat paint order, so restacking one
   // measurement dragged its whole group with it. Bands give the group its own
-  // slot, defaulting to first appearance in the array (creation order), which
-  // no per-measurement reorder can touch. Derived over the WHOLE document, not
-  // the current page, because the band map is per document.
-  const groupBandMap = useMemo(() => groupBands(measurements), [measurements]);
+  // slot; a pinned group keeps the band it was pinned at, and everything else
+  // falls back to first appearance in the array (creation order), which no
+  // per-measurement reorder can touch. Derived over the WHOLE document, not the
+  // current page, because the band map is per document.
+  const groupBandMap = useMemo(
+    () => groupBands(measurements, explicitGroupBands),
+    [measurements, explicitGroupBands],
+  );
   const orderedMeasurements = useMemo(
     () => sortByPaintOrder(measurements, groupBandMap),
     [measurements, groupBandMap],
@@ -1413,6 +1445,26 @@ export default function TakeoffViewerModule({
       setMeasurements((prev) => stampGroupColors(prev, customGroupColors));
     }
   }, [customGroupColors, measurements, groupColorsHydratedFor, colorIdentity]);
+
+  /* Group bands ride the same one-way pair as the colours above (issue #393):
+   * the map is authoritative, the copy on each measurement is a cache of it,
+   * and the copy is read back only while rehydrating a document. Keyed on the
+   * same document identity, so opening a second file cannot fold the first
+   * file's group order into it. */
+  const [groupBandsHydratedFor, setGroupBandsHydratedFor] = useState<string | null>(null);
+  useEffect(() => {
+    const action = groupBandCommit(
+      { bands: explicitGroupBands, items: measurements, hydratedFor: groupBandsHydratedFor },
+      colorIdentity,
+    );
+    if (action.bands) {
+      setExplicitGroupBands((prev) => hydrateGroupBands(prev, measurements));
+      setGroupBandsHydratedFor(action.hydratedFor);
+    }
+    if (action.items) {
+      setMeasurements((prev) => stampGroupBands(prev, explicitGroupBands));
+    }
+  }, [explicitGroupBands, measurements, groupBandsHydratedFor, colorIdentity]);
 
   /* ── Reset per-document caches when the open PDF changes ──────────────
    * Thumbnails and extracted text layers are keyed by page number, so they
@@ -4437,27 +4489,55 @@ export default function TakeoffViewerModule({
 
   /** Drop a dragged measurement next to another row in the sidebar list,
    *  reordering the paint (z) stack accordingly (issue #379). Computes a single
-   *  fractional ``order`` key that lands the dragged row immediately before the
-   *  target in the shared paint-order projection, so canvas paint, hit-test,
-   *  sidebar list and PDF export stay in agreement. One-row edit, undoable, and
-   *  persisted via metadata like bring-to-front / send-to-back. */
+   *  fractional ``order`` key that lands the dragged row next to the target in
+   *  the shared paint-order projection, so canvas paint, hit-test, sidebar list
+   *  and PDF export stay in agreement. One-row edit, undoable, and persisted via
+   *  metadata like bring-to-front / send-to-back.
+   *
+   *  A drop onto a row of another group moves the measurement into that group
+   *  (issue #393). Before, the list drew a drop indicator over the foreign row
+   *  and then wrote only an order key, which the banded projection confines to
+   *  the dragged row's own group, so the gesture looked accepted and did
+   *  nothing. Regrouping by dragging is also the obvious way to ask for it. */
   const reorderMeasurementByDrag = useCallback((draggedId: string, targetId: string) => {
     const all = measurementsRef.current;
-    const target = all.find((m) => m.id === draggedId);
-    if (!target) return;
+    const dragged = all.find((m) => m.id === draggedId);
+    const target = all.find((m) => m.id === targetId);
+    if (!dragged || !target) return;
     // Drop "before" the target row: the sidebar lists rows in ascending paint
     // order, so inserting before the hovered row places the dragged shape just
     // beneath it in the stack, matching where the user dropped it.
     const nextOrder = orderKeyForDrop(all, draggedId, targetId, 'before');
     if (nextOrder === null) return;
+    // Compare through the same normalisation the projection buckets with, so a
+    // row whose group is the empty string is not "moved" into General, which
+    // is where it already renders. Recorded only when it really changes.
+    const previousGroup = dragged.group;
+    const changesGroup = groupOf(dragged) !== groupOf(target);
+    const nextGroup = changesGroup ? target.group : undefined;
+    // Pin every group where it is on screen BEFORE the move. Bands otherwise
+    // default to first appearance in the array, so moving the first-appearing
+    // member of a group out of it re-derives that group from its next member,
+    // and two group blocks trade places because the user dragged one row. Only
+    // a regrouping drop needs this; a restack cannot change any group's first
+    // appearance, and pinning on every drag would make the derived default dead
+    // code in every document.
+    if (changesGroup) {
+      setExplicitGroupBands((prev) => freezeGroupBands(all, prev));
+    }
     pushUndo({
       kind: 'reorder_measurement',
       measurementId: draggedId,
-      previousOrder: target.order,
+      previousOrder: dragged.order,
       nextOrder,
+      ...(changesGroup ? { regrouped: true, previousGroup, nextGroup } : {}),
     });
     setMeasurements((prev) =>
-      prev.map((m) => (m.id === draggedId ? { ...m, order: nextOrder } : m)),
+      prev.map((m) =>
+        m.id === draggedId
+          ? { ...m, order: nextOrder, ...(changesGroup ? { group: target.group } : {}) }
+          : m,
+      ),
     );
   }, [pushUndo]);
 
@@ -6233,11 +6313,20 @@ export default function TakeoffViewerModule({
         break;
 
       case 'reorder_measurement':
-        // Restore the previous paint-order key (issue #379). forwardOp stays the
-        // same op, so a redo re-applies nextOrder.
+        // Restore the previous paint-order key (issue #379), and the previous
+        // group when the drop crossed one (issue #393). A plain restack leaves
+        // ``regrouped`` unset and the group is then left untouched, which is not
+        // the same as writing undefined over it. forwardOp stays the same op, so
+        // a redo re-applies both.
         setMeasurements((prev) =>
           prev.map((m) =>
-            m.id === op.measurementId ? { ...m, order: op.previousOrder } : m,
+            m.id === op.measurementId
+              ? {
+                  ...m,
+                  order: op.previousOrder,
+                  ...(op.regrouped ? { group: op.previousGroup } : {}),
+                }
+              : m,
           ),
         );
         break;
@@ -6345,10 +6434,17 @@ export default function TakeoffViewerModule({
         break;
 
       case 'reorder_measurement':
-        // Re-apply the paint-order key (issue #379).
+        // Re-apply the paint-order key (issue #379), and the group when the drop
+        // crossed one (issue #393).
         setMeasurements((prev) =>
           prev.map((m) =>
-            m.id === op.measurementId ? { ...m, order: op.nextOrder } : m,
+            m.id === op.measurementId
+              ? {
+                  ...m,
+                  order: op.nextOrder,
+                  ...(op.regrouped ? { group: op.nextGroup } : {}),
+                }
+              : m,
           ),
         );
         break;

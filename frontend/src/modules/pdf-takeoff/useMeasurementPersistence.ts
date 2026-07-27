@@ -49,6 +49,8 @@ interface Measurement {
   annotation: string;
   page: number;
   group: string;
+  /** Mirrored copy of the group's band (issue #393); see takeoff-types.ts. */
+  groupBand?: number;
   depth?: number;
   area?: number;
   text?: string;
@@ -381,6 +383,11 @@ function toApiFormat(
       // Group colour (issue #313): mirrored onto each measurement so the group
       // colour scheme round-trips server-side like the per-measurement styles.
       group_custom_color: m.groupColor,
+      // Group band (issue #393): mirrored like the group colour so a pinned
+      // group order round-trips server-side. Without it a reload re-derives the
+      // bands from first appearance, and a document where a measurement has
+      // changed group derives a different answer than the one on screen.
+      group_band: m.groupBand,
       // Paint (z) order key (issue #379); round-trips so a reorder survives a
       // server sync and a cache-less reload.
       order: m.order,
@@ -446,6 +453,10 @@ function syncSignature(m: Measurement): string {
     // Group colour (issue #313): a group re-colour restyles every measurement
     // in the group, so include it here to trigger the PATCH that persists it.
     gc: m.groupColor ?? null,
+    // Group band (issue #393): pinning the group order rewrites only this key
+    // on every row, so include it here or the pin would never re-sync and the
+    // next load would re-derive a different group order.
+    gb: m.groupBand ?? null,
     // Paint (z) order (issue #379): a bring-to-front / send-to-back changes
     // only this key, so include it here or the reorder would never re-sync.
     ord: m.order ?? null,
@@ -519,6 +530,11 @@ function toApiUpdate(
     // would leave the previous group's colour stored, and the next load would
     // fold that stale value back in and repaint the destination group.
     group_custom_color: m.groupColor ?? null,
+    // Group band (issue #393): explicitly NULL for the same reason as the
+    // colour above. The server merges metadata, so omitting the key on a row
+    // whose group was never pinned would leave a band from an earlier state
+    // stored, and the next load would fold it back in and reorder the groups.
+    group_band: m.groupBand ?? null,
     // Paint (z) order key (issue #379): re-sent on PATCH so a bring-to-front /
     // send-to-back persists (the server replaces the metadata blob wholesale).
     order: m.order,
@@ -618,6 +634,7 @@ function fromApiFormat(r: MeasurementResponse): Measurement {
     wastagePct: (meta.wastage_pct as number) ?? undefined,
     multiplier: (meta.multiplier as number) ?? undefined,
     groupColor: (meta.group_custom_color as string) ?? undefined,
+    groupBand: (meta.group_band as number) ?? undefined,
     order: (meta.order as number) ?? undefined,
     isDeduction: r.is_deduction ?? undefined,
     linkedPositionId: r.linked_boq_position_id ?? undefined,

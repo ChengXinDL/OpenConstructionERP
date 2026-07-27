@@ -22,6 +22,10 @@
 export interface Orderable {
   order?: number;
   group?: string;
+  /** This row's copy of its group's band (issue #393). A cache of the
+   *  authoritative map, never an input to it except at hydration. See
+   *  {@link hydrateGroupBands}. */
+  groupBand?: number;
 }
 
 /** Group name a row with no group of its own is filed under. Matches the
@@ -210,8 +214,23 @@ export function orderKeyBetween(below: number | null, above: number | null): num
  * the dragged row is excluded when picking the neighbours so it does not compare
  * against its own old slot.
  *
+ * The neighbours are scoped to the TARGET's group (issue #393). Since the
+ * projection became band-major the key only ever competes with the keys inside
+ * one band, so a key picked against the whole flat list is meaningless the
+ * moment the two groups differ: it would be compared against rows that sort in
+ * a different band entirely and could land the row anywhere within its new
+ * group. Scoping is what makes a cross-group drop land where it was dropped.
+ * With every row in one group this is the whole list, so a single-group
+ * document behaves exactly as before.
+ *
+ * The effective keys are still computed from each row's index in the FULL array
+ * before scoping. That fallback has to match {@link sortByPaintOrder}, which
+ * indexes globally; renumbering from zero inside the group would give a row
+ * with no explicit key a different effective key here than it has on screen.
+ *
  * Returns ``null`` when the target is missing or the drop is a no-op (the
- * dragged row would keep its current key), so the caller can skip the update.
+ * dragged row would keep its current key AND its current group), so the caller
+ * can skip the update.
  */
 export function orderKeyForDrop<T extends Orderable & { id: string }>(
   items: readonly T[],
@@ -220,11 +239,20 @@ export function orderKeyForDrop<T extends Orderable & { id: string }>(
   place: 'before' | 'after',
 ): number | null {
   if (draggedId === targetId) return null;
+  const target = items.find((m) => m.id === targetId);
+  if (!target) return null;
+  const targetGroup = groupOf(target);
   // Effective key per row, indexed on the ORIGINAL array position so the
-  // fallback matches sortByPaintOrder; then drop the dragged row and sort.
+  // fallback matches sortByPaintOrder; then drop the dragged row, keep only the
+  // target's group, and sort.
   const keyed = items
-    .map((item, index) => ({ id: item.id, order: item.order, key: item.order ?? index }))
-    .filter((k) => k.id !== draggedId)
+    .map((item, index) => ({
+      id: item.id,
+      order: item.order,
+      group: groupOf(item),
+      key: item.order ?? index,
+    }))
+    .filter((k) => k.id !== draggedId && k.group === targetGroup)
     .sort((a, b) => a.key - b.key);
   const targetIdx = keyed.findIndex((k) => k.id === targetId);
   if (targetIdx === -1) return null;
@@ -233,6 +261,150 @@ export function orderKeyForDrop<T extends Orderable & { id: string }>(
   const above = insertAt < keyed.length ? keyed[insertAt]!.key : null;
   const newOrder = orderKeyBetween(below, above);
   const dragged = items.find((m) => m.id === draggedId);
-  if (dragged && dragged.order === newOrder) return null;
+  // A row that already holds this key but sits in another group is still a real
+  // move: the caller has a group change to apply even though the key is
+  // unchanged. Only a same-group, same-key drop is the no-op.
+  if (dragged && dragged.order === newOrder && groupOf(dragged) === targetGroup) return null;
   return newOrder;
+}
+
+/* ── Pinning the band map (issue #393) ──────────────────────────────────── */
+
+/**
+ * Freeze the band map that is currently on screen.
+ *
+ * {@link groupBands} defaults a group's band to its first appearance in the
+ * measurement array, which is stable right up until a measurement changes
+ * group. Moving the first-appearing member of one group into another re-derives
+ * the group it left from its next member, and that member can sit anywhere, so
+ * two group blocks trade places because the user dragged a single row. That is
+ * the very complaint issue #394 is about, arriving through a different door.
+ *
+ * Stamping the whole map before such a move pins every group where the user can
+ * see it, so the move changes exactly what was dragged. Every group in the
+ * document is stamped, not the groups on the current page: the map is per
+ * document, and a partial stamp would drop the band of every group living on
+ * another sheet.
+ *
+ * Only regrouping needs this. A plain restack cannot change any group's first
+ * appearance, so it must not stamp, or the derived default would be dead code
+ * after the first drag in any document.
+ */
+export function freezeGroupBands<T extends Orderable>(
+  items: readonly T[],
+  explicit: Readonly<Record<string, number>> = NO_GROUP_ORDER,
+): Record<string, number> {
+  return groupBands(items, explicit);
+}
+
+/**
+ * Learn the band map back from the copies mirrored onto the measurements.
+ *
+ * The measurements are what round-trips to the server, so on a cache-less
+ * reload the mirrored copy is the only surviving evidence of a pinned map. This
+ * is the ONE place a mirrored band may be read as an input; everywhere else the
+ * map is authoritative and the copy is a cache of it. Issue #398 is what that
+ * rule is for: when two writers each read a snapshot the other had already
+ * invalidated, the pair had no fixed point and rewrote each other forever.
+ *
+ * Returns the original object when it learns nothing, so a caller storing this
+ * in state does not re-render on every pass.
+ */
+export function hydrateGroupBands<T extends Orderable>(
+  bands: Readonly<Record<string, number>>,
+  items: readonly T[],
+): Record<string, number> {
+  let changed = false;
+  const next: Record<string, number> = { ...bands };
+  for (const item of items) {
+    if (item.groupBand === undefined) continue;
+    const group = groupOf(item);
+    if (next[group] !== item.groupBand) {
+      next[group] = item.groupBand;
+      changed = true;
+    }
+  }
+  return changed ? next : (bands as Record<string, number>);
+}
+
+/**
+ * Copy the authoritative map onto the rows that mirror it.
+ *
+ * The single standing writer of the pair, matching how the group colour scheme
+ * was rebuilt after issue #398. A group the map does not know about is left
+ * alone rather than cleared: the mirrored band is the only evidence that such a
+ * group was ever pinned, and clearing it would destroy that evidence before
+ * {@link hydrateGroupBands} had the chance to read it, which is exactly what
+ * happens when rows arrive from the server after the user has already drawn
+ * something.
+ *
+ * Returns the original array when nothing needs writing, so this can sit in an
+ * effect without looping.
+ */
+export function stampGroupBands<T extends Orderable>(
+  items: T[],
+  bands: Readonly<Record<string, number>>,
+): T[] {
+  let changed = false;
+  const next = items.map((item) => {
+    const band = bands[groupOf(item)];
+    if (band === undefined || item.groupBand === band) return item;
+    changed = true;
+    return { ...item, groupBand: band };
+  });
+  return changed ? next : items;
+}
+
+/** Inputs the band commit decides from. */
+export interface GroupBandState<T extends Orderable> {
+  bands: Readonly<Record<string, number>>;
+  items: T[];
+  /** Document identity the bands were last hydrated for, or null. */
+  hydratedFor: string | null;
+}
+
+/** What the caller should write this pass. A ``null`` side is left alone. */
+export interface GroupBandAction<T extends Orderable> {
+  bands: Record<string, number> | null;
+  items: T[] | null;
+  hydratedFor: string | null;
+}
+
+/**
+ * Decide which half of the band pair to write (issues #393/#398).
+ *
+ * Deliberately a plain function rather than logic inside an effect, and
+ * deliberately the same shape as the group-colour commit next door. Issue #398
+ * is the reason both exist: two standing effects, one writing in each
+ * direction, each reading a snapshot the other had already invalidated, had no
+ * fixed point and rewrote each other forever. Here the direction is one way per
+ * pass and settled before any state is touched, so it can be reasoned about and
+ * tested without rendering anything.
+ *
+ * Until a document has been hydrated the mirrored copies are the input and the
+ * map is the output; from then on the map is the input and the copies are the
+ * output, forever. An empty item list leaves the gate open rather than
+ * declaring the document hydrated, because rows still arriving from the server
+ * would otherwise be treated as a document that had nothing pinned.
+ */
+export function groupBandCommit<T extends Orderable>(
+  state: GroupBandState<T>,
+  identity: string,
+): GroupBandAction<T> {
+  if (state.hydratedFor !== identity) {
+    if (state.items.length === 0) {
+      return { bands: null, items: null, hydratedFor: state.hydratedFor };
+    }
+    return {
+      bands: hydrateGroupBands(state.bands, state.items),
+      items: null,
+      hydratedFor: identity,
+    };
+  }
+  const items = stampGroupBands(state.items, state.bands);
+  return {
+    bands: null,
+    items: items === state.items ? null : items,
+    hydratedFor: state.hydratedFor,
+  };
 }

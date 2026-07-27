@@ -8,6 +8,10 @@ import {
   groupBands,
   groupOf,
   reorderGroups,
+  freezeGroupBands,
+  hydrateGroupBands,
+  stampGroupBands,
+  groupBandCommit,
 } from '../lib/takeoff-order';
 
 /** Minimal orderable rows for the projection tests. */
@@ -354,5 +358,148 @@ describe('banded projection keeps a reorder inside its group (issue #394)', () =
     expect(project(rows).map((r) => r.id)).toEqual(
       sortByPaintOrder(rows).map((r) => r.id),
     );
+  });
+});
+
+/**
+ * A drop onto a row of another group has to land where it was dropped (issue
+ * #393). The key competes only inside the target's band, so these pin that the
+ * neighbours are scoped to the target's group rather than to the flat list.
+ */
+describe('orderKeyForDrop scopes the key to the target group (issue #393)', () => {
+  const gRow = (id: string, group: string, order?: number) => ({ id, group, order });
+
+  /** Apply a computed drop and read back the on-screen order, the way the
+   *  viewer does: write the key, write the group, then project. */
+  const applyDrop = (
+    rows: { id: string; group: string; order?: number }[],
+    draggedId: string,
+    targetId: string,
+    place: 'before' | 'after',
+  ) => {
+    const key = orderKeyForDrop(rows, draggedId, targetId, place);
+    if (key === null) return null;
+    const targetGroup = groupOf(rows.find((r) => r.id === targetId)!);
+    const regroups = groupOf(rows.find((r) => r.id === draggedId)!) !== targetGroup;
+    // Freeze BEFORE the move, exactly where the viewer freezes.
+    const pinned = regroups ? freezeGroupBands(rows) : {};
+    const next = rows.map((r) =>
+      r.id === draggedId ? { ...r, order: key, group: targetGroup } : r,
+    );
+    return sortByPaintOrder(next, groupBands(next, pinned)).map((r) => r.id);
+  };
+
+  it('lands a cross-group drop next to the row it was dropped on', () => {
+    const rows = [gRow('a1', 'A'), gRow('a2', 'A'), gRow('b1', 'B'), gRow('b2', 'B')];
+    // Dropped before b2, so it must sit between b1 and b2 and nowhere else.
+    // Group A stays banded first even though the member it was banded from has
+    // just left it, which is what the pre-move freeze buys.
+    expect(applyDrop(rows, 'a1', 'b2', 'before')).toEqual(['a2', 'b1', 'a1', 'b2']);
+  });
+
+  it('ignores the dragged row own group keys when picking neighbours', () => {
+    // a1 carries a key far above everything in B. Scoped to B it still lands
+    // between b1 and b2; against the flat list it would be pinned to the end.
+    const rows = [gRow('a1', 'A', 500), gRow('b1', 'B', 1), gRow('b2', 'B', 2)];
+    expect(applyDrop(rows, 'a1', 'b2', 'before')).toEqual(['b1', 'a1', 'b2']);
+  });
+
+  it('reports a move even when the key happens not to change', () => {
+    // Same numeric key, different group: still a real move, so the helper must
+    // not report the no-op that would make the caller skip the group write.
+    const rows = [gRow('a1', 'A', 0), gRow('b1', 'B', 0), gRow('b2', 'B', 1)];
+    expect(orderKeyForDrop(rows, 'a1', 'b1', 'before')).not.toBeNull();
+  });
+
+  it('still reports a same-group drop onto the slot it already holds as a no-op', () => {
+    const rows = [gRow('a1', 'A', 0), gRow('a2', 'A', 1), gRow('a3', 'A', 2)];
+    // a2 dropped before a3 is where a2 already is.
+    expect(orderKeyForDrop(rows, 'a2', 'a3', 'before')).toBeNull();
+  });
+
+  it('returns null for a target that is not in the list', () => {
+    const rows = [gRow('a1', 'A'), gRow('a2', 'A')];
+    expect(orderKeyForDrop(rows, 'a1', 'nope', 'before')).toBeNull();
+  });
+});
+
+/**
+ * Pinning the band map (issues #393/#398). The freeze is only half a fix if it
+ * lives in component state, so these follow it all the way through the mirror
+ * and back, which is the round trip a reload actually makes.
+ */
+describe('pinned group bands survive a reload (issue #393)', () => {
+  const gRow = (id: string, group: string, order?: number) =>
+    ({ id, group, order }) as { id: string; group: string; order?: number; groupBand?: number };
+
+  const ids = (rows: { id: string; group: string; order?: number; groupBand?: number }[],
+                bands: Record<string, number>) =>
+    sortByPaintOrder(rows, groupBands(rows, bands)).map((r) => r.id);
+
+  it('reproduces the on-screen group order after a rehydrate from the mirror', () => {
+    const before = [gRow('a1', 'A'), gRow('a2', 'A'), gRow('b1', 'B'), gRow('b2', 'B')];
+    const pinned = freezeGroupBands(before);
+    // The move that would otherwise re-derive A from a2 and swap the blocks.
+    const moved = before.map((r) => (r.id === 'a1' ? { ...r, group: 'B', order: 2.5 } : r));
+    const onScreen = ids(moved, pinned);
+    expect(onScreen).toEqual(['a2', 'b1', 'a1', 'b2']);
+
+    // Persist: the map is stamped onto the rows, which is all that reaches the
+    // server. Then a cold client learns the map back from the rows alone.
+    const stamped = stampGroupBands(moved, pinned);
+    const relearned = hydrateGroupBands({}, stamped);
+    expect(ids(stamped, relearned)).toEqual(onScreen);
+  });
+
+  it('stamps every group in the document, not only the ones on a page', () => {
+    // A group living on another sheet must keep its band, or reopening the file
+    // would reorder groups the user never touched.
+    const rows = [gRow('p1', 'A'), gRow('p2', 'B'), gRow('p3', 'C')];
+    const pinned = freezeGroupBands(rows);
+    expect(Object.keys(pinned).sort()).toEqual(['A', 'B', 'C']);
+  });
+
+  it('leaves the map empty when nothing has been pinned', () => {
+    // The derived default has to stay reachable: a document nobody regrouped
+    // must store no bands at all.
+    const rows = [gRow('a1', 'A'), gRow('b1', 'B')];
+    expect(hydrateGroupBands({}, rows)).toEqual({});
+    expect(stampGroupBands(rows, {})).toBe(rows);
+  });
+
+  it('hydrates from the mirror first, then stamps from the map, never both', () => {
+    const rows = [gRow('a1', 'A'), gRow('b1', 'B')];
+    rows[0]!.groupBand = 7;
+    // First pass for a document: the mirror is the input.
+    const first = groupBandCommit({ bands: {}, items: rows, hydratedFor: null }, 'doc');
+    expect(first.bands).toEqual({ A: 7 });
+    expect(first.items).toBeNull();
+    expect(first.hydratedFor).toBe('doc');
+    // Once hydrated the map is the input and the mirror is the output.
+    const second = groupBandCommit(
+      { bands: { A: 7, B: 8 }, items: rows, hydratedFor: 'doc' },
+      'doc',
+    );
+    expect(second.bands).toBeNull();
+    expect(second.items?.map((r) => r.groupBand)).toEqual([7, 8]);
+  });
+
+  it('does not declare an empty document hydrated', () => {
+    // Rows still arriving from the server would otherwise be read as a document
+    // with nothing pinned, and the pin would be lost on every open.
+    const action = groupBandCommit({ bands: {}, items: [], hydratedFor: null }, 'doc');
+    expect(action.hydratedFor).toBeNull();
+    expect(action.bands).toBeNull();
+    expect(action.items).toBeNull();
+  });
+
+  it('settles: stamping what was just hydrated produces no further write', () => {
+    // The #398 failure mode was a pair with no fixed point. One pass each way
+    // has to converge.
+    const rows = [gRow('a1', 'A'), gRow('b1', 'B')];
+    rows[0]!.groupBand = 0;
+    rows[1]!.groupBand = 1;
+    const learned = hydrateGroupBands({}, rows);
+    expect(stampGroupBands(rows, learned)).toBe(rows);
   });
 });
