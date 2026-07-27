@@ -30,7 +30,7 @@ import type { jsPDF as JsPDF } from 'jspdf';
 import type * as ExcelJS from 'exceljs';
 import type * as PdfJsLib from 'pdfjs-dist';
 import type { Measurement } from './takeoff-types';
-import { sortByPaintOrder } from './takeoff-order';
+import { groupBands, sortByPaintOrder } from './takeoff-order';
 import type { ScaleConfig } from '../../../modules/pdf-takeoff/data/scale-helpers';
 import {
   pixelDistance,
@@ -282,8 +282,12 @@ export function renderMeasurementsOnCanvas(
 
   // Paint in the same z-order the on-screen canvas uses (issue #379) so the
   // exported PDF matches the screen: an explicit `order` decides which shape
-  // draws on top; un-ordered rows keep array (creation) order.
-  const visible = sortByPaintOrder(measurements).filter(
+  // draws on top; un-ordered rows keep array (creation) order. Banded by group
+  // like the canvas (issue #394); the bands are derived from the full
+  // measurement list rather than the page subset, because the band map is per
+  // document and deriving it per page would give the same group a different
+  // band on every sheet.
+  const visible = sortByPaintOrder(measurements, groupBands(measurements)).filter(
     (m) =>
       m.page === pageNumber &&
       !hiddenGroups.has(m.group) &&
@@ -804,7 +808,7 @@ export async function buildTakeoffWorkbook(
   // relative to another group's rows. The group sections themselves stay
   // alphabetical (sorted just below); only the rows within a section move.
   const byGroup = new Map<string, Measurement[]>();
-  for (const m of sortByPaintOrder(ctx.measurements)) {
+  for (const m of sortByPaintOrder(ctx.measurements, groupBands(ctx.measurements))) {
     const g = m.group || 'General';
     const list = byGroup.get(g) ?? [];
     list.push(m);

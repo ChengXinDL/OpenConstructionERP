@@ -296,3 +296,63 @@ describe('reorderGroups (issue #400)', () => {
     expect(reorderGroups(groups, 'Nope', 'Walls', 'before')).toBeNull();
   });
 });
+
+/**
+ * The banded projection is what keeps a measurement-level reorder inside its
+ * own group (issue #394). These exercise the two helpers as the viewer now
+ * calls them, `sortByPaintOrder(all, groupBands(all))`, because that pairing is
+ * the contract: either one alone still lets a drop cross a group boundary.
+ */
+describe('banded projection keeps a reorder inside its group (issue #394)', () => {
+  /** Row with a group, matching how the viewer shapes its measurements. */
+  const gRow = (id: string, group: string, order?: number) => ({ id, group, order });
+
+  /** Project the way TakeoffViewerModule does, in one place. */
+  const project = <T extends { group?: string; order?: number }>(rows: T[]) =>
+    sortByPaintOrder(rows, groupBands(rows));
+
+  it('keeps every group contiguous once one of its rows is restacked', () => {
+    const rows = [gRow('a1', 'A'), gRow('a2', 'A'), gRow('b1', 'B'), gRow('b2', 'B')];
+    // Send a1 to the very back of the flat stack, the strongest possible pull
+    // away from its group.
+    rows[0]!.order = -100;
+    const ids = project(rows).map((r) => r.id);
+    expect(ids).toEqual(['a1', 'a2', 'b1', 'b2']);
+    // Stated separately so a failure says which half broke: the group blocks
+    // are still whole, and B did not move.
+    expect(ids.slice(0, 2).every((id) => id.startsWith('a'))).toBe(true);
+    expect(ids.slice(2)).toEqual(['b1', 'b2']);
+  });
+
+  it('cannot pull a row into another group by giving it a huge key', () => {
+    const rows = [gRow('a1', 'A', 999), gRow('a2', 'A'), gRow('b1', 'B'), gRow('b2', 'B')];
+    // Unbanded this puts a1 last, on top of group B. Banded it can only reach
+    // the top of its own group.
+    expect(project(rows).map((r) => r.id)).toEqual(['a2', 'a1', 'b1', 'b2']);
+    expect(sortByPaintOrder(rows).map((r) => r.id)).toEqual(['a2', 'b1', 'b2', 'a1']);
+  });
+
+  it('bands a group by first appearance, not by its members paint keys', () => {
+    // B's rows all carry keys below A's, which without banding would put the
+    // whole B block first. A appears first in the array, so A bands first.
+    const rows = [gRow('a1', 'A', 50), gRow('b1', 'B', 1), gRow('b2', 'B', 2)];
+    expect(project(rows).map((r) => r.id)).toEqual(['a1', 'b1', 'b2']);
+  });
+
+  it('bands an empty-string group with General rather than beside it', () => {
+    // `groupOf` normalises both to General; a raw group comparison would band
+    // them separately and split one rendered bucket across two blocks.
+    const rows = [gRow('x', ''), gRow('g', 'General'), gRow('b', 'B')];
+    const bands = groupBands(rows);
+    expect(bands[groupOf(rows[0]!)]).toBe(bands[groupOf(rows[1]!)]);
+    expect(project(rows).map((r) => r.id)).toEqual(['x', 'g', 'b']);
+  });
+
+  it('collapses to the flat projection when every row shares one group', () => {
+    // The single-group document is the common case and must be untouched.
+    const rows = [gRow('a', 'A', 3), gRow('b', 'A', 1), gRow('c', 'A', 2)];
+    expect(project(rows).map((r) => r.id)).toEqual(
+      sortByPaintOrder(rows).map((r) => r.id),
+    );
+  });
+});

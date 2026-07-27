@@ -168,6 +168,7 @@ import {
 } from '../../features/takeoff/lib/takeoff-colors';
 import {
   sortByPaintOrder,
+  groupBands,
   orderKeyForEdge,
   orderKeyForDrop,
 } from '../../features/takeoff/lib/takeoff-order';
@@ -671,9 +672,17 @@ export default function TakeoffViewerModule({
   // top. A measurement with an explicit `order` sorts by it; one without falls
   // back to its array position (creation order, the stable #375 baseline), so
   // rows the user never reordered paint exactly as before.
+  // Where each group's block sits relative to the other groups (issue #394).
+  // A group used to have no position of its own: it rendered wherever its
+  // earliest member happened to land in the flat paint order, so restacking one
+  // measurement dragged its whole group with it. Bands give the group its own
+  // slot, defaulting to first appearance in the array (creation order), which
+  // no per-measurement reorder can touch. Derived over the WHOLE document, not
+  // the current page, because the band map is per document.
+  const groupBandMap = useMemo(() => groupBands(measurements), [measurements]);
   const orderedMeasurements = useMemo(
-    () => sortByPaintOrder(measurements),
-    [measurements],
+    () => sortByPaintOrder(measurements, groupBandMap),
+    [measurements, groupBandMap],
   );
   const [activePoints, setActivePoints] = useState<Point[]>([]);
   const [countLabel, setCountLabel] = useState(t('takeoff_viewer.default_count_label', { defaultValue: 'Element' }));
@@ -3137,8 +3146,13 @@ export default function TakeoffViewerModule({
     const hiddenM = hiddenMeasurementsRef.current;
     // Return in paint (z) order (issue #379) so the caller's reverse scan
     // ("top-to-bottom") selects the measurement drawn on top when shapes
-    // overlap, matching the canvas paint pass.
-    return sortByPaintOrder(measurementsRef.current).filter(
+    // overlap, matching the canvas paint pass. Banded by group like the paint
+    // pass (issue #394): derived here from the ref rather than read from the
+    // memo above so this stays a zero-dependency callback, and the derivation
+    // is a pure function of the same array the memo uses, so the two cannot
+    // disagree about which shape is on top.
+    const all = measurementsRef.current;
+    return sortByPaintOrder(all, groupBands(all)).filter(
       (m) =>
         m.page === page &&
         !m.suggested &&
@@ -4022,13 +4036,23 @@ export default function TakeoffViewerModule({
     [measurements],
   );
 
-  /** Group page measurements by their group name */
+  /** Group page measurements by their group name.
+   *
+   *  A Map, not a plain object, because the iteration order IS the group order
+   *  the sidebar renders (issue #394): bucketing the band-major projection in
+   *  order puts each group where its band says it belongs. An object would not
+   *  preserve that. Integer-like string keys are enumerated numerically ahead of
+   *  every other key, so groups named for levels or zones ("1", "2", "10") would
+   *  sort themselves to the top in numeric order regardless of their band, which
+   *  is exactly the naming a construction takeoff uses. A Map keeps insertion
+   *  order for every key shape. */
   const groupedPageMeasurements = useMemo(() => {
-    const groups: Record<string, Measurement[]> = {};
+    const groups = new Map<string, Measurement[]>();
     for (const m of pageMeasurements) {
       const g = m.group || 'General';
-      if (!groups[g]) groups[g] = [];
-      groups[g]!.push(m);
+      const list = groups.get(g);
+      if (list) list.push(m);
+      else groups.set(g, [m]);
     }
     return groups;
   }, [pageMeasurements]);
@@ -9219,7 +9243,7 @@ export default function TakeoffViewerModule({
 
               <div className="space-y-2 max-h-[400px] overflow-auto">
                 {/* Measurement groups (non-annotation types) */}
-                {Object.entries(groupedPageMeasurements).map(([groupName, groupMs]) => {
+                {[...groupedPageMeasurements].map(([groupName, groupMs]) => {
                   const measurementOnly = groupMs.filter((m) => !isAnnotationType(m.type));
                   if (measurementOnly.length === 0) return null;
                   const groupColor = groupColorMap[groupName] || '#3B82F6';
