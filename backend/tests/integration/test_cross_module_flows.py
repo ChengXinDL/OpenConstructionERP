@@ -424,11 +424,26 @@ class TestPOIssueUpdatesBudget:
                 "project_id": project_id,
                 "po_type": "standard",
                 "currency_code": "EUR",
+                # A vendor and a line that reconciles with the subtotal: the
+                # approval step below runs the blocking ``procurement`` rule
+                # set, which refuses a commitment naming no party or with no
+                # lines to account for the amount.
+                "vendor_contact_id": str(uuid.uuid4()),
                 "amount_subtotal": "120000",
                 "tax_amount": "22800",
                 "amount_total": "142800",
                 "notes": "Concrete supply for foundation",
                 "status": "draft",
+                "items": [
+                    {
+                        "description": "Concrete supply for foundation",
+                        "quantity": "1",
+                        "unit": "lot",
+                        "unit_rate": "120000",
+                        "amount": "120000",
+                        "cost_category": "structure",
+                    },
+                ],
             },
             headers=auth,
         )

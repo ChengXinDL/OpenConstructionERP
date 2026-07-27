@@ -380,6 +380,154 @@
       "suggestion": "Geben Sie die erwartete Revision aus oder aktualisieren Sie das Verzeichnis auf die aktuelle Revision"
     }
   },
+  "procurement": {
+    "po_has_lines": {
+      "fail": "Diese Bestellung hat keine Positionen, der zugesagte Betrag ist damit nicht belegt",
+      "suggestion": "Erfassen Sie die bestellten Positionen, bevor Sie die Bestellung freigeben"
+    },
+    "po_line_amount": {
+      "fail": "Position {line} weist {actual} aus, Menge mal Einheitspreis ergibt {expected}",
+      "suggestion": "Korrigieren Sie Menge, Einheitspreis oder Positionsbetrag, damit die drei zusammenpassen"
+    },
+    "po_subtotal_matches_lines": {
+      "fail": "Die Zwischensumme lautet {actual}, die Positionen ergeben {expected}",
+      "suggestion": "Berechnen Sie die Zwischensumme aus den aktuellen Positionen neu"
+    },
+    "po_total_matches_subtotal": {
+      "fail": "Der Gesamtbetrag lautet {actual}, Zwischensumme plus Steuer ergibt {expected}",
+      "suggestion": "Berechnen Sie den Gesamtbetrag als Zwischensumme plus Steuer neu"
+    },
+    "po_no_negative_line": {
+      "fail": "Position {line} hat eine nicht positive Menge oder einen negativen Einheitspreis",
+      "suggestion": "Buchen Sie eine Gutschrift statt einer negativen Position"
+    },
+    "po_currency_set": {
+      "fail": "Diese Bestellung hat keine Währung, der Betrag lässt sich weder aufsummieren noch zahlen",
+      "suggestion": "Setzen Sie die Währung, in der Regel die des Projekts"
+    },
+    "po_vendor_assigned": {
+      "fail": "Diese Bestellung nennt keinen Lieferanten",
+      "suggestion": "Wählen Sie den Lieferanten, bevor Sie die Verpflichtung freigeben"
+    },
+    "po_retention_within_bounds": {
+      "fail": "Ein Einbehalt von {percent}% liegt außerhalb des plausiblen Bereichs von 0 bis {max}%",
+      "suggestion": "Geben Sie den Einbehalt als Prozentsatz an, zum Beispiel 5 für fünf Prozent"
+    },
+    "po_delivery_after_issue": {
+      "fail": "Die Lieferung ist auf {delivery} gesetzt, vor dem Bestelldatum {issue}",
+      "suggestion": "Setzen Sie das Lieferdatum auf das Bestelldatum oder später"
+    },
+    "po_line_cost_coded": {
+      "fail": "Position {line} hat weder WBS noch Kostenart noch Kostenzeile und erscheint damit nicht in der Kostenaufstellung",
+      "suggestion": "Vergeben Sie einen Kostencode, damit die Verpflichtung einem Budget zugeordnet wird"
+    }
+  },
+  "subcontract": {
+    "agreement_has_scope": {
+      "fail": "Dieser Vertrag hat keine Arbeitspakete, daher gibt es nichts, wogegen eine Zahlungsanforderung geltend gemacht werden kann",
+      "suggestion": "Gliedern Sie den beauftragten Leistungsumfang in Arbeitspakete, bevor Sie den Vertrag aktivieren"
+    },
+    "package_scope_described": {
+      "fail": "Arbeitspaket {package} hat einen Namen, aber keine Beschreibung der enthaltenen Leistung",
+      "suggestion": "Halten Sie fest, was das Paket umfasst, damit ein spaeterer Nachtragsstreit eine Grundlage hat"
+    },
+    "agreement_value_positive": {
+      "fail": "Die Auftragssumme betraegt {value}, damit haben Sicherheitseinbehalt und Zahlungsplan keine Grundlage",
+      "suggestion": "Tragen Sie die vereinbarte Auftragssumme ein, bevor Sie den Vertrag aktivieren"
+    },
+    "packages_within_value": {
+      "fail": "Die Arbeitspakete belaufen sich auf {planned}, der Vertrag jedoch auf {total}",
+      "suggestion": "Bewerten Sie die Pakete neu oder erhoehen Sie die Auftragssumme, damit der Vertrag seinen Umfang deckt"
+    },
+    "agreement_dates_ordered": {
+      "fail": "Der Vertrag endet am {end}, also vor seinem Beginn am {start}",
+      "suggestion": "Korrigieren Sie Beginn oder Ende, damit die Vertragslaufzeit vorwaerts laeuft"
+    },
+    "agreement_currency_set": {
+      "fail": "Dieser Vertrag hat keine Waehrung, daher koennen Zahlungen weder zusammengefuehrt noch angewiesen werden",
+      "suggestion": "Setzen Sie die Waehrung, ueblicherweise die des Projekts"
+    },
+    "retention_within_bounds": {
+      "fail": "Ein Sicherheitseinbehalt von {percent}% liegt ausserhalb des plausiblen Bereichs von 0 bis {max}%",
+      "suggestion": "Tragen Sie den Einbehalt als Prozentsatz je Zahlung ein, nicht als Betrag"
+    },
+    "insurance_valid_at_start": {
+      "fail": "Die Versicherung des Nachunternehmers lief am {expiry} ab, also vor Arbeitsbeginn am {reference}",
+      "suggestion": "Holen Sie einen aktuellen Nachweis ein, bevor der Nachunternehmer die Baustelle betritt"
+    }
+  },
+  "submittal": {
+    "reviewer_assigned": {
+      "fail": "Dieser Vorlage ist kein Pruefer zugeordnet, sie liegt damit bei niemandem",
+      "suggestion": "Weisen Sie vor dem Einreichen den Pruefer zu, der antworten soll"
+    },
+    "required_date_present": {
+      "fail": "Diese Vorlage hat keinen Bedarfstermin und kann deshalb nie als ueberfaellig gemeldet werden",
+      "suggestion": "Setzen Sie den Termin, zu dem die Pruefung vorliegen muss, abgeleitet aus der abhaengigen Leistung"
+    },
+    "required_date_after_submitted": {
+      "fail": "Die Pruefung ist am {required} faellig, also vor der Einreichung am {submitted}",
+      "suggestion": "Verschieben Sie den Bedarfstermin auf einen Arbeitstag nach der Einreichung"
+    },
+    "review_window_sufficient": {
+      "fail": "Der Pruefer hat {days} Tage, weniger als die ueblichen {minimum} Tage",
+      "suggestion": "Gewaehren Sie die uebliche Prueffrist oder stimmen Sie die kuerzere vorher ab"
+    },
+    "spec_section_present": {
+      "fail": "Diese Vorlage nennt keinen Abschnitt der Leistungsbeschreibung, das Register kann sie nicht einordnen",
+      "suggestion": "Tragen Sie den Abschnitt der Leistungsbeschreibung ein, den diese Vorlage beantwortet"
+    },
+    "approver_distinct_from_reviewer": {
+      "fail": "Dieselbe Person ({person}) prueft und genehmigt, damit fehlt das Vier-Augen-Prinzip",
+      "suggestion": "Weisen Sie einen anderen Genehmiger als den Pruefer zu"
+    },
+    "linked_scope_present": {
+      "fail": "Diese Vorlage ist mit keiner Leistungsposition verknuepft und laeuft daher in keinem Paket auf",
+      "suggestion": "Verknuepfen Sie die LV-Positionen, die diese Vorlage betrifft"
+    }
+  },
+  "rfq": {
+    "scope_described": {
+      "fail": "Diese Anfrage hat weder Leistungsbeschreibung noch Erlaeuterung, ein Bieter kann nichts kalkulieren",
+      "suggestion": "Beschreiben Sie den Leistungsumfang vor dem Versand, damit die Angebote vergleichbar sind"
+    },
+    "deadline_present": {
+      "fail": "Diese Anfrage nennt keine Abgabefrist, das Verfahren wird damit nie geschlossen",
+      "suggestion": "Setzen Sie den Termin, zu dem Angebote vorliegen muessen"
+    },
+    "deadline_parseable": {
+      "fail": "Die Abgabefrist {value} ist kein lesbares Datum, jedes Angebot wird abgewiesen",
+      "suggestion": "Tragen Sie die Frist als Datum ein, zum Beispiel 2026-08-31"
+    },
+    "deadline_in_future": {
+      "fail": "Die Abgabefrist {deadline} ist am {today} bereits abgelaufen, die Anfrage kommt geschlossen an",
+      "suggestion": "Verlegen Sie die Frist vor dem Versand in die Zukunft"
+    },
+    "has_recipients": {
+      "fail": "Diese Anfrage ist an keinen Bieter adressiert, der Versand erreicht niemanden",
+      "suggestion": "Ergaenzen Sie die Bieter, an die diese Anfrage geht"
+    },
+    "currency_set": {
+      "fail": "Diese Anfrage nennt keine Waehrung, die Angebote lassen sich nicht gegeneinander bewerten",
+      "suggestion": "Setzen Sie die Waehrung, in der kalkuliert werden soll"
+    },
+    "bid_currency_matches": {
+      "fail": "Angebot {bid} ist in {bid_currency} kalkuliert, die Anfrage laeuft in {rfq_currency}",
+      "suggestion": "Lassen Sie den Bieter in der Anfragewaehrung nachreichen oder halten Sie den Umrechnungskurs fest"
+    },
+    "bid_amounts_parseable": {
+      "fail": "Angebot {bid} hat den Betrag {value}, das ist keine bewertbare Zahl",
+      "suggestion": "Korrigieren Sie die Angebotssumme vor der Vergabe"
+    },
+    "bids_still_valid": {
+      "fail": "Angebot {bid} ist am {expired} abgelaufen, heute ist {today}, der Preis bindet nicht mehr",
+      "suggestion": "Lassen Sie sich den Preis vor der Vergabe bestaetigen"
+    },
+    "award_has_competition": {
+      "fail": "Diese Vergabe stuetzt sich auf {count} Angebote, weniger als die {minimum} eines Wettbewerbs",
+      "suggestion": "Begruenden Sie die freihaendige Vergabe schriftlich oder fordern Sie weitere Angebote an"
+    }
+  },
   "errors": {
     "resource_not_found": "Ressource nicht gefunden",
     "project_not_found": "Projekt nicht gefunden",

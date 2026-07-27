@@ -614,6 +614,24 @@ async def update_agreement(
     return AgreementResponse.model_validate(entity)
 
 
+@router.get("/agreements/{agreement_id}/validate/")
+async def validate_agreement(
+    agreement_id: uuid.UUID,
+    session: SessionDep,
+    user_id: CurrentUserId,
+    _perm: None = Depends(RequirePermission("subcontractors.read")),
+) -> dict[str, Any]:
+    """Report what is wrong with an agreement before it is activated.
+
+    Read-only: it changes nothing and refuses nothing. Activation runs the same
+    checks and records the findings, so this endpoint is the place to look
+    first rather than the place the problem is discovered.
+    """
+    svc = SubcontractorService(session)
+    await _verify_agreement_project(agreement_id, user_id, session, svc)
+    return await svc.validate_agreement(agreement_id)
+
+
 @router.delete("/agreements/{agreement_id}", status_code=204)
 async def delete_agreement(
     agreement_id: uuid.UUID,

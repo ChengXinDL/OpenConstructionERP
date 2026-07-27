@@ -8,11 +8,14 @@ Stateless service layer.
 import logging
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.i18n import get_locale
 from app.core.json_merge import merge_metadata
+from app.core.validation.engine import ValidationReport, validation_engine
 from app.modules.rfq_bidding.models import RFQ, RFQBid
 from app.modules.rfq_bidding.repository import RFQBidRepository, RFQRepository
 from app.modules.rfq_bidding.schemas import (
@@ -35,6 +38,16 @@ _BID_SUBMISSION_OPEN_STATUSES: frozenset[str] = frozenset({"published", "issued"
 # The router-level ``rfq.update`` permission lets EDITOR call award_bid,
 # which would side-step the FSM contract - service must re-check.
 _AWARD_ALLOWED_ROLES: frozenset[str] = frozenset({"admin", "manager", "owner"})
+
+# Rule sets holding this module's checks. Both are registered in
+# ``app.core.validation.rules.register_builtin_rules`` and each is passed
+# explicitly by exactly one caller below. Two sets rather than one plus an
+# operation flag: the submission deadline must be in the future when the RFQ is
+# published and has necessarily passed by the time it is awarded, so a single
+# set could only hold both by way of a rule that silently no-ops, which is
+# indistinguishable from a rule nobody calls.
+RFQ_ISSUE_RULE_SET = "rfq_issue"
+RFQ_AWARD_RULE_SET = "rfq_award"
 
 
 class RFQService:
@@ -154,6 +167,16 @@ class RFQService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Cannot issue RFQ in status '{prior}'",
             )
+        # Validate the package as it is about to go out, before the write:
+        # ``rfqs.update()`` expires the instance and ``bids`` would then need a
+        # fresh load. This reports, it does not refuse - see
+        # :meth:`_report_rfq_validation`.
+        await self._report_rfq_validation(
+            rfq,
+            rule_set=RFQ_ISSUE_RULE_SET,
+            operation="issue",
+        )
+
         # Snapshot fields BEFORE rfqs.update() - that call invokes
         # expire_all() and any subsequent ORM-managed attribute access
         # would otherwise trigger a sync DB fetch (MissingGreenlet).
@@ -183,6 +206,145 @@ class RFQService:
             )
         logger.info("RFQ published: %s", rfq_number_local)
         return updated
+
+    # ── Validation ──────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _validation_payload(rfq: RFQ) -> dict[str, Any]:
+        """Flatten an RFQ and its bids into the dict the rules read.
+
+        Rules never touch the ORM, so everything they need is copied out here.
+        ``bid_amount`` and ``submission_deadline`` are free-form string columns
+        and stay exactly as stored: the rules parse them and report an
+        unreadable value, which is the whole point of two of them.
+
+        ``as_of`` is the clock the date-relative rules use. It is supplied as
+        data so a test can pin it; no rule in this module calls ``today()``.
+        """
+        contacts = rfq.issued_to_contacts
+        return {
+            "id": str(rfq.id),
+            "project_id": str(rfq.project_id),
+            "rfq_number": rfq.rfq_number,
+            "title": rfq.title,
+            "status": rfq.status,
+            "description": rfq.description,
+            "scope_of_work": rfq.scope_of_work,
+            "submission_deadline": rfq.submission_deadline,
+            "currency_code": rfq.currency_code or "",
+            "issued_to_contacts": list(contacts) if isinstance(contacts, list) else [],
+            "as_of": datetime.now(UTC).date().isoformat(),
+            "bids": [
+                {
+                    "bidder_contact_id": bid.bidder_contact_id,
+                    "bid_amount": bid.bid_amount,
+                    "currency_code": bid.currency_code,
+                    "submitted_at": bid.submitted_at,
+                    "validity_days": bid.validity_days,
+                    "is_awarded": bid.is_awarded,
+                }
+                for bid in rfq.bids
+            ],
+        }
+
+    async def _validate_rfq(
+        self,
+        rfq: RFQ,
+        *,
+        rule_set: str,
+        operation: str,
+    ) -> ValidationReport:
+        """Run one of the two RFQ rule sets against an RFQ."""
+        return await validation_engine.validate(
+            data=self._validation_payload(rfq),
+            rule_sets=[rule_set],
+            target_type="rfq",
+            target_id=str(rfq.id),
+            project_id=str(rfq.project_id),
+            metadata={"locale": get_locale(), "operation": operation},
+        )
+
+    async def _report_rfq_validation(
+        self,
+        rfq: RFQ,
+        *,
+        rule_set: str,
+        operation: str,
+    ) -> None:
+        """Validate an RFQ at a lifecycle moment and record what is wrong.
+
+        This reports, it does not refuse. Publishing and awarding are already
+        gated (status, role, single-award), and a third gate that rejected would
+        change the meaning of endpoints other people's workflows depend on. The
+        findings still have to reach somebody, so they land on the log with
+        their rule ids, and the same report is available on demand through
+        :meth:`validate_rfq`.
+
+        Failures inside validation are swallowed. An advisory check that broke a
+        legitimate award would be worse than the problem it reports.
+        """
+        try:
+            report = await self._validate_rfq(rfq, rule_set=rule_set, operation=operation)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.debug("RFQ validation skipped for %s: %s", rfq.id, exc)
+            return
+        if not report.errors and not report.warnings:
+            return
+        logger.warning(
+            "rfq.%s_with_findings %s",
+            operation,
+            {
+                "rfq_id": str(rfq.id),
+                "project_id": str(rfq.project_id),
+                "rule_set": rule_set,
+                "errors": [r.rule_id for r in report.errors],
+                "warnings": [r.rule_id for r in report.warnings],
+            },
+        )
+
+    @staticmethod
+    def _report_to_dict(report: ValidationReport) -> dict[str, Any]:
+        """Flatten a ValidationReport into the API response shape."""
+        summary = report.summary()
+        return {
+            "status": summary["status"],
+            "score": summary["score"],
+            "counts": summary["counts"],
+            "results": [
+                {
+                    "rule_id": r.rule_id,
+                    "rule_name": r.rule_name,
+                    "severity": r.severity.value,
+                    "category": r.category.value,
+                    "passed": r.passed,
+                    "message": r.message,
+                    "element_ref": r.element_ref,
+                    "suggestion": r.suggestion,
+                }
+                for r in report.results
+            ],
+        }
+
+    async def validate_rfq(self, rfq_id: uuid.UUID, *, stage: str = "issue") -> dict[str, Any]:
+        """Run one RFQ rule set and return the report (read-only).
+
+        ``stage`` selects which question is being asked: ``issue`` for whether
+        the package is ready to go out to vendors, ``award`` for what the
+        comparison between the returned bids rests on. Anything else is a
+        caller error rather than a silent default, because quietly answering
+        the wrong question is how a rule set ends up trusted for a check it
+        never ran.
+        """
+        stages = {"issue": RFQ_ISSUE_RULE_SET, "award": RFQ_AWARD_RULE_SET}
+        rule_set = stages.get(stage)
+        if rule_set is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unknown validation stage '{stage}'; expected one of {sorted(stages)}",
+            )
+        rfq = await self.get_rfq(rfq_id)
+        report = await self._validate_rfq(rfq, rule_set=rule_set, operation="read")
+        return self._report_to_dict(report)
 
     # ── Bids ────────────────────────────────────────────────────────────────
 
@@ -374,6 +536,16 @@ class RFQService:
                 status_code=status.HTTP_409_CONFLICT,
                 detail=(f"Cannot award bid against RFQ in terminal status '{prior_status}'."),
             )
+
+        # Validate the field of bids the award is being taken from, before the
+        # write expires the instance. The comparison that picked this bid has
+        # already happened by now, so the point of the report is to say what
+        # that comparison rested on. Reporting, not refusing.
+        await self._report_rfq_validation(
+            rfq,
+            rule_set=RFQ_AWARD_RULE_SET,
+            operation="award",
+        )
 
         # Capture identity + display fields BEFORE calling repo.update().
         # The repo's `expire_all()` invalidates these ORM-managed

@@ -10,12 +10,22 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.i18n import get_locale
 from app.core.json_merge import merge_metadata
+from app.core.validation.engine import ValidationReport, validation_engine
 from app.modules.submittals.models import Submittal
 from app.modules.submittals.repository import SubmittalRepository
 from app.modules.submittals.schemas import SubmittalCreate, SubmittalUpdate
 
 logger = logging.getLogger(__name__)
+
+#: Rule set holding this module's submittal checks. Registered in
+#: ``app.core.validation.rules.register_builtin_rules`` and passed explicitly by
+#: :meth:`SubmittalService._validate_submittal`. A rule registered with
+#: ``rule_sets=None`` lands in the set named by its ``standard`` and never runs
+#: unless a caller asks for that set by name, so the name lives in one place and
+#: its reachability is pinned by a test rather than by convention.
+SUBMITTAL_RULE_SET = "submittal"
 
 # Max attempts when ``next_submittal_number`` collides under concurrent
 # creates. Five gives ample slack for high-throughput contention without
@@ -438,6 +448,12 @@ class SubmittalService:
             submittal_id,
             new_rev,
         )
+        # Validation findings ride the same structured line as the state
+        # change rather than a second log entry, so the submittal-cycle
+        # dashboard can index "submitted with open findings" without joining
+        # two events. Reporting, not refusing: see
+        # :meth:`_collect_submission_findings`.
+        findings = await self._collect_submission_findings(fresh)
         _log_state_change(
             submittal_id=submittal_id,
             submittal_number=submittal_number_s,
@@ -446,9 +462,117 @@ class SubmittalService:
             new_status="submitted",
             actor_id=created_by_s,
             revision=new_rev,
-            extra={"source": "submit", "reviewer_id": reviewer_id_s},
+            extra={"source": "submit", "reviewer_id": reviewer_id_s, **findings},
         )
         return fresh or submittal
+
+    # ── Validation ───────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _validation_payload(submittal: Submittal) -> dict[str, Any]:
+        """Flatten a submittal into the dict the ``submittal`` rules read.
+
+        Rules never touch the ORM, so everything they need is copied out here.
+        Dates stay exactly as stored; the rules parse them and treat anything
+        unreadable as absent rather than coercing it.
+
+        ``as_of`` is the clock the date-relative rules use. It is supplied as
+        data so a test can pin it; no rule in this module calls ``today()``.
+        """
+        from datetime import UTC, datetime
+
+        linked = submittal.linked_boq_item_ids
+        return {
+            "id": str(submittal.id),
+            "project_id": str(submittal.project_id),
+            "submittal_number": submittal.submittal_number,
+            "title": submittal.title,
+            "status": submittal.status,
+            "spec_section": submittal.spec_section,
+            "reviewer_id": str(submittal.reviewer_id) if submittal.reviewer_id else None,
+            "approver_id": str(submittal.approver_id) if submittal.approver_id else None,
+            "date_submitted": submittal.date_submitted,
+            "date_required": submittal.date_required,
+            "current_revision": submittal.current_revision,
+            "linked_boq_item_ids": list(linked) if isinstance(linked, list) else [],
+            "as_of": datetime.now(UTC).date().isoformat(),
+        }
+
+    async def _validate_submittal(
+        self,
+        submittal: Submittal,
+        *,
+        operation: str,
+    ) -> ValidationReport:
+        """Run the ``submittal`` rule set against one submittal."""
+        return await validation_engine.validate(
+            data=self._validation_payload(submittal),
+            rule_sets=[SUBMITTAL_RULE_SET],
+            target_type="submittal",
+            target_id=str(submittal.id),
+            project_id=str(submittal.project_id),
+            metadata={"locale": get_locale(), "operation": operation},
+        )
+
+    async def _collect_submission_findings(self, submittal: Submittal | None) -> dict[str, Any]:
+        """Validate a submittal as it is filed and return the ids of what failed.
+
+        This reports, it does not refuse. Submission is already gated by the
+        state machine, and adding a second gate that rejects would change the
+        meaning of an endpoint other people's workflows depend on. The findings
+        still have to reach somebody, so the caller folds them into the
+        structured state-change line, and the same report is available on demand
+        through :meth:`validate_submittal`.
+
+        Returns empty on any failure. An advisory check that breaks a legitimate
+        submission would be worse than the problem it reports.
+        """
+        if submittal is None:
+            return {}
+        try:
+            report = await self._validate_submittal(submittal, operation="submit")
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.debug("Submittal validation skipped for %s: %s", submittal.id, exc)
+            return {}
+        if not report.errors and not report.warnings:
+            return {}
+        return {
+            "validation_errors": [r.rule_id for r in report.errors],
+            "validation_warnings": [r.rule_id for r in report.warnings],
+        }
+
+    @staticmethod
+    def _report_to_dict(report: ValidationReport) -> dict[str, Any]:
+        """Flatten a ValidationReport into the API response shape."""
+        summary = report.summary()
+        return {
+            "status": summary["status"],
+            "score": summary["score"],
+            "counts": summary["counts"],
+            "results": [
+                {
+                    "rule_id": r.rule_id,
+                    "rule_name": r.rule_name,
+                    "severity": r.severity.value,
+                    "category": r.category.value,
+                    "passed": r.passed,
+                    "message": r.message,
+                    "element_ref": r.element_ref,
+                    "suggestion": r.suggestion,
+                }
+                for r in report.results
+            ],
+        }
+
+    async def validate_submittal(self, submittal_id: uuid.UUID) -> dict[str, Any]:
+        """Run the ``submittal`` rule set and return the report (read-only).
+
+        Lets the person filing a submittal see what is missing before the review
+        clock starts, instead of after a reviewer has already been waiting.
+        """
+        submittal = await self.get_submittal(submittal_id)
+        report = await self._validate_submittal(submittal, operation="read")
+        return self._report_to_dict(report)
 
     async def review_submittal(
         self,

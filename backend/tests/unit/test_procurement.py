@@ -181,6 +181,33 @@ def _po_data(**overrides: Any) -> POCreate:
     return POCreate(**defaults)
 
 
+def _approvable_po_data(**overrides: Any) -> POCreate:
+    """``_po_data`` plus everything approval requires.
+
+    Approval runs the blocking ``procurement`` rule set, which refuses a
+    purchase order with no lines, no vendor or no currency. Most tests here
+    never approve and keep the leaner :func:`_po_data`; the ones that do need a
+    purchase order a buyer could really approve. The single line reconciles with
+    the 1000.00 subtotal so the arithmetic rules pass too.
+    """
+    defaults: dict[str, Any] = {
+        "vendor_contact_id": str(uuid.uuid4()),
+        "currency_code": "EUR",
+        "items": [
+            POItemCreate(
+                description="Cement",
+                quantity="10",
+                unit="ton",
+                unit_rate="100.00",
+                amount="1000.00",
+                cost_category="materials",
+            ),
+        ],
+    }
+    defaults.update(overrides)
+    return _po_data(**defaults)
+
+
 # ── Tests ─────────────────────────────────────────────────────────────────
 
 
@@ -262,7 +289,7 @@ async def test_create_po_persists_items_and_reaggregates_totals() -> None:
 @pytest.mark.asyncio
 async def test_issue_po() -> None:
     svc = _make_service()
-    po = await svc.create_po(_po_data())
+    po = await svc.create_po(_approvable_po_data())
     assert po.status == "draft"
 
     # A PO is committed money, so it must be approved before it can be issued
@@ -291,10 +318,143 @@ async def test_issue_po_requires_approval() -> None:
 @pytest.mark.asyncio
 async def test_update_po_status_transition_valid() -> None:
     svc = _make_service()
-    po = await svc.create_po(_po_data())
+    po = await svc.create_po(_approvable_po_data())
 
-    # draft -> approved is the first legal transition (TOP-30 #10).
+    # draft -> approved is the first legal transition (TOP-30 #10). PATCH is a
+    # second door into ``approved``, so it runs the same blocking rule set as
+    # the approve endpoint; the fixture is therefore an approvable PO.
     updated = await svc.update_po(po.id, POUpdate(status="approved"))
+    assert updated.status == "approved"
+
+
+@pytest.mark.asyncio
+async def test_patch_into_approved_is_gated_like_approve(monkeypatch: pytest.MonkeyPatch) -> None:
+    """PATCH must not be an ungated back door into the committed state.
+
+    ``_PO_STATUS_TRANSITIONS`` allows ``draft -> approved``, so without this
+    gate a caller could commit an arithmetically broken PO to the budget just by
+    avoiding the approve endpoint.
+    """
+    from fastapi import HTTPException
+
+    from app.modules.procurement import service as proc_service
+
+    published: list[str] = []
+    monkeypatch.setattr(
+        proc_service.event_bus,
+        "publish_detached",
+        lambda name, data, source_module=None: published.append(name),
+    )
+
+    svc = _make_service()
+    po = await svc.create_po(_approvable_po_data(vendor_contact_id=None))
+    published.clear()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await svc.update_po(po.id, POUpdate(status="approved"))
+    assert exc_info.value.status_code == 422
+    assert "procurement.po_vendor_assigned" in str(exc_info.value.detail)
+
+    # The gate runs before anything is announced, so no subscriber acts on a
+    # change the request is about to abandon. Undoing the write itself is the
+    # request session's job (it commits only on a clean return) and cannot be
+    # asserted here: these stub repositories have no transaction.
+    assert "procurement.po.updated" not in published
+
+
+@pytest.mark.asyncio
+async def test_patch_into_approved_commits_the_budget_like_approve(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Both doors into ``approved`` must publish the same commitment event.
+
+    Previously only ``approve_po`` published ``procurement.po.approved``, while
+    *leaving* ``approved`` published the compensating event from either path. So
+    PATCH-approve followed by PATCH-revert decremented the committed total by an
+    amount that had never been committed.
+    """
+    from app.modules.procurement import service as proc_service
+
+    published: list[tuple[str, dict]] = []
+    monkeypatch.setattr(
+        proc_service.event_bus,
+        "publish_detached",
+        lambda name, data, source_module=None: published.append((name, data)),
+    )
+
+    svc = _make_service()
+    po = await svc.create_po(_approvable_po_data())
+    published.clear()
+
+    await svc.update_po(po.id, POUpdate(status="approved"))
+    approved = [data for name, data in published if name == "procurement.po.approved"]
+    assert len(approved) == 1, "PATCH into approved must commit exactly once"
+    # Same payload shape as approve_po, so no subscriber can tell the doors apart.
+    assert set(approved[0]) == {
+        "po_id",
+        "project_id",
+        "po_number",
+        "amount_total",
+        "currency_code",
+        "approver_id",
+    }
+    assert approved[0]["amount_total"] == po.amount_total
+
+    # And reverting decommits exactly what was committed, not a phantom amount.
+    published.clear()
+    await svc.update_po(po.id, POUpdate(status="draft"))
+    reverted = [data for name, data in published if name == "procurement.po.reverted"]
+    assert len(reverted) == 1
+    assert reverted[0]["amount_total"] == approved[0]["amount_total"]
+
+
+@pytest.mark.asyncio
+async def test_patching_an_already_approved_po_does_not_commit_twice(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The guard is the transition, not the resulting state.
+
+    Editing a note on an approved PO leaves it approved; committing the amount
+    again there would trade one ledger asymmetry for a double commit.
+    """
+    from app.modules.procurement import service as proc_service
+
+    published: list[str] = []
+    monkeypatch.setattr(
+        proc_service.event_bus,
+        "publish_detached",
+        lambda name, data, source_module=None: published.append(name),
+    )
+
+    svc = _make_service()
+    po = await svc.create_po(_approvable_po_data())
+    await svc.update_po(po.id, POUpdate(status="approved"))
+    published.clear()
+
+    await svc.update_po(po.id, POUpdate(notes="delivery moved to gate 3"))
+    assert "procurement.po.approved" not in published
+
+    # Re-sending the same status is also not a fresh transition.
+    published.clear()
+    await svc.update_po(po.id, POUpdate(status="approved"))
+    assert "procurement.po.approved" not in published
+
+
+@pytest.mark.asyncio
+async def test_patch_may_fix_and_approve_in_one_call() -> None:
+    """The gate reads the post-patch state, not the PO as it was read.
+
+    Repairing the purchase order and approving it in the same PATCH is
+    legitimate and must pass, otherwise the gate would force a pointless
+    two-step.
+    """
+    svc = _make_service()
+    po = await svc.create_po(_approvable_po_data(vendor_contact_id=None))
+
+    updated = await svc.update_po(
+        po.id,
+        POUpdate(vendor_contact_id=str(uuid.uuid4()), status="approved"),
+    )
     assert updated.status == "approved"
 
 

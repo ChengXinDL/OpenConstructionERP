@@ -170,13 +170,20 @@ async def _create_po(
     quantity: str = "100",
     unit_rate: str = "120",
 ) -> dict:
-    """Create a draft PO with a single line item; return the PO JSON."""
+    """Create a draft PO with a single line item; return the PO JSON.
+
+    The vendor is set because approval runs the blocking ``procurement`` rule
+    set, which refuses a commitment that names no party. It is an ad-hoc
+    contact id rather than a registered subcontractor, so the vendor
+    prequalification gate stays out of the way of these authorization tests.
+    """
     resp = await client.post(
         "/api/v1/procurement/",
         json={
             "project_id": project_id,
             "po_type": "standard",
             "currency_code": "EUR",
+            "vendor_contact_id": str(uuid.uuid4()),
             "status": "draft",
             "items": [
                 {

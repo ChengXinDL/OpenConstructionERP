@@ -8,6 +8,7 @@ Endpoints:
     GET    /{submittal_id}            - Get single submittal
     PATCH  /{submittal_id}            - Update submittal
     DELETE /{submittal_id}            - Delete submittal
+    GET    /{submittal_id}/validate   - Report what is missing before filing
     POST   /{submittal_id}/submit     - Move to submitted status
     POST   /{submittal_id}/review     - Review (approve/reject/revise) [MANAGER]
     POST   /{submittal_id}/approve    - Final approval [MANAGER]
@@ -21,6 +22,7 @@ import logging
 import uuid
 from collections.abc import Iterable
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -250,6 +252,25 @@ async def delete_submittal(
     existing = await service.get_submittal(submittal_id)
     await verify_project_access(existing.project_id, str(user_id), session)
     await service.delete_submittal(submittal_id)
+
+
+@router.get("/{submittal_id}/validate/")
+async def validate_submittal(
+    submittal_id: uuid.UUID,
+    session: SessionDep,
+    user_id: CurrentUserId = None,  # type: ignore[assignment]
+    _perm: None = Depends(RequirePermission("submittals.read")),
+    service: SubmittalService = Depends(_get_service),
+) -> dict[str, Any]:
+    """Report what is missing on a submittal before it is filed.
+
+    Read-only: it changes nothing and refuses nothing. Submission runs the same
+    checks and records the findings on the state-change line, so this endpoint
+    is where to look first rather than where the problem is discovered.
+    """
+    existing = await service.get_submittal(submittal_id)
+    await verify_project_access(existing.project_id, str(user_id), session)
+    return await service.validate_submittal(submittal_id)
 
 
 @router.post("/{submittal_id}/submit/", response_model=SubmittalResponse)

@@ -380,6 +380,154 @@
       "suggestion": "Issue the expected revision or update the index to the current revision"
     }
   },
+  "procurement": {
+    "po_has_lines": {
+      "fail": "This purchase order has no lines, so its committed amount is not accounted for",
+      "suggestion": "Add the ordered items before approving the purchase order"
+    },
+    "po_line_amount": {
+      "fail": "Line {line} totals {actual} but its quantity times unit rate is {expected}",
+      "suggestion": "Correct the quantity, the unit rate or the line amount so the three agree"
+    },
+    "po_subtotal_matches_lines": {
+      "fail": "The subtotal is {actual} but the lines add up to {expected}",
+      "suggestion": "Recalculate the subtotal from the current lines"
+    },
+    "po_total_matches_subtotal": {
+      "fail": "The total is {actual} but subtotal plus tax is {expected}",
+      "suggestion": "Recalculate the total so it matches the subtotal plus the tax"
+    },
+    "po_no_negative_line": {
+      "fail": "Line {line} has a quantity that is not positive, or a negative unit rate",
+      "suggestion": "Raise a credit note for a reversal instead of a negative line"
+    },
+    "po_currency_set": {
+      "fail": "This purchase order has no currency, so its amount cannot be rolled up or paid",
+      "suggestion": "Set the currency, normally the one the project uses"
+    },
+    "po_vendor_assigned": {
+      "fail": "This purchase order names no vendor",
+      "suggestion": "Select the vendor before approving the commitment"
+    },
+    "po_retention_within_bounds": {
+      "fail": "Retention of {percent}% is outside the plausible range of 0 to {max}%",
+      "suggestion": "Enter retention as a percentage, for example 5 for five percent"
+    },
+    "po_delivery_after_issue": {
+      "fail": "Delivery is set for {delivery}, before the issue date {issue}",
+      "suggestion": "Move the delivery date to the issue date or later"
+    },
+    "po_line_cost_coded": {
+      "fail": "Line {line} has no WBS, cost category or cost line, so it will not appear in the cost breakdown",
+      "suggestion": "Assign a cost code so the commitment reports against a budget"
+    }
+  },
+  "subcontract": {
+    "agreement_has_scope": {
+      "fail": "This agreement has no work packages, so there is nothing for a payment application to claim against",
+      "suggestion": "Break the contracted scope into work packages before activating the agreement"
+    },
+    "package_scope_described": {
+      "fail": "Work package {package} has a name but no description of the work it covers",
+      "suggestion": "Write down what the package includes, so a later variation argument has a starting point"
+    },
+    "agreement_value_positive": {
+      "fail": "The contract value is {value}, so retention and the schedule of values have nothing to work from",
+      "suggestion": "Enter the agreed contract value before activating the agreement"
+    },
+    "packages_within_value": {
+      "fail": "The work packages are worth {planned} but the contract is {total}",
+      "suggestion": "Reprice the packages or raise the contract value so the agreement covers its own scope"
+    },
+    "agreement_dates_ordered": {
+      "fail": "The agreement ends on {end}, before it starts on {start}",
+      "suggestion": "Correct the start or end date so the contract period runs forwards"
+    },
+    "agreement_currency_set": {
+      "fail": "This agreement has no currency, so payments under it cannot be rolled up or paid",
+      "suggestion": "Set the currency, normally the one the project uses"
+    },
+    "retention_within_bounds": {
+      "fail": "Retention of {percent}% is outside the plausible range of 0 to {max}%",
+      "suggestion": "Enter retention as a percentage of each payment, not as an amount"
+    },
+    "insurance_valid_at_start": {
+      "fail": "The subcontractor's insurance expired on {expiry}, before work starts on {reference}",
+      "suggestion": "Collect a current certificate before letting the subcontractor on site"
+    }
+  },
+  "submittal": {
+    "reviewer_assigned": {
+      "fail": "This submittal names no reviewer, so it is submitted into nobody's court",
+      "suggestion": "Assign the reviewer who is to respond before submitting"
+    },
+    "required_date_present": {
+      "fail": "This submittal has no required date, so it can never be reported as late",
+      "suggestion": "Set the date the review is needed by, driven by the work this submittal releases"
+    },
+    "required_date_after_submitted": {
+      "fail": "The review is due on {required}, before the submittal was filed on {submitted}",
+      "suggestion": "Move the required date to a working date after submission"
+    },
+    "review_window_sufficient": {
+      "fail": "The reviewer has {days} days, less than the {minimum} days a review normally needs",
+      "suggestion": "Allow the customary review period, or agree the shorter one with the reviewer first"
+    },
+    "spec_section_present": {
+      "fail": "This submittal names no specification section, so the register cannot file it",
+      "suggestion": "Enter the specification section this submittal answers"
+    },
+    "approver_distinct_from_reviewer": {
+      "fail": "The same person ({person}) is both reviewer and approver, so there is no second pair of eyes",
+      "suggestion": "Assign an approver other than the reviewer"
+    },
+    "linked_scope_present": {
+      "fail": "This submittal is linked to no scope item, so it never rolls up to a package",
+      "suggestion": "Link the BOQ items this submittal covers"
+    }
+  },
+  "rfq": {
+    "scope_described": {
+      "fail": "This request has no scope of work and no description, so there is nothing for a vendor to price",
+      "suggestion": "Describe the scope before publishing, so the bids you get back are comparable"
+    },
+    "deadline_present": {
+      "fail": "This request states no submission deadline, so bidding never closes",
+      "suggestion": "Set the date and time by which bids must arrive"
+    },
+    "deadline_parseable": {
+      "fail": "The submission deadline {value} is not a date the system can read, and every bid will be refused",
+      "suggestion": "Enter the deadline as a date, for example 2026-08-31"
+    },
+    "deadline_in_future": {
+      "fail": "The submission deadline {deadline} has already passed on {today}, so the request arrives closed",
+      "suggestion": "Move the deadline to a future date before publishing"
+    },
+    "has_recipients": {
+      "fail": "This request is addressed to no vendor, so publishing it notifies nobody",
+      "suggestion": "Add the vendors this request is going out to"
+    },
+    "currency_set": {
+      "fail": "This request states no currency, so the bids cannot be ranked against each other",
+      "suggestion": "Set the currency bids are to be priced in"
+    },
+    "bid_currency_matches": {
+      "fail": "Bid {bid} is priced in {bid_currency} but the request is in {rfq_currency}",
+      "suggestion": "Ask the bidder to requote in the request currency, or record the agreed conversion"
+    },
+    "bid_amounts_parseable": {
+      "fail": "Bid {bid} has an amount of {value}, which is not a number that can be ranked",
+      "suggestion": "Correct the bid amount before awarding"
+    },
+    "bids_still_valid": {
+      "fail": "Bid {bid} expired on {expired} and today is {today}, so its price is no longer binding",
+      "suggestion": "Ask the bidder to confirm the price before awarding"
+    },
+    "award_has_competition": {
+      "fail": "This award rests on {count} bids, fewer than the {minimum} a competitive comparison needs",
+      "suggestion": "Record why a single-source award is justified, or invite more bidders"
+    }
+  },
   "errors": {
     "resource_not_found": "Resource not found",
     "project_not_found": "Project not found",

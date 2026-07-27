@@ -19,6 +19,7 @@ NOTE: Fixed-path routes (/goods-receipts) are registered BEFORE the parametric
 import uuid
 from collections.abc import Iterable
 from decimal import Decimal, InvalidOperation
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
@@ -662,6 +663,31 @@ async def get_po_match_status(
     await verify_project_access(po.project_id, str(user_id), session)
     payload = await service.get_match_status(po_id)
     return POMatchStatusResponse.model_validate(payload)
+
+
+@router.get(
+    "/{po_id}/validate/",
+    dependencies=[Depends(RequirePermission("procurement.read"))],
+)
+async def validate_purchase_order(
+    po_id: uuid.UUID,
+    user_id: CurrentUserId,
+    session: SessionDep,
+    service: ProcurementService = Depends(_get_service),
+) -> dict[str, Any]:
+    """Run the ``procurement`` rule set against a purchase order (read-only).
+
+    Same rules the approval gate enforces, run without changing anything, so a
+    buyer can see what approval would refuse before attempting it. WARNING-level
+    findings (uncoded lines, a delivery date before issue) appear here and never
+    block approval; ERROR-level findings are what the gate turns into a 422.
+
+    Read permission on purpose: seeing why a purchase order is not approvable is
+    not the same authority as approving it.
+    """
+    po = await service.get_po(po_id)
+    await verify_project_access(po.project_id, str(user_id), session)
+    return await service.validate_po(po_id)
 
 
 @router.post(

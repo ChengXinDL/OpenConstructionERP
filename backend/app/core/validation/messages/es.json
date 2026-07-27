@@ -67,5 +67,153 @@
       "fail": "El plano {sheet} está en la revisión {actual_rev} pero el índice espera {expected_rev}",
       "suggestion": "Emita la revisión esperada o actualice el índice a la revisión actual"
     }
+  },
+  "procurement": {
+    "po_has_lines": {
+      "fail": "Este pedido no tiene líneas, por lo que su importe comprometido no está justificado",
+      "suggestion": "Añada las partidas pedidas antes de aprobar el pedido"
+    },
+    "po_line_amount": {
+      "fail": "La línea {line} suma {actual}, pero cantidad por precio unitario da {expected}",
+      "suggestion": "Corrija la cantidad, el precio unitario o el importe de la línea para que coincidan"
+    },
+    "po_subtotal_matches_lines": {
+      "fail": "El subtotal es {actual}, pero las líneas suman {expected}",
+      "suggestion": "Recalcule el subtotal a partir de las líneas actuales"
+    },
+    "po_total_matches_subtotal": {
+      "fail": "El total es {actual}, pero subtotal más impuestos da {expected}",
+      "suggestion": "Recalcule el total como subtotal más impuestos"
+    },
+    "po_no_negative_line": {
+      "fail": "La línea {line} tiene una cantidad no positiva o un precio unitario negativo",
+      "suggestion": "Emita un abono en lugar de una línea negativa"
+    },
+    "po_currency_set": {
+      "fail": "Este pedido no tiene moneda, por lo que su importe no se puede consolidar ni pagar",
+      "suggestion": "Indique la moneda, normalmente la del proyecto"
+    },
+    "po_vendor_assigned": {
+      "fail": "Este pedido no indica proveedor",
+      "suggestion": "Seleccione el proveedor antes de aprobar el compromiso"
+    },
+    "po_retention_within_bounds": {
+      "fail": "Una retención del {percent}% está fuera del rango plausible de 0 a {max}%",
+      "suggestion": "Introduzca la retención como porcentaje, por ejemplo 5 para el cinco por ciento"
+    },
+    "po_delivery_after_issue": {
+      "fail": "La entrega está fijada para el {delivery}, antes de la fecha de pedido {issue}",
+      "suggestion": "Mueva la fecha de entrega a la fecha de pedido o posterior"
+    },
+    "po_line_cost_coded": {
+      "fail": "La línea {line} no tiene WBS, categoría de coste ni línea de coste, por lo que no aparecerá en el desglose",
+      "suggestion": "Asigne un código de coste para que el compromiso impute a un presupuesto"
+    }
+  },
+  "subcontract": {
+    "agreement_has_scope": {
+      "fail": "Este contrato no tiene paquetes de trabajo, por lo que no hay nada contra lo que certificar una solicitud de pago",
+      "suggestion": "Divida el alcance contratado en paquetes de trabajo antes de activar el contrato"
+    },
+    "package_scope_described": {
+      "fail": "El paquete de trabajo {package} tiene nombre pero no describe la obra que cubre",
+      "suggestion": "Deje por escrito que incluye el paquete, para que una futura discusion de adicionales tenga base"
+    },
+    "agreement_value_positive": {
+      "fail": "El importe del contrato es {value}, de modo que la retencion y la certificacion no tienen base de calculo",
+      "suggestion": "Introduzca el importe contratado antes de activar el contrato"
+    },
+    "packages_within_value": {
+      "fail": "Los paquetes de trabajo suman {planned} pero el contrato es de {total}",
+      "suggestion": "Revalorice los paquetes o eleve el importe del contrato para que cubra su propio alcance"
+    },
+    "agreement_dates_ordered": {
+      "fail": "El contrato termina el {end}, antes de comenzar el {start}",
+      "suggestion": "Corrija la fecha de inicio o de fin para que el plazo avance"
+    },
+    "agreement_currency_set": {
+      "fail": "Este contrato no tiene moneda, por lo que sus pagos no se pueden agregar ni abonar",
+      "suggestion": "Fije la moneda, normalmente la del proyecto"
+    },
+    "retention_within_bounds": {
+      "fail": "Una retencion del {percent}% queda fuera del rango plausible de 0 a {max}%",
+      "suggestion": "Introduzca la retencion como porcentaje de cada pago, no como importe"
+    },
+    "insurance_valid_at_start": {
+      "fail": "El seguro del subcontratista vencio el {expiry}, antes del inicio de los trabajos el {reference}",
+      "suggestion": "Recabe un certificado vigente antes de dar acceso a obra al subcontratista"
+    }
+  },
+  "submittal": {
+    "reviewer_assigned": {
+      "fail": "Esta documentacion no indica revisor, de modo que se presenta y no queda en manos de nadie",
+      "suggestion": "Asigne el revisor que debe responder antes de presentarla"
+    },
+    "required_date_present": {
+      "fail": "Esta documentacion no tiene fecha requerida, por lo que nunca podra reportarse como atrasada",
+      "suggestion": "Fije la fecha en que se necesita la revision, segun la obra que esta documentacion libera"
+    },
+    "required_date_after_submitted": {
+      "fail": "La revision vence el {required}, antes de que la documentacion se presentara el {submitted}",
+      "suggestion": "Traslade la fecha requerida a un dia posterior a la presentacion"
+    },
+    "review_window_sufficient": {
+      "fail": "El revisor dispone de {days} dias, menos de los {minimum} que suele necesitar una revision",
+      "suggestion": "Conceda el plazo habitual de revision o acuerde antes el plazo mas corto con el revisor"
+    },
+    "spec_section_present": {
+      "fail": "Esta documentacion no indica seccion del pliego, por lo que el registro no puede clasificarla",
+      "suggestion": "Introduzca la seccion del pliego a la que responde esta documentacion"
+    },
+    "approver_distinct_from_reviewer": {
+      "fail": "La misma persona ({person}) revisa y aprueba, con lo que no hay doble control",
+      "suggestion": "Asigne un aprobador distinto del revisor"
+    },
+    "linked_scope_present": {
+      "fail": "Esta documentacion no esta vinculada a ninguna partida, por lo que nunca se agrega a un paquete",
+      "suggestion": "Vincule las partidas del presupuesto que cubre esta documentacion"
+    }
+  },
+  "rfq": {
+    "scope_described": {
+      "fail": "Esta solicitud no tiene alcance ni descripcion, de modo que un proveedor no tiene nada que valorar",
+      "suggestion": "Describa el alcance antes de publicarla, para que las ofertas sean comparables"
+    },
+    "deadline_present": {
+      "fail": "Esta solicitud no indica fecha limite, por lo que la licitacion nunca se cierra",
+      "suggestion": "Fije la fecha en la que deben recibirse las ofertas"
+    },
+    "deadline_parseable": {
+      "fail": "La fecha limite {value} no es una fecha legible y toda oferta sera rechazada",
+      "suggestion": "Introduzca la fecha limite como fecha, por ejemplo 2026-08-31"
+    },
+    "deadline_in_future": {
+      "fail": "La fecha limite {deadline} ya paso el {today}, de modo que la solicitud llega cerrada",
+      "suggestion": "Traslade la fecha limite a una fecha futura antes de publicar"
+    },
+    "has_recipients": {
+      "fail": "Esta solicitud no va dirigida a ningun proveedor, publicarla no avisa a nadie",
+      "suggestion": "Anada los proveedores a los que se envia esta solicitud"
+    },
+    "currency_set": {
+      "fail": "Esta solicitud no indica moneda, por lo que las ofertas no se pueden ordenar entre si",
+      "suggestion": "Fije la moneda en la que deben valorarse las ofertas"
+    },
+    "bid_currency_matches": {
+      "fail": "La oferta {bid} esta valorada en {bid_currency} pero la solicitud es en {rfq_currency}",
+      "suggestion": "Pida al ofertante que revalore en la moneda de la solicitud, o registre la conversion acordada"
+    },
+    "bid_amounts_parseable": {
+      "fail": "La oferta {bid} tiene un importe de {value}, que no es un numero ordenable",
+      "suggestion": "Corrija el importe de la oferta antes de adjudicar"
+    },
+    "bids_still_valid": {
+      "fail": "La oferta {bid} vencio el {expired} y hoy es {today}, de modo que su precio ya no obliga",
+      "suggestion": "Pida al ofertante que confirme el precio antes de adjudicar"
+    },
+    "award_has_competition": {
+      "fail": "Esta adjudicacion se apoya en {count} ofertas, menos de las {minimum} que exige una comparacion competitiva",
+      "suggestion": "Justifique por escrito la adjudicacion directa, o invite a mas ofertantes"
+    }
   }
 }

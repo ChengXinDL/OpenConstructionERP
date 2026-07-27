@@ -9,6 +9,7 @@ Endpoints:
     PATCH  /{id}                   - Update RFQ (requires rfq.update + project access)
     DELETE /{id}                   - Delete RFQ (requires rfq.delete + project access)
     POST   /{id}/issue             - Issue RFQ (requires rfq.update + project access)
+    GET    /{id}/validate          - Report RFQ findings for the issue or award stage
     GET    /bids                   - List bids (requires rfq.read + project access via rfq_id)
     POST   /bids                   - Submit bid (requires rfq.create + project access)
     GET    /bids/{id}              - Get single bid (requires rfq.read + project access)
@@ -17,6 +18,7 @@ Endpoints:
 """
 
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
@@ -243,6 +245,31 @@ async def issue_rfq(
         reason=(payload.get("reason") if isinstance(payload, dict) else None),
     )
     return RFQResponse.model_validate(rfq)
+
+
+@router.get(
+    "/{rfq_id}/validate/",
+    dependencies=[Depends(RequirePermission("rfq.read"))],
+)
+async def validate_rfq(
+    rfq_id: uuid.UUID,
+    user_id: CurrentUserId,
+    payload: CurrentUserPayload,
+    session: SessionDep,
+    stage: str = Query(
+        default="issue",
+        description="Which question to ask: 'issue' (ready to publish) or 'award' (bids comparable)",
+    ),
+    service: RFQService = Depends(_get_service),
+) -> dict[str, Any]:
+    """Report what is wrong with an RFQ, before publishing or before awarding.
+
+    Read-only: it changes nothing and refuses nothing. Both lifecycle steps run
+    the same checks and record the findings, so this endpoint is where to look
+    first rather than where the problem is discovered.
+    """
+    await _verify_rfq_access(session, rfq_id, user_id, payload)
+    return await service.validate_rfq(rfq_id, stage=stage)
 
 
 # ── Bids ────────────────────────────────────────────────────────────────────

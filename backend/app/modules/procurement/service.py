@@ -22,8 +22,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.events import event_bus
+from app.core.i18n import get_locale
 from app.core.json_merge import merge_metadata
 from app.core.sql_numeric import numeric_value
+from app.core.validation.engine import ValidationReport, validation_engine
 from app.modules.procurement.models import (
     GoodsReceipt,
     GoodsReceiptItem,
@@ -53,6 +55,12 @@ from app.modules.procurement.schemas import (
     ProjectDeliveryPerformanceResponse,
     SupplierDeliveryPerformance,
 )
+
+#: Rule set run against a purchase order. Registered in
+#: ``app.core.validation.rules.register_builtin_rules`` and passed explicitly by
+#: :meth:`ProcurementService._validate_po` -- a rule set nobody passes never runs.
+PROCUREMENT_RULE_SET = "procurement"
+
 
 # ── Material Requisition FSM (R7) ─────────────────────────────────────────────
 
@@ -687,7 +695,9 @@ class ProcurementService:
         """Update PO fields and optionally replace items.
 
         Validates status transitions and recomputes amount_total when
-        subtotal or tax are changed.
+        subtotal or tax are changed. A PATCH that moves the PO into
+        ``approved`` runs the same blocking ``procurement`` rule set as
+        :meth:`approve_po`, so approval cannot be reached ungated.
         """
         po = await self.get_po(po_id)  # 404 check
         prior_status = po.status
@@ -809,6 +819,21 @@ class ProcurementService:
                 detail="Purchase order not found",
             )
 
+        # The same gate :meth:`approve_po` applies. PATCH is a second door into
+        # ``approved`` (``_PO_STATUS_TRANSITIONS`` allows ``draft -> approved``
+        # and ``cancelled -> draft -> approved``), so leaving it ungated would
+        # let a caller commit an arithmetically broken PO to the budget by
+        # avoiding one endpoint. A gate with a second door is not a gate.
+        #
+        # It runs on the POST-patch state, not on the PO as it was read: a PATCH
+        # that repairs the amounts and approves in the same call is legitimate
+        # and must pass. Raising here rolls the whole PATCH back, since the
+        # request session commits only on a clean return and the repository
+        # flushes rather than commits, and it happens before any event is
+        # published so no listener sees a change that was undone.
+        if prior_status != "approved" and updated.status == "approved":
+            await self._validate_po_or_raise(updated, operation="approve")
+
         await _safe_publish(
             "procurement.po.updated",
             {
@@ -818,6 +843,52 @@ class ProcurementService:
                 "status": updated.status,
             },
         )
+
+        # Entering ``approved`` through PATCH must commit the budget exactly as
+        # :meth:`approve_po` does. Without this the ledger was asymmetric: only
+        # ``approve_po`` published ``procurement.po.approved``, while the block
+        # below published the compensating event from either path. So a PATCH
+        # into ``approved`` followed by a PATCH back to ``draft`` decremented
+        # ``ProjectBudget.committed`` by an amount that was never committed, and
+        # a PO approved this way was issuable while finance had never seen the
+        # exposure at all.
+        #
+        # Guarded on the transition, not on the resulting state: a PATCH that
+        # touches an already-approved PO must not commit the amount a second
+        # time. Same condition, same payload and same audit row as
+        # ``approve_po``, so the two doors into ``approved`` are indistinguishable
+        # to every subscriber. ``approver_id`` is empty here because PATCH
+        # carries no approver, which is what ``approve_po`` also sends when it
+        # is called without one.
+        if prior_status != "approved" and updated.status == "approved":
+            try:
+                from app.core.audit_log import log_activity
+
+                await log_activity(
+                    self.session,
+                    actor_id=None,
+                    entity_type="purchase_order",
+                    entity_id=str(po_id),
+                    action="status_changed",
+                    from_status=prior_status,
+                    to_status="approved",
+                    reason="PO approved via update_po()",
+                    metadata={"po_number": updated.po_number},
+                )
+            except Exception:
+                logger.debug("FSM audit log skipped for PO %s approve via PATCH", po_id)
+
+            await _safe_publish(
+                "procurement.po.approved",
+                {
+                    "po_id": str(po_id),
+                    "project_id": str(updated.project_id),
+                    "po_number": updated.po_number,
+                    "amount_total": updated.amount_total,
+                    "currency_code": updated.currency_code or "",
+                    "approver_id": "",
+                },
+            )
 
         # Max-Audit #10: when a PO LEAVES the ``approved`` state its budget
         # commitment must be reversed. The PO FSM allows ``approved -> draft``
@@ -851,6 +922,118 @@ class ProcurementService:
         logger.info("PO updated: %s", po_id)
         return updated
 
+    # ── Validation ───────────────────────────────────────────────────────────
+
+    def _validation_payload(self, po: PurchaseOrder) -> dict[str, object]:
+        """Flatten a PO and its lines into the dict the ``procurement`` rules read.
+
+        Rules never touch the ORM, so everything they need is copied out here.
+        Amounts stay Decimal strings exactly as stored -- the rules parse them
+        themselves and report an unparseable amount rather than coercing it.
+        """
+        return {
+            "id": str(po.id),
+            "project_id": str(po.project_id),
+            "po_number": po.po_number,
+            "status": po.status,
+            "currency_code": po.currency_code or "",
+            "amount_subtotal": po.amount_subtotal,
+            "tax_amount": po.tax_amount,
+            "amount_total": po.amount_total,
+            "retention_percent": str(po.retention_percent if po.retention_percent is not None else "0"),
+            "issue_date": po.issue_date,
+            "delivery_date": po.delivery_date,
+            "vendor_contact_id": po.vendor_contact_id,
+            "items": [
+                {
+                    "description": item.description,
+                    "quantity": item.quantity,
+                    "unit": item.unit,
+                    "unit_rate": item.unit_rate,
+                    "amount": item.amount,
+                    "wbs_id": item.wbs_id,
+                    "cost_category": item.cost_category,
+                    "cost_line_id": (str(item.cost_line_id) if item.cost_line_id else None),
+                    "sort_order": item.sort_order,
+                }
+                for item in sorted(po.items, key=lambda i: (i.sort_order, str(i.id)))
+            ],
+        }
+
+    async def _validate_po(self, po: PurchaseOrder, *, operation: str) -> ValidationReport:
+        """Run the ``procurement`` rule set against a purchase order."""
+        return await validation_engine.validate(
+            data=self._validation_payload(po),
+            rule_sets=[PROCUREMENT_RULE_SET],
+            target_type="purchase_order",
+            target_id=str(po.id),
+            project_id=str(po.project_id),
+            metadata={"locale": get_locale(), "operation": operation},
+        )
+
+    async def _validate_po_or_raise(self, po: PurchaseOrder, *, operation: str) -> ValidationReport:
+        """Run validation and raise HTTP 422 when any ERROR-severity rule fails.
+
+        The detail carries every failing rule, not just the first, so the buyer
+        fixes the purchase order once instead of rediscovering the next problem
+        on the next attempt.
+        """
+        report = await self._validate_po(po, operation=operation)
+        if report.has_errors:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "message": (
+                        f"This purchase order has problems that must be fixed before you can "
+                        f"{operation} it. See the errors listed below, correct each one, then try again."
+                    ),
+                    "report": report.summary(),
+                    "errors": [
+                        {
+                            "rule_id": r.rule_id,
+                            "message": r.message,
+                            "element_ref": r.element_ref,
+                            "suggestion": r.suggestion,
+                        }
+                        for r in report.errors
+                    ],
+                },
+            )
+        return report
+
+    @staticmethod
+    def _po_report_to_dict(report: ValidationReport) -> dict[str, object]:
+        """Flatten a ValidationReport into the API response shape."""
+        summary = report.summary()
+        return {
+            "status": summary["status"],
+            "score": summary["score"],
+            "counts": summary["counts"],
+            "results": [
+                {
+                    "rule_id": r.rule_id,
+                    "rule_name": r.rule_name,
+                    "severity": r.severity.value,
+                    "category": r.category.value,
+                    "passed": r.passed,
+                    "message": r.message,
+                    "element_ref": r.element_ref,
+                    "suggestion": r.suggestion,
+                }
+                for r in report.results
+            ],
+        }
+
+    async def validate_po(self, po_id: uuid.UUID) -> dict[str, object]:
+        """Run the procurement rule set and return the report (read-only).
+
+        Lets a buyer see what approval would refuse before trying it, so the
+        gate below is never the first time the problem is mentioned.
+        """
+        po = await self.get_po(po_id)
+        report = await self._validate_po(po, operation="read")
+        return self._po_report_to_dict(report)
+
     async def approve_po(self, po_id: uuid.UUID, approver_id: str | None = None) -> PurchaseOrder:
         """Approve a draft PO so it can be issued (TOP-30 #10).
 
@@ -858,6 +1041,13 @@ class ProcurementService:
         and publishes ``procurement.po.approved`` so finance commits the amount
         against the project budget. Issuing the PO to the vendor is a separate
         downstream step that requires this approval first.
+
+        Because nothing downstream re-derives the committed amount, the
+        ``procurement`` rule set runs here and ERROR-severity findings block the
+        transition (422). A PO whose subtotal disagrees with its own lines would
+        otherwise commit one number to the budget and show another to the buyer.
+        WARNING findings (uncoded lines, a delivery date before issue) do not
+        block; they are returned by :meth:`validate_po` for the buyer to see.
         """
         po = await self.get_po(po_id)
         prior_status = po.status
@@ -868,6 +1058,7 @@ class ProcurementService:
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Cannot approve PO in status '{prior_status}'",
             )
+        await self._validate_po_or_raise(po, operation="approve")
         await self.po_repo.update(po_id, status="approved")
 
         try:

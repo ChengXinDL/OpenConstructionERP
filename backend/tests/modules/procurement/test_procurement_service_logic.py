@@ -165,11 +165,47 @@ def _make_service() -> ProcurementService:
     return svc
 
 
+#: Approval runs the blocking ``procurement`` rule set, which refuses a purchase
+#: order with no vendor or no currency. These stub repositories cannot resolve
+#: the parent project, so ``create_po`` never inherits the project currency and
+#: every approvable fixture has to state one. The tests below are about the
+#: over-receipt cap, the FSM and retainage, so this keeps them failing only for
+#: the reason each is actually about.
+VENDOR_A = "44444444-4444-4444-4444-444444444444"
+
+
+def _approvable_po(*, amount_subtotal: str) -> POCreate:
+    """A purchase order a buyer could really approve, worth ``amount_subtotal``.
+
+    The single line carries the whole amount, so ``create_po`` re-aggregates the
+    subtotal back to exactly what was asked for and the arithmetic rules agree.
+    """
+    return POCreate(
+        project_id=PROJECT_A,
+        vendor_contact_id=VENDOR_A,
+        currency_code="EUR",
+        amount_subtotal=amount_subtotal,
+        tax_amount="0",
+        items=[
+            POItemCreate(
+                description="Site works",
+                quantity="1",
+                unit="lot",
+                unit_rate=amount_subtotal,
+                amount=amount_subtotal,
+                cost_category="works",
+            ),
+        ],
+    )
+
+
 async def _make_issued_po(svc: ProcurementService, *, quantity: str = "100") -> PurchaseOrder:
     """Create a draft PO with one line, approve + issue it (receivable)."""
     po = await svc.create_po(
         POCreate(
             project_id=PROJECT_A,
+            vendor_contact_id=VENDOR_A,
+            currency_code="EUR",
             amount_subtotal="0",
             tax_amount="0",
             items=[
@@ -311,7 +347,7 @@ def test_check_po_fully_received_true_for_no_items() -> None:
 async def test_approve_then_issue_happy_path() -> None:
     svc = _make_service()
     po = await svc.create_po(
-        POCreate(project_id=PROJECT_A, amount_subtotal="100", tax_amount="0"),
+        _approvable_po(amount_subtotal="100"),
         user_id=USER_A,
     )
     approved = await svc.approve_po(po.id, approver_id=USER_A)
@@ -324,7 +360,7 @@ async def test_approve_then_issue_happy_path() -> None:
 async def test_approve_is_idempotent() -> None:
     svc = _make_service()
     po = await svc.create_po(
-        POCreate(project_id=PROJECT_A, amount_subtotal="100", tax_amount="0"),
+        _approvable_po(amount_subtotal="100"),
         user_id=USER_A,
     )
     await svc.approve_po(po.id, approver_id=USER_A)
@@ -361,11 +397,7 @@ async def test_approve_non_draft_is_409() -> None:
 async def _issued_po_with_retainage(svc: ProcurementService) -> PurchaseOrder:
     """Issued PO, 10,000 total, 10% retention -> 1,000 withheld."""
     po = await svc.create_po(
-        POCreate(
-            project_id=PROJECT_A,
-            amount_subtotal="10000",
-            tax_amount="0",
-        ),
+        _approvable_po(amount_subtotal="10000"),
         user_id=USER_A,
     )
     await svc.po_repo.update(po.id, retention_percent=Decimal("10.00"))

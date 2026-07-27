@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.events import event_bus
 from app.core.i18n import get_locale
+from app.core.validation.engine import ValidationReport, validation_engine
 from app.core.validation.messages import translate
 from app.modules.subcontractors.models import (
     Certificate,
@@ -535,6 +536,14 @@ _AGREEMENT_TRANSITIONS: dict[str, set[str]] = {
     "terminated": set(),
 }
 
+#: Rule set holding this module's agreement checks. Registered in
+#: ``app.core.validation.rules.register_builtin_rules`` and passed explicitly by
+#: :meth:`SubcontractorService._validate_agreement`. A rule registered with
+#: ``rule_sets=None`` lands in the set named by its ``standard`` and never runs
+#: unless a caller asks for that set by name, so the name is stated in one place
+#: and its reachability is pinned by a test rather than by convention.
+SUBCONTRACT_RULE_SET = "subcontract"
+
 
 def _assert_transition(
     from_status: str,
@@ -1013,6 +1022,7 @@ class SubcontractorService:
         if entity is None:
             raise HTTPException(status_code=404, detail=translate("errors.agreement_not_found", locale=get_locale()))
         fields = data.model_dump(exclude_unset=True)
+        activating = False
         if "status" in fields and fields["status"] is not None:
             _assert_transition(
                 entity.status,
@@ -1025,10 +1035,154 @@ class SubcontractorService:
             # or rejected/suspended vendor.
             if fields["status"] == "active" and entity.status != "active":
                 await self._assert_subcontractor_awardable(entity.subcontractor_id)
+                activating = True
         if fields:
             await self.agreements.update_fields(agreement_id, **fields)
             await self.session.refresh(entity)
+        if activating:
+            # Guarded on the transition, not on the resulting state, so that
+            # re-patching an agreement that is already active does not re-run
+            # the checks and re-log the same findings on every edit.
+            await self._report_agreement_validation(entity)
         return entity
+
+    # ── Agreement validation ────────────────────────────────────────────
+
+    async def _agreement_validation_payload(
+        self,
+        agreement: SubcontractAgreement,
+    ) -> dict[str, object]:
+        """Flatten an agreement, its work packages and its subcontractor.
+
+        Rules never touch the ORM, so everything they read is copied out here.
+        Money stays as it is stored and dates are rendered ISO; the rules parse
+        both themselves and report an unparseable value rather than coercing it.
+
+        ``as_of`` is the clock the date-relative rules use. It is supplied as
+        data so a test can pin it; no rule in this module calls ``today()``.
+        """
+        packages: list[Any] = []
+        lister = getattr(self.work_packages, "list_for_agreement", None)
+        if lister is not None:
+            packages = list(await lister(agreement.id))
+
+        insurance_expiry: object | None = None
+        try:
+            subcontractor = await self.subs.get_by_id(agreement.subcontractor_id)
+        except Exception:  # pragma: no cover - stub repositories in unit tests
+            subcontractor = None
+        if subcontractor is not None:
+            insurance_expiry = getattr(subcontractor, "insurance_expiry_date", None)
+
+        def _iso(value: object | None) -> str | None:
+            return value.isoformat() if isinstance(value, date) else (str(value) if value else None)
+
+        return {
+            "id": str(agreement.id),
+            "title": agreement.title,
+            "status": agreement.status,
+            "currency": agreement.currency or "",
+            "total_value": str(agreement.total_value if agreement.total_value is not None else "0"),
+            "retention_percent": str(agreement.retention_percent if agreement.retention_percent is not None else "0"),
+            "start_date": _iso(agreement.start_date),
+            "end_date": _iso(agreement.end_date),
+            "insurance_expiry_date": _iso(insurance_expiry),
+            "as_of": datetime.now(UTC).date().isoformat(),
+            "work_packages": [
+                {
+                    "name": package.name,
+                    "scope": package.scope,
+                    "planned_value": str(package.planned_value if package.planned_value is not None else "0"),
+                    "status": package.status,
+                }
+                for package in packages
+            ],
+        }
+
+    async def _validate_agreement(
+        self,
+        agreement: SubcontractAgreement,
+        *,
+        operation: str,
+    ) -> ValidationReport:
+        """Run the ``subcontract`` rule set against one agreement."""
+        return await validation_engine.validate(
+            data=await self._agreement_validation_payload(agreement),
+            rule_sets=[SUBCONTRACT_RULE_SET],
+            target_type="subcontract_agreement",
+            target_id=str(agreement.id),
+            project_id=str(agreement.project_id),
+            metadata={"locale": get_locale(), "operation": operation},
+        )
+
+    async def _report_agreement_validation(self, agreement: SubcontractAgreement) -> None:
+        """Validate an agreement as it goes live and record what is wrong.
+
+        This reports, it does not refuse. Activation already has two hard gates
+        (the state machine and the prequalification check) and adding a third
+        that rejects would change the meaning of an endpoint other people's
+        workflows depend on. The findings still have to reach somebody, so they
+        land on the log with their rule ids, and the same report is available
+        on demand through :meth:`validate_agreement`.
+
+        Failures inside validation are swallowed. An advisory check that breaks
+        a legitimate activation would be worse than the problem it reports.
+        """
+        try:
+            report = await self._validate_agreement(agreement, operation="activate")
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.debug("Agreement validation skipped for %s: %s", agreement.id, exc)
+            return
+        if not report.errors and not report.warnings:
+            return
+        logger.warning(
+            "subcontract.agreement_activated_with_findings %s",
+            {
+                "agreement_id": str(agreement.id),
+                "project_id": str(agreement.project_id),
+                "errors": [r.rule_id for r in report.errors],
+                "warnings": [r.rule_id for r in report.warnings],
+            },
+        )
+
+    @staticmethod
+    def _agreement_report_to_dict(report: ValidationReport) -> dict[str, object]:
+        """Flatten a ValidationReport into the API response shape."""
+        summary = report.summary()
+        return {
+            "status": summary["status"],
+            "score": summary["score"],
+            "counts": summary["counts"],
+            "results": [
+                {
+                    "rule_id": r.rule_id,
+                    "rule_name": r.rule_name,
+                    "severity": r.severity.value,
+                    "category": r.category.value,
+                    "passed": r.passed,
+                    "message": r.message,
+                    "element_ref": r.element_ref,
+                    "suggestion": r.suggestion,
+                }
+                for r in report.results
+            ],
+        }
+
+    async def validate_agreement(self, agreement_id: uuid.UUID) -> dict[str, object]:
+        """Run the ``subcontract`` rule set and return the report (read-only).
+
+        Lets a contract administrator see what is wrong with an agreement before
+        it goes live, rather than finding out from a payment application that
+        will not reconcile weeks later.
+        """
+        entity = await self.agreements.get_by_id(agreement_id)
+        if entity is None:
+            raise HTTPException(
+                status_code=404,
+                detail=translate("errors.agreement_not_found", locale=get_locale()),
+            )
+        report = await self._validate_agreement(entity, operation="read")
+        return self._agreement_report_to_dict(report)
 
     async def subcontractor_award_eligibility(
         self,
