@@ -34,6 +34,7 @@ import {
 import { APP_VERSION } from '@/shared/lib/version';
 import { apiPost, ApiError } from '@/shared/lib/api';
 import { copyToClipboard } from '@/shared/lib/browser';
+import { isTauri } from '@/shared/lib/desktop';
 
 /* ── One-click upgrade — runs `pip install --upgrade` server-side ──── */
 
@@ -691,7 +692,12 @@ function UpdateFullModal({
 
           {/* One-click upgrade — server-side ``pip install --upgrade`` in the
               same venv as the running uvicorn. The 403 fallback below shows
-              when ALLOW_RUNTIME_UPGRADE is off (managed installs). */}
+              when ALLOW_RUNTIME_UPGRADE is off (managed installs).
+
+              Deliberately still shown in the desktop build even though the
+              route refuses there (frozen sidecar, no pip - issue #403): the
+              409 carries the instruction the user needs, and hiding the
+              button would hide the instruction with it. */}
           <section>
             <h3 className="text-xs font-semibold uppercase tracking-wider text-content-tertiary mb-3">
               {t('update.apply_now', { defaultValue: 'Apply update' })}
@@ -778,7 +784,9 @@ function UpdateFullModal({
             </div>
           </section>
 
-          {/* Install commands */}
+          {/* Install commands — hidden in the desktop build, where there is no
+              venv and no pip to run them in (issue #403). */}
+          {!isTauri && (
           <section>
             <h3 className="text-xs font-semibold uppercase tracking-wider text-content-tertiary mb-3">
               {t('update.how_to_update', { defaultValue: 'How to update' })}
@@ -819,6 +827,7 @@ function UpdateFullModal({
               ))}
             </div>
           </section>
+          )}
         </div>
 
         {/* Footer — release link + primary dismiss */}

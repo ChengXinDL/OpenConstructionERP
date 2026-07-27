@@ -59,6 +59,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import Settings, build_provenance_tag, desktop_mode, get_settings
 from app.core.deployment_posture import build_data_security_posture
 from app.core.module_loader import module_loader
+from app.core.self_upgrade import FROZEN_REFUSAL, is_frozen_build
 from app.dependencies import RequireRole, get_current_user_id, rls_request_context
 
 logger = logging.getLogger(__name__)
@@ -1848,6 +1849,9 @@ def create_app() -> FastAPI:
             latest = current
 
         update_available = _semver_tuple(latest) > _semver_tuple(current)
+        # A frozen build has no pip to upgrade itself with, so advertising the
+        # pip command there sends the user down a path that cannot work.
+        frozen = is_frozen_build()
         result = {
             "current_version": current,
             "latest_version": latest,
@@ -1855,7 +1859,10 @@ def create_app() -> FastAPI:
             "release_url": release_url,
             "release_notes": release_notes,
             "published_at": published_at,
-            "upgrade_command": "pip install --upgrade openconstructionerp",
+            "self_upgrade_supported": not frozen,
+            "upgrade_command": (
+                "Download and run the latest installer" if frozen else "pip install --upgrade openconstructionerp"
+            ),
         }
         setattr(app.state, cache_key, {"data": result, "checked_at": time.time()})
         return result
@@ -1918,6 +1925,12 @@ def create_app() -> FastAPI:
                     "shell, then restart the service."
                 ),
             )
+
+        # A frozen build would feed the pip command below back into its own CLI
+        # instead of upgrading anything (issue #403), so point at the installer,
+        # which is the route that actually works there.
+        if is_frozen_build():
+            raise HTTPException(status_code=409, detail=FROZEN_REFUSAL)
 
         target = "openconstructionerp"
         if version and version.replace(".", "").replace("-", "").isalnum():

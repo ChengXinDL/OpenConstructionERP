@@ -975,8 +975,25 @@ def cmd_upgrade(args: argparse.Namespace) -> None:
     """
     import subprocess
 
+    # Imported here, not at module scope: this file keeps its top-level imports
+    # to the standard library so the CLI starts fast.
+    from app.core.self_upgrade import RELEASES_URL, is_frozen_build
+
     print()
     print(_bold(_u("OpenConstructionERP \u2014 upgrade", "OpenConstructionERP - upgrade")))
+
+    # In the PyInstaller desktop build ``sys.executable`` is the frozen binary,
+    # not an interpreter, so the tokens below would come straight back into this
+    # CLI as ``openconstructionerp pip install ...`` and argparse would answer
+    # ``invalid choice: 'pip'`` (issue #403). The bundle carries no pip; the
+    # installer replaces the whole app.
+    if is_frozen_build():
+        print()
+        print(_red(_bold("  This build cannot upgrade itself with pip.")))
+        print(_dim("Download the latest installer and run it over this install:"))
+        print(_dim(f"  {RELEASES_URL}"))
+        print(_dim("Your projects and settings stay where they are."))
+        sys.exit(1)
 
     target = "openconstructionerp"
     if args.version:
