@@ -186,6 +186,7 @@ def boot(data_dir: Path | str) -> bool:
     # skipped. Both are no-ops once the cluster exists.
     _apply_ascii_locale_env()
     _pre_initialize_cluster(resolved_pgdata)
+    _apply_server_settings(resolved_pgdata)
 
     emit_stage("pg", "start", "Starting embedded PostgreSQL")
 
@@ -530,6 +531,62 @@ def _clear_incomplete_cluster(pgdata: Path) -> None:
                 entry.unlink()
         except OSError as exc:
             logger.warning("could not remove %s while clearing an incomplete cluster: %r", entry, exc)
+
+
+#: Delimits the settings this module owns inside ``postgresql.conf``, so the
+#: block can be rewritten in place instead of appended to on every boot.
+_SETTINGS_BEGIN = "# BEGIN OpenConstructionERP settings (managed, do not edit)"
+_SETTINGS_END = "# END OpenConstructionERP settings"
+
+#: Lock slots are a shared pool sized ``max_locks_per_transaction`` times
+#: ``max_connections``, not a per-transaction allowance. The platform's schema
+#: runs to well over a thousand tables and indexes, and creating or reflecting it
+#: takes a lock on each one, so several connections doing that at once exhaust
+#: the default pool of 64 and PostgreSQL fails the statement with "out of shared
+#: memory". The extra slots cost a few megabytes, which is worth paying to keep
+#: the cluster usable on a 2 GB box.
+_SERVER_SETTINGS = (("max_locks_per_transaction", "512"),)
+
+
+def _apply_server_settings(pgdata: Path) -> bool:
+    """Write the settings the platform's schema needs into ``postgresql.conf``.
+
+    Returns ``True`` when the file was changed. Runs before every start and is
+    idempotent: the managed block is replaced rather than appended, so repeated
+    boots leave one copy. A cluster that does not exist yet, or a config we
+    cannot read or write, is left alone -- the settings are a widening of
+    PostgreSQL's defaults, so failing to apply them only returns the cluster to
+    the behaviour it had before.
+    """
+    conf = pgdata / "postgresql.conf"
+    try:
+        original = conf.read_text(encoding="utf-8")
+    except OSError:
+        return False
+
+    body = [f"{name} = {value}" for name, value in _SERVER_SETTINGS]
+    block = "\n".join([_SETTINGS_BEGIN, *body, _SETTINGS_END])
+
+    start = original.find(_SETTINGS_BEGIN)
+    if start == -1:
+        updated = original.rstrip("\n") + "\n\n" + block + "\n"
+    else:
+        end = original.find(_SETTINGS_END, start)
+        if end == -1:
+            # Truncated block from an interrupted write: replace to end of file.
+            updated = original[:start] + block + "\n"
+        else:
+            updated = original[:start] + block + original[end + len(_SETTINGS_END) :]
+
+    if updated == original:
+        return False
+    try:
+        conf.write_text(updated, encoding="utf-8")
+    except OSError as exc:  # noqa: BLE001
+        logger.warning("could not apply embedded PostgreSQL settings to %s: %r", conf, exc)
+        return False
+    logger.info("applied embedded PostgreSQL settings to %s", conf)
+    return True
 
 
 def _pre_initialize_cluster(pgdata: Path) -> bool:
