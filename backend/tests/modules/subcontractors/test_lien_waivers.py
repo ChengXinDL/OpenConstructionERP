@@ -12,10 +12,17 @@ Scope:
        without leaking which UUIDs exist.
     6. Listing lien waivers returns the freshly-created row.
 
-Mirrors ``tests/modules/rfi/test_rfi_attachments.py`` — runs against a
+Mirrors ``tests/modules/rfi/test_rfi_attachments.py`` - runs against a
 transaction-isolated PostgreSQL session (rolled back on teardown) with the
 subcontractor router mounted on a fresh FastAPI app and the auth + permission
 dependencies overridden.
+
+Requests go through ``httpx.AsyncClient`` over ``ASGITransport``, not the
+synchronous ``TestClient``: ``TestClient`` runs the app on its own event loop
+in a worker thread, and the asyncpg connection behind ``db_session`` belongs to
+the loop the test itself runs on, so any request that touched the database
+failed with "attached to a different loop". ``AsyncClient`` calls the app
+inline on the test's loop and the session is genuinely shared.
 """
 
 from __future__ import annotations
@@ -23,10 +30,10 @@ from __future__ import annotations
 import uuid
 from typing import AsyncIterator
 
+import httpx
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 
 from app.dependencies import (
     get_current_user_id,
@@ -121,20 +128,21 @@ class TestLienWaiverUpload:
         await db_session.commit()
 
         app = _build_app(db_session, caller_id=caller)
-        client = TestClient(app)
+        transport = httpx.ASGITransport(app=app)
 
         pdf_body = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\nrest..."
-        resp = client.post(
-            f"/v1/subcontractors/subcontractors/{sub_id}/lien-waivers/upload",
-            data={
-                "waiver_type": "conditional_partial",
-                "amount": "1250.00",
-                "currency": "USD",
-                "signed_date": "2026-05-25",
-                "notes": "Draw #3",
-            },
-            files={"file": ("waiver.pdf", pdf_body, "application/pdf")},
-        )
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post(
+                f"/v1/subcontractors/subcontractors/{sub_id}/lien-waivers/upload",
+                data={
+                    "waiver_type": "conditional_partial",
+                    "amount": "1250.00",
+                    "currency": "USD",
+                    "signed_date": "2026-05-25",
+                    "notes": "Draw #3",
+                },
+                files={"file": ("waiver.pdf", pdf_body, "application/pdf")},
+            )
         assert resp.status_code == 201, resp.text
         body = resp.json()
         assert body["waiver_type"] == "conditional_partial"
@@ -174,14 +182,15 @@ class TestLienWaiverUpload:
         await db_session.commit()
 
         app = _build_app(db_session, caller_id=caller)
-        client = TestClient(app)
+        transport = httpx.ASGITransport(app=app)
 
         random_bin = b"\x00\x01\x02\x03MEOW\xff\xee\xdd\xcc"
-        resp = client.post(
-            f"/v1/subcontractors/subcontractors/{sub_id}/lien-waivers/upload",
-            data={"waiver_type": "conditional_partial"},
-            files={"file": ("evil.pdf", random_bin, "application/pdf")},
-        )
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post(
+                f"/v1/subcontractors/subcontractors/{sub_id}/lien-waivers/upload",
+                data={"waiver_type": "conditional_partial"},
+                files={"file": ("evil.pdf", random_bin, "application/pdf")},
+            )
         assert resp.status_code == 415, resp.text
         # No disk write happened.
         if waivers_dir.exists():
@@ -210,13 +219,14 @@ class TestLienWaiverUpload:
         await db_session.commit()
 
         app = _build_app(db_session, caller_id=caller)
-        client = TestClient(app)
+        transport = httpx.ASGITransport(app=app)
 
-        resp = client.post(
-            f"/v1/subcontractors/subcontractors/{sub_id}/lien-waivers/upload",
-            data={"waiver_type": "conditional_partial"},
-            files={"file": ("empty.pdf", b"", "application/pdf")},
-        )
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post(
+                f"/v1/subcontractors/subcontractors/{sub_id}/lien-waivers/upload",
+                data={"waiver_type": "conditional_partial"},
+                files={"file": ("empty.pdf", b"", "application/pdf")},
+            )
         assert resp.status_code == 422, resp.text
 
     # ── 4. Bad waiver_type returns 422 ────────────────────────────────
@@ -241,14 +251,15 @@ class TestLienWaiverUpload:
         await db_session.commit()
 
         app = _build_app(db_session, caller_id=caller)
-        client = TestClient(app)
+        transport = httpx.ASGITransport(app=app)
 
         pdf_body = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n"
-        resp = client.post(
-            f"/v1/subcontractors/subcontractors/{sub_id}/lien-waivers/upload",
-            data={"waiver_type": "not_a_real_waiver"},
-            files={"file": ("waiver.pdf", pdf_body, "application/pdf")},
-        )
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post(
+                f"/v1/subcontractors/subcontractors/{sub_id}/lien-waivers/upload",
+                data={"waiver_type": "not_a_real_waiver"},
+                files={"file": ("waiver.pdf", pdf_body, "application/pdf")},
+            )
         assert resp.status_code == 422, resp.text
 
     # ── 5. IDOR — non-existent sub returns 404, NOT 403 or 500 ───────
@@ -272,15 +283,16 @@ class TestLienWaiverUpload:
         await db_session.commit()
 
         app = _build_app(db_session, caller_id=caller)
-        client = TestClient(app)
+        transport = httpx.ASGITransport(app=app)
 
         ghost_id = uuid.uuid4()
         pdf_body = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n"
-        resp = client.post(
-            f"/v1/subcontractors/subcontractors/{ghost_id}/lien-waivers/upload",
-            data={"waiver_type": "w9"},
-            files={"file": ("w9.pdf", pdf_body, "application/pdf")},
-        )
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post(
+                f"/v1/subcontractors/subcontractors/{ghost_id}/lien-waivers/upload",
+                data={"waiver_type": "w9"},
+                files={"file": ("w9.pdf", pdf_body, "application/pdf")},
+            )
         assert resp.status_code == 404, resp.text
 
     # ── 6. Listing returns the freshly-created row ────────────────────
@@ -305,19 +317,20 @@ class TestLienWaiverUpload:
         await db_session.commit()
 
         app = _build_app(db_session, caller_id=caller)
-        client = TestClient(app)
+        transport = httpx.ASGITransport(app=app)
 
         pdf_body = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n"
-        up = client.post(
-            f"/v1/subcontractors/subcontractors/{sub_id}/lien-waivers/upload",
-            data={"waiver_type": "w9", "amount": "0"},
-            files={"file": ("w9.pdf", pdf_body, "application/pdf")},
-        )
-        assert up.status_code == 201, up.text
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            up = await client.post(
+                f"/v1/subcontractors/subcontractors/{sub_id}/lien-waivers/upload",
+                data={"waiver_type": "w9", "amount": "0"},
+                files={"file": ("w9.pdf", pdf_body, "application/pdf")},
+            )
+            assert up.status_code == 201, up.text
 
-        ls = client.get(
-            f"/v1/subcontractors/subcontractors/{sub_id}/lien-waivers",
-        )
+            ls = await client.get(
+                f"/v1/subcontractors/subcontractors/{sub_id}/lien-waivers",
+            )
         assert ls.status_code == 200, ls.text
         rows = ls.json()
         assert len(rows) == 1

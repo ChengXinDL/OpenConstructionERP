@@ -6,7 +6,7 @@ Scope (one happy / one adversarial per behaviour):
     2. The same gate rejects an attacker-controlled "evil.png" whose
        payload is in fact HTML — proving the magic-byte gate, not the
        file extension, is what's authoritative.
-    3. The full upload endpoint, mounted on a FastAPI ``TestClient`` with
+    3. The full upload endpoint, mounted on an ``httpx.AsyncClient`` with
        dependency overrides for session / auth / project access, accepts
        a real PDF and stores it under the server-derived filename
        (``{rfi_id}_<hex>.pdf``) — proving the path-traversal defence
@@ -16,8 +16,15 @@ Scope (one happy / one adversarial per behaviour):
 
 The suite mirrors ``test_correspondence.py``. Each test runs against a
 PostgreSQL session wrapped in an outer transaction that is rolled back on
-teardown, so committed data is visible to the TestClient within the test but
+teardown, so committed data is visible to the client within the test but
 undone afterwards (see ``tests._pg.transactional_session``).
+
+The HTTP calls go through ``httpx.AsyncClient`` over ``ASGITransport`` rather
+than the synchronous ``TestClient``. ``TestClient`` drives the app from its own
+event loop in a worker thread, while ``db_session`` is bound to the loop pytest
+runs the test on; the two loops cannot share one asyncpg connection, so every
+request died on "attached to a different loop". ``AsyncClient`` runs the app
+inline on the test's own loop, which is what makes the shared session work.
 """
 
 from __future__ import annotations
@@ -25,10 +32,10 @@ from __future__ import annotations
 import uuid
 from typing import AsyncIterator
 
+import httpx
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 
 from app.dependencies import (
     get_current_user_id,
@@ -161,13 +168,14 @@ class TestAttachmentUploadEndpoint:
         await db_session.commit()
 
         app = _build_app(db_session, caller_id=owner)
-        client = TestClient(app)
+        transport = httpx.ASGITransport(app=app)
 
         pdf_body = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n...rest of file..."
-        resp = client.post(
-            f"/v1/rfi/{rfi.id}/attachments/",
-            files={"file": ("reply.pdf", pdf_body, "application/pdf")},
-        )
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post(
+                f"/v1/rfi/{rfi.id}/attachments/",
+                files={"file": ("reply.pdf", pdf_body, "application/pdf")},
+            )
         assert resp.status_code == 200, resp.text
         payload = resp.json()
         assert len(payload["attachments"]) == 1
@@ -202,13 +210,14 @@ class TestAttachmentUploadEndpoint:
         await db_session.commit()
 
         app = _build_app(db_session, caller_id=owner)
-        client = TestClient(app)
+        transport = httpx.ASGITransport(app=app)
 
         fake_png = b"<html><script>alert('xss')</script></html>"
-        resp = client.post(
-            f"/v1/rfi/{rfi.id}/attachments/",
-            files={"file": ("evil.png", fake_png, "image/png")},
-        )
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post(
+                f"/v1/rfi/{rfi.id}/attachments/",
+                files={"file": ("evil.png", fake_png, "image/png")},
+            )
         assert resp.status_code == 415, resp.text
         # Nothing landed on disk.
         if attachments_dir.exists():
@@ -236,12 +245,13 @@ class TestAttachmentUploadEndpoint:
         await db_session.commit()
 
         app = _build_app(db_session, caller_id=owner)
-        client = TestClient(app)
+        transport = httpx.ASGITransport(app=app)
 
-        resp = client.post(
-            f"/v1/rfi/{rfi.id}/attachments/",
-            files={"file": ("empty.pdf", b"", "application/pdf")},
-        )
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post(
+                f"/v1/rfi/{rfi.id}/attachments/",
+                files={"file": ("empty.pdf", b"", "application/pdf")},
+            )
         assert resp.status_code == 400, resp.text
 
 
@@ -277,16 +287,17 @@ class TestAttachmentDownloadEndpoint:
         await db_session.commit()
 
         app = _build_app(db_session, caller_id=owner)
-        client = TestClient(app)
+        transport = httpx.ASGITransport(app=app)
 
         pdf_body = b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\nround-trip-me"
-        up = client.post(
-            f"/v1/rfi/{rfi.id}/attachments/",
-            files={"file": ("reply.pdf", pdf_body, "application/pdf")},
-        )
-        assert up.status_code == 200, up.text
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            up = await client.post(
+                f"/v1/rfi/{rfi.id}/attachments/",
+                files={"file": ("reply.pdf", pdf_body, "application/pdf")},
+            )
+            assert up.status_code == 200, up.text
 
-        down = client.get(f"/v1/rfi/{rfi.id}/attachments/0")
+            down = await client.get(f"/v1/rfi/{rfi.id}/attachments/0")
         assert down.status_code == 200, down.text
         assert down.content == pdf_body
         assert down.headers["content-type"].startswith("application/pdf")
@@ -312,8 +323,9 @@ class TestAttachmentDownloadEndpoint:
         await db_session.commit()
 
         app = _build_app(db_session, caller_id=owner)
-        client = TestClient(app)
+        transport = httpx.ASGITransport(app=app)
 
         # No attachments uploaded - index 0 is already out of range.
-        resp = client.get(f"/v1/rfi/{rfi.id}/attachments/0")
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.get(f"/v1/rfi/{rfi.id}/attachments/0")
         assert resp.status_code == 404, resp.text
