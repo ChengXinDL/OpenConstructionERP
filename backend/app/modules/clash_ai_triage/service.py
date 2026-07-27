@@ -42,7 +42,8 @@ import json
 import logging
 import re
 import uuid
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Mapping
+from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import Any
 
@@ -114,17 +115,49 @@ class ClashSubjectNotFound(ClashTriageError):
 # process wait for the first to finish so they hit the cache instead of
 # both paying for the LLM. Cross-process dedup would need Redis and is
 # not in scope for v1.
+#
+# The registry is reference counted rather than write-only. Two callers only
+# need the same Lock object while at least one of them is inside it, so the
+# entry is dropped once the last one leaves. Keeping every subject forever
+# grew the dict by one entry per clash ever triaged, for the life of the
+# worker, which on a long-running process is a leak rather than a cache.
 _subject_locks: dict[uuid.UUID, asyncio.Lock] = {}
+_subject_lock_users: dict[uuid.UUID, int] = {}
 _subject_locks_master = asyncio.Lock()
 
 
-async def _get_subject_lock(subject_id: uuid.UUID) -> asyncio.Lock:
+@asynccontextmanager
+async def _subject_lock(subject_id: uuid.UUID) -> AsyncIterator[None]:
+    """Hold the per-subject lock, then release the registry entry.
+
+    Args:
+        subject_id: The clash or issue the caller is about to triage.
+
+    Yields:
+        Nothing. The body runs with the subject serialised against other
+        callers in this process.
+    """
     async with _subject_locks_master:
         lock = _subject_locks.get(subject_id)
         if lock is None:
             lock = asyncio.Lock()
             _subject_locks[subject_id] = lock
-        return lock
+        _subject_lock_users[subject_id] = _subject_lock_users.get(subject_id, 0) + 1
+    try:
+        async with lock:
+            yield
+    finally:
+        # Counted down in a finally so a raising body still gives the entry
+        # back. Registration happens before the acquire, so a caller queued
+        # behind someone else is counted too and cannot have the shared lock
+        # swapped out from under it.
+        async with _subject_locks_master:
+            remaining = _subject_lock_users.get(subject_id, 1) - 1
+            if remaining > 0:
+                _subject_lock_users[subject_id] = remaining
+            else:
+                _subject_lock_users.pop(subject_id, None)
+                _subject_locks.pop(subject_id, None)
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -365,8 +398,7 @@ class ClashTriageService:
 
         # Lock the subject so concurrent callers in the same process
         # deduplicate (the second call hits the cache).
-        lock = await _get_subject_lock(subject_id)
-        async with lock:
+        async with _subject_lock(subject_id):
             # Resolve LLM provider FIRST so an unconfigured user gets a
             # 503 before we pay for a cache lookup.
             provider, api_key, model_override = await _resolve_provider_settings(self.session, user_id)
