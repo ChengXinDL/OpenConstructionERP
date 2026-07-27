@@ -60,6 +60,7 @@ tool is referred to as "the incumbent"; no product name appears in code.
 
 from __future__ import annotations
 
+import heapq
 import math
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -881,6 +882,77 @@ def _place_split(
     return runs
 
 
+def _precedence_feasible_order(network: TaskNetwork, priority: Sequence[Any]) -> list[Any]:
+    """Refine ``priority`` into a serial-SGS order: no activity before its predecessors.
+
+    ``priority`` is the shipped leveling key (LS asc -> total_float asc -> id).
+    That key alone is NOT precedence-feasible. ``LS(pred) <= LS(succ)`` only holds
+    while lag is non-negative::
+
+        FS lag L: LS(pred) <= LS(succ) - L - dur(pred)
+        SS lag L: LS(pred) <= LS(succ) - L
+
+    so a negative lag (or a zero-duration predecessor under one) can sort a
+    predecessor AFTER its own successor. The placement loop then asks
+    :func:`_earliest_legal_start` for a bound the predecessor cannot supply yet --
+    it is unplaced, the ``p_id not in schedule`` branch skips it -- and the
+    successor lands on its base CPM early start alone. The emitted plan can then
+    violate the very link the CPM page draws.
+
+    This walks the same key through an eligibility gate instead: an activity
+    becomes available only once every predecessor that leveling will actually
+    place has been handed out, and among the available ones the original key still
+    decides. Two inputs get explicit treatment rather than an accidental one:
+
+    * a predecessor outside ``priority`` (in the network, absent from the CPM
+      result) is vacuously satisfied -- leveling never places it, so waiting for
+      it would starve the whole successor subtree;
+    * a cycle (or any residue the gate cannot open) falls back to the plain key
+      over what is left, which is exactly today's behaviour for that step. The
+      loop therefore always drains; it cannot deadlock on a network the CPM
+      engine accepted.
+
+    For FS-only networks with non-negative lags every predecessor already sorts
+    strictly before its successors, so the globally-next activity is always
+    eligible and the returned order equals ``priority`` element for element --
+    the byte-identical diff contract for those inputs is untouched.
+    """
+    universe = set(priority)
+    rank = {aid: index for index, aid in enumerate(priority)}
+
+    pending: dict[Any, set[Any]] = {}
+    dependents: dict[Any, list[Any]] = {}
+    for aid in priority:
+        blockers = {p_id for p_id, _dep_type, _lag in network.predecessors(aid) if p_id in universe}
+        pending[aid] = blockers
+        for p_id in blockers:
+            dependents.setdefault(p_id, []).append(aid)
+
+    available: list[int] = [rank[aid] for aid in priority if not pending[aid]]
+    heapq.heapify(available)
+    remaining = set(priority)
+    ordered: list[Any] = []
+
+    while remaining:
+        if available:
+            aid = priority[heapq.heappop(available)]
+            if aid not in remaining:
+                continue  # stale entry: the cycle fallback already emitted it
+        else:
+            # Cycle or unreachable residue. Emit the highest-priority leftover so
+            # the run completes; that activity keeps the pre-SGS semantics.
+            aid = min(remaining, key=lambda leftover: rank[leftover])
+        remaining.discard(aid)
+        ordered.append(aid)
+        for successor in dependents.get(aid, ()):
+            blockers = pending[successor]
+            blockers.discard(aid)
+            if not blockers and successor in remaining:
+                heapq.heappush(available, rank[successor])
+
+    return ordered
+
+
 def level_by_resource_units(
     network: TaskNetwork,
     cpm_result: dict[Any, CPMResult],
@@ -935,10 +1007,16 @@ def level_by_resource_units(
     if not resource_limits:
         return {}, {}, unresolvable
 
-    # Stable priority order -- identical to the shipped leveler.
-    priority: list[Any] = sorted(
-        cpm_result.keys(),
-        key=lambda aid: (cpm_result[aid].ls, cpm_result[aid].total_float, str(aid)),
+    # Stable priority order -- identical to the shipped leveler -- then gated so
+    # nothing is placed before its predecessors (see
+    # :func:`_precedence_feasible_order`; FS-only non-negative-lag networks come
+    # back in the same order they went in).
+    priority: list[Any] = _precedence_feasible_order(
+        network,
+        sorted(
+            cpm_result.keys(),
+            key=lambda aid: (cpm_result[aid].ls, cpm_result[aid].total_float, str(aid)),
+        ),
     )
 
     total_dur = sum(max(0, int(x.duration)) for x in activities.values())
