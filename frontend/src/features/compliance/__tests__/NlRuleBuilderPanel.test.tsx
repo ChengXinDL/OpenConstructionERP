@@ -10,6 +10,7 @@ import {
   waitFor,
 } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('../api', () => ({
   parseNlToDsl: vi.fn(),
@@ -45,10 +46,14 @@ function renderPanel() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
+  // The panel renders the module cases button, which reads the current location,
+  // so this tree needs a router the same way the application gives it one.
   return render(
-    <QueryClientProvider client={client}>
-      <NlRuleBuilderPanel />
-    </QueryClientProvider>,
+    <MemoryRouter>
+      <QueryClientProvider client={client}>
+        <NlRuleBuilderPanel />
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 }
 

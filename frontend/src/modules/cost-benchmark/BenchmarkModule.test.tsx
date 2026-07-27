@@ -2,6 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import BenchmarkModule from './BenchmarkModule';
 import {
   BENCHMARKS,
@@ -26,10 +27,14 @@ function renderModule() {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   });
+  // The module renders the cases button, which reads the current location, so
+  // this tree needs a router the same way the application gives it one.
   return render(
-    <QueryClientProvider client={qc}>
-      <BenchmarkModule />
-    </QueryClientProvider>,
+    <MemoryRouter>
+      <QueryClientProvider client={qc}>
+        <BenchmarkModule />
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 }
 
