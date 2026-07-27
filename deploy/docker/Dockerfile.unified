@@ -22,13 +22,20 @@
 FROM node:22-alpine AS frontend-build
 
 WORKDIR /build
-# The Vite/Rollup build now exceeds Node's default ~4 GB heap and aborts with
-# exit 134 ("JavaScript heap out of memory"). Give it an 8 GB old-space ceiling.
-ENV NODE_OPTIONS=--max-old-space-size=8192
 COPY frontend/package.json frontend/package-lock.json ./
+# Installed with Node's default heap on purpose. The ceiling below belongs to
+# the Vite/Rollup build and nothing else, but as a stage-wide ENV it also
+# reached this line. Telling V8 it may grow to 8 GB inside a container that
+# does not have 8 GB invites the kernel to reap `npm ci` partway through, and
+# npm reports being killed as "Exit handler never called!", which reads like an
+# npm bug. That is the reported signature in #404, though the report is against
+# a much older version and has not been reproduced here.
 RUN npm ci --ignore-scripts
 COPY frontend/ .
-RUN npm run build
+# The Vite/Rollup build genuinely exceeds Node's default ~4 GB heap and aborts
+# with exit 134 ("JavaScript heap out of memory"), so the ceiling is raised for
+# this one command rather than for the whole stage.
+RUN NODE_OPTIONS=--max-old-space-size=8192 npm run build
 
 # ── Stage 2: Production image ────────────────────────────────────────
 FROM python:3.12-slim

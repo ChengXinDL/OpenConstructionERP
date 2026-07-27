@@ -1,12 +1,22 @@
-FROM node:20-alpine AS build
+# Pinned to node:22-alpine to match Dockerfile.unified. The locked
+# rollup-plugin-visualizer 7.0.1 declares engines node >=22, so node:20 built
+# this image against a dependency that says it does not run there (BUG-B04).
+FROM node:22-alpine AS build
 
 WORKDIR /app
 
 COPY frontend/package.json frontend/package-lock.json ./
+# Default heap on purpose: the ceiling below is for the Vite build, and letting
+# it reach the install invites the kernel to reap `npm ci` inside a
+# memory-capped container. See the longer note in Dockerfile.unified.
 RUN npm ci --ignore-scripts
 
 COPY frontend/ .
-RUN npm run build
+# The Vite/Rollup build exceeds Node's default ~4 GB heap and aborts with exit
+# 134 ("JavaScript heap out of memory"). This image had no ceiling at all, so
+# the two-container production layout in docker-compose.prod.yml could not
+# build its frontend. Scoped to this one command, not the stage.
+RUN NODE_OPTIONS=--max-old-space-size=8192 npm run build
 
 FROM nginx:alpine
 
