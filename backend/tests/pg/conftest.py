@@ -123,6 +123,47 @@ async def pg_engine(pg_async_url):
         await eng.dispose()
 
 
+@pytest.fixture
+def no_detached_subscribers():
+    """Silence event subscribers that open a session of their own.
+
+    A few subscribers are deliberately *detached*: they build a session from
+    ``app.database.async_session_factory`` rather than reuse the publisher's,
+    because the publisher is still inside its own request transaction. That is
+    right in production and wrong here. This lane never binds that factory to
+    the embedded cluster - ``pg_session`` hands out a savepoint-joined session
+    built on its own connection - so a detached handler reaches for a database
+    that is not there.
+
+    The damage is not confined to the test that triggered it. The handler's
+    half-opened connection outlives the failure, and on Windows the selector
+    goes down with it, so every test that runs afterwards errors during setup.
+    One write path with a detached consumer therefore reads as a broken suite:
+    ``tests/pg`` was 160 passed without the invoice test and 13 failed plus 91
+    errors with it, and only one of those failures was real.
+
+    Take this fixture in a test that exercises a write path with a detached
+    consumer and is asserting on the write rather than on the fan-out. The
+    subscribers themselves are left alone: they are not the thing under test
+    and they are not broken.
+    """
+    from app.core.events import event_bus
+    from app.modules.costmodel.service import _on_budget_line_changed
+
+    detached = [
+        ("costmodel.budget_line.updated", _on_budget_line_changed),
+        ("costmodel.budget_line.actual_posted", _on_budget_line_changed),
+    ]
+    removed = [(name, fn) for name, fn in detached if fn in event_bus._handlers.get(name, [])]
+    for name, fn in removed:
+        event_bus.unsubscribe(name, fn)
+    try:
+        yield
+    finally:
+        for name, fn in removed:
+            event_bus.subscribe(name, fn)
+
+
 @pytest_asyncio.fixture
 async def pg_session(pg_engine) -> AsyncGenerator:
     """Per-test session with outer-transaction + savepoint rollback isolation."""

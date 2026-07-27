@@ -646,7 +646,7 @@ class FinanceService:
                 from_status=prior,
                 to_status="paid",
                 reason=reason or "Invoice paid via pay_invoice()",
-                metadata={"invoice_number": invoice.invoice_number},
+                metadata={"invoice_number": invoice_number},
             )
         except Exception as exc:
             logger.warning(
