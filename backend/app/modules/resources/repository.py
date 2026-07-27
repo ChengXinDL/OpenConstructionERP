@@ -10,6 +10,9 @@ from typing import Any
 
 from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import set_committed_value
+from sqlalchemy.orm.util import identity_key
+from sqlalchemy.sql.elements import ClauseElement
 
 from app.modules.resources.models import (
     Assignment,
@@ -77,7 +80,15 @@ class ResourceRepository:
         stmt = update(Resource).where(Resource.id == resource_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(Resource, resource_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, resource_id: uuid.UUID) -> None:
         resource = await self.get_by_id(resource_id)
@@ -130,7 +141,15 @@ class SkillRepository:
         stmt = update(Skill).where(Skill.id == skill_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(Skill, skill_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, skill_id: uuid.UUID) -> None:
         skill = await self.get_by_id(skill_id)
@@ -252,7 +271,15 @@ class CertificationRepository:
         stmt = update(Certification).where(Certification.id == cert_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(Certification, cert_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, cert_id: uuid.UUID) -> None:
         cert = await self.get_by_id(cert_id)
@@ -325,7 +352,15 @@ class AvailabilityWindowRepository:
         stmt = update(AvailabilityWindow).where(AvailabilityWindow.id == window_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(AvailabilityWindow, window_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, window_id: uuid.UUID) -> None:
         window = await self.get_by_id(window_id)
@@ -471,7 +506,15 @@ class AssignmentRepository:
         stmt = update(Assignment).where(Assignment.id == assignment_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(Assignment, assignment_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, assignment_id: uuid.UUID) -> None:
         assignment = await self.get_by_id(assignment_id)
@@ -569,7 +612,15 @@ class ResourceRequestRepository:
         stmt = update(ResourceRequest).where(ResourceRequest.id == req_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(ResourceRequest, req_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, req_id: uuid.UUID) -> None:
         req = await self.get_by_id(req_id)
@@ -609,7 +660,15 @@ class ResourceLinkRepository:
         stmt = update(ResourceLink).where(ResourceLink.id == link_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(ResourceLink, link_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, link_id: uuid.UUID) -> None:
         link = await self.get_by_id(link_id)

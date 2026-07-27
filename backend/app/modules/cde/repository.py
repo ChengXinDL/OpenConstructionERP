@@ -10,6 +10,9 @@ import uuid
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import set_committed_value
+from sqlalchemy.orm.util import identity_key
+from sqlalchemy.sql.elements import ClauseElement
 
 from app.modules.cde.models import DocumentContainer, DocumentRevision, StateTransition
 
@@ -73,7 +76,15 @@ class ContainerRepository:
         stmt = update(DocumentContainer).where(DocumentContainer.id == container_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(DocumentContainer, container_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def stats_for_project(self, project_id: uuid.UUID) -> dict:
         """Compute aggregate statistics for a project's CDE containers.
@@ -157,11 +168,7 @@ class ContainerRepository:
         total, naming_n, suit_n, class_n = (await self.session.execute(agg_stmt)).one()
 
         # Distinct states present (drives shared/published/archived milestones).
-        states_stmt = (
-            select(DocumentContainer.cde_state)
-            .where(DocumentContainer.project_id == project_id)
-            .distinct()
-        )
+        states_stmt = select(DocumentContainer.cde_state).where(DocumentContainer.project_id == project_id).distinct()
         states = {row[0] for row in (await self.session.execute(states_stmt)).all()}
 
         # Any gate crossing signed off (join transition -> its container's project).
@@ -263,4 +270,12 @@ class RevisionRepository:
         stmt = update(DocumentRevision).where(DocumentRevision.id == revision_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(DocumentRevision, revision_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)

@@ -11,6 +11,9 @@ from decimal import Decimal
 
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import set_committed_value
+from sqlalchemy.orm.util import identity_key
+from sqlalchemy.sql.elements import ClauseElement
 
 from app.core.sql_numeric import numeric_value
 from app.modules.catalog.models import CatalogResource
@@ -140,7 +143,15 @@ class CatalogResourceRepository:
         await self.session.execute(stmt)
         await self.session.flush()
         # Expire cached ORM instances so the next get_by_id re-reads from DB
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(CatalogResource, resource_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def count(self, region: str | None = None) -> int:
         """Total number of active catalog resources (optionally per region)."""

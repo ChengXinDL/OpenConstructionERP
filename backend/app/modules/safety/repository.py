@@ -7,6 +7,9 @@ import uuid
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import set_committed_value
+from sqlalchemy.orm.util import identity_key
+from sqlalchemy.sql.elements import ClauseElement
 
 from app.modules.safety.models import SafetyIncident, SafetyObservation
 
@@ -102,7 +105,15 @@ class IncidentRepository:
         stmt = update(SafetyIncident).where(SafetyIncident.id == incident_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(SafetyIncident, incident_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, incident_id: uuid.UUID) -> None:
         incident = await self.get_by_id(incident_id)
@@ -176,7 +187,15 @@ class ObservationRepository:
         stmt = update(SafetyObservation).where(SafetyObservation.id == observation_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(SafetyObservation, observation_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, observation_id: uuid.UUID) -> None:
         observation = await self.get_by_id(observation_id)

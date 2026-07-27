@@ -9,6 +9,9 @@ from typing import Any
 
 from sqlalchemy import and_, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import set_committed_value
+from sqlalchemy.orm.util import identity_key
+from sqlalchemy.sql.elements import ClauseElement
 
 from app.modules.portal.models import (
     PortalAccessRule,
@@ -64,7 +67,15 @@ class PortalUserRepository:
         stmt = update(PortalUser).where(PortalUser.id == user_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(PortalUser, user_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
 
 class PortalAccessRuleRepository:
@@ -146,7 +157,15 @@ class PortalAccessRuleRepository:
         stmt = update(PortalAccessRule).where(PortalAccessRule.id == rule_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(PortalAccessRule, rule_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, rule_id: uuid.UUID) -> None:
         rule = await self.get_by_id(rule_id)
@@ -188,7 +207,15 @@ class PortalSessionRepository:
         stmt = update(PortalSession).where(PortalSession.id == session_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(PortalSession, session_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def revoke_all_for_user(
         self,
@@ -236,7 +263,15 @@ class PortalMagicLinkRepository:
         stmt = update(PortalMagicLink).where(PortalMagicLink.id == link_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(PortalMagicLink, link_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def consume(self, link_id: uuid.UUID, *, consumed_at: datetime) -> bool:
         """Atomically mark a magic link consumed.
@@ -316,7 +351,15 @@ class PortalNotificationRepository:
         stmt = update(PortalNotification).where(PortalNotification.id == notif_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(PortalNotification, notif_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
 
 class PortalDocumentAccessLogRepository:

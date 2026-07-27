@@ -12,6 +12,9 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import noload
+from sqlalchemy.orm.attributes import set_committed_value
+from sqlalchemy.orm.util import identity_key
+from sqlalchemy.sql.elements import ClauseElement
 
 from app.core.sql_json import json_path_text
 from app.modules.bim_hub.models import (
@@ -86,7 +89,15 @@ class BIMModelRepository:
         stmt = update(BIMModel).where(BIMModel.id == model_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(BIMModel, model_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, model_id: uuid.UUID) -> None:
         """Delete a BIM model and all its elements (via CASCADE)."""
@@ -450,7 +461,15 @@ class BIMQuantityMapRepository:
         stmt = update(BIMQuantityMap).where(BIMQuantityMap.id == map_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(BIMQuantityMap, map_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, map_id: uuid.UUID) -> None:
         """Delete a quantity map rule."""

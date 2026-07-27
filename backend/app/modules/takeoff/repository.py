@@ -7,6 +7,9 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import set_committed_value
+from sqlalchemy.orm.util import identity_key
+from sqlalchemy.sql.elements import ClauseElement
 
 from app.modules.takeoff.models import AiTakeoffRun, TakeoffDocument, TakeoffMeasurement
 
@@ -67,7 +70,15 @@ class TakeoffRepository:
         await self.session.execute(stmt)
         await self.session.flush()
         # Expire cached ORM instances so the next get_by_id re-reads from DB
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(TakeoffDocument, doc_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, doc_id: uuid.UUID) -> None:
         doc = await self.get_by_id(doc_id)
@@ -209,7 +220,15 @@ class MeasurementRepository:
         stmt = update(TakeoffMeasurement).where(TakeoffMeasurement.id == measurement_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(TakeoffMeasurement, measurement_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, measurement_id: uuid.UUID) -> None:
         """Hard delete a measurement."""
@@ -373,7 +392,15 @@ class AiTakeoffRunRepository:
         stmt = update(AiTakeoffRun).where(AiTakeoffRun.id == run_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(AiTakeoffRun, run_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def rolling_spend_usd(self, user_id: uuid.UUID, *, window_hours: int = 24) -> float:
         """Sum a user's plan-read spend over a recent window.

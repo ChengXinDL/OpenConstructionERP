@@ -8,6 +8,9 @@ from sqlalchemy import Integer as SAInteger
 from sqlalchemy import cast, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import set_committed_value
+from sqlalchemy.orm.util import identity_key
+from sqlalchemy.sql.elements import ClauseElement
 
 from app.modules.construction_control.models import (
     AcceptanceCriterion,
@@ -64,7 +67,15 @@ class CriterionRepository:
             update(AcceptanceCriterion).where(AcceptanceCriterion.id == criterion_id).values(**fields)
         )
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(AcceptanceCriterion, criterion_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, criterion_id: uuid.UUID) -> None:
         criterion = await self.get_by_id(criterion_id)
@@ -143,7 +154,15 @@ class InspectionRepository:
     async def update_fields(self, inspection_id: uuid.UUID, **fields: object) -> None:
         await self.session.execute(update(Inspection).where(Inspection.id == inspection_id).values(**fields))
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(Inspection, inspection_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, inspection_id: uuid.UUID) -> None:
         inspection = await self.get_by_id(inspection_id)
@@ -253,7 +272,15 @@ class MaterialRecordRepository:
     async def update_fields(self, material_id: uuid.UUID, **fields: object) -> None:
         await self.session.execute(update(MaterialRecord).where(MaterialRecord.id == material_id).values(**fields))
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(MaterialRecord, material_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, material_id: uuid.UUID) -> None:
         material = await self.get_by_id(material_id)
@@ -322,7 +349,15 @@ class TestResultRepository:
     async def update_fields(self, result_id: uuid.UUID, **fields: object) -> None:
         await self.session.execute(update(TestResult).where(TestResult.id == result_id).values(**fields))
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(TestResult, result_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, result_id: uuid.UUID) -> None:
         test = await self.get_by_id(result_id)
@@ -391,7 +426,15 @@ class AsBuiltRecordRepository:
     async def update_fields(self, record_id: uuid.UUID, **fields: object) -> None:
         await self.session.execute(update(AsBuiltRecord).where(AsBuiltRecord.id == record_id).values(**fields))
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(AsBuiltRecord, record_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, record_id: uuid.UUID) -> None:
         record = await self.get_by_id(record_id)
@@ -492,7 +535,15 @@ class HoldGateRepository:
     async def update_fields(self, gate_id: uuid.UUID, **fields: object) -> None:
         await self.session.execute(update(HoldGate).where(HoldGate.id == gate_id).values(**fields))
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(HoldGate, gate_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, gate_id: uuid.UUID) -> None:
         gate = await self.get_by_id(gate_id)
@@ -561,7 +612,15 @@ class HandoverPackageRepository:
     async def update_fields(self, package_id: uuid.UUID, **fields: object) -> None:
         await self.session.execute(update(HandoverPackage).where(HandoverPackage.id == package_id).values(**fields))
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(HandoverPackage, package_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, package_id: uuid.UUID) -> None:
         package = await self.get_by_id(package_id)

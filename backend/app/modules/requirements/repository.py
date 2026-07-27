@@ -11,6 +11,9 @@ import uuid
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.attributes import set_committed_value
+from sqlalchemy.orm.util import identity_key
+from sqlalchemy.sql.elements import ClauseElement
 
 from app.modules.requirements.models import (
     GateResult,
@@ -63,7 +66,15 @@ class RequirementSetRepository:
         stmt = update(RequirementSet).where(RequirementSet.id == set_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(RequirementSet, set_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, set_id: uuid.UUID) -> None:
         """Hard delete a requirement set and all related data (cascade)."""
@@ -143,7 +154,15 @@ class RequirementRepository:
         stmt = update(Requirement).where(Requirement.id == req_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(Requirement, req_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, req_id: uuid.UUID) -> None:
         """Hard delete a requirement."""

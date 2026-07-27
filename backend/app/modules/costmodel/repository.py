@@ -17,6 +17,9 @@ from decimal import Decimal, InvalidOperation
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import set_committed_value
+from sqlalchemy.orm.util import identity_key
+from sqlalchemy.sql.elements import ClauseElement
 
 from app.modules.costmodel.models import (
     BudgetLine,
@@ -185,7 +188,15 @@ class SnapshotRepository:
         await self.session.execute(stmt)
         await self.session.flush()
         # Expire cached ORM instances so the next get_by_id re-reads from DB
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(CostSnapshot, snapshot_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, snapshot_id: uuid.UUID) -> None:
         """Delete a snapshot."""
@@ -482,7 +493,15 @@ class BudgetLineRepository:
         await self.session.execute(stmt)
         await self.session.flush()
         # Expire cached ORM instances so the next get_by_id re-reads from DB
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(BudgetLine, line_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, line_id: uuid.UUID) -> None:
         """Delete a budget line."""
@@ -563,7 +582,15 @@ class CashFlowRepository:
         await self.session.execute(stmt)
         await self.session.flush()
         # Expire cached ORM instances so the next get_by_id re-reads from DB
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(CashFlow, entry_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, entry_id: uuid.UUID) -> None:
         """Delete a cash flow entry."""
@@ -654,7 +681,15 @@ class ControlAccountRepository:
         stmt = update(ControlAccount).where(ControlAccount.id == account_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(ControlAccount, account_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, account_id: uuid.UUID) -> None:
         """Delete a control account."""
@@ -774,7 +809,15 @@ class CostLineRepository:
         stmt = update(CostLine).where(CostLine.id == line_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(CostLine, line_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, line_id: uuid.UUID) -> None:
         """Delete a cost line."""

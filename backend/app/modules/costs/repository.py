@@ -14,6 +14,9 @@ from typing import Any
 
 from sqlalchemy import String, and_, case, cast, func, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import set_committed_value
+from sqlalchemy.orm.util import identity_key
+from sqlalchemy.sql.elements import ClauseElement
 from sqlalchemy.sql.expression import ColumnElement
 
 from app.modules.costs.models import CostItem
@@ -278,7 +281,15 @@ class CostItemRepository:
         await self.session.execute(stmt)
         await self.session.flush()
         # Expire cached ORM instances so the next get_by_id re-reads from DB
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(CostItem, item_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def bulk_create(self, items: list[CostItem]) -> list[CostItem]:
         """Insert multiple cost items at once."""

@@ -12,6 +12,9 @@ import uuid
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import set_committed_value
+from sqlalchemy.orm.util import identity_key
+from sqlalchemy.sql.elements import ClauseElement
 
 from app.modules.commissioning.models import (
     CxChecklist,
@@ -65,7 +68,15 @@ class SystemRepository:
         stmt = update(CxSystem).where(CxSystem.id == system_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(CxSystem, system_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, system_id: uuid.UUID) -> None:
         """Delete a system (cascades to its checklists, items and issues)."""
@@ -207,7 +218,15 @@ class ChecklistRepository:
         stmt = update(CxChecklist).where(CxChecklist.id == checklist_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(CxChecklist, checklist_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, checklist_id: uuid.UUID) -> None:
         """Delete a checklist (cascades to its items)."""
@@ -248,7 +267,15 @@ class ItemRepository:
         stmt = update(CxChecklistItem).where(CxChecklistItem.id == item_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(CxChecklistItem, item_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, item_id: uuid.UUID) -> None:
         """Delete a checklist item."""
@@ -294,7 +321,15 @@ class IssueRepository:
         stmt = update(CxIssue).where(CxIssue.id == issue_id).values(**fields)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        instance = self.session.identity_map.get(identity_key(CxIssue, issue_id))
+        if instance is None:
+            return
+        computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+        for name, value in fields.items():
+            if name not in computed:
+                set_committed_value(instance, name, value)
+        if computed:
+            self.session.expire(instance, computed)
 
     async def delete(self, issue_id: uuid.UUID) -> None:
         """Delete an issue."""
