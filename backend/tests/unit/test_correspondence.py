@@ -436,12 +436,8 @@ class TestListStatusFilter:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
             all_resp = await client.get(f"/v1/correspondence/?project_id={project_id}")
-            open_resp = await client.get(
-                f"/v1/correspondence/?project_id={project_id}&status=open"
-            )
-            closed_resp = await client.get(
-                f"/v1/correspondence/?project_id={project_id}&status=closed"
-            )
+            open_resp = await client.get(f"/v1/correspondence/?project_id={project_id}&status=open")
+            closed_resp = await client.get(f"/v1/correspondence/?project_id={project_id}&status=closed")
         assert all_resp.status_code == 200, all_resp.text
         assert len(all_resp.json()) == 3
         assert open_resp.status_code == 200, open_resp.text

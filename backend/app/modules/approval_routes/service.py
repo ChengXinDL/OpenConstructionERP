@@ -432,9 +432,7 @@ class ApprovalRouteService:
             if prev is None or st.decided_at > prev:
                 decided_by_ordinal[ordinal] = st.decided_at
 
-        decisions: list[tuple[int, datetime | None]] = [
-            (s.ordinal, decided_by_ordinal.get(s.ordinal)) for s in steps
-        ]
+        decisions: list[tuple[int, datetime | None]] = [(s.ordinal, decided_by_ordinal.get(s.ordinal)) for s in steps]
 
         timeline = compute_timeline(
             status=instance.status,

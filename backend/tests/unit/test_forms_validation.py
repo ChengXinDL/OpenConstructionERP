@@ -264,19 +264,25 @@ def test_choice_default_must_be_an_option() -> None:
 
 
 def test_number_below_min_is_reported() -> None:
-    fields = validation.normalize_fields([{"type": "number", "label": "Slump", "required": True, "min": 10, "max": 200}])
+    fields = validation.normalize_fields(
+        [{"type": "number", "label": "Slump", "required": True, "min": 10, "max": 200}]
+    )
     check = validation.validate_submission_answers(fields, {"slump": "5"})
     assert "below_min" in _codes(check.issues)
 
 
 def test_number_above_max_is_reported() -> None:
-    fields = validation.normalize_fields([{"type": "number", "label": "Slump", "required": True, "min": 10, "max": 200}])
+    fields = validation.normalize_fields(
+        [{"type": "number", "label": "Slump", "required": True, "min": 10, "max": 200}]
+    )
     check = validation.validate_submission_answers(fields, {"slump": "500"})
     assert "above_max" in _codes(check.issues)
 
 
 def test_number_within_bounds_passes() -> None:
-    fields = validation.normalize_fields([{"type": "number", "label": "Slump", "required": True, "min": 10, "max": 200}])
+    fields = validation.normalize_fields(
+        [{"type": "number", "label": "Slump", "required": True, "min": 10, "max": 200}]
+    )
     assert validation.validate_submission_answers(fields, {"slump": "90"}).is_complete
 
 
@@ -288,7 +294,9 @@ def test_text_min_length_is_reported() -> None:
 
 def test_text_pattern_mismatch_is_reported() -> None:
     # A simple 4-digit code pattern.
-    fields = validation.normalize_fields([{"type": "short_text", "label": "PIN", "required": True, "pattern": r"\d{4}"}])
+    fields = validation.normalize_fields(
+        [{"type": "short_text", "label": "PIN", "required": True, "pattern": r"\d{4}"}]
+    )
     bad = validation.validate_submission_answers(fields, {"pin": "12"})
     assert "pattern_mismatch" in _codes(bad.issues)
     good = validation.validate_submission_answers(fields, {"pin": "1234"})

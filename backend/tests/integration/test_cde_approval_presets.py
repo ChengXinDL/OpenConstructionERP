@@ -87,9 +87,7 @@ async def _new_project(client: AsyncClient, auth: dict[str, str]) -> str:
 
 
 class TestListApprovalPresets:
-    async def test_lists_the_three_iso19650_presets(
-        self, client: AsyncClient, auth: dict[str, str]
-    ) -> None:
+    async def test_lists_the_three_iso19650_presets(self, client: AsyncClient, auth: dict[str, str]) -> None:
         r = await client.get("/api/v1/cde/approval-presets/", headers=auth)
         assert r.status_code == 200, r.text
         body = r.json()
@@ -106,21 +104,15 @@ class TestListApprovalPresets:
             assert len(preset["steps"]) >= 1
             assert preset["description"]
 
-    async def test_project_scoped_reports_active_preset(
-        self, client: AsyncClient, auth: dict[str, str]
-    ) -> None:
+    async def test_project_scoped_reports_active_preset(self, client: AsyncClient, auth: dict[str, str]) -> None:
         pid = await _new_project(client, auth)
-        r = await client.get(
-            f"/api/v1/cde/approval-presets/?project_id={pid}", headers=auth
-        )
+        r = await client.get(f"/api/v1/cde/approval-presets/?project_id={pid}", headers=auth)
         assert r.status_code == 200, r.text
         assert r.json()["active_system_key"] is None
 
 
 class TestApplyApprovalPreset:
-    async def test_apply_clones_an_editable_route(
-        self, client: AsyncClient, auth: dict[str, str]
-    ) -> None:
+    async def test_apply_clones_an_editable_route(self, client: AsyncClient, auth: dict[str, str]) -> None:
         pid = await _new_project(client, auth)
         r = await client.post(
             f"/api/v1/cde/approval-presets/apply?project_id={pid}",
@@ -136,9 +128,7 @@ class TestApplyApprovalPreset:
         # The clone is a real, editable route: no system_key, so it can be
         # PATCHed (a genuine preset would 409).
         route_id = body["route_id"]
-        r = await client.get(
-            f"/api/v1/approval-routes/routes/{route_id}", headers=auth
-        )
+        r = await client.get(f"/api/v1/approval-routes/routes/{route_id}", headers=auth)
         assert r.status_code == 200, r.text
         clone = r.json()
         assert clone["system_key"] is None
@@ -152,18 +142,14 @@ class TestApplyApprovalPreset:
         assert r.status_code == 200, r.text
         assert r.json()["name"] == "Our tailored review flow"
 
-    async def test_apply_reports_as_active_preset(
-        self, client: AsyncClient, auth: dict[str, str]
-    ) -> None:
+    async def test_apply_reports_as_active_preset(self, client: AsyncClient, auth: dict[str, str]) -> None:
         pid = await _new_project(client, auth)
         await client.post(
             f"/api/v1/cde/approval-presets/apply?project_id={pid}",
             json={"system_key": "cde_issue_for_review"},
             headers=auth,
         )
-        r = await client.get(
-            f"/api/v1/cde/approval-presets/?project_id={pid}", headers=auth
-        )
+        r = await client.get(f"/api/v1/cde/approval-presets/?project_id={pid}", headers=auth)
         assert r.status_code == 200, r.text
         assert r.json()["active_system_key"] == "cde_issue_for_review"
 
@@ -172,9 +158,7 @@ class TestApplyApprovalPreset:
         assert r.json()["review_preset_key"] == "cde_issue_for_review"
         assert r.json()["review_route_id"] is not None
 
-    async def test_apply_unknown_preset_404s(
-        self, client: AsyncClient, auth: dict[str, str]
-    ) -> None:
+    async def test_apply_unknown_preset_404s(self, client: AsyncClient, auth: dict[str, str]) -> None:
         pid = await _new_project(client, auth)
         r = await client.post(
             f"/api/v1/cde/approval-presets/apply?project_id={pid}",
@@ -183,9 +167,7 @@ class TestApplyApprovalPreset:
         )
         assert r.status_code == 404, r.text
 
-    async def test_source_preset_stays_read_only(
-        self, client: AsyncClient, auth: dict[str, str]
-    ) -> None:
+    async def test_source_preset_stays_read_only(self, client: AsyncClient, auth: dict[str, str]) -> None:
         """Adopting a preset never mutates the shared, tenant-wide original."""
         pid = await _new_project(client, auth)
         r = await client.post(
@@ -196,9 +178,7 @@ class TestApplyApprovalPreset:
         assert r.status_code == 200, r.text
 
         r = await client.get("/api/v1/cde/approval-presets/", headers=auth)
-        preset = next(
-            p for p in r.json()["presets"] if p["system_key"] == "cde_comment_and_return"
-        )
+        preset = next(p for p in r.json()["presets"] if p["system_key"] == "cde_comment_and_return")
         r = await client.patch(
             f"/api/v1/approval-routes/routes/{preset['route_id']}",
             json={"name": "Hijacked"},

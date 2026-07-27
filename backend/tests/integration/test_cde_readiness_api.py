@@ -92,9 +92,7 @@ def _signals(body: dict) -> dict[str, bool]:
 
 
 class TestCDEReadiness:
-    async def test_empty_project_is_not_started(
-        self, client: AsyncClient, auth: dict[str, str]
-    ) -> None:
+    async def test_empty_project_is_not_started(self, client: AsyncClient, auth: dict[str, str]) -> None:
         pid = await _new_project(client, auth)
         r = await client.get(f"/api/v1/cde/readiness/?project_id={pid}", headers=auth)
         assert r.status_code == 200, r.text
@@ -106,9 +104,7 @@ class TestCDEReadiness:
         # the nudge leads with creating the first container
         assert body["next_actions"][0]["key"] == "containers_created"
 
-    async def test_metadata_signals_light_up(
-        self, client: AsyncClient, auth: dict[str, str]
-    ) -> None:
+    async def test_metadata_signals_light_up(self, client: AsyncClient, auth: dict[str, str]) -> None:
         pid = await _new_project(client, auth)
         # One WIP container carrying a structured name, suitability and class.
         r = await client.post(
@@ -144,9 +140,7 @@ class TestCDEReadiness:
         assert body["score"] == 41
         assert body["level"] == "forming"
 
-    async def test_workflow_signals_light_up(
-        self, client: AsyncClient, auth: dict[str, str]
-    ) -> None:
+    async def test_workflow_signals_light_up(self, client: AsyncClient, auth: dict[str, str]) -> None:
         pid = await _new_project(client, auth)
         # Create straight into SHARED, then publish with a signature (Gate B),
         # and give it two revisions so version control counts.

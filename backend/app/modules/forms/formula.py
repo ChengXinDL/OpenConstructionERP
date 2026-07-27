@@ -284,9 +284,7 @@ def formula_field_issues(fields: list[dict[str, Any]]) -> list[tuple[int, str | 
     """
     issues: list[tuple[int, str | None, str, str]] = []
     known_keys = {
-        str(f.get("key", "")).strip()
-        for f in fields or []
-        if isinstance(f, dict) and str(f.get("key", "")).strip()
+        str(f.get("key", "")).strip() for f in fields or [] if isinstance(f, dict) and str(f.get("key", "")).strip()
     }
     # Adjacency among formula fields only, to detect reference cycles.
     formula_deps: dict[str, set[str]] = {}
@@ -318,9 +316,7 @@ def formula_field_issues(fields: list[dict[str, Any]]) -> list[tuple[int, str | 
             formula_index[key] = idx
 
     for key in _cyclic_formula_keys(formula_deps):
-        issues.append(
-            (formula_index[key], key, "formula_cycle", "Formula fields reference each other in a loop.")
-        )
+        issues.append((formula_index[key], key, "formula_cycle", "Formula fields reference each other in a loop."))
     return issues
 
 
@@ -345,7 +341,7 @@ def _cyclic_formula_keys(deps: dict[str, set[str]]) -> list[str]:
             elif state.get(nxt) == 1:
                 # Back-edge: everything from nxt up the stack is in the cycle.
                 if nxt in stack:
-                    in_cycle.update(stack[stack.index(nxt):])
+                    in_cycle.update(stack[stack.index(nxt) :])
         stack.pop()
         state[node] = 2
 

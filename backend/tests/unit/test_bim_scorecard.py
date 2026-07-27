@@ -237,9 +237,7 @@ class TestPropertyCompleteness:
         # name, category-required-property and classification-presence = warning;
         # type/family name and phase = info).
         facet = property_completeness_facet([_clean_wall(0)])
-        expected_weight = (
-            2 * SEVERITY_WEIGHTS["error"] + 5 * SEVERITY_WEIGHTS["warning"] + 2 * SEVERITY_WEIGHTS["info"]
-        )
+        expected_weight = 2 * SEVERITY_WEIGHTS["error"] + 5 * SEVERITY_WEIGHTS["warning"] + 2 * SEVERITY_WEIGHTS["info"]
         assert facet.details["total_weight"] == pytest.approx(expected_weight)
         assert facet.details["passed_weight"] == pytest.approx(expected_weight)
 

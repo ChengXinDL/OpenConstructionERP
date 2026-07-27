@@ -457,7 +457,9 @@ def _append_config_issues(
             try:
                 re.compile(pattern)
             except re.error:
-                issues.append(FieldIssue(idx, key, "bad_pattern", "The validation pattern is not a valid regular expression."))
+                issues.append(
+                    FieldIssue(idx, key, "bad_pattern", "The validation pattern is not a valid regular expression.")
+                )
 
     # A single/multi choice default must be an actual option.
     default = field.get("default")
@@ -466,7 +468,9 @@ def _append_config_issues(
         picked = default if isinstance(default, (list, tuple)) else [default]
         for item in picked:
             if str(item).strip() and str(item).strip() not in options:
-                issues.append(FieldIssue(idx, key, "default_not_option", "The default value is not one of the options."))
+                issues.append(
+                    FieldIssue(idx, key, "default_not_option", "The default value is not one of the options.")
+                )
                 break
 
 

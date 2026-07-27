@@ -529,9 +529,7 @@ async def test_node_transform_round() -> None:
     from app.modules.pipelines.pipeline_nodes import _run_transform_round
 
     rows = [{"id": "1", "unit_rate": "10.126"}, {"id": "2", "unit_rate": "5"}]
-    out = await _run_transform_round(
-        _ctx(params={"field": "unit_rate", "places": 2}, inputs={"u": {"rows": rows}})
-    )
+    out = await _run_transform_round(_ctx(params={"field": "unit_rate", "places": 2}, inputs={"u": {"rows": rows}}))
     assert out["mutated"] is True
     assert out["rows"][0]["unit_rate"] == "10.13"
     assert out["rows"][1]["unit_rate"] == "5.00"
@@ -625,9 +623,7 @@ async def test_node_transform_running_total() -> None:
     from app.modules.pipelines.pipeline_nodes import _run_transform_running_total
 
     rows = [{"id": "1", "q": "10"}, {"id": "2", "q": "5"}, {"id": "3", "q": "2"}]
-    out = await _run_transform_running_total(
-        _ctx(params={"field": "q", "target": "cum"}, inputs={"u": {"rows": rows}})
-    )
+    out = await _run_transform_running_total(_ctx(params={"field": "q", "target": "cum"}, inputs={"u": {"rows": rows}}))
     assert [r["cum"] for r in out["rows"]] == ["10", "15", "17"]
     assert out["final_total"] == "17"
 
@@ -637,9 +633,7 @@ async def test_node_transform_percent_of_total() -> None:
     from app.modules.pipelines.pipeline_nodes import _run_transform_percent_of_total
 
     # No row_ids → uses the wire sample; line totals 1000 + 100 + 5 = 1105.
-    out = await _run_transform_percent_of_total(
-        _ctx(params={"places": 2}, inputs={"u": {"rows": _SAMPLE_ROWS}})
-    )
+    out = await _run_transform_percent_of_total(_ctx(params={"places": 2}, inputs={"u": {"rows": _SAMPLE_ROWS}}))
     assert out["grand_total"] == "1105"
     # First row 10*100 = 1000 → 90.50%.
     assert out["rows"][0]["pct_of_total"] == "90.50"
@@ -687,9 +681,7 @@ async def test_node_transform_concat() -> None:
 async def test_node_source_constant() -> None:
     from app.modules.pipelines.pipeline_nodes import _run_source_constant
 
-    out = await _run_source_constant(
-        _ctx(params={"rows": [{"code": "A"}, {"id": "keep", "code": "B"}]})
-    )
+    out = await _run_source_constant(_ctx(params={"rows": [{"code": "A"}, {"id": "keep", "code": "B"}]}))
     assert out["count"] == 2
     # A missing id is generated; a supplied one is kept.
     assert out["rows"][0]["id"] == "const-0"
@@ -703,9 +695,7 @@ async def test_node_enrich_lookup() -> None:
 
     rows = [{"id": "1", "code": "C-1"}, {"id": "2", "code": "C-9"}]
     table = {"C-1": {"rate": "100", "trade": "Concrete"}}
-    out = await _run_enrich_lookup(
-        _ctx(params={"key": "code", "table": table}, inputs={"u": {"rows": rows}})
-    )
+    out = await _run_enrich_lookup(_ctx(params={"key": "code", "table": table}, inputs={"u": {"rows": rows}}))
     assert out["matched"] == 1
     assert out["rows"][0]["rate"] == "100"
     assert out["rows"][0]["trade"] == "Concrete"

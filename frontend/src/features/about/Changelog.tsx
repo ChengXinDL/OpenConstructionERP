@@ -38,6 +38,13 @@ interface ChangelogEntry {
 // date, title and meaning intact; trim the prose, not the facts.
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '12.7.0',
+    date: '2026-07-27',
+    tag: 'NEW',
+    summary:
+      'Progress percentages now roll up from the individual positions and weight by design quantity instead of taking the highest reading anywhere, so figures quoted from older reports need regenerating. Large models start drawing almost immediately, purchase orders and subcontracts are checked before they commit money, and the desktop update button no longer answers with command line usage text.',
+  },
+  {
     version: '12.6.1',
     date: '2026-07-25',
     tag: 'FIX',

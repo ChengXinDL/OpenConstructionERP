@@ -141,10 +141,7 @@ def build_approvals_workbook(workflows: list[FileApprovalWorkflow]) -> Workbook:
         cell.font = Font(bold=True)
 
     for row_idx, wf in enumerate(workflows, 2):
-        steps = sorted(
-            list(getattr(wf, "steps", None) or []),
-            key=lambda s: getattr(s, "sort_order", 0),
-        )
+        steps = sorted(getattr(wf, "steps", None) or [], key=lambda s: getattr(s, "sort_order", 0))
         # "Current step / approver": the first still-pending step - the same
         # actionable step the drawer highlights. Derived here (like the RFI
         # exporter derives days_open) rather than stored. Terminal workflows

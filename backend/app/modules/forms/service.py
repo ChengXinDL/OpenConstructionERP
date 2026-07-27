@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.http_headers import content_disposition_attachment
 from app.core.json_merge import merge_metadata
+from app.modules.forms.formula import compute_formulas
 from app.modules.forms.models import FormSubmission, FormTemplate
 from app.modules.forms.repository import FormsRepository
 from app.modules.forms.schemas import (
@@ -23,7 +24,6 @@ from app.modules.forms.schemas import (
     TemplateCreate,
     TemplateUpdate,
 )
-from app.modules.forms.formula import compute_formulas
 from app.modules.forms.seed import STARTER_TEMPLATES
 from app.modules.forms.validation import (
     LAYOUT_TYPES,

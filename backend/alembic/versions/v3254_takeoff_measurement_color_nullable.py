@@ -76,12 +76,7 @@ def downgrade() -> None:
     col = _column(_TABLE, _COLUMN)
     if col is None or not col.get("nullable"):
         return
-    op.execute(
-        sa.text(
-            "UPDATE oe_takeoff_measurement SET group_color = '#3B82F6' "
-            "WHERE group_color IS NULL"
-        )
-    )
+    op.execute(sa.text("UPDATE oe_takeoff_measurement SET group_color = '#3B82F6' WHERE group_color IS NULL"))
     op.alter_column(
         _TABLE,
         _COLUMN,
