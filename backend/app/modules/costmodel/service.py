@@ -772,9 +772,9 @@ class CostModelService:
                 detail="Budget line not found",
             )
 
-        # Capture project_id before update_fields() calls expire_all(),
-        # which would invalidate the ORM object and trigger a sync lazy-load
-        # (MissingGreenlet) when accessing line.project_id afterwards.
+        # Capture project_id before the update so the event below reports the
+        # project the line belonged to when the change was made, and never
+        # reloads it afterwards (MissingGreenlet on the async session).
         project_id_str = str(line.project_id)
 
         fields = data.model_dump(exclude_unset=True)
@@ -2154,10 +2154,9 @@ class CostSpineService:
         standard = await self._resolve_classification_standard(project_id)
 
         # Cache existing accounts + lines so the whole generation is one pass.
-        # Store only the account *id* (a plain UUID): the ORM object would be
-        # expired by the first create/update inside the loop, and accessing
-        # ``account.id`` afterwards would re-issue a sync SELECT and raise
-        # MissingGreenlet under the async session.
+        # Store only the account *id* (a plain UUID) - that is all the loop
+        # needs, and it keeps the map off ORM rows the loop writes, where a
+        # reload would raise MissingGreenlet.
         accounts_by_code: dict[str, uuid.UUID] = {
             a.code: a.id for a in await self.account_repo.list_for_project(project_id)
         }
@@ -2170,11 +2169,9 @@ class CostSpineService:
         # BOQ went 129 -> 258 cost lines on the 2nd run).
         #
         # We snapshot only the identity + linkage columns into plain namespaces
-        # up front. Reading the live ORM objects later in the loop would fault:
-        # the first create/update flushes and ``expire_all()``s the identity
-        # map, after which any ORM attribute access (even on a previously-loaded
-        # row) re-issues a sync SELECT and raises MissingGreenlet under the
-        # async session.
+        # up front, so the dedupe below matches against the state the run
+        # started from rather than reloading rows the loop has already created,
+        # which raises MissingGreenlet.
         lines_by_position: dict[str, SimpleNamespace] = {}
         for key, line in (await self.line_repo.existing_by_boq_position(project_id)).items():
             lines_by_position[key] = SimpleNamespace(
@@ -2197,12 +2194,10 @@ class CostSpineService:
         positions_linked = 0
 
         # Snapshot every position attribute the loop needs BEFORE we mutate
-        # anything. The first ``position_repo.update_fields`` / ``*_repo.create``
-        # call inside the loop flushes and ``expire_all()``s the identity map;
-        # without this snapshot the next iteration's ``pos.unit`` access would
-        # trigger a sync lazy-load of an expired column and raise MissingGreenlet
-        # under the async session. Reading the columns up front keeps generation
-        # a single pass with no mid-loop expired-attribute IO.
+        # anything, so each iteration reads the position as it was when the
+        # generation started and never reloads one mid-loop (MissingGreenlet).
+        # Reading the columns up front also keeps generation a single pass with
+        # no mid-loop per-row IO.
         pos_views = [
             SimpleNamespace(
                 id=pos.id,
@@ -2314,7 +2309,7 @@ class CostSpineService:
 
         # ── Auto-link budget lines by boq_position_id (fill-nulls-only) ──
         # ``lines_by_position`` values are plain namespaces (id + linkage cols),
-        # so the autolink pass never touches expired ORM state.
+        # so the autolink pass never re-reads the rows the loop above wrote.
         budget_lines_linked = await self._autolink_budget_lines(project_id, lines_by_position)
 
         await _safe_publish(
@@ -2377,10 +2372,9 @@ class CostSpineService:
 
         ``lines_by_position`` is keyed by ``str(boq_position_id)`` and its
         values are plain namespaces (id + linkage cols) captured by the
-        generation loop, so this pass never reads an expired ORM attribute.
-        Budget-line fields are likewise snapshotted before the first
-        ``update_fields`` (which ``expire_all()``s) so a multi-row link does not
-        fault on the second iteration.
+        generation loop, so this pass never re-reads those rows. Budget-line
+        fields are likewise snapshotted before the first ``update_fields`` so a
+        multi-row link keeps working from one consistent view.
         """
         # Cost lines are already keyed by their originating position; keep only
         # those that actually carry a position id.
@@ -2951,9 +2945,9 @@ class CostSpineService:
         if locked is not None:
             line = locked
 
-        # Snapshot every attribute we need BEFORE update_fields() calls
-        # expire_all(): reading line.* afterwards would re-issue a sync SELECT
-        # and raise MissingGreenlet under the async session.
+        # Snapshot every attribute we need BEFORE the update, so the posting is
+        # derived from the row as it was read under the row lock above and not
+        # reloaded afterwards (MissingGreenlet on the async session).
         existing_cost_line_id = line.cost_line_id
         line_category = line.category or ""
         md = dict(line.metadata_) if isinstance(line.metadata_, dict) else {}
@@ -3034,11 +3028,10 @@ class CostSpineService:
     ) -> None:
         """Emit ``costmodel.budget_line.actual_posted`` for downstream consumers.
 
-        Takes only primitives (never an ORM row) so the publish never reads an
-        attribute the surrounding ``update_fields`` / ``expire_all`` may have
-        expired - that would re-issue a sync SELECT and raise MissingGreenlet
-        under the async session. Gap D (cost-overrun alerts) and reporting
-        subscribe here.
+        Takes only primitives (never an ORM row) so the payload is read before
+        the surrounding ``update_fields`` rather than off the row afterwards -
+        an attribute that has to be reloaded raises MissingGreenlet under the
+        async session. Gap D (cost-overrun alerts) and reporting subscribe here.
         """
         from app.modules.costmodel.events import EVENT_BUDGET_LINE_ACTUAL_POSTED
 

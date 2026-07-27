@@ -309,13 +309,11 @@ async def test_complete_ingest_publishes_event_off_snapshot_not_expired_row(
 ) -> None:
     """complete fires pointcloud.upload.completed with the scan's ids intact.
 
-    Regression for the ingest/complete 500: ScanRepository.update_fields ends
-    with session.expire_all(), so the scan row complete_ingest fetched earlier is
-    expired by the time the event payload is built. The payload must come from
-    values snapshotted while the row was live - reading project_id / tenant_id /
-    upload_key off the expired row would trigger an implicit async lazy-load and
-    raise MissingGreenlet on the real engine. Asserting the event carries the
-    right ids proves the snapshot path holds.
+    Regression for the ingest/complete 500: the event payload must be built
+    from values snapshotted before complete_ingest starts writing, not read
+    back off the scan row afterwards, where an attribute needing a reload
+    raises MissingGreenlet on the real engine. Asserting the event carries the
+    right project_id / tenant_id / upload_key proves the snapshot path holds.
     """
     project_id: uuid.UUID = session.info["project_id"]
     owner_id: uuid.UUID = session.info["owner_id"]

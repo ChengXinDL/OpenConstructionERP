@@ -1590,10 +1590,9 @@ class CarbonService:
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Cannot finalize an archived inventory",
             )
-        # Capture project_id BEFORE update_fields() - that call runs
-        # session.expire_all(), which expires every attribute on ``inv``;
-        # reading inv.project_id afterwards would trigger a lazy DB reload
-        # outside the async context (MissingGreenlet).
+        # Capture project_id up front so the event emitted after the write is
+        # built from plain values rather than by re-reading ``inv``, where a
+        # reload raises MissingGreenlet under the async session.
         project_id = inv.project_id
         totals = await self.compute_inventory_totals_fresh(inventory_id)
         await self.inventory_repo.update_fields(
@@ -2200,10 +2199,9 @@ class CarbonService:
         existing_match = await self.epd_repo.get_by_epd_id(canonical_id)
         gwp = Decimal(str(gwp_a1a3))
         if existing_match is not None:
-            # Capture PK BEFORE update_fields() - that call runs
-            # session.expire_all(), which expires every attribute on
-            # ``existing_match``; reading ``.id`` afterwards would trigger a
-            # lazy DB reload outside the async context (MissingGreenlet).
+            # Capture the PK up front so the update below and the code after it
+            # both work from a plain value instead of reloading the row
+            # (MissingGreenlet under the async session).
             existing_id = existing_match.id
             await self.epd_repo.update_fields(
                 existing_id,

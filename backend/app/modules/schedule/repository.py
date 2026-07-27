@@ -173,10 +173,10 @@ class ActivityRepository:
         ``{"id": <uuid>, "color": "#ef4444", "metadata_": {...}}``. Uses
         SQLAlchemy's ORM-enabled bulk UPDATE by primary key (executemany under
         the hood), which collapses what would otherwise be N separate UPDATE
-        statements - and N ``expire_all()`` calls when looping over
-        :meth:`update_fields` - into one statement and a single cache
-        invalidation. Behaviour matches calling :meth:`update_fields` once per
-        row. No-op when ``updates`` is empty.
+        statements into one. Unlike :meth:`update_fields`, which syncs only the
+        row it wrote, this expires the whole identity map once, so callers must
+        read what they need before calling it rather than after. No-op when
+        ``updates`` is empty.
         """
         if not updates:
             return

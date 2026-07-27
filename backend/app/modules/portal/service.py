@@ -324,10 +324,10 @@ class PortalService:
                 detail="Portal account is not active",
             )
 
-        # Snapshot scalars BEFORE any repo write. Every repo's
-        # ``update_fields`` ends with ``session.expire_all()``, which detaches
-        # *all* attributes on every loaded ORM instance - including ``user``
-        # and ``link``. Touching ``user.status`` / ``user.id`` after that
+        # Snapshot scalars BEFORE any repo write. ``PortalMagicLinkRepository
+        # .consume`` below still ends with ``session.expire_all()``, which
+        # detaches *all* attributes on every loaded ORM instance - including
+        # ``user`` and ``link``. Touching ``user.status`` / ``user.id`` after that
         # point triggers an illegal *synchronous* lazy-load on the async
         # session (MissingGreenlet → 500). The PKs/status are stable, so
         # capture them here and operate on the locals afterwards.
@@ -375,8 +375,7 @@ class PortalService:
             expires_at=now + SESSION_TTL,
         )
         sess = await self.session_repo.create(sess)
-        # Snapshot the freshly-flushed session fields before the next
-        # expire_all() (refresh below) can detach them.
+        # Snapshot the freshly-flushed session fields for the response below.
         session_id = sess.id
         session_expires_at = sess.expires_at
 
@@ -420,14 +419,10 @@ class PortalService:
         if user is None or user.status in ("suspended", "expired"):
             return None
 
-        # session_repo.update_fields() ends with session.expire_all(), which
-        # detaches *every* attribute on the already-loaded ``user``. The
-        # returned object is consumed by the portal-session dependency and its
-        # route handlers (``user.id``, ``PortalUserResponse.model_validate``);
-        # touching an expired attribute later triggers an illegal synchronous
-        # lazy-load on the async session (MissingGreenlet → 500). Snapshot the
-        # PK across the expiring write, then re-load ``user`` as a live,
-        # fully-populated instance.
+        # Keep the PK across the session write, then re-load ``user`` as a
+        # fully-populated instance so nothing downstream lazy-loads and raises
+        # MissingGreenlet: it is consumed by the portal-session dependency and
+        # its route handlers (``user.id``, ``PortalUserResponse.model_validate``).
         user_id = user.id
         await self.session_repo.update_fields(sess.id, last_seen_at=now)
         user = await self.user_repo.get_by_id(user_id)

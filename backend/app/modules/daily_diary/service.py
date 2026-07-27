@@ -806,13 +806,10 @@ class DailyDiaryService:
             status="signed",
             **{sig_field: signer_name or content_hash[:32]},
         )
-        # update_fields() ends with session.expire_all(), which expires *every*
-        # instance in the identity map - including the just-created ``signature``
-        # and ``diary``. Refresh both before any synchronous attribute access:
-        # the router serializes ``signature`` (DiaryArchiveSignatureResponse) and
-        # the event payload below reads ``diary.project_id``. Without the refresh
-        # the expired attributes would trigger a sync lazy-load SELECT outside the
-        # async greenlet -> MissingGreenlet on asyncpg (SQLite tolerated it).
+        # Refresh both so the reads below see their stored rows without a lazy
+        # load (MissingGreenlet): the router serializes ``signature``
+        # (DiaryArchiveSignatureResponse) and the event payload reads
+        # ``diary.project_id`` after the signing write.
         await self.session.refresh(diary)
         await self.session.refresh(signature)
 

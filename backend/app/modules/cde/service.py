@@ -558,9 +558,8 @@ class CDEService:
         )
         revision = await self.revision_repo.create(revision)
 
-        # Cache the revision id up-front so later update_fields() calls
-        # (which call ``session.expire_all()``) don't force a lazy reload
-        # of the primary key outside the async context.
+        # Cache the revision id up-front so the later update_fields() calls
+        # work from a plain value instead of re-reading ``revision``.
         revision_id = revision.id
 
         # Link mode is complete - the revision already points at the existing
@@ -607,7 +606,7 @@ class CDEService:
                 )
                 self.session.add(doc)
                 await self.session.flush()
-                # Read out doc.id before any expire_all() invalidates it.
+                # Read out doc.id once the flush has assigned it.
                 doc_id = doc.id
                 await self.revision_repo.update_fields(revision_id, document_id=str(doc_id))
                 logger.info(

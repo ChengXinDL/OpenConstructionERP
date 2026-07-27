@@ -118,11 +118,10 @@ async def _fire_subscribed_agents(trigger: str, data: dict) -> int:  # type: ign
         owner_id_s = str(project.owner_id)
         agents = await service.custom_repo.list_subscribed_to_trigger(trigger)
         # Snapshot identity for EVERY subscriber BEFORE the loop, while all
-        # instances are still fresh from the query. The first start_run()'s
-        # update_fields() calls session.expire_all(), which expires every other
-        # agent still in the list; an in-loop snapshot would therefore read an
-        # already-expired sibling on iteration 2+ and emit an illegal lazy
-        # SELECT (MissingGreenlet), dropping every subscriber after the first.
+        # instances are still fresh from the query. The runs started below write
+        # through the same session and ``update_metadata`` still ends in
+        # ``session.expire_all()``, so re-reading an agent mid-loop would have to
+        # go back to the database and raise MissingGreenlet on the async engine.
         targets = [(a.user_id, a.agent_name) for a in agents]
         for agent_user_id, agent_name in targets:
             # Fire only for subscribers whose creator owns or is a member of the

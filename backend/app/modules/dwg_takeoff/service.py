@@ -955,11 +955,10 @@ class DwgTakeoffService:
         content that fails magic-byte validation.
         """
         drawing = await self.get_drawing(drawing_id)  # 404 if missing
-        # Capture the project id NOW, before ``update_fields`` runs
-        # ``session.expire_all()``. Reading ``drawing.project_id`` after that
-        # would trigger a lazy reload on the async path and raise
-        # MissingGreenlet (BUG-D-TKC-002d). The cross-link bump below uses
-        # this captured value instead of a live attribute access.
+        # Capture the project id NOW, before the upload rewrites the drawing, so
+        # nothing below reloads it and raises MissingGreenlet. The cross-link
+        # bump uses this captured value so it bumps the project the file was
+        # uploaded against (BUG-D-TKC-002d).
         project_id = drawing.project_id
 
         filename = file.filename or "drawing.dxf"
@@ -1702,9 +1701,9 @@ class DwgTakeoffService:
         # Self-heal an orphaned conversion: persist the terminal error (with an
         # actionable message) so the DB stops reporting "processing" forever and
         # every later poll/list is fast and correct. Re-fetch the version AFTER
-        # the write - update_fields() calls session.expire_all(), which would make
-        # the already-loaded version emit an illegal lazy SELECT (MissingGreenlet)
-        # when the router serialises it.
+        # the write so the router serialises the terminal error just persisted
+        # rather than the stale "processing" state it was loaded with, and never
+        # lazy-loads mid-serialise (MissingGreenlet).
         if (
             view_status == "error"
             and (drawing.status or "").lower() in ("processing", "uploaded")
@@ -1852,14 +1851,10 @@ class DwgTakeoffService:
             if not updates:
                 return
 
-            # Persist with a bulk UPDATE that does NOT synchronize/expire the
-            # session. ``DwgDrawingVersionRepository.update_fields`` calls
-            # ``session.expire_all()``, which would also expire the router's
-            # already-loaded ``DwgDrawing`` row; a later attribute access while
-            # serializing the response would then attempt a lazy load on the
-            # sync path and raise MissingGreenlet, 500-ing the whole read
-            # (BUG-D-TKC-002d). We update in place and mirror the new values
-            # onto the live object so the response and BOQ push see them.
+            # Persist with a bulk UPDATE that does NOT synchronize the session,
+            # then mirror the new values onto the live object so the response
+            # and the BOQ push below both see them without a re-read, which on
+            # the async session would raise MissingGreenlet (BUG-D-TKC-002d).
             from sqlalchemy import update as sa_update
 
             await self.session.execute(

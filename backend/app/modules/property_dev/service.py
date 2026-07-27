@@ -1825,11 +1825,9 @@ class PropertyDevService:
         )
         item = await self.selection_items.create(item)
         item_id = item.id
-        # ``_recompute_selection_total`` calls ``update_fields`` which runs
-        # ``session.expire_all()`` - that expires the freshly-created ``item``
-        # too, so returning it would force a lazy-load outside the async
-        # session (MissingGreenlet 500). Re-fetch after recompute so the
-        # router serialises a live, attribute-populated instance.
+        # Re-fetch after the recompute so the router serialises the item
+        # alongside the selection total ``_recompute_selection_total`` just
+        # wrote, rather than lazy-loading it and raising MissingGreenlet.
         await self._recompute_selection_total(selection_id)
         refreshed = await self.selection_items.get_by_id(item_id)
         return refreshed if refreshed is not None else item
@@ -5801,11 +5799,10 @@ async def _svc_bulk_recompute_dev_prices(
         offset=0,
         limit=10_000,
     )
-    # Snapshot all needed attributes BEFORE the first update_fields call -
-    # ``_BaseRepo.update_fields`` runs ``session.expire_all`` after every
-    # write, which would otherwise force a lazy load on ``plot.id`` /
-    # ``plot.computed_price`` from inside a non-greenlet context and
-    # raise MissingGreenlet.
+    # Snapshot all needed attributes BEFORE the first update_fields call so
+    # every plot is repriced from the values this run started with, rather than
+    # reloading a row an earlier iteration rewrote - that read raises
+    # MissingGreenlet under the async session.
     snapshots: list[tuple[uuid.UUID, Decimal | None, dict[str, Any]]] = []
     for plot in rows:
         snapshots.append(

@@ -1036,20 +1036,20 @@ class ChangeOrderService:
             await self._assert_not_self_approval(order, user_id, "approve")
         self._validate_transition(order.status, "approved")
 
-        # Snapshot fields that are safe to use in the event payload later
-        # (update_fields calls expire_all). ``project_id_uuid`` keeps the
-        # native UUID for downstream SQL (stub tests look up the project
-        # by exact UUID match, and Project.id is also typed as UUID).
+        # Snapshot the fields the event payload needs so it reports the order
+        # as it was approved. ``project_id_uuid`` keeps the native UUID for
+        # downstream SQL (stub tests look up the project by exact UUID match,
+        # and Project.id is also typed as UUID).
         project_id_uuid: uuid.UUID = order.project_id
         project_id_s = str(project_id_uuid)
         code_s = order.code
         cost_impact_s = order.cost_impact or "0"
         currency_s = order.currency
         # Optional contract link stamped onto the CO's metadata JSON by the
-        # create form (``metadata.contract_id``). Snapshot it here - after
-        # update_fields() the instance is expired - so the
-        # ``changeorder.approved`` event can carry it to the contracts
-        # subscriber (contract value revision). No model migration needed.
+        # create form (``metadata.contract_id``). Snapshot it here, before the
+        # status write, so the ``changeorder.approved`` event can carry it to
+        # the contracts subscriber (contract value revision). No model
+        # migration needed.
         _md = order.metadata_ if isinstance(order.metadata_, dict) else {}
         contract_id_s = str(_md.get("contract_id")) if _md.get("contract_id") else None
 
@@ -1083,10 +1083,9 @@ class ChangeOrderService:
             delta = Decimal("0")
         project_updated = False
         if delta != 0:
-            # Use the project_id_s snapshot captured before update_fields()
-            # called expire_all() - accessing ``order.project_id`` here
-            # would trigger a sync-context attribute refresh and raise
-            # ``MissingGreenlet`` under async aiosqlite.
+            # Use the snapshot captured before the status write so the lookup
+            # keys off the project the order was approved against without
+            # reloading the row, which would raise MissingGreenlet.
             project = (
                 await self.session.execute(select(Project).where(Project.id == project_id_uuid))
             ).scalar_one_or_none()
@@ -1133,9 +1132,8 @@ class ChangeOrderService:
         # dedicated section. Construction PMs expect approved scope to
         # appear in the BOQ - previously only project.budget_estimate
         # moved, leaving the BOQ silently out of date.
-        # Re-fetch the order so its ``items`` collection is fresh -
-        # repo.update_fields() above called session.expire_all() which
-        # invalidated the original ORM instance.
+        # Re-fetch the order so its ``items`` collection reflects the writes
+        # made above before the BOQ section is built from it.
         fresh_for_apply = await self.repo.get_by_id(order_id)
         boq_result = await self._apply_to_boq(fresh_for_apply or order, boq_id=boq_id)
 
@@ -1640,9 +1638,9 @@ class ChangeOrderService:
 
         await self._recalculate_cost_impact(order_id)
 
-        # _recalculate_cost_impact expires all session objects, so the freshly
-        # created item's attributes are stale - refresh before returning so the
-        # router can build the response without lazy-loading.
+        # _recalculate_cost_impact rewrites the order's total; refresh the
+        # freshly created item so the router builds the response from its
+        # stored row.
         await self.session.refresh(item)
 
         logger.info("Item added to change order %s: %s", order_code, data.description[:40])

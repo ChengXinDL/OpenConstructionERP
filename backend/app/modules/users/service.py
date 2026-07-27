@@ -442,7 +442,8 @@ class UserService:
                 detail="Invalid email or password",
             )
 
-        # Eagerly read fields before update_fields (which calls expire_all)
+        # Eagerly read the fields the token and event below need, before the
+        # last-login write
         user_id = user.id
         user_email = user.email
         user_role = user.role
@@ -852,7 +853,8 @@ class UserService:
                     detail="Reset token has already been used. Please request a new one.",
                 )
 
-        # Eagerly read email before update_fields (which calls expire_all)
+        # Eagerly read the identity the confirmation below needs, before the
+        # password write
         user_email = user.email
         user_uuid = user.id
 
@@ -971,8 +973,9 @@ class UserService:
                 detail="Current password is incorrect",
             )
 
-        # Eagerly read email before update_fields (which calls expire_all)
-        # to avoid MissingGreenlet on expired attributes in async context.
+        # Eagerly read the email the notification below needs, before the
+        # password write - reading it afterwards can reload the row and raise
+        # MissingGreenlet.
         user_email = user.email
 
         await self.user_repo.update_fields(

@@ -2173,10 +2173,9 @@ class VariationsService:
             subtotal_amount=subtotal,
             total_amount=total,
         )
-        # ``update_fields`` calls ``session.expire_all()`` which also
-        # expires the just-created ``row``. Re-load it so the caller can
-        # serialize it without triggering a lazy load outside the async
-        # greenlet (which raises MissingGreenlet -> 500).
+        # Re-load the just-created ``row`` so the caller serializes it with the
+        # sheet totals recomputed above and never lazy-loads mid-serialise,
+        # which raises MissingGreenlet.
         await self.session.refresh(row)
         return row
 
@@ -2210,9 +2209,9 @@ class VariationsService:
             subtotal_amount=subtotal,
             total_amount=total,
         )
-        # The sheet ``update_fields`` above ran ``session.expire_all()``,
-        # re-expiring ``row``; reload before returning so the response
-        # serializer doesn't hit a lazy load outside the greenlet.
+        # Reload before returning so the response carries the line together with
+        # the sheet totals recomputed above, without a lazy load that would
+        # raise MissingGreenlet.
         await self.session.refresh(row)
         return row
 

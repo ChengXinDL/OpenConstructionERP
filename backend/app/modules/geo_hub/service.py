@@ -529,9 +529,9 @@ class GeoHubService:
         existing = await self.anchors.get_by_project(data.project_id)
         if existing is not None:
             # Idempotent: project already has an anchor - overwrite in
-            # place. Mutate the ORM attributes directly so we avoid the
-            # ``expire_all()`` cycle in ``update_fields`` which can
-            # break lazy-load attribute access in the same request.
+            # place. Mutating the ORM attributes directly lets the flush below
+            # carry the change and keeps the loaded row usable for the
+            # response in the same request.
             existing.lat = data.lat
             existing.lon = data.lon
             existing.alt = data.alt
@@ -1386,12 +1386,10 @@ class GeoHubService:
         *,
         payload: dict[str, Any] | None = None,
     ) -> GeoRasterOverlay:
-        # IDOR-check by reading once before the update; ``expire_all`` in
-        # ``update_fields`` would otherwise invalidate the ORM attribute
-        # cache and trigger a lazy-load that explodes with ``MissingGreenlet``
-        # under an async session. Keep the loaded row so ``_dump`` can merge
-        # an incoming ``metadata`` patch onto the stored rasterisation
-        # provenance instead of overwriting it.
+        # IDOR-check by reading once before the update, and keep the loaded row
+        # so ``_dump`` can merge an incoming ``metadata`` patch onto the stored
+        # rasterisation provenance instead of overwriting it - and without a
+        # post-write reload, which raises MissingGreenlet.
         existing = await self.get_raster_overlay(overlay_id, payload=payload)
         await self.raster_overlays.update_fields(overlay_id, **_dump(data, existing))
         return await self.get_raster_overlay(overlay_id, payload=payload)

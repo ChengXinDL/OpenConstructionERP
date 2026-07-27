@@ -817,12 +817,11 @@ class SubcontractorService:
             raise HTTPException(
                 status_code=404, detail=translate("errors.prequalification_not_found", locale=get_locale())
             )
-        # Snapshot scalars up front. ``update_fields`` below ends with
-        # ``expire_all()``; afterwards any read OR write of ``entity`` would emit
-        # a sync lazy-load SELECT during the next autoflush -> MissingGreenlet on
-        # asyncpg (SQLite tolerated it). Track the FSM status in a local instead
-        # of mutating the now-expired ORM instance (the prior ``entity.status =``
-        # write on the expired row was the exact crash trigger).
+        # Snapshot scalars up front and track the FSM status in a local rather
+        # than mutating ``entity`` directly, so the transition below is driven
+        # by the status this call started from without reloading the row
+        # (MissingGreenlet), and every status change goes through
+        # ``update_fields``.
         current_status = entity.status
         subcontractor_id = entity.subcontractor_id
         if current_status == "submitted":
@@ -1666,10 +1665,9 @@ class SubcontractorService:
 
         # Roll-up onto the subcontractor itself.
         await self.subs.update_fields(data.subcontractor_id, rating_score=overall)
-        # ``update_fields`` runs ``session.expire_all()``, which also
-        # expires the rating ``entity`` created/updated above. Reload it
-        # before returning so the response serializer doesn't trigger a
-        # lazy load outside the async greenlet (MissingGreenlet -> 500).
+        # Reload the rating created/updated above so the response reflects the
+        # roll-up just written to the subcontractor, instead of lazy-loading it
+        # mid-serialise and raising MissingGreenlet.
         await self.session.refresh(entity)
         return entity
 

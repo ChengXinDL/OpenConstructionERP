@@ -198,7 +198,7 @@ class CommissioningService:
                 detail="System is already commissioned",
             )
 
-        # Capture the scalars we need for the event before any expire_all().
+        # Capture the scalars the event needs before the writes below.
         project_id = str(system.project_id)
         system_name = system.name
         system_type = system.system_type
@@ -385,7 +385,7 @@ class CommissioningService:
     ) -> CxChecklistItem:
         """Record a pass / fail / na result and auto-advance the system label."""
         item, checklist, system = await self.resolve_item_context(item_id)
-        # Capture scalars before update_fields()'s expire_all() invalidates them.
+        # Capture the pre-write scalars the auto-advance below compares against.
         checklist_kind = checklist.kind
         system_id = system.id
         system_status = system.status

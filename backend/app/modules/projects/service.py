@@ -1116,11 +1116,10 @@ class ProjectService:
         project = await self.get_project(project_id, include_archived=True)
         if project.status == "archived":
             return  # Already archived - silently succeed
-        # Snapshot fields now, while `project` is still fresh. Both the
-        # cascade-delete loop below and update_fields() (which calls
-        # session.expire_all()) expire `project`, after which any attribute
-        # access on it would trigger lazy IO and crash with greenlet_spawn /
-        # MissingGreenlet under the async session.
+        # Snapshot fields now, while `project` is still fresh - the
+        # cascade-delete loop below tears down the rows around it, and reading
+        # anything back off `project` afterwards raises MissingGreenlet. The
+        # event emitted at the end reports the project as it was archived.
         owner_id = str(project.owner_id)
         project_name = project.name
         prior_status = project.status

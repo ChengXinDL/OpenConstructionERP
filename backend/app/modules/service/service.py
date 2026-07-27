@@ -1830,10 +1830,9 @@ class ServiceService:
 
         newly_breached: list[uuid.UUID] = []
         # Capture each ticket's identifying fields BEFORE update_fields so the
-        # SQLAlchemy ``expire_all()`` it issues doesn't force a re-load of
-        # ``ticket.id`` outside the async greenlet (the event payload also
-        # reads several columns; we snapshot them up front to keep the
-        # session traffic minimal).
+        # breach loop and the event payload both read the ticket as it was when
+        # the breach was detected rather than reloading it (MissingGreenlet),
+        # and the session traffic stays minimal.
         snapshots = [
             (
                 t.id,
@@ -2061,9 +2060,9 @@ class ServiceService:
                 detail=f"Invalid template_ticket_data: {exc}",
             ) from exc
 
-        # Snapshot schedule fields BEFORE any update_fields() call - the
-        # repository's ``expire_all()`` would otherwise force a re-load of
-        # ``sched.rrule`` / ``sched.next_run_at`` outside the async greenlet.
+        # Snapshot schedule fields BEFORE any update_fields() call so the next
+        # occurrence is computed from the run this materialisation started on
+        # and never reloads the row (MissingGreenlet on the async session).
         sched_id = sched.id
         sched_rrule = sched.rrule
         prev_next_run = sched.next_run_at

@@ -684,8 +684,8 @@ async def add_submittal_attachment(
     attachments.append(entry)
     meta["attachments"] = attachments
 
-    # Persist through the repository so expire_all / refresh behaviour stays
-    # consistent with the rest of the module (same pattern as BUG-122/123).
+    # Persist through the repository so the write goes through the same path
+    # as the rest of the module (same pattern as BUG-122/123).
     await service.repo.update_fields(submittal_id, metadata_=meta)
 
     return AttachmentResponse(**entry)

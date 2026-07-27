@@ -706,7 +706,7 @@ class FieldDiaryService:
                 detail="Magic link expired",
             )
 
-        # Snapshot scalars before any write that could trigger expire_all().
+        # Snapshot the scalars the consume path below needs before it writes.
         link_id = link.id
         link_user_id = link.user_id
         link_project_id = link.project_id

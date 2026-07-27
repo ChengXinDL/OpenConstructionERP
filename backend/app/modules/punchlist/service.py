@@ -492,9 +492,9 @@ class PunchListService:
                         )
                         continue
 
-                # Snapshot the prior status before update_fields() expires the
-                # in-memory instance (expire_all); reading it afterwards would
-                # trigger a sync lazy-reload outside the async greenlet.
+                # Snapshot the prior status before the close write, so the
+                # transition below is logged from where the item actually came
+                # without a reload, which would raise MissingGreenlet.
                 from_status = item.status
 
                 update_fields: dict[str, Any] = {"status": "closed"}

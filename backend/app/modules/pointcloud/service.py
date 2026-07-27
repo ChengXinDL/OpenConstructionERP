@@ -594,13 +594,9 @@ class PointCloudService:
             ) from exc
 
         # Read every scan/stored field the event payload and response need NOW,
-        # while the ORM row is still live. update_fields() ends with
-        # session.expire_all(), which marks scan's attributes expired; reading
-        # scan.project_id / scan.tenant_id / scan.upload_key afterwards would
-        # trigger an implicit lazy reload, and an async session forbids implicit
-        # IO outside a greenlet (MissingGreenlet) - that surfaced as a 500 on
-        # ingest/complete. Snapshotting first keeps the finalise path off the
-        # expired row entirely.
+        # before the finalise writes below, so both report the scan as it was
+        # ingested rather than reloading a half-updated row, where the reload
+        # raises MissingGreenlet on the async session.
         project_id = scan.project_id
         tenant_id = scan.tenant_id
         resolved_key = stored.key or scan.upload_key
@@ -929,9 +925,9 @@ class PointCloudService:
         from app.modules.pointcloud.wire import pack_points
 
         scan = await self.get_scan(scan_id, payload=payload)
-        # Snapshot every field we need BEFORE any update_fields() call: that ends
-        # in expire_all(), and re-reading an expired attribute on an async
-        # session triggers an implicit lazy load (MissingGreenlet -> 500).
+        # Snapshot every field we need BEFORE any update_fields() call, so the
+        # decode path below works from the scan as it was read and never
+        # reloads it (MissingGreenlet on the async session).
         upload_key = scan.upload_key
         fmt = (scan.original_format or "").lower()
         scan_status_value = scan.status

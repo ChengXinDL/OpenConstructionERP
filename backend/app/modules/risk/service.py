@@ -752,11 +752,9 @@ class RiskService:
         }
 
         # Persist the snapshot on every risk so a page refresh keeps the
-        # last-run drill-down. We read IDs into a Python list BEFORE the
-        # first update - RiskRepository.update_fields calls
-        # ``session.expire_all()`` (see repo.py), which would otherwise
-        # force a lazy-load of ``item.id`` on the second loop iteration
-        # and trip MissingGreenlet on SQLAlchemy's sync cursor path.
+        # last-run drill-down. We read IDs into a Python list BEFORE the first
+        # update so the loop iterates over a fixed set rather than over rows it
+        # is writing to, where a reload raises MissingGreenlet.
         item_ids_to_stamp = [item.id for item in items]
         for risk_id in item_ids_to_stamp:
             await self.repo.update_fields(risk_id, last_simulation=result)

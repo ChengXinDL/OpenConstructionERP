@@ -2978,12 +2978,12 @@ class BOQService:
         """
         target_boq = data.boq_id
 
-        # ``PositionRepository.update_fields`` ends with
-        # ``session.expire_all()`` - that expires EVERY ORM instance in the
-        # unit of work, including ``master``. The async engine cannot
-        # lazy-refresh on attribute access (``MissingGreenlet``), so read
-        # everything we need from ``master`` NOW, before the first promote,
-        # and re-fetch a live copy afterwards for the deep-copy.
+        # ``PositionRepository.update_fields`` copies the values it wrote onto
+        # the row it touched and leaves every other loaded instance alone, but
+        # anything it does expire has to be reloaded, and that read raises
+        # MissingGreenlet under the async session. These locals hold the
+        # pre-promote identity the deep-copy needs; a live copy is re-fetched
+        # afterwards for the definition values.
         master_id = master.id
         master_ordinal = master.ordinal
         master_link_group_id = master.link_group_id
@@ -3025,8 +3025,8 @@ class BOQService:
         # are NEVER inherited from the master.
         qty = data.quantity if data.quantity is not None else 0
 
-        # Re-fetch a LIVE master (the promote above expired it) so the
-        # deep-copy reads real definition values, not expired attributes.
+        # Re-fetch the master so the deep-copy reads the definition values as
+        # they stand after the promote above, not the pre-promote ones.
         live_master = await self.position_repo.get_by_id(master_id)
         new_position = await self._clone_subtree(
             live_master if live_master is not None else master,
@@ -3831,24 +3831,21 @@ class BOQService:
             _propagate_meta = "metadata_" in _requested_def_fields and isinstance(position.metadata_, dict)
             if _changed_def_payload or _propagate_meta:
                 try:
-                    # ``repo.update_fields`` ends in ``session.expire_all()``,
-                    # which expires EVERY ORM instance - the master
-                    # ``position`` AND every row in ``group``. The async
-                    # engine can't lazy-refresh on attribute access
-                    # (``MissingGreenlet``), so snapshot the master's
-                    # metadata once here and each instance's fields at the
-                    # top of its iteration, then only touch locals after the
-                    # per-instance write.
+                    # ``repo.update_fields`` only touches the row it writes, so
+                    # the master ``position`` and the rest of ``group`` stay
+                    # loaded. Snapshot the master's metadata once here and each
+                    # instance's fields at the top of its iteration so the loop
+                    # works from plain values: an ORM read that has to go back to
+                    # the database raises MissingGreenlet on the async session.
                     _master_meta_snapshot = position.metadata_ if isinstance(position.metadata_, dict) else {}
                     group = await self.position_repo.list_link_group(_link_group_before)
                     # Snapshot EVERY group member into plain values BEFORE
-                    # the first per-instance write. ``update_fields`` ends in
-                    # ``session.expire_all()``, so reading another (not-yet-
-                    # processed) group member's ORM attributes on a LATER
-                    # loop iteration would lazy-load on the async engine →
-                    # MissingGreenlet. The original per-iteration snapshot
-                    # only happened to be safe when the group had ≤1
-                    # propagation target; #132 subtree groups have several.
+                    # the first per-instance write, so the loop reads a
+                    # consistent view of the group rather than re-reading a row
+                    # mid-propagation, where a reload raises MissingGreenlet.
+                    # The original per-iteration snapshot only happened to be
+                    # safe when the group had one propagation target; #132
+                    # subtree groups have several.
                     _grp_snap: list[dict[str, Any]] = [
                         {
                             "id": g.id,
@@ -3929,11 +3926,12 @@ class BOQService:
                             source_module="oe_boq",
                         )
                     await self.session.flush()
-                    # The per-instance update_fields() calls each ran
-                    # session.expire_all(); re-hydrate the master so the
+                    # The per-instance update_fields() calls wrote through other
+                    # rows, not this one; re-hydrate the master so the
                     # activity-log here and the audit-diff / event / response
-                    # reads below operate on live attributes, not expired
-                    # ones (async engine can't lazy-refresh → MissingGreenlet).
+                    # reads below see the database values, including any column
+                    # the propagation recomputed, without a lazy-load that would
+                    # raise MissingGreenlet.
                     if _propagated_count:
                         await self.session.refresh(position)
                     if _propagated_count and actor_id is not None:
@@ -3993,8 +3991,9 @@ class BOQService:
         if _link_role_before is None and not _did_unlink_instance and fields and _requested_def_fields:
             try:
                 # Snapshot the edited node's post-write definition BEFORE any
-                # per-instance update_fields() (each ends in expire_all();
-                # the async engine cannot lazy-refresh → MissingGreenlet).
+                # per-instance update_fields(), so the propagation below works
+                # from the value that was actually saved rather than reloading it
+                # and raising MissingGreenlet.
                 _mc_changed: dict[str, Any] = {}
                 for _df in _LINK_DEFINITION_FIELDS:
                     if _df in _requested_def_fields:
@@ -4020,17 +4019,17 @@ class BOQService:
                         and _root_node.link_group_id is not None
                         and _root_node.id != position_id
                     ):
-                        # Snapshot the master root's link identity NOW -
-                        # per-instance update_fields() runs expire_all()
-                        # and the async engine can't lazy-refresh these
-                        # later for the activity-log (MissingGreenlet).
+                        # Snapshot the master root's link identity NOW so the
+                        # activity-log below records the group it belonged to at
+                        # the start of the propagation and never reloads it
+                        # afterwards (MissingGreenlet on the async session).
                         _mc_root_group_id = _root_node.link_group_id
                         _mc_root_code = _root_node.reference_code
                         _mc_group = await self.position_repo.list_link_group(_mc_root_group_id)
-                        # Pre-snapshot the whole group before any write -
-                        # update_fields() → expire_all() would otherwise make
-                        # a later iteration's ORM read lazy-load on the async
-                        # engine (MissingGreenlet) once >1 child matches.
+                        # Pre-snapshot the whole group before any write so a
+                        # later iteration reads plain values rather than a row
+                        # the loop has written through, where a reload raises
+                        # MissingGreenlet.
                         _mc_snap: list[dict[str, Any]] = [
                             {
                                 "id": _c.id,
@@ -4222,10 +4221,10 @@ class BOQService:
         ):
             _res_after_raw = position.metadata_.get("resources")
             if isinstance(_res_after_raw, list):
-                # Snapshot the after-state into a plain list NOW - the
-                # propagation helper runs per-instance ``update_fields``
-                # (expire_all) and the async engine cannot lazy-refresh
-                # ``position.metadata_`` afterwards (MissingGreenlet).
+                # Snapshot the after-state into a plain list NOW, before the
+                # propagation helper starts rewriting sibling rows, so the delta
+                # below compares the editor's own before/after without a reload
+                # that would raise MissingGreenlet.
                 _res_after = [dict(r) if isinstance(r, dict) else r for r in _res_after_raw]
                 _res_delta = self._resource_def_changed(_res_before, _res_after)
                 if _res_delta:
@@ -4234,10 +4233,12 @@ class BOQService:
                         changed_by_code=_res_delta,
                         actor_id=actor_id,
                     )
-                    # Per-instance writes above expired ``position``;
-                    # re-hydrate it so the response serialisation
-                    # (``_position_to_response_with_links``) reads live
-                    # attributes, not lazy-loads → MissingGreenlet.
+                    # The propagation rewrote sibling rows and may have rolled
+                    # a value back onto this one; re-hydrate ``position`` so the
+                    # response serialisation
+                    # (``_position_to_response_with_links``) reports the database
+                    # state and never lazy-loads mid-serialise, which would raise
+                    # MissingGreenlet.
                     if _resource_propagated:
                         try:
                             await self.session.refresh(position)
@@ -4871,10 +4872,9 @@ class BOQService:
         # still sees the soon-to-be-deleted row's group.
         _del_link_role = getattr(position, "link_role", None)
         _del_link_group = getattr(position, "link_group_id", None)
-        # Capture the master's boq_id while ``position`` is still live - the
-        # promotion below calls repo.update_fields() which runs
-        # session.expire_all(); the async engine can't lazy-refresh expired
-        # attributes (MissingGreenlet).
+        # Capture the master's boq_id before the delete below detaches
+        # ``position`` from the session, where reading it raises
+        # MissingGreenlet instead of reloading.
         _del_position_boq_id = position.boq_id
         _deleted_ids_set = set(deleted_position_ids)
         if _del_link_role == "master" and _del_link_group is not None:
@@ -4885,8 +4885,6 @@ class BOQService:
                 survivors = [p for p in group if str(p.id) not in _deleted_ids_set]
                 if survivors:
                     # list_link_group is ordered oldest-first → promote head.
-                    # Capture the id before the first update_fields()
-                    # expires every ORM instance (incl. ``new_master``).
                     _promote_id = survivors[0].id
                     await self.position_repo.update_fields(_promote_id, link_role="master")
                     if len(survivors) == 1:
@@ -5292,15 +5290,11 @@ class BOQService:
 
         positions = await self.position_repo.list_all_for_boq(boq_id)
 
-        # BUG-B-003: ``position_repo.update_fields`` calls
-        # ``session.expire_all()`` on every invocation. If we read
-        # ``pos.metadata_`` / ``pos.quantity`` lazily inside the loop, the
-        # FIRST update expires every not-yet-processed ORM instance; the
-        # next iteration's attribute access then triggers an implicit
-        # async lazy-load outside the greenlet → MissingGreenlet → HTTP
-        # 500 (only reproduced with ≥2 resource-loaded positions).
-        # Snapshot every attribute we need BEFORE mutating anything so the
-        # loop never touches an expired instance.
+        # BUG-B-003: snapshot every attribute we need BEFORE mutating
+        # anything, so each iteration rebases on the values the loop started
+        # from rather than reloading a row an earlier iteration rewrote, which
+        # raises MissingGreenlet (only reproduced with ≥2 resource-loaded
+        # positions).
         snapshots: list[tuple[uuid.UUID, list[dict[str, Any]], str | None]] = []
         for pos in positions:
             meta = pos.metadata_ or {}
@@ -5688,15 +5682,11 @@ class BOQService:
                 detail="Position is not part of a linked-code group.",
             )
 
-        # ``PositionRepository.update_fields`` ends with
-        # ``session.expire_all()``, which expires EVERY ORM instance in this
-        # unit of work - including ``position``. On the async engine a later
-        # attribute read on the expired instance triggers an implicit lazy
-        # refresh → MissingGreenlet → HTTP 500. Capture everything we need
-        # BEFORE the first expiring write, then re-fetch a live instance
-        # afterwards. (Same footgun already fixed in
-        # _create_reused_position / update_position / delete_position; the
-        # master-promotion path below is the one that 500'd on unlink.)
+        # Capture everything we need from ``position`` BEFORE the unlink
+        # rewrites its link fields, then re-fetch a live instance afterwards
+        # rather than reloading attributes in place (MissingGreenlet). The
+        # values below describe the position as it was while still a group
+        # member, which is what the activity-log and response report.
         _pos_version = int(getattr(position, "version", 0) or 0)
         _pos_boq_id = position.boq_id
         _pos_ordinal = position.ordinal
@@ -5727,9 +5717,8 @@ class BOQService:
             version=_pos_version + 1,
         )
         await self.session.flush()
-        # ``position`` is expired/stale after the writes above - re-fetch a
-        # live instance so the return value + router serialization
-        # (``_position_to_response``) don't lazy-load on a dead instance.
+        # Re-fetch the position so the return value + router serialization
+        # (``_position_to_response``) report the unlinked state written above.
         live_position = await self.position_repo.get_by_id(position_id)
         if live_position is not None:
             position = live_position
@@ -5988,9 +5977,9 @@ class BOQService:
             project_id = await self.position_repo.project_id_for_boq(editor_position.boq_id)
             if project_id is None:
                 return 0
-            # Capture editor identity NOW - per-instance ``update_fields``
-            # calls below run ``expire_all()`` and the async engine cannot
-            # lazy-refresh ``editor_position`` afterwards (MissingGreenlet).
+            # Capture editor identity NOW so the loop below can skip the
+            # editor's own row without re-reading it mid-propagation, where a
+            # reload raises MissingGreenlet.
             editor_id = editor_position.id
             editor_boq_id = editor_position.boq_id
             # Resolve the project FX table once so each instance's derived
@@ -6003,12 +5992,10 @@ class BOQService:
             # Oldest-first - the FIRST carrier of a code is its master.
             positions = await self.position_repo.list_for_project(project_id)
 
-            # ── Snapshot EVERY position into plain values BEFORE any write.
-            # ``position_repo.update_fields`` ends in ``session.expire_all()``
-            # which expires every ORM instance in this unit of work; a later
-            # attribute read on a not-yet-processed row would lazy-load on
-            # the async engine → MissingGreenlet. (Same footgun + fix the
-            # #127 propagation uses - see ``_grp_snap``.)
+            # ── Snapshot EVERY position into plain values BEFORE any write, so
+            # the rollup below reads one consistent view of the project and
+            # never reloads a row an earlier iteration rewrote, which would
+            # raise MissingGreenlet. (Same shape as #127 - see ``_grp_snap``.)
             snap: list[dict[str, Any]] = [
                 {
                     "id": p.id,
@@ -6141,8 +6128,9 @@ class BOQService:
                         )
             return updated
         except Exception:  # noqa: BLE001 - never break the user's PATCH
-            # ``editor_position`` may be expired here (a per-instance
-            # ``update_fields`` ran ``expire_all()``); avoid touching it.
+            # Report via the captured ``editor_id`` rather than reading
+            # ``editor_position`` again - the failure may have come from the
+            # session itself, and this handler must not raise.
             logger.exception(
                 "Resource-definition propagation failed (editor %s)",
                 locals().get("editor_id", "?"),
@@ -7465,10 +7453,11 @@ class BOQService:
         that lack the requested field are reported as ``missing`` so the
         caller can surface a precise review message.
 
-        Takes plain primitives (NOT the ORM ``QuantityLink``) so callers
-        can snapshot a link's scalar fields up front and stay correct
-        across ``session.expire_all()`` boundaries - the same
-        MissingGreenlet-avoidance pattern ``duplicate_boq`` uses.
+        Takes plain primitives (NOT the ORM ``QuantityLink``) so callers can
+        snapshot a link's scalar fields up front and keep evaluating against
+        that snapshot while the surrounding loop rewrites links, instead of
+        reading an attribute back and raising MissingGreenlet under the async
+        session - the same pattern ``duplicate_boq`` uses.
 
         Args:
             model_id: The model to read elements from (callers pass the
@@ -7637,10 +7626,10 @@ class BOQService:
         await self.get_boq(boq_id)  # 404 guard
         links = await self.quantity_link_repo.list_for_boq(boq_id)
 
-        # Snapshot every link's scalar fields BEFORE the loop so the
-        # subsequent ``update_fields`` (which calls ``session.expire_all``)
-        # can never make a still-referenced ORM ``link`` lazy-load and
-        # raise MissingGreenlet - the same pattern ``duplicate_boq`` uses.
+        # Snapshot every link's scalar fields BEFORE the loop so each iteration
+        # reviews the link as it was when the run started and never reloads one
+        # a previous ``update_fields`` touched, which raises MissingGreenlet -
+        # the same pattern ``duplicate_boq`` uses.
         snapshots = [
             {
                 "id": link.id,
@@ -7758,10 +7747,10 @@ class BOQService:
             HTTPException 409: the BOQ is locked.
         """
         await self._ensure_not_locked(boq_id)
-        # Snapshot link scalar fields up front so the per-iteration
-        # ``update_fields`` (→ ``session.expire_all``) can never make a
-        # still-referenced ORM ``link`` lazy-load and raise
-        # MissingGreenlet (same pattern ``duplicate_boq`` uses).
+        # Snapshot link scalar fields up front so each iteration works from the
+        # pre-run values rather than reloading a link the per-iteration
+        # ``update_fields`` rewrote, which raises MissingGreenlet (same pattern
+        # ``duplicate_boq`` uses).
         snap_by_id: dict[uuid.UUID, dict] = {
             link.id: {
                 "id": link.id,
@@ -7779,15 +7768,13 @@ class BOQService:
 
         # v4.2.2 Round 2 Wave C: snapshot every bound position's scalar
         # state in ONE bulk query up front so the per-link loop doesn't
-        # fan out into N ``get_by_id`` round-trips. We don't keep the ORM
-        # instances live - the *first* ``update_fields`` call (either on
-        # a position or its link) triggers ``session.expire_all()``,
-        # which would render every cached instance lazy-load-prone. So
-        # we copy the scalar fields the loop actually reads into plain
-        # dicts (mirrors the link snapshot pattern above), then look up
-        # by id without ever touching the ORM. The common case (each
-        # link binds a distinct position, none mutated twice) costs ONE
-        # bulk query total instead of N round-trips.
+        # fan out into N ``get_by_id`` round-trips. We copy the scalar
+        # fields the loop actually reads into plain dicts (mirrors the
+        # link snapshot pattern above), then look up by id without ever
+        # touching the ORM, so a position mutated by an earlier iteration
+        # is re-read deliberately rather than read half-updated. The
+        # common case (each link binds a distinct position, none mutated
+        # twice) costs ONE bulk query total instead of N round-trips.
         position_ids_to_load: list[uuid.UUID] = []
         seen_position_ids: set[uuid.UUID] = set()
         for link_id in link_ids:
@@ -7924,8 +7911,8 @@ class BOQService:
                 total=new_total,
                 metadata_=meta,
             )
-            # update_fields → session.expire_all(); any later iteration
-            # that touches this position must re-read from DB.
+            # This position now differs from the up-front snapshot; any later
+            # iteration that touches it must re-read from DB.
             mutated_position_ids.add(snap["position_id"])
             await self.quantity_link_repo.update_fields(
                 snap["id"],

@@ -808,7 +808,8 @@ class AssemblyService:
         # Recalculate assembly total
         await self._recalculate_total(assembly_id)
 
-        # Re-fetch component to avoid MissingGreenlet after expire_all
+        # Re-fetch the component: reading the recalculated totals back off the
+        # stale instance would reload them and raise MissingGreenlet here
         refreshed = await self.component_repo.get_by_id(component.id)
         if refreshed is not None:
             component = refreshed

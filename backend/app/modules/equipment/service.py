@@ -448,10 +448,9 @@ class EquipmentService:
                     exc_info=True,
                 )
 
-        # equipment_repo.update_fields() calls session.expire_all(), which
-        # expires this in-memory reading. Reload its columns within the async
-        # greenlet so the router's model_validate() does not trigger a sync
-        # lazy reload (MissingGreenlet on asyncpg).
+        # Reload the reading's columns within the async greenlet so the
+        # router's model_validate() serialises its stored row, including any
+        # value the trigger handling above wrote.
         await self.session.refresh(reading)
         return reading
 
@@ -962,11 +961,8 @@ class EquipmentService:
         )
         await self.workorder_repo.create(wo)
 
-        # Capture PKs BEFORE update_fields() - its trailing expire_all()
-        # detaches every attribute on ``damage`` and ``wo``. ``wo`` is never
-        # refreshed afterwards, so a later ``wo.id`` access would trigger an
-        # illegal *synchronous* lazy-load on the async session and 500 the
-        # request. IDs are stable post-flush, so snapshot them here.
+        # Capture both PKs here: they are stable once the create above has
+        # flushed, and the cross-links below need them as plain values.
         damage_id = damage.id
         work_order_id = wo.id
 
@@ -1320,9 +1316,9 @@ class EquipmentActualsService:
 
         line = await self._get_or_create_equipment_line(project_id)
 
-        # Snapshot every attribute we need BEFORE update_fields() calls
-        # expire_all(): reading line.* afterwards would re-issue a sync SELECT
-        # and raise MissingGreenlet under the async session.
+        # Snapshot every attribute we need BEFORE the update, so the idempotency
+        # check below tests the event list as it was read instead of reloading
+        # it (MissingGreenlet on the async session).
         line_id = line.id
         md = dict(line.metadata_) if isinstance(line.metadata_, dict) else {}
         applied = md.get("applied_events")
