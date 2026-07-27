@@ -4485,7 +4485,12 @@ export default function TakeoffViewerModule({
   // (not a ref) because the drop indicator is a visual affordance that must
   // re-render; cleared on drop / drag-end.
   const [draggingMeasurementId, setDraggingMeasurementId] = useState<string | null>(null);
-  const [dragOverMeasurementId, setDragOverMeasurementId] = useState<string | null>(null);
+  // Hovered row AND which of its two halves the pointer is in (issue #392).
+  // Held as one object so moving across the midpoint is a single render and the
+  // indicator cannot be drawn for a row with a stale half.
+  const [dragOverTarget, setDragOverTarget] = useState<
+    { id: string; place: 'before' | 'after' } | null
+  >(null);
 
   /** Drop a dragged measurement next to another row in the sidebar list,
    *  reordering the paint (z) stack accordingly (issue #379). Computes a single
@@ -4499,15 +4504,21 @@ export default function TakeoffViewerModule({
    *  and then wrote only an order key, which the banded projection confines to
    *  the dragged row's own group, so the gesture looked accepted and did
    *  nothing. Regrouping by dragging is also the obvious way to ask for it. */
-  const reorderMeasurementByDrag = useCallback((draggedId: string, targetId: string) => {
+  const reorderMeasurementByDrag = useCallback((
+    draggedId: string,
+    targetId: string,
+    place: 'before' | 'after',
+  ) => {
     const all = measurementsRef.current;
     const dragged = all.find((m) => m.id === draggedId);
     const target = all.find((m) => m.id === targetId);
     if (!dragged || !target) return;
-    // Drop "before" the target row: the sidebar lists rows in ascending paint
-    // order, so inserting before the hovered row places the dragged shape just
-    // beneath it in the stack, matching where the user dropped it.
-    const nextOrder = orderKeyForDrop(all, draggedId, targetId, 'before');
+    // The sidebar lists rows in ascending paint order, so "before" puts the
+    // dragged shape just beneath the hovered row and "after" just above it.
+    // Which one is decided by the half of the row the pointer was in when it
+    // was released (issue #392), not fixed: with "before" as the only option
+    // the slot after the last row of a group had no gesture that reached it.
+    const nextOrder = orderKeyForDrop(all, draggedId, targetId, place);
     if (nextOrder === null) return;
     // Compare through the same normalisation the projection buckets with, so a
     // row whose group is the empty string is not "moved" into General, which
@@ -9396,14 +9407,29 @@ export default function TakeoffViewerModule({
                                 if (!draggingMeasurementId || draggingMeasurementId === m.id || m.suggested) return;
                                 e.preventDefault();
                                 e.dataTransfer.dropEffect = 'move';
-                                if (dragOverMeasurementId !== m.id) setDragOverMeasurementId(m.id);
+                                // Which half of the row the pointer is in decides
+                                // the side (issue #392). Measured against the row's
+                                // own box every time rather than cached, because the
+                                // list scrolls under the pointer during a drag.
+                                const box = e.currentTarget.getBoundingClientRect();
+                                const place = e.clientY < box.top + box.height / 2 ? 'before' : 'after';
+                                if (dragOverTarget?.id !== m.id || dragOverTarget.place !== place) {
+                                  setDragOverTarget({ id: m.id, place });
+                                }
                               }}
                               onDrop={(e) => {
                                 if (!draggingMeasurementId || draggingMeasurementId === m.id || m.suggested) return;
                                 e.preventDefault();
-                                reorderMeasurementByDrag(draggingMeasurementId, m.id);
+                                // Recompute from the release point rather than
+                                // trusting the hover state: a drop can arrive
+                                // without a final dragOver on the same side, and
+                                // dropping somewhere other than where the line was
+                                // drawn is the bug this whole change is about.
+                                const box = e.currentTarget.getBoundingClientRect();
+                                const place = e.clientY < box.top + box.height / 2 ? 'before' : 'after';
+                                reorderMeasurementByDrag(draggingMeasurementId, m.id, place);
                                 setDraggingMeasurementId(null);
-                                setDragOverMeasurementId(null);
+                                setDragOverTarget(null);
                               }}
                               className={clsx(
                                 'rounded-sm px-2 py-1 group/item transition-all cursor-pointer',
@@ -9414,7 +9440,13 @@ export default function TakeoffViewerModule({
                                 // can be restored, the way hidden groups behave (#359).
                                 hiddenMeasurements.has(m.id) && 'opacity-50',
                                 // Drop indicator + dragged-row feedback (issue #379).
-                                dragOverMeasurementId === m.id && 'border-t-2 border-t-oe-blue',
+                                // The line is drawn on the edge the row will land
+                                // against (issue #392); a top-only line could not
+                                // express "below this one" at all.
+                                dragOverTarget?.id === m.id
+                                  && (dragOverTarget.place === 'before'
+                                    ? 'border-t-2 border-t-oe-blue'
+                                    : 'border-b-2 border-b-oe-blue'),
                                 draggingMeasurementId === m.id && 'opacity-40',
                               )}
                               data-testid="measurement-item"
@@ -9439,7 +9471,7 @@ export default function TakeoffViewerModule({
                                     }}
                                     onDragEnd={() => {
                                       setDraggingMeasurementId(null);
-                                      setDragOverMeasurementId(null);
+                                      setDragOverTarget(null);
                                     }}
                                     className="shrink-0 -ml-1 cursor-grab active:cursor-grabbing text-content-tertiary opacity-0 group-hover/item:opacity-60 hover:opacity-100 transition-opacity"
                                     aria-label={t('takeoff_viewer.drag_to_reorder', { defaultValue: 'Drag to reorder' })}

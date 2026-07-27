@@ -503,3 +503,68 @@ describe('pinned group bands survive a reload (issue #393)', () => {
     expect(stampGroupBands(rows, learned)).toBe(rows);
   });
 });
+
+/**
+ * Every slot in the list has to be reachable in one gesture (issue #392). The
+ * slot after the last row of a group is the one that had none: with "before"
+ * as the only side, no pointer position over any row produced it.
+ */
+describe('a drop can land after the target, not only before it (issue #392)', () => {
+  const gRow = (id: string, group: string, order?: number) => ({ id, group, order });
+
+  const applyDrop = (
+    rows: { id: string; group: string; order?: number }[],
+    draggedId: string,
+    targetId: string,
+    place: 'before' | 'after',
+  ) => {
+    const key = orderKeyForDrop(rows, draggedId, targetId, place);
+    if (key === null) return null;
+    const next = rows.map((r) => (r.id === draggedId ? { ...r, order: key } : r));
+    return sortByPaintOrder(next, groupBands(next)).map((r) => r.id);
+  };
+
+  it('reaches the slot after the last row, which before had no gesture', () => {
+    const rows = [gRow('a', 'G'), gRow('b', 'G'), gRow('c', 'G')];
+    // The reporter's repro: dragging a onto c must be able to produce b, c, a.
+    expect(applyDrop(rows, 'a', 'c', 'after')).toEqual(['b', 'c', 'a']);
+    // And the other half of the same row still produces the old answer.
+    expect(applyDrop(rows, 'a', 'c', 'before')).toEqual(['b', 'a', 'c']);
+  });
+
+  it('reaches the slot after the last row of a group that is followed by another', () => {
+    // This slot used to be reachable only by aiming at the first row of the
+    // NEXT group, which worked only because a cross-group drop did nothing.
+    const rows = [gRow('a1', 'A'), gRow('a2', 'A'), gRow('b1', 'B')];
+    expect(applyDrop(rows, 'a1', 'a2', 'after')).toEqual(['a2', 'a1', 'b1']);
+  });
+
+  it('reaches the slot before the first row', () => {
+    const rows = [gRow('a', 'G'), gRow('b', 'G'), gRow('c', 'G')];
+    expect(applyDrop(rows, 'c', 'a', 'before')).toEqual(['c', 'a', 'b']);
+  });
+
+  it('treats a drop onto the side the row already occupies as a no-op', () => {
+    const rows = [gRow('a', 'G', 0), gRow('b', 'G', 1), gRow('c', 'G', 2)];
+    // b after a, and b before c, are both where b already is.
+    expect(orderKeyForDrop(rows, 'b', 'a', 'after')).toBeNull();
+    expect(orderKeyForDrop(rows, 'b', 'c', 'before')).toBeNull();
+  });
+
+  it('survives repeated drops into the same gap', () => {
+    // Each drop into one gap halves the interval, so a long session of nudges
+    // is where float precision would give out and two rows would compare equal.
+    let rows = [gRow('a', 'G'), gRow('b', 'G'), gRow('c', 'G')];
+    for (let i = 0; i < 60; i++) {
+      const key = orderKeyForDrop(rows, i % 2 === 0 ? 'a' : 'c', 'b', 'after');
+      if (key === null) continue;
+      const moved = i % 2 === 0 ? 'a' : 'c';
+      rows = rows.map((r) => (r.id === moved ? { ...r, order: key } : r));
+    }
+    const ids = sortByPaintOrder(rows, groupBands(rows)).map((r) => r.id);
+    expect(ids).toHaveLength(3);
+    expect(new Set(ids).size).toBe(3);
+    // b keeps its slot; the two rows being nudged stay on the side they landed.
+    expect(ids.indexOf('b')).toBeLessThan(ids.length - 1);
+  });
+});
