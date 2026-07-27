@@ -12,9 +12,23 @@ on:
 
 jobs:
   backend-full:
-    name: Backend Full Suite
+    name: Backend Full Suite (shard ${{ matrix.shard }}/8)
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    # Run serially this job never finished. Every nightly since at least
+    # 2026-07-22 ran for exactly 6h00m and was cancelled at the timeout-minutes
+    # ceiling, so the step reported "cancelled" rather than a test result and
+    # the whole tree produced no signal at all. 360 minutes is the GitHub-hosted
+    # job limit, so there was no budget left to buy. pytest-split fans the
+    # collected tree across eight matrix shards, each on its own runner with its
+    # own throwaway PostgreSQL service, which removes the cross-shard database
+    # contention as well. Same mechanism the push gate already uses for the unit
+    # tree; eight rather than six because this tree is the unit tree plus the
+    # integration, module and pg trees.
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     defaults:
       run:
         working-directory: backend
@@ -57,13 +71,33 @@ jobs:
         env:
           DATABASE_URL: postgresql+asyncpg://oe:oe@localhost:5432/openconstructionerp_test
           DATABASE_SYNC_URL: postgresql+psycopg2://oe:oe@localhost:5432/openconstructionerp_test
-        # A per-test timeout so one hung test can no longer eat the whole 6h
+        # A per-test timeout so one hung test can no longer eat the whole
         # budget with the run cancelled and no signal of where it stalled - it
         # becomes a reported failure and the suite carries on. --durations and
         # -ra then make the slow spots and failures readable without scrolling
-        # six hours of Postgres logs. 900s is generous: no real unit or
-        # integration test should approach 15 minutes.
-        run: pytest -q -ra --durations=50 --timeout=900 --timeout-method=thread
+        # hours of Postgres logs. 900s is generous: no real unit or
+        # integration test should approach 15 minutes. pytest-split partitions
+        # the collected tree deterministically, so every test runs in exactly
+        # one shard and the union of the eight shards is the whole tree.
+        run: >-
+          pytest -q -ra --durations=50 --timeout=900 --timeout-method=thread
+          --splits 8 --group ${{ matrix.shard }}
+
+  backend-full-gate:
+    name: Backend Full Suite
+    # One stable status check that is green only when every shard passed, so
+    # the nightly still reads as a single pass/fail at a glance.
+    needs: [backend-full]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all shards to pass
+        run: |
+          if [ "${{ needs.backend-full.result }}" != "success" ]; then
+            echo "Full-suite shards did not all pass: ${{ needs.backend-full.result }}"
+            exit 1
+          fi
+          echo "All full-suite shards passed."
 
   backend-full-cross-os:
     name: Backend Full Suite (${{ matrix.os }}, embedded PG)
