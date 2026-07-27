@@ -62,8 +62,9 @@ import {
   PRIORITY_DOT,
   STATUS_CONFIG,
   ballInCourtSide,
-  buildUpdatePayload,
+  buildRfiPatch,
   daysOverdue,
+  formFromRfi,
   type RFIFormData,
 } from './RFIPage';
 import { ApprovalInstanceCard } from '@/features/approval-routes';
@@ -384,10 +385,14 @@ export function RFIDetailPage() {
 
   const updateMut = useMutation({
     mutationFn: (data: RFIFormData) =>
-      updateRFI(rfiId as string, {
-        ...buildUpdatePayload(data),
-        linked_drawing_ids: data.linked_drawing_ids,
-      }),
+      updateRFI(
+        rfiId as string,
+        // Rebuild the baseline the modal was seeded from, so the save carries
+        // only what the user actually edited. The modal cannot open before the
+        // RFI has loaded, so there is always a baseline here; an empty patch is
+        // the safe no-op if that ever stops being true.
+        rfi ? buildRfiPatch(data, formFromRfi(rfi)) : {},
+      ),
     onSuccess: () => {
       invalidate();
       setEditing(false);

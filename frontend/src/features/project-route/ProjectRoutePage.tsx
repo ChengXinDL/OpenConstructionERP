@@ -491,8 +491,28 @@ export function ProjectRoutePage() {
   });
 
   const updateMut = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: ClassifierFormData }) =>
-      updateRouteAssessment(id, { work_type: data.work_type, criteria: data.criteria }),
+    mutationFn: ({
+      id,
+      data,
+      base,
+    }: {
+      id: string;
+      data: ClassifierFormData;
+      base: ClassifierFormData;
+    }) => {
+      // Only what the user actually edited goes back. Changing the work type
+      // used to rewrite the whole criteria map as it stood when this list was
+      // read, undoing anyone else's edit to it without a word. The update route
+      // dumps with `exclude_unset=True`, so an omitted field is left alone.
+      const patch: { work_type?: WorkType; criteria?: RouteCriteria } = {};
+      if (data.work_type !== base.work_type) patch.work_type = data.work_type;
+      // Compared by content, not identity: the baseline is rebuilt on every
+      // save, so a reference test would resend the criteria map every time.
+      if (JSON.stringify(data.criteria) !== JSON.stringify(base.criteria)) {
+        patch.criteria = data.criteria;
+      }
+      return updateRouteAssessment(id, patch);
+    },
     onSuccess: () => {
       invalidateAll();
       setEditingItem(null);
@@ -540,7 +560,13 @@ export function ProjectRoutePage() {
   const handleEditSubmit = useCallback(
     (formData: ClassifierFormData) => {
       if (!editingItem) return;
-      updateMut.mutate({ id: editingItem.id, data: formData });
+      // Rebuild the baseline the modal was seeded from, the same expression
+      // `editInitialData` uses, so the save carries only what the user edited.
+      updateMut.mutate({
+        id: editingItem.id,
+        data: formData,
+        base: { work_type: editingItem.work_type, criteria: editingItem.criteria },
+      });
     },
     [updateMut, editingItem],
   );

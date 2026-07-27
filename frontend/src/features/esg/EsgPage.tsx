@@ -44,6 +44,7 @@ import {
   type EsgEntry,
   type EsgMetricDefinition,
   type EsgMetricSummary,
+  type UpdateEsgEntryPayload,
 } from './api';
 
 /* ── Constants & helpers ───────────────────────────────────────────────── */
@@ -502,11 +503,21 @@ function ReadingModal({
   const saveMut = useMutation({
     mutationFn: async () => {
       if (isEdit && editEntry) {
-        return updateEsgEntry(editEntry.id, {
-          value: value.trim(),
-          target: target.trim() === '' ? null : target.trim(),
-          note: note.trim() === '' ? null : note.trim(),
-        });
+        // Only what the user actually edited goes back. Correcting a value used
+        // to rewrite the target and the note as they stood when this list was
+        // read, undoing anyone else's edit to them without a word. The update
+        // route dumps with `exclude_unset=True`, so an omitted field is left
+        // alone; `null` is what clears one, since `JSON.stringify` would drop
+        // an `undefined` key and the old value would simply survive.
+        const patch: UpdateEsgEntryPayload = {};
+        if (value !== (editEntry.value ?? '')) patch.value = value.trim();
+        if (target !== (editEntry.target ?? '')) {
+          patch.target = target.trim() === '' ? null : target.trim();
+        }
+        if (note !== (editEntry.note ?? '')) {
+          patch.note = note.trim() === '' ? null : note.trim();
+        }
+        return updateEsgEntry(editEntry.id, patch);
       }
       return createEsgEntry({
         project_id: projectId,

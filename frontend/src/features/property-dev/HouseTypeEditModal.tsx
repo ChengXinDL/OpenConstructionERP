@@ -34,6 +34,7 @@ import {
 import { CountryCombobox, CUSTOM_SENTINEL } from '@/shared/ui/CountryCombobox';
 import { useToastStore } from '@/stores/useToastStore';
 import { getErrorMessage } from '@/shared/lib/api';
+import { onlyChangedFields } from '@/shared/lib/apiHelpers';
 import { getCountry } from '@/shared/lib/countries';
 
 import {
@@ -256,10 +257,33 @@ export function HouseTypeEditModal({
     } as CreateHouseTypeCataloguePayload;
   };
 
+  /**
+   * The edit patch: only the fields the user actually moved. Sending the whole
+   * record back rewrote every column with the catalogue entry as this modal
+   * had loaded it, so a colleague's concurrent correction to a field nobody
+   * touched here was silently reverted. The update route dumps with
+   * `exclude_unset=True`, so an omitted field is left alone. The baseline comes
+   * from `stateFromEntry`, the same function that seeded the form.
+   */
+  const buildPatch = (current: HouseTypeCatalogueEntry): UpdateHouseTypeCataloguePayload => {
+    const { country_code, region_label, ...named } = buildPayload() as UpdateHouseTypeCataloguePayload;
+    const base = stateFromEntry(current);
+    const patch = onlyChangedFields(named, form, base) as UpdateHouseTypeCataloguePayload;
+    // country_code and region_label are two projections of the same pair of
+    // inputs, so no form field carries either name. They are held out of the
+    // key-name diff above (which sends an unmatched key unconditionally) and
+    // travel together only when one of the two inputs behind them moved.
+    if (form.countryValue !== base.countryValue || form.customRegion !== base.customRegion) {
+      patch.country_code = country_code;
+      patch.region_label = region_label;
+    }
+    return patch;
+  };
+
   const saveMu = useMutation({
     mutationFn: () =>
       isEdit && entry
-        ? updateHouseTypeCatalogue(entry.id, buildPayload() as UpdateHouseTypeCataloguePayload)
+        ? updateHouseTypeCatalogue(entry.id, buildPatch(entry))
         : createHouseTypeCatalogue(buildPayload() as CreateHouseTypeCataloguePayload),
     onSuccess: () => {
       addToast({

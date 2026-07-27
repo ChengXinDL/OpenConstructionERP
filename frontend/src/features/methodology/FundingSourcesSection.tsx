@@ -185,10 +185,16 @@ function FundingSourceModal({
   const saveMut = useMutation({
     mutationFn: () => {
       if (isEdit && initial) {
-        return methodologyApi.updateFundingSource(initial.id, projectId, {
-          code: code.trim(),
-          name: name.trim(),
-        });
+        // Only what the user actually edited goes back. Renaming a source used
+        // to rewrite its code as it stood when this list was read, undoing
+        // anyone else's edit to it without a word. The update route dumps with
+        // `exclude_unset=True`, so an omitted field is left alone. Each
+        // comparison uses the same expression the prefill effect above uses, so
+        // an untouched field always reads as unchanged.
+        const patch: { code?: string; name?: string } = {};
+        if (code !== (initial.code ?? '')) patch.code = code.trim();
+        if (name !== (initial.name ?? '')) patch.name = name.trim();
+        return methodologyApi.updateFundingSource(initial.id, projectId, patch);
       }
       return methodologyApi.createFundingSource({
         project_id: projectId,

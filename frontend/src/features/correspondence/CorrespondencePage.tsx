@@ -308,6 +308,100 @@ const EMPTY_FORM: CorrespondenceFormData = {
   linked_rfi_id: '',
 };
 
+/**
+ * The form state an existing entry opens with.
+ *
+ * Pure and module-level so the edit handler can rebuild the same baseline the
+ * modal started from and send only what the user actually changed. Prefilling
+ * from a row and then PATCHing every field back rewrites fields nobody opened
+ * with the values they held when the list was last read, quietly undoing an
+ * edit somebody else made in between.
+ */
+export function correspondenceFormData(c: Correspondence): CorrespondenceFormData {
+  return {
+    subject: c.subject,
+    direction: c.direction,
+    type: c.correspondence_type,
+    from_contact: c.from_contact_id || '',
+    from_display: c.from_contact_id || '',
+    to_contacts: (c.to_contact_ids ?? []).join(', '),
+    to_display: (c.to_contact_ids ?? []).join(', '),
+    date_sent: c.date_sent || '',
+    date_received: c.date_received || '',
+    status: c.status,
+    response_required_by: c.response_required_by || '',
+    contract_clause_ref: c.contract_clause_ref || '',
+    notes: c.notes || '',
+    linked_document_ids: c.linked_document_ids ?? [],
+    linked_transmittal_id: c.linked_transmittal_id || '',
+    linked_rfi_id: c.linked_rfi_id || '',
+  };
+}
+
+/** Recipients are typed as one comma-separated line and sent as a list. */
+function recipientIds(form: CorrespondenceFormData): string[] {
+  return (form.to_display || form.to_contacts)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/**
+ * The body of an edit save: only the fields the user actually changed.
+ *
+ * Correcting a subject used to write the whole entry back, links and dates
+ * included, exactly as they stood when the list was last read. The update route
+ * dumps with `exclude_unset=True`, so a field left out of the body is left
+ * alone in the database, which is what makes omission the right tool.
+ *
+ * Hand-written rather than a generic key diff because the payload renames
+ * fields on the way out (`type` becomes `correspondence_type`, the recipient
+ * line becomes a list). A name-matched diff would find no form field behind the
+ * renamed key, read it as unchanged and drop the edit on every save.
+ *
+ * Clearing goes as `null`, never `undefined`: the key would be dropped by
+ * `JSON.stringify` and the old value would simply survive.
+ */
+export function buildCorrespondencePatch(
+  form: CorrespondenceFormData,
+  base: CorrespondenceFormData,
+): UpdateCorrespondencePayload {
+  const data: UpdateCorrespondencePayload = {};
+  if (form.subject !== base.subject) data.subject = form.subject;
+  if (form.direction !== base.direction) data.direction = form.direction;
+  if (form.type !== base.type) data.correspondence_type = form.type;
+  if (form.from_contact !== base.from_contact) data.from_contact_id = form.from_contact || null;
+  // Both fields feed one list, so either one moving has to resend it.
+  if (form.to_display !== base.to_display || form.to_contacts !== base.to_contacts) {
+    data.to_contact_ids = recipientIds(form);
+  }
+  if (form.date_sent !== base.date_sent) data.date_sent = form.date_sent || null;
+  if (form.date_received !== base.date_received) data.date_received = form.date_received || null;
+  if (form.status !== base.status) data.status = form.status;
+  if (form.response_required_by !== base.response_required_by) {
+    data.response_required_by = form.response_required_by || null;
+  }
+  if (form.contract_clause_ref !== base.contract_clause_ref) {
+    data.contract_clause_ref = form.contract_clause_ref || null;
+  }
+  if (form.notes !== base.notes) data.notes = form.notes || null;
+  // Compared by content, not identity: rebuilding the baseline makes a fresh
+  // array every time, so a reference test would resend the links on every save.
+  if (
+    form.linked_document_ids.length !== base.linked_document_ids.length ||
+    form.linked_document_ids.some((id, i) => id !== base.linked_document_ids[i])
+  ) {
+    data.linked_document_ids = form.linked_document_ids;
+  }
+  if (form.linked_transmittal_id !== base.linked_transmittal_id) {
+    data.linked_transmittal_id = form.linked_transmittal_id || null;
+  }
+  if (form.linked_rfi_id !== base.linked_rfi_id) {
+    data.linked_rfi_id = form.linked_rfi_id || null;
+  }
+  return data;
+}
+
 /* Minimal row shapes for the link pickers — only the fields we render. */
 interface PickerDocument {
   id: string;
@@ -1542,10 +1636,7 @@ export function CorrespondencePage() {
       direction: formData.direction,
       correspondence_type: formData.type,
       from_contact_id: formData.from_contact || undefined,
-      to_contact_ids: (formData.to_display || formData.to_contacts)
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean),
+      to_contact_ids: recipientIds(formData),
       date_sent: formData.date_sent || undefined,
       date_received: formData.date_received || undefined,
       // Lifecycle + response deadline. status is always sent; the date and
@@ -1577,31 +1668,14 @@ export function CorrespondencePage() {
   const handleEditSubmit = useCallback(
     (formData: CorrespondenceFormData) => {
       if (!editingItem) return;
-      updateMut.mutate({ id: editingItem.id, data: buildPayload(formData) });
+      // Rebuild the baseline the modal started from, so the save carries only
+      // what the user actually edited. See `buildCorrespondencePatch`.
+      updateMut.mutate({
+        id: editingItem.id,
+        data: buildCorrespondencePatch(formData, correspondenceFormData(editingItem)),
+      });
     },
-    [updateMut, editingItem, buildPayload],
-  );
-
-  const formDataFromItem = useCallback(
-    (c: Correspondence): CorrespondenceFormData => ({
-      subject: c.subject,
-      direction: c.direction,
-      type: c.correspondence_type,
-      from_contact: c.from_contact_id || '',
-      from_display: c.from_contact_id || '',
-      to_contacts: (c.to_contact_ids ?? []).join(', '),
-      to_display: (c.to_contact_ids ?? []).join(', '),
-      date_sent: c.date_sent || '',
-      date_received: c.date_received || '',
-      status: c.status,
-      response_required_by: c.response_required_by || '',
-      contract_clause_ref: c.contract_clause_ref || '',
-      notes: c.notes || '',
-      linked_document_ids: c.linked_document_ids ?? [],
-      linked_transmittal_id: c.linked_transmittal_id || '',
-      linked_rfi_id: c.linked_rfi_id || '',
-    }),
-    [],
+    [updateMut, editingItem],
   );
 
   const handleDelete = useCallback(
@@ -1958,7 +2032,7 @@ export function CorrespondencePage() {
         <CreateCorrespondenceModal
           isEdit
           projectId={projectId}
-          initialData={formDataFromItem(editingItem)}
+          initialData={correspondenceFormData(editingItem)}
           onClose={() => setEditingItem(null)}
           onSubmit={handleEditSubmit}
           isPending={updateMut.isPending}

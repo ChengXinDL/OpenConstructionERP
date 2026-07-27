@@ -71,6 +71,7 @@ import {
   type RequirementSet,
   type UpdateDeliverablePayload,
   type UpdateRequirementPayload,
+  type UpdateRequirementSetPayload,
 } from './api';
 import { requirementsGuide } from './requirementsGuide';
 
@@ -236,17 +237,24 @@ function RequirementEditor({ state, setId, onClose, onSaved }: ReqEditorProps) {
         throw new Error(t('requirements.matrix.required', { defaultValue: 'Entity and attribute are required.' }));
       }
       if (isEditing && state.row) {
-        const payload: UpdateRequirementPayload = {
-          entity: entityClean,
-          attribute: attributeClean,
-          constraint_type: constraintType,
-          constraint_value: constraintValue,
-          unit,
-          category,
-          priority,
-          status,
-          notes,
-        };
+        // Only what the user actually edited goes back. The matrix row carries
+        // three fields, so the prefill effect above seeds the other six from
+        // defaults rather than from the stored requirement. Sending the whole
+        // payload therefore rewrote constraint, unit, category, status and
+        // notes with those defaults on every save, destroying values this form
+        // never showed. The update route dumps with `exclude_unset=True`, so an
+        // omitted field is left alone. Each comparison uses the same expression
+        // the prefill effect uses, so an untouched field reads as unchanged.
+        const payload: UpdateRequirementPayload = {};
+        if (entity !== (state.row.entity ?? '')) payload.entity = entityClean;
+        if (attribute !== (state.row.attribute ?? '')) payload.attribute = attributeClean;
+        if (constraintType !== 'equals') payload.constraint_type = constraintType;
+        if (constraintValue !== '') payload.constraint_value = constraintValue;
+        if (unit !== '') payload.unit = unit;
+        if (category !== 'general') payload.category = category;
+        if (priority !== (state.row.priority || 'must')) payload.priority = priority;
+        if (status !== 'open') payload.status = status;
+        if (notes !== '') payload.notes = notes;
         await updateRequirement(state.row.requirement_set_id, state.row.requirement_id, payload);
       } else {
         if (!setId) throw new Error('No requirement set selected');
@@ -425,7 +433,13 @@ function SetEditor({ state, projectId, onClose, onSaved }: SetEditorProps) {
       const nameClean = name.trim();
       if (!nameClean) throw new Error(t('requirements.set_name_placeholder', { defaultValue: 'A set name is required.' }));
       if (isEditing && state.set) {
-        return updateRequirementSet(state.set.id, { name: nameClean, description });
+        // Only what changed. Renaming a set used to resend the description as
+        // it stood when this page was read, quietly undoing anyone else's edit
+        // to it. The update route dumps with `exclude_unset=True`.
+        const patch: UpdateRequirementSetPayload = {};
+        if (name !== (state.set.name ?? '')) patch.name = nameClean;
+        if (description !== (state.set.description ?? '')) patch.description = description;
+        return updateRequirementSet(state.set.id, patch);
       }
       return createRequirementSet({ project_id: projectId, name: nameClean, description });
     },
@@ -554,11 +568,23 @@ function CellEditor({ state, projectId, onClose, onSaved }: CellEditorProps) {
     mutationFn: async () => {
       if (!state.row) return;
       if (isEditing && state.cell?.deliverable_id) {
-        await updateDeliverable(
-          state.row.requirement_id,
-          state.cell.deliverable_id,
-          buildPayload() as UpdateDeliverablePayload,
-        );
+        // Only the four editable fields the user actually moved. The stored
+        // deliverable also carries a due milestone and notes this modal never
+        // shows, and resending the whole payload used to overwrite whatever a
+        // colleague had set on the fields left untouched here. The update
+        // route dumps with `exclude_unset=True`. Comparisons run against the
+        // same expressions the prefill effect above uses.
+        const toIso = (s: string): string | null => (s ? new Date(s).toISOString() : null);
+        const patch: UpdateDeliverablePayload = {};
+        if (lod !== (state.cell.lod ?? '')) patch.lod = lod || null;
+        if (loi !== (state.cell.loi ?? '')) patch.loi = loi || null;
+        if (submittedAt !== (state.cell.submitted_at ? state.cell.submitted_at.slice(0, 16) : '')) {
+          patch.submitted_at = toIso(submittedAt);
+        }
+        if (acceptedAt !== (state.cell.accepted_at ? state.cell.accepted_at.slice(0, 16) : '')) {
+          patch.accepted_at = toIso(acceptedAt);
+        }
+        await updateDeliverable(state.row.requirement_id, state.cell.deliverable_id, patch);
       } else {
         await createDeliverable(state.row.requirement_id, buildPayload() as CreateDeliverablePayload);
       }

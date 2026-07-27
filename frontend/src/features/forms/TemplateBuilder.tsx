@@ -35,6 +35,7 @@ import {
   type FormFieldDef,
   type TemplateCategory,
   type TemplateDetail,
+  type TemplateUpdatePayload,
 } from './api';
 import {
   FIELD_TYPES,
@@ -114,6 +115,43 @@ function toEditable(fields: FormFieldDef[]): EditableField[] {
   }));
 }
 
+/**
+ * Turn the editor state into the field list and tag list the API expects.
+ * Lives at module scope so an edit can run it a second time over the template
+ * as it was loaded and get the baseline to diff against, which keeps the two
+ * from drifting apart.
+ */
+function buildTemplatePayload(fields: EditableField[], tagsText: string) {
+  const cleaned = ensureFieldKeys(
+    fields.map((f) => ({
+      key: f.key,
+      type: f.type,
+      label: f.label.trim(),
+      required: LAYOUT_TYPES.has(f.type) ? false : f.required,
+      help_text: (f.help_text ?? '').trim() || null,
+      options: CHOICE_TYPES.has(f.type) ? (f.options ?? []).map((o) => o.trim()).filter(Boolean) : [],
+      unit: f.type === 'number' ? (f.unit ?? null) : null,
+      max_rating: f.type === 'rating' ? (f.max_rating ?? DEFAULT_RATING_SCALE) : null,
+      // Per-field config + branching logic - the backend normaliser keeps only
+      // the keys that apply to each field type, so passing them all is safe.
+      placeholder: f.placeholder ?? null,
+      default: f.default ?? null,
+      min: f.min ?? null,
+      max: f.max ?? null,
+      min_length: f.min_length ?? null,
+      pattern: (f.pattern ?? '').trim() || null,
+      formula: f.type === 'formula' ? (f.formula ?? '').trim() || null : null,
+      visible_if: cleanRule(f.visible_if),
+      required_if: cleanRule(f.required_if),
+    })),
+  );
+  const tags = tagsText
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return { cleaned, tags };
+}
+
 export interface TemplateBuilderProps {
   open: boolean;
   onClose: () => void;
@@ -178,36 +216,7 @@ export function TemplateBuilder({ open, onClose, initial, projectId, onSaved }: 
       return next;
     });
 
-  const buildPayload = () => {
-    const cleaned = ensureFieldKeys(
-      fields.map((f) => ({
-        key: f.key,
-        type: f.type,
-        label: f.label.trim(),
-        required: LAYOUT_TYPES.has(f.type) ? false : f.required,
-        help_text: (f.help_text ?? '').trim() || null,
-        options: CHOICE_TYPES.has(f.type) ? (f.options ?? []).map((o) => o.trim()).filter(Boolean) : [],
-        unit: f.type === 'number' ? (f.unit ?? null) : null,
-        max_rating: f.type === 'rating' ? (f.max_rating ?? DEFAULT_RATING_SCALE) : null,
-        // Per-field config + branching logic - the backend normaliser keeps only
-        // the keys that apply to each field type, so passing them all is safe.
-        placeholder: f.placeholder ?? null,
-        default: f.default ?? null,
-        min: f.min ?? null,
-        max: f.max ?? null,
-        min_length: f.min_length ?? null,
-        pattern: (f.pattern ?? '').trim() || null,
-        formula: f.type === 'formula' ? (f.formula ?? '').trim() || null : null,
-        visible_if: cleanRule(f.visible_if),
-        required_if: cleanRule(f.required_if),
-      })),
-    );
-    const tags = tagsText
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    return { cleaned, tags };
-  };
+  const buildPayload = () => buildTemplatePayload(fields, tagsText);
 
   // Field definitions as the filler will see them, for the live preview. Keys are
   // filled from labels exactly like on save, so a formula / condition referencing
@@ -218,13 +227,28 @@ export function TemplateBuilder({ open, onClose, initial, projectId, onSaved }: 
     mutationFn: async (): Promise<TemplateDetail> => {
       const { cleaned, tags } = buildPayload();
       if (isEdit && initial) {
-        return updateTemplate(initial.id, {
-          name: name.trim(),
-          description: description.trim() || null,
-          category,
-          fields: cleaned,
-          tags,
-        });
+        // Only what the user actually edited goes back. Renaming a template
+        // used to resend its whole field list as this editor had loaded it, so
+        // a question a colleague had added in the meantime was silently
+        // dropped. The update route dumps with `exclude_unset=True`, so an
+        // omitted field is left alone. The baseline runs the same builder over
+        // the template as it arrived, and the two lists are compared by content
+        // because a fresh array is produced on every save.
+        const base = buildTemplatePayload(
+          toEditable(initial.fields),
+          (initial.tags ?? []).join(', '),
+        );
+        const body: TemplateUpdatePayload = {};
+        if (name !== (initial.name ?? '')) body.name = name.trim();
+        if (description !== (initial.description ?? '')) {
+          body.description = description.trim() || null;
+        }
+        if (category !== (initial.category ?? 'custom')) body.category = category;
+        if (JSON.stringify(cleaned) !== JSON.stringify(base.cleaned)) {
+          body.fields = cleaned as FormFieldDef[];
+        }
+        if (JSON.stringify(tags) !== JSON.stringify(base.tags)) body.tags = tags;
+        return updateTemplate(initial.id, body);
       }
       return createTemplate({
         project_id: scope === 'project' ? (projectId ?? null) : null,

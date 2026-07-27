@@ -1271,7 +1271,7 @@ export function ProjectDetailPage() {
   const setActiveProject = useProjectContextStore((s) => s.setActiveProject);
 
   const updateMutation = useMutation({
-    mutationFn: (data: { name: string; description?: string; region?: string; currency?: string }) =>
+    mutationFn: (data: { name?: string; description?: string; region?: string; currency?: string }) =>
       projectsApi.update(projectId!, data),
     onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
@@ -1719,14 +1719,30 @@ export function ProjectDetailPage() {
                   />
                   <Button
                     size="sm"
-                    onClick={() =>
-                      updateMutation.mutate({
-                        name: editForm.name,
-                        description: editForm.description,
-                        region: editForm.region,
-                        currency: editForm.currency,
-                      })
-                    }
+                    onClick={() => {
+                      // Only what the user actually edited goes back. Fixing a
+                      // typo in the name used to resend description, region and
+                      // currency as this page had loaded them, so a colleague's
+                      // concurrent edit to any of the three was silently
+                      // reverted. The route dumps with `exclude_unset=True`, so
+                      // an omitted field is left alone. Each comparison uses the
+                      // same expression that seeded the input.
+                      const data: {
+                        name?: string;
+                        description?: string;
+                        region?: string;
+                        currency?: string;
+                      } = {};
+                      if (editForm.name !== project.name) data.name = editForm.name;
+                      if (editForm.description !== (project.description || '')) {
+                        data.description = editForm.description;
+                      }
+                      if (editForm.region !== (project.region || '')) data.region = editForm.region;
+                      if (editForm.currency !== (project.currency || '')) {
+                        data.currency = editForm.currency;
+                      }
+                      updateMutation.mutate(data);
+                    }}
                     disabled={!editForm.name.trim() || updateMutation.isPending}
                   >
                     <Save size={14} className="mr-1" />

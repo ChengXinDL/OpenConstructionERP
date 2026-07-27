@@ -93,6 +93,7 @@ import {
   type Awaiting,
   type BackCharge,
   type BackChargeApportionment,
+  type BackChargeUpdateBody,
   type ClarifiedRequest,
   type ExposureBand,
   type WatchClass,
@@ -726,15 +727,30 @@ function BackChargeFormModal({
   const mutation = useMutation<BackCharge, unknown, void>({
     mutationFn: () => {
       if (isEdit && editing) {
-        return updateBackCharge(projectId, editing.id, {
-          responsible_party: responsibleParty.trim(),
-          description: description.trim(),
-          basis: basis.trim(),
-          gross_amount: grossAmount.trim() || '0',
-          chargeable_pct: percentToFraction(chargeablePct),
-          status,
-          recovered_amount: recoveredAmount.trim() || '0',
-        });
+        // Only what the user actually edited goes back. Correcting a percentage
+        // used to rewrite the description and the recovered amount as they
+        // stood when this ledger was read, undoing anyone else's edit to them
+        // without a word. The update route dumps with `exclude_unset=True`, so
+        // a field left out of the body is left alone in the database. Each
+        // comparison uses the same expression that seeded the field above, so
+        // an untouched field always reads as unchanged.
+        const patch: BackChargeUpdateBody = {};
+        if (responsibleParty !== (editing.responsible_party ?? '')) {
+          patch.responsible_party = responsibleParty.trim();
+        }
+        if (description !== (editing.description ?? '')) patch.description = description.trim();
+        if (basis !== (editing.basis ?? '')) patch.basis = basis.trim();
+        if (grossAmount !== (editing.gross_amount ?? '')) {
+          patch.gross_amount = grossAmount.trim() || '0';
+        }
+        if (chargeablePct !== fractionToPercent(editing.chargeable_pct)) {
+          patch.chargeable_pct = percentToFraction(chargeablePct);
+        }
+        if (status !== (editing.status || 'proposed')) patch.status = status;
+        if (recoveredAmount !== (editing.recovered_amount ?? '')) {
+          patch.recovered_amount = recoveredAmount.trim() || '0';
+        }
+        return updateBackCharge(projectId, editing.id, patch);
       }
       return createBackCharge(projectId, {
         source_ref: sourceRef.trim(),

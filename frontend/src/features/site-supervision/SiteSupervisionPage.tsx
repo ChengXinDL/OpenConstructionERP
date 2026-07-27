@@ -40,6 +40,7 @@ import {
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { apiGet } from '@/shared/lib/api';
+import { onlyChangedFields } from '@/shared/lib/apiHelpers';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import {
@@ -146,6 +147,25 @@ const EMPTY_VISIT_FORM: VisitFormData = {
   discipline: 'general',
   summary: '',
 };
+
+/**
+ * The form state a visit opens with.
+ *
+ * Pure and module-level so the edit handler can rebuild the same baseline the
+ * modal started from and send only what the user actually changed. Prefilling
+ * from a row and then PATCHing every field back rewrites fields nobody opened
+ * with the values they held when the list was last read, quietly undoing an
+ * edit somebody else made in between.
+ */
+export function visitFormData(v: SupervisionVisit): VisitFormData {
+  return {
+    planned_date: v.planned_date || '',
+    actual_date: v.actual_date || '',
+    visitor: v.visitor || '',
+    discipline: v.discipline || 'general',
+    summary: v.summary || '',
+  };
+}
 
 function VisitFormModal({
   onClose,
@@ -1038,20 +1058,14 @@ export function SiteSupervisionPage() {
   const handleEditSubmit = useCallback(
     (formData: VisitFormData) => {
       if (!editingVisit) return;
-      updateMut.mutate({ id: editingVisit.id, data: buildPayload(formData) });
+      // Rebuild the baseline the modal started from, so the save carries only
+      // what the user actually edited. See `visitFormData`.
+      updateMut.mutate({
+        id: editingVisit.id,
+        data: onlyChangedFields(buildPayload(formData), formData, visitFormData(editingVisit)),
+      });
     },
     [updateMut, editingVisit, buildPayload],
-  );
-
-  const formDataFromVisit = useCallback(
-    (v: SupervisionVisit): VisitFormData => ({
-      planned_date: v.planned_date || '',
-      actual_date: v.actual_date || '',
-      visitor: v.visitor || '',
-      discipline: v.discipline || 'general',
-      summary: v.summary || '',
-    }),
-    [],
   );
 
   const selectedVisit = visits.find((v) => v.id === selectedVisitId) || null;
@@ -1286,7 +1300,7 @@ export function SiteSupervisionPage() {
       {editingVisit && (
         <VisitFormModal
           isEdit
-          initialData={formDataFromVisit(editingVisit)}
+          initialData={visitFormData(editingVisit)}
           onClose={() => setEditingVisit(null)}
           isPending={updateMut.isPending}
           onSubmit={handleEditSubmit}

@@ -1284,6 +1284,131 @@ function StatCard({
    Report Modal (Create / Edit)
    ══════════════════════════════════════════════════════════════════════════ */
 
+/** Every field the report modal holds, in the shape the inputs use. */
+export interface FieldReportFormState {
+  reportDate: string;
+  reportType: ReportType;
+  weatherCondition: WeatherCondition;
+  temperatureC: string;
+  windSpeed: string;
+  precipitation: string;
+  humidity: string;
+  workforce: WorkforceEntry[];
+  workPerformed: string;
+  delays: string;
+  delayHours: string;
+  safetyIncidents: string;
+  visitors: string;
+  deliveries: string;
+  notes: string;
+  /** Newline-separated, one item per line. */
+  equipmentOnSite: string;
+  materialsUsed: string;
+  signatureBy: string;
+  signatureData: string | null;
+  templateId: string;
+  templateValues: TemplateFieldValues;
+}
+
+/**
+ * The form state a report opens with.
+ *
+ * Exported and pure so the save can rebuild the same baseline the fields were
+ * seeded from and send only what the user actually changed. Correcting the
+ * delay note used to write the whole report back, weather and workforce and
+ * signature included, exactly as they stood when this copy was read, undoing
+ * anyone else's edit to them without a word or an error.
+ *
+ * Both sides have to come from one definition. A blank workforce becomes one
+ * empty row so the table has something to render, and the template binding is
+ * dug out of the metadata blob; do either of those a second way and a field
+ * nobody touched starts reading as changed.
+ */
+export function fieldReportFormState(
+  report: FieldReport | null,
+  prefillDate: string,
+): FieldReportFormState {
+  const meta = (report?.metadata ?? {}) as Record<string, unknown>;
+  return {
+    reportDate: report?.report_date ?? prefillDate,
+    reportType: report?.report_type ?? 'daily',
+    weatherCondition: report?.weather_condition ?? 'clear',
+    temperatureC: report?.temperature_c != null ? String(report.temperature_c) : '',
+    windSpeed: report?.wind_speed ?? '',
+    precipitation: report?.precipitation ?? '',
+    humidity: report?.humidity != null ? String(report.humidity) : '',
+    workforce: report?.workforce?.length ? report.workforce : [{ trade: '', count: 0, hours: 8 }],
+    workPerformed: report?.work_performed ?? '',
+    delays: report?.delays ?? '',
+    delayHours: report?.delay_hours != null ? String(report.delay_hours) : '0',
+    safetyIncidents: report?.safety_incidents ?? '',
+    visitors: report?.visitors ?? '',
+    deliveries: report?.deliveries ?? '',
+    notes: report?.notes ?? '',
+    equipmentOnSite: (report?.equipment_on_site ?? []).join('\n'),
+    materialsUsed: (report?.materials_used ?? []).join('\n'),
+    signatureBy: report?.signature_by ?? '',
+    signatureData: report?.signature_data ?? null,
+    templateId: typeof meta.template_id === 'string' ? meta.template_id : '',
+    templateValues: (meta.template_fields as TemplateFieldValues) ?? {},
+  };
+}
+
+/** Compared by content, not identity: rebuilding the baseline makes fresh
+ *  objects every time, so a reference test would resend them on every save. */
+function sameContent(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/**
+ * The body of an edit save: only the fields the user actually changed.
+ *
+ * `full` is the payload describing the whole form, which is what used to go
+ * back on every save. The update route dumps with `exclude_unset=True`, so a
+ * field left out of the body is left alone in the database, which is what
+ * makes omission the right tool here.
+ *
+ * `metadata` is a blob, so there is no partial write of it: it goes whole or
+ * not at all, and it goes only when the template binding moved.
+ */
+export function buildFieldReportPatch(
+  form: FieldReportFormState,
+  base: FieldReportFormState,
+  full: UpdateFieldReportPayload,
+): UpdateFieldReportPayload {
+  const patch: UpdateFieldReportPayload = {};
+  if (form.reportDate !== base.reportDate) patch.report_date = full.report_date;
+  if (form.reportType !== base.reportType) patch.report_type = full.report_type;
+  if (form.weatherCondition !== base.weatherCondition) {
+    patch.weather_condition = full.weather_condition;
+  }
+  if (form.temperatureC !== base.temperatureC) patch.temperature_c = full.temperature_c;
+  if (form.windSpeed !== base.windSpeed) patch.wind_speed = full.wind_speed;
+  if (form.precipitation !== base.precipitation) patch.precipitation = full.precipitation;
+  if (form.humidity !== base.humidity) patch.humidity = full.humidity;
+  if (form.workPerformed !== base.workPerformed) patch.work_performed = full.work_performed;
+  if (form.delays !== base.delays) patch.delays = full.delays;
+  if (form.delayHours !== base.delayHours) patch.delay_hours = full.delay_hours;
+  if (form.safetyIncidents !== base.safetyIncidents) patch.safety_incidents = full.safety_incidents;
+  if (form.visitors !== base.visitors) patch.visitors = full.visitors;
+  if (form.deliveries !== base.deliveries) patch.deliveries = full.deliveries;
+  if (form.notes !== base.notes) patch.notes = full.notes;
+  if (form.equipmentOnSite !== base.equipmentOnSite) {
+    patch.equipment_on_site = full.equipment_on_site;
+  }
+  if (form.materialsUsed !== base.materialsUsed) patch.materials_used = full.materials_used;
+  if (form.signatureBy !== base.signatureBy) patch.signature_by = full.signature_by;
+  if (form.signatureData !== base.signatureData) patch.signature_data = full.signature_data;
+  if (!sameContent(form.workforce, base.workforce)) patch.workforce = full.workforce;
+  if (
+    form.templateId !== base.templateId ||
+    !sameContent(form.templateValues, base.templateValues)
+  ) {
+    patch.metadata = full.metadata;
+  }
+  return patch;
+}
+
 function ReportModal({
   report,
   projectId,
@@ -1323,45 +1448,34 @@ function ReportModal({
   const prefillDate =
     window.__fieldreportPrefillDate || todayStr();
 
-  const [reportDate, setReportDate] = useState(report?.report_date ?? prefillDate);
-  const [reportType, setReportType] = useState<ReportType>(report?.report_type ?? 'daily');
+  // Seeded from the same function the save compares against, so the two can
+  // never drift apart. See `fieldReportFormState`.
+  const seed = fieldReportFormState(report, prefillDate);
+  const [reportDate, setReportDate] = useState(seed.reportDate);
+  const [reportType, setReportType] = useState<ReportType>(seed.reportType);
   const [weatherCondition, setWeatherCondition] = useState<WeatherCondition>(
-    report?.weather_condition ?? 'clear',
+    seed.weatherCondition,
   );
-  const [temperatureC, setTemperatureC] = useState<string>(
-    report?.temperature_c != null ? String(report.temperature_c) : '',
-  );
-  const [windSpeed, setWindSpeed] = useState(report?.wind_speed ?? '');
-  const [precipitation, setPrecipitation] = useState(report?.precipitation ?? '');
-  const [humidity, setHumidity] = useState<string>(
-    report?.humidity != null ? String(report.humidity) : '',
-  );
-  const [workforce, setWorkforce] = useState<WorkforceEntry[]>(
-    report?.workforce?.length ? report.workforce : [{ trade: '', count: 0, hours: 8 }],
-  );
-  const [workPerformed, setWorkPerformed] = useState(report?.work_performed ?? '');
-  const [delays, setDelays] = useState(report?.delays ?? '');
-  const [delayHours, setDelayHours] = useState<string>(
-    report?.delay_hours != null ? String(report.delay_hours) : '0',
-  );
-  const [safetyIncidents, setSafetyIncidents] = useState(report?.safety_incidents ?? '');
-  const [visitors, setVisitors] = useState(report?.visitors ?? '');
-  const [deliveries, setDeliveries] = useState(report?.deliveries ?? '');
-  const [notes, setNotes] = useState(report?.notes ?? '');
+  const [temperatureC, setTemperatureC] = useState<string>(seed.temperatureC);
+  const [windSpeed, setWindSpeed] = useState(seed.windSpeed);
+  const [precipitation, setPrecipitation] = useState(seed.precipitation);
+  const [humidity, setHumidity] = useState<string>(seed.humidity);
+  const [workforce, setWorkforce] = useState<WorkforceEntry[]>(seed.workforce);
+  const [workPerformed, setWorkPerformed] = useState(seed.workPerformed);
+  const [delays, setDelays] = useState(seed.delays);
+  const [delayHours, setDelayHours] = useState<string>(seed.delayHours);
+  const [safetyIncidents, setSafetyIncidents] = useState(seed.safetyIncidents);
+  const [visitors, setVisitors] = useState(seed.visitors);
+  const [deliveries, setDeliveries] = useState(seed.deliveries);
+  const [notes, setNotes] = useState(seed.notes);
 
   // Equipment-on-site and materials-used are persisted string lists that
   // surface in the PDF/Excel exports; they had no UI before. Edited as a
   // newline-separated textarea (one item per line) for simplicity.
-  const [equipmentOnSite, setEquipmentOnSite] = useState<string>(
-    (report?.equipment_on_site ?? []).join('\n'),
-  );
-  const [materialsUsed, setMaterialsUsed] = useState<string>(
-    (report?.materials_used ?? []).join('\n'),
-  );
-  const [signatureBy, setSignatureBy] = useState(report?.signature_by ?? '');
-  const [signatureData, setSignatureData] = useState<string | null>(
-    report?.signature_data ?? null,
-  );
+  const [equipmentOnSite, setEquipmentOnSite] = useState<string>(seed.equipmentOnSite);
+  const [materialsUsed, setMaterialsUsed] = useState<string>(seed.materialsUsed);
+  const [signatureBy, setSignatureBy] = useState(seed.signatureBy);
+  const [signatureData, setSignatureData] = useState<string | null>(seed.signatureData);
 
   // Weather auto-fetch (uses the existing GET /weather/ endpoint via the
   // browser geolocation API; the endpoint needs OPENWEATHERMAP_API_KEY).
@@ -1370,13 +1484,11 @@ function ReportModal({
   // Template state. Existing reports carry their template id + filled
   // values inside metadata (the report table itself is untouched).
   const reportMeta = (report?.metadata ?? {}) as Record<string, unknown>;
-  const [templateId, setTemplateId] = useState<string>(
-    typeof reportMeta.template_id === 'string' ? reportMeta.template_id : '',
-  );
+  const [templateId, setTemplateId] = useState<string>(seed.templateId);
   const [selectedTemplate, setSelectedTemplate] =
     useState<FieldReportTemplate | null>(null);
   const [templateValues, setTemplateValues] = useState<TemplateFieldValues>(
-    (reportMeta.template_fields as TemplateFieldValues) ?? {},
+    seed.templateValues,
   );
 
   const handleTemplateChange = useCallback(
@@ -1564,13 +1676,47 @@ function ReportModal({
     };
 
     if (isEdit && effectiveReport) {
-      onUpdate(effectiveReport.id, payload);
+      // Rebuild the baseline this modal was seeded from, so the save carries
+      // only what the user actually edited. See `buildFieldReportPatch`. A
+      // report first created as a mid-session draft has no seed of its own, so
+      // the baseline is that saved row and the diff runs from there.
+      onUpdate(
+        effectiveReport.id,
+        buildFieldReportPatch(
+          {
+            reportDate,
+            reportType,
+            weatherCondition,
+            temperatureC,
+            windSpeed,
+            precipitation,
+            humidity,
+            workforce,
+            workPerformed,
+            delays,
+            delayHours,
+            safetyIncidents,
+            visitors,
+            deliveries,
+            notes,
+            equipmentOnSite,
+            materialsUsed,
+            signatureBy,
+            signatureData,
+            templateId,
+            templateValues,
+          },
+          fieldReportFormState(effectiveReport, prefillDate),
+          payload,
+        ),
+      );
     } else {
       onCreate({ ...payload, project_id: projectId } as CreateFieldReportPayload);
     }
   }, [
     isEdit,
     effectiveReport,
+    prefillDate,
     projectId,
     reportDate,
     reportType,

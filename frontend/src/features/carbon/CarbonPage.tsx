@@ -52,6 +52,7 @@ import { DateDisplay } from '@/shared/ui/DateDisplay';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { apiGet, getErrorMessage } from '@/shared/lib/api';
+import { onlyChangedFields } from '@/shared/lib/apiHelpers';
 import {
   listInventories,
   getInventory,
@@ -1844,6 +1845,23 @@ function EmbodiedProvenance({ entry }: { entry: EmbodiedEntry }) {
 
 /* ─── Modals ─── */
 
+/**
+ * Seed for the inventory form. Also serves as the baseline an edit diffs
+ * against, so the two can never drift apart.
+ */
+function inventoryFormBase(inventory?: CarbonInventory) {
+  return {
+    name: inventory?.name ?? 'Baseline inventory',
+    scope: (inventory?.scope ?? 'cradle_to_gate') as
+      | 'cradle_to_gate'
+      | 'cradle_to_grave'
+      | 'operational',
+    as_of_date: inventory?.as_of_date ?? todayIso(),
+    status: (inventory?.status ?? 'draft') as InventoryStatus,
+    notes: inventory?.notes ?? '',
+  };
+}
+
 function CreateInventoryModal({
   projectId,
   inventory,
@@ -1858,28 +1876,33 @@ function CreateInventoryModal({
   const addToast = useToastStore((s) => s.addToast);
   const isEdit = !!inventory;
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({
-    name: inventory?.name ?? 'Baseline inventory',
-    scope: (inventory?.scope ?? 'cradle_to_gate') as
-      | 'cradle_to_gate'
-      | 'cradle_to_grave'
-      | 'operational',
-    as_of_date: inventory?.as_of_date ?? todayIso(),
-    status: (inventory?.status ?? 'draft') as InventoryStatus,
-    notes: inventory?.notes ?? '',
-  });
+  const [form, setForm] = useState(() => inventoryFormBase(inventory));
 
   async function submit() {
     setBusy(true);
     try {
       if (isEdit && inventory) {
-        await updateInventory(inventory.id, {
-          name: form.name,
-          scope: form.scope,
-          as_of_date: form.as_of_date || null,
-          status: form.status,
-          notes: form.notes || null,
-        });
+        // Only what the user actually edited goes back. Sending the whole form
+        // rewrote every field with the inventory as it stood when this modal
+        // opened, so a colleague's concurrent edit to a field nobody touched
+        // here was silently reverted. The update route dumps with
+        // `exclude_unset=True`, so an omitted field is left alone. The
+        // baseline comes from the same function that seeded the form, so the
+        // two cannot drift apart.
+        await updateInventory(
+          inventory.id,
+          onlyChangedFields(
+            {
+              name: form.name,
+              scope: form.scope,
+              as_of_date: form.as_of_date || null,
+              status: form.status,
+              notes: form.notes || null,
+            },
+            form,
+            inventoryFormBase(inventory),
+          ),
+        );
         addToast({
           type: 'success',
           title: t('carbon.inv_updated', { defaultValue: 'Inventory updated' }),
@@ -2010,6 +2033,24 @@ function CreateInventoryModal({
   );
 }
 
+/**
+ * Seed for the target form, and the baseline an edit diffs against.
+ */
+function targetFormBase(target?: CarbonTarget) {
+  return {
+    name: target?.name ?? '',
+    target_type: (target?.target_type ?? 'absolute') as
+      | 'absolute'
+      | 'intensity_per_m2'
+      | 'intensity_per_unit',
+    baseline_value: String(target?.baseline_value ?? '0'),
+    target_value: String(target?.target_value ?? '0'),
+    baseline_year: target?.baseline_year ?? 2020,
+    target_year: target?.target_year ?? 2030,
+    status: (target?.status ?? 'active') as TargetStatus,
+  };
+}
+
 function CreateTargetModal({
   projectId,
   target,
@@ -2024,29 +2065,28 @@ function CreateTargetModal({
   const addToast = useToastStore((s) => s.addToast);
   const isEdit = !!target;
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({
-    name: target?.name ?? '',
-    target_type: (target?.target_type ?? 'absolute') as
-      | 'absolute'
-      | 'intensity_per_m2'
-      | 'intensity_per_unit',
-    baseline_value: String(target?.baseline_value ?? '0'),
-    target_value: String(target?.target_value ?? '0'),
-    baseline_year: target?.baseline_year ?? 2020,
-    target_year: target?.target_year ?? 2030,
-    status: (target?.status ?? 'active') as TargetStatus,
-  });
+  const [form, setForm] = useState(() => targetFormBase(target));
 
   async function submit() {
     setBusy(true);
     try {
       if (isEdit && target) {
-        await updateTarget(target.id, {
-          name: form.name,
-          baseline_value: Number(form.baseline_value) || 0,
-          target_value: Number(form.target_value) || 0,
-          status: form.status,
-        });
+        // Only the fields the user moved. Resending all four overwrote a
+        // colleague's concurrent edit to any of them with the values this
+        // modal happened to load. The route dumps with `exclude_unset=True`.
+        await updateTarget(
+          target.id,
+          onlyChangedFields(
+            {
+              name: form.name,
+              baseline_value: Number(form.baseline_value) || 0,
+              target_value: Number(form.target_value) || 0,
+              status: form.status,
+            },
+            form,
+            targetFormBase(target),
+          ),
+        );
         addToast({
           type: 'success',
           title: t('carbon.target_updated', { defaultValue: 'Target updated' }),
@@ -2361,6 +2401,21 @@ function GenerateReportModal({
   );
 }
 
+/**
+ * Seed for the embodied-entry form, and the baseline an edit diffs against.
+ */
+function embodiedFormBase(entry?: EmbodiedEntry) {
+  return {
+    description: entry?.description ?? '',
+    element_ref: entry?.element_ref ?? '',
+    quantity: String(entry?.quantity ?? '0'),
+    unit: entry?.unit ?? 'kg',
+    factor_value_used: String(entry?.factor_value_used ?? '0'),
+    carbon_kg: String(entry?.carbon_kg ?? '0'),
+    stage: (entry?.stage ?? 'a1a3') as Stage,
+  };
+}
+
 function EmbodiedEntryModal({
   inventoryId,
   entry,
@@ -2376,15 +2431,7 @@ function EmbodiedEntryModal({
   const addToast = useToastStore((s) => s.addToast);
   const isEdit = !!entry;
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({
-    description: entry?.description ?? '',
-    element_ref: entry?.element_ref ?? '',
-    quantity: String(entry?.quantity ?? '0'),
-    unit: entry?.unit ?? 'kg',
-    factor_value_used: String(entry?.factor_value_used ?? '0'),
-    carbon_kg: String(entry?.carbon_kg ?? '0'),
-    stage: (entry?.stage ?? 'a1a3') as Stage,
-  });
+  const [form, setForm] = useState(() => embodiedFormBase(entry));
 
   // Auto-suggest carbon = quantity × factor when not manually overridden.
   const autoCarbon =
@@ -2398,15 +2445,33 @@ function EmbodiedEntryModal({
           ? autoCarbon
           : Number(form.carbon_kg);
       if (isEdit && entry) {
-        await updateEmbodiedEntry(entry.id, {
-          description: form.description,
-          element_ref: form.element_ref || null,
-          quantity: Number(form.quantity) || 0,
-          unit: form.unit,
-          factor_value_used: Number(form.factor_value_used) || 0,
-          carbon_kg: carbon,
-          stage: form.stage,
-        });
+        // Only what the user moved. Resending the whole entry overwrote a
+        // colleague's concurrent edit to any untouched field with the values
+        // this modal loaded. The route dumps with `exclude_unset=True`.
+        // carbon_kg is derived from quantity and factor when the field is left
+        // blank, so it has to travel whenever either of those two moved, not
+        // only when the carbon input itself was typed into.
+        const base = embodiedFormBase(entry);
+        const patch = onlyChangedFields(
+          {
+            description: form.description,
+            element_ref: form.element_ref || null,
+            quantity: Number(form.quantity) || 0,
+            unit: form.unit,
+            factor_value_used: Number(form.factor_value_used) || 0,
+            stage: form.stage,
+          },
+          form,
+          base,
+        ) as Parameters<typeof updateEmbodiedEntry>[1];
+        if (
+          form.carbon_kg !== base.carbon_kg ||
+          form.quantity !== base.quantity ||
+          form.factor_value_used !== base.factor_value_used
+        ) {
+          patch.carbon_kg = carbon;
+        }
+        await updateEmbodiedEntry(entry.id, patch);
         addToast({
           type: 'success',
           title: t('carbon.entry_updated', { defaultValue: 'Entry updated' }),
@@ -3607,19 +3672,11 @@ function ScopeEntryModal({
   );
 }
 
-function EPDModal({
-  epd,
-  onClose,
-}: {
-  epd?: EPDRecord;
-  onClose: () => void;
-}) {
-  const { t } = useTranslation();
-  const qc = useQueryClient();
-  const addToast = useToastStore((s) => s.addToast);
-  const isEdit = !!epd;
-  const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({
+/**
+ * Seed for the EPD form, and the baseline an edit diffs against.
+ */
+function epdFormBase(epd?: EPDRecord) {
+  return {
     epd_id: epd?.epd_id ?? '',
     source: (epd?.source ?? 'custom') as EPDSource,
     material_class: epd?.material_class ?? '',
@@ -3634,7 +3691,22 @@ function EPDModal({
     gwp_d_credits: epd?.gwp_d_credits != null ? String(epd.gwp_d_credits) : '',
     validity_until: epd?.validity_until ?? '',
     document_url: epd?.document_url ?? '',
-  });
+  };
+}
+
+function EPDModal({
+  epd,
+  onClose,
+}: {
+  epd?: EPDRecord;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const addToast = useToastStore((s) => s.addToast);
+  const isEdit = !!epd;
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState(() => epdFormBase(epd));
 
   function num(v: string): number | null {
     if (v.trim() === '') return null;
@@ -3655,21 +3727,34 @@ function EPDModal({
     setBusy(true);
     try {
       if (isEdit && epd) {
-        await updateEPD(epd.id, {
-          source: form.source,
-          material_class: form.material_class,
-          product_name: form.product_name,
-          manufacturer: form.manufacturer || null,
-          region: form.region,
-          declared_unit: form.declared_unit,
-          gwp_a1a3: Number(form.gwp_a1a3) || 0,
-          gwp_a4: num(form.gwp_a4),
-          gwp_a5: num(form.gwp_a5),
-          gwp_c_total: num(form.gwp_c_total),
-          gwp_d_credits: num(form.gwp_d_credits),
-          validity_until: form.validity_until || null,
-          document_url: form.document_url || null,
-        });
+        // Only what the user moved. An EPD record is shared across projects,
+        // so resending all thirteen fields was the widest instance of this:
+        // one person correcting a typo in the product name rewrote every other
+        // field with whatever this modal had loaded. The route dumps with
+        // `exclude_unset=True`, and the baseline comes from the same function
+        // that seeded the form.
+        await updateEPD(
+          epd.id,
+          onlyChangedFields(
+            {
+              source: form.source,
+              material_class: form.material_class,
+              product_name: form.product_name,
+              manufacturer: form.manufacturer || null,
+              region: form.region,
+              declared_unit: form.declared_unit,
+              gwp_a1a3: Number(form.gwp_a1a3) || 0,
+              gwp_a4: num(form.gwp_a4),
+              gwp_a5: num(form.gwp_a5),
+              gwp_c_total: num(form.gwp_c_total),
+              gwp_d_credits: num(form.gwp_d_credits),
+              validity_until: form.validity_until || null,
+              document_url: form.document_url || null,
+            },
+            form,
+            epdFormBase(epd),
+          ),
+        );
         addToast({
           type: 'success',
           title: t('carbon.epd_updated', { defaultValue: 'EPD updated' }),

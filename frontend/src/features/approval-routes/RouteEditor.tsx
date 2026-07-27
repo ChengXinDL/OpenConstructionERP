@@ -117,6 +117,26 @@ function toDraft(step: { approver_role: string | null; approver_user_id: string 
   };
 }
 
+/** Draft rows as the API wants them. Lives at module scope so an edit can run
+ *  it a second time over the route as it was loaded and get the baseline to
+ *  diff the step list against. */
+function toStepPayloads(steps: DraftStep[]): RouteStepPayload[] {
+  // 1-based dense ordinals — the backend rejects 0-based or gapped lists.
+  return steps.map((s, idx) => {
+    const isRoleStep = !s.approver_user_id.trim();
+    // Role steps can only enforce ``any`` (the engine can't expand a
+    // role to its members), so coerce any stale ``all``/``majority``.
+    const mode: RouteStepMode = isRoleStep ? 'any' : s.mode;
+    return {
+      ordinal: idx + 1,
+      approver_role: s.approver_role.trim() || null,
+      approver_user_id: s.approver_user_id.trim() || null,
+      mode,
+      sla_hours: s.sla_hours ? parseInt(s.sla_hours, 10) : null,
+    };
+  });
+}
+
 function emptyDraftStep(): DraftStep {
   return {
     localId: newLocalId(),
@@ -316,28 +336,25 @@ export function RouteEditor({
       });
       return;
     }
-    // 1-based dense ordinals — the backend rejects 0-based or gapped lists.
-    const stepPayloads: RouteStepPayload[] = steps.map((s, idx) => {
-      const isRoleStep = !s.approver_user_id.trim();
-      // Role steps can only enforce ``any`` (the engine can't expand a
-      // role to its members), so coerce any stale ``all``/``majority``.
-      const mode: RouteStepMode = isRoleStep ? 'any' : s.mode;
-      return {
-        ordinal: idx + 1,
-        approver_role: s.approver_role.trim() || null,
-        approver_user_id: s.approver_user_id.trim() || null,
-        mode,
-        sla_hours: s.sla_hours ? parseInt(s.sla_hours, 10) : null,
-      };
-    });
+    const stepPayloads = toStepPayloads(steps);
     if (isEdit && route) {
-      // target_kind and project_id are immutable on the backend, so the
-      // patch only carries name / is_active / steps.
-      const payload: ApprovalRouteUpdatePayload = {
-        name: name.trim(),
-        is_active: isActive,
-        steps: stepPayloads,
-      };
+      // target_kind and project_id are immutable on the backend, so the patch
+      // could only ever carry name / is_active / steps - and of those, only
+      // the ones the user actually moved. Flipping a route inactive used to
+      // resend its whole step list as this editor had loaded it, so an
+      // approver a colleague had just added was silently dropped. The update
+      // route dumps with `exclude_unset=True`. The step baseline runs the same
+      // transform over the route as it arrived, and the lists are compared by
+      // content because a fresh array is built on every save.
+      const payload: ApprovalRouteUpdatePayload = {};
+      if (name !== route.name) payload.name = name.trim();
+      if (isActive !== route.is_active) payload.is_active = isActive;
+      const baseSteps = toStepPayloads(
+        [...route.steps].sort((a, b) => a.ordinal - b.ordinal).map(toDraft),
+      );
+      if (JSON.stringify(stepPayloads) !== JSON.stringify(baseSteps)) {
+        payload.steps = stepPayloads;
+      }
       updateMut.mutate({ id: route.id, payload });
     } else {
       const payload: ApprovalRouteCreatePayload = {

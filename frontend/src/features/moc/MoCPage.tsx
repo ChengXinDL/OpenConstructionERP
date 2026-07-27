@@ -67,6 +67,7 @@ import { ProvabilityGauge, EvidenceThreadPanel } from '@/features/claims-evidenc
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { DateDisplay } from '@/shared/ui/DateDisplay';
 import { apiGet } from '@/shared/lib/api';
+import { onlyChangedFields } from '@/shared/lib/apiHelpers';
 import { toNum, formatCurrency } from '@/shared/lib/money';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
@@ -386,6 +387,37 @@ const EMPTY_FORM: MoCFormData = {
   currency: '',
   schedule_delta_days: '',
 };
+
+/**
+ * The form state a change request opens with.
+ *
+ * Pure and exported so the submit handler can rebuild the same baseline the
+ * modal started from and send only what the user actually changed. Prefilling
+ * from a row and then PATCHing every field back rewrites fields nobody opened
+ * with the values they held when the list was last read, quietly undoing an
+ * edit somebody else made in between.
+ *
+ * Category and risk are narrowed against the known sets here rather than
+ * trusted from the row, so a value this page cannot render falls back to the
+ * same option the select shows. Doing that in one place is what keeps the
+ * baseline identical to the seed.
+ */
+export function mocFormData(entry?: MoCEntry): MoCFormData {
+  if (!entry) return EMPTY_FORM;
+  return {
+    title: entry.title,
+    description: entry.description,
+    change_category: (CATEGORIES.includes(entry.change_category as MoCChangeCategory)
+      ? entry.change_category
+      : 'other') as MoCChangeCategory,
+    risk_level: (RISK_LEVELS.includes(entry.risk_level as MoCRiskLevel)
+      ? entry.risk_level
+      : 'medium') as MoCRiskLevel,
+    cost_impact: entry.cost_impact && entry.cost_impact !== '0' ? entry.cost_impact : '',
+    currency: entry.currency,
+    schedule_delta_days: entry.schedule_delta_days ? String(entry.schedule_delta_days) : '',
+  };
+}
 
 function MoCFormModal({
   mode,
@@ -1598,7 +1630,12 @@ export function MoCPage() {
         schedule_delta_days: form.schedule_delta_days ? Number.parseInt(form.schedule_delta_days, 10) : 0,
       };
       if (editTarget) {
-        updateMut.mutate({ id: editTarget.id, data: payload });
+        // Rebuild the baseline the modal started from, so the save carries only
+        // what the user actually edited. See `mocFormData`.
+        updateMut.mutate({
+          id: editTarget.id,
+          data: onlyChangedFields(payload, form, mocFormData(editTarget)),
+        });
       } else {
         if (!projectId) {
           addToast({
@@ -1643,21 +1680,7 @@ export function MoCPage() {
     [confirm, deleteImpactMut, t],
   );
 
-  const editInitial: MoCFormData | undefined = editTarget
-    ? {
-        title: editTarget.title,
-        description: editTarget.description,
-        change_category: (CATEGORIES.includes(editTarget.change_category as MoCChangeCategory)
-          ? editTarget.change_category
-          : 'other') as MoCChangeCategory,
-        risk_level: (RISK_LEVELS.includes(editTarget.risk_level as MoCRiskLevel)
-          ? editTarget.risk_level
-          : 'medium') as MoCRiskLevel,
-        cost_impact: editTarget.cost_impact && editTarget.cost_impact !== '0' ? editTarget.cost_impact : '',
-        currency: editTarget.currency,
-        schedule_delta_days: editTarget.schedule_delta_days ? String(editTarget.schedule_delta_days) : '',
-      }
-    : undefined;
+  const editInitial: MoCFormData | undefined = editTarget ? mocFormData(editTarget) : undefined;
 
   return (
     <div className="space-y-5 animate-fade-in">

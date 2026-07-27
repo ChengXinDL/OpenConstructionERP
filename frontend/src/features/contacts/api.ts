@@ -139,6 +139,37 @@ export interface CreateContactPayload {
   notes?: string;
 }
 
+/**
+ * Patch payload for an existing contact.
+ *
+ * Separate from `CreateContactPayload` because clearing a field has to be
+ * expressible on the wire. `undefined` cannot express it: `JSON.stringify`
+ * drops the key entirely, so the old value survives and emptying a phone
+ * number has no effect at all. Every one of these columns is `str | None` on
+ * the backend, so `null` is what clears them. An empty string is not a
+ * substitute: `primary_email` runs through a format validator that rejects it.
+ *
+ * A key left out is left alone, because the update route dumps with
+ * `exclude_unset=True`. That is what lets the form send only the fields the
+ * user actually edited instead of writing its whole copy of the record back.
+ */
+export interface UpdateContactPayload {
+  contact_type?: ContactType;
+  first_name?: string | null;
+  last_name?: string | null;
+  company_name?: string | null;
+  legal_name?: string | null;
+  vat_number?: string | null;
+  primary_email?: string | null;
+  primary_phone?: string | null;
+  website?: string | null;
+  country_code?: string | null;
+  address?: Record<string, unknown> | null;
+  payment_terms_days?: string | null;
+  prequalification_status?: PrequalificationStatus;
+  notes?: string | null;
+}
+
 /* ── API Functions ─────────────────────────────────────────────────────── */
 
 export async function fetchContacts(filters?: ContactFilters): Promise<Contact[]> {
@@ -173,7 +204,7 @@ export async function createContact(data: CreateContactPayload): Promise<Contact
 
 export async function updateContact(
   id: string,
-  data: Partial<CreateContactPayload>,
+  data: UpdateContactPayload,
 ): Promise<Contact> {
   return apiPatch<Contact>(`/v1/contacts/${id}`, data);
 }

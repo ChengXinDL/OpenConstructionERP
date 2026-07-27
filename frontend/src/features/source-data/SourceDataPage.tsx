@@ -40,6 +40,7 @@ import {
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { apiGet } from '@/shared/lib/api';
+import { onlyChangedFields } from '@/shared/lib/apiHelpers';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import {
@@ -163,6 +164,38 @@ const EMPTY_DOC_FORM: DocumentFormData = {
   status: 'requested',
   notes: '',
 };
+
+/**
+ * The form state a document opens with.
+ *
+ * Pure and module-level so the edit handler can rebuild the same baseline the
+ * modal started from and send only what the user actually changed. Prefilling
+ * from a row and then PATCHing every field back rewrites fields nobody opened
+ * with the values they held when the register was last read, quietly undoing an
+ * edit somebody else made in between.
+ *
+ * The status is narrowed against the manually settable set here rather than
+ * trusted from the row, because a derived status (expired, expiring) has no
+ * option in the select; doing that narrowing a second way would make an
+ * untouched status read as edited.
+ */
+export function documentFormData(item: SourceDocument): DocumentFormData {
+  return {
+    name: item.name,
+    doc_type: item.doc_type,
+    owner: item.owner ?? '',
+    authority: item.authority ?? '',
+    identifier: item.identifier ?? '',
+    issued_at: item.issued_at ?? '',
+    valid_until: item.valid_until ?? '',
+    notify_days_before: item.notify_days_before,
+    blocks_schedule: item.blocks_schedule,
+    status: MANUAL_STATUSES.includes(item.status as SourceDocManualStatus)
+      ? (item.status as SourceDocManualStatus)
+      : 'requested',
+    notes: item.notes,
+  };
+}
 
 function DocumentModal({
   onClose,
@@ -848,7 +881,12 @@ export function SourceDataPage() {
   const handleUpdate = (formData: DocumentFormData) => {
     if (!editingItem) return;
     const { project_id: _pid, ...rest } = buildPayload(formData);
-    updateMut.mutate({ id: editingItem.id, data: rest });
+    // Rebuild the baseline the modal started from, so the save carries only
+    // what the user actually edited. See `documentFormData`.
+    updateMut.mutate({
+      id: editingItem.id,
+      data: onlyChangedFields(rest, formData, documentFormData(editingItem)),
+    });
   };
 
   const handleDelete = async (item: SourceDocument) => {
@@ -879,23 +917,7 @@ export function SourceDataPage() {
     updateChecklistMut.mutate({ id: item.id, status: next });
   };
 
-  const editFormData: DocumentFormData | null = editingItem
-    ? {
-        name: editingItem.name,
-        doc_type: editingItem.doc_type,
-        owner: editingItem.owner ?? '',
-        authority: editingItem.authority ?? '',
-        identifier: editingItem.identifier ?? '',
-        issued_at: editingItem.issued_at ?? '',
-        valid_until: editingItem.valid_until ?? '',
-        notify_days_before: editingItem.notify_days_before,
-        blocks_schedule: editingItem.blocks_schedule,
-        status: (MANUAL_STATUSES.includes(editingItem.status as SourceDocManualStatus)
-          ? (editingItem.status as SourceDocManualStatus)
-          : 'requested'),
-        notes: editingItem.notes,
-      }
-    : null;
+  const editFormData: DocumentFormData | null = editingItem ? documentFormData(editingItem) : null;
 
   const breadcrumbItems = selectedProjectId
     ? [

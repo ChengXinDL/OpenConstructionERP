@@ -75,6 +75,7 @@ import {
   type ContactType,
   type PrequalificationStatus,
   type CreateContactPayload,
+  type UpdateContactPayload,
   type ImportResult,
   type ContactModuleRows,
 } from './api';
@@ -194,6 +195,81 @@ const EMPTY_FORM: ContactFormData = {
   prequalification_status: 'pending',
   notes: '',
 };
+
+/**
+ * The form state a contact opens with.
+ *
+ * Pure and module-level so the edit handler can rebuild the same baseline the
+ * modal started from and send only what the user actually changed. Prefilling
+ * from a row and then PATCHing every field back rewrites fields nobody opened
+ * with the values they held when the list was last read, quietly undoing an
+ * edit somebody else made in between.
+ *
+ * `address` is a JSON blob on the record but a single line of text on the
+ * form, so the flattening lives here and both sides see the same string.
+ */
+export function contactFormData(contact?: Contact): ContactFormData {
+  if (!contact) return EMPTY_FORM;
+  return {
+    company_name: contact.company_name || '',
+    legal_name: contact.legal_name || '',
+    vat_number: contact.vat_number || '',
+    first_name: contact.first_name || '',
+    last_name: contact.last_name || '',
+    contact_type: contact.contact_type,
+    email: contact.primary_email || '',
+    phone: contact.primary_phone || '',
+    website: contact.website || '',
+    country: contact.country_code || '',
+    address:
+      contact.address && typeof contact.address === 'object' && 'text' in contact.address
+        ? String(contact.address.text)
+        : '',
+    payment_terms: contact.payment_terms_days || '30',
+    prequalification_status: (contact.prequalification_status as PrequalificationStatus) || 'pending',
+    notes: contact.notes || '',
+  };
+}
+
+/**
+ * The body of an edit save: only the fields the user actually changed.
+ *
+ * Hand-written rather than a generic diff because almost every field is
+ * renamed on the way out (`email` becomes `primary_email`, `country` becomes
+ * `country_code`, the address line becomes a blob). A key-name diff would
+ * silently find no form field behind `primary_email`, read it as unchanged and
+ * drop the user's edit on every save, which is worse than the bug it fixes.
+ *
+ * Clearing is still a change and goes as `null`. `undefined` would not: the
+ * key is dropped by `JSON.stringify` and the old value simply survives.
+ */
+export function buildContactPatch(
+  form: ContactFormData,
+  base: ContactFormData,
+): UpdateContactPayload {
+  const data: UpdateContactPayload = {};
+  if (form.contact_type !== base.contact_type) data.contact_type = form.contact_type;
+  if (form.first_name !== base.first_name) data.first_name = form.first_name || null;
+  if (form.last_name !== base.last_name) data.last_name = form.last_name || null;
+  if (form.company_name !== base.company_name) data.company_name = form.company_name || null;
+  if (form.legal_name !== base.legal_name) data.legal_name = form.legal_name || null;
+  if (form.vat_number !== base.vat_number) data.vat_number = form.vat_number || null;
+  if (form.email !== base.email) data.primary_email = form.email || null;
+  if (form.phone !== base.phone) data.primary_phone = form.phone || null;
+  if (form.website !== base.website) data.website = form.website || null;
+  if (form.country !== base.country) data.country_code = form.country || null;
+  if (form.address !== base.address) {
+    data.address = form.address ? { text: form.address } : null;
+  }
+  if (form.payment_terms !== base.payment_terms) {
+    data.payment_terms_days = form.payment_terms || null;
+  }
+  if (form.prequalification_status !== base.prequalification_status) {
+    data.prequalification_status = form.prequalification_status;
+  }
+  if (form.notes !== base.notes) data.notes = form.notes || null;
+  return data;
+}
 
 function AddContactModal({
   onClose,
@@ -1470,7 +1546,7 @@ export function ContactsPage() {
 
   // Edit mutation
   const editMut = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<CreateContactPayload> }) =>
+    mutationFn: ({ id, data }: { id: string; data: UpdateContactPayload }) =>
       updateContact(id, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['contacts'] });
@@ -1508,25 +1584,6 @@ export function ContactsPage() {
   });
 
   const { confirm, ...confirmProps } = useConfirm();
-
-  const formDataFromContact = useCallback((c: Contact): ContactFormData => ({
-    company_name: c.company_name || '',
-    legal_name: c.legal_name || '',
-    vat_number: c.vat_number || '',
-    first_name: c.first_name || '',
-    last_name: c.last_name || '',
-    contact_type: c.contact_type,
-    email: c.primary_email || '',
-    phone: c.primary_phone || '',
-    website: c.website || '',
-    country: c.country_code || '',
-    address: c.address && typeof c.address === 'object' && 'text' in c.address
-      ? String(c.address.text)
-      : '',
-    payment_terms: c.payment_terms_days || '30',
-    prequalification_status: (c.prequalification_status as PrequalificationStatus) || 'pending',
-    notes: c.notes || '',
-  }), []);
 
   const handleEditContact = useCallback((contact: Contact) => {
     setEditingContact(contact);
@@ -1575,24 +1632,11 @@ export function ContactsPage() {
   const handleEditSubmit = useCallback(
     (formData: ContactFormData) => {
       if (!editingContact) return;
+      // Rebuild the baseline the modal started from, so the save carries only
+      // what the user actually edited. See `buildContactPatch`.
       editMut.mutate({
         id: editingContact.id,
-        data: {
-          contact_type: formData.contact_type,
-          first_name: formData.first_name || undefined,
-          last_name: formData.last_name || undefined,
-          company_name: formData.company_name || undefined,
-          legal_name: formData.legal_name || undefined,
-          vat_number: formData.vat_number || undefined,
-          primary_email: formData.email || undefined,
-          primary_phone: formData.phone || undefined,
-          website: formData.website || undefined,
-          country_code: formData.country || undefined,
-          address: formData.address ? { text: formData.address } : undefined,
-          payment_terms_days: formData.payment_terms || undefined,
-          prequalification_status: formData.prequalification_status || undefined,
-          notes: formData.notes || undefined,
-        },
+        data: buildContactPatch(formData, contactFormData(editingContact)),
       });
     },
     [editMut, editingContact],
@@ -1998,7 +2042,7 @@ export function ContactsPage() {
           onClose={() => { setShowAddModal(false); setEditingContact(null); }}
           onSubmit={editingContact ? handleEditSubmit : handleCreateSubmit}
           isPending={editingContact ? editMut.isPending : createMut.isPending}
-          initialData={editingContact ? formDataFromContact(editingContact) : null}
+          initialData={editingContact ? contactFormData(editingContact) : null}
           isEdit={!!editingContact}
         />
       )}

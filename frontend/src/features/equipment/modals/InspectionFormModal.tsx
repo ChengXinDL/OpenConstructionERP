@@ -29,6 +29,63 @@ interface InspectionFormModalProps {
   onSaved?: () => void;
 }
 
+/**
+ * The form state an existing inspection opens with.
+ *
+ * Exported and pure so the save can rebuild the same baseline the fields were
+ * seeded from and send only what the user actually changed. Both sides have to
+ * come from one definition: if the baseline were derived any other way, a field
+ * nobody touched could still read as changed and get written back.
+ *
+ * A brand-new inspection defaults `inspectedAt` to today, which is why the
+ * seed is a function of `existing` rather than a constant.
+ */
+export function inspectionFormBase(existing?: Inspection) {
+  return {
+    inspectionType: (existing?.inspection_type as InspectionType) ?? 'annual',
+    inspectedAt: existing?.inspected_at ?? new Date().toISOString().slice(0, 10),
+    validUntil: existing?.valid_until ?? '',
+    inspectorName: existing?.inspector_name ?? '',
+    result: (existing?.result as InspectionResult) ?? 'pass',
+    notes: existing?.notes ?? '',
+    certificateUrl: existing?.certificate_url ?? '',
+  };
+}
+
+export type InspectionFormState = ReturnType<typeof inspectionFormBase>;
+
+/**
+ * The body of an edit save: only the fields the user actually changed.
+ *
+ * Writing the whole form back on every save rewrites fields the user never
+ * opened with the values they held when this modal was opened, undoing anyone
+ * else's edit to them in the meantime without a word. The update route dumps
+ * with `exclude_unset=True`, so a field left out of the body is left alone in
+ * the database, which is what makes omission the right tool.
+ *
+ * Clearing an optional text field sends `null` rather than `undefined`:
+ * `JSON.stringify` drops an `undefined` key, so the old value would survive and
+ * the user would watch their deletion have no effect.
+ */
+export function buildInspectionPatch(
+  form: InspectionFormState,
+  base: InspectionFormState,
+): UpdateInspectionPayload {
+  const payload: UpdateInspectionPayload = {};
+  if (form.inspectionType !== base.inspectionType) payload.inspection_type = form.inspectionType;
+  if (form.inspectedAt !== base.inspectedAt) payload.inspected_at = form.inspectedAt;
+  if (form.validUntil !== base.validUntil) payload.valid_until = form.validUntil;
+  if (form.inspectorName !== base.inspectorName) {
+    payload.inspector_name = form.inspectorName.trim() || null;
+  }
+  if (form.result !== base.result) payload.result = form.result;
+  if (form.notes !== base.notes) payload.notes = form.notes.trim() || null;
+  if (form.certificateUrl !== base.certificateUrl) {
+    payload.certificate_url = form.certificateUrl.trim() || null;
+  }
+  return payload;
+}
+
 export function InspectionFormModal({
   mode,
   equipmentId,
@@ -39,23 +96,16 @@ export function InspectionFormModal({
   const { t } = useTranslation();
   const addToast = useToastStore((s) => s.addToast);
   const [busy, setBusy] = useState(false);
-  const [inspectionType, setInspectionType] = useState<InspectionType>(
-    (existing?.inspection_type as InspectionType) ?? 'annual',
-  );
-  const [inspectedAt, setInspectedAt] = useState<string>(
-    existing?.inspected_at ?? new Date().toISOString().slice(0, 10),
-  );
-  const [validUntil, setValidUntil] = useState<string>(existing?.valid_until ?? '');
-  const [inspectorName, setInspectorName] = useState<string>(
-    existing?.inspector_name ?? '',
-  );
-  const [result, setResult] = useState<InspectionResult>(
-    (existing?.result as InspectionResult) ?? 'pass',
-  );
-  const [notes, setNotes] = useState<string>(existing?.notes ?? '');
-  const [certificateUrl, setCertificateUrl] = useState<string>(
-    existing?.certificate_url ?? '',
-  );
+  // Seeded from the same function the save compares against, so the two can
+  // never drift apart. See `inspectionFormBase`.
+  const seed = inspectionFormBase(existing);
+  const [inspectionType, setInspectionType] = useState<InspectionType>(seed.inspectionType);
+  const [inspectedAt, setInspectedAt] = useState<string>(seed.inspectedAt);
+  const [validUntil, setValidUntil] = useState<string>(seed.validUntil);
+  const [inspectorName, setInspectorName] = useState<string>(seed.inspectorName);
+  const [result, setResult] = useState<InspectionResult>(seed.result);
+  const [notes, setNotes] = useState<string>(seed.notes);
+  const [certificateUrl, setCertificateUrl] = useState<string>(seed.certificateUrl);
   const [error, setError] = useState<string | null>(null);
 
   const isEdit = mode === 'edit';
@@ -93,15 +143,18 @@ export function InspectionFormModal({
     setBusy(true);
     try {
       if (isEdit && existing) {
-        const payload: UpdateInspectionPayload = {
-          inspection_type: inspectionType,
-          inspected_at: inspectedAt,
-          valid_until: validUntil,
-          inspector_name: inspectorName.trim() || null,
-          result,
-          notes: notes.trim() || null,
-          certificate_url: certificateUrl.trim() || null,
-        };
+        const payload = buildInspectionPatch(
+          {
+            inspectionType,
+            inspectedAt,
+            validUntil,
+            inspectorName,
+            result,
+            notes,
+            certificateUrl,
+          },
+          inspectionFormBase(existing),
+        );
         await updateInspection(existing.id, payload);
         addToast({
           type: 'success',

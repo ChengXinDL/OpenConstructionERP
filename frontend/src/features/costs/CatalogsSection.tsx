@@ -35,6 +35,7 @@ import {
   updateCostCatalog,
   type CatalogDeleteMode,
   type CostCatalog,
+  type CostCatalogUpdateBody,
 } from './api';
 
 /* ── Export helper ─────────────────────────────────────────────────────── */
@@ -81,6 +82,50 @@ async function downloadCatalogExcel(catalog: CostCatalog): Promise<void> {
 
 /* ── Create / Edit dialog ──────────────────────────────────────────────── */
 
+/**
+ * The form state a catalog opens with.
+ *
+ * Exported and pure so the save can rebuild the same baseline the fields were
+ * seeded from and send only what the user actually changed. Both sides have to
+ * come from one definition: if the baseline were derived any other way, a field
+ * nobody touched could still read as changed and get written back.
+ */
+export function catalogFormBase(catalog: CostCatalog | null) {
+  return {
+    name: catalog?.name ?? '',
+    currency: catalog?.currency ?? '',
+    description: catalog?.description ?? '',
+  };
+}
+
+export type CatalogFormState = ReturnType<typeof catalogFormBase>;
+
+/**
+ * The body of an edit save: only the fields the user actually changed.
+ *
+ * Renaming a catalog used to write the description back too, exactly as it
+ * stood when this list was last read, undoing anyone else's edit to it without
+ * a word. The update route dumps with `exclude_unset=True`, so a field left out
+ * of the body is left alone in the database.
+ *
+ * The currency carries the extra condition it always had: a changed code on a
+ * non-empty catalog is a 409 server-side, because the stored rates are
+ * denominated in the old one.
+ */
+export function buildCatalogPatch(
+  form: CatalogFormState,
+  base: CatalogFormState,
+  currencyLocked: boolean,
+): CostCatalogUpdateBody {
+  const body: CostCatalogUpdateBody = {};
+  if (form.name !== base.name) body.name = form.name.trim();
+  if (form.description !== base.description) body.description = form.description.trim() || null;
+  if (!currencyLocked && form.currency && form.currency !== base.currency) {
+    body.currency = form.currency;
+  }
+  return body;
+}
+
 function CatalogFormDialog({
   catalog,
   onClose,
@@ -97,9 +142,12 @@ function CatalogFormDialog({
   const addToast = useToastStore((s) => s.addToast);
   const isEdit = catalog !== null;
 
-  const [name, setName] = useState(catalog?.name ?? '');
-  const [currency, setCurrency] = useState(catalog?.currency ?? '');
-  const [description, setDescription] = useState(catalog?.description ?? '');
+  // Seeded from the same function the save compares against, so the two can
+  // never drift apart. See `catalogFormBase`.
+  const seed = catalogFormBase(catalog);
+  const [name, setName] = useState(seed.name);
+  const [currency, setCurrency] = useState(seed.currency);
+  const [description, setDescription] = useState(seed.description);
 
   // Editing the currency of a non-empty catalog is rejected server-side
   // (409) because the stored rates are denominated in the old currency.
@@ -110,16 +158,11 @@ function CatalogFormDialog({
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (isEdit) {
-        const body: { name?: string; description?: string | null; currency?: string } = {
-          name: name.trim(),
-          description: description.trim() || null,
-        };
-        // Only send currency when it actually changed - sending the same
-        // code is harmless, but sending a changed one on a non-empty
-        // catalog 409s, which the locked select already prevents.
-        if (!currencyLocked && currency && currency !== catalog!.currency) {
-          body.currency = currency;
-        }
+        const body = buildCatalogPatch(
+          { name, currency, description },
+          catalogFormBase(catalog),
+          currencyLocked,
+        );
         return updateCostCatalog(catalog!.id, body);
       }
       return createCostCatalog({

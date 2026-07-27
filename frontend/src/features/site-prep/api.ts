@@ -145,6 +145,16 @@ export interface SitePrepItemPayload {
   notes?: string | null;
 }
 
+/**
+ * Patch body for a readiness item: every field optional.
+ *
+ * The route dumps with `exclude_unset=True`, so a field left out is left alone
+ * in the database. That is what lets the modal send only what the user actually
+ * edited instead of writing its whole copy of the row back and overwriting
+ * somebody else's edit to a field nobody opened.
+ */
+export type SitePrepItemUpdate = Partial<SitePrepItemPayload>;
+
 export interface ItemFilters {
   category?: SitePrepCategory;
   status?: SitePrepItemStatus;
@@ -201,7 +211,7 @@ export function createItem(
 export function updateItem(
   projectId: string,
   itemId: string,
-  payload: SitePrepItemPayload,
+  payload: SitePrepItemUpdate,
 ): Promise<SitePrepItem> {
   return apiPatch<SitePrepItem>(
     `${BASE}/projects/${projectId}/items/${itemId}`,

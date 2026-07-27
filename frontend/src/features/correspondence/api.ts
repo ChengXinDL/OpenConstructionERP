@@ -81,10 +81,19 @@ export interface UpdateCorrespondencePayload {
   subject?: string;
   direction?: CorrespondenceDirection;
   correspondence_type?: CorrespondenceType;
-  from_contact_id?: string;
+  /**
+   * `null` clears the sender. `undefined` cannot: `JSON.stringify` drops the
+   * key and the old value survives, so emptying the field would do nothing.
+   */
+  from_contact_id?: string | null;
   to_contact_ids?: string[];
-  date_sent?: string;
-  date_received?: string;
+  /**
+   * `null` clears the date. An empty string is rejected: the backend field
+   * sits behind a `^\d{4}-\d{2}-\d{2}$` pattern, so `''` is a 422 rather than
+   * "no date".
+   */
+  date_sent?: string | null;
+  date_received?: string | null;
   linked_document_ids?: string[];
   linked_transmittal_id?: string | null;
   linked_rfi_id?: string | null;

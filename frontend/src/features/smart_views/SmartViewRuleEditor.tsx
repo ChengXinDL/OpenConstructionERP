@@ -30,6 +30,7 @@ import {
   type SmartViewRule,
   type SmartViewScopeType,
   type SmartViewSelector,
+  type SmartViewUpdatePayload,
 } from './types';
 import { createSmartView, updateSmartView } from './api';
 
@@ -295,14 +296,21 @@ export function SmartViewRuleEditor({
     try {
       let saved: SmartViewResponse;
       if (initialView?.id) {
-        saved = await updateSmartView(initialView.id, {
-          name: trimmedName,
-          description: description.trim() || null,
-          // Send "" to clear the folder; the backend normalises blank to NULL.
-          folder: folder.trim(),
-          rules,
-          default_action: defaultAction,
-        });
+        // Only what the user actually edited goes back. Renaming a view used
+        // to resend its whole rule list as this editor had loaded it, so a
+        // rule a colleague had added in the meantime was silently dropped.
+        // The route dumps with `exclude_unset=True`, so an omitted field is
+        // left alone. The baseline is `seed`, the same object that filled the
+        // inputs, and the rules are compared by content because the seed
+        // rebuilds them into fresh objects.
+        const patch: SmartViewUpdatePayload = {};
+        if (name !== seed.name) patch.name = trimmedName;
+        if (description !== seed.description) patch.description = description.trim() || null;
+        // Send "" to clear the folder; the backend normalises blank to NULL.
+        if (folder !== seed.folder) patch.folder = folder.trim();
+        if (JSON.stringify(rules) !== JSON.stringify(seed.rules)) patch.rules = rules;
+        if (defaultAction !== seed.defaultAction) patch.default_action = defaultAction;
+        saved = await updateSmartView(initialView.id, patch);
       } else {
         const payload: SmartViewCreatePayload = {
           name: trimmedName,

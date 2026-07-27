@@ -34,6 +34,7 @@ import { DateDisplay } from '@/shared/ui/DateDisplay';
 import { RequiresProject } from '@/shared/auth/RequiresProject';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { getErrorMessage } from '@/shared/lib/api';
+import { onlyChangedFields } from '@/shared/lib/apiHelpers';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import {
@@ -54,6 +55,7 @@ import {
   type SitePrepPlanStatus,
   type SitePrepItem,
   type SitePrepItemPayload,
+  type SitePrepItemUpdate,
   type SitePrepPlan,
   type SitePrepPlanPayload,
   type CategoryReadiness,
@@ -456,11 +458,18 @@ function ItemModal({
 }: {
   initial: SitePrepItem | null;
   onClose: () => void;
-  onSubmit: (payload: SitePrepItemPayload) => void;
+  /** A whole `SitePrepItemPayload` when creating; only the changed fields on edit. */
+  onSubmit: (payload: SitePrepItemPayload | SitePrepItemUpdate) => void;
   isPending: boolean;
 }) {
   const { t } = useTranslation();
-  const [form, setForm] = useState<ItemFormState>(() => toForm(initial));
+  // The state the form opened with, kept so the save can send only what the
+  // user actually changed. Writing the whole form back on every save rewrites
+  // fields nobody opened with the values they held when this list was last
+  // read, undoing anyone else's edit to them without a word. The update route
+  // dumps with `exclude_unset=True`, so an omitted field is left alone.
+  const base = useMemo(() => toForm(initial), [initial]);
+  const [form, setForm] = useState<ItemFormState>(base);
   const [touched, setTouched] = useState(false);
   const isEdit = initial !== null;
 
@@ -473,7 +482,7 @@ function ItemModal({
   const handleSubmit = () => {
     setTouched(true);
     if (!canSubmit) return;
-    onSubmit({
+    const payload: SitePrepItemPayload = {
       category: form.category,
       title: form.title.trim(),
       description: form.description.trim() || null,
@@ -482,7 +491,8 @@ function ItemModal({
       due_date: form.due_date || null,
       is_gate: form.is_gate,
       notes: form.notes.trim() || null,
-    });
+    };
+    onSubmit(isEdit ? onlyChangedFields(payload, form, base) : payload);
   };
 
   useEffect(() => {
@@ -871,10 +881,12 @@ export function SitePrepPage() {
     });
 
   const saveItemMut = useMutation({
-    mutationFn: (payload: SitePrepItemPayload) =>
+    mutationFn: (payload: SitePrepItemPayload | SitePrepItemUpdate) =>
       editingItem
         ? updateItem(projectId, editingItem.id, payload)
-        : createItem(projectId, payload),
+        // Without an `editingItem` the modal never trims the payload, so this
+        // branch always receives the whole `SitePrepItemPayload`.
+        : createItem(projectId, payload as SitePrepItemPayload),
     onSuccess: () => {
       invalidateAll();
       setShowItemModal(false);

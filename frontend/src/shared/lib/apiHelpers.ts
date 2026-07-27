@@ -79,6 +79,14 @@ export async function fetchAllPages<T>(
  * is dirty, and the caller's payload maps it to `null`. Only an untouched field
  * is dropped. An empty result means nothing was edited, and the resulting empty
  * PATCH is a no-op the backend already handles.
+ *
+ * A payload key with no field of the same name on the form is always sent. The
+ * key/value types line up in the signature, but `Object.keys` runs on the real
+ * object, so a payload carrying something the form does not hold - an id, a
+ * value derived from elsewhere on the page - would compare `undefined` against
+ * `undefined`, read as untouched and be dropped from the body. Erring towards
+ * sending it costs at most one redundant field; erring the other way silently
+ * removes one the caller meant to write.
  */
 export function onlyChangedFields<P extends object, F extends object>(
   payload: P,
@@ -87,7 +95,7 @@ export function onlyChangedFields<P extends object, F extends object>(
 ): Partial<P> {
   const changed: Partial<P> = {};
   for (const key of Object.keys(payload) as (keyof P & keyof F & string)[]) {
-    if (!Object.is(form[key], base[key])) changed[key] = payload[key];
+    if (!(key in base) || !Object.is(form[key], base[key])) changed[key] = payload[key];
   }
   return changed;
 }

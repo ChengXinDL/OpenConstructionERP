@@ -53,6 +53,7 @@ import {
   type TaskStatus,
   type TaskPriority,
   type CreateTaskPayload,
+  type UpdateTaskPayload,
 } from './api';
 import { tasksGuide } from './tasksGuide';
 import { VoiceEntry, getField } from '@/features/voice';
@@ -223,6 +224,32 @@ const EMPTY_FORM: TaskFormData = {
   assigned_to: '',
   due_date: '',
 };
+
+/**
+ * The form state a task opens with.
+ *
+ * Pure and exported so the save can rebuild the same baseline the modal was
+ * seeded from and send only what the user actually changed. Both sides have to
+ * come from one definition: the assignee in particular is prefilled with a
+ * DISPLAY NAME resolved from two different places, and if the baseline resolved
+ * it any other way an untouched assignee would read as edited and demote a real
+ * user link to free text.
+ */
+export function taskFormData(task?: Task | null): TaskFormData {
+  if (!task) return EMPTY_FORM;
+  const meta = (task.metadata ?? {}) as Record<string, unknown>;
+  return {
+    title: task.title,
+    description: task.description || '',
+    task_type: task.task_type,
+    priority: task.priority,
+    assigned_to:
+      task.assigned_to_name ||
+      (typeof meta.assignee_name === 'string' ? meta.assignee_name : '') ||
+      '',
+    due_date: task.due_date || '',
+  };
+}
 
 function AddTaskModal({
   onClose,
@@ -1139,15 +1166,25 @@ export function TasksPage() {
           ? assignee
           : null;
 
-      return updateTask(id, {
-        title: data.title,
-        description: data.description || undefined,
-        task_type: data.task_type,
-        priority: data.priority,
-        responsible_id,
-        metadata,
-        due_date: data.due_date || null,
-      });
+      // Only what the user actually edited goes back. Writing the whole form
+      // on every save rewrites fields nobody opened with the values they held
+      // when this list was last read, undoing anyone else's edit to them
+      // without a word. The update route dumps with `exclude_unset=True`, so a
+      // field left out of the body is left alone in the database.
+      const base = taskFormData(editingTask);
+      const patch: UpdateTaskPayload = {};
+      if (data.title !== base.title) patch.title = data.title;
+      if (data.description !== base.description) patch.description = data.description || undefined;
+      if (data.task_type !== base.task_type) patch.task_type = data.task_type;
+      if (data.priority !== base.priority) patch.priority = data.priority;
+      if (data.due_date !== base.due_date) patch.due_date = data.due_date || null;
+      // The assignee drives both the link and its display-name mirror, so the
+      // two travel together or not at all.
+      if (data.assigned_to !== base.assigned_to) {
+        patch.responsible_id = responsible_id;
+        patch.metadata = metadata;
+      }
+      return updateTask(id, patch);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tasks'] });
@@ -1932,19 +1969,7 @@ export function TasksPage() {
           onSubmit={editingTask ? handleEditSubmit : handleCreateSubmit}
           isPending={createMut.isPending || editMut.isPending}
           projectName={projectName}
-          initialData={editingTask ? {
-            title: editingTask.title,
-            description: editingTask.description || '',
-            task_type: editingTask.task_type,
-            priority: editingTask.priority,
-            assigned_to:
-              editingTask.assigned_to_name ||
-              (typeof (editingTask.metadata as Record<string, unknown> | undefined)?.assignee_name === 'string'
-                ? ((editingTask.metadata as Record<string, unknown>).assignee_name as string)
-                : '') ||
-              '',
-            due_date: editingTask.due_date || '',
-          } : (typeFilter
+          initialData={editingTask ? taskFormData(editingTask) : (typeFilter
               // When the create dialog opens while a type tab is active
               // (Topic / Information / Decision / Personal / custom), pre-fill
               // task_type with that tab's value. Otherwise the new task lands

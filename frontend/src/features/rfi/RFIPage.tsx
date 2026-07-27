@@ -312,10 +312,64 @@ export function buildUpdatePayload(formData: RFIFormData): UpdateRFIPayload {
 }
 
 /**
+ * The body of an edit save: only the fields the user actually changed.
+ *
+ * ``buildUpdatePayload`` describes the whole form, and sending all of it back
+ * rewrites fields the user never opened with the values they held when this
+ * copy was read, undoing anyone else's edit to them without a word. The update
+ * route dumps with ``exclude_unset=True``, so a field left out of the body is
+ * left alone in the database, which is what makes omission the right tool.
+ *
+ * ``base`` must come from ``formFromRfi`` so both sides have been through the
+ * same defaulting. Hand-written rather than a generic key diff because the
+ * payload renames fields on the way out (``due_date`` becomes
+ * ``response_due_date``); a name-matched diff would find no form field behind
+ * the renamed key, read it as unchanged and drop the user's edit every time.
+ */
+export function buildRfiPatch(form: RFIFormData, base: RFIFormData): UpdateRFIPayload {
+  const full = buildUpdatePayload(form);
+  const patch: UpdateRFIPayload = {};
+  if (form.subject !== base.subject) patch.subject = full.subject;
+  if (form.question !== base.question) patch.question = full.question;
+  if (form.ball_in_court !== base.ball_in_court) patch.ball_in_court = full.ball_in_court;
+  if (form.assigned_to !== base.assigned_to) patch.assigned_to = full.assigned_to;
+  if (form.due_date !== base.due_date) patch.response_due_date = full.response_due_date;
+  if (form.priority !== base.priority) patch.priority = full.priority;
+  if (form.discipline !== base.discipline) patch.discipline = full.discipline;
+  if (form.cost_impact !== base.cost_impact) patch.cost_impact = full.cost_impact;
+  if (form.schedule_impact !== base.schedule_impact) patch.schedule_impact = full.schedule_impact;
+  // The sub-values are a function of their flag as well as their own field:
+  // turning the flag off nulls the value. So a toggled flag has to resend the
+  // value, otherwise the amount would survive an impact the user just denied.
+  if (form.cost_impact !== base.cost_impact || form.cost_impact_value !== base.cost_impact_value) {
+    patch.cost_impact_value = full.cost_impact_value;
+  }
+  if (
+    form.schedule_impact !== base.schedule_impact ||
+    form.schedule_impact_days !== base.schedule_impact_days
+  ) {
+    patch.schedule_impact_days = full.schedule_impact_days;
+  }
+  // Compared by content, not identity. Rebuilding the baseline makes a fresh
+  // array every time, so a reference test would resend the whole link list on
+  // every save and defeat the point.
+  if (
+    form.linked_drawing_ids.length !== base.linked_drawing_ids.length ||
+    form.linked_drawing_ids.some((id, i) => id !== base.linked_drawing_ids[i])
+  ) {
+    patch.linked_drawing_ids = form.linked_drawing_ids;
+  }
+  return patch;
+}
+
+/**
  * Seed the create/edit form from an existing RFI. The user-resolution
  * names (``*_name``) are left blank because the deep RFI carries only raw
  * ids; the UserSearchInput renders the id until the user re-picks, which
  * is acceptable for an edit flow (the value is preserved either way).
+ *
+ * Also the baseline an edit save compares against, so that the form and the
+ * baseline cannot drift apart. See {@link buildRfiPatch}.
  */
 export function formFromRfi(rfi: RFI): RFIFormData {
   return {
@@ -2026,12 +2080,11 @@ export function RFIPage() {
   const handleEditSubmit = useCallback(
     (formData: RFIFormData) => {
       if (!editingRfi) return;
+      // Rebuild the baseline the modal started from, so the save carries only
+      // what the user actually edited. See `buildRfiPatch`.
       updateMut.mutate({
         id: editingRfi.id,
-        data: {
-          ...buildUpdatePayload(formData),
-          linked_drawing_ids: formData.linked_drawing_ids,
-        },
+        data: buildRfiPatch(formData, formFromRfi(editingRfi)),
       });
     },
     [updateMut, editingRfi],

@@ -27,6 +27,7 @@ import {
   type ProfileSpec,
 } from './api';
 import { useTelemetry } from '@/shared/lib/telemetry';
+import { onlyChangedFields } from '@/shared/lib/apiHelpers';
 
 // ── Regions (grouped by continent) ────────────────────────────────────────
 
@@ -357,6 +358,51 @@ interface CreateProjectModalProps {
   editProjectId?: string;
 }
 
+/** The six core project fields the wizard itself owns. */
+export type ProjectCoreForm = Pick<
+  CreateProjectData,
+  'name' | 'description' | 'region' | 'classification_standard' | 'currency' | 'locale'
+>;
+
+/**
+ * The form state the wizard opens with.
+ *
+ * Pure and exported so the save can rebuild the same baseline the wizard was
+ * seeded with and send only what the user actually changed. Re-running setup
+ * used to PATCH all six fields back, so correcting the currency also rewrote
+ * the description exactly as it stood when the project was loaded, undoing
+ * anyone else's edit to it without a word or an error.
+ *
+ * With no project it returns the create-mode defaults, which is what the reset
+ * effect puts in the form. That agreement matters in the narrow window where
+ * edit mode is submitted before the project query has resolved: both sides hold
+ * the defaults, nothing is sent, and a form that never prefilled cannot blank
+ * the record it was supposed to edit.
+ */
+export function projectCoreForm(
+  project: Project | undefined,
+  defaultCurrency: string,
+): ProjectCoreForm {
+  if (!project) {
+    return {
+      name: '',
+      description: '',
+      region: '',
+      classification_standard: '',
+      currency: defaultCurrency,
+      locale: 'en',
+    };
+  }
+  return {
+    name: project.name,
+    description: project.description ?? '',
+    region: project.region ?? '',
+    classification_standard: project.classification_standard ?? '',
+    currency: project.currency ?? '',
+    locale: project.locale ?? 'en',
+  };
+}
+
 export function CreateProjectModal({
   open,
   onClose,
@@ -394,14 +440,11 @@ export function CreateProjectModal({
   // when the confirm opens so Enter never lands on "Discard".
   const keepEditingRef = useRef<HTMLButtonElement>(null);
 
-  const [form, setForm] = useState<CreateProjectData>(() => ({
-    name: '',
-    description: '',
-    region: '',
-    classification_standard: '',
-    currency: defaultCurrency,
-    locale: 'en',
-  }));
+  // Seeded from the same function the save compares against, so the two can
+  // never drift apart. See `projectCoreForm`.
+  const [form, setForm] = useState<CreateProjectData>(() =>
+    projectCoreForm(undefined, defaultCurrency),
+  );
 
   const [customRegion, setCustomRegion] = useState('');
   const [customStandard, setCustomStandard] = useState('');
@@ -520,7 +563,7 @@ export function CreateProjectModal({
       setStep(1);
       setMaxStep(1);
       setConfirmingClose(false);
-      setForm({ name: '', description: '', region: '', classification_standard: '', currency: defaultCurrency, locale: 'en' });
+      setForm(projectCoreForm(undefined, defaultCurrency));
       setCustomRegion('');
       setCustomStandard('');
       setCustomCurrency('');
@@ -592,14 +635,7 @@ export function CreateProjectModal({
   useEffect(() => {
     if (!open || !isEdit || !editProject) return;
     if (prefilledFor === editProject.id) return;
-    setForm({
-      name: editProject.name,
-      description: editProject.description ?? '',
-      region: editProject.region ?? '',
-      classification_standard: editProject.classification_standard ?? '',
-      currency: editProject.currency ?? '',
-      locale: editProject.locale ?? 'en',
-    });
+    setForm(projectCoreForm(editProject, defaultCurrency));
     if (editProfile) {
       setPreset(editProfile.profile.preset || 'custom');
       setActivity(editProfile.profile.activity ?? []);
@@ -615,7 +651,7 @@ export function CreateProjectModal({
     setMaxStep(STEP_COUNT);
     setPrefilledFor(editProject.id);
     track('setup_rerun', { project_id: editProject.id });
-  }, [open, isEdit, editProject, editProfile, prefilledFor, track]);
+  }, [open, isEdit, editProject, editProfile, prefilledFor, track, defaultCurrency]);
 
   const trimmedName = form.name.trim();
   const duplicateExists =
@@ -792,14 +828,23 @@ export function CreateProjectModal({
       // core fields, then re-apply the profile via the SAME endpoint
       // (POST /{id}/profile) the create flow uses. No project is made.
       if (isEdit && editProjectId) {
-        await projectsApi.update(editProjectId, {
-          name: data.name,
-          description: data.description,
-          region: data.region,
-          classification_standard: data.classification_standard,
-          currency: data.currency,
-          locale: data.locale,
-        });
+        // Rebuild the baseline the wizard was seeded with, so the save carries
+        // only what the user actually edited. See `projectCoreForm`.
+        await projectsApi.update(
+          editProjectId,
+          onlyChangedFields(
+            {
+              name: data.name,
+              description: data.description,
+              region: data.region,
+              classification_standard: data.classification_standard,
+              currency: data.currency,
+              locale: data.locale,
+            },
+            form,
+            projectCoreForm(editProject, defaultCurrency),
+          ),
+        );
         await projectsApi.applyProfile(editProjectId, buildSpec());
         return { id: editProjectId } as Project;
       }

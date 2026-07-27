@@ -519,6 +519,21 @@ function SyncHistory({ configId }: { configId: string }) {
 
 /* ── Create / Edit modal ───────────────────────────────────────────────── */
 
+/**
+ * Stringified settings seed for the connector form. Also serves as the
+ * baseline an edit diffs against, so the two cannot drift apart.
+ */
+function settingsFromConnector(editing: ConnectorConfig | null): Record<string, string> {
+  const out: Record<string, string> = {};
+  const src = editing?.settings ?? {};
+  for (const [k, v] of Object.entries(src)) {
+    if (typeof v === 'string') out[k] = v;
+    else if (v != null) out[k] = String(v);
+  }
+  if (!('format' in out)) out.format = 'csv';
+  return out;
+}
+
 function ConnectorModal({
   projectId,
   types,
@@ -544,16 +559,9 @@ function ConnectorModal({
   const [isActive, setIsActive] = useState(editing?.is_active ?? true);
   const [autoPush, setAutoPush] = useState(editing?.auto_push ?? false);
   const [autoPushEvents, setAutoPushEvents] = useState<string[]>(editing?.auto_push_events ?? []);
-  const [settings, setSettings] = useState<Record<string, string>>(() => {
-    const out: Record<string, string> = {};
-    const src = editing?.settings ?? {};
-    for (const [k, v] of Object.entries(src)) {
-      if (typeof v === 'string') out[k] = v;
-      else if (v != null) out[k] = String(v);
-    }
-    if (!('format' in out)) out.format = 'csv';
-    return out;
-  });
+  const [settings, setSettings] = useState<Record<string, string>>(() =>
+    settingsFromConnector(editing),
+  );
   const [secrets, setSecrets] = useState<Record<string, string>>({});
 
   const typeInfo = useMemo(
@@ -578,7 +586,24 @@ function ConnectorModal({
         ...(credentials && Object.keys(credentials).length > 0 ? { credentials } : {}),
       };
       if (isEdit && editing) {
-        return apiPatch(`/v1/finance/connectors/${editing.id}/`, body);
+        // Only what the user actually changed. Toggling a connector off used
+        // to resend its whole settings blob and event list as this tab had
+        // loaded them, so an endpoint someone else had just corrected was
+        // silently rolled back. The route dumps with `exclude_unset=True`, so
+        // an omitted field is left alone. The array and the settings blob are
+        // compared by content because a fresh object is built on every render.
+        const patch: Record<string, unknown> = {};
+        if (direction !== (editing.direction ?? 'both')) patch.direction = direction;
+        if (isActive !== (editing.is_active ?? true)) patch.is_active = isActive;
+        if (autoPush !== (editing.auto_push ?? false)) patch.auto_push = autoPush;
+        if (JSON.stringify(autoPushEvents) !== JSON.stringify(editing.auto_push_events ?? [])) {
+          patch.auto_push_events = autoPushEvents;
+        }
+        if (JSON.stringify(settings) !== JSON.stringify(settingsFromConnector(editing))) {
+          patch.settings = settings;
+        }
+        if (credentials && Object.keys(credentials).length > 0) patch.credentials = credentials;
+        return apiPatch(`/v1/finance/connectors/${editing.id}/`, patch);
       }
       return apiPost('/v1/finance/connectors/', {
         ...body,

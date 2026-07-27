@@ -34,6 +34,58 @@ function num(v: number | string | null | undefined): string {
   return String(v);
 }
 
+/**
+ * The form state an existing damage report opens with.
+ *
+ * Exported and pure so the save can rebuild the same baseline the fields were
+ * seeded from and send only what the user actually changed. Both sides have to
+ * come from one definition: if the baseline were derived any other way, a field
+ * nobody touched could still read as changed and get written back.
+ */
+export function damageReportFormBase(existing?: DamageReport) {
+  return {
+    occurredAt: existing?.reported_at ?? new Date().toISOString().slice(0, 10),
+    severity: (existing?.severity as DamageSeverity) ?? 'minor',
+    description: existing?.description ?? '',
+    repairCost: num(existing?.repair_cost_estimate),
+    currency: existing?.currency ?? '',
+    statusValue: (existing?.status as DamageStatus) ?? 'reported',
+  };
+}
+
+export type DamageReportFormState = ReturnType<typeof damageReportFormBase>;
+
+/**
+ * The body of an edit save: only the fields the user actually changed.
+ *
+ * Writing the whole form back on every save rewrites fields the user never
+ * opened with the values they held when this modal was opened, undoing anyone
+ * else's edit to them in the meantime without a word. The update route dumps
+ * with `exclude_unset=True`, so a field left out of the body is left alone in
+ * the database, which is what makes omission the right tool.
+ *
+ * `occurredAt` is absent because the update payload has no field for it: the
+ * occurrence date is fixed once the report is filed.
+ */
+export function buildDamageReportPatch(
+  form: DamageReportFormState,
+  base: DamageReportFormState,
+): UpdateDamageReportPayload {
+  const payload: UpdateDamageReportPayload = {};
+  if (form.severity !== base.severity) payload.severity = form.severity;
+  if (form.description !== base.description) payload.description = form.description;
+  if (form.repairCost !== base.repairCost) {
+    // An unparseable figure is left out rather than sent as NaN, which would be
+    // serialised as null and wipe a cost the user never meant to clear.
+    const parsed =
+      form.repairCost.trim() === '' ? undefined : Number(form.repairCost.replace(',', '.'));
+    if (Number.isFinite(parsed)) payload.repair_cost_estimate = parsed;
+  }
+  if (form.currency !== base.currency) payload.currency = form.currency.trim() || undefined;
+  if (form.statusValue !== base.statusValue) payload.status = form.statusValue;
+  return payload;
+}
+
 export function DamageReportFormModal({
   mode,
   equipmentId,
@@ -44,18 +96,15 @@ export function DamageReportFormModal({
   const { t } = useTranslation();
   const addToast = useToastStore((s) => s.addToast);
   const [busy, setBusy] = useState(false);
-  const [occurredAt, setOccurredAt] = useState<string>(
-    existing?.reported_at ?? new Date().toISOString().slice(0, 10),
-  );
-  const [severity, setSeverity] = useState<DamageSeverity>(
-    (existing?.severity as DamageSeverity) ?? 'minor',
-  );
-  const [description, setDescription] = useState<string>(existing?.description ?? '');
-  const [repairCost, setRepairCost] = useState<string>(num(existing?.repair_cost_estimate));
-  const [currency, setCurrency] = useState<string>(existing?.currency ?? '');
-  const [statusValue, setStatusValue] = useState<DamageStatus>(
-    (existing?.status as DamageStatus) ?? 'reported',
-  );
+  // Seeded from the same function the save compares against, so the two can
+  // never drift apart. See `damageReportFormBase`.
+  const seed = damageReportFormBase(existing);
+  const [occurredAt, setOccurredAt] = useState<string>(seed.occurredAt);
+  const [severity, setSeverity] = useState<DamageSeverity>(seed.severity);
+  const [description, setDescription] = useState<string>(seed.description);
+  const [repairCost, setRepairCost] = useState<string>(seed.repairCost);
+  const [currency, setCurrency] = useState<string>(seed.currency);
+  const [statusValue, setStatusValue] = useState<DamageStatus>(seed.statusValue);
   const [error, setError] = useState<string | null>(null);
 
   const isEdit = mode === 'edit';
@@ -89,13 +138,10 @@ export function DamageReportFormModal({
           ? undefined
           : Number(repairCost.replace(',', '.'));
       if (isEdit && existing) {
-        const payload: UpdateDamageReportPayload = {
-          severity,
-          description,
-          repair_cost_estimate: Number.isFinite(costNum) ? costNum : undefined,
-          currency: currency.trim() || undefined,
-          status: statusValue,
-        };
+        const payload = buildDamageReportPatch(
+          { occurredAt, severity, description, repairCost, currency, statusValue },
+          damageReportFormBase(existing),
+        );
         await updateDamageReport(existing.id, payload);
         addToast({
           type: 'success',

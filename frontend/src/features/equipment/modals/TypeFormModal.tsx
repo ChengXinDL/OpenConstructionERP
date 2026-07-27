@@ -25,6 +25,46 @@ interface TypeFormModalProps {
   onSaved?: () => void;
 }
 
+/**
+ * The form state an existing type opens with.
+ *
+ * Exported and pure so the save can rebuild the same baseline the fields were
+ * seeded from and send only what the user actually changed. Both sides have to
+ * come from one definition: if the baseline were derived any other way, a field
+ * nobody touched could still read as changed and get written back.
+ */
+export function typeFormBase(existing?: EquipmentType) {
+  return {
+    code: existing?.code ?? '',
+    name: existing?.name ?? '',
+    category: existing?.category ?? 'other',
+  };
+}
+
+export type TypeFormState = ReturnType<typeof typeFormBase>;
+
+/**
+ * The body of an edit save: only the fields the user actually changed.
+ *
+ * Writing the whole form back on every save rewrites fields the user never
+ * opened with the values they held when this modal was opened, undoing anyone
+ * else's edit to them in the meantime without a word. The update route dumps
+ * with `exclude_unset=True`, so a field left out of the body is left alone in
+ * the database, which is what makes omission the right tool.
+ *
+ * `code` is deliberately absent: it is the immutable identifier of the type and
+ * the update payload has no room for it, so the field is read-only in edit mode.
+ */
+export function buildTypePatch(
+  form: TypeFormState,
+  base: TypeFormState,
+): UpdateEquipmentTypePayload {
+  const payload: UpdateEquipmentTypePayload = {};
+  if (form.name !== base.name) payload.name = form.name.trim();
+  if (form.category !== base.category) payload.category = form.category.trim() || 'other';
+  return payload;
+}
+
 export function TypeFormModal({
   mode,
   existing,
@@ -34,9 +74,12 @@ export function TypeFormModal({
   const { t } = useTranslation();
   const addToast = useToastStore((s) => s.addToast);
   const [busy, setBusy] = useState(false);
-  const [code, setCode] = useState(existing?.code ?? '');
-  const [name, setName] = useState(existing?.name ?? '');
-  const [category, setCategory] = useState(existing?.category ?? 'other');
+  // Seeded from the same function the save compares against, so the two can
+  // never drift apart. See `typeFormBase`.
+  const seed = typeFormBase(existing);
+  const [code, setCode] = useState(seed.code);
+  const [name, setName] = useState(seed.name);
+  const [category, setCategory] = useState(seed.category);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -66,10 +109,7 @@ export function TypeFormModal({
     setBusy(true);
     try {
       if (isEdit && existing) {
-        const payload: UpdateEquipmentTypePayload = {
-          name: name.trim(),
-          category: category.trim() || 'other',
-        };
+        const payload = buildTypePatch({ code, name, category }, typeFormBase(existing));
         await updateType(existing.id, payload);
         addToast({
           type: 'success',

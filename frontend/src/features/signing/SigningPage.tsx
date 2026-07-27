@@ -1082,6 +1082,41 @@ export function SigningPage() {
     status: settableStatus(form.status),
   });
 
+  /**
+   * The body of an edit save: only the fields the user actually changed.
+   *
+   * Sending the whole form back rewrites fields the user never opened with the
+   * values they held when this list was last read, undoing anyone else's edit
+   * to them without a word. The update route dumps with `exclude_unset=True`,
+   * so a field left out of the body is left alone in the database.
+   *
+   * `base` has to come from `sessionToForm`, the same function that seeds the
+   * modal, so both sides have been through the same date slicing and status
+   * narrowing and an untouched field always compares equal.
+   */
+  const buildUpdatePatch = (
+    form: SessionFormData,
+    base: SessionFormData,
+  ): UpdateSigningSessionPayload => {
+    const full = buildUpdatePayload(form);
+    const patch: UpdateSigningSessionPayload = {};
+    if (form.document_ref !== base.document_ref) patch.document_ref = full.document_ref;
+    if (form.document_content_hash !== base.document_content_hash) {
+      patch.document_content_hash = full.document_content_hash;
+    }
+    if (form.provider_capability !== base.provider_capability) {
+      patch.provider_capability = full.provider_capability;
+    }
+    if (form.expires_at !== base.expires_at) patch.expires_at = full.expires_at;
+    if (form.status !== base.status) patch.status = full.status;
+    // Compared by content, not identity: `sessionToForm` copies every entry, so
+    // a reference test would resend the whole signatory list on every save.
+    if (JSON.stringify(form.signatories) !== JSON.stringify(base.signatories)) {
+      patch.signatory_map = full.signatory_map;
+    }
+    return patch;
+  };
+
   const handleDelete = async (session: SigningSession) => {
     const ok = await confirm({
       title: t('signing.confirm_delete_title', { defaultValue: 'Delete signing session?' }),
@@ -1237,7 +1272,12 @@ export function SigningPage() {
           initialData={sessionToForm(editingSession)}
           onClose={() => setEditingSession(null)}
           onSubmit={(form) =>
-            updateMut.mutate({ id: editingSession.id, data: buildUpdatePayload(form) })
+            // Rebuild the baseline the modal was seeded from, so the save
+            // carries only what the user actually edited.
+            updateMut.mutate({
+              id: editingSession.id,
+              data: buildUpdatePatch(form, sessionToForm(editingSession)),
+            })
           }
           isPending={updateMut.isPending}
         />
