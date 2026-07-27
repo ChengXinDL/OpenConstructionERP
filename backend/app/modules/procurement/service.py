@@ -876,7 +876,16 @@ class ProcurementService:
                     metadata={"po_number": updated.po_number},
                 )
             except Exception:
-                logger.debug("FSM audit log skipped for PO %s approve via PATCH", po_id)
+                # This path reads a freshly re-fetched ``updated``, so it does
+                # not have the expired-attribute problem the other two doors
+                # into ``approved`` had. It is still logged at WARNING: an
+                # audit row that never lands is a compliance gap, and at
+                # production INFO a debug line is not there to be found.
+                logger.warning(
+                    "FSM audit log FAILED for PO approve via PATCH (po_id=%s)",
+                    po_id,
+                    exc_info=True,
+                )
 
             await _safe_publish(
                 "procurement.po.approved",
@@ -1051,6 +1060,13 @@ class ProcurementService:
         """
         po = await self.get_po(po_id)
         prior_status = po.status
+        # Read the number before the update below. ``PORepository.update`` ends
+        # in ``session.expire_all()``, so every loaded instance including this
+        # one is expired, and reading an expired attribute on the async session
+        # re-issues a sync SELECT and raises MissingGreenlet. The audit call is
+        # the only read here that is not preceded by a re-fetch, and its
+        # failure is swallowed, so the row would just go missing.
+        po_number = po.po_number
         if prior_status == "approved":
             return po  # idempotent
         if prior_status != "draft":
@@ -1073,10 +1089,14 @@ class ProcurementService:
                 from_status=prior_status,
                 to_status="approved",
                 reason="PO approved via approve_po()",
-                metadata={"po_number": po.po_number},
+                metadata={"po_number": po_number},
             )
         except Exception:
-            logger.debug("FSM audit log skipped for PO %s approve", po_id)
+            logger.warning(
+                "FSM audit log FAILED for PO approve (po_id=%s)",
+                po_id,
+                exc_info=True,
+            )
 
         updated = await self.po_repo.get(po_id)
         if updated is None:
@@ -1103,6 +1123,10 @@ class ProcurementService:
         """Transition PO to issued status (requires prior approval - TOP-30 #10)."""
         po = await self.get_po(po_id)
         prior_status = po.status
+        # Same reason as in ``approve_po``: the update below expires every
+        # loaded instance, and the audit call is the one read that is not
+        # preceded by a re-fetch.
+        po_number = po.po_number
         if prior_status != "approved":
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -1133,10 +1157,14 @@ class ProcurementService:
                 from_status=prior_status,
                 to_status="issued",
                 reason="PO issued via issue_po()",
-                metadata={"po_number": po.po_number},
+                metadata={"po_number": po_number},
             )
         except Exception:
-            logger.debug("FSM audit log skipped for PO %s issue", po_id)
+            logger.warning(
+                "FSM audit log FAILED for PO issue (po_id=%s)",
+                po_id,
+                exc_info=True,
+            )
 
         updated = await self.po_repo.get(po_id)
         if updated is None:
