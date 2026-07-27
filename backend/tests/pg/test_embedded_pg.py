@@ -104,10 +104,22 @@ def test_apply_ascii_locale_env_sets_c(monkeypatch) -> None:
     assert os.environ["LC_COLLATE"] == "C"
 
 
-def test_pre_initialize_cluster_noop_on_posix(tmp_path, monkeypatch) -> None:
-    """On POSIX the env-var locale fix is enough, so pre-init is a no-op."""
+def test_pre_initialize_cluster_runs_on_posix_too(tmp_path, monkeypatch) -> None:
+    """Pre-init is not a Windows-only step, despite starting life as one.
+
+    It began as a locale workaround, which POSIX did not need because the env
+    vars are enough there. It now also exists to write ``postgresql.conf``
+    between initdb and the postmaster start, and ``max_locks_per_transaction``
+    is a postmaster-level setting, so a cluster created by pixeltable's own
+    one-shot path would not get it until the *next* boot. That reason applies to
+    every platform, so skipping POSIX here would leave a first run on Linux
+    hitting the lock ceiling the setting exists to raise.
+    """
     monkeypatch.setattr(embedded_pg.os, "name", "posix")
-    assert embedded_pg._pre_initialize_cluster(tmp_path / "pgdata") is False
+    pgdata = tmp_path / "pgdata"
+
+    assert embedded_pg._pre_initialize_cluster(pgdata) is True
+    assert (pgdata / "PG_VERSION").exists(), "initdb should have created the cluster"
 
 
 def test_pre_initialize_cluster_skips_when_already_inited(tmp_path, monkeypatch) -> None:
@@ -210,8 +222,33 @@ def test_pre_initialize_cluster_clears_debris_then_inits(tmp_path, monkeypatch) 
     assert seen["dir_empty_at_initdb"] is True  # debris cleared before initdb ran
 
 
+@pytest.fixture
+def detached_from_the_session_cluster():
+    """Hide the suite's own cluster so a test can boot one of its own.
+
+    ``tests/conftest.py`` boots a cluster for the whole run and pins it with
+    ``retain()``. By the time any test executes, ``is_running()`` is therefore
+    already True and ``shutdown()`` is a deliberate no-op. Both are correct for
+    the suite, and both make the boot/shutdown cycle impossible to observe
+    through the module's real state.
+
+    Detaching the globals for the duration lets the test drive a genuine boot,
+    and restoring them afterwards hands the session's cluster back untouched:
+    the test never stops it, because for its lifetime it cannot see it.
+    """
+    saved_server = embedded_pg._server
+    saved_retained = embedded_pg._retained
+    embedded_pg._server = None
+    embedded_pg._retained = False
+    try:
+        yield
+    finally:
+        embedded_pg._server = saved_server
+        embedded_pg._retained = saved_retained
+
+
 @pytest.mark.asyncio
-async def test_boot_sets_urls_connects_and_shuts_down(tmp_path, monkeypatch) -> None:
+async def test_boot_sets_urls_connects_and_shuts_down(tmp_path, monkeypatch, detached_from_the_session_cluster) -> None:
     # Preserve the URLs the session fixture set; boot() writes os.environ directly.
     saved_url = os.environ.get("DATABASE_URL")
     saved_sync = os.environ.get("DATABASE_SYNC_URL")
