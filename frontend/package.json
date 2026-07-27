@@ -16,7 +16,6 @@
     "test:e2e:install": "playwright install chromium firefox webkit --with-deps",
     "lint": "eslint .",
     "lint:unicode": "node -e \"const fs=require('fs'),p=require('path');const re=/[\\u200B-\\u200F\\u2060-\\u2064\\u2066-\\u2069\\uFEFF]/;const skip=new Set(['node_modules','dist','build','coverage']);const allow=new Set([p.normalize('src/app/locales/ar.ts')]);let bad=[];function walk(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){const f=p.join(d,e.name);if(e.isDirectory()){if(!skip.has(e.name))walk(f);}else if(/\\.(ts|tsx|js|jsx|css|html|md)$/.test(e.name)){const rel=p.relative(process.cwd(),f);if(allow.has(rel))continue;const t=fs.readFileSync(f,'utf8');if(re.test(t))bad.push(rel);}}}walk('src');if(bad.length){console.error('Zero-width Unicode found in:');bad.forEach(b=>console.error('  '+b));console.error('Run: python ../scripts/strip_zero_width.py');process.exit(1);}console.log('No zero-width Unicode characters found.');\"",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "typecheck": "tsc --noEmit",
     "api:generate": "openapi-typescript http://localhost:8000/api/openapi.json -o src/shared/lib/api-types.ts"
   },
@@ -74,7 +73,6 @@
     "msw": "^2.14.6",
     "openapi-typescript": "^7.13.0",
     "postcss": "^8.5.16",
-    "prettier": "^3.9.1",
     "rollup-plugin-visualizer": "^7.0.1",
     "tailwindcss": "^3.4.19",
     "typescript": "^5.9.3",

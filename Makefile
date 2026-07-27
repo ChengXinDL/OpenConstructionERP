@@ -81,9 +81,8 @@ lint: ## Lint all code
 	cd $(BACKEND_DIR) && ruff check app/ tests/
 	cd $(FRONTEND_DIR) && npm run lint
 
-format: ## Format all code
+format: ## Format the backend code (the frontend has no automatic formatter)
 	cd $(BACKEND_DIR) && ruff format app/ tests/
-	cd $(FRONTEND_DIR) && npm run format
 
 typecheck: ## Run type checking
 	cd $(BACKEND_DIR) && mypy app/

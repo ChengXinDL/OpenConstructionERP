@@ -33,7 +33,7 @@ npm run dev
 - Docstrings: Google style
 
 ### TypeScript (Frontend)
-- Formatter: Prettier (printWidth=100, singleQuote=true)
+- No automatic formatter. Match the style of the file you are editing.
 - Linter: ESLint with `@typescript-eslint/recommended`
 - Strict mode enabled
 

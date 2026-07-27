@@ -23,7 +23,7 @@
 
 ## Author Checklist
 
-- [ ] Code follows project style guidelines (ruff, prettier)
+- [ ] Code follows project style guidelines (ruff on the backend, ESLint on the frontend)
 - [ ] Tests added/updated for changes
 - [ ] All CI checks pass
 - [ ] Documentation updated if needed

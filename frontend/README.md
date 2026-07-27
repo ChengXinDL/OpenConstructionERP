@@ -86,7 +86,6 @@ All scripts are defined in `package.json` and run with `npm run <name>`.
 | `test:e2e:install` | `playwright install chromium firefox webkit --with-deps` | Install the browsers Playwright needs. |
 | `lint` | `eslint .` | Lint the source with ESLint. |
 | `lint:unicode` | inline Node check | Fail if any source file contains stray zero-width Unicode characters. |
-| `format` | `prettier --write "src/**/*.{ts,tsx,css}"` | Format the source with Prettier. |
 | `typecheck` | `tsc --noEmit` | Type-check without emitting output. |
 | `api:generate` | `openapi-typescript ...` | Regenerate `src/shared/lib/api-types.ts` from the backend OpenAPI schema. |
 
@@ -123,6 +122,6 @@ End-to-end browser tests run on Playwright. Install the browsers once with `npm 
 ## Code style
 
 - TypeScript strict mode is on. Keep it green with `npm run build`.
-- Format with Prettier: `npm run format`.
+- There is no automatic formatter. Match the style of the file you are editing.
 - Lint with ESLint: `npm run lint`.
 - Components are functional and use named exports. Global client state goes in a Zustand store under `src/stores`; server state goes through React Query.
