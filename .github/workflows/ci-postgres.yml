@@ -19,6 +19,11 @@ on:
 jobs:
   backend-postgres:
     runs-on: ubuntu-latest
+    # This is a merge-blocking gate and it now carries concurrency tests that
+    # take real row locks. Without a ceiling the job inherits the six hour
+    # default, so one deadlock would block every merge for the rest of the day
+    # instead of failing in minutes. The suite finishes in about ten.
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: backend
@@ -38,4 +43,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev,server]"
       - name: Run dedicated PostgreSQL dialect suite (embedded PG, no Docker)
-        run: pytest tests/pg -q -p no:cacheprovider
+        # A per-test ceiling so a lock that never gets released names the test
+        # that hung instead of killing the job anonymously at the wall clock.
+        # thread method because signal based timeouts are Unix-only and this
+        # suite is expected to stay runnable on Windows developer machines.
+        run: pytest tests/pg -q -p no:cacheprovider --timeout=300 --timeout-method=thread
