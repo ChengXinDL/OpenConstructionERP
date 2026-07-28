@@ -7,11 +7,13 @@ No business logic - pure data access.
 """
 
 import uuid
+from datetime import datetime
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import set_committed_value
+from sqlalchemy.orm.util import identity_key
 
 from app.modules.collaboration.models import Comment, CommentMention, Viewpoint
 
@@ -144,24 +146,39 @@ class CommentRepository:
         await self.session.flush()
         return comment
 
+    def _pin_updated(self, comment_id: uuid.UUID, **values: object) -> None:
+        """Write freshly updated values onto the loaded comment, if we hold it.
+
+        Expiring the session instead would be doubly wrong here. It costs the
+        ``replies`` collections that ``_pin_reply_tree`` just pinned to keep
+        serialization IO-free, and under asyncio the next attribute read on any
+        expired object raises ``MissingGreenlet`` rather than re-fetching. Every
+        caller passes plain Python values, so nothing has to be read back.
+        """
+        instance = self.session.identity_map.get(identity_key(Comment, comment_id))
+        if instance is None:
+            return
+        for name, value in values.items():
+            set_committed_value(instance, name, value)
+
     async def update_text(
         self,
         comment_id: uuid.UUID,
         text: str,
-        edited_at: object,
+        edited_at: datetime,
     ) -> None:
         """Update the text of a comment."""
         stmt = update(Comment).where(Comment.id == comment_id).values(text=text, edited_at=edited_at)
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        self._pin_updated(comment_id, text=text, edited_at=edited_at)
 
     async def soft_delete(self, comment_id: uuid.UUID) -> None:
         """Soft-delete a comment (set is_deleted=True, clear text)."""
         stmt = update(Comment).where(Comment.id == comment_id).values(is_deleted=True, text="[deleted]")
         await self.session.execute(stmt)
         await self.session.flush()
-        self.session.expire_all()
+        self._pin_updated(comment_id, is_deleted=True, text="[deleted]")
 
 
 class MentionRepository:
