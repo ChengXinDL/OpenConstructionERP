@@ -24,6 +24,7 @@ WARNING / ERROR per check so you can diagnose install problems.
 from __future__ import annotations
 
 import argparse
+import importlib
 import logging
 import os
 import socket
@@ -481,6 +482,20 @@ def check_ai_provider_keys() -> Check:
     )
 
 
+def _pdf_reader_imports_in_process() -> bool:
+    """Whether the PDF upload path imports its readers in this process.
+
+    Mirrors ``app.modules.takeoff.service._use_in_process_pdf_parser``. It is
+    restated here rather than imported because ``doctor`` has to stay runnable
+    on an install too broken to import the takeoff service, which drags in the
+    ORM and the whole app package. ``test_cli_doctor_pdf_probe`` asserts the
+    two predicates agree, so they cannot drift apart unnoticed.
+    """
+    if getattr(sys, "frozen", False):
+        return True
+    return os.environ.get("OE_DESKTOP", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def check_optional_extras() -> list[Check]:
     """Report which optional extras are installed (mostly non-fatal)."""
     from importlib.util import find_spec
@@ -492,15 +507,29 @@ def check_optional_extras() -> list[Check]:
             return False
 
     def _import_error(mod: str) -> str | None:
-        """Actually import ``mod`` in a child of this interpreter.
+        """Import ``mod`` the same way the upload path will import it.
 
         Returns None when the import succeeds, otherwise the last line of the
-        failure. A child process is used for two reasons: it is where the
-        upload path imports its PDF readers, so this reproduces the real
+        failure. Normally a child process is used, for two reasons: it is where
+        the upload path imports its PDF readers, so this reproduces the real
         conditions; and a native extension that segfaults on load takes the
         child down instead of the diagnostic that was sent to find it.
+
+        The frozen desktop build is the exception. There ``sys.executable`` is
+        the app binary, not an interpreter, so ``-c`` is never honoured - which
+        is exactly why the upload path parses in-process on desktop. Probing
+        with a child there would report every healthy desktop install as a
+        broken PDF reader, so the check follows the parser and imports in this
+        process instead.
         """
         import subprocess
+
+        if _pdf_reader_imports_in_process():
+            try:
+                importlib.import_module(mod)
+            except BaseException as exc:  # a bad native extension may SystemExit
+                return f"{type(exc).__name__}: {exc}"[:200]
+            return None
 
         try:
             proc = subprocess.run(
