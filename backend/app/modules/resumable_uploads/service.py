@@ -173,10 +173,14 @@ class ResumableUploadService:
             ) from exc
 
         new_received, duplicate = add_chunk_index(record.received_chunks, chunk_index)
-        if duplicate:
+        if duplicate and chunk_store.has_chunk(record.id, chunk_index):
             # Idempotent replay: the chunk is already on disk and already
             # tracked. Do not rewrite or error; just acknowledge.
             return record, True
+        # Falling through with duplicate=True means the column says we hold this
+        # chunk but the bytes are gone. Answering "duplicate" there would ack a
+        # write we never made and leave the client unable to ever restore the
+        # part, so take the bytes and report them as newly accepted.
 
         chunk_store.write_chunk(record.id, chunk_index, data)
         # Reassign (not in-place mutate) so SQLAlchemy detects the change.
@@ -187,8 +191,21 @@ class ResumableUploadService:
     # ── Status ──────────────────────────────────────────────────────────────
 
     def missing(self, record: ResumableUploadSession) -> list[int]:
-        """Return the chunk indices still missing for ``record``."""
-        return missing_chunks(record.received_chunks, record.total_chunks)
+        """Return the chunk indices still missing for ``record``.
+
+        Missing in both senses: never received, and received but no longer on
+        disk. Answering from the column alone reports a completeness the chunk
+        store cannot deliver, which leaves a client polling status with nothing
+        to send while completion keeps refusing.
+
+        Only an in-flight session is checked against the disk. A complete,
+        failed or expired session has had its scratch chunks swept on purpose,
+        and consulting the disk there would report every chunk as missing.
+        """
+        gaps = set(missing_chunks(record.received_chunks, record.total_chunks))
+        if record.status in ("in_progress", "assembling"):
+            gaps.update(chunk_store.missing_chunk_files(record.id, record.total_chunks))
+        return sorted(gaps)
 
     # ── Complete (assemble + integrity + hand-off) ──────────────────────────
 
@@ -233,6 +250,13 @@ class ResumableUploadService:
                 },
             )
 
+        # The column can claim every chunk arrived while the bytes are no longer
+        # there. Ask the disk before committing to an assembly that would fail
+        # partway through and take the surviving chunks down with it.
+        lost = chunk_store.missing_chunk_files(record.id, record.total_chunks)
+        if lost:
+            raise await self._demand_resend(record, lost)
+
         record.status = "assembling"
         await self.repo.save(record)
 
@@ -240,12 +264,21 @@ class ResumableUploadService:
         # Close the low-level fd; chunk_store.assemble reopens by path.
         os.close(tmp_fd)
         assembled_path = Path(tmp_name)
+        keep_chunks = False
         try:
-            assembled_size, computed_sha = chunk_store.assemble(
-                record.id,
-                record.total_chunks,
-                assembled_path,
-            )
+            try:
+                assembled_size, computed_sha = chunk_store.assemble(
+                    record.id,
+                    record.total_chunks,
+                    assembled_path,
+                )
+            except FileNotFoundError as exc:
+                # A chunk vanished between the pre-flight check above and the
+                # read. Same answer, and keep what is still on disk so the
+                # client resends only the gap.
+                keep_chunks = True
+                still_missing = chunk_store.missing_chunk_files(record.id, record.total_chunks)
+                raise await self._demand_resend(record, still_missing) from exc
 
             check = verify_assembled(
                 assembled_size=assembled_size,
@@ -281,12 +314,52 @@ class ResumableUploadService:
             await self.repo.save(record)
         finally:
             assembled_path.unlink(missing_ok=True)
-            # Drop the scratch chunks regardless of success - on failure the
-            # client must re-create the session; on success they are no
-            # longer needed.
-            chunk_store.cleanup(record.id)
+            # Drop the scratch chunks on success (nothing else needs them) and
+            # on a terminal failure such as an integrity mismatch, where the
+            # client has to create a new session anyway. A resumable failure
+            # keeps them, otherwise one lost part costs the whole upload.
+            if not keep_chunks:
+                chunk_store.cleanup(record.id)
 
         return record
+
+    async def _demand_resend(
+        self,
+        record: ResumableUploadSession,
+        lost: list[int],
+    ) -> HTTPException:
+        """Forget chunks whose bytes are gone and ask the client to resend them.
+
+        Returns the exception for the caller to raise rather than raising it,
+        so the caller keeps control of its own cleanup flags.
+
+        The row edits here are a best-effort tidy-up, not the mechanism. Over
+        HTTP they do not survive: ``get_session`` rolls the transaction back on
+        any exception, so the 409 that leaves this method takes the column
+        changes with it. Recovery does not depend on them. ``accept_chunk``
+        asks the disk before calling a chunk a replay, and ``missing`` asks the
+        disk before reporting a gap, so both work whether or not this write
+        lands. It does land for an internal caller that commits.
+
+        Args:
+            record: The session whose chunks went missing.
+            lost: Indices that are no longer on disk.
+
+        Returns:
+            A 409 carrying the same ``missing_chunks`` shape the
+            never-completed path returns, so one client branch handles both.
+        """
+        lost_set = set(lost)
+        record.received_chunks = [i for i in record.received_chunks if i not in lost_set]
+        record.status = "in_progress"
+        await self.repo.save(record)
+        return HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error": "upload incomplete",
+                "missing_chunks": lost,
+            },
+        )
 
     # ── Abort ───────────────────────────────────────────────────────────────
 

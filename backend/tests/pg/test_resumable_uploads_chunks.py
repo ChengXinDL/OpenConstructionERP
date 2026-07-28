@@ -254,9 +254,6 @@ async def test_a_chunk_that_overruns_the_declared_size_is_rejected(pg_session) -
     assert overrun.value.status_code == 400
 
     assert record.received_chunks == [], "a rejected chunk must not be recorded as received"
-    # has_chunk is used here purely as a test-side disk predicate. The service
-    # never calls it - that omission is its own defect, filed separately in
-    # test_a_chunk_lost_from_disk_can_be_re_uploaded.
     assert not chunk_store.has_chunk(record.id, 0), "a rejected chunk must not reach the disk"
 
 
@@ -446,20 +443,6 @@ async def test_aborting_removes_both_the_row_and_the_chunks(pg_session) -> None:
 # ── Losing a chunk file: the resume path that does not resume ──────────────
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "DEFECT: a chunk whose file is gone from disk can never be re-uploaded. accept_chunk "
-        "(service.py:175-179) decides 'duplicate' purely from the received_chunks column and "
-        "returns early without ever consulting the disk, so it answers duplicate=True and writes "
-        "nothing. chunk_store.has_chunk() exists for exactly this check and is dead code - grep "
-        "finds only its definition at chunk_store.py:71, no call site anywhere in the codebase. "
-        "The client is told the chunk was accepted, the bytes are still missing, and completion "
-        "then fails - see test_completing_with_a_chunk_missing_from_disk. Losing scratch files is "
-        "not exotic: the chunk root is a temp directory, and complete_session's own finally block "
-        "(service.py:282-287) deletes every remaining chunk whenever assembly raises."
-    ),
-)
 @pytest.mark.asyncio
 async def test_a_chunk_lost_from_disk_can_be_re_uploaded(pg_session) -> None:
     """Re-sending a chunk whose bytes vanished must actually restore them."""
@@ -479,18 +462,6 @@ async def test_a_chunk_lost_from_disk_can_be_re_uploaded(pg_session) -> None:
     assert chunk_store.has_chunk(record.id, 1), "re-uploading must put the bytes back"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "DEFECT: completing with a chunk missing from disk raises a bare FileNotFoundError from "
-        "chunk_store.assemble (chunk_store.py:105). Neither complete_session nor the router catches "
-        "it, so the caller gets a 500 rather than the 409-with-missing-chunks the incomplete path "
-        "already returns, and the client is given nothing to act on. Worse, the finally block "
-        "(service.py:282-287) then deletes every surviving chunk, so one lost file escalates to the "
-        "whole upload - and by test_a_chunk_lost_from_disk_can_be_re_uploaded none of it can be "
-        "re-sent."
-    ),
-)
 @pytest.mark.asyncio
 async def test_completing_with_a_chunk_missing_from_disk_is_reported_not_crashed(pg_session) -> None:
     """A lost chunk must surface as a resumable error, not an unhandled exception."""
@@ -508,6 +479,82 @@ async def test_completing_with_a_chunk_missing_from_disk_is_reported_not_crashed
 
     assert excinfo.value.status_code in (400, 409)
     assert documents.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_an_upload_that_loses_a_chunk_resends_only_that_chunk(pg_session) -> None:
+    """The point of the two tests above, end to end: one lost part costs one part.
+
+    Each half is useless alone. Reporting the gap does not help if the resend is
+    refused as a replay, and accepting the resend does not help if the refusal
+    already deleted every other chunk.
+    """
+    body = _payload()
+    record = await _make_upload_session(pg_session, sha256=hashlib.sha256(body).hexdigest())
+    service = ResumableUploadService(pg_session)
+    for index in range(3):
+        await service.accept_chunk(record, index, _slice(body, index))
+
+    chunk_store.chunk_path(record.id, 1).unlink()
+
+    documents = _RecordingDocumentService()
+    with pytest.raises(HTTPException) as refused:
+        await service.complete_session(record, document_service=documents, user_id="tester")
+
+    assert refused.value.status_code == 409
+    assert refused.value.detail["missing_chunks"] == [1]
+    assert record.received_chunks == [0, 2], "the session must stop claiming a chunk it lost"
+    assert record.status == "in_progress", "a resumable refusal must leave the session resumable"
+    # The parts still on disk have to survive the refusal, otherwise losing one
+    # scratch file costs the client the whole body again.
+    assert chunk_store.has_chunk(record.id, 0)
+    assert chunk_store.has_chunk(record.id, 2)
+
+    await service.accept_chunk(record, 1, _slice(body, 1))
+    await service.complete_session(record, document_service=documents, user_id="tester")
+
+    assert documents.calls == 1
+    assert documents.received == body, "the resumed upload must assemble the original bytes"
+    assert record.status == "complete"
+
+
+@pytest.mark.asyncio
+async def test_status_reports_a_chunk_whose_bytes_are_gone(pg_session) -> None:
+    """The status endpoint's gap list is what a resuming client acts on.
+
+    Answering it from ``received_chunks`` alone claims a completeness the chunk
+    store cannot deliver, which strands a polling client: nothing to send, and
+    a completion that keeps refusing.
+    """
+    body = _payload()
+    record = await _make_upload_session(pg_session)
+    service = ResumableUploadService(pg_session)
+    for index in range(3):
+        await service.accept_chunk(record, index, _slice(body, index))
+    assert service.missing(record) == []
+
+    chunk_store.chunk_path(record.id, 2).unlink()
+
+    assert service.missing(record) == [2]
+
+
+@pytest.mark.asyncio
+async def test_status_does_not_call_a_finished_upload_incomplete(pg_session) -> None:
+    """Completion sweeps the scratch chunks on purpose.
+
+    Asking the disk about a session that already finished would report every
+    chunk as missing and invite a client to re-upload a stored file.
+    """
+    body = _payload()
+    record = await _make_upload_session(pg_session, sha256=hashlib.sha256(body).hexdigest())
+    service = ResumableUploadService(pg_session)
+    for index in range(3):
+        await service.accept_chunk(record, index, _slice(body, index))
+    await service.complete_session(record, document_service=_RecordingDocumentService(), user_id="tester")
+
+    assert record.status == "complete"
+    assert not chunk_store.has_chunk(record.id, 0), "the scratch chunks are gone by design"
+    assert service.missing(record) == []
 
 
 # ── Session creation bounds ────────────────────────────────────────────────

@@ -138,6 +138,32 @@ async function putChunk(
   throw lastError instanceof Error ? lastError : new Error(`chunk ${index} failed`);
 }
 
+/** Read a failed complete response once: its message, and any resumable gap.
+ *
+ * A 409 from complete carries ``{error, missing_chunks}``. Reading the body a
+ * second time throws, so both facts are pulled out in one pass and the caller
+ * decides whether to resend or give up. */
+async function readCompleteFailure(
+  res: Response,
+): Promise<{ detail: string; missing: number[] }> {
+  const fallback = `failed to finalize upload (${res.status})`;
+  try {
+    const body = await res.json();
+    const detail = body?.detail;
+    if (typeof detail === 'string') return { detail, missing: [] };
+    if (detail && typeof detail === 'object') {
+      const raw = (detail as { missing_chunks?: unknown }).missing_chunks;
+      const missing = Array.isArray(raw)
+        ? raw.filter((n): n is number => typeof n === 'number' && Number.isInteger(n))
+        : [];
+      return { detail: JSON.stringify(detail), missing };
+    }
+    return { detail: fallback, missing: [] };
+  } catch {
+    return { detail: fallback, missing: [] };
+  }
+}
+
 /** Upload a large file in resumable chunks and return the created document.
  *
  * The flow: create a session, send each still-missing chunk (retrying
@@ -191,31 +217,46 @@ export async function uploadResumable(
   const report = () => onProgress?.(Math.min(99, Math.round((done / totalChunks) * 100)));
   report();
 
-  for (const index of missing) {
-    if (signal?.aborted) throw new DOMException('Upload aborted', 'AbortError');
-    const start = index * chunkSize;
-    const end = Math.min(file.size, start + chunkSize);
-    const blob = file.slice(start, end);
-    await putChunk(session.id, index, blob, signal);
-    done += 1;
-    report();
-  }
+  const sendChunks = async (indices: number[]): Promise<void> => {
+    for (const index of indices) {
+      if (signal?.aborted) throw new DOMException('Upload aborted', 'AbortError');
+      const start = index * chunkSize;
+      const end = Math.min(file.size, start + chunkSize);
+      const blob = file.slice(start, end);
+      await putChunk(session.id, index, blob, signal);
+      done += 1;
+      report();
+    }
+  };
+
+  await sendChunks(missing);
 
   // 3. Assemble + hand off to the document pipeline.
-  const completeRes = await fetch(
-    `${API_BASE}/v1/resumable-uploads/sessions/${session.id}/complete/`,
-    { method: 'POST', headers: authHeaders(), signal },
-  );
-  if (!completeRes.ok) {
-    let detail = `failed to finalize upload (${completeRes.status})`;
-    try {
-      const j = await completeRes.json();
-      if (j?.detail) detail = typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail);
-    } catch {
-      /* keep default */
-    }
-    throw new Error(detail);
+  const requestComplete = () =>
+    fetch(`${API_BASE}/v1/resumable-uploads/sessions/${session.id}/complete/`, {
+      method: 'POST',
+      headers: authHeaders(),
+      signal,
+    });
+
+  let completeRes = await requestComplete();
+  let failure = completeRes.ok ? null : await readCompleteFailure(completeRes);
+
+  // A refusal that names the chunks the server could not read means its
+  // scratch copies were lost between upload and assembly, not that the file is
+  // bad. The server has already forgotten exactly those chunks, so resending
+  // them and asking again is the whole recovery, and it costs the gap rather
+  // than the file. Retried once: a second refusal means something is dropping
+  // chunks faster than we can replace them, and looping would only hide it.
+  if (failure && failure.missing.length > 0) {
+    done = Math.max(0, done - failure.missing.length);
+    report();
+    await sendChunks(failure.missing);
+    completeRes = await requestComplete();
+    failure = completeRes.ok ? null : await readCompleteFailure(completeRes);
   }
+
+  if (failure) throw new Error(failure.detail);
   const result = (await completeRes.json()) as CompleteResponse;
   onProgress?.(100);
   return {

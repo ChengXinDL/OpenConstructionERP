@@ -73,6 +73,19 @@ def has_chunk(session_id: uuid.UUID | str, chunk_index: int) -> bool:
     return chunk_path(session_id, chunk_index).is_file()
 
 
+def missing_chunk_files(session_id: uuid.UUID | str, total_chunks: int) -> list[int]:
+    """Return the indices of ``range(total_chunks)`` whose bytes are not on disk.
+
+    This is deliberately a different question from ``chunking.missing_chunks``.
+    That one reads the ``received_chunks`` column and answers which chunks the
+    service was told about; this one answers which chunks it can still read.
+    The two diverge whenever the scratch directory loses files, and since the
+    root is a temp directory that is an ordinary thing to survive rather than a
+    corruption, so the service checks both before it assembles.
+    """
+    return [index for index in range(total_chunks) if not has_chunk(session_id, index)]
+
+
 def assemble(
     session_id: uuid.UUID | str,
     total_chunks: int,
