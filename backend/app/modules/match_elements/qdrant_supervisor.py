@@ -77,7 +77,44 @@ logger = logging.getLogger(__name__)
 # ── Constants ────────────────────────────────────────────────────────────
 
 
-QDRANT_HOME: Path = Path.home() / ".openestimator" / "qdrant"
+def _binary_name() -> str:
+    return "qdrant.exe" if sys.platform.startswith("win") else "qdrant"
+
+
+def _resolve_qdrant_home() -> Path:
+    """Return the install root for the embedded vector service.
+
+    Follows ``app.core.storage.resolve_data_dir``, the platform's single
+    source of truth for writable state, instead of the account's home
+    directory. In a container those are not the same place: the image points
+    OE_DATA_DIR at the mounted volume, while the home of the unprivileged
+    account it runs as lives inside the image. Installing into home therefore
+    put the binary and its storage somewhere that does not survive recreating
+    the container, so updating looked to the operator like the service had
+    uninstalled itself and was asking to be installed again. Mounting a volume
+    over that path to make it stick does not help either, because Docker
+    creates a volume for a path the image does not contain as root-owned while
+    the app runs unprivileged, and the download then fails on a read-only
+    directory.
+
+    An install already present in the legacy location keeps being used, so
+    upgrading never orphans a binary the operator has already downloaded.
+    """
+    legacy = Path.home() / ".openestimator" / "qdrant"
+    try:
+        from app.core.storage import resolve_data_dir
+
+        resolved = resolve_data_dir() / "qdrant"
+    except (ImportError, OSError):  # pragma: no cover - defensive
+        return legacy
+    if resolved == legacy:
+        return resolved
+    if (legacy / _binary_name()).is_file() and not (resolved / _binary_name()).is_file():
+        return legacy
+    return resolved
+
+
+QDRANT_HOME: Path = _resolve_qdrant_home()
 QDRANT_STORAGE_DIR: Path = QDRANT_HOME / "storage"
 QDRANT_SNAPSHOTS_DIR: Path = QDRANT_HOME / "snapshots"
 QDRANT_CONFIG_DIR: Path = QDRANT_HOME / "config"
@@ -115,10 +152,6 @@ _PLATFORM_ASSET: dict[tuple[str, str], str] = {
     ("darwin", "arm64"): "qdrant-aarch64-apple-darwin.tar.gz",
     ("darwin", "aarch64"): "qdrant-aarch64-apple-darwin.tar.gz",
 }
-
-
-def _binary_name() -> str:
-    return "qdrant.exe" if sys.platform.startswith("win") else "qdrant"
 
 
 def _expected_binary_path() -> Path:
