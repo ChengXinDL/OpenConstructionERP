@@ -236,10 +236,11 @@ class TestIsolatedParse:
         _make_tiny_pdf(pdf)
         result = await service._parse_pdf_isolated(pdf, filename="tiny.pdf")
         assert result is not None
-        page_count, pages, truncated = result
+        page_count, pages, truncated, reader_error = result
         assert page_count == 1
         assert "Hello" in pages[0]["text"]
         assert truncated is False
+        assert reader_error is None
 
     @pytest.mark.asyncio
     async def test_upload_persists_pages_text_and_tables(self, monkeypatch, tmp_path):
@@ -253,6 +254,7 @@ class TestIsolatedParse:
                     {"page": 2, "text": "notes", "tables": [], "has_text": True},
                 ],
                 False,
+                None,
             )
 
         monkeypatch.setattr(service, "_parse_pdf_isolated", _fake_parse)

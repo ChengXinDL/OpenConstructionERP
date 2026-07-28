@@ -1134,18 +1134,42 @@ def _use_in_process_pdf_parser() -> bool:
     return os.environ.get("OE_DESKTOP", "").strip().lower() in {"1", "true", "yes", "on"}
 
 
+#: Substrings that identify a reader that never loaded, as opposed to a
+#: document the reader loaded and could not read. Both native-extension
+#: failures and plain missing modules land here, because from the operator's
+#: side they are the same job: fix the install, do not re-export the drawing.
+_READER_IMPORT_MARKERS = (
+    "importerror",
+    "modulenotfounderror",
+    "no module named",
+    "undefined symbol",
+    "cannot open shared object file",
+    "dll load failed",
+    "symbol not found",
+    "incompatible architecture",
+)
+
+
+def _is_reader_import_failure(reader_error: str | None) -> bool:
+    """True when the parse died because the PDF reader itself would not load."""
+    if not reader_error:
+        return False
+    lowered = reader_error.lower()
+    return any(marker in lowered for marker in _READER_IMPORT_MARKERS)
+
+
 def _parse_pdf_in_process(
     pdf_path: Path,
     *,
     filename: str | None,
     max_pages: int,
-) -> tuple[int, list[dict], bool] | None:
+) -> tuple[int, list[dict], bool, str | None] | None:
     """Parse a PDF in the current process (frozen / desktop fallback).
 
     Mirrors the result contract of :func:`_parse_pdf_isolated`: returns
-    ``(page_count, page_data, truncated)`` for any completed parse - including
-    the unreadable-document ``(0, [], False)`` case - and ``None`` only when the
-    parser raised outright. Runs the same
+    ``(page_count, page_data, truncated, reader_error)`` for any completed
+    parse - including the unreadable-document ``(0, [], False, reason)`` case -
+    and ``None`` only when the parser raised outright. Runs the same
     :func:`app.modules.takeoff.pdf_extract_worker.extract_pdf_data` path, and
     therefore the same vector-density guard, as the child process, without the
     POSIX address-space cap that is meaningless on a single-user desktop.
@@ -1166,7 +1190,8 @@ def _parse_pdf_in_process(
     if not isinstance(pages, list):
         pages = []
     truncated = bool(result.get("truncated", False))
-    return page_count, pages, truncated
+    reader_error = result.get("reader_error") or None
+    return page_count, pages, truncated, reader_error
 
 
 async def _parse_pdf_isolated(
@@ -1175,12 +1200,12 @@ async def _parse_pdf_isolated(
     filename: str | None = None,
     max_pages: int | None = None,
     timeout_s: float | None = None,
-) -> tuple[int, list[dict], bool] | None:
+) -> tuple[int, list[dict], bool, str | None] | None:
     """Parse a PDF in a memory-capped child process, off the event loop.
 
-    Returns ``(page_count, page_data, truncated)`` on a clean run - including
-    the "unreadable document" case, which comes back as ``(0, [], False)`` so
-    the caller can apply its definitive parse-failure handling. Returns
+    Returns ``(page_count, page_data, truncated, reader_error)`` on a clean run
+    - including the "unreadable document" case, which comes back as
+    ``(0, [], False, reason)`` so the caller can say why. Returns
     ``None`` when the parse could not complete at all: a timeout, a crash /
     OOM (non-zero exit), unreadable worker output, or a launch failure. The
     caller treats ``None`` as "degrade and still persist the upload" rather
@@ -1252,7 +1277,21 @@ async def _parse_pdf_isolated(
     if not isinstance(pages, list):
         pages = []
     truncated = bool(data.get("truncated", False))
-    return page_count, pages, truncated
+    reader_error = data.get("reader_error") or None
+    if page_count == 0 and not pages:
+        # The child exited 0 and still read nothing, so the branch above that
+        # logs stderr on a bad exit code never fired and the traceback the
+        # worker wrote there was about to be thrown away. This is the one case
+        # where it is the only record of what actually went wrong - a reader
+        # that fails to import looks exactly like a corrupt file from here.
+        stderr = (proc.stderr or b"").decode("utf-8", "replace").strip()[-1200:]
+        logger.warning(
+            "takeoff.pdf_worker read no pages from a clean run (filename=%r) reader_error=%s worker stderr=%s",
+            filename,
+            reader_error or "<none reported>",
+            stderr or "<empty>",
+        )
+    return page_count, pages, truncated, reader_error
 
 
 # ── Revision compare (Item 17) ──────────────────────────────────────────────
@@ -1488,6 +1527,7 @@ class TakeoffService:
 
         parse_degraded = False
         parse_truncated = False
+        parse_reader_error: str | None = None
         parsed = await _parse_pdf_isolated(file_path, filename=filename)
         if parsed is None:
             # The isolated parser could not complete (timeout / crash / OOM /
@@ -1503,7 +1543,7 @@ class TakeoffService:
                 size_bytes,
             )
         else:
-            page_count, page_data, parse_truncated = parsed
+            page_count, page_data, parse_truncated, parse_reader_error = parsed
 
         full_text = "\n\n".join(p["text"] for p in page_data if p.get("text"))
 
@@ -1560,10 +1600,25 @@ class TakeoffService:
                     file_path.unlink()
             logger.warning(
                 "takeoff.upload_document produced zero pages and empty text for "
-                "filename=%r size=%dB - rejecting upload",
+                "filename=%r size=%dB reader_error=%s - rejecting upload",
                 filename,
                 size_bytes,
+                parse_reader_error or "<none reported>",
             )
+            # A reader that cannot load reads exactly like a corrupt file from
+            # here, and telling an operator to check a file that is fine sends
+            # them looking in the wrong place. The install check is not enough
+            # to catch this: it resolves the module without importing it, so a
+            # broken native wheel passes the check and fails the upload.
+            if _is_reader_import_failure(parse_reader_error):
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=(
+                        "The PDF reader could not be loaded on the server, so the file was "
+                        "never read. This is an installation problem, not a problem with the "
+                        f"document. Underlying error: {parse_reader_error}"
+                    ),
+                )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Failed to parse PDF document. Please check the file and try again.",

@@ -491,6 +491,32 @@ def check_optional_extras() -> list[Check]:
         except Exception:
             return False
 
+    def _import_error(mod: str) -> str | None:
+        """Actually import ``mod`` in a child of this interpreter.
+
+        Returns None when the import succeeds, otherwise the last line of the
+        failure. A child process is used for two reasons: it is where the
+        upload path imports its PDF readers, so this reproduces the real
+        conditions; and a native extension that segfaults on load takes the
+        child down instead of the diagnostic that was sent to find it.
+        """
+        import subprocess
+
+        try:
+            proc = subprocess.run(
+                [sys.executable, "-c", f"import {mod}"],
+                capture_output=True,
+                timeout=60,
+                check=False,
+            )
+        except Exception as exc:  # could not even launch the child
+            return f"{type(exc).__name__}: {exc}"[:200]
+        if proc.returncode == 0:
+            return None
+        err = (proc.stderr or b"").decode("utf-8", "replace").strip()
+        last = err.splitlines()[-1] if err else f"exit {proc.returncode}"
+        return last[:200]
+
     out: list[Check] = []
 
     # Embedded vector search (LanceDB) - used by the local semantic search
@@ -522,18 +548,33 @@ def check_optional_extras() -> list[Check]:
             )
         )
 
-    # PDF takeoff: PyMuPDF (vector reader) + OpenCV (raster detector) are base
-    # deps now, so a healthy install always has them. PaddleOCR (dimension-text
-    # reading) is the only optional piece left.
-    if _present("pymupdf") or _present("fitz"):
-        out.append(Check("PDF takeoff", "ok", "pymupdf + opencv installed"))
+    # PDF takeoff. This one is checked by importing, not by locating: find_spec
+    # resolves a module without executing it, so a wheel whose native extension
+    # will not load passes the lookup and then fails every upload - which is
+    # exactly the "the check says the dependency is installed but uploads still
+    # fail" report this check exists to prevent. The import runs in a child of
+    # the same interpreter, which is where the upload path parses PDFs too, so
+    # a reader that is broken only there is still caught and a reader that
+    # crashes on import does not take the diagnostic down with it.
+    #
+    # pdfplumber is checked first because it is the reader the upload path
+    # tries first; PyMuPDF is the fallback. Checking only the fallback was the
+    # second half of the same blind spot.
+    pdf_readers = [("pdfplumber", "primary reader"), ("pymupdf", "fallback reader")]
+    pdf_failures = [(mod, role, err) for mod, role in pdf_readers if (err := _import_error(mod)) is not None]
+    if not pdf_failures:
+        out.append(Check("PDF takeoff", "ok", "pdfplumber + pymupdf import cleanly"))
     else:
+        broken = "; ".join(f"{mod} ({role}): {err}" for mod, role, err in pdf_failures)
+        # Losing only the fallback still leaves uploads working, so it is not
+        # the same severity as losing the reader every upload starts with.
+        both_gone = len(pdf_failures) == len(pdf_readers)
         out.append(
             Check(
                 "PDF takeoff",
-                "warn",
-                "PyMuPDF missing - PDF takeoff disabled (broken install?)",
-                "pip install --upgrade openconstructionerp",
+                "error" if both_gone else "warn",
+                f"PDF reader will not import: {broken}",
+                "pip install --force-reinstall --no-cache-dir openconstructionerp",
             )
         )
     if not _present("paddleocr"):

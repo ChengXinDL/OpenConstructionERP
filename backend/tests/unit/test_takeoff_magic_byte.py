@@ -161,7 +161,7 @@ class TestServiceDoesNotDuplicateMagicByteCheck:
         )
 
         async def _fake_parse(*a, **k):
-            return (1, [{"page": 1, "text": "ok", "tables": [], "has_text": True}], False)
+            return (1, [{"page": 1, "text": "ok", "tables": [], "has_text": True}], False, None)
 
         monkeypatch.setattr(takeoff_service, "_parse_pdf_isolated", _fake_parse)
 

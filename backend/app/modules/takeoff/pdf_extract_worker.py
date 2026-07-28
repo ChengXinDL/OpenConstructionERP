@@ -262,12 +262,21 @@ def _extract_with_pymupdf(pdf_path: str, max_pages: int | None, fp: str) -> dict
                 fp,
             )
         return {"page_count": total, "pages": pages, "truncated": limit < total}
-    except Exception:
+    except Exception as exc:
         logger.exception(
             "takeoff.pdf_extract both pdfplumber and pymupdf failed (%s) - document will have no extracted pages",
             fp,
         )
-        return {"page_count": 0, "pages": [], "truncated": False}
+        # The traceback above goes to this child's stderr, which the parent
+        # only reads on a non-zero exit - and this path exits 0. So the reason
+        # travels in the result instead, or an operator whose reader is simply
+        # broken sees nothing but "check the file".
+        return {
+            "page_count": 0,
+            "pages": [],
+            "truncated": False,
+            "reader_error": f"{type(exc).__name__}: {exc}"[:300],
+        }
 
 
 def extract_pdf_data(pdf_path: str, max_pages: int | None = None, *, filename: str | None = None) -> dict:
@@ -291,7 +300,8 @@ def extract_pdf_data(pdf_path: str, max_pages: int | None = None, *, filename: s
         A dict with ``page_count`` (true total), ``pages`` (up to
         ``max_pages`` entries) and ``truncated``. Never raises for a parse
         failure - an unreadable document returns ``page_count == 0`` with an
-        empty ``pages`` list.
+        empty ``pages`` list and a ``reader_error`` string naming the
+        exception that ended both attempts.
     """
     fp = _fingerprint(pdf_path, filename)
     try:

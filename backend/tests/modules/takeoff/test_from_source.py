@@ -52,7 +52,7 @@ def _stub_parse(monkeypatch, tmp_path):
 
     async def _fake_parse(*_a, **_k):
         calls["n"] += 1
-        return (1, [{"page": 1, "text": "hello", "tables": [], "has_text": True}], False)
+        return (1, [{"page": 1, "text": "hello", "tables": [], "has_text": True}], False, None)
 
     monkeypatch.setattr(takeoff_service, "_parse_pdf_isolated", _fake_parse)
     return calls

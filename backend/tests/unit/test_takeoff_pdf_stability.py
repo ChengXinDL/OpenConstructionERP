@@ -332,7 +332,7 @@ class TestUploadDocumentGates:
         monkeypatch.setattr(svc_mod, "_takeoff_documents_dir", lambda: tmp_path / "td")
 
         async def _fake_parse(*a, **k):
-            return (1, [{"page": 1, "text": "hello", "tables": [], "has_text": True}], False)
+            return (1, [{"page": 1, "text": "hello", "tables": [], "has_text": True}], False, None)
 
         monkeypatch.setattr(svc_mod, "_parse_pdf_isolated", _fake_parse)
 
@@ -454,6 +454,7 @@ class TestScannedPdfNeedsOcr:
                 3,
                 [{"page": i + 1, "text": "", "tables": [], "has_text": False} for i in range(3)],
                 False,
+                None,
             )
 
         monkeypatch.setattr(takeoff_service, "_parse_pdf_isolated", _fake_parse)
@@ -479,6 +480,72 @@ class TestScannedPdfNeedsOcr:
             and "cv" in r.getMessage().lower()
         ]
         assert install_hints, "Operator-facing OCR install hint not logged"
+
+
+class TestBrokenReaderIsNotBlamedOnTheDocument:
+    """A reader that will not load must not be reported as a bad PDF.
+
+    Reported against v12.6.1: the install check said the PDF dependencies were
+    present, every upload failed, and the message sent the operator to inspect
+    files that were fine. The check was resolving the module without importing
+    it, and the import error was being swallowed on the way back.
+    """
+
+    @pytest.mark.asyncio
+    async def test_import_failure_reports_the_install_not_the_file(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(
+            takeoff_service,
+            "_takeoff_documents_dir",
+            lambda: tmp_path / "takeoff",
+        )
+
+        async def _reader_never_loaded(*a, **k):
+            return (0, [], False, "ImportError: libmupdf.so.24: cannot open shared object file")
+
+        monkeypatch.setattr(takeoff_service, "_parse_pdf_isolated", _reader_never_loaded)
+        svc = _make_service()
+        content = b"%PDF-1.4\n" + b"perfectly-fine-bytes" * 50
+
+        with pytest.raises(HTTPException) as excinfo:
+            await svc.upload_document(
+                filename="fine.pdf",
+                content=content,
+                size_bytes=len(content),
+                owner_id=str(uuid.uuid4()),
+            )
+
+        assert excinfo.value.status_code == 500, "a broken install is not the client's fault"
+        detail = str(excinfo.value.detail)
+        assert "installation problem" in detail
+        assert "libmupdf.so.24" in detail, "the operator needs the underlying error"
+        assert "check the file" not in detail.lower()
+
+    @pytest.mark.asyncio
+    async def test_unreadable_document_still_gets_the_document_message(self, tmp_path, monkeypatch):
+        """The other half: a genuinely unreadable file keeps its 400."""
+        monkeypatch.setattr(
+            takeoff_service,
+            "_takeoff_documents_dir",
+            lambda: tmp_path / "takeoff",
+        )
+
+        async def _document_unreadable(*a, **k):
+            return (0, [], False, "PDFSyntaxError: No /Root object")
+
+        monkeypatch.setattr(takeoff_service, "_parse_pdf_isolated", _document_unreadable)
+        svc = _make_service()
+        content = b"%PDF-1.4\n" + b"truncated" * 20
+
+        with pytest.raises(HTTPException) as excinfo:
+            await svc.upload_document(
+                filename="broken.pdf",
+                content=content,
+                size_bytes=len(content),
+                owner_id=str(uuid.uuid4()),
+            )
+
+        assert excinfo.value.status_code == 400
+        assert "check the file" in str(excinfo.value.detail).lower()
 
 
 # ---------------------------------------------------------------------------
@@ -578,7 +645,37 @@ class TestParsePdfInProcess:
         )
         pdf = tmp_path / "x.pdf"
         pdf.write_bytes(b"%PDF-1.4\n")
-        assert takeoff_service._parse_pdf_in_process(pdf, filename="x.pdf", max_pages=1) == (4, pages, True)
+        assert takeoff_service._parse_pdf_in_process(pdf, filename="x.pdf", max_pages=1) == (
+            4,
+            pages,
+            True,
+            None,
+        )
+
+    def test_carries_the_reader_error_through(self, monkeypatch, tmp_path):
+        """A reader that never loaded must not arrive as an unreadable file."""
+        import app.modules.takeoff.pdf_extract_worker as worker
+
+        monkeypatch.setattr(
+            worker,
+            "extract_pdf_data",
+            lambda *a, **k: {
+                "page_count": 0,
+                "pages": [],
+                "truncated": False,
+                "reader_error": "ImportError: libmupdf.so.24: cannot open shared object file",
+            },
+        )
+        pdf = tmp_path / "x.pdf"
+        pdf.write_bytes(b"%PDF-1.4\n")
+        result = takeoff_service._parse_pdf_in_process(pdf, filename="x.pdf", max_pages=1)
+        assert result == (
+            0,
+            [],
+            False,
+            "ImportError: libmupdf.so.24: cannot open shared object file",
+        )
+        assert takeoff_service._is_reader_import_failure(result[3]) is True
 
     def test_returns_none_when_worker_raises(self, monkeypatch, tmp_path):
         import app.modules.takeoff.pdf_extract_worker as worker
@@ -612,4 +709,42 @@ class TestParsePdfIsolatedFrozenBranch:
         )
         pdf = tmp_path / "d.pdf"
         pdf.write_bytes(b"%PDF-1.4\n")
-        assert await takeoff_service._parse_pdf_isolated(pdf, filename="d.pdf") == (2, [], False)
+        assert await takeoff_service._parse_pdf_isolated(pdf, filename="d.pdf") == (
+            2,
+            [],
+            False,
+            None,
+        )
+
+
+class TestReaderImportFailureClassification:
+    """Telling a broken install apart from a broken document.
+
+    The two arrive at the same place - zero pages, no text - and the message
+    the user gets decides whether they spend the afternoon re-exporting a file
+    that was never the problem.
+    """
+
+    @pytest.mark.parametrize(
+        "reader_error",
+        [
+            "ImportError: libmupdf.so.24: cannot open shared object file",
+            "ModuleNotFoundError: No module named 'pdfplumber'",
+            "ImportError: /lib/x86_64-linux-gnu/libstdc++.so.6: undefined symbol: _ZTVN10",
+            "ImportError: DLL load failed while importing _fitz",
+        ],
+    )
+    def test_install_failures_are_recognised(self, reader_error):
+        assert takeoff_service._is_reader_import_failure(reader_error) is True
+
+    @pytest.mark.parametrize(
+        "reader_error",
+        [
+            None,
+            "",
+            "PDFSyntaxError: No /Root object! - Is this really a PDF?",
+            "ValueError: cannot open broken document",
+        ],
+    )
+    def test_document_failures_are_not_mistaken_for_install_failures(self, reader_error):
+        assert takeoff_service._is_reader_import_failure(reader_error) is False

@@ -80,7 +80,7 @@ class TestUploadCap:
         )
 
         async def _fake_parse(*a, **k):
-            return (1, [{"page": 1, "text": "hello", "tables": [], "has_text": True}], False)
+            return (1, [{"page": 1, "text": "hello", "tables": [], "has_text": True}], False, None)
 
         monkeypatch.setattr(takeoff_service, "_parse_pdf_isolated", _fake_parse)
 
@@ -128,7 +128,7 @@ class TestTextExtractionBudget:
         fake_page_data = [{"page": i + 1, "text": page_text, "tables": [], "has_text": True} for i in range(50)]
 
         async def _fake_parse(*a, **k):
-            return (50, fake_page_data, False)
+            return (50, fake_page_data, False, None)
 
         monkeypatch.setattr(takeoff_service, "_parse_pdf_isolated", _fake_parse)
 
@@ -193,7 +193,7 @@ class TestLargePageCountMemorySafety:
         fake_page_data = [{"page": i + 1, "text": page_text, "tables": [], "has_text": True} for i in range(100)]
 
         async def _fake_parse(*a, **k):
-            return (100, fake_page_data, False)
+            return (100, fake_page_data, False, None)
 
         monkeypatch.setattr(takeoff_service, "_parse_pdf_isolated", _fake_parse)
 
