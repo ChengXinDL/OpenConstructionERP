@@ -9,6 +9,9 @@ from typing import Any
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import set_committed_value
+from sqlalchemy.orm.util import identity_key
+from sqlalchemy.sql.elements import ClauseElement
 
 from app.modules.webhook_leads.models import (
     PayloadMapping,
@@ -23,12 +26,29 @@ async def _update_fields(
     pk: uuid.UUID,
     **fields: Any,
 ) -> None:
+    """Update one row by primary key and keep the identity map honest.
+
+    Expiring the whole session would be right for the row that changed and
+    wrong for every other object the caller still holds. Under asyncio the next
+    attribute read on any of them is a lazy load attempted from async code,
+    which raises MissingGreenlet rather than quietly re-fetching. So the values
+    we already know are written straight onto the instance, and only the ones
+    the database had to compute are expired so they get read back.
+    """
     if not fields:
         return
     stmt = update(model).where(model.id == pk).values(**fields)
     await session.execute(stmt)
     await session.flush()
-    session.expire_all()
+    instance = session.identity_map.get(identity_key(model, pk))
+    if instance is None:
+        return
+    computed = [name for name, value in fields.items() if isinstance(value, ClauseElement)]
+    for name, value in fields.items():
+        if name not in computed:
+            set_committed_value(instance, name, value)
+    if computed:
+        session.expire(instance, computed)
 
 
 # ── WebhookSource ─────────────────────────────────────────────────────────
