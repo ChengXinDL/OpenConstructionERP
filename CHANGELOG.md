@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [12.9.0] - 2026-07-28
+
+The vector service installs somewhere it is actually allowed to write. It used to install under the account's home directory, which in a container is a path inside the image rather than the mounted volume. Docker creates a volume for such a path owned by the administrator account while the application runs as an unprivileged one, so the download failed on a directory it could not write and the failure was reported as a bare server error with nothing naming permissions as the cause. It now installs under the platform data directory, which is the volume that is already writable, so a container no longer needs its ownership corrected by hand before the CAD to cost matching flow will work. A binary already sitting in the old location keeps being used, so an install that was working is not thrown away and nothing has to be downloaded twice. A permission problem in that directory now names the path and the reason.
+
+Records updated through the shared write path no longer make unrelated parts of the same request fail. Twenty-one places wrote a row and then marked every object loaded in that request as stale, which turned the next read of any of them, anywhere, into a database round trip that is not allowed at that point and raised an error far away from the code that caused it. The write now reconciles the row it actually wrote. This covers invoices, purchase orders, change orders, compliance documents, contacts, requirements, transmittals, submittals, requests for quotation, forms, field time entries, the BIM hub and enterprise workflows.
+ Reading a request for quotation now loads its bids deliberately rather than relying on that stale marking as the thing that forced a fresh read, which is what the check refusing a second award depends on.
+
+The desktop build stops reporting a healthy PDF reader as a broken one. The diagnostic checked its readers by starting a second copy of the program, which in a packaged build means launching the application rather than the interpreter, so the check could not succeed no matter what was installed. It now imports them the same way the upload path does.
+
+A resumable upload that loses one piece of working data costs that one piece rather than the whole transfer, so the client re-sends a single chunk instead of starting again.
+
+The frontend lockfile is held to the same version everything else reports. It had been left behind at 12.6.1 across two releases because nothing checked it, and it is the one file the container build treats as authoritative.
+
 ## [12.8.0] - 2026-07-28
 
 Measurement lists in PDF takeoff can be arranged the way the job actually reads. A measurement can now be dropped below a row instead of only above it, dragged into a different group, and a whole group block can be moved to a new position, and the arrangement survives a reload. Rearranging a single row no longer drags the group it belongs to somewhere else, which was the reason a tidy list would rearrange itself after one edit. Approving or issuing a purchase order, and approving or paying an invoice, leave the audit row they were always supposed to leave, and agreed variation orders are counted as committed cost rather than being left out of the figure. Saving a form sends only the fields that were edited instead of writing back the whole record. A content search across project files shows the passage that matched rather than just naming the file. The vector service says why it cannot start instead of answering with a bare server error, and the quickstart Docker build no longer runs out of heap part way through building the frontend.

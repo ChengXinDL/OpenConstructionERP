@@ -38,6 +38,13 @@ interface ChangelogEntry {
 // date, title and meaning intact; trim the prose, not the facts.
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '12.9.0',
+    date: '2026-07-28',
+    tag: 'FIX',
+    summary:
+      'The vector service now installs under the platform data directory instead of the account home, so a container no longer needs its ownership corrected by hand before CAD to cost matching will work, and a permission problem names the path and the reason. Twenty-one record updates stopped marking every loaded object stale, which had been raising errors far from the code that caused them, and the desktop diagnostic no longer reports a healthy PDF reader as broken.',
+  },
+  {
     version: '12.8.0',
     date: '2026-07-28',
     tag: 'NEW',
