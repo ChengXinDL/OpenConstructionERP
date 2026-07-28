@@ -433,7 +433,15 @@ def install_qdrant_native(*, force: bool = False) -> Path:
         logger.info("install_qdrant_native: already installed at %s", existing)
         return existing
 
-    QDRANT_HOME.mkdir(parents=True, exist_ok=True)
+    try:
+        QDRANT_HOME.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        msg = (
+            f"Cannot prepare the vector service directory at {QDRANT_HOME}: {exc}. "
+            f"Check that the path is writable by the account running the server."
+        )
+        raise RuntimeError(msg) from exc
+
     asset_name, download_url = _resolve_release_asset()
 
     archive_path = QDRANT_HOME / asset_name
@@ -478,6 +486,17 @@ def install_qdrant_native(*, force: bool = False) -> Path:
             raise RuntimeError(f"Unsupported archive type: {asset_name}")
     except (zipfile.BadZipFile, tarfile.TarError) as exc:
         raise RuntimeError(f"Could not extract {asset_name}: {exc}") from exc
+    except OSError as exc:
+        # Writing the binary out fails for reasons that have nothing to do with
+        # the archive being readable: no space left, or a QDRANT_HOME an operator
+        # bind-mounted root-owned while the server runs unprivileged. The
+        # app-wide handler strips exception text, so name the path here or the
+        # operator is left with a bare 500 and nothing to act on.
+        msg = (
+            f"Could not write the vector service binary to {target}: {exc}. "
+            f"Check that {target.parent} is writable by the account running the server."
+        )
+        raise RuntimeError(msg) from exc
     finally:
         archive_path.unlink(missing_ok=True)
 
