@@ -39,6 +39,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 PYPROJECT = REPO_ROOT / "backend" / "pyproject.toml"
 PACKAGE_JSON = REPO_ROOT / "frontend" / "package.json"
+PACKAGE_LOCK = REPO_ROOT / "frontend" / "package-lock.json"
 CHANGELOG_MD = REPO_ROOT / "CHANGELOG.md"
 CHANGELOG_TSX = REPO_ROOT / "frontend" / "src" / "features" / "about" / "Changelog.tsx"
 TAURI_CONF = REPO_ROOT / "desktop" / "src-tauri" / "tauri.conf.json"
@@ -63,6 +64,30 @@ def _read_package_json_version(path: Path) -> str:
     if not isinstance(version, str) or not version.strip():
         raise SystemExit(f"[FAIL] {path}: missing or non-string `version` field")
     return version
+
+
+def _read_package_lock_versions(path: Path) -> tuple[str, str]:
+    """Return the root version recorded in the lockfile, from both places.
+
+    npm writes the project's own version twice: once at the top level and
+    once as the empty-string entry in ``packages``. A plain ``npm version``
+    bump updates both, but editing ``package.json`` by hand updates neither,
+    and nothing else in the repository reads the lockfile's copy. It sat at
+    12.6.1 through two releases without anything noticing.
+
+    That matters beyond tidiness because ``npm ci`` is the one command that
+    treats the lockfile as authoritative, and it is the first step of the
+    Docker build. Any npm that decides to validate this field turns a stale
+    literal into a build that fails for everyone who clones the tag, while
+    the developer who bumped by hand never sees it locally.
+    """
+    data = json.loads(path.read_text(encoding="utf-8"))
+    root = data.get("version")
+    packages = data.get("packages")
+    own = packages.get("", {}).get("version") if isinstance(packages, dict) else None
+    if not isinstance(root, str) or not isinstance(own, str):
+        raise SystemExit(f"[FAIL] {path}: missing `version` or `packages[''].version`")
+    return root, own
 
 
 def _read_tauri_conf_version(path: Path) -> str:
@@ -103,12 +128,14 @@ def _changelog_tsx_top_version(path: Path) -> str | None:
 def main() -> int:
     backend_version = _read_pyproject_version(PYPROJECT)
     frontend_version = _read_package_json_version(PACKAGE_JSON)
+    lock_root, lock_own = _read_package_lock_versions(PACKAGE_LOCK)
     changelog_md_version = _changelog_md_top_version(CHANGELOG_MD)
     changelog_tsx_version = _changelog_tsx_top_version(CHANGELOG_TSX)
     tauri_version = _read_tauri_conf_version(TAURI_CONF)
 
     print(f"backend  ({PYPROJECT.name})       = {backend_version}")
     print(f"frontend ({PACKAGE_JSON.name})    = {frontend_version}")
+    print(f"frontend ({PACKAGE_LOCK.name}) = {lock_root}")
     print(f"changelog ({CHANGELOG_MD.name})    = {changelog_md_version or '?'}")
     print(f"changelog ({CHANGELOG_TSX.name})   = {changelog_tsx_version or '?'}")
     print(f"desktop  ({TAURI_CONF.name})    = {tauri_version}")
@@ -120,6 +147,15 @@ def main() -> int:
             f"[FAIL] backend/pyproject.toml ({backend_version}) does not match "
             f"frontend/package.json ({frontend_version})"
         )
+
+    for label, found in (("version", lock_root), ("packages[''].version", lock_own)):
+        if found != frontend_version:
+            failures.append(
+                f"[FAIL] frontend/package-lock.json {label} ({found}) does not "
+                f"match frontend/package.json ({frontend_version}) - run "
+                f"`npm install --package-lock-only` in frontend/ and commit the "
+                f"lockfile alongside the bump"
+            )
 
     if tauri_version != backend_version:
         failures.append(
@@ -150,7 +186,8 @@ def main() -> int:
         print()
         print(
             "Fix: bump backend/pyproject.toml + frontend/package.json + "
-            "CHANGELOG.md + frontend/src/features/about/Changelog.tsx + "
+            "frontend/package-lock.json + CHANGELOG.md + "
+            "frontend/src/features/about/Changelog.tsx + "
             "desktop/src-tauri/tauri.conf.json in a single commit so the "
             "running app, the desktop installers and the docs stay honest "
             "about which version users are actually getting."
