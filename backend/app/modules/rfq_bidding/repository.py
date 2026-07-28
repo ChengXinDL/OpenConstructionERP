@@ -22,8 +22,27 @@ class RFQRepository:
         self.session = session
 
     async def get(self, rfq_id: uuid.UUID) -> RFQ | None:
-        """Get RFQ by ID (with bids via selectin)."""
-        return await self.session.get(RFQ, rfq_id)
+        """Get RFQ by ID, with its bids loaded.
+
+        Issued as a query rather than ``session.get``, and with
+        ``populate_existing`` so the ``selectin`` loader on ``RFQ.bids`` runs
+        even when the session already holds the RFQ. Both halves are needed.
+        ``session.get`` answers from the identity map without querying at all,
+        and a plain query leaves an already-loaded collection alone: an RFQ
+        created in this session has an empty ``bids`` list from before any bid
+        existed, and it would stay empty for the rest of the request.
+
+        This used to be hidden by repository writes calling ``expire_all()``,
+        which invalidated the instance and forced the next read to re-query.
+        Those writes now reconcile only the row they touched, so a fresh view
+        has to be asked for rather than fall out of a side effect.
+        ``award_bid`` walks ``rfq.bids`` to refuse a second award, and read it
+        as empty, so the guard passed and both bids could be awarded.
+        """
+        result = await self.session.execute(
+            select(RFQ).where(RFQ.id == rfq_id).execution_options(populate_existing=True)
+        )
+        return result.scalar_one_or_none()
 
     async def list(
         self,
