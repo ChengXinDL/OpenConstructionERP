@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [12.8.0] - 2026-07-28
+
+Measurement lists in PDF takeoff can be arranged the way the job actually reads. A measurement can now be dropped below a row instead of only above it, dragged into a different group, and a whole group block can be moved to a new position, and the arrangement survives a reload. Rearranging a single row no longer drags the group it belongs to somewhere else, which was the reason a tidy list would rearrange itself after one edit. Approving or issuing a purchase order, and approving or paying an invoice, leave the audit row they were always supposed to leave, and agreed variation orders are counted as committed cost rather than being left out of the figure. Saving a form sends only the fields that were edited instead of writing back the whole record. A content search across project files shows the passage that matched rather than just naming the file. The vector service says why it cannot start instead of answering with a bare server error, and the quickstart Docker build no longer runs out of heap part way through building the frontend.
+
 ## [12.7.0] - 2026-07-27
 
 Physical progress percentages are calculated differently and older numbers will not reproduce. A project percentage used to be the highest reading found anywhere in it. It is now rolled up from the individual positions and weighted by design quantity, and a position nobody has measured counts as zero rather than being left out of the average. Where several readings exist for the same position and period the latest one now wins instead of the highest, so recording a correction downward actually lowers the figure instead of being ignored. The period column can show a decrease as well, which it previously flattened to zero while the curve beside it already showed the drop. Nothing is recomputed or rewritten, but the same entries now yield a different and more conservative number, so anything quoting a progress percentage from an earlier report should be regenerated rather than compared.

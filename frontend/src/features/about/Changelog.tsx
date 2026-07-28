@@ -38,6 +38,13 @@ interface ChangelogEntry {
 // date, title and meaning intact; trim the prose, not the facts.
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '12.8.0',
+    date: '2026-07-28',
+    tag: 'NEW',
+    summary:
+      'Measurements in PDF takeoff can be arranged freely: dropped below a row and not only above it, dragged into another group, and whole group blocks moved, with the arrangement surviving a reload. Purchase orders and invoices now leave the audit rows they were missing, agreed variation orders count as committed cost, forms save only the fields you actually edited, and the vector service explains why it will not start instead of returning a bare error.',
+  },
+  {
     version: '12.7.0',
     date: '2026-07-27',
     tag: 'NEW',
