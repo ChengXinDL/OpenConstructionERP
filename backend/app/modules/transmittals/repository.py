@@ -15,6 +15,7 @@ from sqlalchemy.orm.attributes import set_committed_value
 from sqlalchemy.orm.util import identity_key
 from sqlalchemy.sql.elements import ClauseElement
 
+from app.core.orm_write import apply_update
 from app.modules.transmittals.logic import (
     DEFAULT_NUMBER_PAD,
     DEFAULT_NUMBER_PREFIX,
@@ -128,10 +129,7 @@ class TransmittalRepository:
 
     async def update_recipient(self, recipient_id: uuid.UUID, **fields: object) -> None:
         """Update specific fields on a recipient."""
-        stmt = update(TransmittalRecipient).where(TransmittalRecipient.id == recipient_id).values(**fields)
-        await self.session.execute(stmt)
-        await self.session.flush()
-        self.session.expire_all()
+        await apply_update(self.session, TransmittalRecipient, recipient_id, **fields)
 
     async def delete_recipients(self, transmittal_id: uuid.UUID) -> None:
         """Delete all recipients for a transmittal."""

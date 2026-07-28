@@ -11,10 +11,11 @@ from __future__ import annotations
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.orm_write import apply_update
 from app.modules.finance.models import (
     EVMSnapshot,
     Invoice,
@@ -111,10 +112,7 @@ class InvoiceRepository:
 
     async def update(self, invoice_id: uuid.UUID, **fields: object) -> None:
         """Update specific fields on an invoice."""
-        stmt = update(Invoice).where(Invoice.id == invoice_id).values(**fields)
-        await self.session.execute(stmt)
-        await self.session.flush()
-        self.session.expire_all()
+        await apply_update(self.session, Invoice, invoice_id, **fields)
 
     async def next_invoice_number(self, project_id: uuid.UUID, direction: str) -> str:
         """Generate the next invoice number for a project and direction.
@@ -570,10 +568,7 @@ class BudgetRepository:
 
     async def update(self, budget_id: uuid.UUID, **fields: object) -> None:
         """Update specific fields on a budget."""
-        stmt = update(ProjectBudget).where(ProjectBudget.id == budget_id).values(**fields)
-        await self.session.execute(stmt)
-        await self.session.flush()
-        self.session.expire_all()
+        await apply_update(self.session, ProjectBudget, budget_id, **fields)
 
 
 class EVMSnapshotRepository:
@@ -696,10 +691,7 @@ class LedgerAccountRepository:
 
     async def update(self, account_id: uuid.UUID, **fields: object) -> None:
         """Update specific fields on a chart-of-accounts row."""
-        stmt = update(LedgerAccount).where(LedgerAccount.id == account_id).values(**fields)
-        await self.session.execute(stmt)
-        await self.session.flush()
-        self.session.expire_all()
+        await apply_update(self.session, LedgerAccount, account_id, **fields)
 
     async def count_for_scope(self, project_id: uuid.UUID | None) -> int:
         """Count accounts in exactly one scope (used to decide whether to seed)."""

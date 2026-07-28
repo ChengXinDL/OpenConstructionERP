@@ -16,6 +16,7 @@ from sqlalchemy.orm.attributes import set_committed_value
 from sqlalchemy.orm.util import identity_key
 from sqlalchemy.sql.elements import ClauseElement
 
+from app.core.orm_write import apply_update
 from app.core.sql_json import json_path_text
 from app.modules.bim_hub.models import (
     NON_3D_MODEL_FORMATS,
@@ -567,10 +568,7 @@ class BIMFederationRepository:
         """Update specific fields on a federation."""
         if not fields:
             return
-        stmt = update(BIMFederation).where(BIMFederation.id == federation_id).values(**fields)
-        await self.session.execute(stmt)
-        await self.session.flush()
-        self.session.expire_all()
+        await apply_update(self.session, BIMFederation, federation_id, **fields)
 
     async def delete(self, federation_id: uuid.UUID) -> None:
         """Delete a federation (members cascade via FK)."""

@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import String, and_, func, or_, select, update
+from sqlalchemy import String, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.orm_write import apply_update
 from app.modules.contacts.models import Contact
 
 
@@ -130,10 +131,7 @@ class ContactRepository:
 
     async def update(self, contact_id: uuid.UUID, **fields: object) -> None:
         """Update specific fields on a contact."""
-        stmt = update(Contact).where(Contact.id == contact_id).values(**fields)
-        await self.session.execute(stmt)
-        await self.session.flush()
-        self.session.expire_all()
+        await apply_update(self.session, Contact, contact_id, **fields)
 
     async def count(self, contact_type: str | None = None) -> int:
         """Count contacts, optionally filtered by type."""

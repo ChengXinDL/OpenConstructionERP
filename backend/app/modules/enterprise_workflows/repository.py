@@ -8,9 +8,10 @@ No business logic - pure data access.
 
 import uuid
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.orm_write import apply_update
 from app.modules.enterprise_workflows.models import ApprovalRequest, ApprovalWorkflow
 
 
@@ -76,10 +77,7 @@ class WorkflowRepository:
 
     async def update(self, workflow_id: uuid.UUID, **fields: object) -> None:
         """Update specific fields on a workflow."""
-        stmt = update(ApprovalWorkflow).where(ApprovalWorkflow.id == workflow_id).values(**fields)
-        await self.session.execute(stmt)
-        await self.session.flush()
-        self.session.expire_all()
+        await apply_update(self.session, ApprovalWorkflow, workflow_id, **fields)
 
     async def delete(self, workflow_id: uuid.UUID) -> None:
         """Delete a workflow and its requests (cascade)."""
@@ -155,7 +153,4 @@ class ApprovalRequestRepository:
 
     async def update(self, request_id: uuid.UUID, **fields: object) -> None:
         """Update specific fields on an approval request."""
-        stmt = update(ApprovalRequest).where(ApprovalRequest.id == request_id).values(**fields)
-        await self.session.execute(stmt)
-        await self.session.flush()
-        self.session.expire_all()
+        await apply_update(self.session, ApprovalRequest, request_id, **fields)

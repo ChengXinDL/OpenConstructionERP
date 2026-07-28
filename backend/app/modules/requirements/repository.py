@@ -15,6 +15,7 @@ from sqlalchemy.orm.attributes import set_committed_value
 from sqlalchemy.orm.util import identity_key
 from sqlalchemy.sql.elements import ClauseElement
 
+from app.core.orm_write import apply_update
 from app.modules.requirements.models import (
     GateResult,
     Requirement,
@@ -343,10 +344,7 @@ class RequirementDeliverableRepository:
         **fields: object,
     ) -> None:
         """Update specific fields on a deliverable row."""
-        stmt = update(RequirementDeliverable).where(RequirementDeliverable.id == deliverable_id).values(**fields)
-        await self.session.execute(stmt)
-        await self.session.flush()
-        self.session.expire_all()
+        await apply_update(self.session, RequirementDeliverable, deliverable_id, **fields)
 
     async def delete(self, deliverable_id: uuid.UUID) -> None:
         """Hard delete a deliverable row."""

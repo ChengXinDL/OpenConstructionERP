@@ -11,6 +11,7 @@ import uuid
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.orm_write import apply_update
 from app.modules.procurement.models import (
     GoodsReceipt,
     GoodsReceiptItem,
@@ -107,11 +108,13 @@ class PurchaseOrderRepository:
         return po
 
     async def update(self, po_id: uuid.UUID, **fields: object) -> None:
-        """Update specific fields on a PO."""
-        stmt = update(PurchaseOrder).where(PurchaseOrder.id == po_id).values(**fields)
-        await self.session.execute(stmt)
-        await self.session.flush()
-        self.session.expire_all()
+        """Update specific fields on a PO.
+
+        Reconciles only this PO. The previous ``expire_all()`` marked every
+        loaded instance stale, so the next attribute read anywhere in the
+        session became a lazy load from async code and raised MissingGreenlet.
+        """
+        await apply_update(self.session, PurchaseOrder, po_id, **fields)
 
     async def lock_for_update(self, po_id: uuid.UUID) -> None:
         """Take a row-level write lock on a PO for the rest of the transaction.
@@ -348,11 +351,12 @@ class GoodsReceiptRepository:
         return gr
 
     async def update(self, gr_id: uuid.UUID, **fields: object) -> None:
-        """Update specific fields on a goods receipt."""
-        stmt = update(GoodsReceipt).where(GoodsReceipt.id == gr_id).values(**fields)
-        await self.session.execute(stmt)
-        await self.session.flush()
-        self.session.expire_all()
+        """Update specific fields on a goods receipt.
+
+        Reconciles only this receipt, for the reason given on
+        :meth:`PORepository.update`.
+        """
+        await apply_update(self.session, GoodsReceipt, gr_id, **fields)
 
     async def confirm_if_draft(self, gr_id: uuid.UUID) -> bool:
         """Atomically flip a goods receipt draft -> confirmed.

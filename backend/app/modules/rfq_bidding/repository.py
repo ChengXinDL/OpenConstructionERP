@@ -8,9 +8,10 @@ No business logic - pure data access.
 
 import uuid
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.orm_write import apply_update
 from app.modules.rfq_bidding.models import RFQ, RFQBid
 
 
@@ -57,10 +58,7 @@ class RFQRepository:
 
     async def update(self, rfq_id: uuid.UUID, **fields: object) -> None:
         """Update specific fields on an RFQ."""
-        stmt = update(RFQ).where(RFQ.id == rfq_id).values(**fields)
-        await self.session.execute(stmt)
-        await self.session.flush()
-        self.session.expire_all()
+        await apply_update(self.session, RFQ, rfq_id, **fields)
 
     async def delete(self, rfq_id: uuid.UUID) -> None:
         """Delete an RFQ and its bids (cascade)."""
@@ -121,7 +119,4 @@ class RFQBidRepository:
 
     async def update(self, bid_id: uuid.UUID, **fields: object) -> None:
         """Update specific fields on a bid."""
-        stmt = update(RFQBid).where(RFQBid.id == bid_id).values(**fields)
-        await self.session.execute(stmt)
-        await self.session.flush()
-        self.session.expire_all()
+        await apply_update(self.session, RFQBid, bid_id, **fields)

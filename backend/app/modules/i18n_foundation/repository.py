@@ -12,9 +12,10 @@ import logging
 import uuid
 from datetime import date
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.orm_write import apply_update
 from app.modules.i18n_foundation.models import (
     Country,
     ExchangeRate,
@@ -174,10 +175,7 @@ class ExchangeRateRepository:
             data["metadata_"] = data.pop("metadata")
 
         if data:
-            stmt = update(ExchangeRate).where(ExchangeRate.id == rate_id).values(**data)
-            await self.session.execute(stmt)
-            await self.session.flush()
-            self.session.expire_all()
+            await apply_update(self.session, ExchangeRate, rate_id, **data)
 
         return await self.session.get(ExchangeRate, rate_id)
 
@@ -371,10 +369,7 @@ class WorkCalendarRepository:
             data["metadata_"] = data.pop("metadata")
 
         if data:
-            stmt = update(WorkCalendar).where(WorkCalendar.id == calendar_id).values(**data)
-            await self.session.execute(stmt)
-            await self.session.flush()
-            self.session.expire_all()
+            await apply_update(self.session, WorkCalendar, calendar_id, **data)
 
         return await self.session.get(WorkCalendar, calendar_id)
 
@@ -483,9 +478,6 @@ class TaxConfigRepository:
             data["metadata_"] = data.pop("metadata")
 
         if data:
-            stmt = update(TaxConfiguration).where(TaxConfiguration.id == config_id).values(**data)
-            await self.session.execute(stmt)
-            await self.session.flush()
-            self.session.expire_all()
+            await apply_update(self.session, TaxConfiguration, config_id, **data)
 
         return await self.session.get(TaxConfiguration, config_id)

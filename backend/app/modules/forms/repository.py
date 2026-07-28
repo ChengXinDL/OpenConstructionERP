@@ -6,10 +6,11 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.orm_write import apply_update
 from app.modules.forms.models import FormSubmission, FormTemplate
 
 # How many times a colliding submission number is re-derived before giving up.
@@ -109,10 +110,7 @@ class FormsRepository:
 
     async def update_template_fields(self, template_id: uuid.UUID, **fields: object) -> None:
         """Update specific columns on a template."""
-        stmt = update(FormTemplate).where(FormTemplate.id == template_id).values(**fields)
-        await self.session.execute(stmt)
-        await self.session.flush()
-        self.session.expire_all()
+        await apply_update(self.session, FormTemplate, template_id, **fields)
 
     async def delete_template(self, template_id: uuid.UUID) -> None:
         """Hard delete a template. Submissions keep their snapshot (FK SET NULL)."""
@@ -191,10 +189,7 @@ class FormsRepository:
 
     async def update_submission_fields(self, submission_id: uuid.UUID, **fields: object) -> None:
         """Update specific columns on a submission."""
-        stmt = update(FormSubmission).where(FormSubmission.id == submission_id).values(**fields)
-        await self.session.execute(stmt)
-        await self.session.flush()
-        self.session.expire_all()
+        await apply_update(self.session, FormSubmission, submission_id, **fields)
 
     async def delete_submission(self, submission_id: uuid.UUID) -> None:
         """Hard delete a submission."""

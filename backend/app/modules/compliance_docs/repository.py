@@ -5,9 +5,10 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.orm_write import apply_update
 from app.modules.compliance_docs.models import ComplianceDoc
 
 
@@ -70,10 +71,7 @@ class ComplianceDocRepository:
         doc_id: uuid.UUID,
         **fields: object,
     ) -> None:
-        stmt = update(ComplianceDoc).where(ComplianceDoc.id == doc_id).values(**fields)
-        await self.session.execute(stmt)
-        await self.session.flush()
-        self.session.expire_all()
+        await apply_update(self.session, ComplianceDoc, doc_id, **fields)
 
     async def delete(self, doc_id: uuid.UUID) -> None:
         doc = await self.get_by_id(doc_id)

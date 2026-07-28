@@ -17,6 +17,7 @@ from sqlalchemy.orm.attributes import set_committed_value
 from sqlalchemy.orm.util import identity_key
 from sqlalchemy.sql.elements import ClauseElement
 
+from app.core.orm_write import apply_update
 from app.modules.field_time.models import FieldTimesheet, FieldTimesheetLine
 
 # Human reference format, e.g. "FT-000123".
@@ -137,10 +138,7 @@ class FieldTimeRepository:
 
     async def update_line_fields(self, line_id: uuid.UUID, **fields: object) -> None:
         """Update specific fields on a line."""
-        stmt = update(FieldTimesheetLine).where(FieldTimesheetLine.id == line_id).values(**fields)
-        await self.session.execute(stmt)
-        await self.session.flush()
-        self.session.expire_all()
+        await apply_update(self.session, FieldTimesheetLine, line_id, **fields)
 
     async def delete_line(self, line_id: uuid.UUID) -> None:
         """Hard delete a single line."""

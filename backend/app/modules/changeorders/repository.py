@@ -16,6 +16,7 @@ from sqlalchemy.orm.attributes import set_committed_value
 from sqlalchemy.orm.util import identity_key
 from sqlalchemy.sql.elements import ClauseElement
 
+from app.core.orm_write import apply_update
 from app.modules.changeorders.models import ChangeOrder, ChangeOrderItem
 
 
@@ -324,10 +325,7 @@ class ChangeOrderRepository:
 
     async def update_item_fields(self, item_id: uuid.UUID, **fields: object) -> None:
         """Update specific fields on a change order item."""
-        stmt = update(ChangeOrderItem).where(ChangeOrderItem.id == item_id).values(**fields)
-        await self.session.execute(stmt)
-        await self.session.flush()
-        self.session.expire_all()
+        await apply_update(self.session, ChangeOrderItem, item_id, **fields)
 
     async def delete_item(self, item_id: uuid.UUID) -> None:
         """Hard delete a change order item."""
