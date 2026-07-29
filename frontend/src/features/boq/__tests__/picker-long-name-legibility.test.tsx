@@ -14,7 +14,8 @@
 // class contract instead — the clipped-to-one-line utility is gone, the
 // two-line clamp is in place, and the full string is carried on `title`. That
 // is a regression guard against someone reinstating `truncate`, not evidence of
-// legibility; the rendered result was checked separately in the browser.
+// legibility. Confirming that the tail is actually readable, and that the code
+// chip sits on the name's first line, needs a real browser.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
