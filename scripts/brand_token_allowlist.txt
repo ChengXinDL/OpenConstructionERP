@@ -24,3 +24,16 @@ docs/rfc/35-eac-v2-platform.md||PMXML
 # Portuguese-language demo content: an "acrilica" facade-paint line in the Sao Paulo
 # demo pack uses the ordinary Portuguese word for "textured", not a brand.
 demo_packs/residential-saopaulo||acrilica
+
+# Czech case content: the five letters flagged on these two lines are the ordinary
+# Czech past-tense verb "flowed", which happens to spell one of the denied product
+# names. The sentences are about labour flowing into a unit rate and about survey
+# quantities flowing into cost. Same situation as the Portuguese line above, and the
+# reason the denylist header warns to keep tokens to unambiguous coined words.
+# Rewriting correct Czech to satisfy a substring match would be the worse trade.
+# The context words below deliberately stop short of the flagged token. They have
+# to: this file is scanned like any other, so an entry quoting the token would put
+# a literal hit in the allowlist and fail the check on itself. Pinning to the words
+# either side keeps the exception narrow without that.
+frontend/src/app/locales/cs.ts||aby práce
+frontend/src/app/locales/cs.ts||na zaměření
