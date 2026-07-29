@@ -5360,8 +5360,19 @@ export function BOQEditorPage() {
             <h3 id="boq-add-section-title" className="text-sm font-semibold text-content-primary mb-3">
               {t('boq.add_section', { defaultValue: 'Add Section' })}
             </h3>
+            {/* Issue #407 — this dialog is not inside a <form>, so an input with
+                no name and no id gets grouped page-wide by the browser's autofill
+                heuristics and was offering saved payment data over a chapter name.
+                A stable name/id plus an accessible name identify the field, which
+                is what actually defeats the heuristic; `autoComplete="off"` alone
+                is routinely overridden on fields the browser thinks are payment
+                or address fields. */}
             <input
               type="text"
+              id="boq-section-name"
+              name="boq-section-name"
+              autoComplete="off"
+              aria-label={t('boq.section_name_prompt', { defaultValue: 'Enter section name:' })}
               value={sectionNameInput}
               onChange={(e) => setSectionNameInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleConfirmAddSection(); }}
