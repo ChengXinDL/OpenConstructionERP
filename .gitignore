@@ -466,3 +466,6 @@ frontend/scripts/_i18n_*.py
 # Session working directory: translation intermediates, audit dumps and one-off
 # scripts. Local only, and it holds source-language drafts we do not publish.
 /scratchpad/
+# Module inventory dump: regenerated on demand for the marketing honeycomb,
+# not an input to anything in this repository.
+/modules.json
