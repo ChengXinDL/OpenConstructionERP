@@ -38,6 +38,13 @@ interface ChangelogEntry {
 // date, title and meaning intact; trim the prose, not the facts.
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '14.0.0',
+    date: '2026-07-29',
+    tag: 'NEW',
+    summary:
+      'Mesh models open in the browser instead of waiting on the server, and rearranging measurements in PDF takeoff no longer runs out of room after enough drops into the same slot. Browsers stop offering saved card details on the add-section field, long catalogue names keep their tail visible in both pickers, the assemblies drag handle is visible before you hover it, and the quickstart Docker build survives a registry that stops answering.',
+  },
+  {
     version: '12.9.0',
     date: '2026-07-28',
     tag: 'FIX',

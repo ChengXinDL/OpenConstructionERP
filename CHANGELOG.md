@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [12.9.0] - 2026-07-28
+## [14.0.0] - 2026-07-29
+
+Mesh models now open in the browser instead of waiting on the server. The formats the server never actually converted have also stopped being advertised as though it did, so what the import dialog offers is now what it can deliver.
+
+Rearranging measurements in PDF takeoff holds up under repetition. Dropping row after row into the same slot used to halve the gap between two ordering keys every time, until the gap ran out and the list quietly stopped accepting the move. The keys across the affected rows are rebased instead, so the operation stays available however many times it is used.
+
+Three things a browser or an eye was getting wrong. The add-section field in the bill of quantities looked enough like a payment field that browsers offered saved card details on it, which is now switched off on the field itself rather than left to guesswork. Long catalogue descriptions in the autocomplete list and in the catalogue dialog were clipped to one line, so two entries that differ only near the end read as the same entry; they now get two lines and carry the whole string for a hover, and the item code stays level with the first line instead of drifting once the name wraps. The row drag handle in assemblies is visible before you hover it, which is the state where it was needed most and shown least.
+
+The quickstart Docker build survives a registry that stops answering. The frontend install step retries, skips the two calls it makes to the registry after the dependency tree is already written, and prints its own log from inside the container, so a failure there says what happened rather than ending on a bare error. When the image cannot be built at all, the command now names the target that builds it instead of leaving the reader with a compose error.
+
+The Kyrgyz translation no longer carries invisible characters that broke matching on otherwise identical strings.
 
 The vector service installs somewhere it is actually allowed to write. It used to install under the account's home directory, which in a container is a path inside the image rather than the mounted volume. Docker creates a volume for such a path owned by the administrator account while the application runs as an unprivileged one, so the download failed on a directory it could not write and the failure was reported as a bare server error with nothing naming permissions as the cause. It now installs under the platform data directory, which is the volume that is already writable, so a container no longer needs its ownership corrected by hand before the CAD to cost matching flow will work. A binary already sitting in the old location keeps being used, so an install that was working is not thrown away and nothing has to be downloaded twice. A permission problem in that directory now names the path and the reason.
 
