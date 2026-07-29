@@ -142,6 +142,20 @@ setup: ## First-time setup: install backend + frontend dependencies
 quickstart: ## Start OpenEstimate (PostgreSQL + App) — zero config
 	$(DOCKER_COMPOSE) -f docker-compose.quickstart.yml up --build
 
+# Same stack, but the app comes from the image we publish on every release
+# instead of building the frontend here. `pull` is spelled out rather than left
+# to `up`, so which artefact runs is stated by the command and not inferred from
+# compose's build-versus-pull rules. See docker-compose.quickstart.image.yml.
+QUICKSTART_IMAGE_FILES = -f docker-compose.quickstart.yml -f docker-compose.quickstart.image.yml
+
+quickstart-image: ## Start quickstart from the published image (no local build)
+	$(DOCKER_COMPOSE) $(QUICKSTART_IMAGE_FILES) pull app
+	$(DOCKER_COMPOSE) $(QUICKSTART_IMAGE_FILES) up -d
+	@echo "  OpenConstructionERP: http://localhost:8080"
+
+quickstart-image-down: ## Stop the published-image quickstart
+	$(DOCKER_COMPOSE) $(QUICKSTART_IMAGE_FILES) down
+
 quickstart-down: ## Stop quickstart
 	$(DOCKER_COMPOSE) -f docker-compose.quickstart.yml down
 

@@ -1,0 +1,39 @@
+# OpenConstructionERP - Quickstart, from the published image
+#
+# Additive override for docker-compose.quickstart.yml. It changes one thing:
+# the app runs the image we publish on every release instead of building the
+# frontend on your machine. Everything else, PostgreSQL included, is inherited.
+#
+#   make quickstart-image
+#
+# or by hand:
+#
+#   docker compose -f docker-compose.quickstart.yml \
+#                  -f docker-compose.quickstart.image.yml pull app
+#   docker compose -f docker-compose.quickstart.yml \
+#                  -f docker-compose.quickstart.image.yml up -d
+#
+# Why this exists. `make quickstart` builds the frontend from source, and that
+# build is the slowest and by far the most fragile part of a first run: it wants
+# an 8 GB Node heap and it pulls roughly a thousand packages from the npm
+# registry, so it can fail for reasons that have nothing to do with this project
+# (issue #404). The published image is that same build, already done, already
+# exercised by CI.
+#
+# Build from source when you have changed the source, or when you want to verify
+# for yourself that the image matches the tree. Otherwise this path is faster and
+# has less to go wrong.
+#
+# One limitation worth knowing before you choose. The published image is built
+# for linux/amd64 only. On an Apple Silicon Mac it therefore runs under
+# emulation, which works but is noticeably slower at runtime; on that hardware
+# `make quickstart` builds natively and is the better choice.
+#
+# OE_IMAGE_TAG pins a version. Unset it and you get `latest`, which is whatever
+# we released most recently:
+#
+#   OE_IMAGE_TAG=12.9.0 make quickstart-image
+
+services:
+  app:
+    image: ghcr.io/datadrivenconstruction/openconstructionerp:${OE_IMAGE_TAG:-latest}
