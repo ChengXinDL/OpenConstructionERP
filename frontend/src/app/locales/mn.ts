@@ -20383,6 +20383,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "Каталог-аас нөөцийг нэмсэн",
     "assemblies.row_details_title": "Энэ мөр-ийн хаягдал / ямар нэгэн / түлш / үйлчилгээ үзүүлэгч талбарыг үзэхэд байна",
     "assemblies.row_details_toggle": "Бүрдүүлэлтийн мэдээлэл эргүүлэх",
+    "assemblies.drag_to_reorder": "Дахин захиалахын тулд чирнэ үү",
     "assemblies.save_as_assembly": "Нийлүүлэлт болгон хэмжээг хадгалах",
     "assemblies.search_cost_placeholder": "Дүрслэлэл эсвэл кодоор өртгийн зүйлүүдийг хүндлэх...",
     "assemblies.search_placeholder": "Нэр эсвэл кодоор хүндлэх...",

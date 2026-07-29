@@ -20387,6 +20387,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "카탈로그에서 추가된 자원",
     "assemblies.row_details_title": "이 행의 낭비 / 부담 / 연료 / 공급업체 필드 표시",
     "assemblies.row_details_toggle": "요소 세부사항 전환",
+    "assemblies.drag_to_reorder": "재정렬하려면 드래그하세요",
     "assemblies.save_as_assembly": "조립식으로 저장",
     "assemblies.search_cost_placeholder": "설명 또는 코드로 비용 항목 검색...",
     "assemblies.search_placeholder": "이름 또는 코드로 검색...",

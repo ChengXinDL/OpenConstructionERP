@@ -20391,6 +20391,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "Resursă adăugată din catalog",
     "assemblies.row_details_title": "Afișare câmpuri deșeuri / povară / combustibil / furnizor pentru această rând",
     "assemblies.row_details_toggle": "Comutare detalii componentă",
+    "assemblies.drag_to_reorder": "Trageți pentru a reordona",
     "assemblies.save_as_assembly": "Salvare ca ansamblu",
     "assemblies.search_cost_placeholder": "Căutare articole de costuri după descriere sau cod...",
     "assemblies.search_placeholder": "Căutare după nume sau cod...",

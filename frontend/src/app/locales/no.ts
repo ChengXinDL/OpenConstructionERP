@@ -20380,6 +20380,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "Ressurs lagt til fra katalog",
     "assemblies.row_details_title": "Vis avfall / borde / drivstoff / leverandør felter for denne raden",
     "assemblies.row_details_toggle": "Veksle komponentdetaljer",
+    "assemblies.drag_to_reorder": "Dra for å omorganisere",
     "assemblies.save_as_assembly": "Lagre som monteringen",
     "assemblies.search_cost_placeholder": "Søk kostnadsartikler etter beskrivelse eller kode...",
     "assemblies.search_placeholder": "Søk etter navn eller kode...",

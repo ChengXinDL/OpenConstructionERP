@@ -20479,6 +20479,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "تمت إضافة الموارد من الكتالوج",
     "assemblies.row_details_title": "عرض حقول الهدر والعبء والوقود والبائع لهذا الصف",
     "assemblies.row_details_toggle": "تبديل تفاصيل المكون",
+    "assemblies.drag_to_reorder": "اسحب لإعادة الترتيب",
     "assemblies.save_as_assembly": "حفظ كمجموعة",
     "assemblies.search_cost_placeholder": "البحث في عناصر التكلفة حسب الوصف أو الرمز...",
     "assemblies.search_placeholder": "البحث حسب الاسم أو الرمز...",

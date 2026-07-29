@@ -20431,6 +20431,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "Ressource ajoutée à partir du catalogue",
     "assemblies.row_details_title": "Afficher les champs déchets / charge / carburant / fournisseur pour cette ligne",
     "assemblies.row_details_toggle": "Basculer les détails du composant",
+    "assemblies.drag_to_reorder": "Faites glisser pour réorganiser",
     "assemblies.save_as_assembly": "Enregistrer en tant qu'assemblage",
     "assemblies.search_cost_placeholder": "Rechercher des articles de coûts par description ou code...",
     "assemblies.search_placeholder": "Rechercher par nom ou code...",

@@ -20392,6 +20392,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "Zdroj přidán z katalogu",
     "assemblies.row_details_title": "Zobrazit pole pro odpad / břemeno / palivo / dodavatele pro tento řádek",
     "assemblies.row_details_toggle": "Přepnout podrobnosti komponenty",
+    "assemblies.drag_to_reorder": "Přetáhněte pro změnu pořadí",
     "assemblies.save_as_assembly": "Uložit jako sestavu",
     "assemblies.search_cost_placeholder": "Hledat položky nákladů podle popisu nebo kódu...",
     "assemblies.search_placeholder": "Hledat podle jména nebo kódu...",

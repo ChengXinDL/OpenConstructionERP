@@ -20382,6 +20382,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "Sumber daya ditambahkan dari katalog",
     "assemblies.row_details_title": "Tampilkan bidang limbah / beban / bahan bakar / vendor untuk baris ini",
     "assemblies.row_details_toggle": "Alihkan detail komponen",
+    "assemblies.drag_to_reorder": "Seret untuk mengurutkan ulang",
     "assemblies.save_as_assembly": "Simpan sebagai Rakitan",
     "assemblies.search_cost_placeholder": "Cari item biaya berdasarkan deskripsi atau kode...",
     "assemblies.search_placeholder": "Cari berdasarkan nama atau kode...",

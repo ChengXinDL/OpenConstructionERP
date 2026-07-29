@@ -19298,6 +19298,7 @@ const resource = {
     "assemblies.type_subcontractor": "Sub",
     "assemblies.type_overhead": "OH",
     "assemblies.row_details_toggle": "Toggle component details",
+    "assemblies.drag_to_reorder": "Drag to reorder",
     "assemblies.row_details_title": "Show waste / burden / fuel / vendor fields for this row",
     "assemblies.confirm_delete_component_title": "Remove component?",
     "assemblies.confirm_delete_component": "Remove this component from the assembly?",

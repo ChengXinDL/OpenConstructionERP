@@ -20387,6 +20387,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "カタログから追加されたリソース",
     "assemblies.row_details_title": "この行の廃棄/負荷/燃料/ベンダーフィールドを表示",
     "assemblies.row_details_toggle": "コンポーネント詳細を切り替え",
+    "assemblies.drag_to_reorder": "並べ替えにはドラッグしてください",
     "assemblies.save_as_assembly": "アセンブリとして保存",
     "assemblies.search_cost_placeholder": "説明またはコードで原価項目を検索…",
     "assemblies.search_placeholder": "名前またはコードで検索…",

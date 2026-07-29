@@ -20384,6 +20384,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "Ресурс добавен от каталог",
     "assemblies.row_details_title": "Показване отпадък / отоплен / гориво / доставчик полета за този ред",
     "assemblies.row_details_toggle": "Превключи компонент детайли",
+    "assemblies.drag_to_reorder": "Плъзни, за да пренаредиш",
     "assemblies.save_as_assembly": "Запазване като монтажна единица",
     "assemblies.search_cost_placeholder": "Търсене разходни артикули по описание или код...",
     "assemblies.search_placeholder": "Търсене по наименование или код...",

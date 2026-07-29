@@ -20383,6 +20383,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "Hulpbron uit catalogus toegevoegd",
     "assemblies.row_details_title": "Velden voor afval / belasting / brandstof / leverancier voor deze rij weergeven",
     "assemblies.row_details_toggle": "Componentdetails schakelen",
+    "assemblies.drag_to_reorder": "Slepen om te herschikken",
     "assemblies.save_as_assembly": "Opslaan als samenstelling",
     "assemblies.search_cost_placeholder": "Zoeken naar kostenposten op beschrijving of code...",
     "assemblies.search_placeholder": "Zoeken op naam of code...",

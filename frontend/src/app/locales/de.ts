@@ -20596,6 +20596,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "Ressource aus Katalog hinzugefügt",
     "assemblies.row_details_title": "Zeigen Sie Abfallquote / Belastung / Kraftstoff / Anbieter-Felder für diese Reihe",
     "assemblies.row_details_toggle": "Komponenten-Details umschalten",
+    "assemblies.drag_to_reorder": "Zum Neuordnen ziehen",
     "assemblies.save_as_assembly": "Als Bausatz speichern",
     "assemblies.search_cost_placeholder": "Suchen Sie Kostenpositionen nach Beschreibung oder Code...",
     "assemblies.search_placeholder": "Nach Name oder Code suchen...",

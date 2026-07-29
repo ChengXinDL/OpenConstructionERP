@@ -20392,6 +20392,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "Tài nguyên được thêm từ danh mục",
     "assemblies.row_details_title": "Hiển thị các trường lãng phí / gánh nặng / nhiên liệu / nhà cung cấp cho hàng này",
     "assemblies.row_details_toggle": "Chuyển đổi chi tiết thành phần",
+    "assemblies.drag_to_reorder": "Kéo để sắp xếp lại",
     "assemblies.save_as_assembly": "Lưu dưới dạng bộ hợp",
     "assemblies.search_cost_placeholder": "Tìm kiếm mục chi phí theo mô tả hoặc mã...",
     "assemblies.search_placeholder": "Tìm kiếm theo tên hoặc mã...",

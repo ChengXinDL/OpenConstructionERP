@@ -20386,6 +20386,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "从目录添加的资源",
     "assemblies.row_details_title": "显示此行的废弃 / 负担 / 燃油 / 供应商字段",
     "assemblies.row_details_toggle": "切换组件详情",
+    "assemblies.drag_to_reorder": "拖动以重新排序",
     "assemblies.save_as_assembly": "保存为装配体",
     "assemblies.search_cost_placeholder": "按描述或代码搜索成本项…",
     "assemblies.search_placeholder": "按名称或代码搜索…",

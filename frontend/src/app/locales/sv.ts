@@ -20380,6 +20380,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "Resurs tillagd från katalog",
     "assemblies.row_details_title": "Visa spill- / påläggs- / bränsle- / leverantörfält för denna rad",
     "assemblies.row_details_toggle": "Slå på/av komponentdetaljer",
+    "assemblies.drag_to_reorder": "Dra för att sortera om",
     "assemblies.save_as_assembly": "Spara som montage",
     "assemblies.search_cost_placeholder": "Sök kostnadsartiklar efter beskrivning eller kod...",
     "assemblies.search_placeholder": "Sök efter namn eller kod...",

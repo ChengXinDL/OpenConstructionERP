@@ -20391,6 +20391,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "Risorsa aggiunta dal catalogo",
     "assemblies.row_details_title": "Mostra campi di scarto / onere / carburante / fornitore per questa riga",
     "assemblies.row_details_toggle": "Attiva/disattiva dettagli componente",
+    "assemblies.drag_to_reorder": "Trascina per riordinare",
     "assemblies.save_as_assembly": "Salva come assemblaggio",
     "assemblies.search_cost_placeholder": "Cerca elementi di costo per descrizione o codice...",
     "assemblies.search_placeholder": "Cerca per nome o codice...",

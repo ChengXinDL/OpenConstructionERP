@@ -20384,6 +20384,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "Luettelosta lisätty resurssi",
     "assemblies.row_details_title": "Näytä jäte / taakka / polttoaine / myyjäkentät tälle riville",
     "assemblies.row_details_toggle": "Vaihda komponenttitiedot",
+    "assemblies.drag_to_reorder": "Vedä järjestelläksesi uudelleen",
     "assemblies.save_as_assembly": "Tallenna kokoonpanona",
     "assemblies.search_cost_placeholder": "Etsi kustannuseriä kuvauksen tai koodin perusteella…",
     "assemblies.search_placeholder": "Etsi nimen tai koodin perusteella…",

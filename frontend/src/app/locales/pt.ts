@@ -20386,6 +20386,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "Recurso adicionado do catálogo",
     "assemblies.row_details_title": "Mostrar campos de desperdício / ônus / combustível / fornecedor para esta linha",
     "assemblies.row_details_toggle": "Alternar detalhes do componente",
+    "assemblies.drag_to_reorder": "Arrastar para reordenar",
     "assemblies.save_as_assembly": "Salvar como Assembly",
     "assemblies.search_cost_placeholder": "Pesquisar itens de custo por descrição ou código...",
     "assemblies.search_placeholder": "Pesquisar por nome ou código...",

@@ -20393,6 +20393,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "Resurs dodan iz kataloga",
     "assemblies.row_details_title": "Prikaži polja za otpad / opterećenje / gorivo / prodavač za ovaj redak",
     "assemblies.row_details_toggle": "Prebaci detalje komponente",
+    "assemblies.drag_to_reorder": "Povuci za promjenu redoslijeda",
     "assemblies.save_as_assembly": "Spremi kao montažu",
     "assemblies.search_cost_placeholder": "Pretražite stavke troškova po opisu ili kodu...",
     "assemblies.search_placeholder": "Pretražite po nazivu ili kodu...",

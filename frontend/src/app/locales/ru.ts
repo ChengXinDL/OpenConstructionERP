@@ -20609,6 +20609,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "Ресурс добавлен из каталога",
     "assemblies.row_details_title": "Показать поля отходов / burden / топливо / поставщик для этой строки",
     "assemblies.row_details_toggle": "Переключить детали компонента",
+    "assemblies.drag_to_reorder": "Перетащите для изменения порядка",
     "assemblies.save_as_assembly": "Сохранить как сборку",
     "assemblies.search_cost_placeholder": "Поиск позиций затрат по описанию или коду...",
     "assemblies.search_placeholder": "Поиск по имени или коду...",

@@ -20380,6 +20380,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "Ressource tilføjet fra katalog",
     "assemblies.row_details_title": "Vis affald / byrde / brændstof / leverandørfelter for denne række",
     "assemblies.row_details_toggle": "Slå komponentdetaljer til/fra",
+    "assemblies.drag_to_reorder": "Træk for at omarrangere",
     "assemblies.save_as_assembly": "Gem som samling",
     "assemblies.search_cost_placeholder": "Søg omkostningsdata efter beskrivelse eller kode…",
     "assemblies.search_placeholder": "Søg efter navn eller kode…",

@@ -20402,6 +20402,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "Zasób dodany z katalogu",
     "assemblies.row_details_title": "Pokaż pola odpadu / obciążenia / paliwa / dostawcy dla tego wiersza",
     "assemblies.row_details_toggle": "Przełącz szczegóły komponentu",
+    "assemblies.drag_to_reorder": "Przeciągnij, aby zmienić kolejność",
     "assemblies.save_as_assembly": "Zapisz jako zespół",
     "assemblies.search_cost_placeholder": "Wyszukaj pozycje kosztów po opisie lub kodzie...",
     "assemblies.search_placeholder": "Wyszukaj po nazwie lub kodzie...",

@@ -20383,6 +20383,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "Kaynak katalogdan eklendi",
     "assemblies.row_details_title": "Bu satır için atık / yük / yakıt / satıcı alanlarını göster",
     "assemblies.row_details_toggle": "Bileşen ayrıntılarını değiştir",
+    "assemblies.drag_to_reorder": "Yeniden sıralamak için sürükleyin",
     "assemblies.save_as_assembly": "Derlemesi Olarak Kaydet",
     "assemblies.search_cost_placeholder": "Maliyet öğelerini açıklama veya koda göre ara...",
     "assemblies.search_placeholder": "Ada veya koda göre ara...",

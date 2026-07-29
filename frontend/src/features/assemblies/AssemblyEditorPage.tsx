@@ -987,9 +987,10 @@ const RESOURCE_TYPE_BAR: Record<string, string> = {
   overhead: 'bg-slate-500',
 };
 
-/* -- Component Row (inline editable) -------------------------------------- */
+/* -- Component Row (inline editable) --------------------------------------
+   Exported for the drag-affordance test; the page itself renders it directly. */
 
-function ComponentRow({
+export function ComponentRow({
   component,
   isDragOver,
   onDragStart,
@@ -1058,10 +1059,17 @@ function ComponentRow({
       onDragEnd={onDragEnd}
       onDragLeave={onDragLeave}
     >
-      {/* Drag handle */}
+      {/* Drag handle. `draggable` sits on the whole row, so this is the affordance
+          rather than the drag source. It rests at `secondary`, not `tertiary`:
+          quaternary and tertiary are three hex units apart per channel in both
+          themes (#696c78 vs #666b78 light, #8b8e9d vs #9499a8 dark), so the old
+          resting colour and its hover step were the same grey to the eye. */}
       <td className="px-1 py-2.5 cursor-grab active:cursor-grabbing">
-        <div className="flex items-center justify-center text-content-quaternary group-hover:text-content-tertiary transition-colors">
-          <GripVertical size={14} />
+        <div
+          className="flex items-center justify-center text-content-secondary group-hover:text-content-primary transition-colors"
+          title={t('assemblies.drag_to_reorder', { defaultValue: 'Drag to reorder' })}
+        >
+          <GripVertical size={16} />
         </div>
       </td>
 

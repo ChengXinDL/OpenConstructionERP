@@ -20430,6 +20430,7 @@ const resource = {
     "assemblies.resource_added_from_catalog": "Recurso agregado del catálogo",
     "assemblies.row_details_title": "Mostrar campos de desperdicio / carga / combustible / vendedor para esta fila",
     "assemblies.row_details_toggle": "Alternar detalles del componente",
+    "assemblies.drag_to_reorder": "Arrastrar para reordenar",
     "assemblies.save_as_assembly": "Guardar como ensamblaje",
     "assemblies.search_cost_placeholder": "Buscar elementos de costo por descripción o código...",
     "assemblies.search_placeholder": "Buscar por nombre o código...",
