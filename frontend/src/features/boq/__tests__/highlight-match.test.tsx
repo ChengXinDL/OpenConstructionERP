@@ -10,13 +10,15 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { highlightMatch } from '../highlightMatch';
 
+// `as const` is load bearing under noUncheckedIndexedAccess: without it every
+// CATALOGUE[n] below is string | undefined and the file does not compile.
 const CATALOGUE = [
   'Installation de chantier - petit chantier, acces direct',
   'Installation de chantier - petit chantier, acces difficile',
   'Installation de chantier - chantier moyen, grue mobile',
   'Installation de chantier - chantier moyen, grue à tour',
   'Installation de chantier - grand chantier, grue à tour + baraquements',
-];
+] as const;
 
 /** Render into a container and read back only what came out inside <mark>. */
 function marked(text: string, query: string): string[] {
