@@ -231,6 +231,15 @@ export function orderKeyBetween(below: number | null, above: number | null): num
  * Returns ``null`` when the target is missing or the drop is a no-op (the
  * dragged row would keep its current key AND its current group), so the caller
  * can skip the update.
+ *
+ * This is the single-row half of {@link planMeasurementDrop}, and it is the
+ * whole answer only while a distinct midpoint still exists. Where the gap is
+ * exhausted (issue #405) it returns ``null`` rather than a key equal to a
+ * neighbour's: refusing the drop is wrong, but it is a visible kind of wrong,
+ * whereas the colliding key silently put the row on the other side of the row
+ * it was dropped against and carried that into every export. A caller that has
+ * to place the row, rather than merely price the move, wants
+ * {@link planMeasurementDrop}.
  */
 export function orderKeyForDrop<T extends Orderable & { id: string }>(
   items: readonly T[],
@@ -238,34 +247,141 @@ export function orderKeyForDrop<T extends Orderable & { id: string }>(
   targetId: string,
   place: 'before' | 'after',
 ): number | null {
+  const plan = planMeasurementDrop(items, draggedId, targetId, place);
+  return plan !== null && plan.kind === 'single' ? plan.order : null;
+}
+
+/* ── Exhausted gaps (issue #405) ─────────────────────────────────────────── */
+
+/**
+ * Did ``key`` land strictly between its bounds?
+ *
+ * {@link orderKeyBetween} promises a value between its two neighbours, and for
+ * a midpoint that promise is arithmetic rather than absolute: ``order`` is a
+ * float64, so once a gap is narrow enough its midpoint rounds to one of its own
+ * bounds and the promise quietly stops holding. A ``null`` bound is the edge of
+ * the stack and constrains nothing, but the step past it is checked too, since
+ * ``below + 1`` also stops moving out near the top of the range.
+ */
+function landedBetween(key: number, below: number | null, above: number | null): boolean {
+  if (below !== null && !(key > below)) return false;
+  if (above !== null && !(key < above)) return false;
+  return true;
+}
+
+/**
+ * What a drop has to write. Either one row's new key, or, when the gap the row
+ * was dropped into can no longer hold a distinct key, a new key for every row
+ * in the target's group.
+ */
+export type DropPlan =
+  | { readonly kind: 'single'; readonly id: string; readonly order: number }
+  | { readonly kind: 'renumber'; readonly orders: ReadonlyMap<string, number> };
+
+/**
+ * Resolve a drop into the writes that perform it (issue #405).
+ *
+ * {@link orderKeyForDrop} hands the dropped row the midpoint of its two new
+ * neighbours, which keeps a drag to a single-row write. Repeated drops into the
+ * SAME slot halve that gap each time, and float64 runs out: measured against
+ * this module, three rows with no explicit keys take 53 drops before the
+ * midpoint comes back equal to the target's own key, and 55 before the no-op
+ * guard reads a real drop as a no-op and nothing moves at all. The keys live in
+ * the measurement metadata, so the count accumulates across sessions instead of
+ * needing one long sitting, and nothing renumbers them: ``reorderGroups``
+ * renumbers group bands, never measurement keys.
+ *
+ * Once two rows hold the same key {@link sortByPaintOrder} breaks the tie on
+ * array position. That is stable and survives a reload, but it is not the slot
+ * the row was released into, and the same wrong projection is what the annotated
+ * PDF, the spreadsheet exports and the BOQ ordinals all read.
+ *
+ * So the midpoint is checked rather than trusted. When it lands where it was
+ * promised the plan is the single-row write the drag has always been. When it
+ * does not, the whole of the target's group is renumbered to consecutive
+ * integers in the order the user actually asked for, which reopens unit-wide
+ * gaps and puts the row where it was dropped. The slow path is paid only on the
+ * drop that would otherwise fail.
+ *
+ * Three details are forced by existing behaviour rather than chosen:
+ *
+ * - The renumber spans the group across the WHOLE array, not the current page,
+ *   for the reason {@link sortByPaintOrder} already implies: the projection is
+ *   per document, so renumbering a page would strand the group's rows on other
+ *   pages against freshly numbered neighbours.
+ * - Every row in the group is given an explicit key, including rows that never
+ *   carried one. Leaving those on the ``order ?? index`` fallback would sort
+ *   them against the new integers by array position, which is not where they
+ *   are on screen.
+ * - The dragged row is numbered along with the rest, since it is excluded from
+ *   its own neighbour search and would otherwise keep its stale key.
+ *
+ * Returns ``null`` when the target is missing or the drop changes nothing: the
+ * dragged row already holds the key AND the group, or, on the renumber path,
+ * the group is already in the requested order.
+ */
+export function planMeasurementDrop<T extends Orderable & { id: string }>(
+  items: readonly T[],
+  draggedId: string,
+  targetId: string,
+  place: 'before' | 'after',
+): DropPlan | null {
   if (draggedId === targetId) return null;
   const target = items.find((m) => m.id === targetId);
   if (!target) return null;
   const targetGroup = groupOf(target);
   // Effective key per row, indexed on the ORIGINAL array position so the
-  // fallback matches sortByPaintOrder; then drop the dragged row, keep only the
-  // target's group, and sort.
-  const keyed = items
+  // fallback matches sortByPaintOrder; then keep only the target's group and
+  // sort exactly as the projection does, index breaking a tie.
+  const inGroup = items
     .map((item, index) => ({
       id: item.id,
       order: item.order,
       group: groupOf(item),
       key: item.order ?? index,
+      index,
     }))
-    .filter((k) => k.id !== draggedId && k.group === targetGroup)
-    .sort((a, b) => a.key - b.key);
-  const targetIdx = keyed.findIndex((k) => k.id === targetId);
+    .filter((k) => k.group === targetGroup)
+    .sort((a, b) => a.key - b.key || a.index - b.index);
+  // The dragged row must not compare against its own old slot when the
+  // neighbours are picked.
+  const neighbours = inGroup.filter((k) => k.id !== draggedId);
+  const targetIdx = neighbours.findIndex((k) => k.id === targetId);
   if (targetIdx === -1) return null;
   const insertAt = place === 'before' ? targetIdx : targetIdx + 1;
-  const below = insertAt > 0 ? keyed[insertAt - 1]!.key : null;
-  const above = insertAt < keyed.length ? keyed[insertAt]!.key : null;
+  const below = insertAt > 0 ? neighbours[insertAt - 1]!.key : null;
+  const above = insertAt < neighbours.length ? neighbours[insertAt]!.key : null;
   const newOrder = orderKeyBetween(below, above);
-  const dragged = items.find((m) => m.id === draggedId);
-  // A row that already holds this key but sits in another group is still a real
-  // move: the caller has a group change to apply even though the key is
-  // unchanged. Only a same-group, same-key drop is the no-op.
-  if (dragged && dragged.order === newOrder && groupOf(dragged) === targetGroup) return null;
-  return newOrder;
+  const dragged = items.find((m) => m.id === draggedId) ?? null;
+
+  if (landedBetween(newOrder, below, above)) {
+    // A row that already holds this key but sits in another group is still a
+    // real move: the caller has a group change to apply even though the key is
+    // unchanged. Only a same-group, same-key drop is the no-op.
+    if (dragged && dragged.order === newOrder && groupOf(dragged) === targetGroup) return null;
+    return { kind: 'single', id: draggedId, order: newOrder };
+  }
+
+  const requested = [
+    ...neighbours.slice(0, insertAt).map((k) => k.id),
+    draggedId,
+    ...neighbours.slice(insertAt).map((k) => k.id),
+  ];
+  // Renumbering repairs the collapsed keys, but a drop onto the slot the row is
+  // already in is still not a drop. Checking the projected order rather than the
+  // keys is what makes this a no-op only when the screen would not change.
+  const current = inGroup.map((k) => k.id);
+  if (
+    dragged &&
+    groupOf(dragged) === targetGroup &&
+    current.length === requested.length &&
+    current.every((id, i) => id === requested[i])
+  ) {
+    return null;
+  }
+  const orders = new Map<string, number>();
+  requested.forEach((id, i) => orders.set(id, i));
+  return { kind: 'renumber', orders };
 }
 
 /* ── Pinning the band map (issue #393) ──────────────────────────────────── */

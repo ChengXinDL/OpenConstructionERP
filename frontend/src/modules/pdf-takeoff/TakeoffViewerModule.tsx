@@ -176,7 +176,7 @@ import {
   hydrateGroupBands,
   stampGroupBands,
   orderKeyForEdge,
-  orderKeyForDrop,
+  planMeasurementDrop,
 } from '../../features/takeoff/lib/takeoff-order';
 import { seedAnnotationCounters } from '../../features/takeoff/lib/takeoff-labels';
 import {
@@ -530,6 +530,25 @@ type UndoOperation =
       measurementId: string;
       previousOrder: number | undefined;
       nextOrder: number;
+      regrouped?: boolean;
+      previousGroup?: string;
+      nextGroup?: string;
+    }
+  // A drop that had to renumber a whole group because the gap it was released
+  // into could no longer hold a distinct key (issue #405). It is a separate kind
+  // rather than optional extra fields on the frame above, because that frame has
+  // three producers: bring-to-front, send-to-back and the ordinary drop, all of
+  // which move exactly one row. Widening it would have left every one of them
+  // carrying a shape they never fill, and undo branching on which shape it got.
+  // ``regrouped`` and the group names mean what they mean above, and apply to
+  // ``measurementId``, the one row the user actually dragged; the rest of
+  // ``rows`` only changed key. ``previousOrder`` is undefined for a row that had
+  // never been reordered, which undo has to write back as undefined rather than
+  // skip, or the row keeps a key the renumber invented.
+  | {
+      kind: 'renumber_measurement_order';
+      rows: { id: string; previousOrder: number | undefined; nextOrder: number }[];
+      measurementId: string;
       regrouped?: boolean;
       previousGroup?: string;
       nextGroup?: string;
@@ -4535,8 +4554,14 @@ export default function TakeoffViewerModule({
     // Which one is decided by the half of the row the pointer was in when it
     // was released (issue #392), not fixed: with "before" as the only option
     // the slot after the last row of a group had no gesture that reached it.
-    const nextOrder = orderKeyForDrop(all, draggedId, targetId, place);
-    if (nextOrder === null) return;
+    // Usually one fractional key. When the gap between the two neighbours has
+    // been halved until float64 has nothing left between them, the plan comes
+    // back as a renumber of the whole group instead (issue #405), because a
+    // midpoint that rounds onto its own bound puts the row on the wrong side of
+    // the row it was dropped against, and every export reads that same wrong
+    // projection.
+    const plan = planMeasurementDrop(all, draggedId, targetId, place);
+    if (plan === null) return;
     // Compare through the same normalisation the projection buckets with, so a
     // row whose group is the empty string is not "moved" into General, which
     // is where it already renders. Recorded only when it really changes.
@@ -4553,19 +4578,48 @@ export default function TakeoffViewerModule({
     if (changesGroup) {
       setExplicitGroupBands((prev) => freezeGroupBands(all, prev));
     }
-    pushUndo({
-      kind: 'reorder_measurement',
-      measurementId: draggedId,
-      previousOrder: dragged.order,
+    const regroup = changesGroup ? { regrouped: true, previousGroup, nextGroup } : {};
+    if (plan.kind === 'single') {
+      pushUndo({
+        kind: 'reorder_measurement',
+        measurementId: draggedId,
+        previousOrder: dragged.order,
+        nextOrder: plan.order,
+        ...regroup,
+      });
+      setMeasurements((prev) =>
+        prev.map((m) =>
+          m.id === draggedId
+            ? { ...m, order: plan.order, ...(changesGroup ? { group: target.group } : {}) }
+            : m,
+        ),
+      );
+      return;
+    }
+    // Renumbered group. The keys are read off the array the plan was computed
+    // from, so the frame records what each row held before this drop rather than
+    // what it holds by the time the state update runs.
+    const rows = [...plan.orders].map(([id, nextOrder]) => ({
+      id,
+      previousOrder: all.find((m) => m.id === id)?.order,
       nextOrder,
-      ...(changesGroup ? { regrouped: true, previousGroup, nextGroup } : {}),
+    }));
+    pushUndo({
+      kind: 'renumber_measurement_order',
+      rows,
+      measurementId: draggedId,
+      ...regroup,
     });
     setMeasurements((prev) =>
-      prev.map((m) =>
-        m.id === draggedId
-          ? { ...m, order: nextOrder, ...(changesGroup ? { group: target.group } : {}) }
-          : m,
-      ),
+      prev.map((m) => {
+        const next = plan.orders.get(m.id);
+        if (next === undefined) return m;
+        return {
+          ...m,
+          order: next,
+          ...(changesGroup && m.id === draggedId ? { group: target.group } : {}),
+        };
+      }),
     );
   }, [pushUndo]);
 
@@ -6401,6 +6455,27 @@ export default function TakeoffViewerModule({
         );
         break;
 
+      case 'renumber_measurement_order': {
+        // Put every row the renumber touched back on the key it held (issue
+        // #405). ``has`` rather than a truthiness test on the value: 0 is a real
+        // key the renumber hands out, and so is undefined on the way back.
+        const restore = new Map(op.rows.map((r) => [r.id, r.previousOrder]));
+        setMeasurements((prev) =>
+          prev.map((m) =>
+            restore.has(m.id)
+              ? {
+                  ...m,
+                  order: restore.get(m.id),
+                  ...(op.regrouped && m.id === op.measurementId
+                    ? { group: op.previousGroup }
+                    : {}),
+                }
+              : m,
+          ),
+        );
+        break;
+      }
+
       case 'reorder_groups':
         // Restore the whole pinned map (issue #400). An empty previous map is a
         // real state, the one where nothing had ever been pinned, so it is
@@ -6525,6 +6600,23 @@ export default function TakeoffViewerModule({
           ),
         );
         break;
+
+      case 'renumber_measurement_order': {
+        // Re-apply the renumbered keys (issue #405).
+        const reapply = new Map(op.rows.map((r) => [r.id, r.nextOrder]));
+        setMeasurements((prev) =>
+          prev.map((m) =>
+            reapply.has(m.id)
+              ? {
+                  ...m,
+                  order: reapply.get(m.id),
+                  ...(op.regrouped && m.id === op.measurementId ? { group: op.nextGroup } : {}),
+                }
+              : m,
+          ),
+        );
+        break;
+      }
 
       case 'reorder_groups':
         // Re-apply the pinned map (issue #400).

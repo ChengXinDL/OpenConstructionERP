@@ -5,6 +5,7 @@ import {
   orderKeyForEdge,
   orderKeyBetween,
   orderKeyForDrop,
+  planMeasurementDrop,
   groupBands,
   groupOf,
   reorderGroups,
@@ -632,5 +633,162 @@ describe('dragging a group block to a new slot (issue #400)', () => {
     const rows = [gRow('a', 'A'), gRow('b', 'B'), gRow('c', 'C')];
     expect(dragGroup(rows, {}, 'B', 'A', 'after')).toBeNull();
     expect(dragGroup(rows, {}, 'B', 'C', 'before')).toBeNull();
+  });
+});
+
+/**
+ * Dropping into a gap that float64 can no longer divide (issue #405).
+ *
+ * The test above named ``survives repeated drops into the same gap`` runs this
+ * same sequence and passes, because it only ever asks whether three distinct
+ * rows come back. None of its assertions ask the question the defect is about,
+ * which is whether the row went where it was released. Every test here asserts
+ * the projected order after EACH drop, so an exhausted gap is a failure at the
+ * drop that exhausts it rather than something to be read out of the wreckage
+ * afterwards.
+ */
+describe('drops into an exhausted gap (issue #405)', () => {
+  type Row = { id: string; group: string; page: number; order?: number };
+  const gRow = (id: string, group: string, order?: number, page = 1): Row => ({
+    id,
+    group,
+    page,
+    order,
+  });
+
+  /** The projection the canvas, the sidebar and every export read. */
+  const project = (rows: Row[]) => sortByPaintOrder(rows, groupBands(rows)).map((r) => r.id);
+
+  /** Apply a plan the way the viewer has to: one row, or a whole group. */
+  const applyPlan = (rows: Row[], plan: ReturnType<typeof planMeasurementDrop>): Row[] => {
+    if (plan === null) return rows;
+    if (plan.kind === 'single') {
+      return rows.map((r) => (r.id === plan.id ? { ...r, order: plan.order } : r));
+    }
+    return rows.map((r) => (plan.orders.has(r.id) ? { ...r, order: plan.orders.get(r.id)! } : r));
+  };
+
+  it('puts the row where it was released on every one of 200 drops into one slot', () => {
+    // The reported sequence: two movers alternating into the same slot above a
+    // target. Unfixed, drop 53 ties the target's key and drop 55 returns null.
+    // 200 is four times past the point where the gap gives out.
+    let rows = [gRow('a', 'G'), gRow('b', 'G'), gRow('t', 'G')];
+    for (let i = 0; i < 200; i++) {
+      const moved = i % 2 === 0 ? 'a' : 'b';
+      const other = i % 2 === 0 ? 'b' : 'a';
+      const plan = planMeasurementDrop(rows, moved, 't', 'before');
+      expect(plan, `drop ${i + 1} produced no plan`).not.toBeNull();
+      rows = applyPlan(rows, plan);
+      // The mover was dropped immediately above t, so it must sit directly
+      // before t, and the row it displaced must sit before it.
+      expect(project(rows), `after drop ${i + 1}`).toEqual([other, moved, 't']);
+    }
+  });
+
+  it('keeps landing the drop when the target carries an explicit nonzero key', () => {
+    // A target holding 0 halves toward zero and survives ~1076 drops; a nonzero
+    // key is the case that gives out quickly, and is what a reordered document
+    // actually holds.
+    let rows = [gRow('a', 'G', -3), gRow('b', 'G', -2.75), gRow('t', 'G', -1.5)];
+    for (let i = 0; i < 120; i++) {
+      const moved = i % 2 === 0 ? 'a' : 'b';
+      const other = i % 2 === 0 ? 'b' : 'a';
+      const plan = planMeasurementDrop(rows, moved, 't', 'before');
+      expect(plan, `drop ${i + 1} produced no plan`).not.toBeNull();
+      rows = applyPlan(rows, plan);
+      expect(project(rows), `after drop ${i + 1}`).toEqual([other, moved, 't']);
+    }
+  });
+
+  it('takes the single-row path while the gap still divides', () => {
+    const rows = [gRow('a', 'G'), gRow('b', 'G'), gRow('t', 'G')];
+    const plan = planMeasurementDrop(rows, 'a', 't', 'before');
+    expect(plan).toEqual({ kind: 'single', id: 'a', order: 1.5 });
+    // And it agrees with the scalar helper, which is the whole point of keeping
+    // that helper's contract unchanged.
+    expect(orderKeyForDrop(rows, 'a', 't', 'before')).toBe(1.5);
+  });
+
+  it('renumbers to integers only once the midpoint stops moving', () => {
+    // Two keys one ULP apart: there is no float between them.
+    const rows = [gRow('a', 'G', 1.9999999999999998), gRow('b', 'G', 2), gRow('c', 'G', 5)];
+    const plan = planMeasurementDrop(rows, 'c', 'b', 'before');
+    expect(plan?.kind).toBe('renumber');
+    if (plan?.kind !== 'renumber') throw new Error('expected a renumber');
+    expect([...plan.orders.entries()].sort()).toEqual([
+      ['a', 0],
+      ['b', 2],
+      ['c', 1],
+    ]);
+    expect(project(applyPlan(rows, plan))).toEqual(['a', 'c', 'b']);
+  });
+
+  it('gives an explicit key to a group row that never carried one', () => {
+    // 'u' has no order. Renumbering only the keyed rows would leave it on the
+    // index fallback and sorting against integers by array position.
+    const rows = [
+      gRow('u', 'G'),
+      gRow('a', 'G', 1.9999999999999998),
+      gRow('b', 'G', 2),
+      gRow('c', 'G', 5),
+    ];
+    const plan = planMeasurementDrop(rows, 'c', 'b', 'before');
+    if (plan?.kind !== 'renumber') throw new Error('expected a renumber');
+    expect(plan.orders.has('u')).toBe(true);
+    expect([...plan.orders.keys()].sort()).toEqual(['a', 'b', 'c', 'u']);
+  });
+
+  it('renumbers the group across the whole document, not the current page', () => {
+    // 'far' is the same group on another page. A page-scoped renumber would
+    // leave it holding a key from the old scheme.
+    const rows = [
+      gRow('a', 'G', 1.9999999999999998),
+      gRow('b', 'G', 2),
+      gRow('c', 'G', 5),
+      gRow('far', 'G', 9, 7),
+    ];
+    const plan = planMeasurementDrop(rows, 'c', 'b', 'before');
+    if (plan?.kind !== 'renumber') throw new Error('expected a renumber');
+    expect(plan.orders.has('far')).toBe(true);
+  });
+
+  it('leaves every other group alone', () => {
+    const rows = [
+      gRow('a', 'G', 1.9999999999999998),
+      gRow('b', 'G', 2),
+      gRow('c', 'G', 5),
+      gRow('x', 'OTHER', 0.5),
+      gRow('y', 'OTHER', 0.75),
+    ];
+    const plan = planMeasurementDrop(rows, 'c', 'b', 'before');
+    if (plan?.kind !== 'renumber') throw new Error('expected a renumber');
+    expect(plan.orders.has('x')).toBe(false);
+    expect(plan.orders.has('y')).toBe(false);
+    const after = applyPlan(rows, plan);
+    expect(after.find((r) => r.id === 'x')?.order).toBe(0.5);
+    expect(after.find((r) => r.id === 'y')?.order).toBe(0.75);
+  });
+
+  it('still reports a drop onto the slot the row already holds as nothing to write', () => {
+    // The state exhaustion actually leaves behind: 'a' and 'b' tied, 'a' ahead
+    // of 'b' only on array position, and 'x' one ULP below them so the gap 'a'
+    // would be dropped into has no float left in it. Dropping 'a' before 'b' is
+    // asking for the arrangement already on screen, and an exhausted gap must
+    // not turn that into a perpetual group rewrite.
+    const rows = [gRow('x', 'G', 1.9999999999999998), gRow('a', 'G', 2), gRow('b', 'G', 2)];
+    expect(project(rows)).toEqual(['x', 'a', 'b']);
+    expect(planMeasurementDrop(rows, 'a', 'b', 'before')).toBeNull();
+    // Asking for the other side of 'b' is a real move and still lands. It takes
+    // the single-row path, because the slot above 'b' is unbounded and so is
+    // never the exhausted one; only the gap between two rows can run out.
+    const moved = planMeasurementDrop(rows, 'a', 'b', 'after');
+    expect(project(applyPlan(rows, moved))).toEqual(['x', 'b', 'a']);
+  });
+
+  it('refuses rather than misplaces when the caller only takes a scalar', () => {
+    // orderKeyForDrop cannot express a group renumber. Returning the collapsed
+    // midpoint would hand the caller a key equal to the target's.
+    const rows = [gRow('a', 'G', 1.9999999999999998), gRow('b', 'G', 2), gRow('c', 'G', 5)];
+    expect(orderKeyForDrop(rows, 'c', 'b', 'before')).toBeNull();
   });
 });
