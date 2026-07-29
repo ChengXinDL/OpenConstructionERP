@@ -121,7 +121,16 @@ async def _create_project(owner_user_id: str, name: str) -> str:
 
 @pytest_asyncio.fixture(scope="module")
 async def two_tenants(http_client):
-    a_uid, _ae, _ap, a_hdr = await _register_login(http_client, tenant="a")
+    # Tenant A owns the project under test and has to be able to create in it.
+    # Registration cannot be relied on for that: self-registration only hands out
+    # admin to the very first account on a fresh install, and every module in this
+    # job shares one database, so exactly one of them wins that slot and the rest
+    # get a viewer with no <module>.create permission. A was then refused 403 in
+    # its own project and the cross-tenant probe below never ran. Promote it the
+    # same way B is promoted. Editor, not admin, so A passes verify_project_access
+    # on the ownership branch a real tenant would use rather than an admin bypass.
+    a_uid, a_email, a_pw, _a_hdr = await _register_login(http_client, tenant="a")
+    a_hdr = await _promote_to_editor(http_client, a_email, a_pw)
     b_uid, b_email, b_pw, _b_hdr = await _register_login(http_client, tenant="b")
     b_hdr = await _promote_to_editor(http_client, b_email, b_pw)
     a_project = await _create_project(a_uid, "A's project")
@@ -315,6 +324,9 @@ async def test_cross_project_idor_blocked(http_client, two_tenants):
         json=_two_party_body(a["project_id"]),
         headers=a["headers"],
     )
+    # A 403 here means the arrange step failed, not the isolation check.
+    # Without this the next line dies as KeyError: 'id' and hides the cause.
+    assert created.status_code == 201, created.text
     cid = created.json()["id"]
 
     got = await http_client.get(f"/api/v1/signing/sessions/{cid}/", headers=b["headers"])
