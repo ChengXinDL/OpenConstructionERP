@@ -71,6 +71,17 @@ export const CONTRIBUTORS: Acknowledged[] = [
   { name: 'darkleono', handle: 'darkleono' },
   { name: 'serviteur', handle: 'serviteur' },
   { name: 'Mr.R', handle: 'Mr-OpenR' },
+  { name: 'buzzy84', handle: 'buzzy84' },
+  { name: 'masc145', handle: 'masc145' },
+  { name: 'arq-migfrazao', handle: 'arq-migfrazao' },
+  { name: 'Colin TAN', handle: 'colintanlk' },
+  { name: 'Ronald Munjoma', handle: 'ronna' },
+  { name: 'erfan', handle: 'rfwn' },
+  { name: 'Yusuke Hayashi', handle: 'yhay81' },
+  { name: 'Aganin Vadim', handle: 'aganinvadim1-commits' },
+  { name: 'ravindrakumar2053-bit', handle: 'ravindrakumar2053-bit' },
+  { name: 'hibohsuc-svg', handle: 'hibohsuc-svg' },
+  { name: 'Simon', handle: 'SimonOhli' },
 ];
 
 /**

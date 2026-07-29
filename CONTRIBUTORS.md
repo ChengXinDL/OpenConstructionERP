@@ -177,6 +177,67 @@ implementation is our own.
   security advisory a cross-tenant access gap where a project handover document bundle could be
   read by another tenant. We closed it with an ownership check on the handover chain.
 
+- **buzzy84** ([@buzzy84](https://github.com/buzzy84)): asked for a client Excel round-trip
+  that returns a completed bill in the original workbook with its sheets, styles and formulas
+  intact ([#360](https://github.com/datadrivenconstruction/OpenConstructionERP/issues/360)), and for parametric assemblies whose child lines are driven by user-defined
+  parameters ([#365](https://github.com/datadrivenconstruction/OpenConstructionERP/issues/365)).
+- **masc145** ([@masc145](https://github.com/masc145)): reported that the Docker quickstart
+  build dies in `npm ci` during the frontend stage, and reproduced it again from a clean clone
+  after the first fix ([#404](https://github.com/datadrivenconstruction/OpenConstructionERP/issues/404)).
+- **arq-migfrazao** ([@arq-migfrazao](https://github.com/arq-migfrazao)): reported that the
+  Windows desktop app cannot install its own updates, because the upgrade path called the CLI
+  with a subcommand the CLI does not accept ([#403](https://github.com/datadrivenconstruction/OpenConstructionERP/issues/403)).
+- **Colin TAN** ([@colintanlk](https://github.com/colintanlk)): reported that after upgrading
+  to 12.6.0 the vector service was no longer running and would not install from the prompt, on
+  a page that also threw a number-formatting error ([#391](https://github.com/datadrivenconstruction/OpenConstructionERP/issues/391)).
+- **Ronald Munjoma** ([@ronna](https://github.com/ronna)): reported that the application did
+  not start after a Windows 11 upgrade ([#317](https://github.com/datadrivenconstruction/OpenConstructionERP/issues/317)).
+- **erfan** ([@rfwn](https://github.com/rfwn)): asked where to start when adding a region's
+  locale, currency, classifications and translation keys, and found no guide anywhere in the
+  codebase, the docs or the repo, which is a documentation gap we accepted ([#388](https://github.com/datadrivenconstruction/OpenConstructionERP/discussions/388)).
+- **Yusuke Hayashi** ([@yhay81](https://github.com/yhay81)): answered that question in detail,
+  covering both the partner pack route and the fork route, and in doing so found that the
+  "auto-generated, do not edit by hand" banner on the English locale file is stale residue,
+  because the per-locale files are the source of truth now and the splitter script is a spent
+  one-off ([#388](https://github.com/datadrivenconstruction/OpenConstructionERP/discussions/388)).
+- **Aganin Vadim** ([@aganinvadim1-commits](https://github.com/aganinvadim1-commits)): asked
+  whether authorisation through Keycloak is planned, which surfaced that there is no OIDC, SAML
+  or LDAP path at all ([#363](https://github.com/datadrivenconstruction/OpenConstructionERP/discussions/363)).
+- **ravindrakumar2053-bit**
+  ([@ravindrakumar2053-bit](https://github.com/ravindrakumar2053-bit)): asked for localised
+  estimating with separate length, breadth, depth and quantity columns, a measurement book as
+  its own record with status and history, site profit and loss, and bar bending schedules
+  generated from a drawing ([#352](https://github.com/datadrivenconstruction/OpenConstructionERP/discussions/352)).
+- **hibohsuc-svg** ([@hibohsuc-svg](https://github.com/hibohsuc-svg)): reported that a DWG
+  revision could not be uploaded for comparison, because compare only worked between two
+  versions of a single drawing, which led to drawing against drawing compare ([#289](https://github.com/datadrivenconstruction/OpenConstructionERP/discussions/289)).
+- **Simon** ([@SimonOhli](https://github.com/SimonOhli)): independently reproduced the v10.1.0
+  backend startup failure through a Docker and Portainer upgrade from the published image,
+  which confirmed the fault was not local to the original reporter ([#322](https://github.com/datadrivenconstruction/OpenConstructionERP/issues/322)).
+- **Temael Belzi** ([@Tigercatman](https://github.com/Tigercatman)): ten reports across
+  document management, the client portal, project archiving and coordination, including a
+  project that could not be found, model conversion failing, and notification titles and
+  bodies rendering incorrectly ([#271](https://github.com/datadrivenconstruction/OpenConstructionERP/issues/271), [#288](https://github.com/datadrivenconstruction/OpenConstructionERP/issues/288), [#361](https://github.com/datadrivenconstruction/OpenConstructionERP/issues/361)).
+- **darkleono** ([@darkleono](https://github.com/darkleono)): reported a migration that assumed
+  SQLite syntax and so crashed under PostgreSQL ([#295](https://github.com/datadrivenconstruction/OpenConstructionERP/issues/295)), a regional pack shipped without its
+  compliance entry in the contracts registry ([#305](https://github.com/datadrivenconstruction/OpenConstructionERP/issues/305)), two different words used for the same
+  document in Mexican Spanish ([#304](https://github.com/datadrivenconstruction/OpenConstructionERP/issues/304)), and header and widget overlap plus date timezone
+  shifts ([#293](https://github.com/datadrivenconstruction/OpenConstructionERP/issues/293), [#294](https://github.com/datadrivenconstruction/OpenConstructionERP/issues/294)).
+- **Mr.R** ([@Mr-OpenR](https://github.com/Mr-OpenR)): reported that the Files page failed on a
+  401 from the user preferences endpoint ([#340](https://github.com/datadrivenconstruction/OpenConstructionERP/issues/340)).
+- **Gerard T** ([@serviteur](https://github.com/serviteur)): proposed tracking the sixth,
+  seventh and eighth dimensions of a model and widening 3D ingestion to mesh formats ([#296](https://github.com/datadrivenconstruction/OpenConstructionERP/issues/296)).
+- **j209** ([@j209](https://github.com/j209)): reported a parsing error in the 3D viewer on a
+  sample mechanical model ([#291](https://github.com/datadrivenconstruction/OpenConstructionERP/issues/291)).
+- **MeCode4** ([@MeCode4](https://github.com/MeCode4)): reported that the dashboard failed on a
+  500 from the projects list endpoint ([#278](https://github.com/datadrivenconstruction/OpenConstructionERP/issues/278)).
+- **skeltic-wq** ([@skeltic-wq](https://github.com/skeltic-wq)): reported a network error on
+  the AI settings tab ([#244](https://github.com/datadrivenconstruction/OpenConstructionERP/issues/244)).
+- **Nebulasunrise-OG** ([@Nebulasunrise-OG](https://github.com/Nebulasunrise-OG)): asked for
+  inline preview of files referenced from transmittals, inspections and non-conformance
+  records, and for files to be linkable from further sections, both of which shipped in v9.2.0
+  ([#246](https://github.com/datadrivenconstruction/OpenConstructionERP/discussions/246)).
+
 See the full list of everyone who has contributed:
 
 https://github.com/datadrivenconstruction/OpenConstructionERP/graphs/contributors
