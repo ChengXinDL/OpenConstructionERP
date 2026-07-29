@@ -61,7 +61,11 @@ jobs:
       - name: Build frontend (single-server SPA)
         working-directory: frontend
         env:
-          NODE_OPTIONS: --max-old-space-size=6144
+          # The whole-program tsc pass stopped fitting in 6 GB once the locales
+          # grew, and every job here died in this step. Release and Desktop were
+          # raised to 8192 at the time and this workflow was missed, twice. 8192
+          # is the value with a green run behind it on all three runner OSes.
+          NODE_OPTIONS: --max-old-space-size=8192
         run: npm run build
 
       - name: Install backend (serves the built SPA + API on :8000)
