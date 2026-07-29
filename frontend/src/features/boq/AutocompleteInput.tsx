@@ -340,9 +340,13 @@ export function AutocompleteInput({
                   : 'hover:bg-surface-secondary'
               } ${idx > 0 ? 'border-t border-border-light' : ''}`}
             >
-              {/* Main content */}
+              {/* Main content. Structured catalogues (NPK, STLB/GAEB, BC3) share a
+                  long common prefix and put the discriminating words at the end, so
+                  a single truncated line renders near-identical entries identically.
+                  Two clamped lines keep that tail on screen; `title` still carries
+                  the full text for the rare description that overflows both. */}
               <div className="min-w-0 flex-1">
-                <p className="text-sm text-content-primary truncate">{item.description}</p>
+                <p className="text-sm text-content-primary line-clamp-2" title={item.description}>{item.description}</p>
                 <div className="mt-0.5 flex items-center gap-1.5">
                   <span className="text-2xs text-content-tertiary font-mono">{item.code}</span>
                   {item.classification && Object.keys(item.classification).length > 0 && (

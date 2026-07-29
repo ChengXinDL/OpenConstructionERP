@@ -258,9 +258,13 @@ export function AssemblyPickerModal({
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-sm font-semibold text-content-primary truncate">{asm.name}</span>
-                          <span className="text-2xs font-mono text-content-quaternary">{asm.code}</span>
+                        {/* Assembly names built from a catalogue share a long prefix and
+                            differ at the end, so one truncated line made near-identical
+                            recipes unpickable. Clamp to two lines and keep the code
+                            baseline-aligned with the first of them. */}
+                        <div className="flex items-baseline gap-2 mb-0.5">
+                          <span className="text-sm font-semibold text-content-primary line-clamp-2" title={asm.name}>{asm.name}</span>
+                          <span className="text-2xs font-mono text-content-quaternary shrink-0">{asm.code}</span>
                         </div>
                         <div className="flex items-center gap-2 text-xs text-content-tertiary">
                           <span className="inline-flex items-center gap-1 rounded bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-1.5 py-0.5 text-2xs font-medium">
