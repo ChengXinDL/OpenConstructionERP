@@ -139,8 +139,21 @@ setup: ## First-time setup: install backend + frontend dependencies
 	@echo "  Frontend: http://localhost:5173 (Vite dev server)"
 
 # ─── Quickstart (single command) ──────────────────────────────────────────
+# Building is optional. A failed build used to end at a raw compose error,
+# which left people stuck on a step they never had to run, so the failure
+# path now names the published image instead.
 quickstart: ## Start OpenEstimate (PostgreSQL + App) — zero config
-	$(DOCKER_COMPOSE) -f docker-compose.quickstart.yml up --build
+	@$(DOCKER_COMPOSE) -f docker-compose.quickstart.yml up --build || $(MAKE) --no-print-directory quickstart-build-failed
+
+quickstart-build-failed:
+	@echo ""
+	@echo "The local build did not finish. You do not have to build it:"
+	@echo ""
+	@echo "  make quickstart-image   the same stack, from the image we publish"
+	@echo ""
+	@echo "If you would rather we fixed the build, please open an issue with the"
+	@echo "output above and we will take a look."
+	@exit 1
 
 # Same stack, but the app comes from the image we publish on every release
 # instead of building the frontend here. `pull` is spelled out rather than left
