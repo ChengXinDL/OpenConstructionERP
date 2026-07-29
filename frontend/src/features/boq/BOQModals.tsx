@@ -31,6 +31,7 @@ import { apiGet, apiPost } from '@/shared/lib/api';
 import { getIntlLocale } from '@/shared/lib/formatters';
 import { useToastStore } from '@/stores/useToastStore';
 import { REGION_MAP } from '@/stores/useCostDatabaseStore';
+import { highlightMatch } from './highlightMatch';
 import { VariantPicker } from '@/features/costs/VariantPicker';
 import {
   MultiVariantPicker,
@@ -260,10 +261,12 @@ export function AssemblyPickerModal({
                       <div className="min-w-0 flex-1">
                         {/* Assembly names built from a catalogue share a long prefix and
                             differ at the end, so one truncated line made near-identical
-                            recipes unpickable. Clamp to two lines and keep the code
-                            baseline-aligned with the first of them. */}
+                            recipes unpickable. Clamp to two lines, keep the code
+                            baseline-aligned with the first of them, and mark the typed
+                            words so the reader sees which part of the name put this
+                            recipe in the list. */}
                         <div className="flex items-baseline gap-2 mb-0.5">
-                          <span className="text-sm font-semibold text-content-primary line-clamp-2" title={asm.name}>{asm.name}</span>
+                          <span className="text-sm font-semibold text-content-primary line-clamp-2" title={asm.name}>{highlightMatch(asm.name, search)}</span>
                           <span className="text-2xs font-mono text-content-quaternary shrink-0">{asm.code}</span>
                         </div>
                         <div className="flex items-center gap-2 text-xs text-content-tertiary">
