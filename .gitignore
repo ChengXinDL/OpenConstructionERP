@@ -101,6 +101,7 @@ data/exports/
 data/cwicr/cache/
 data/approvals/
 data/transmittals/
+data/geo_hub/
 data/tilesets/
 data/reports/
 data/takeoff_documents/
