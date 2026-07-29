@@ -45,6 +45,7 @@ import {
   type MeshFormat,
   type UnitCode,
 } from './loaders';
+import { isImplausibleBuildingSize, suggestUnitForExtent } from './formats';
 import {
   extractSceneMetrics,
   scaleExtraction,
@@ -53,6 +54,7 @@ import {
   type ExtractionResult,
   type UpAxis,
 } from './geometry';
+import { MeshPreview } from './MeshPreview';
 
 interface MeshImportDialogProps {
   projectId: string;
@@ -308,6 +310,26 @@ export default function MeshImportDialog({
   const allWatertight = !!totals && totals.watertightCount === totals.objectCount && totals.objectCount > 0;
   const boxDims = useMemo(() => (totals?.bbox ? deriveGeometry(totals.bbox) : null), [totals]);
 
+  // Wrong-unit detection. The preview shows orientation and proportion, but it
+  // cannot show scale: the grid adapts to the model, so a millimetre model and
+  // a metre model look identical and only the grid label differs. The signal
+  // that actually catches a wrong unit is the absolute size, because buildings
+  // occupy a narrow band of it. Anything under 0.3 m or over 500 m across is
+  // either not a building or not in the unit the dialog currently assumes.
+  const maxDimM = boxDims ? Math.max(boxDims.width, boxDims.depth, boxDims.height) : 0;
+  const scaleSuspect = hasObjects && isImplausibleBuildingSize(maxDimM);
+
+  // If some other unit would land the model inside that band, name it and offer
+  // it as one click - the point is to fix the mistake, not just report it.
+  const suggestedUnit = useMemo<UnitCode | null>(
+    () =>
+      scaleSuspect && unitScale > 0
+        ? // maxDimM / unitScale is the extent back in the file's own numbers.
+          suggestUnitForExtent(maxDimM / unitScale, unit, UNIT_CODES, UNIT_TO_METERS)
+        : null,
+    [scaleSuspect, maxDimM, unitScale, unit],
+  );
+
   const fmtNum = useCallback(
     (n: number, dp = 2): string =>
       n.toLocaleString(undefined, { maximumFractionDigits: dp, minimumFractionDigits: 0 }),
@@ -380,7 +402,7 @@ export default function MeshImportDialog({
       onClick={uploading ? undefined : onClose}
     >
       <div
-        className="bg-surface-primary rounded-xl shadow-2xl w-full max-w-lg flex flex-col border border-border-light max-h-[90vh]"
+        className="bg-surface-primary rounded-xl shadow-2xl w-full max-w-2xl flex flex-col border border-border-light max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -470,6 +492,45 @@ export default function MeshImportDialog({
                   </span>
                 </div>
               </div>
+
+              {/* Live viewport. Sits directly above the unit and up-axis
+                  controls because it exists to make those two choices
+                  visible: the model rebuilds under the same transform the
+                  import will bake in, against a grid labelled in metres. */}
+              {scene && <MeshPreview object={scene} upAxis={upAxis} unitScale={unitScale} />}
+
+              {/* The real wrong-unit check. Sits immediately above the unit
+                  control so the report and the fix are the same glance. */}
+              {scaleSuspect && (
+                <div className="rounded-lg border border-amber-300/50 bg-amber-50/60 dark:bg-amber-950/20 px-3 py-2 text-[11px] text-amber-700 dark:text-amber-300">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <span className="block">
+                        {t('bim.mesh_import.scale_suspect', {
+                          defaultValue:
+                            'At this unit the model is {{size}} m across, which is an unusual size for a building. Check the source unit before importing.',
+                          size: fmtNum(maxDimM, maxDimM < 1 ? 3 : 0),
+                        })}
+                      </span>
+                      {suggestedUnit && (
+                        <button
+                          type="button"
+                          onClick={() => setUnit(suggestedUnit)}
+                          className="underline underline-offset-2 font-semibold hover:no-underline"
+                        >
+                          {t('bim.mesh_import.scale_switch', {
+                            defaultValue: 'Switch to {{unit}}',
+                            unit: t(`bim.mesh_import.unit_${suggestedUnit}`, {
+                              defaultValue: UNIT_LABELS[suggestedUnit],
+                            }),
+                          })}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Unit + up-axis controls */}
               <div className="grid grid-cols-2 gap-3">

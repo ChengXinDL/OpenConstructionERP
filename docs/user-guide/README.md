@@ -15,22 +15,25 @@ You do not have to read them in order. The order below follows one common path: 
 3. [BIM to cost and carbon (5D and 6D)](./bim-to-cost-and-carbon.md)
    Turn a model into structured, priced quantities without native IFC parsing, track cost over time as 5D, and account for embodied and operational carbon as 6D.
 
-4. [World cost bases and multi-base comparison](./world-cost-bases.md)
+4. [Importing 3D models and mesh formats](./3d-model-formats.md)
+   Bring in OBJ, STL, DAE, FBX, 3DS and other mesh files through the in-browser importer, confirm scale and orientation against a live preview, and measure areas and volumes from geometry that carries no BIM data.
+
+5. [World cost bases and multi-base comparison](./world-cost-bases.md)
    Price the same scope against national cost databases, keep each currency honest, and see how a rate moves from one region to another.
 
-5. [The validation pipeline](./validation.md)
+6. [The validation pipeline](./validation.md)
    Run the traffic-light checks across imports and the estimate so problems surface early, with a quality score and a jump straight to the position that needs fixing.
 
-6. [Design options comparison](./design-options.md)
+7. [Design options comparison](./design-options.md)
    Load two or more design variants, give each its own priced BOQ, and compare them on total cost, by-trade differences and cost per square metre before you commit.
 
-7. [Tendering and bid comparison](./tendering-and-bids.md)
+8. [Tendering and bid comparison](./tendering-and-bids.md)
    Package priced scope, invite subcontractors, collect their bids, and compare them side by side to support an award.
 
-8. [Planning and cost control](./planning-and-cost-control.md)
+9. [Planning and cost control](./planning-and-cost-control.md)
    Schedule the work in 4D, track cost in 5D, and run earned value, forecasts, cash flow and change control as the job proceeds.
 
-9. [Field and site operations](./field-and-site.md)
+10. [Field and site operations](./field-and-site.md)
    Keep the daily diary, run inspections and safety, book deliveries, and build the contemporaneous record that protects the project.
 
 ## A note on AI features

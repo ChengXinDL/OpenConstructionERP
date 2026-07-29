@@ -58,3 +58,55 @@ export function meshFormatFromName(filename: string): MeshFormat | null {
 export function isMeshImportFile(filename: string): boolean {
   return meshFormatFromName(filename) !== null;
 }
+
+/* ── Source-unit plausibility ──────────────────────────────────────────────
+ *
+ * Mesh formats rarely record their unit, so the importer has to ask. The live
+ * preview cannot answer the question: the grid rescales with the model, so a
+ * millimetre model and a metre model are the same picture and only the legend
+ * differs. Scale has to be checked against a fixed outside reference instead,
+ * and the one available is how big buildings actually are.
+ *
+ * These live here rather than in the dialog so they can be tested without
+ * mounting a component or pulling in three.js.
+ */
+
+/**
+ * The band a real building's largest dimension falls into, in metres. Wide on
+ * purpose: it has to clear a site plan at the top and a single fitting at the
+ * bottom, so it fires only when the unit is off by a whole factor, which is
+ * the mistake worth catching. Both bounds are inclusive.
+ */
+export const PLAUSIBLE_MIN_M = 0.3;
+export const PLAUSIBLE_MAX_M = 500;
+
+/** True when a model's largest dimension is not a believable building size. */
+export function isImplausibleBuildingSize(maxDimM: number): boolean {
+  if (!Number.isFinite(maxDimM) || maxDimM <= 0) return false;
+  return maxDimM < PLAUSIBLE_MIN_M || maxDimM > PLAUSIBLE_MAX_M;
+}
+
+/**
+ * Find a unit that would put the model back inside the plausible band, or null
+ * when none does (which usually means the file is not a building at all).
+ *
+ * Generic over the unit code so this module keeps its no-dependency promise:
+ * the caller supplies the candidate order and the metres-per-unit table.
+ *
+ * @param sourceExtent Largest dimension in the file's own numbers, unscaled.
+ * @param current The unit already selected, never suggested back.
+ */
+export function suggestUnitForExtent<U extends string>(
+  sourceExtent: number,
+  current: U,
+  candidates: readonly U[],
+  toMetres: Readonly<Record<U, number>>,
+): U | null {
+  if (!Number.isFinite(sourceExtent) || sourceExtent <= 0) return null;
+  for (const unit of candidates) {
+    if (unit === current) continue;
+    const metres = sourceExtent * toMetres[unit];
+    if (metres >= PLAUSIBLE_MIN_M && metres <= PLAUSIBLE_MAX_M) return unit;
+  }
+  return null;
+}

@@ -1223,10 +1223,19 @@ async def upload_bim_data(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Direct CAD file upload (RVT, IFC, DWG, DGN, FBX, OBJ, 3DS)
+# Direct CAD file upload (RVT, IFC, DWG, DGN)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-_ALLOWED_CAD_EXTENSIONS = {".rvt", ".ifc", ".dwg", ".dgn", ".fbx", ".obj", ".3ds"}
+# The formats a server-side converter can actually turn into a canonical BIM
+# model. This set is also printed verbatim as the "Accepted:" list when an
+# upload is refused, so it has to be the truth rather than an aspiration.
+#
+# FBX, OBJ and 3DS used to sit here. They are geometry-only meshes, every
+# caller runs ``is_mesh_geometry_ext`` first and routes them to the in-browser
+# importer, so the three were unreachable - they could never be accepted, yet
+# the rejection message kept advertising them to the next person who uploaded
+# something else. See ``mesh_formats.py``.
+_ALLOWED_CAD_EXTENSIONS = {".rvt", ".ifc", ".dwg", ".dgn"}
 
 # Formats that require an external converter binary. IFC has a built-in
 # text fallback parser, so it's NOT in this set; XLSX/CSV go through a

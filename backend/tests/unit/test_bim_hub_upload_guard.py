@@ -16,7 +16,8 @@ and the normal-upload happy path in isolation. They assert that:
     3. an oversized geometry blob is rejected with 413 and no model is
        created (the guard fires before persistence),
     4. a normal CSV upload still converts to elements,
-    5. geometry is persisted from the on-disk temp path (never a RAM blob).
+    5. geometry is persisted from the on-disk temp path (never a RAM blob),
+    6. every extension the refusal message advertises can really be accepted.
 
 Mirrors the direct-handler patch style of
 ``test_documents_revision_folder_write_gate.py``.
@@ -37,6 +38,7 @@ from fastapi import BackgroundTasks, HTTPException, UploadFile
 import app.core.upload_guards as upload_guards
 from app.modules.bim_hub import file_storage as bim_file_storage
 from app.modules.bim_hub import router as bim_router
+from app.modules.bim_hub.mesh_formats import is_mesh_geometry_ext
 
 
 def _upload(data: bytes, filename: str) -> UploadFile:
@@ -170,3 +172,22 @@ async def test_geometry_persisted_from_temp_path() -> None:
     assert captured["exists"] is True  # temp file still on disk when storage is called
     assert captured["ext"] == ".glb"
     assert captured["size"] == len(geometry_bytes)
+
+
+def test_advertised_cad_extensions_are_all_reachable() -> None:
+    """No extension is named as accepted that the mesh guard refuses first.
+
+    Both upload paths run ``is_mesh_geometry_ext`` before consulting
+    ``_ALLOWED_CAD_EXTENSIONS``, and the refusal message is built by joining
+    that same set. An extension sitting in both is therefore unreachable: it
+    can never be accepted, yet it is still advertised as accepted to whoever
+    uploaded something else. FBX, OBJ and 3DS were in both for exactly that
+    reason, which sent people to the endpoint that cannot take them instead of
+    the in-browser importer that can.
+    """
+    assert bim_router._ALLOWED_CAD_EXTENSIONS, "the accepted list must not be empty"
+    for ext in bim_router._ALLOWED_CAD_EXTENSIONS:
+        assert not is_mesh_geometry_ext(ext), (
+            f"{ext} is advertised as convertible CAD, but the geometry-only mesh "
+            f"guard rejects it first, so no upload of it can ever be accepted"
+        )
