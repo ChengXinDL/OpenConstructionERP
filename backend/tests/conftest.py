@@ -235,6 +235,51 @@ _event_bus.publish_detached = _sync_publish_detached  # type: ignore[method-assi
 
 
 @pytest.fixture(autouse=True)
+def _drop_leaked_io_subscribers(request):
+    """Keep a leaked real-I/O subscriber from changing the publish regime.
+
+    ``_sync_publish_detached`` above picks its regime from what is on the bus:
+    with a real-I/O wildcard handler registered it schedules the publish on the
+    loop, and every pure recorder goes with it. That is correct for an
+    integration test, which starts the app and wants those handlers to run, and
+    wrong for a unit test, which subscribes a recorder and asserts on it on the
+    very next line with no await in between.
+
+    Nothing removes those handlers once registered. So a single test that
+    subscribed one and did not unsubscribe silently flipped every unit test that
+    ran after it onto the loop regime, and they failed on an empty recorder in
+    an unrelated module, hundreds of tests away from the cause and green again
+    the moment that file was run on its own. ``test_dashboards_t01_service.py``
+    was the one that surfaced it, on ``assert 'snapshot.created' in []``.
+
+    Unit tests never start the app, so for them these handlers are always
+    leakage. Pull them off for the duration of the test and put them back at the
+    same index afterwards, which leaves integration tests untouched.
+
+    Note this only removes; it deliberately does not step or cancel anything.
+    Half-stepping a handler that has begun real asyncpg I/O corrupts the
+    connection, which is the failure mode the regime split exists to avoid.
+    """
+    path = str(getattr(request.node, "fspath", "")).replace("\\", "/")
+    if "/tests/unit/" not in path:
+        yield
+        return
+
+    leaked = [
+        (i, h)
+        for i, h in enumerate(_event_bus._wildcard_handlers)
+        if getattr(h, "__name__", "") in _ASYNC_IO_EVENT_HANDLERS
+    ]
+    for i, _h in reversed(leaked):
+        del _event_bus._wildcard_handlers[i]
+    try:
+        yield
+    finally:
+        for i, h in leaked:
+            _event_bus._wildcard_handlers.insert(i, h)
+
+
+@pytest.fixture(autouse=True)
 def _keep_validation_rules_registered():
     """Guard the process-global validation registry against cross-test pollution.
 
