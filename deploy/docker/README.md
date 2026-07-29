@@ -45,7 +45,16 @@ Second is `.mjs` module workers. The PDF takeoff viewer loads pdf.js as an ES mo
 
 Third is WebSocket upgrades. Live notifications and collaborative-lock presence run over WebSockets at `/api/v1/notifications/ws` and `/api/v1/collaboration_locks/presence`. Those routes need the HTTP/1.1 Upgrade handshake and long read timeouts, so they get their own proxy block placed ahead of the general `/api/` block. The WebSocket clients carry the JWT in a `?token=` query parameter, which is why that block forwards the original path and query string untouched.
 
-If real-time features stop working or the takeoff viewer comes up blank behind your own proxy, start your troubleshooting with these three settings.
+Fourth is the allowed origin, and unlike the three above it is a setting on the app rather than on the proxy. The browser sends the address the user typed, so once the app answers on `https://erp.example.com` that host name has to appear in `ALLOWED_ORIGINS` or every API call after the page loads is refused. The refusal comes from the browser, which means the server log stays clean and the symptom is a blank screen rather than an error, so it is worth setting before you go looking for anything else. In the quickstart stack the variable is `OE_ALLOWED_ORIGINS`:
+
+```bash
+OE_BIND=127.0.0.1 OE_ALLOWED_ORIGINS=https://erp.example.com \
+  docker compose -f docker-compose.quickstart.yml up -d
+```
+
+`OE_BIND=127.0.0.1` is worth pairing with it. It keeps the container on loopback so the only route in is through the proxy, instead of leaving port 8080 answering on the public interface next to the TLS you just set up. The app does not terminate TLS itself and is not intended to; 443 belongs to the proxy.
+
+If real-time features stop working or the takeoff viewer comes up blank behind your own proxy, start your troubleshooting with these four settings.
 
 ## Health endpoint
 

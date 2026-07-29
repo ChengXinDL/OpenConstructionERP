@@ -56,7 +56,16 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "8080:8080"
+      # Where the app is published on the host. The defaults are what a first
+      # run wants: every interface, port 8080. Behind a TLS terminator you
+      # generally want the opposite, so that the only way in is through the
+      # proxy:
+      #
+      #   OE_BIND=127.0.0.1 docker compose -f docker-compose.quickstart.yml up -d
+      #
+      # then point the proxy for your host name at 127.0.0.1:8080. The app does
+      # not terminate TLS itself and is not meant to; 443 belongs to the proxy.
+      - "${OE_BIND:-0.0.0.0}:${OE_PORT:-8080}:8080"
     environment:
       # PostgreSQL connection - required, the image has no database default
       DATABASE_URL: postgresql+asyncpg://oe:${POSTGRES_PASSWORD}@postgres:5432/openestimate
@@ -65,7 +74,17 @@ services:
       JWT_SECRET: "${JWT_SECRET:?JWT_SECRET must be set - generate with: openssl rand -hex 32}"
       # Frontend serving
       SERVE_FRONTEND: "true"
-      ALLOWED_ORIGINS: "http://localhost:8080,http://localhost"
+      # The addresses a browser is allowed to call the API from. Serving the
+      # app on a host name means adding that host name here, because the
+      # browser sends the public origin and not the one the container sees:
+      #
+      #   OE_ALLOWED_ORIGINS=https://erp.example.com
+      #
+      # Getting this wrong is quiet in a confusing way. The page loads and the
+      # login form works, and then the first call after it is refused by the
+      # browser rather than by us, so the failure shows up as an empty screen
+      # with nothing in the server log.
+      ALLOWED_ORIGINS: "${OE_ALLOWED_ORIGINS:-http://localhost:8080,http://localhost}"
       # Persistent data dir - pins the unified resolver at the /data volume
       # below so BIM geometry survives container recreate (otherwise the
       # resolver defaults to ~/.openestimate in the ephemeral container layer).
