@@ -65,6 +65,33 @@ from app.dependencies import RequireRole, get_current_user_id, rls_request_conte
 logger = logging.getLogger(__name__)
 
 
+def _database_target() -> str:
+    """Describe where the database connection was aimed, without the password.
+
+    A name-resolution failure reports only what the resolver was handed, so
+    ``[Errno -2] Name or service not known`` arrives naming nothing the
+    operator can check. The host *as parsed* is the useful thing to print: a
+    password containing ``@`` moves the split point in the URL's userinfo, so
+    ``oe:pa@ss@postgres`` parses its host as ``ss@postgres``, which resolves
+    nowhere. That is visible on sight here and invisible everywhere else.
+
+    Never renders the password. Returns an empty string if anything at all
+    goes wrong, because this only ever runs on a failure path.
+    """
+    try:
+        from sqlalchemy.engine import make_url
+
+        url = make_url(get_settings().database_url)
+        target = url.host or "(no host)"
+        if url.port:
+            target = f"{target}:{url.port}"
+        if url.database:
+            target = f"{target}/{url.database}"
+        return target[:80]
+    except Exception:  # noqa: BLE001 - diagnostics must never mask the real error
+        return ""
+
+
 def _emit_server_fail(exc: BaseException) -> None:
     """Report a fatal startup failure as a machine-readable marker plus a log.
 
@@ -84,6 +111,11 @@ def _emit_server_fail(exc: BaseException) -> None:
         reason = f"{type(exc).__name__}: {exc}".replace("\n", " ").replace("\r", " ").strip()
         if len(reason) > 180:
             reason = reason[:177] + "..."
+        # Neutral label rather than a diagnosis: this runs for every fatal
+        # startup failure, including ones the database had nothing to do with.
+        target = _database_target()
+        if target:
+            reason = f"{reason} | db={target}"
         from app.core.embedded_pg import emit_stage
 
         emit_stage("server", "fail", reason)

@@ -24,8 +24,16 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-oe}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-openestimate}
-      DATABASE_SYNC_URL: postgresql://${POSTGRES_USER:-oe}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-openestimate}
+      # Parts, not a finished URL. Compose has no urlencode, so interpolating
+      # the password into a URL here breaks for any password containing "@":
+      # the user info splits at the first one and the host is read as whatever
+      # follows it. The entrypoint composes and percent-encodes these, and a
+      # DATABASE_URL set directly still overrides them.
+      OE_DB_HOST: postgres
+      OE_DB_PORT: "5432"
+      OE_DB_USER: ${POSTGRES_USER:-oe}
+      OE_DB_NAME: ${POSTGRES_DB:-openestimate}
+      OE_DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
       REDIS_URL: ${REDIS_URL:-}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}

@@ -596,6 +596,40 @@ class Settings(BaseSettings):
         return _canonicalize_db_url(value, driver="psycopg2")
 
     @model_validator(mode="after")
+    def _compose_db_url_from_parts(self) -> "Settings":
+        """Build the database URL from its parts when none was supplied whole.
+
+        A URL assembled by string interpolation is wrong for any password
+        containing ``@``: the user info is split at the first one, so
+        ``oe:pa@ss@postgres`` is read as user ``oe``, password ``pa`` and host
+        ``ss@postgres``, which resolves nowhere. The container then dies naming
+        a host nobody typed, while PostgreSQL stays healthy on the same
+        password because it receives it as a plain environment variable.
+
+        Compose files have no urlencode, so they cannot fix this themselves.
+        Accepting the parts here does, for every image and every deployment
+        rather than only the ones that run the shell entrypoint. Supplying
+        ``DATABASE_URL`` directly still wins: this only fills a blank.
+        """
+        if self.database_url.strip() or self.database_sync_url.strip():
+            return self
+        password = os.environ.get("OE_DB_PASSWORD", "")
+        if not password:
+            return self
+        from urllib.parse import quote
+
+        authority = (
+            f"{quote(os.environ.get('OE_DB_USER', 'oe'), safe='')}"
+            f":{quote(password, safe='')}"
+            f"@{os.environ.get('OE_DB_HOST', 'postgres')}"
+            f":{os.environ.get('OE_DB_PORT', '5432')}"
+            f"/{os.environ.get('OE_DB_NAME', 'openestimate')}"
+        )
+        self.database_url = f"postgresql+asyncpg://{authority}"
+        self.database_sync_url = f"postgresql://{authority}"
+        return self
+
+    @model_validator(mode="after")
     def _cross_fill_db_urls(self) -> "Settings":
         """Derive the missing async/sync DB URL when only one is supplied.
 

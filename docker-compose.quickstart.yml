@@ -67,9 +67,18 @@ services:
       # not terminate TLS itself and is not meant to; 443 belongs to the proxy.
       - "${OE_BIND:-0.0.0.0}:${OE_PORT:-8080}:8080"
     environment:
-      # PostgreSQL connection - required, the image has no database default
-      DATABASE_URL: postgresql+asyncpg://oe:${POSTGRES_PASSWORD}@postgres:5432/openestimate
-      DATABASE_SYNC_URL: postgresql://oe:${POSTGRES_PASSWORD}@postgres:5432/openestimate
+      # PostgreSQL connection - required, the image has no database default.
+      # The parts are passed rather than a finished URL. Compose has no
+      # urlencode, so interpolating the password straight into a URL breaks
+      # for anyone whose password contains "@": the user info splits at the
+      # first one and the host silently becomes something like "ss@postgres",
+      # which resolves nowhere. The entrypoint composes and percent-encodes
+      # these. Setting DATABASE_URL directly still overrides all of it.
+      OE_DB_HOST: postgres
+      OE_DB_PORT: "5432"
+      OE_DB_USER: oe
+      OE_DB_NAME: openestimate
+      OE_DB_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set - generate with: openssl rand -base64 24}"
       # Security - required, no default. Compose fails fast if blank.
       JWT_SECRET: "${JWT_SECRET:?JWT_SECRET must be set - generate with: openssl rand -hex 32}"
       # Frontend serving
