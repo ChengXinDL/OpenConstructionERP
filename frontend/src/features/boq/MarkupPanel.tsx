@@ -370,13 +370,19 @@ export function MarkupPanel({ boqId, markups, directCost, currencySymbol, curren
                         key={markup.id}
                         data-markup-id={markup.id}
                         className={clsx(
-                          'border-b border-border-light last:border-b-0 transition-colors',
+                          'group border-b border-border-light last:border-b-0 transition-colors',
                           !markup.is_active && 'opacity-50',
                           'hover:bg-surface-secondary/30',
                         )}
                       >
-                        {/* Grip */}
-                        <td className="px-2 py-2 text-content-quaternary">
+                        {/* Grip. Rests at `secondary`, the same step the assembly
+                            editor settled on: quaternary and tertiary are three
+                            hex units apart per channel in both themes, so a grip
+                            resting at either one is a grey the user never sees. */}
+                        <td
+                          data-testid="markup-drag-grip"
+                          className="px-2 py-2 text-content-secondary group-hover:text-content-primary transition-colors"
+                        >
                           <GripVertical size={14} className="cursor-grab" />
                         </td>
 

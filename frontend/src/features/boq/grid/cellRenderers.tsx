@@ -244,8 +244,16 @@ export function SectionFullWidthRenderer(params: ICellRendererParams) {
         }
       }}
     >
-      <span className="cursor-grab opacity-40 group-hover/section:opacity-80 shrink-0 transition-opacity">
-        <GripVertical size={14} className="text-content-tertiary" />
+      {/* Drag handle. Rests at `secondary` like the assembly editor's, and the
+          resting opacity is gone with it: dimming a token to 40% undoes the
+          contrast the token was chosen for, so the class would have read as
+          fixed while the grip stayed invisible. The step on hover is colour
+          now, not opacity. */}
+      <span
+        data-testid="section-drag-grip"
+        className="cursor-grab shrink-0 text-content-secondary group-hover/section:text-content-primary transition-colors"
+      >
+        <GripVertical size={14} />
       </span>
 
       <button
