@@ -11364,7 +11364,7 @@ const resource = {
     "files.bulk.delete_all_failed": "Geen van de {{count}} geselecteerde bestanden kon worden verwijderd.",
     "files.bulk.delete_partial": "{{deleted}} van {{total}} verwijderd",
     "files.bulk.delete_partial_detail": "{{failed}} bestand(en) kon(den) niet worden verwijderd.",
-    "onboarding.mode_simple_desc": "Ik begin net, toon me de essentials. Een overzichtelijke interface met de belangrijkste functies.",
+    "onboarding.mode_simple_desc": "Ik begin net, toon me de basis. Een overzichtelijke interface met de belangrijkste functies.",
     "onboarding.mode_advanced_desc": "Ik ben ervaren, toon me alles. Volledig professioneel gereedschap met alle opties zichtbaar.",
     "project_intelligence.ai.cost_advisor_title": "Kostenintelligentie-adviseur",
     "project_intelligence.ai_not_configured_desc": "Verbind een AI-provider (Anthropic Claude, OpenAI of Google Gemini) voor gepersonaliseerde, contextbewuste aanbevelingen voor uw project. Zonder AI ziet u hieronder nog steeds regelgebaseerde analyses.",

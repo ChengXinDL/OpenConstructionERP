@@ -11475,7 +11475,7 @@ const resource = {
     "files.bulk.delete_partial": "{{deleted}} di {{total}} eliminati",
     "files.bulk.delete_partial_detail": "{{failed}} file non potevano essere eliminati.",
     "onboarding.mode_simple_desc": "Sto iniziando, mostrami l'essenziale. Interfaccia pulita con le funzioni più importanti.",
-    "onboarding.mode_advanced_desc": "Sono esperto, mostrami tutto. Toolset professionale completo con tutte le opzioni visibili.",
+    "onboarding.mode_advanced_desc": "Sono esperto, mostrami tutto. Set di strumenti professionale completo con tutte le opzioni visibili.",
     "project_intelligence.ai.cost_advisor_title": "Consulente di analisi costi AI",
     "project_intelligence.ai_not_configured_desc": "Collega un provider AI (Anthropic Claude, OpenAI o Google Gemini) per ottenere raccomandazioni personalizzate e contestuali per il tuo progetto. Senza AI, sono disponibili le analisi basate su regole qui sotto.",
     "project_intelligence.ai_not_configured_title": "Provider AI non connesso",

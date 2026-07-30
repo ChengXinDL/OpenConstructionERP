@@ -10482,7 +10482,7 @@ const resource = {
     "onboarding.mode_title": "Välj gränssnittsläge",
     "onboarding.mode_subtitle": "Du kan byta läge när som helst i Inställningar.",
     "onboarding.mode_simple": "Enkel",
-    "onboarding.mode_simple_desc": "Jag håller på att lära mig, visa mig det viktigaste. Ett rent gränssnitt med de mest använda funktionerna.",
+    "onboarding.mode_simple_desc": "Jag håller på att lära mig, visa mig grunderna. Ett rent gränssnitt med de viktigaste funktionerna.",
     "onboarding.mode_advanced": "Avancerad",
     "onboarding.mode_advanced_desc": "Jag är erfaren, visa mig allt. Fullt professionellt verktygsset med alla alternativ synliga.",
     "onboarding.summary_company": "Företagstyp",
