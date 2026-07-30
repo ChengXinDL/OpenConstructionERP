@@ -196,7 +196,13 @@ class Position(Base):
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
     # Relationships
-    boq: Mapped[BOQ] = relationship(back_populates="positions")
+    # ``raise_on_sql``: the FK is already on this row, so walking back up to the
+    # BOQ implicitly only ever costs a query. Every current reader orders it
+    # explicitly (see ``events.py`` and ``router.py``, both
+    # ``selectinload(Position.boq).noload(...)``); this makes the next one that
+    # forgets fail here by name instead of as a MissingGreenlet further down.
+    # Reads stay free when the parent collection already back-populated it.
+    boq: Mapped[BOQ] = relationship(back_populates="positions", lazy="raise_on_sql")
     children: Mapped[list["Position"]] = relationship(
         back_populates="parent",
         cascade="all, delete-orphan",
@@ -263,7 +269,10 @@ class BOQMarkup(Base):
     )
 
     # Relationships
-    boq: Mapped[BOQ] = relationship(back_populates="markups")
+    # ``raise_on_sql`` for the same reason as ``Position.boq``: the FK is on the
+    # row, nothing reads this attribute today, and an implicit walk upwards is
+    # exactly the shape that crashes on an identity-map hit.
+    boq: Mapped[BOQ] = relationship(back_populates="markups", lazy="raise_on_sql")
 
     def __repr__(self) -> str:
         return f"<BOQMarkup {self.name} ({self.markup_type}: {self.percentage}%)>"
