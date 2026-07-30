@@ -13,11 +13,33 @@ This is a ratchet, not a clean gate: the tree still carries the entries in
 default-lazy relationship fails the test; converting one and forgetting to
 delete its line also fails, so the backlog cannot silently stall.
 
-Strategy choice is documented in ``.claude/rules/backend-modules.md``. Short
-version: collections that are the parent's reason to exist get ``selectin``,
-``child.parent`` back-references get ``raise_on_sql``, and ``noload`` is not a
-safe middle (it answers empty instead of raising) so it does not belong in new
-code either.
+Which strategy to pick:
+
+===============================================  ===============
+Relationship                                     Strategy
+===============================================  ===============
+Collection the parent is defined by              ``selectin``
+Collection that may be large or is rarely read   ``raise_on_sql``
+Scalar ``child.parent`` back-reference           ``raise_on_sql``
+Self-reference                                   ``selectin`` down, ``raise_on_sql`` up
+===============================================  ===============
+
+``raise_on_sql`` rather than ``raise``: plain ``raise`` throws even when the
+attribute is already populated, for instance when ``back_populates`` filled it
+while loading the parent's collection, so it breaks code that works today.
+``raise_on_sql`` permits that free read and only objects when SQL would be
+emitted. ``joined`` is not used, it multiplies parent rows across a collection.
+``noload`` is not a safe middle either: it answers empty instead of raising,
+which is a silent wrong result rather than an error.
+
+Two results worth not rediscovering. Neither ``raise`` nor ``raise_on_sql``
+breaks ``delete-orphan`` cascade, because ``session.delete()`` loads the
+collection through a path they do not intercept. And a green test run does not
+verify a strategy change: the boq PG lane passed all 47 tests with the
+strictest ``raise`` on ``Position.boq``, because it never walks that
+relationship. Before converting a module, grep the readers of the attribute and
+confirm each already orders it eager; if you want a real gate, write a test that
+touches the relationship and watch it fail under ``raise`` first.
 """
 
 from __future__ import annotations
@@ -161,8 +183,8 @@ def test_no_new_default_lazy_relationship() -> None:
     assert not added, (
         "These relationships have no explicit lazy= strategy:\n  "
         + "\n  ".join(added)
-        + "\n\nPick one per .claude/rules/backend-modules.md: selectin for a "
-        "collection the parent is defined by, raise_on_sql for a child.parent "
+        + "\n\nPick one per the table in this module's docstring: selectin for "
+        "a collection the parent is defined by, raise_on_sql for a child.parent "
         "back-reference. Do not add them to KNOWN_DEFAULT_LAZY."
     )
 
