@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
 import { forwardRef, type InputHTMLAttributes, type ReactNode } from 'react';
 import clsx from 'clsx';
+import { AUTOCOMPLETE_OFF, isValidAutocomplete } from './autocompleteToken';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -20,6 +21,34 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
   ) => {
     const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
     const hasError = Boolean(error);
+
+    /* Issue #407 — a field with no name, no id and no autocomplete gets grouped
+       page-wide by the browser's autofill heuristics, and a saved credit card
+       was offered over a BOQ chapter name. Two things settle it together, and
+       neither is sufficient alone: a stable identity for the field, and an
+       explicit autocomplete value. `off` on its own is routinely overridden on
+       a field the browser has decided is a payment or address field, which is
+       why `name` falls back to the id here rather than being left empty.
+
+       A caller that wants real autofill passes a real token and gets it. What
+       it must not do is invent one: an unparseable value does not disable
+       anything, it reads as `on` and hands the field back to the heuristics.
+       The dev-only warning below exists because that failure is invisible,
+       both in review and at runtime. */
+    const autoComplete = props.autoComplete ?? AUTOCOMPLETE_OFF;
+    if (
+      import.meta.env.DEV &&
+      props.autoComplete !== undefined &&
+      !isValidAutocomplete(props.autoComplete)
+    ) {
+      console.warn(
+        `[Input] autoComplete="${props.autoComplete}" is not a value any browser parses, ` +
+          'so the field falls back to autofill heuristics. Use a token from the HTML ' +
+          'autofill grammar, or "off".',
+        { id: inputId, name: props.name },
+      );
+    }
+    const identity = { autoComplete, name: props.name ?? inputId };
 
     /* Static label variant (original behavior, enhanced with transition) */
     if (!floatingLabel || !label) {
@@ -61,6 +90,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
                 hasError ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined
               }
               {...props}
+              {...identity}
             />
             {suffix && (
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 text-content-tertiary transition-colors duration-fast ease-oe group-focus-within:text-oe-blue">
@@ -118,6 +148,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
               hasError ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined
             }
             {...props}
+            {...identity}
           />
           <label
             htmlFor={inputId}

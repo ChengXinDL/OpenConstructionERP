@@ -217,6 +217,9 @@ export function AssemblyPickerModal({
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-content-quaternary" />
             <input
               type="text"
+              id="boq-assembly-search"
+              name="boq-assembly-search"
+              autoComplete="off"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('assemblies.search_placeholder', { defaultValue: 'Search assemblies...' })}
@@ -1738,6 +1741,9 @@ export function CostDatabaseSearchModal({
                 <input
                   autoFocus
                   type="text"
+                  id="boq-cost-item-search"
+                  name="boq-cost-item-search"
+                  autoComplete="off"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={t('boq.search_cost_items', { defaultValue: 'Search cost items by description...' })}

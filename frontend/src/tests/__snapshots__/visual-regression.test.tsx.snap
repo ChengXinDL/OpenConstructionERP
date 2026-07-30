@@ -5447,8 +5447,10 @@ exports[`Visual Regression - Input > default input with label 1`] = `
     >
       <input
         aria-invalid="false"
+        autocomplete="off"
         class="h-9 w-full rounded-lg border bg-surface-primary px-3 text-sm text-content-primary placeholder:text-content-tertiary transition-all duration-normal ease-oe focus:outline-none focus:ring-2 focus:ring-oe-blue/30 focus:border-oe-blue focus:shadow-[0_0_0_4px_rgba(0,113,227,0.08)] border-border hover:border-content-tertiary"
         id="project-name"
+        name="project-name"
         placeholder="Enter project name"
       />
     </div>
@@ -5472,9 +5474,11 @@ exports[`Visual Regression - Input > disabled input 1`] = `
     >
       <input
         aria-invalid="false"
+        autocomplete="off"
         class="h-9 w-full rounded-lg border bg-surface-primary px-3 text-sm text-content-primary placeholder:text-content-tertiary transition-all duration-normal ease-oe focus:outline-none focus:ring-2 focus:ring-oe-blue/30 focus:border-oe-blue focus:shadow-[0_0_0_4px_rgba(0,113,227,0.08)] border-border hover:border-content-tertiary opacity-40 cursor-not-allowed bg-surface-secondary"
         disabled=""
         id="read-only"
+        name="read-only"
         value="Fixed value"
       />
     </div>
@@ -5499,8 +5503,10 @@ exports[`Visual Regression - Input > input with error state 1`] = `
       <input
         aria-describedby="email-error"
         aria-invalid="true"
+        autocomplete="off"
         class="h-9 w-full rounded-lg border bg-surface-primary px-3 text-sm text-content-primary placeholder:text-content-tertiary transition-all duration-normal ease-oe focus:outline-none focus:ring-2 focus:ring-oe-blue/30 focus:border-oe-blue focus:shadow-[0_0_0_4px_rgba(0,113,227,0.08)] border-semantic-error focus:ring-semantic-error/30 focus:border-semantic-error focus:shadow-[0_0_0_4px_rgba(255,59,48,0.08)]"
         id="email"
+        name="email"
         type="email"
       />
     </div>
@@ -5532,8 +5538,10 @@ exports[`Visual Regression - Input > input with hint 1`] = `
       <input
         aria-describedby="password-hint"
         aria-invalid="false"
+        autocomplete="off"
         class="h-9 w-full rounded-lg border bg-surface-primary px-3 text-sm text-content-primary placeholder:text-content-tertiary transition-all duration-normal ease-oe focus:outline-none focus:ring-2 focus:ring-oe-blue/30 focus:border-oe-blue focus:shadow-[0_0_0_4px_rgba(0,113,227,0.08)] border-border hover:border-content-tertiary"
         id="password"
+        name="password"
         type="password"
       />
     </div>
@@ -5570,8 +5578,10 @@ exports[`Visual Regression - Input > input with icon 1`] = `
       </div>
       <input
         aria-invalid="false"
+        autocomplete="off"
         class="h-9 w-full rounded-lg border bg-surface-primary px-3 text-sm text-content-primary placeholder:text-content-tertiary transition-all duration-normal ease-oe focus:outline-none focus:ring-2 focus:ring-oe-blue/30 focus:border-oe-blue focus:shadow-[0_0_0_4px_rgba(0,113,227,0.08)] pl-10 border-border hover:border-content-tertiary"
         id="search"
+        name="search"
         placeholder="Search..."
       />
     </div>

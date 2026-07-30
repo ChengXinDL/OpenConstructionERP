@@ -159,6 +159,9 @@ export function ScenarioDialog({ boqId, baseName, isOpen, onClose, onCreated }: 
             <input
               autoFocus
               type="text"
+              id="boq-scenario-name"
+              name="boq-scenario-name"
+              autoComplete="off"
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="mt-1 w-full h-9 rounded-md border border-border bg-surface-primary px-3 text-sm text-content-primary focus:outline-none focus:ring-2 focus:ring-oe-blue/30"
@@ -173,6 +176,9 @@ export function ScenarioDialog({ boqId, baseName, isOpen, onClose, onCreated }: 
             <input
               type="text"
               inputMode="decimal"
+              id="boq-scenario-pct"
+              name="boq-scenario-pct"
+              autoComplete="off"
               value={pct}
               onChange={(e) => setPct(e.target.value)}
               placeholder="0"
@@ -206,6 +212,9 @@ export function ScenarioDialog({ boqId, baseName, isOpen, onClose, onCreated }: 
               </span>
               <input
                 type="text"
+                id="boq-scenario-region"
+                name="boq-scenario-region"
+                autoComplete="off"
                 value={region}
                 onChange={(e) => setRegion(e.target.value)}
                 placeholder={t('boq.scenario_region_ph', { defaultValue: 'e.g. Berlin' })}
@@ -219,6 +228,9 @@ export function ScenarioDialog({ boqId, baseName, isOpen, onClose, onCreated }: 
               </span>
               <input
                 type="text"
+                id="boq-scenario-note"
+                name="boq-scenario-note"
+                autoComplete="off"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder={t('boq.scenario_note_ph', { defaultValue: 'What are you testing?' })}
