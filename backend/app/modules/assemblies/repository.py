@@ -9,11 +9,12 @@ No business logic - pure data access.
 import logging
 import uuid
 
-from sqlalchemy import String, delete, func, or_, select, update
+from sqlalchemy import String, delete, func, select, update
 from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import noload, selectinload
 
+from app.core.text_search import free_text_filter
 from app.modules.assemblies.models import Assembly, AssemblyTemplate, Component
 
 logger = logging.getLogger(__name__)
@@ -82,10 +83,14 @@ class AssemblyRepository:
             base = base.where(Assembly.owner_id == owner_id)
 
         if q:
-            pattern = f"%{q}%"
-            base = base.where(
-                Assembly.code.ilike(pattern) | Assembly.name.ilike(pattern) | Assembly.description.ilike(pattern)
-            )
+            # Every typed term has to turn up somewhere in the row, accents
+            # folded on both sides. A single ILIKE on the whole query missed
+            # the entries an estimator is actually trying to tell apart, since
+            # the words that distinguish them are separated in the stored text
+            # by words nobody types. See app.core.text_search.
+            clause = free_text_filter(q, [Assembly.code, Assembly.name, Assembly.description])
+            if clause is not None:
+                base = base.where(clause)
 
         if category:
             base = base.where(Assembly.category == category)
@@ -258,14 +263,16 @@ class AssemblyTemplateRepository:
         base = select(AssemblyTemplate)
 
         if q:
-            pattern = f"%{q.strip()}%"
-            base = base.where(
-                or_(
-                    AssemblyTemplate.name.ilike(pattern),
-                    AssemblyTemplate.name_translations.cast(String).ilike(pattern),
-                    AssemblyTemplate.tags.cast(String).ilike(pattern),
-                )
+            clause = free_text_filter(
+                q,
+                [
+                    AssemblyTemplate.name,
+                    AssemblyTemplate.name_translations.cast(String),
+                    AssemblyTemplate.tags.cast(String),
+                ],
             )
+            if clause is not None:
+                base = base.where(clause)
 
         if category:
             base = base.where(AssemblyTemplate.category == category)
