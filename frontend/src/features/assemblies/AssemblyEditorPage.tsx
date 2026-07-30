@@ -23,6 +23,7 @@ import {
   Briefcase,
   Boxes,
   ChevronDown,
+  ChevronUp,
   Info,
   Play,
 } from 'lucide-react';
@@ -637,6 +638,9 @@ export function AssemblyEditorPage() {
                     setDragOverIdx(null);
                   }}
                   onDragLeave={() => setDragOverIdx(null)}
+                  onMove={(delta) => handleDragEnd(idx, idx + delta)}
+                  canMoveUp={idx > 0}
+                  canMoveDown={idx < components.length - 1}
                   onUpdate={(data) =>
                     updateComponentMutation.mutate({
                       componentId: component.id,
@@ -997,6 +1001,9 @@ export function ComponentRow({
   onDragOver,
   onDragEnd,
   onDragLeave,
+  onMove,
+  canMoveUp = false,
+  canMoveDown = false,
   onUpdate,
   onDelete,
   fmt,
@@ -1007,6 +1014,17 @@ export function ComponentRow({
   onDragOver: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   onDragLeave: () => void;
+  /**
+   * Move this row one place up (-1) or down (+1).
+   *
+   * HTML5 drag and drop does not fire on touch, so on a tablet on site the
+   * rows above could not be reordered at all: the grip was visible, draggable
+   * was set, and nothing happened. This is the path that does not go through
+   * the drag API, which also makes the list reorderable from the keyboard.
+   */
+  onMove?: (delta: -1 | 1) => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
   onUpdate: (data: Partial<CreateComponentData>) => void;
   onDelete: () => void;
   fmt: (n: number) => string;
@@ -1065,11 +1083,38 @@ export function ComponentRow({
           themes (#696c78 vs #666b78 light, #8b8e9d vs #9499a8 dark), so the old
           resting colour and its hover step were the same grey to the eye. */}
       <td className="px-1 py-2.5 cursor-grab active:cursor-grabbing">
-        <div
-          className="flex items-center justify-center text-content-secondary group-hover:text-content-primary transition-colors"
-          title={t('assemblies.drag_to_reorder', { defaultValue: 'Drag to reorder' })}
-        >
-          <GripVertical size={16} />
+        <div className="flex flex-col items-center gap-0.5">
+          {/* The two buttons are always rendered, never hover-revealed. A
+              touch device has no hover, and this is the only reorder path it
+              has, so hiding them until hover would hide the whole feature on
+              exactly the device that needs it. They are sized for a fingertip
+              and kept quiet at rest so they do not shout on the desktop. */}
+          <button
+            type="button"
+            onClick={() => onMove?.(-1)}
+            disabled={!onMove || !canMoveUp}
+            aria-label={t('common.move_up', { defaultValue: 'Move up' })}
+            data-testid="component-move-up"
+            className="flex h-5 w-6 items-center justify-center rounded text-content-tertiary hover:bg-surface-secondary hover:text-content-primary disabled:pointer-events-none disabled:opacity-30"
+          >
+            <ChevronUp size={13} aria-hidden="true" />
+          </button>
+          <div
+            className="flex items-center justify-center text-content-secondary group-hover:text-content-primary transition-colors"
+            title={t('assemblies.drag_to_reorder', { defaultValue: 'Drag to reorder' })}
+          >
+            <GripVertical size={16} />
+          </div>
+          <button
+            type="button"
+            onClick={() => onMove?.(1)}
+            disabled={!onMove || !canMoveDown}
+            aria-label={t('common.move_down', { defaultValue: 'Move down' })}
+            data-testid="component-move-down"
+            className="flex h-5 w-6 items-center justify-center rounded text-content-tertiary hover:bg-surface-secondary hover:text-content-primary disabled:pointer-events-none disabled:opacity-30"
+          >
+            <ChevronDown size={13} aria-hidden="true" />
+          </button>
         </div>
       </td>
 
