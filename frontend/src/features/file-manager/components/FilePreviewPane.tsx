@@ -20,7 +20,7 @@ import { isTauri, openInOSFinder, copyToClipboard } from '../lib/tauri';
 import { modulesForKind, primaryModule, isImageRow, isVideoRow, isLightboxRow } from '../kindModule';
 import { InlinePdfPreviewModal } from '@/features/file-references/InlinePdfPreviewModal';
 import { MediaLightbox } from './MediaLightbox';
-import { useSetDocumentCdeState } from '../hooks';
+import { useRenameDocument, useSetDocumentCdeState } from '../hooks';
 import type { CdeState } from '../api';
 import { CDE_BADGE } from './CDEBadge';
 import { ActivityDrawer } from './ActivityDrawer';
@@ -112,6 +112,9 @@ export function FilePreviewPane({ row, onClose, onEmail, onShare, onManageAccess
   });
   const [pathCopied, setPathCopied] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  // Backs the naming banner's fix action. Its own onSuccess re-reads the list
+  // and tree, so the new name lands everywhere, not just in this pane.
+  const renameMut = useRenameDocument(row?.project_id);
   // Authenticated inline PDF preview. The download endpoint is bearer-protected,
   // so a raw `<iframe src>` navigation 401s (no Authorization header); fetch the
   // bytes with the header and preview the resulting blob URL instead.
@@ -279,11 +282,22 @@ export function FilePreviewPane({ row, onClose, onEmail, onShare, onManageAccess
 
       <div className="p-4 space-y-4">
         {/* W9 — ISO 19650 naming-violation banner. Renders null when the
-            file's canonical name is compliant, so it stays out of the way. */}
+            file's canonical name is compliant, so it stays out of the way.
+
+            `onRename` is passed only for documents. Of the eight file kinds
+            the banner covers, only that one is backed by a table owning a
+            `name` column, so the others get the notice without a fix button
+            rather than a button that fails when pressed. */}
         <NamingViolationBanner
           projectId={row.project_id}
           fileKind={row.kind}
           fileId={row.id}
+          onRename={
+            row.kind === 'document'
+              ? (nextFilename) =>
+                  renameMut.mutateAsync({ documentId: row.id, name: nextFilename })
+              : undefined
+          }
           className="mb-1"
         />
         <div className="flex items-center justify-center overflow-hidden bg-surface-secondary/60 rounded-lg aspect-[4/3]">

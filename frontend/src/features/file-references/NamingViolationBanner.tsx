@@ -11,12 +11,16 @@
 
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import { Button } from '@/shared/ui/Button';
 import { useToastStore } from '@/stores/useToastStore';
-import { useAcknowledgeViolation, useViolations } from './hooks';
+import { fileReferenceKeys } from './api';
+import { IsoNameBuilder } from './IsoNameBuilder';
+import { useAcknowledgeViolation, useValidateName, useViolations } from './hooks';
 import type {
   FileKind,
+  Iso19650Parts,
   NamingViolationResponse,
   ViolationCode,
 } from './types';
@@ -25,7 +29,38 @@ export interface NamingViolationBannerProps {
   projectId: string;
   fileKind: FileKind;
   fileId: string;
+  /**
+   * Rename the file to `nextFilename`. Supplying this is what turns the
+   * banner from a notice into something a user can act on.
+   *
+   * The banner deliberately does not reach for a rename endpoint itself.
+   * Only documents are backed by a table that owns a `name` column, and the
+   * banner is rendered over eight file kinds, so the host decides whether a
+   * rename is possible here and passes the callback only when it is. Without
+   * it the fix button is absent rather than present and failing.
+   */
+  onRename?: (nextFilename: string) => Promise<unknown>;
   className?: string;
+}
+
+/** All nine fields blank, for when the pre-fill call could not be made. */
+const EMPTY_PARTS: Iso19650Parts = {
+  project: null,
+  originator: null,
+  volume: null,
+  level: null,
+  type: null,
+  role: null,
+  number: null,
+  status: null,
+  revision: null,
+};
+
+/** Trailing extension of a filename, without the dot. Null when there is none. */
+function extensionOf(filename: string): string | null {
+  const dot = filename.lastIndexOf('.');
+  if (dot <= 0 || dot === filename.length - 1) return null;
+  return filename.slice(dot + 1);
 }
 
 const CODE_LABELS: Record<ViolationCode, string> = {
@@ -52,17 +87,22 @@ export function NamingViolationBanner({
   projectId,
   fileKind,
   fileId,
+  onRename,
   className,
 }: NamingViolationBannerProps) {
   const { t } = useTranslation();
   const [showDetail, setShowDetail] = useState(false);
+  const [builderParts, setBuilderParts] = useState<Iso19650Parts | null>(null);
+  const [renaming, setRenaming] = useState(false);
   const addToast = useToastStore((s) => s.addToast);
+  const qc = useQueryClient();
   const { data, isLoading } = useViolations({
     projectId,
     includeAcknowledged: false,
     limit: 500,
   });
   const ackMut = useAcknowledgeViolation(projectId);
+  const validateMut = useValidateName();
 
   const violation = useMemo<NamingViolationResponse | null>(() => {
     if (!data) return null;
@@ -76,6 +116,54 @@ export function NamingViolationBanner({
   if (isLoading || violation === null) return null;
 
   const codes = violation.violation_codes;
+  const currentName = violation.filename;
+
+  /* Fill the wizard from the name that failed. The validator returns its
+     field split even when the overall name is invalid, which is the whole
+     point: a user correcting one wrong field should not have to retype the
+     eight that were already right. */
+  const openBuilder = () => {
+    validateMut.mutate(
+      { filename: currentName },
+      {
+        onSuccess: (res) => setBuilderParts(res.parts),
+        onError: () => {
+          // An empty wizard is still a way to fix the name. Refusing to open
+          // it because the pre-fill call failed would put the user back where
+          // this banner started, with nothing to do but dismiss the warning.
+          setBuilderParts(EMPTY_PARTS);
+        },
+      },
+    );
+  };
+
+  const applyName = async (nextFilename: string) => {
+    if (!onRename) return;
+    setRenaming(true);
+    try {
+      await onRename(nextFilename);
+      setBuilderParts(null);
+      // The violation row is keyed on the old name, so the banner has to be
+      // re-read rather than left showing a complaint about a name that is gone.
+      qc.invalidateQueries({
+        queryKey: [fileReferenceKeys.violations, projectId],
+      });
+      addToast({
+        type: 'success',
+        title: t('files.naming.renamed_toast', { defaultValue: 'File renamed' }),
+      });
+    } catch (err) {
+      addToast({
+        type: 'error',
+        title: t('files.naming.rename_failed', {
+          defaultValue: 'Could not rename the file',
+        }),
+        message: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setRenaming(false);
+    }
+  };
 
   return (
     <div
@@ -124,8 +212,35 @@ export function NamingViolationBanner({
               </ul>
             </div>
           )}
+          {builderParts !== null && (
+            <div className="mt-3" data-testid="violation-name-builder">
+              <IsoNameBuilder
+                initialParts={builderParts}
+                extension={extensionOf(currentName)}
+                onApply={applyName}
+                onCancel={() => setBuilderParts(null)}
+              />
+            </div>
+          )}
         </div>
         <div className="flex shrink-0 flex-col gap-1">
+          {/* The fix comes before the dismissal, deliberately. Until this
+              button existed the only two actions were to read the rule and to
+              acknowledge the violation, so the banner's own affordance pushed
+              a user towards suppressing the warning rather than correcting
+              the name it was about. */}
+          {onRename && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={openBuilder}
+              loading={validateMut.isPending || renaming}
+              data-testid="violation-fix-name"
+              type="button"
+            >
+              {t('files.naming.fix_name', { defaultValue: 'Fix name' })}
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
