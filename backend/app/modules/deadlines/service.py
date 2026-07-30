@@ -10,15 +10,29 @@ new store: it reads the existing per-module tables and normalises them into the
 transport ``DeadlineItem`` shape (see :mod:`schemas`). The pure filter/sort/count
 logic lives in :mod:`logic` (DB-free, unit-tested).
 
-Deadline sources (first slice), with their pinned terminal (closed) status
-vocabularies - read from each source's service layer:
+Deadline sources, with their pinned terminal (closed) status vocabularies - read
+from each source's schema/register layer, never guessed:
 
 * correspondence response deadlines - ``oe_correspondence_correspondence``.
 * NCR corrective actions - ``oe_qms_ncr_action`` (project via parent ``QMSNCR``).
 * punch items - ``oe_punchlist_item``.
+* RFI responses - ``oe_rfi_rfi``.
+* submittal returns - ``oe_submittals_submittal``.
+* variation decisions - ``oe_variations_request``.
+* temporary-works design clearance - ``oe_temp_works_item``.
+* temporary-works permit expiry - ``oe_temp_works_permit``.
+* defect rectification - ``oe_dlp_defect``.
+* scheduled quality inspections - ``oe_inspections_inspection``.
+* compliance document expiry - ``oe_compliance_docs_doc``.
+* bid submission deadlines - ``oe_bid_management_package``.
+* signature session expiry - ``oe_signing_session``.
 
-Expansion adapters (tasks, QMS audit findings, DLP defects, credentials expiry)
-are a deliberate follow-up; file approvals already own their overdue sweep via
+Inclusion rule: a row belongs on the register when somebody is blocked waiting on
+it AND its status vocabulary has a state that closes it. That rule keeps out the
+much larger population of ``expires_at`` columns that are session, token, lock or
+cache TTLs (portal shares, collaboration locks, resumable uploads, takeoff jobs,
+field-diary links, refresh tokens): nobody is waiting on them and nothing closes
+them. File approvals already own their overdue sweep via
 ``approval_routes/sla_monitor.py`` so they are intentionally NOT collected here.
 """
 
@@ -51,6 +65,62 @@ _CORRESPONDENCE_TERMINAL = {"responded", "closed"}
 _NCR_ACTION_TERMINAL = {"done", "cancelled"}
 _PUNCH_TERMINAL = {"closed", "verified"}
 
+# rfi/schemas.py status pattern: draft|open|answered|closed|void. A draft RFI has
+# not been asked yet but still carries the date the answer is needed by, so it
+# stays open here; only an answered/closed/void one is settled.
+_RFI_TERMINAL = {"answered", "closed", "void"}
+
+# submittals/schemas.py status pattern: draft|submitted|under_review|approved|
+# approved_as_noted|revise_and_resubmit|rejected|closed. ``revise_and_resubmit``
+# is deliberately NOT terminal - the ball is back with the submitter and the
+# required-by date still bites.
+_SUBMITTAL_TERMINAL = {"approved", "approved_as_noted", "rejected", "closed"}
+
+# variations/schemas.py _VR_STATUS: draft|submitted|under_review|approved|
+# rejected|converted_to_vo. The last three are decisions, so they close the
+# response deadline.
+_VARIATION_REQUEST_TERMINAL = {"approved", "rejected", "converted_to_vo"}
+
+# temporary_works/register.py:128 ``_DESIGN_CLEARED_STATUSES`` is the module's own
+# answer to "is the design check finished", so it is exactly the terminal set for
+# a design due date. ``on_hold`` is excluded there and stays open here too.
+_TEMP_WORKS_DESIGN_TERMINAL = {
+    "design_checked",
+    "approved_to_load",
+    "loaded",
+    "in_use",
+    "approved_to_strike",
+    "struck",
+    "removed",
+}
+
+# temporary_works/register.py:121 ``_LIVE_PERMIT_STATUSES`` = {issued, active}:
+# only a live permit has an expiry anyone must act on. A draft permit is not yet
+# in force and an expired/closed one is already spent.
+_TEMP_WORKS_PERMIT_TERMINAL = {"draft", "expired", "closed"}
+
+# defects_liability/register.py:126 ``_OUTSTANDING_DEFECT_STATUSES`` = {open,
+# rectifying}; the other three states close the rectification deadline.
+_DLP_DEFECT_TERMINAL = {"rectified", "rejected", "closed"}
+
+# inspections/schemas.py status pattern: scheduled|in_progress|completed|failed|
+# cancelled. ``failed`` closes the *appointment* (the inspection happened); the
+# follow-up work is tracked as an NCR or punch item, which have their own rows.
+_INSPECTION_TERMINAL = {"completed", "failed", "cancelled"}
+
+# compliance_docs/schemas.py ``STATUSES``: active|expiring_soon|expired|cancelled|
+# void. ``expired`` is NOT terminal - an expired insurance certificate is the most
+# urgent row on the register, not a closed one.
+_COMPLIANCE_DOC_TERMINAL = {"cancelled", "void"}
+
+# bid_management/schemas.py _PACKAGE_STATUS: draft|published|open|closed|
+# cancelled|awarded. Once bidding closed, the submission deadline is spent.
+_BID_PACKAGE_TERMINAL = {"closed", "cancelled", "awarded"}
+
+# signing/schemas.py ``SESSION_STATUSES``: draft|awaiting_signatures|
+# partially_signed|fully_signed|declined|expired.
+_SIGNING_TERMINAL = {"fully_signed", "declined", "expired"}
+
 # A signature for a source collector.
 _Collector = Callable[
     [AsyncSession, "list[uuid.UUID] | None", date, int],
@@ -60,6 +130,27 @@ _Collector = Callable[
 
 def _iso_date(d: date | None) -> str | None:
     return d.isoformat() if d is not None else None
+
+
+def _owner_id(*candidates: object) -> str | None:
+    """The first candidate that is a real user id, as a string.
+
+    Two shapes have to be absorbed. ``GUID`` hands back a ``uuid.UUID`` when the
+    stored value parses and the raw string when it does not (see
+    ``database.GUID.process_result_value``), and several columns typed ``GUID()``
+    are documented as free text - an RFI's ``ball_in_court`` may be a role label
+    such as "Architect". Only a parseable id counts as an owner: a role label
+    would render as a permanently unresolved name and would stop the sweep
+    falling back to the project managers, who can actually act.
+    """
+    for value in candidates:
+        if value is None:
+            continue
+        try:
+            return str(uuid.UUID(str(value)))
+        except (AttributeError, TypeError, ValueError):
+            continue
+    return None
 
 
 # ── Source collectors ──────────────────────────────────────────────────────
@@ -212,16 +303,516 @@ async def _collect_punch_items(
     return items
 
 
+async def _collect_rfis(
+    session: AsyncSession,
+    project_ids: list[uuid.UUID] | None,
+    now_date: date,
+    approaching_days: int,
+) -> list[DeadlineItem]:
+    """RFIs past / approaching the date their answer is due."""
+    from app.modules.rfi.models import RFI  # noqa: PLC0415
+
+    stmt = select(RFI).where(
+        RFI.status.not_in(_RFI_TERMINAL),
+        RFI.response_due_date.is_not(None),
+    )
+    if project_ids is not None:
+        stmt = stmt.where(RFI.project_id.in_(project_ids))
+    stmt = stmt.order_by(RFI.response_due_date.asc()).limit(_PER_SOURCE_CAP)
+    rows = (await session.execute(stmt)).scalars().all()
+
+    items: list[DeadlineItem] = []
+    for r in rows:
+        due = parse_due(r.response_due_date)
+        cls, days, sev = classify(due, r.status, now_date, _RFI_TERMINAL, approaching_days)
+        if cls == ON_TIME:
+            continue
+        items.append(
+            DeadlineItem(
+                id=f"rfi:{r.id}",
+                module="rfi",
+                entity_type="rfi",
+                entity_id=str(r.id),
+                project_id=str(r.project_id),
+                title=r.subject,
+                due_date=_iso_date(due),
+                # ``assigned_to`` is the answerer; ``ball_in_court`` is who owes
+                # the next move and wins when both are set.
+                owner_user_id=_owner_id(r.assigned_to, r.ball_in_court),
+                status=r.status,
+                classification=cls,
+                days_overdue=days,
+                severity=sev,
+                # RfiDetailPage is mounted at /rfi/:rfiId (App.tsx).
+                action_url=f"/rfi/{r.id}",
+            ),
+        )
+    return items
+
+
+async def _collect_submittals(
+    session: AsyncSession,
+    project_ids: list[uuid.UUID] | None,
+    now_date: date,
+    approaching_days: int,
+) -> list[DeadlineItem]:
+    """Submittals past / approaching the date they must be returned by."""
+    from app.modules.submittals.models import Submittal  # noqa: PLC0415
+
+    stmt = select(Submittal).where(
+        Submittal.status.not_in(_SUBMITTAL_TERMINAL),
+        Submittal.date_required.is_not(None),
+    )
+    if project_ids is not None:
+        stmt = stmt.where(Submittal.project_id.in_(project_ids))
+    stmt = stmt.order_by(Submittal.date_required.asc()).limit(_PER_SOURCE_CAP)
+    rows = (await session.execute(stmt)).scalars().all()
+
+    items: list[DeadlineItem] = []
+    for r in rows:
+        due = parse_due(r.date_required)
+        cls, days, sev = classify(due, r.status, now_date, _SUBMITTAL_TERMINAL, approaching_days)
+        if cls == ON_TIME:
+            continue
+        items.append(
+            DeadlineItem(
+                id=f"submittals:{r.id}",
+                module="submittals",
+                entity_type="submittal",
+                entity_id=str(r.id),
+                project_id=str(r.project_id),
+                title=r.title,
+                due_date=_iso_date(due),
+                owner_user_id=_owner_id(r.reviewer_id, r.ball_in_court),
+                status=r.status,
+                classification=cls,
+                days_overdue=days,
+                severity=sev,
+                # SubmittalsPage reads ?create/?container_id only, so link the
+                # bare route rather than a query param nothing consumes.
+                action_url="/submittals",
+            ),
+        )
+    return items
+
+
+async def _collect_variation_requests(
+    session: AsyncSession,
+    project_ids: list[uuid.UUID] | None,
+    now_date: date,
+    approaching_days: int,
+) -> list[DeadlineItem]:
+    """Variation requests past / approaching the date a decision is due."""
+    from app.modules.variations.models import VariationRequest  # noqa: PLC0415
+
+    stmt = select(VariationRequest).where(
+        VariationRequest.status.not_in(_VARIATION_REQUEST_TERMINAL),
+        VariationRequest.response_due_date.is_not(None),
+    )
+    if project_ids is not None:
+        stmt = stmt.where(VariationRequest.project_id.in_(project_ids))
+    stmt = stmt.order_by(VariationRequest.response_due_date.asc()).limit(_PER_SOURCE_CAP)
+    rows = (await session.execute(stmt)).scalars().all()
+
+    items: list[DeadlineItem] = []
+    for r in rows:
+        due = parse_due(r.response_due_date)
+        cls, days, sev = classify(due, r.status, now_date, _VARIATION_REQUEST_TERMINAL, approaching_days)
+        if cls == ON_TIME:
+            continue
+        items.append(
+            DeadlineItem(
+                id=f"variations:{r.id}",
+                module="variations",
+                entity_type="variation_request",
+                entity_id=str(r.id),
+                project_id=str(r.project_id),
+                title=r.title or r.code,
+                due_date=_iso_date(due),
+                owner_user_id=_owner_id(r.ball_in_court),
+                status=r.status,
+                classification=cls,
+                days_overdue=days,
+                severity=sev,
+                action_url="/variations",
+            ),
+        )
+    return items
+
+
+async def _collect_temp_works_designs(
+    session: AsyncSession,
+    project_ids: list[uuid.UUID] | None,
+    now_date: date,
+    approaching_days: int,
+) -> list[DeadlineItem]:
+    """Temporary-works items whose independent design check is still outstanding."""
+    from app.modules.temporary_works.models import TemporaryWorksItem  # noqa: PLC0415
+
+    stmt = select(TemporaryWorksItem).where(
+        TemporaryWorksItem.status.not_in(_TEMP_WORKS_DESIGN_TERMINAL),
+        TemporaryWorksItem.design_due_date.is_not(None),
+    )
+    if project_ids is not None:
+        stmt = stmt.where(TemporaryWorksItem.project_id.in_(project_ids))
+    stmt = stmt.order_by(TemporaryWorksItem.design_due_date.asc()).limit(_PER_SOURCE_CAP)
+    rows = (await session.execute(stmt)).scalars().all()
+
+    items: list[DeadlineItem] = []
+    for r in rows:
+        due = parse_due(r.design_due_date)
+        cls, days, sev = classify(due, r.status, now_date, _TEMP_WORKS_DESIGN_TERMINAL, approaching_days)
+        if cls == ON_TIME:
+            continue
+        items.append(
+            DeadlineItem(
+                id=f"temporary_works:{r.id}",
+                module="temporary_works",
+                entity_type="temporary_works_item",
+                entity_id=str(r.id),
+                project_id=str(r.project_id),
+                title=r.title,
+                due_date=_iso_date(due),
+                owner_user_id=_owner_id(r.twc_user_id),
+                status=r.status,
+                classification=cls,
+                days_overdue=days,
+                severity=sev,
+                action_url="/temporary-works",
+            ),
+        )
+    return items
+
+
+async def _collect_temp_works_permits(
+    session: AsyncSession,
+    project_ids: list[uuid.UUID] | None,
+    now_date: date,
+    approaching_days: int,
+) -> list[DeadlineItem]:
+    """Live temporary-works permits at or past the end of their validity window.
+
+    A permit to load that lapses while the works are still bearing load is the
+    register's red-flag case, so this reads the permit's own ``project_id``
+    column and never walks ``permit.item`` (a default-lazy relationship that
+    would fire a lazy load from async context).
+    """
+    from app.modules.temporary_works.models import TemporaryWorksPermit  # noqa: PLC0415
+
+    stmt = select(TemporaryWorksPermit).where(
+        TemporaryWorksPermit.status.not_in(_TEMP_WORKS_PERMIT_TERMINAL),
+        TemporaryWorksPermit.valid_to.is_not(None),
+    )
+    if project_ids is not None:
+        stmt = stmt.where(TemporaryWorksPermit.project_id.in_(project_ids))
+    stmt = stmt.order_by(TemporaryWorksPermit.valid_to.asc()).limit(_PER_SOURCE_CAP)
+    rows = (await session.execute(stmt)).scalars().all()
+
+    items: list[DeadlineItem] = []
+    for r in rows:
+        due = parse_due(r.valid_to)
+        cls, days, sev = classify(due, r.status, now_date, _TEMP_WORKS_PERMIT_TERMINAL, approaching_days)
+        if cls == ON_TIME:
+            continue
+        items.append(
+            DeadlineItem(
+                id=f"temporary_works_permit:{r.id}",
+                module="temporary_works_permit",
+                entity_type="temporary_works_permit",
+                entity_id=str(r.id),
+                project_id=str(r.project_id),
+                # ``issued_by`` is free text (the coordinator's name), so the
+                # permit number plus its type is the only stable label.
+                title=f"{r.permit_number} ({r.permit_type})",
+                due_date=_iso_date(due),
+                # No user column on a permit - the sweep falls back to the
+                # project managers for an actionable recipient.
+                owner_user_id=None,
+                status=r.status,
+                classification=cls,
+                days_overdue=days,
+                severity=sev,
+                action_url="/temporary-works",
+            ),
+        )
+    return items
+
+
+async def _collect_dlp_defects(
+    session: AsyncSession,
+    project_ids: list[uuid.UUID] | None,
+    now_date: date,
+    approaching_days: int,
+) -> list[DeadlineItem]:
+    """Defect notices past / approaching their rectification date.
+
+    Reads the defect's own denormalised ``project_id`` rather than its parent
+    warranty, so no relationship is walked.
+    """
+    from app.modules.defects_liability.models import DlpDefect  # noqa: PLC0415
+
+    stmt = select(DlpDefect).where(
+        DlpDefect.status.not_in(_DLP_DEFECT_TERMINAL),
+        DlpDefect.due_date.is_not(None),
+    )
+    if project_ids is not None:
+        stmt = stmt.where(DlpDefect.project_id.in_(project_ids))
+    stmt = stmt.order_by(DlpDefect.due_date.asc()).limit(_PER_SOURCE_CAP)
+    rows = (await session.execute(stmt)).scalars().all()
+
+    items: list[DeadlineItem] = []
+    for r in rows:
+        due = parse_due(r.due_date)
+        cls, days, sev = classify(due, r.status, now_date, _DLP_DEFECT_TERMINAL, approaching_days)
+        if cls == ON_TIME:
+            continue
+        items.append(
+            DeadlineItem(
+                id=f"defects_liability:{r.id}",
+                module="defects_liability",
+                entity_type="dlp_defect",
+                entity_id=str(r.id),
+                project_id=str(r.project_id),
+                title=(r.description or "").strip()[:200] or r.reference,
+                due_date=_iso_date(due),
+                # ``responsible_party`` is a free-text company name, not a user.
+                owner_user_id=None,
+                status=r.status,
+                classification=cls,
+                days_overdue=days,
+                severity=sev,
+                action_url="/defects-liability",
+            ),
+        )
+    return items
+
+
+async def _collect_inspections(
+    session: AsyncSession,
+    project_ids: list[uuid.UUID] | None,
+    now_date: date,
+    approaching_days: int,
+) -> list[DeadlineItem]:
+    """Quality inspections booked for a date that has arrived or passed.
+
+    ``inspection_date`` is the date the inspection is booked FOR, not a due date
+    on a piece of paperwork. It is read as a deadline because an inspection still
+    sitting in ``scheduled`` after its date is work that did not happen, and it
+    blocks whatever it was gating.
+    """
+    from app.modules.inspections.models import QualityInspection  # noqa: PLC0415
+
+    stmt = select(QualityInspection).where(
+        QualityInspection.status.not_in(_INSPECTION_TERMINAL),
+        QualityInspection.inspection_date.is_not(None),
+    )
+    if project_ids is not None:
+        stmt = stmt.where(QualityInspection.project_id.in_(project_ids))
+    stmt = stmt.order_by(QualityInspection.inspection_date.asc()).limit(_PER_SOURCE_CAP)
+    rows = (await session.execute(stmt)).scalars().all()
+
+    items: list[DeadlineItem] = []
+    for r in rows:
+        due = parse_due(r.inspection_date)
+        cls, days, sev = classify(due, r.status, now_date, _INSPECTION_TERMINAL, approaching_days)
+        if cls == ON_TIME:
+            continue
+        items.append(
+            DeadlineItem(
+                id=f"inspections:{r.id}",
+                module="inspections",
+                entity_type="quality_inspection",
+                entity_id=str(r.id),
+                project_id=str(r.project_id),
+                title=r.title,
+                due_date=_iso_date(due),
+                owner_user_id=_owner_id(r.inspector_id),
+                status=r.status,
+                classification=cls,
+                days_overdue=days,
+                severity=sev,
+                # InspectionsPage reads ?highlight=<id> (InspectionsPage.tsx).
+                action_url=f"/inspections?highlight={r.id}",
+            ),
+        )
+    return items
+
+
+async def _collect_compliance_docs(
+    session: AsyncSession,
+    project_ids: list[uuid.UUID] | None,
+    now_date: date,
+    approaching_days: int,
+) -> list[DeadlineItem]:
+    """Insurance / permit / certification documents at or past their expiry."""
+    from app.modules.compliance_docs.models import ComplianceDoc  # noqa: PLC0415
+
+    stmt = select(ComplianceDoc).where(
+        ComplianceDoc.status.not_in(_COMPLIANCE_DOC_TERMINAL),
+        ComplianceDoc.expires_at.is_not(None),
+    )
+    if project_ids is not None:
+        stmt = stmt.where(ComplianceDoc.project_id.in_(project_ids))
+    stmt = stmt.order_by(ComplianceDoc.expires_at.asc()).limit(_PER_SOURCE_CAP)
+    rows = (await session.execute(stmt)).scalars().all()
+
+    items: list[DeadlineItem] = []
+    for r in rows:
+        due = parse_due(r.expires_at)
+        cls, days, sev = classify(due, r.status, now_date, _COMPLIANCE_DOC_TERMINAL, approaching_days)
+        if cls == ON_TIME:
+            continue
+        items.append(
+            DeadlineItem(
+                id=f"compliance_docs:{r.id}",
+                module="compliance_docs",
+                entity_type="compliance_doc",
+                entity_id=str(r.id),
+                project_id=str(r.project_id),
+                title=r.name,
+                due_date=_iso_date(due),
+                # Best-effort owner: the module tracks documents, not holders.
+                owner_user_id=_owner_id(r.created_by),
+                status=r.status,
+                classification=cls,
+                days_overdue=days,
+                severity=sev,
+                # No standalone route: the compliance register is a tab on the
+                # project page and ProjectDetailPage reads ?tab= (App.tsx
+                # /projects/:projectId).
+                action_url=f"/projects/{r.project_id}?tab=compliance",
+            ),
+        )
+    return items
+
+
+async def _collect_bid_packages(
+    session: AsyncSession,
+    project_ids: list[uuid.UUID] | None,
+    now_date: date,
+    approaching_days: int,
+) -> list[DeadlineItem]:
+    """Bid packages at or past the deadline for bids to come in."""
+    from app.modules.bid_management.models import BidPackage  # noqa: PLC0415
+
+    stmt = select(BidPackage).where(
+        BidPackage.status.not_in(_BID_PACKAGE_TERMINAL),
+        BidPackage.submission_deadline.is_not(None),
+    )
+    if project_ids is not None:
+        stmt = stmt.where(BidPackage.project_id.in_(project_ids))
+    stmt = stmt.order_by(BidPackage.submission_deadline.asc()).limit(_PER_SOURCE_CAP)
+    rows = (await session.execute(stmt)).scalars().all()
+
+    items: list[DeadlineItem] = []
+    for r in rows:
+        due = parse_due(r.submission_deadline)
+        cls, days, sev = classify(due, r.status, now_date, _BID_PACKAGE_TERMINAL, approaching_days)
+        if cls == ON_TIME:
+            continue
+        items.append(
+            DeadlineItem(
+                id=f"bid_management:{r.id}",
+                module="bid_management",
+                entity_type="bid_package",
+                entity_id=str(r.id),
+                project_id=str(r.project_id),
+                title=r.title or r.code,
+                due_date=_iso_date(due),
+                owner_user_id=_owner_id(r.created_by),
+                status=r.status,
+                classification=cls,
+                days_overdue=days,
+                severity=sev,
+                action_url="/bid-management",
+            ),
+        )
+    return items
+
+
+async def _collect_signing_sessions(
+    session: AsyncSession,
+    project_ids: list[uuid.UUID] | None,
+    now_date: date,
+    approaching_days: int,
+) -> list[DeadlineItem]:
+    """Signature sessions whose window to collect the remaining signatures is closing."""
+    from app.modules.signing.models import SigningSession  # noqa: PLC0415
+
+    stmt = select(SigningSession).where(
+        SigningSession.status.not_in(_SIGNING_TERMINAL),
+        SigningSession.expires_at.is_not(None),
+    )
+    if project_ids is not None:
+        stmt = stmt.where(SigningSession.project_id.in_(project_ids))
+    stmt = stmt.order_by(SigningSession.expires_at.asc()).limit(_PER_SOURCE_CAP)
+    rows = (await session.execute(stmt)).scalars().all()
+
+    items: list[DeadlineItem] = []
+    for r in rows:
+        due = parse_due(r.expires_at)
+        cls, days, sev = classify(due, r.status, now_date, _SIGNING_TERMINAL, approaching_days)
+        if cls == ON_TIME:
+            continue
+        items.append(
+            DeadlineItem(
+                id=f"signing:{r.id}",
+                module="signing",
+                entity_type="signing_session",
+                entity_id=str(r.id),
+                project_id=str(r.project_id),
+                # ``document_ref`` is an opaque reference to the signed thing;
+                # this module never opens the document to read a nicer name.
+                title=(r.document_ref or "").strip()[:200],
+                due_date=_iso_date(due),
+                owner_user_id=_owner_id(r.created_by),
+                status=r.status,
+                classification=cls,
+                days_overdue=days,
+                severity=sev,
+                action_url="/signing",
+            ),
+        )
+    return items
+
+
 # Collector registry: (module_key, collector, owns_overdue_sweep).
 #
 # ``owns_overdue_sweep`` guards against double-notification (spec risk): a
-# source that later grows its OWN overdue sweep is dropped from the deadline
-# sweeper's notify path (still shown in the read-only register). None of the
-# three first-slice sources self-sweep today, so all are False.
+# source that owns its OWN overdue sweep is dropped from the deadline sweeper's
+# notify path (it still shows in the read-only register). Determined per source
+# by grepping the module for a notification created on an overdue/expiry
+# condition and cross-checking ``app/main.py``'s lifespan for a started loop.
+# The only started background sweeps in the app are the approval SLA monitor,
+# the risk escalation sweeper, this sweeper, the notification worker, the
+# collaboration-lock TTL sweeper and the agent/report schedulers - none of them
+# belongs to a source below, so every entry is False.
+#
+# ``compliance_docs`` is the near miss and needs stating precisely, because the
+# obvious reading is wrong. It does publish, on the transition into
+# ``expiring_soon``/``expired`` (compliance_docs/service.py::_publish_expiry_alert),
+# and it publishes ``compliance_docs.expiry.alert``. What makes False correct is
+# one step further on: nothing subscribes to that event, so no notification is
+# ever produced from it. Subscribe to it in the notifications module and this
+# source starts double-notifying on the transition day. That is a live risk
+# rather than a hypothetical - every other wave module got its subscriber the
+# same way - so the absence is pinned by
+# tests/unit/test_deadlines_imports.py::test_compliance_docs_expiry_alert_has_no_subscriber
+# rather than left to this comment.
 _COLLECTORS: list[tuple[str, _Collector, bool]] = [
     ("correspondence", _collect_correspondence, False),
     ("qms_ncr_action", _collect_ncr_actions, False),
     ("punchlist", _collect_punch_items, False),
+    ("rfi", _collect_rfis, False),
+    ("submittals", _collect_submittals, False),
+    ("variations", _collect_variation_requests, False),
+    ("temporary_works", _collect_temp_works_designs, False),
+    ("temporary_works_permit", _collect_temp_works_permits, False),
+    ("defects_liability", _collect_dlp_defects, False),
+    ("inspections", _collect_inspections, False),
+    ("compliance_docs", _collect_compliance_docs, False),
+    ("bid_management", _collect_bid_packages, False),
+    ("signing", _collect_signing_sessions, False),
 ]
 
 

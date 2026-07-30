@@ -547,4 +547,54 @@ KNOWN_EVENT_TYPES: list[dict[str, str]] = [
         "module": "deadlines",
         "description": "Punch item overdue",
     },
+    {
+        "event_type": "deadlines.rfi.overdue",
+        "module": "deadlines",
+        "description": "RFI past the date its answer is due",
+    },
+    {
+        "event_type": "deadlines.submittals.overdue",
+        "module": "deadlines",
+        "description": "Submittal past the date it must be returned",
+    },
+    {
+        "event_type": "deadlines.variations.overdue",
+        "module": "deadlines",
+        "description": "Variation request past its decision deadline",
+    },
+    {
+        "event_type": "deadlines.temporary_works.overdue",
+        "module": "deadlines",
+        "description": "Temporary-works design check overdue",
+    },
+    {
+        "event_type": "deadlines.temporary_works_permit.overdue",
+        "module": "deadlines",
+        "description": "Temporary-works permit past the end of its validity",
+    },
+    {
+        "event_type": "deadlines.defects_liability.overdue",
+        "module": "deadlines",
+        "description": "Defect past its rectification date",
+    },
+    {
+        "event_type": "deadlines.inspections.overdue",
+        "module": "deadlines",
+        "description": "Quality inspection still scheduled after its date",
+    },
+    {
+        "event_type": "deadlines.compliance_docs.overdue",
+        "module": "deadlines",
+        "description": "Insurance / permit / certification past its expiry",
+    },
+    {
+        "event_type": "deadlines.bid_management.overdue",
+        "module": "deadlines",
+        "description": "Bid package past its submission deadline",
+    },
+    {
+        "event_type": "deadlines.signing.overdue",
+        "module": "deadlines",
+        "description": "Signature session past its expiry",
+    },
 ]

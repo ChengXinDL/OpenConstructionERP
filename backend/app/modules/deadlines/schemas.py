@@ -17,7 +17,7 @@ class DeadlineItem(BaseModel):
     """One due-dated item, normalized from any source module."""
 
     id: str = Field(description="Stable per-source id, e.g. 'punchlist:<uuid>'.")
-    module: str = Field(description="Source module, e.g. 'correspondence' | 'qms_ncr_action' | 'punchlist'.")
+    module: str = Field(description="Source module key, e.g. 'correspondence' | 'rfi' | 'punchlist'.")
     entity_type: str = Field(description="Notification entity_type used for dedup + linking.")
     entity_id: str = Field(description="Source row id (dedup + action link).")
     project_id: str

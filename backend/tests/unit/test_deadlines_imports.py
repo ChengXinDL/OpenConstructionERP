@@ -40,7 +40,26 @@ def test_service_symbols_present() -> None:
         "correspondence",
         "qms_ncr_action",
         "punchlist",
+        "rfi",
+        "submittals",
+        "variations",
+        "temporary_works",
+        "temporary_works_permit",
+        "defects_liability",
+        "inspections",
+        "compliance_docs",
+        "bid_management",
+        "signing",
     ]
+    # Module keys are unique (they key the notification event type and the
+    # ``?module=`` filter) and every collector is callable.
+    keys = [m for m, _c, _o in service._COLLECTORS]
+    assert len(keys) == len(set(keys))
+    assert all(callable(c) for _m, c, _o in service._COLLECTORS)
+    # No source self-sweeps today. The registry comment carries the evidence per
+    # source; the one that could change under us is gated by
+    # test_compliance_docs_expiry_alert_has_no_subscriber below.
+    assert not any(o for _m, _c, o in service._COLLECTORS)
 
 
 def test_sweeper_symbols_present() -> None:
@@ -74,10 +93,46 @@ def test_notification_templates_registered() -> None:
     assert icon_category_for("deadline_escalated") == "error"
 
 
+def test_compliance_docs_expiry_alert_has_no_subscriber() -> None:
+    """The one source that could double-notify, pinned instead of commented.
+
+    ``compliance_docs`` publishes ``compliance_docs.expiry.alert`` when a
+    document crosses into ``expiring_soon`` or ``expired``. It carries
+    ``owns_overdue_sweep=False`` in the deadlines registry, so the sweeper also
+    notifies on that document - correct today only because nothing subscribes
+    to the event, so the publish produces no notification.
+
+    Wiring a subscriber is a two-line change of exactly the kind the wave
+    modules already got, and it would make both paths fire on the transition
+    day. Read the source rather than the live bus: registering subscribers here
+    to inspect them would leave them attached for every later test in the
+    process.
+    """
+    from pathlib import Path
+
+    import app.modules.notifications as notifications_pkg
+
+    event = "compliance_docs.expiry.alert"
+    wired = sorted(
+        p.name for p in Path(notifications_pkg.__file__).parent.glob("*.py") if event in p.read_text(encoding="utf-8")
+    )
+    assert wired == [], (
+        f"{wired} now handles {event}, so compliance_docs notifies on its own. "
+        "Set owns_overdue_sweep=True for it in deadlines/service.py::_COLLECTORS, "
+        "or the sweeper will send a second notification on the transition day."
+    )
+
+
 def test_event_types_registered() -> None:
+    """Every collector's overdue event must be in the preference catalogue.
+
+    ``enqueue_or_dispatch`` does not gate on the catalogue, so a missing entry
+    still notifies - but it never reaches the preferences UI, which means the
+    user has no way to move that source onto a digest or switch it off.
+    """
+    from app.modules.deadlines.service import _COLLECTORS
     from app.modules.notifications.service import KNOWN_EVENT_TYPES
 
     etypes = {e["event_type"] for e in KNOWN_EVENT_TYPES}
-    assert "deadlines.correspondence.overdue" in etypes
-    assert "deadlines.qms_ncr_action.overdue" in etypes
-    assert "deadlines.punchlist.overdue" in etypes
+    missing = [m for m, _c, _o in _COLLECTORS if f"deadlines.{m}.overdue" not in etypes]
+    assert missing == [], f"deadline sources missing from KNOWN_EVENT_TYPES: {missing}"
