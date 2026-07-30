@@ -208,6 +208,11 @@ class Position(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+    # Known deviation from the self-referential rule (which asks for
+    # ``raise_on_sql`` on the way up): this one is left eager on purpose. The
+    # hierarchy is walked upward all over the editor and the GAEB export, and
+    # ``selectin`` on a self-reference costs one extra SELECT per level rather
+    # than per row. Revisit if position trees ever get deep.
     parent: Mapped["Position | None"] = relationship(
         back_populates="children",
         remote_side="Position.id",
