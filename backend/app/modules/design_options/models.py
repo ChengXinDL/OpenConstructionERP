@@ -132,10 +132,13 @@ class DesignOption(Base):
         "metadata", JSON, nullable=False, default=dict, server_default="{}"
     )
 
-    # Same-module child -> parent. raise so an accidental lazy access in the
-    # async context fails loudly instead of emitting a stray query; the forward
-    # selectin above populates this in memory without tripping the guard.
-    set: Mapped["DesignOptionSet"] = relationship(back_populates="options", lazy="raise")
+    # Same-module child -> parent. raise_on_sql so an accidental lazy access in
+    # the async context fails loudly instead of emitting a stray query, while a
+    # child that came from the set's selectin collection can still read its
+    # parent straight out of the identity map. Plain ``raise`` refuses both
+    # cases, including the free in-memory one, which is why the platform policy
+    # asks for raise_on_sql here.
+    set: Mapped["DesignOptionSet"] = relationship(back_populates="options", lazy="raise_on_sql")
 
     def __repr__(self) -> str:
         return f"<DesignOption {self.name!r} set={self.set_id} status={self.status} total={self.grand_total}>"

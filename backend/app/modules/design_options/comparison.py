@@ -486,7 +486,10 @@ class DesignOptionComparator:
 
         if any(c.priced and c.option_gfa <= 0 for c in columns):
             warnings.append(_warn("missingGfa", "warning"))
-        distinct_gfa = {_money_str(c.option_gfa) for c in priced if c.option_gfa > 0}
+        # Compare the areas as numbers, not as their rendered strings: they are
+        # stored as decimal strings, so "100" and "100.00" are the same area
+        # written two ways and must not read as two different programmes.
+        distinct_gfa = {c.option_gfa for c in priced if c.option_gfa > 0}
         if len(distinct_gfa) > 1:
             warnings.append(_warn("mixedGfa", "info"))
 
