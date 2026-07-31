@@ -11,10 +11,13 @@ Surfaces, in ONE place, the two things a user opens the app to act on:
 
 Both streams are scoped to the caller's accessible projects (the same IDOR
 posture as the rest of the dashboard module: rows the caller can't see are
-silently dropped, never 403). This does NOT introduce a new store - it reads
-the existing per-module tables and merges them. The pure merge / sort / scope
-logic lives in :mod:`inbox_logic` (DB-free, unit-tested); this file is only
-the query + normalise layer.
+silently dropped, never 403). Neither stream is owned here - both are read from
+the existing per-module tables and merged. The one thing this module does own
+is ``oe_dashboard_inbox_item_state``: what the caller already did with a row
+(see :mod:`inbox_actions`), which is applied on the way out so a dismissed row
+stops coming back. The pure merge / sort / scope / state logic lives in
+:mod:`inbox_logic` (DB-free, unit-tested); this file is only the query +
+normalise layer.
 
 Sibling-module models are imported **inside** the function so a slim install
 that disabled (e.g.) ``oe_file_approvals`` or ``oe_changeorders`` still loads
@@ -253,6 +256,27 @@ async def _collect_alerts(
     return items
 
 
+async def _collect_item_states(session: AsyncSession, user_id: uuid.UUID) -> dict[str, str]:
+    """What the caller already did with individual rows.
+
+    Fails **open**: if the state query cannot run, the inbox is built as if
+    nothing had been acted on. Showing a row somebody dismissed is a small
+    annoyance; hiding a pending approval because a query failed is how a
+    deadline gets missed.
+    """
+    from app.modules.dashboard.repository import InboxItemStateRepository  # noqa: PLC0415
+
+    try:
+        return await InboxItemStateRepository(session).states_for_user(user_id)
+    except Exception as exc:  # noqa: BLE001 - never hide work behind a failed query
+        logger.warning("Inbox item states unavailable: %s", exc, exc_info=True)
+        try:
+            await session.rollback()
+        except Exception:  # noqa: BLE001
+            pass
+        return {}
+
+
 async def compute_inbox(
     session: AsyncSession,
     projects: list[Project],
@@ -260,6 +284,7 @@ async def compute_inbox(
     *,
     is_admin: bool = False,
     limit: int = 50,
+    apply_states: bool = True,
 ) -> dict[str, Any]:
     """Aggregate the caller's pending approvals + alerts into one payload.
 
@@ -269,6 +294,10 @@ async def compute_inbox(
     by the project-id intersection (their notifications can reference any
     project). Each source is wrapped so a disabled module only blanks its own
     stream - never the whole inbox.
+
+    ``apply_states`` drops rows the caller dismissed and flags the ones they
+    acknowledged. The action endpoints pass False so they can confirm an id
+    really belongs to the caller even after it has been acted on once.
     """
     try:
         uid = uuid.UUID(str(user_id))
@@ -327,11 +356,14 @@ async def compute_inbox(
             except (ValueError, TypeError):
                 pass
 
+    item_states = await _collect_item_states(session, uid) if apply_states else None
+
     return build_inbox(
         approvals,
         alerts,
         accessible_project_ids=accessible_ids,
         limit=limit,
+        item_states=item_states,
     )
 
 

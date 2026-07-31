@@ -411,6 +411,40 @@ class InboxItem(_Widget):
     )
     severity: str = Field(default="info", description="'info' | 'warning' | 'critical'.")
     created_at: str | None = Field(default=None, description="ISO-8601; drives sort.")
+    acknowledged: bool = Field(
+        default=False,
+        description=(
+            "True when the caller marked this row seen. Acknowledged rows stay in "
+            "the list so they can recede without disappearing; dismissed rows are "
+            "not returned at all."
+        ),
+    )
+
+
+class InboxActionFinding(BaseModel):
+    """One validation finding recorded against an inbox action."""
+
+    rule_id: str
+    severity: str = ""
+    message: str = ""
+    suggestion: str | None = None
+
+
+class InboxActionResponse(BaseModel):
+    """Outcome of acknowledging, dismissing or restoring one inbox row."""
+
+    item_id: str = Field(description="The row the action addressed.")
+    state: str | None = Field(
+        default=None,
+        description="'acknowledged', 'dismissed', or null once the row is restored.",
+    )
+    findings: list[InboxActionFinding] = Field(
+        default_factory=list,
+        description=(
+            "Non-blocking findings recorded with the action. Dismissing an approval "
+            "reports here that the step is still pending a decision."
+        ),
+    )
 
 
 class InboxResponse(BaseModel):

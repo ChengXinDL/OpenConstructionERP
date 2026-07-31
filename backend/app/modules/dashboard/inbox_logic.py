@@ -35,11 +35,33 @@ Item shape (one entry in the merged list)::
 
 from __future__ import annotations
 
+import uuid
 from typing import Any
 
 # Inbox item kinds.
 KIND_APPROVAL = "approval"
 KIND_ALERT = "alert"
+
+# Per-user item states (see ``models.InboxItemState``).
+STATE_ACKNOWLEDGED = "acknowledged"
+STATE_DISMISSED = "dismissed"
+INBOX_STATES: tuple[str, ...] = (STATE_ACKNOWLEDGED, STATE_DISMISSED)
+
+# The ``source`` prefixes the aggregator stamps on an item id. An action naming
+# anything else cannot address a row this module produces, which is what the
+# ``inbox_action.item_id_recognised`` rule reports.
+SOURCE_FILE_APPROVAL = "file_approval"
+SOURCE_CHANGE_ORDER_APPROVAL = "change_order_approval"
+SOURCE_NOTIFICATION = "notification"
+INBOX_SOURCES: tuple[str, ...] = (
+    SOURCE_FILE_APPROVAL,
+    SOURCE_CHANGE_ORDER_APPROVAL,
+    SOURCE_NOTIFICATION,
+)
+
+# Sources whose rows are approval steps. Dismissing one of these hides it from
+# triage and decides nothing.
+APPROVAL_SOURCES: tuple[str, ...] = (SOURCE_FILE_APPROVAL, SOURCE_CHANGE_ORDER_APPROVAL)
 
 # Severity ranking - higher sorts first when timestamps tie.
 _SEVERITY_RANK: dict[str, int] = {"critical": 3, "warning": 2, "info": 1}
@@ -134,12 +156,62 @@ def scope_items_to_projects(
     return out
 
 
+def parse_item_id(item_id: str) -> tuple[str, str] | None:
+    """Split an aggregated inbox id into ``(source, source_id)``.
+
+    Returns None when the id does not name a source this module produces or
+    when the suffix is not a UUID. Both halves are checked because the id is
+    the only thing an action carries: an unrecognised prefix would silently
+    record a state nothing ever reads, and a non-UUID suffix cannot address a
+    row in any of the three source tables.
+    """
+    source, separator, source_id = item_id.partition(":")
+    if not separator or source not in INBOX_SOURCES or not source_id:
+        return None
+    try:
+        uuid.UUID(source_id)
+    except (ValueError, AttributeError, TypeError):
+        return None
+    return source, source_id
+
+
+def source_is_approval(source: str) -> bool:
+    """True when the source is an approval step rather than an alert."""
+    return source in APPROVAL_SOURCES
+
+
+def apply_item_states(
+    items: list[dict[str, Any]],
+    item_states: dict[str, str] | None,
+) -> list[dict[str, Any]]:
+    """Drop dismissed items and flag acknowledged ones.
+
+    ``item_states`` maps an inbox item id to the state its owner recorded.
+    Dismissed rows leave the list entirely; acknowledged rows stay and gain
+    ``acknowledged: True`` so the surface can let them recede without hiding
+    something the person never actually dealt with. An unknown state value is
+    ignored rather than guessed at - the row stays exactly as it was.
+
+    Pure: returns new dicts, never mutates the inputs.
+    """
+    if not item_states:
+        return [{**it, "acknowledged": False} for it in items]
+    out: list[dict[str, Any]] = []
+    for it in items:
+        state = item_states.get(str(it.get("id") or ""))
+        if state == STATE_DISMISSED:
+            continue
+        out.append({**it, "acknowledged": state == STATE_ACKNOWLEDGED})
+    return out
+
+
 def build_inbox(
     approvals: list[dict[str, Any]],
     alerts: list[dict[str, Any]],
     *,
     accessible_project_ids: set[str] | None,
     limit: int = 50,
+    item_states: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Merge, scope, sort and cap the two streams into the inbox payload.
 
@@ -155,6 +227,13 @@ def build_inbox(
     limit:
         Maximum number of items in the returned ``items`` list (the counts
         reflect the full, pre-cap scoped totals).
+    item_states:
+        What the caller already did with individual rows (item id -> state).
+        Dismissed rows are removed before anything is counted, so the counts
+        agree with the list rather than promising work that is no longer
+        shown. Pass ``None`` to build the inbox as if nothing had been acted
+        on, which is what the action endpoints do when they check that an id
+        really belongs to the caller.
 
     Returns
     -------
@@ -168,8 +247,14 @@ def build_inbox(
         }
     """
     safe_limit = max(0, int(limit))
-    scoped_approvals = scope_items_to_projects(approvals, accessible_project_ids)
-    scoped_alerts = scope_items_to_projects(alerts, accessible_project_ids)
+    scoped_approvals = apply_item_states(
+        scope_items_to_projects(approvals, accessible_project_ids),
+        item_states,
+    )
+    scoped_alerts = apply_item_states(
+        scope_items_to_projects(alerts, accessible_project_ids),
+        item_states,
+    )
 
     merged = sort_inbox_items([*scoped_approvals, *scoped_alerts])
 
@@ -182,11 +267,22 @@ def build_inbox(
 
 
 __all__ = [
+    "APPROVAL_SOURCES",
+    "INBOX_SOURCES",
+    "INBOX_STATES",
     "KIND_ALERT",
     "KIND_APPROVAL",
+    "SOURCE_CHANGE_ORDER_APPROVAL",
+    "SOURCE_FILE_APPROVAL",
+    "SOURCE_NOTIFICATION",
+    "STATE_ACKNOWLEDGED",
+    "STATE_DISMISSED",
+    "apply_item_states",
     "build_inbox",
     "normalize_severity",
+    "parse_item_id",
     "scope_items_to_projects",
     "severity_for_notification",
     "sort_inbox_items",
+    "source_is_approval",
 ]

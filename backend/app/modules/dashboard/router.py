@@ -11,10 +11,17 @@ Endpoints:
                     callers can supply per-widget ``WidgetConfigItem`` overrides
                     (e.g. the dashboard customisation panel).  The same IDOR
                     posture and 422-validation flow as the GET path.
+    GET  /inbox/  - the caller's unified approvals/alerts list.
+    POST /inbox/{item_id}/acknowledge - mark a row seen; it stays listed.
+    POST /inbox/{item_id}/dismiss     - take a row off the list.
+    DELETE /inbox/{item_id}/state     - undo either of the above.
 
 IDOR posture: project IDs the caller doesn't own are silently dropped
 from the rollup - never 403. Empty / unaccessible scope returns 200 with
 empty per-widget data (frontend renders the "no projects" empty state).
+The inbox *read* keeps that posture; the inbox *actions* do not, because a
+write must not quietly accept an id that is not the caller's - an item id
+outside their own inbox answers 404.
 """
 
 from __future__ import annotations
@@ -24,11 +31,18 @@ import json
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Header, Query, Response
+from fastapi import APIRouter, Header, HTTPException, Query, Response, status
 
 from app.dependencies import CurrentUserId, SessionDep
 from app.modules.dashboard.inbox import compute_inbox
+from app.modules.dashboard.inbox_actions import (
+    InboxActionInvalid,
+    InboxActionService,
+    InboxItemNotFound,
+)
+from app.modules.dashboard.inbox_logic import STATE_ACKNOWLEDGED, STATE_DISMISSED
 from app.modules.dashboard.schemas import (
+    InboxActionResponse,
     InboxResponse,
     RollupRequest,
     RollupResponse,  # noqa: F401 - re-exported in OpenAPI
@@ -246,3 +260,105 @@ async def get_inbox(
         **payload,
         generated_at=datetime.now(UTC).isoformat(),
     )
+
+
+# ── Inbox actions ────────────────────────────────────────────────────────────
+
+
+async def _act_on_inbox_item(
+    item_id: str,
+    state: str,
+    user_id: str,
+    session: SessionDep,
+) -> InboxActionResponse:
+    """Shared body for acknowledge and dismiss.
+
+    The ownership check runs first and answers 404 for an id outside the
+    caller's own inbox, so a write cannot be used to probe for ids the way a
+    silently-dropped read could.
+    """
+    projects = await accessible_projects(session, user_id)
+    admin = await is_admin(session, user_id)
+    service = InboxActionService(session)
+    try:
+        recorded, findings = await service.act(
+            projects,
+            user_id,
+            item_id=item_id,
+            state=state,
+            is_admin=admin,
+        )
+    except InboxItemNotFound as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Inbox item not found",
+        ) from exc
+    except InboxActionInvalid as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"message": "The inbox action did not pass validation", "findings": exc.findings},
+        ) from exc
+    await session.commit()
+    return InboxActionResponse(item_id=item_id, state=recorded, findings=findings)
+
+
+@router.post(
+    "/inbox/{item_id}/acknowledge",
+    response_model=InboxActionResponse,
+    summary="Mark one inbox row as seen",
+    description=(
+        "Records that the caller has seen this row. It stays in the list, flagged "
+        "``acknowledged``, so a long inbox can be worked through without anything "
+        "silently disappearing. Nothing in the module that owns the row changes."
+    ),
+)
+async def acknowledge_inbox_item(
+    item_id: str,
+    user_id: CurrentUserId,
+    session: SessionDep,
+) -> InboxActionResponse:
+    return await _act_on_inbox_item(item_id, STATE_ACKNOWLEDGED, user_id, session)
+
+
+@router.post(
+    "/inbox/{item_id}/dismiss",
+    response_model=InboxActionResponse,
+    summary="Take one inbox row off the caller's list",
+    description=(
+        "Removes the row from the caller's inbox. For an alert this also marks the "
+        "underlying notification read, so the notifications screen agrees. For an "
+        "approval it is triage only: the step stays pending and stays visible in "
+        "the module that owns it, and that is reported back in ``findings``."
+    ),
+)
+async def dismiss_inbox_item(
+    item_id: str,
+    user_id: CurrentUserId,
+    session: SessionDep,
+) -> InboxActionResponse:
+    return await _act_on_inbox_item(item_id, STATE_DISMISSED, user_id, session)
+
+
+@router.delete(
+    "/inbox/{item_id}/state",
+    response_model=InboxActionResponse,
+    summary="Undo an acknowledge or a dismiss",
+    description=(
+        "Forgets what the caller did with this row and puts it back on the list. A "
+        "dismissed alert is marked unread again, otherwise the row would stay "
+        "invisible with its state gone."
+    ),
+)
+async def restore_inbox_item(
+    item_id: str,
+    user_id: CurrentUserId,
+    session: SessionDep,
+) -> InboxActionResponse:
+    restored = await InboxActionService(session).restore(user_id, item_id)
+    if not restored:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Inbox item has no recorded state",
+        )
+    await session.commit()
+    return InboxActionResponse(item_id=item_id, state=None, findings=[])
