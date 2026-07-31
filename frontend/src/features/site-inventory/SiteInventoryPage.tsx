@@ -717,9 +717,9 @@ export function SiteInventoryPage() {
 
   // Module Insights - the toggleable visualization panel for this module. Its
   // charts are built client-side from the stock and movement ledgers already
-  // loaded; when the project has none, buildSiteInventoryInsights returns a
-  // labelled sample set so the panel is never empty on first open. Declared
-  // before the first return below so the hook order stays stable.
+  // loaded; when the project has none the panel draws nothing rather than
+  // inventing rows to fill it. Declared before the first return below so the
+  // hook order stays stable.
   const inventoryCurrency =
     items.find((i) => i.currency)?.currency ||
     movements.find((m) => m.currency)?.currency ||

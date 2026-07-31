@@ -223,10 +223,10 @@ export function AccommodationListPage() {
 
   // Module Insights - the toggleable visualization panel for this module. Its
   // charts are built client-side from the accommodations already loaded; when
-  // the project has none, buildAccommodationInsights returns a labelled sample
-  // set so the panel is never empty on first open. Open state and any
-  // user-built charts persist per module via useModuleInsights. Declared among
-  // the top hooks so the hook order stays stable.
+  // the project has none the panel draws nothing rather than inventing rows to
+  // fill it. Open state and any user-built charts persist per module via
+  // useModuleInsights. Declared among the top hooks so the hook order stays
+  // stable.
   const insights = useModuleInsights('accommodation', { defaultOpen: true });
   const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
     () => buildAccommodationInsights(accommodations, '', t),
@@ -286,8 +286,7 @@ export function AccommodationListPage() {
       />
 
       {/* Module Insights panel - toggled by the header button. Placed high so
-          its charts (real, or labelled sample) are visible the moment the
-          register opens. */}
+          its charts are visible the moment the register opens. */}
       <InsightsPanel
         open={insights.open}
         title={t('accommodation.insights.title', { defaultValue: 'Accommodation insights' })}

@@ -730,8 +730,8 @@ export function SafetyPage() {
   // incidents list also feeds the child IncidentsTab; sharing the same query
   // key means React Query serves both from a single fetch. Declared with the
   // other top-level hooks (this component has no early return) so the hook
-  // order stays stable. When the project has no incidents, buildSafetyInsights
-  // returns a labelled sample set so the panel is never empty on first open.
+  // order stays stable. When the project has no incidents the panel draws
+  // nothing rather than inventing rows to fill it.
   const { data: insightIncidents = [] } = useQuery({
     queryKey: ['safety-incidents', projectId],
     queryFn: () => apiGet<IncidentWire[]>(`/v1/safety/incidents/?project_id=${projectId}`),
@@ -802,8 +802,7 @@ export function SafetyPage() {
       />
 
       {/* Module Insights panel - toggled by the header button. Placed high so
-          its charts (real, or labelled sample) are visible the moment the
-          safety register opens. */}
+          its charts are visible the moment the safety register opens. */}
       <InsightsPanel
         open={insights.open}
         title={t('safety.insights.title', { defaultValue: 'Safety insights' })}

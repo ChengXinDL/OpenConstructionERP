@@ -2080,9 +2080,9 @@ export function TenderingPage() {
 
   // Module Insights - the toggleable visualization panel for this module. Its
   // charts are built client-side from the packages already loaded; when the
-  // project has none, buildTenderingInsights returns a labelled sample set so
-  // the panel is never empty on first open. Open state and any user-built
-  // charts persist per module via useModuleInsights.
+  // project has none the panel draws nothing rather than inventing rows to fill
+  // it. Open state and any user-built charts persist per module via
+  // useModuleInsights.
   const insights = useModuleInsights('tendering', { defaultOpen: true });
   const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
     () => buildTenderingInsights(packages ?? [], currency, t),
@@ -2141,8 +2141,8 @@ export function TenderingPage() {
       />
 
       {/* Module Insights panel - toggled by the header button. Placed high and
-          before the no-project gate so its charts (real, or labelled sample)
-          are visible the moment the module opens. */}
+          before the no-project gate so its charts are visible the moment the
+          module opens. */}
       <InsightsPanel
         open={insights.open}
         title={t('tendering.insights.title', { defaultValue: 'Tendering insights' })}

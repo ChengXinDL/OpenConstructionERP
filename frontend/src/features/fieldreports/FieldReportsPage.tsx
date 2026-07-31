@@ -295,8 +295,8 @@ export function FieldReportsPage() {
   });
 
   // ── Module Insights ──────────────────────────────────────────────────
-  // Built off the already-loaded list rows; the panel labels itself "Sample
-  // data" and shows illustrative reports until the list view has real ones.
+  // Built off the already-loaded list rows; until the list view has some the
+  // panel draws nothing rather than inventing reports to fill it.
   const insights = useModuleInsights('fieldreports', { defaultOpen: true });
   const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
     () => buildFieldReportsInsights(listReports, '', t),

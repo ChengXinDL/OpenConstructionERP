@@ -242,10 +242,10 @@ export function PreliminariesPage() {
 
   // Module Insights - the toggleable visualization panel for this module. Its
   // charts are built client-side from the preliminaries already loaded; when the
-  // project has none, buildPreliminariesInsights returns a labelled sample set so
-  // the panel is never empty on first open. Open state and any user-built charts
-  // persist per module via useModuleInsights. Declared before the project-guard
-  // early return below so the hook order stays stable.
+  // project has none the panel draws nothing rather than inventing rows to fill
+  // it. Open state and any user-built charts persist per module via
+  // useModuleInsights. Declared before the project-guard early return below so
+  // the hook order stays stable.
   const insights = useModuleInsights('preliminaries', { defaultOpen: true });
   const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
     () => buildPreliminariesInsights(itemsData ?? [], '', t),
@@ -271,8 +271,7 @@ export function PreliminariesPage() {
       />
 
       {/* Module Insights panel - toggled by the header button. Placed high so
-          its charts (real, or labelled sample) are visible the moment the
-          estimator opens. */}
+          its charts are visible the moment the estimator opens. */}
       <InsightsPanel
         open={insights.open}
         title={t('preliminaries.insights.title', { defaultValue: 'Preliminaries insights' })}

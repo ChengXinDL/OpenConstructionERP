@@ -1984,9 +1984,9 @@ export function ChangeOrdersPage() {
 
   // Module Insights - the toggleable KPI/chart panel for this module. Its
   // charts are built client-side from the change orders already loaded; when
-  // the project has none, buildChangeordersInsights supplies a labelled sample
-  // set so the panel is never empty on first open. Declared here, above the
-  // detail-view early return further down, so the hook order stays stable.
+  // the project has none the panel draws nothing rather than inventing rows to
+  // fill it. Declared here, above the detail-view early return further down, so
+  // the hook order stays stable.
   const insights = useModuleInsights('changeorders', { defaultOpen: true });
   const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
     () => buildChangeordersInsights(orders, project?.currency || summary?.currency || '', t),

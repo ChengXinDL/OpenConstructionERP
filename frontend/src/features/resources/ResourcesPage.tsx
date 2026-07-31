@@ -490,9 +490,8 @@ export function ResourcesPage() {
 
   // Module Insights - the toggleable visualization panel for this module. Its
   // charts are built client-side from the resources already loaded; when there
-  // are none, buildResourcesInsights returns a labelled sample set so the panel
-  // is never empty on first open. Declared before the first return below so the
-  // hook order stays stable.
+  // are none the panel draws nothing rather than inventing rows to fill it.
+  // Declared before the first return below so the hook order stays stable.
   const resourcesCurrency = allResources.find((r) => r.currency)?.currency || '';
   const insights = useModuleInsights('resources', { defaultOpen: true });
   const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(

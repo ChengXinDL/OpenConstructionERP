@@ -340,11 +340,10 @@ export function DailyDiaryPage() {
 
   // Module Insights - the toggleable visualization panel for this module. Its
   // charts are built client-side from the diaries the calendar already loaded;
-  // when the project has none, buildDailyDiaryInsights returns a labelled
-  // sample set so the panel is never empty on first open. Open state and any
-  // user-built charts persist per module via useModuleInsights. Declared among
-  // the top-level hooks (this component has no early return) so the hook order
-  // stays stable.
+  // when the project has none the panel draws nothing rather than inventing
+  // rows to fill it. Open state and any user-built charts persist per module
+  // via useModuleInsights. Declared among the top-level hooks (this component
+  // has no early return) so the hook order stays stable.
   const insights = useModuleInsights('daily-diary', { defaultOpen: true });
   const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
     () => buildDailyDiaryInsights(diariesQ.data ?? [], '', t),
@@ -420,8 +419,7 @@ export function DailyDiaryPage() {
       />
 
       {/* Module Insights panel - toggled by the header button. Placed high so
-          its charts (real, or labelled sample) are visible the moment the
-          diary register opens. */}
+          its charts are visible the moment the diary register opens. */}
       <InsightsPanel
         open={insights.open}
         title={t('daily_diary.insights.title', { defaultValue: 'Site diary insights' })}

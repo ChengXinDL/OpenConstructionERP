@@ -560,10 +560,10 @@ export function BidManagementPage() {
 
   // Module Insights - the toggleable visualization panel for this module. Its
   // charts are built client-side from the packages already loaded; when the
-  // project has none, buildBidManagementInsights returns a labelled sample set
-  // so the panel is never empty on first open. Open state and any user-built
-  // charts persist per module via useModuleInsights. Declared above the
-  // no-project early return below so the hook order stays stable.
+  // project has none the panel draws nothing rather than inventing rows to fill
+  // it. Open state and any user-built charts persist per module via
+  // useModuleInsights. Declared above the no-project early return below so the
+  // hook order stays stable.
   const insights = useModuleInsights('bid-management', { defaultOpen: true });
   const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
     () => buildBidManagementInsights(packagesQ.data ?? [], currentProject?.currency || '', t),
@@ -645,8 +645,7 @@ export function BidManagementPage() {
       />
 
       {/* Module Insights panel - toggled by the header button. Placed high so
-          its charts (real, or labelled sample) are visible the moment the
-          register opens. */}
+          its charts are visible the moment the register opens. */}
       <InsightsPanel
         open={insights.open}
         title={t('bid_management.insights.title', { defaultValue: 'Bid insights' })}

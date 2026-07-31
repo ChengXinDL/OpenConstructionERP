@@ -637,10 +637,10 @@ export function CvrPage() {
   // CvrReport list carries no money on its rows, so the panel charts the
   // project's payment applications (the money-bearing register the page also
   // loads): gross, retention and net due, by status and over time. When the
-  // project has none, buildCvrInsights returns a labelled sample set so the
-  // panel is never empty on first open. Open state and any user-built charts
-  // persist per module via useModuleInsights. Declared above the no-project
-  // early return below so the hook order stays stable.
+  // project has none the panel draws nothing rather than inventing rows to
+  // fill it. Open state and any user-built charts persist per module via
+  // useModuleInsights. Declared above the no-project early return below so the
+  // hook order stays stable.
   const insights = useModuleInsights('cvr', { defaultOpen: true });
   const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
     () => buildCvrInsights(payapps, reportCurrency || payapps[0]?.currency || '', t),
@@ -673,8 +673,7 @@ export function CvrPage() {
       />
 
       {/* Module Insights panel - toggled by the header button. Placed high so
-          its charts (real, or labelled sample) are visible the moment the page
-          opens. */}
+          its charts are visible the moment the page opens. */}
       <InsightsPanel
         open={insights.open}
         title={t('cvr.insights.title', { defaultValue: 'Payment insights' })}

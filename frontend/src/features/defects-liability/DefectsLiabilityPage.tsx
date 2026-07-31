@@ -685,11 +685,10 @@ export function DefectsLiabilityPage() {
 
   // Module Insights - the toggleable visualization panel for this module. Its
   // charts are built client-side from the defect notices already loaded; when
-  // the project has none, buildDefectsLiabilityInsights returns a labelled
-  // sample set so the panel is never empty on first open. Open state and any
-  // user-built charts persist per module via useModuleInsights. Declared among
-  // the top-level hooks (this component has no early return) so the hook order
-  // stays stable.
+  // the project has none the panel draws nothing rather than inventing rows to
+  // fill it. Open state and any user-built charts persist per module via
+  // useModuleInsights. Declared among the top-level hooks (this component has
+  // no early return) so the hook order stays stable.
   const insights = useModuleInsights('defects-liability', { defaultOpen: true });
   const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
     () => buildDefectsLiabilityInsights(defects, '', t),
@@ -712,8 +711,7 @@ export function DefectsLiabilityPage() {
       />
 
       {/* Module Insights panel - toggled by the header button. Placed high so
-          its charts (real, or labelled sample) are visible the moment the
-          register opens. */}
+          its charts are visible the moment the register opens. */}
       <InsightsPanel
         open={insights.open}
         title={t('defects_liability.insights.title', { defaultValue: 'Defect insights' })}

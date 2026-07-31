@@ -2065,9 +2065,9 @@ export function MeetingsPage() {
 
   // Module Insights - the toggleable KPI and chart panel for this module. Its
   // charts are built client-side from the meetings already loaded; when the
-  // project has none, buildMeetingsInsights returns a labelled sample set so
-  // the panel is never empty. Declared among the top-level hooks, above the
-  // single return below, so hook order stays stable on every render.
+  // project has none the panel draws nothing rather than inventing rows to fill
+  // it. Declared among the top-level hooks, above the single return below, so
+  // hook order stays stable on every render.
   const insights = useModuleInsights('meetings', { defaultOpen: true });
   const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
     () => buildMeetingsInsights(meetings, '', t),

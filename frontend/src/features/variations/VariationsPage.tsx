@@ -568,10 +568,9 @@ export function VariationsPage() {
 
   // Module Insights - the toggleable visualization panel for this module. It
   // charts the variation requests already loaded (the entity that carries each
-  // change's estimated cost and schedule impact); when the project has none,
-  // buildVariationsInsights returns a labelled sample set so the panel is never
-  // empty on first open. Declared before the no-project early return below so
-  // the hook order stays stable.
+  // change's estimated cost and schedule impact); when the project has none the
+  // panel draws nothing rather than inventing rows to fill it. Declared before
+  // the no-project early return below so the hook order stays stable.
   const insights = useModuleInsights('variations', { defaultOpen: true });
   const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
     () => buildVariationsInsights(requestsQ.data ?? [], currency, t),
@@ -677,7 +676,7 @@ export function VariationsPage() {
       />
 
       {/* Module Insights panel - toggled by the header button. Placed high so
-          its charts (real, or labelled sample) are visible as the page opens. */}
+          its charts are visible as the page opens. */}
       <InsightsPanel
         open={insights.open}
         title={t('variations.insights.title', { defaultValue: 'Variations insights' })}

@@ -762,8 +762,7 @@ export function FinancePage() {
       />
 
       {/* Module Insights panel - toggled by the header button. Placed high so
-          its charts (real, or a labelled sample when the project has no
-          invoices yet) are visible the moment Finance opens. */}
+          its charts are visible the moment Finance opens. */}
       <InsightsPanel
         open={insights.open}
         title={t('finance.insights.title', { defaultValue: 'Invoice insights' })}

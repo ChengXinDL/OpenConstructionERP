@@ -1912,9 +1912,9 @@ export function RFIPage() {
   }, [rfis, serverStats]);
 
   // Module Insights - the toggleable visualization panel for this module. Built
-  // client-side from the RFIs already loaded; when the project has none,
-  // buildRFIInsights returns a labelled sample set so the panel is never empty.
-  // Declared with the other top-of-component hooks so the hook order stays stable.
+  // client-side from the RFIs already loaded; when the project has none the
+  // panel draws nothing rather than inventing rows to fill it. Declared with
+  // the other top-of-component hooks so the hook order stays stable.
   const insights = useModuleInsights('rfi', { defaultOpen: true });
   const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
     () => buildRFIInsights(rfis, '', t),
@@ -2207,8 +2207,7 @@ export function RFIPage() {
       />
 
       {/* Module Insights panel - toggled by the header button. Placed high so
-          its charts (real, or labelled sample) are visible the moment the
-          register opens. */}
+          its charts are visible the moment the register opens. */}
       <InsightsPanel
         open={insights.open}
         title={t('rfi.insights.title', { defaultValue: 'RFI insights' })}

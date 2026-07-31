@@ -1178,7 +1178,7 @@ export function InterfaceManagementPage() {
   const report = healthQuery.data;
 
   // Module Insights - toggleable charts built client-side from the interfaces
-  // already loaded; an empty project falls back to a labelled sample set.
+  // already loaded; an empty project leaves the panel with nothing to draw.
   // Declared here, above the page's first return, so the hook order stays stable.
   const insights = useModuleInsights('interface-management', { defaultOpen: true });
   const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(

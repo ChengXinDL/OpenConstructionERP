@@ -994,9 +994,9 @@ export function SubmittalsPage() {
   }, [submittals]);
 
   // Module Insights - KPIs and charts over the loaded submittals. When the
-  // project has none, buildSubmittalsInsights returns a labelled sample set so
-  // the panel is never empty on first open. Declared with the top-level hooks,
-  // above the single return, so the hook order stays stable.
+  // project has none the panel draws nothing rather than inventing rows to fill
+  // it. Declared with the top-level hooks, above the single return, so the hook
+  // order stays stable.
   const insights = useModuleInsights('submittals', { defaultOpen: true });
   const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
     () => buildSubmittalsInsights(submittals, '', t),
@@ -1220,8 +1220,7 @@ export function SubmittalsPage() {
       />
 
       {/* Module Insights panel - toggled by the header button, placed high so
-          its charts (real, or labelled sample) show the moment the register
-          opens. */}
+          its charts show the moment the register opens. */}
       <InsightsPanel
         open={insights.open}
         title={t('submittals.insights.title', { defaultValue: 'Submittal insights' })}

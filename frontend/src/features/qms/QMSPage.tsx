@@ -343,8 +343,7 @@ export function QMSPage() {
   // keeps the charts showing real data the moment the page opens, whatever tab
   // is active. Declared with the other top-level hooks (this component has no
   // early return) so the hook order stays stable; when the project has no punch
-  // items, buildQMSInsights returns a labelled sample set so the panel is never
-  // empty on first open.
+  // items the panel draws nothing rather than inventing rows to fill it.
   const insightsPunchQ = useQuery({
     queryKey: ['qms', 'insights-punch', projectId],
     queryFn: () => listPunchItems({ project_id: projectId, limit: 200 }),
@@ -427,8 +426,7 @@ export function QMSPage() {
       />
 
       {/* Module Insights panel - toggled by the header button. Placed high so
-          its charts (real, or labelled sample) are visible the moment the
-          quality hub opens. */}
+          its charts are visible the moment the quality hub opens. */}
       <InsightsPanel
         open={insights.open}
         title={t('qms.insights.title', { defaultValue: 'Quality insights' })}

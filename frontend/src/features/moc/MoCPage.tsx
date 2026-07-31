@@ -1340,10 +1340,10 @@ export function MoCPage() {
 
   // Module Insights - the toggleable KPI/chart panel for this module. Its
   // charts are built client-side from the change requests already loaded; when
-  // the project has none, buildMocInsights supplies a labelled sample set so
-  // the panel is never empty on first open. The page has no early return, so
-  // this simply joins the other top-level hooks. Currency comes from the first
-  // entry that carries one (the MoC project record does not expose it).
+  // the project has none the panel draws nothing rather than inventing rows to
+  // fill it. The page has no early return, so this simply joins the other
+  // top-level hooks. Currency comes from the first entry that carries one (the
+  // MoC project record does not expose it).
   const insights = useModuleInsights('moc', { defaultOpen: true });
   const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
     () => buildMocInsights(entries, entries.find((e) => e.currency)?.currency || '', t),

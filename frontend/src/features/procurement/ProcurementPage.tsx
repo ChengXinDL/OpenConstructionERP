@@ -386,8 +386,7 @@ export function ProcurementPage() {
       />
 
       {/* Module Insights panel - toggled by the header button. Placed high so
-          its charts (real, or a labelled sample when the project has no
-          purchase orders yet) are visible the moment Procurement opens. */}
+          its charts are visible the moment Procurement opens. */}
       <InsightsPanel
         open={insights.open}
         title={t('procurement.insights.title', { defaultValue: 'Procurement insights' })}
