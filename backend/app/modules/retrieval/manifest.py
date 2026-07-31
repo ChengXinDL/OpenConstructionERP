@@ -6,12 +6,13 @@ from app.core.module_loader import ModuleManifest
 
 manifest = ModuleManifest(
     name="oe_retrieval",
-    version="0.1.0",
+    version="0.2.0",
     display_name="Find Records",
     description=(
         "Claim-grade retrieval across the project record. Search documents, correspondence, and "
         "change orders together, filtered by party, date window, reference and type, ranked with "
-        "the provenance you need to reconstruct what happened"
+        "the provenance you need to reconstruct what happened, and pin the searches worth "
+        "coming back to"
     ),
     author="OpenConstructionERP Core Team",
     category="core",
