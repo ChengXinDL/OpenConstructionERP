@@ -128,7 +128,6 @@ KNOWN_DEFAULT_LAZY: frozenset[str] = frozenset(
         "supplier_catalogs.PriceList.vendor",
         "supplier_catalogs.SupplierGoodsReceipt.po",
         "supplier_catalogs.VendorInvoiceLine.invoice",
-        "teams.TeamMembership.team",
         "temporary_works.TemporaryWorksPermit.item",
         "tendering.TenderBid.package",
         "transmittals.TransmittalItem.transmittal",

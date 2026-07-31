@@ -5,7 +5,17 @@
 Tables:
     oe_teams_team       - project teams for entity visibility
     oe_teams_membership - user-to-team membership
-    oe_teams_visibility - entity-to-team visibility grants
+    oe_teams_visibility - entity-to-team visibility restrictions
+
+Visibility semantics
+~~~~~~~~~~~~~~~~~~~~
+``EntityVisibility`` rows RESTRICT, they never grant. A record with no row is
+open to everyone who can already reach its project; a record with one or more
+rows is reachable only by the project owner, a system admin, and the members of
+the named teams. There is deliberately no direction in which a row widens what a
+user can see, so no team assignment can hand out access the user did not already
+hold on the parent project. See :mod:`app.modules.teams.access` for the
+subtractive resolver every consumer is expected to use.
 """
 
 import uuid
@@ -47,6 +57,14 @@ class Team(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+    # A team's restrictions can run to thousands of rows on a large project and
+    # are never needed to render the team itself, so they are ordered
+    # explicitly rather than loaded with every parent read.
+    visibility_grants: Mapped[list["EntityVisibility"]] = relationship(
+        back_populates="team",
+        cascade="all, delete-orphan",
+        lazy="raise_on_sql",
+    )
 
     def __repr__(self) -> str:
         return f"<Team {self.name} (project={self.project_id})>"
@@ -73,14 +91,24 @@ class TeamMembership(Base):
     role: Mapped[str] = mapped_column(String(50), nullable=False, default="member", server_default="member")
 
     # Relationships
-    team: Mapped[Team] = relationship(back_populates="memberships")
+    # ``raise_on_sql``: the FK column already carries the parent id, so an
+    # implicit walk upwards is the async lazy-load crash, not a convenience.
+    # Reading it is still free when ``Team.memberships`` populated it.
+    team: Mapped[Team] = relationship(back_populates="memberships", lazy="raise_on_sql")
 
     def __repr__(self) -> str:
         return f"<TeamMembership team={self.team_id} user={self.user_id} ({self.role})>"
 
 
 class EntityVisibility(Base):
-    """Grants visibility of an entity to a team."""
+    """Restricts one record to one team.
+
+    The row is subtractive. Its presence turns the named record from "open to
+    every member of the project" into "reachable only by the project owner, a
+    system admin, and the members of the teams named by the rows on this
+    record". It cannot make a record reachable to someone who could not already
+    reach the project it belongs to.
+    """
 
     __tablename__ = "oe_teams_visibility"
     __table_args__ = (
@@ -102,5 +130,8 @@ class EntityVisibility(Base):
         index=True,
     )
 
+    # Relationships
+    team: Mapped[Team] = relationship(back_populates="visibility_grants", lazy="raise_on_sql")
+
     def __repr__(self) -> str:
-        return f"<EntityVisibility {self.entity_type}/{self.entity_id} → team={self.team_id}>"
+        return f"<EntityVisibility {self.entity_type}/{self.entity_id} -> team={self.team_id}>"

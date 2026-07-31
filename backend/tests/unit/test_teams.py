@@ -1,19 +1,18 @@
-"""Baseline tests for :class:`TeamService`.
+"""Database-free tests for :class:`TeamService`'s two authorisation gates.
 
-Scope:
-    * Create a team within a project.
-    * Add a member; verify the membership row exists and carries the
-      requested role (the permission-inheritance signal the rest of the
-      system reads off ``TeamMembership.role``).
-    * Remove the member; verify the row is gone (revoking the inherited
-      grant).
-    * RBAC self-elevation guard: a non-owner caller cannot grant
-      themselves an ELEVATED team role.
+Scope, and the reason for the split: the behavioural coverage of this module -
+what a restriction does, who may write one, what a stranger sees - lives in
+``tests/unit/teams/`` against a real PostgreSQL session, because a gate is only
+proved by the data it refuses. What is left here is the part that genuinely
+does not need a database: how ``_assert_project_admin`` composes the access
+check and the ownership check, and that ``add_member`` cannot be reached
+without passing both.
 
-Repositories and session are stubbed so the suite doesn't need a live
-database. RBAC dependencies (``verify_project_access``,
-``_is_project_owner_or_admin``) are monkey-patched per-test so we
-exercise the gate without standing up Project / User tables.
+Repositories and session are stubbed. ``_assert_project_access`` and
+``_is_project_owner_or_admin`` are monkey-patched per test so the composition
+can be driven through all four combinations without standing up Project and
+User tables. ``_assert_project_admin`` itself is NOT stubbed - it is the thing
+under test.
 """
 
 from __future__ import annotations
@@ -33,9 +32,9 @@ from app.modules.teams.service import TeamService
 
 
 class _StubSession:
-    """Async-session shim — supports the ``add/flush/expire_all`` surface
-    the service touches via the repositories. Audit + event publish are
-    no-ops so the test stays focused on team mechanics.
+    """Async-session shim - supports the ``add/flush`` surface the service
+    touches via the repositories. Audit + event publish are no-ops so the test
+    stays focused on the gate.
     """
 
     def __init__(self) -> None:
@@ -51,9 +50,6 @@ class _StubSession:
 
     async def execute(self, stmt: Any) -> SimpleNamespace:
         return SimpleNamespace(rowcount=0)
-
-    def expire_all(self) -> None:
-        pass
 
 
 class _StubTeamRepo:
@@ -82,6 +78,11 @@ class _StubTeamRepo:
         self.rows[team.id] = team
         return team
 
+    async def clear_default_flag(self, project_id: uuid.UUID, keep_team_id: uuid.UUID) -> None:
+        for row in self.rows.values():
+            if row.project_id == project_id and row.id != keep_team_id:
+                row.is_default = False
+
     async def update_fields(self, team_id: uuid.UUID, **fields: Any) -> None:
         obj = self.rows.get(team_id)
         if obj is not None:
@@ -99,11 +100,7 @@ class _StubMembershipRepo:
     async def list_for_team(self, team_id: uuid.UUID) -> list[Any]:
         return [m for (tid, _uid), m in self.rows.items() if tid == team_id]
 
-    async def get_membership(
-        self,
-        team_id: uuid.UUID,
-        user_id: uuid.UUID,
-    ) -> Any:
+    async def get_membership(self, team_id: uuid.UUID, user_id: uuid.UUID) -> Any:
         return self.rows.get((team_id, user_id))
 
     async def add(self, membership: Any) -> Any:
@@ -112,6 +109,13 @@ class _StubMembershipRepo:
         membership.created_at = datetime.now(UTC)
         self.rows[(membership.team_id, membership.user_id)] = membership
         return membership
+
+    async def set_role(self, team_id: uuid.UUID, user_id: uuid.UUID, role: str) -> bool:
+        row = self.rows.get((team_id, user_id))
+        if row is None:
+            return False
+        row.role = role
+        return True
 
     async def remove(self, team_id: uuid.UUID, user_id: uuid.UUID) -> bool:
         return self.rows.pop((team_id, user_id), None) is not None
@@ -124,8 +128,11 @@ def _make_service(
 ) -> TeamService:
     """Build a TeamService wired to stubs.
 
-    ``project_access_ok``  — fake ``verify_project_access`` outcome.
-    ``is_owner_or_admin`` — fake elevation gate outcome.
+    ``project_access_ok``  - fake ``verify_project_access`` outcome.
+    ``is_owner_or_admin``  - fake ownership outcome.
+
+    ``_assert_project_admin`` is deliberately left real: it is what composes
+    the two into the write gate, and it is the composition that has to hold.
     """
     svc = TeamService.__new__(TeamService)
     svc.session = _StubSession()
@@ -133,15 +140,21 @@ def _make_service(
     svc.membership_repo = _StubMembershipRepo()
     svc.visibility_repo = SimpleNamespace()
 
-    async def _assert(_project_id: uuid.UUID, _actor: Any) -> None:
+    async def _assert(_project_id: uuid.UUID, actor: Any) -> None:
+        if actor is None:
+            return
         if not project_access_ok:
             raise HTTPException(status_code=404, detail="Project not found")
 
     async def _priv(_project_id: uuid.UUID, _actor: Any) -> bool:
         return is_owner_or_admin
 
+    async def _addable(_user_id: uuid.UUID) -> None:
+        """Stand in for the User lookup - the gate, not the user, is under test."""
+
     svc._assert_project_access = _assert  # type: ignore[assignment]
     svc._is_project_owner_or_admin = _priv  # type: ignore[assignment]
+    svc._assert_user_addable = _addable  # type: ignore[assignment]
 
     # No-op audit + events so the focused test doesn't depend on the
     # global event bus or the audit-log table.
@@ -157,15 +170,17 @@ def _make_service(
 
 
 @pytest.mark.asyncio
-async def test_team_lifecycle_member_role_inheritance() -> None:
-    """End-to-end: create team → add member with a role → membership row
-    carries that role → removing the member drops the inheritance signal.
+async def test_team_lifecycle_for_a_project_owner() -> None:
+    """The positive path: an owner creates a team, staffs it, and clears it.
+
+    The membership row IS the permission-inheritance signal - every downstream
+    resolver reads the role off it - so the lifecycle is asserted on the row,
+    not on the call returning without raising.
     """
     svc = _make_service()
     project_id = uuid.uuid4()
-    owner_actor = uuid.uuid4()  # plays the project owner / admin
+    owner_actor = uuid.uuid4()
 
-    # 1. Create team.
     team = await svc.create_team(
         TeamCreate(project_id=project_id, name="Estimators"),
         actor_id=owner_actor,
@@ -173,8 +188,6 @@ async def test_team_lifecycle_member_role_inheritance() -> None:
     assert team.project_id == project_id
     assert team.name == "Estimators"
 
-    # 2. Add a member with the project_manager role — caller is owner so
-    #    elevation is allowed.
     member_user = uuid.uuid4()
     membership = await svc.add_member(
         team.id,
@@ -184,56 +197,120 @@ async def test_team_lifecycle_member_role_inheritance() -> None:
     assert membership.team_id == team.id
     assert membership.user_id == member_user
 
-    # 3. The membership row IS the permission-inheritance signal: any
-    #    downstream resolver reads role off this record. Confirm it is
-    #    persisted and queryable.
-    listed = await svc.list_members(team.id)
+    listed = await svc.list_members(team.id, actor_id=owner_actor)
     assert len(listed) == 1
-    assert listed[0].user_id == member_user
     assert listed[0].role == "project_manager"
 
-    # 4. Remove the member — the inherited grant goes with the row.
     await svc.remove_member(team.id, member_user, actor_id=owner_actor)
-    listed_after = await svc.list_members(team.id)
-    assert listed_after == []
+    assert await svc.list_members(team.id, actor_id=owner_actor) == []
 
-    # Trying to remove again is a 404 (no orphan membership left behind).
+    # Removing again is a 404 - no orphan membership left behind.
     with pytest.raises(HTTPException) as exc:
         await svc.remove_member(team.id, member_user, actor_id=owner_actor)
     assert exc.value.status_code == 404
 
 
 @pytest.mark.asyncio
-async def test_add_member_blocks_self_elevation_into_owner_role() -> None:
-    """A caller who passes verify_project_access but is NOT the project
-    owner / system admin cannot grant ELEVATED roles. This is the
-    self-elevation hole the RBAC fix closes.
+async def test_write_gate_refuses_a_caller_who_only_has_project_access() -> None:
+    """Project access is not enough to write a membership.
+
+    A membership row is what ``verify_project_access`` reads to grant project
+    access, so a caller able to write one can hand an outsider a project they
+    could not see. This is the composition that closes it: access check passes,
+    ownership check fails, gate refuses with 403 - and it refuses for a BASIC
+    role, not only an elevated one.
+
+    Swap ``_assert_project_admin`` back to ``_assert_project_access`` in
+    ``add_member`` and this test fails.
     """
     svc = _make_service(project_access_ok=True, is_owner_or_admin=False)
     project_id = uuid.uuid4()
     caller = uuid.uuid4()
 
-    # Seed a team via a privileged actor first (so create itself passes).
-    svc_owner = _make_service()
-    team = await svc_owner.create_team(
+    owner_svc = _make_service()
+    team = await owner_svc.create_team(
         TeamCreate(project_id=project_id, name="Core"),
         actor_id=uuid.uuid4(),
     )
-    # Re-attach the team into our test service so add_member can find it.
     svc.team_repo.rows[team.id] = team
 
+    for role in ("member", "owner"):
+        with pytest.raises(HTTPException) as exc:
+            await svc.add_member(
+                team.id,
+                AddMemberRequest(user_id=caller, role=role),
+                actor_id=caller,
+            )
+        assert exc.value.status_code == 403, role
+
+    # Nothing was written on the way to the refusal.
+    assert svc.membership_repo.rows == {}
+
+
+@pytest.mark.asyncio
+async def test_write_gate_refuses_a_caller_who_cannot_see_the_project_with_404() -> None:
+    """404 comes first, so a caller who cannot see the project learns nothing.
+
+    The order matters: were the ownership check first, a stranger would get 403
+    and learn the project exists.
+    """
+    svc = _make_service(project_access_ok=False, is_owner_or_admin=False)
+    project_id = uuid.uuid4()
+
     with pytest.raises(HTTPException) as exc:
-        await svc.add_member(
-            team.id,
-            AddMemberRequest(user_id=caller, role="owner"),
-            actor_id=caller,
+        await svc.create_team(
+            TeamCreate(project_id=project_id, name="Nope"),
+            actor_id=uuid.uuid4(),
         )
+    assert exc.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_a_role_change_takes_the_same_gate_as_an_add() -> None:
+    """Otherwise an in-place promotion routes around the add-time check."""
+    project_id = uuid.uuid4()
+    owner_actor = uuid.uuid4()
+    owner_svc = _make_service()
+    team = await owner_svc.create_team(
+        TeamCreate(project_id=project_id, name="Core"),
+        actor_id=owner_actor,
+    )
+    member = uuid.uuid4()
+    await owner_svc.add_member(
+        team.id,
+        AddMemberRequest(user_id=member, role="member"),
+        actor_id=owner_actor,
+    )
+
+    # The owner may promote.
+    promoted = await owner_svc.update_member_role(team.id, member, "owner", actor_id=owner_actor)
+    assert promoted.role == "owner"
+
+    # A non-owner with project access may not, even for a basic role.
+    weak = _make_service(project_access_ok=True, is_owner_or_admin=False)
+    weak.team_repo.rows[team.id] = team
+    weak.membership_repo.rows = owner_svc.membership_repo.rows
+    with pytest.raises(HTTPException) as exc:
+        await weak.update_member_role(team.id, member, "viewer", actor_id=member)
     assert exc.value.status_code == 403
 
-    # Sanity: the basic role IS allowed for the same caller.
+
+@pytest.mark.asyncio
+async def test_a_system_call_skips_both_gates() -> None:
+    """``actor_id=None`` is reserved for seed scripts and background jobs.
+
+    Kept explicit because it is the one path that bypasses everything above,
+    and it must stay unreachable from HTTP - every route passes a real caller.
+    """
+    svc = _make_service(project_access_ok=False, is_owner_or_admin=False)
+    project_id = uuid.uuid4()
+
+    team = await svc.create_team(TeamCreate(project_id=project_id, name="Seeded"), actor_id=None)
+    assert team.name == "Seeded"
+
     membership = await svc.add_member(
         team.id,
-        AddMemberRequest(user_id=caller, role="member"),
-        actor_id=caller,
+        AddMemberRequest(user_id=uuid.uuid4(), role="owner"),
+        actor_id=None,
     )
-    assert membership.role == "member"
+    assert membership.role == "owner"
