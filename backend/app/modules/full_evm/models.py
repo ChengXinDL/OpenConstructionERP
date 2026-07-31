@@ -60,7 +60,29 @@ BASELINE_STATUSES: tuple[str, ...] = ("draft", "approved", "superseded", "archiv
 MEASURE_SOURCES: tuple[str, ...] = ("manual", "finance_snapshot", "import")
 
 #: Outcome of the last validation run stored on a row.
-VALIDATION_STATUSES: tuple[str, ...] = ("pending", "passed", "warnings", "errors", "info", "skipped")
+#:
+#: Every member except ``pending`` is a value of
+#: ``app.core.validation.engine.ValidationStatus``, because the write is
+#: ``row.validation_status = report.status.value`` and the engine decides that
+#: word, not this module. ``pending`` is the column default, meaning the row has
+#: never been validated, which is a state the engine has no name for.
+#: ``unsupported`` is the engine's answer when the ``full_evm`` rule set
+#: resolves to no rules at all, so it is exactly what lands here if the
+#: ``on_startup`` registration is ever lost, and it was missing from this tuple.
+#: Nothing reads the tuple today, which is why the omission went unnoticed: no
+#: write was refused, the module simply described its own column wrongly. The
+#: three sibling vocabularies here are each pinned to a ``Literal`` by
+#: ``schemas._check_vocabulary``; this one is not, so
+#: ``test_full_evm_vocabulary.py`` pins it to the engine's enum instead.
+VALIDATION_STATUSES: tuple[str, ...] = (
+    "pending",
+    "passed",
+    "warnings",
+    "errors",
+    "info",
+    "skipped",
+    "unsupported",
+)
 
 #: Precision of every money column in this module: 18 digits, 4 decimals. Four
 #: decimals covers every ISO 4217 minor-unit count with room to spare, so a
@@ -188,7 +210,7 @@ class EVMBaseline(Base):
         nullable=False,
         default="pending",
         server_default="pending",
-        doc="One of: pending, passed, warnings, errors, info, skipped",
+        doc="One of VALIDATION_STATUSES",
     )
     validation_findings: Mapped[list] = mapped_column(  # type: ignore[assignment]
         JSON,
