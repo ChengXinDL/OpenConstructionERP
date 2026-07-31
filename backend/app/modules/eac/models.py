@@ -31,6 +31,7 @@ from sqlalchemy import (
     JSON,
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -81,6 +82,32 @@ ALIAS_VALUE_TYPE_HINTS: tuple[str, ...] = (
     "any",
 )
 ALIAS_SYNONYM_KINDS: tuple[str, ...] = ("exact", "regex")
+
+# Block-editor vocabulary. These mirror the TypeScript unions the visual
+# editor already declares, so the API cannot drift from the canvas:
+#   BLOCK_COLORS     <- BlockColor          (features/eac/types.ts)
+#   SLOT_DATA_TYPES  <- SlotDataType        (features/eac/canvas/dnd.ts)
+#   SLOT_DIRECTIONS  <- SlotDirection       (features/eac/canvas/dnd.ts)
+BLOCK_COLORS: tuple[str, ...] = (
+    "selector",
+    "logic",
+    "attribute",
+    "constraint",
+    "variable",
+)
+SLOT_DATA_TYPES: tuple[str, ...] = (
+    "selector",
+    "predicate",
+    "attribute",
+    "constraint",
+    "variable",
+    "number",
+    "string",
+    "boolean",
+    "any",
+)
+SLOT_DIRECTIONS: tuple[str, ...] = ("input", "output")
+GRAPH_VALIDATION_STATUSES: tuple[str, ...] = ("pending", "passed", "warnings", "errors")
 ALIAS_SOURCE_FILTERS: tuple[str, ...] = (
     "any",
     "instance",
@@ -730,13 +757,249 @@ class EacAliasSnapshot(Base):
         return f"<EacAliasSnapshot scope={self.scope} at={self.taken_at}>"
 
 
+# ── Block graph (visual editor authoring surface) ────────────────────────
+#
+# The block editor is where an estimator builds a rule by hand: it holds
+# blocks at canvas coordinates, wired together through typed slots. That is
+# a strictly richer thing than the ``EacRuleDefinition`` in
+# ``EacRule.definition_json``, because it is also valid half-finished - a
+# graph mid-edit routinely has unwired blocks and a dangling parameter, and
+# the estimator still expects it to be there tomorrow morning.
+#
+# The three tables below persist that authoring surface. They intentionally
+# do NOT replace ``definition_json``: compiling a graph into a rule is a
+# separate, explicit act.
+
+
+class EacBlockGraph(Base):
+    """A saved visual block-editor document.
+
+    Owns an ordered set of :class:`EacBlock` rows and the
+    :class:`EacBlockConnection` wires between them. Both ``rule_id`` and
+    ``ruleset_id`` are optional: a graph is a reusable document in its own
+    right, and only becomes bound to a rule when the estimator promotes it.
+    """
+
+    __tablename__ = "oe_eac_block_graph"
+    __table_args__ = (
+        Index("ix_eac_block_graph_tenant_project", "tenant_id", "project_id"),
+        Index("ix_eac_block_graph_tenant_updated", "tenant_id", "updated_at"),
+    )
+
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    output_mode: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="boolean",
+        server_default="boolean",
+        doc="One of: aggregate, boolean, clash, issue",
+    )
+    rule_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(),
+        ForeignKey("oe_eac_rule.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        doc="Rule this graph authors, once promoted. Null while unbound.",
+    )
+    ruleset_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(),
+        ForeignKey("oe_eac_ruleset.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    revision: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+        server_default="1",
+        doc="Monotonic save counter. A write carrying a stale value is rejected.",
+    )
+    validation_status: Mapped[str] = mapped_column(
+        String(16),
+        nullable=False,
+        default="pending",
+        server_default="pending",
+        doc="Outcome of the last write-time validation: passed/warnings/errors/pending",
+    )
+    validation_findings: Mapped[list] = mapped_column(  # type: ignore[assignment]
+        JSON,
+        nullable=False,
+        default=list,
+        server_default="[]",
+        doc="Failing rule results from the last write, so a list view needs no re-run",
+    )
+    validation_score: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        default=None,
+        doc=(
+            "Severity-weighted quality score from the last validation. Nullable "
+            "on purpose: the engine returns None when nothing was actually "
+            "checked, and storing 1.0 there would report an unchecked canvas as "
+            "perfect."
+        ),
+    )
+    tags: Mapped[list[str]] = mapped_column(  # type: ignore[assignment]
+        JSON,
+        nullable=False,
+        default=list,
+        server_default="[]",
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False, index=True)
+    project_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True, index=True)
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
+    updated_by_user_id: Mapped[uuid.UUID | None] = mapped_column(GUID(), nullable=True)
+
+    # The blocks and wires ARE the graph - a read that skips them is never
+    # what a caller wanted, so both eager-load.
+    blocks: Mapped[list["EacBlock"]] = relationship(
+        back_populates="graph",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="EacBlock.ordinal",
+    )
+    connections: Mapped[list["EacBlockConnection"]] = relationship(
+        back_populates="graph",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="EacBlockConnection.ordinal",
+    )
+
+    def __repr__(self) -> str:
+        return f"<EacBlockGraph {self.name} rev={self.revision}>"
+
+
+class EacBlock(Base):
+    """One node on the canvas.
+
+    ``client_id`` is the editor's own block id and is the identity the wires
+    reference - see :class:`EacBlockConnection`. The database primary key is
+    an implementation detail that churns on every whole-graph save.
+    """
+
+    __tablename__ = "oe_eac_block"
+    __table_args__ = (
+        UniqueConstraint("graph_id", "client_id", name="uq_eac_block_graph_client"),
+        Index("ix_eac_block_graph_ordinal", "graph_id", "ordinal"),
+    )
+
+    graph_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(),
+        ForeignKey("oe_eac_block_graph.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    client_id: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        doc="Editor-side block id, e.g. 'block_3_a1b2c3d4'. Unique per graph.",
+    )
+    ordinal: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+        doc="Position in the ordered set, renumbered 0..n-1 on every save",
+    )
+    kind: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        doc="Palette kind, e.g. 'and', 'ifc_class', 'triplet'",
+    )
+    color: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="selector",
+        server_default="selector",
+        doc="One of: selector, logic, attribute, constraint, variable",
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False, default="", server_default="")
+    position_x: Mapped[float] = mapped_column(Float, nullable=False, default=0.0, server_default="0")
+    position_y: Mapped[float] = mapped_column(Float, nullable=False, default=0.0, server_default="0")
+    slots: Mapped[list] = mapped_column(  # type: ignore[assignment]
+        JSON,
+        nullable=False,
+        default=list,
+        server_default="[]",
+        doc="SlotDefinition list: {id, label, direction, dataType, multi?}",
+    )
+    params: Mapped[dict] = mapped_column(  # type: ignore[assignment]
+        JSON,
+        nullable=False,
+        default=dict,
+        server_default="{}",
+        doc="Free-form block parameters, e.g. {'operator': 'between', 'values': [1, 2]}",
+    )
+
+    # FK is already in the column; walking up implicitly is what fires
+    # MissingGreenlet in an async session.
+    graph: Mapped[EacBlockGraph] = relationship(back_populates="blocks", lazy="raise_on_sql")
+
+    def __repr__(self) -> str:
+        return f"<EacBlock {self.client_id} kind={self.kind}>"
+
+
+class EacBlockConnection(Base):
+    """One wire between two block slots.
+
+    Endpoints are stored as the editor's client ids rather than as foreign
+    keys into :class:`EacBlock`. That is deliberate: a wire pointing at a
+    block that is not on the canvas is a real authoring mistake this module
+    must be able to *report*, and a database constraint would instead refuse
+    the write outright, leaving the estimator with an error dialog and no
+    saved work. Integrity is enforced by the ``eac_graph`` validation rule
+    set, which also checks the far stronger condition a foreign key cannot
+    express: that the named slot exists on that particular block, with the
+    right direction and a compatible data type.
+    """
+
+    __tablename__ = "oe_eac_block_connection"
+    __table_args__ = (
+        UniqueConstraint("graph_id", "client_id", name="uq_eac_block_conn_graph_client"),
+        Index("ix_eac_block_conn_graph_ordinal", "graph_id", "ordinal"),
+    )
+
+    graph_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(),
+        ForeignKey("oe_eac_block_graph.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    client_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    ordinal: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    source_block_client_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_slot_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    target_block_client_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    target_slot_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    data_type: Mapped[str] = mapped_column(
+        String(32),
+        nullable=False,
+        default="any",
+        server_default="any",
+        doc=(
+            "Client-cached slot data type, kept for faithful round-tripping. "
+            "Never trusted: compatibility is recomputed from the slot definitions."
+        ),
+    )
+
+    graph: Mapped[EacBlockGraph] = relationship(back_populates="connections", lazy="raise_on_sql")
+
+    def __repr__(self) -> str:
+        return f"<EacBlockConnection {self.source_block_client_id} -> {self.target_block_client_id}>"
+
+
 __all__ = [
     "ALIAS_SCOPES",
     "ALIAS_SOURCE_FILTERS",
     "ALIAS_SYNONYM_KINDS",
     "ALIAS_VALUE_TYPE_HINTS",
+    "BLOCK_COLORS",
     "EacAliasSnapshot",
     "EacAliasSynonym",
+    "EacBlock",
+    "EacBlockConnection",
+    "EacBlockGraph",
     "EacGlobalVariable",
     "EacParameterAlias",
     "EacRule",
@@ -746,10 +1009,13 @@ __all__ = [
     "EacRunResultItem",
     "GLOBAL_VARIABLE_SCOPES",
     "GLOBAL_VARIABLE_VALUE_TYPES",
+    "GRAPH_VALIDATION_STATUSES",
     "OUTPUT_MODES",
     "RULESET_KINDS",
     "RUN_STATUSES",
     "RUN_TRIGGERS",
+    "SLOT_DATA_TYPES",
+    "SLOT_DIRECTIONS",
 ]
 
 

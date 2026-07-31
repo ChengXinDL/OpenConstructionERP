@@ -27,7 +27,7 @@ import logging
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -38,10 +38,14 @@ from app.dependencies import (
     SessionDep,
     verify_project_access,
 )
+from app.modules.eac import repository as eac_repository
+from app.modules.eac import service as eac_service
 from app.modules.eac.models import (
     GLOBAL_VARIABLE_VALUE_TYPES,
+    GRAPH_VALIDATION_STATUSES,
     OUTPUT_MODES,
     RULESET_KINDS,
+    EacBlockGraph,
     EacRule,
     EacRuleset,
     EacRuleVersion,
@@ -73,6 +77,22 @@ from app.modules.eac.schemas_api import (
     EacRunResultItemRead,
     EacRunRulesetRequest,
     EacRunStatusResponse,
+)
+from app.modules.eac.schemas_graph import (
+    BlockPosition,
+    BlockRead,
+    BlockSlot,
+    BlockWrite,
+    ConnectionRead,
+    ConnectionWrite,
+    GraphBody,
+    GraphCreate,
+    GraphDuplicate,
+    GraphFinding,
+    GraphRead,
+    GraphSummary,
+    GraphUpdate,
+    GraphValidationReport,
 )
 
 logger = logging.getLogger(__name__)
@@ -1217,6 +1237,465 @@ async def diff_runs_endpoint(
         flipped_fail_to_pass=list(result.flipped_fail_to_pass),
         unchanged_count=result.unchanged_count,
     )
+
+
+# ── Block graphs: the visual editor's saved documents ───────────────────
+#
+# A graph is the estimator's own drawing of a methodology. It is saved
+# constantly and half-finished most of the time, so no write is refused for
+# being incomplete: validation runs on every save and its outcome is stored
+# on the row, which is what makes a broken methodology visible in a list
+# instead of only at the moment someone tries to run it.
+
+
+def _graph_body_response(graph: EacBlockGraph) -> GraphRead:
+    """Render a graph, its canvas and its stored validation outcome."""
+    return GraphRead(
+        id=graph.id,
+        name=graph.name,
+        description=graph.description,
+        output_mode=graph.output_mode,
+        rule_id=graph.rule_id,
+        ruleset_id=graph.ruleset_id,
+        project_id=graph.project_id,
+        tags=list(graph.tags or []),
+        revision=graph.revision,
+        validation_status=graph.validation_status,
+        block_count=len(graph.blocks),
+        connection_count=len(graph.connections),
+        created_at=graph.created_at,
+        updated_at=graph.updated_at,
+        blocks=[
+            BlockRead(
+                client_id=block.client_id,
+                ordinal=block.ordinal,
+                kind=block.kind,
+                color=block.color,
+                title=block.title,
+                position=BlockPosition(x=block.position_x, y=block.position_y),
+                slots=[BlockSlot.model_validate(slot) for slot in (block.slots or [])],
+                params=dict(block.params or {}),
+            )
+            for block in graph.blocks
+        ],
+        connections=[
+            ConnectionRead(
+                client_id=conn.client_id,
+                ordinal=conn.ordinal,
+                source_block_client_id=conn.source_block_client_id,
+                source_slot_id=conn.source_slot_id,
+                target_block_client_id=conn.target_block_client_id,
+                target_slot_id=conn.target_slot_id,
+                data_type=conn.data_type,
+            )
+            for conn in graph.connections
+        ],
+        validation=GraphValidationReport(
+            status=graph.validation_status,
+            # The stored number, not one derived from whether findings exist.
+            # "no findings" and "nothing was checked" are different states, and
+            # a score computed from the findings list cannot tell them apart.
+            score=graph.validation_score,
+            findings=[GraphFinding.model_validate(f) for f in (graph.validation_findings or [])],
+        ),
+    )
+
+
+def _graph_summary(graph: EacBlockGraph) -> GraphSummary:
+    """Render a graph without its canvas, for list views."""
+    return GraphSummary(
+        id=graph.id,
+        name=graph.name,
+        description=graph.description,
+        output_mode=graph.output_mode,
+        rule_id=graph.rule_id,
+        ruleset_id=graph.ruleset_id,
+        project_id=graph.project_id,
+        tags=list(graph.tags or []),
+        revision=graph.revision,
+        validation_status=graph.validation_status,
+        block_count=len(graph.blocks),
+        connection_count=len(graph.connections),
+        created_at=graph.created_at,
+        updated_at=graph.updated_at,
+    )
+
+
+async def _load_graph_or_404(
+    session: AsyncSession,
+    graph_id: uuid.UUID,
+    tenant_id: uuid.UUID,
+) -> EacBlockGraph:
+    """Fetch a graph within the tenant, or raise 404."""
+    graph = await eac_repository.get_graph(session, graph_id, tenant_id)
+    if graph is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Block graph {graph_id} not found",
+        )
+    return graph
+
+
+@router.post(
+    "/graphs",
+    response_model=GraphRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(RequirePermission("eac.write"))],
+)
+async def create_block_graph(
+    payload: GraphCreate,
+    user_id: CurrentUserId,
+    session: SessionDep,
+) -> GraphRead:
+    """Create a block graph, optionally with its canvas already populated."""
+    tenant_id = await _resolve_tenant_id(session, user_id)
+    if payload.project_id is not None:
+        await verify_project_access(payload.project_id, user_id, session)
+
+    graph = EacBlockGraph(
+        name=payload.name,
+        description=payload.description,
+        output_mode=payload.output_mode,
+        rule_id=payload.rule_id,
+        ruleset_id=payload.ruleset_id,
+        tags=list(payload.tags or []),
+        tenant_id=tenant_id,
+        project_id=payload.project_id,
+        revision=0,
+        created_by_user_id=uuid.UUID(user_id),
+        updated_by_user_id=uuid.UUID(user_id),
+    )
+    session.add(graph)
+    await session.flush()
+
+    await eac_service.save_graph_body(
+        session,
+        graph,
+        payload.blocks,
+        payload.connections,
+        user_id=uuid.UUID(user_id),
+    )
+    await log_activity(
+        session,
+        action="create",
+        entity_type="eac_block_graph",
+        entity_id=str(graph.id),
+        actor_id=user_id,
+        metadata={"name": graph.name, "blocks": len(graph.blocks)},
+    )
+    return _graph_body_response(graph)
+
+
+@router.get(
+    "/graphs",
+    response_model=list[GraphSummary],
+    dependencies=[Depends(RequirePermission("eac.read"))],
+)
+async def list_block_graphs(
+    user_id: CurrentUserId,
+    session: SessionDep,
+    response: Response,
+    project_id: Annotated[uuid.UUID | None, Query()] = None,
+    rule_id: Annotated[uuid.UUID | None, Query()] = None,
+    search: Annotated[str | None, Query(max_length=255)] = None,
+    include_unscoped: Annotated[bool, Query()] = True,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> list[GraphSummary]:
+    """List the tenant's block graphs, most recently edited first.
+
+    A graph with no project is reusable across projects, so a project filter
+    returns those too unless ``include_unscoped`` is turned off.
+
+    The body stays a bare array, matching every other list in this module, and
+    the number of matches the filters found is returned in ``X-Total-Count`` so
+    a paged view can size its pager without a second request.
+    """
+    tenant_id = await _resolve_tenant_id(session, user_id)
+    if project_id is not None:
+        await verify_project_access(project_id, user_id, session)
+    filters = {
+        "project_id": project_id,
+        "rule_id": rule_id,
+        "search": search,
+        "include_unscoped": include_unscoped,
+    }
+    graphs = await eac_repository.list_graphs(
+        session,
+        tenant_id,
+        limit=limit,
+        offset=offset,
+        **filters,
+    )
+    total = await eac_repository.count_graphs(session, tenant_id, **filters)
+    response.headers["X-Total-Count"] = str(total)
+    return [_graph_summary(graph) for graph in graphs]
+
+
+@router.get(
+    "/graphs/{graph_id}",
+    response_model=GraphRead,
+    dependencies=[Depends(RequirePermission("eac.read"))],
+)
+async def get_block_graph(
+    graph_id: uuid.UUID,
+    user_id: CurrentUserId,
+    session: SessionDep,
+) -> GraphRead:
+    """Fetch one block graph with its full canvas."""
+    tenant_id = await _resolve_tenant_id(session, user_id)
+    graph = await _load_graph_or_404(session, graph_id, tenant_id)
+    return _graph_body_response(graph)
+
+
+@router.put(
+    "/graphs/{graph_id}",
+    response_model=GraphRead,
+    dependencies=[Depends(RequirePermission("eac.write"))],
+)
+async def update_block_graph(
+    graph_id: uuid.UUID,
+    payload: GraphUpdate,
+    user_id: CurrentUserId,
+    session: SessionDep,
+) -> GraphRead:
+    """Update a block graph's metadata, its canvas, or both.
+
+    ``blocks`` and ``connections`` replace the whole canvas, matching the
+    editor's own ``loadGraph`` snapshot. Omitting both leaves the canvas
+    untouched, so a rename does not have to resend it.
+
+    When ``expected_revision`` is supplied and no longer matches, the write is
+    refused with 409 rather than quietly overwriting a save made elsewhere.
+    """
+    tenant_id = await _resolve_tenant_id(session, user_id)
+    graph = await _load_graph_or_404(session, graph_id, tenant_id)
+
+    if payload.expected_revision is not None and payload.expected_revision != graph.revision:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Block graph {graph_id} has moved on to revision {graph.revision}; "
+                f"the write carried revision {payload.expected_revision}. "
+                "Reload the graph before saving again."
+            ),
+        )
+
+    fields = payload.model_dump(exclude_unset=True)
+    for field in ("name", "description", "output_mode", "rule_id", "ruleset_id"):
+        if field in fields:
+            setattr(graph, field, fields[field])
+    if "tags" in fields and payload.tags is not None:
+        graph.tags = list(payload.tags)
+    graph.updated_by_user_id = uuid.UUID(user_id)
+
+    if payload.blocks is not None or payload.connections is not None:
+        await eac_service.save_graph_body(
+            session,
+            graph,
+            payload.blocks or [],
+            payload.connections or [],
+            user_id=uuid.UUID(user_id),
+        )
+    else:
+        await session.flush()
+
+    await log_activity(
+        session,
+        action="update",
+        entity_type="eac_block_graph",
+        entity_id=str(graph.id),
+        actor_id=user_id,
+        metadata={"revision": graph.revision},
+    )
+    return _graph_body_response(graph)
+
+
+@router.delete(
+    "/graphs/{graph_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(RequirePermission("eac.delete"))],
+)
+async def delete_block_graph(
+    graph_id: uuid.UUID,
+    user_id: CurrentUserId,
+    session: SessionDep,
+) -> None:
+    """Delete a block graph and its canvas."""
+    tenant_id = await _resolve_tenant_id(session, user_id)
+    graph = await _load_graph_or_404(session, graph_id, tenant_id)
+    await eac_repository.delete_graph(session, graph)
+    await log_activity(
+        session,
+        action="delete",
+        entity_type="eac_block_graph",
+        entity_id=str(graph_id),
+        actor_id=user_id,
+        metadata={},
+    )
+
+
+@router.post(
+    "/graphs/{graph_id}:duplicate",
+    response_model=GraphRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(RequirePermission("eac.write"))],
+)
+async def duplicate_block_graph(
+    graph_id: uuid.UUID,
+    payload: GraphDuplicate,
+    user_id: CurrentUserId,
+    session: SessionDep,
+) -> GraphRead:
+    """Copy a block graph, canvas and all, under a new name.
+
+    Every block and wire gets a fresh id and the wiring is rewritten to match,
+    so the copy is genuinely independent: editing it can never disturb the
+    original. The copy is not bound to the source's rule - promoting it stays
+    an explicit act.
+    """
+    tenant_id = await _resolve_tenant_id(session, user_id)
+    source = await _load_graph_or_404(session, graph_id, tenant_id)
+    project_id = payload.project_id if payload.project_id is not None else source.project_id
+    if project_id is not None:
+        await verify_project_access(project_id, user_id, session)
+
+    blocks = [
+        BlockWrite(
+            client_id=block.client_id,
+            kind=block.kind,
+            color=block.color,
+            title=block.title,
+            position=BlockPosition(x=block.position_x, y=block.position_y),
+            slots=[BlockSlot.model_validate(slot) for slot in (block.slots or [])],
+            params=dict(block.params or {}),
+        )
+        for block in source.blocks
+    ]
+    connections = [
+        ConnectionWrite(
+            client_id=conn.client_id,
+            source_block_client_id=conn.source_block_client_id,
+            source_slot_id=conn.source_slot_id,
+            target_block_client_id=conn.target_block_client_id,
+            target_slot_id=conn.target_slot_id,
+            data_type=conn.data_type,
+        )
+        for conn in source.connections
+    ]
+    fresh_blocks, fresh_connections = eac_service.remap_graph_body(blocks, connections)
+
+    copy = EacBlockGraph(
+        name=payload.name or f"{source.name} (copy)",
+        description=source.description,
+        output_mode=source.output_mode,
+        rule_id=None,
+        ruleset_id=source.ruleset_id,
+        tags=list(source.tags or []),
+        tenant_id=tenant_id,
+        project_id=project_id,
+        revision=0,
+        created_by_user_id=uuid.UUID(user_id),
+        updated_by_user_id=uuid.UUID(user_id),
+    )
+    session.add(copy)
+    await session.flush()
+    await eac_service.save_graph_body(
+        session,
+        copy,
+        fresh_blocks,
+        fresh_connections,
+        user_id=uuid.UUID(user_id),
+    )
+    await log_activity(
+        session,
+        action="create",
+        entity_type="eac_block_graph",
+        entity_id=str(copy.id),
+        actor_id=user_id,
+        metadata={"duplicated_from": str(source.id)},
+    )
+    return _graph_body_response(copy)
+
+
+@router.post(
+    "/graphs/{graph_id}:validate",
+    response_model=GraphValidationReport,
+    dependencies=[Depends(RequirePermission("eac.run"))],
+)
+async def validate_block_graph(
+    graph_id: uuid.UUID,
+    user_id: CurrentUserId,
+    session: SessionDep,
+) -> GraphValidationReport:
+    """Re-run the ``eac_graph`` rules over a saved graph.
+
+    The stored outcome is refreshed as a side effect, so a graph checked here
+    reports the same status in a later list without another run. That side
+    effect is why this sits behind ``eac.run`` rather than ``eac.read``: it
+    feeds a user-supplied graph through the rule engine and writes the result
+    back, neither of which belongs to a read-only viewer.
+    """
+    tenant_id = await _resolve_tenant_id(session, user_id)
+    graph = await _load_graph_or_404(session, graph_id, tenant_id)
+    blocks = [
+        BlockWrite(
+            client_id=block.client_id,
+            kind=block.kind,
+            color=block.color,
+            title=block.title,
+            position=BlockPosition(x=block.position_x, y=block.position_y),
+            slots=[BlockSlot.model_validate(slot) for slot in (block.slots or [])],
+            params=dict(block.params or {}),
+        )
+        for block in graph.blocks
+    ]
+    connections = [
+        ConnectionWrite(
+            client_id=conn.client_id,
+            source_block_client_id=conn.source_block_client_id,
+            source_slot_id=conn.source_slot_id,
+            target_block_client_id=conn.target_block_client_id,
+            target_slot_id=conn.target_slot_id,
+            data_type=conn.data_type,
+        )
+        for conn in graph.connections
+    ]
+    report = await eac_service.validate_graph_body(
+        blocks,
+        connections,
+        target_id=str(graph.id),
+        project_id=graph.project_id,
+    )
+    graph.validation_status = report.status if report.status in GRAPH_VALIDATION_STATUSES else "pending"
+    graph.validation_findings = [finding.model_dump() for finding in report.findings]
+    graph.validation_score = report.score
+    await session.flush()
+    return report
+
+
+@router.post(
+    "/graphs:validate",
+    response_model=GraphValidationReport,
+    dependencies=[Depends(RequirePermission("eac.run"))],
+)
+async def validate_block_graph_body(
+    payload: GraphBody,
+    user_id: CurrentUserId,
+    session: SessionDep,
+) -> GraphValidationReport:
+    """Check an unsaved canvas.
+
+    The editor calls this while the estimator is still wiring, so a problem
+    surfaces on the canvas rather than at save time. Nothing is persisted.
+
+    Gated on ``eac.run`` for the same reason the rule dry-run is: the body is
+    arbitrary user-supplied content that gets fed to the rule engine, which is
+    not something a read-only viewer should be able to trigger.
+    """
+    await _resolve_tenant_id(session, user_id)
+    blocks, connections = eac_service.normalise_graph_body(payload.blocks, payload.connections)
+    return await eac_service.validate_graph_body(blocks, connections)
 
 
 # ── Module exports ──────────────────────────────────────────────────────

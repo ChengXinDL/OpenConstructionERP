@@ -15,7 +15,9 @@ mirrors, and CRUD API surface (Wave EAC-1.1 + EAC-1.2).
 
 
 async def on_startup() -> None:
-    """Module startup hook - register RBAC permissions."""
+    """Module startup hook - register RBAC permissions and validation rules."""
     from app.modules.eac.permissions import register_eac_permissions
+    from app.modules.eac.validators import register_eac_graph_rules
 
     register_eac_permissions()
+    register_eac_graph_rules()
