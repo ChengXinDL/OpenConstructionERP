@@ -219,12 +219,13 @@ def _accumulate(
 ) -> dict[tuple[str, str], _Cell]:
     """Fold committed items and candidate items into per-(kind, currency) cells.
 
-    Committed items add to the committed columns only when their status is in
-    :data:`COMMITTED_STATUSES`; a non-committed status passed in the committed
-    list is ignored for the baseline (it is not part of what is already
-    committed). Candidate items always add to the candidate-delta columns
-    regardless of their own status - they are the prospective change being
-    decided. Both sides are bucketed by (kind, currency) so nothing blends.
+    Committed items add to the committed columns only when their status is
+    committed for their own kind (see :func:`is_committed`); a non-committed
+    status passed in the committed list is ignored for the baseline (it is not
+    part of what is already committed). Candidate items always add to the
+    candidate-delta columns regardless of their own status - they are the
+    prospective change being decided. Both sides are bucketed by (kind,
+    currency) so nothing blends.
     """
     cells: dict[tuple[str, str], _Cell] = {}
 
@@ -312,13 +313,14 @@ def project_with_pending(
 ) -> DecisionImpact:
     """Preview the position if *candidate* is approved on top of *committed*.
 
-    Only items in *committed* whose status is in :data:`COMMITTED_STATUSES`
-    count toward the current-committed baseline; any non-committed item in that
-    list is ignored (it is not yet part of what is committed). The *candidate*
-    is the single prospective change being decided and is always applied as a
-    signed delta on its own (kind, currency), regardless of its status. The
-    result has one :class:`DecisionImpactRow` per (kind, currency) ordered by
-    ``(kind, currency)`` and one :class:`CurrencyTotal` per currency.
+    Only items in *committed* whose status is committed for their own kind
+    (see :func:`is_committed`) count toward the current-committed baseline; any
+    non-committed item in that list is ignored (it is not yet part of what is
+    committed). The *candidate* is the single prospective change being decided
+    and is always applied as a signed delta on its own (kind, currency),
+    regardless of its status. The result has one :class:`DecisionImpactRow` per
+    (kind, currency) ordered by ``(kind, currency)`` and one
+    :class:`CurrencyTotal` per currency.
     """
     return _build(_accumulate(committed, [candidate]))
 
@@ -333,10 +335,10 @@ def project_with_pending_many(
     deltas are summed per (kind, currency), so two candidates of the same kind
     and currency collapse into one row whose ``candidate_cost_delta`` /
     ``candidate_days_delta`` is their combined signed delta. The committed
-    baseline is filtered by :data:`COMMITTED_STATUSES` exactly as in the single
-    case. An empty *candidates* list yields a preview of the committed baseline
-    alone (every candidate column zero); empty on both sides yields an empty
-    preview.
+    baseline is filtered per kind by :func:`is_committed` exactly as in the
+    single case. An empty *candidates* list yields a preview of the committed
+    baseline alone (every candidate column zero); empty on both sides yields an
+    empty preview.
     """
     return _build(_accumulate(committed, candidates))
 

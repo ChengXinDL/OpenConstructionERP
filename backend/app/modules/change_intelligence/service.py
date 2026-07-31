@@ -656,9 +656,10 @@ async def build_dispute_risk_board(
 #
 # Gathers the committed CO / VO cost+schedule impacts for a project as the
 # baseline and the one candidate change under decision, and feeds them to the
-# pure :mod:`decision_impact` engine. Only approved / executed changes count
-# toward the baseline (COMMITTED_STATUSES); the candidate is always applied as
-# a signed delta regardless of its own status.
+# pure :mod:`decision_impact` engine. A change counts toward the baseline only
+# when its status is committed for its own family: a change order once approved
+# or executed, a variation order once issued and not voided. The candidate is
+# always applied as a signed delta regardless of its own status.
 
 #: Each change-family kind mapped to the (cost, days, currency, status) column
 #: names this preview reads off its row. Mirrors the per-module money columns.
@@ -699,7 +700,7 @@ async def build_decision_impact(
     candidate id is not found in any change-family table.
     """
     # Committed baseline: only the kinds that carry committed cost (CO + VO),
-    # filtered to COMMITTED_STATUSES by the engine via each row's status.
+    # filtered by the engine against each row's own (kind, status) pair.
     committed: list[ChangeImpact] = []
     for kind in (KIND_CHANGE_ORDER, KIND_VARIATION_ORDER):
         model = _KIND_TO_MODEL[kind]

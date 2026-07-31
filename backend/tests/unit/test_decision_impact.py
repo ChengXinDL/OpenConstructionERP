@@ -17,6 +17,7 @@ import pytest
 
 from app.modules.change_intelligence.decision_impact import (
     COMMITTED_STATUSES,
+    KIND_VARIATION_ORDER,
     TWOPLACES,
     ChangeImpact,
     CurrencyTotal,
@@ -36,7 +37,14 @@ def _impact(
     days: str,
     status: str = "approved",
 ) -> ChangeImpact:
-    """Build a ChangeImpact from string money / day literals."""
+    """Build a ChangeImpact from string money / day literals.
+
+    The default status is a committed CHANGE-ORDER status. The families do not
+    share a status vocabulary, so a variation-order fixture has to spell its own
+    out: a variation order's FSM is issued -> in_progress -> completed | voided
+    and can never hold "approved", so the default would build a row the database
+    cannot produce.
+    """
     return ChangeImpact(
         kind=kind,
         currency=currency,
@@ -111,7 +119,31 @@ def test_quantize_money_half_up() -> None:
     ],
 )
 def test_is_committed_vocabulary(status: str, expected: bool) -> None:
+    # No kind argument: the default is the change-order vocabulary.
     assert is_committed(status) is expected
+
+
+@pytest.mark.parametrize(
+    "status,expected",
+    [
+        ("issued", True),  # an issued VO is in force, so its cost is committed
+        ("in_progress", True),
+        ("completed", True),
+        ("COMPLETED", True),  # case-insensitive
+        ("  issued  ", True),  # trimmed + case-insensitive
+        ("voided", False),  # the one VO state that carries no committed cost
+        # The change-order words are not variation-order states at all: a VO's
+        # FSM is issued -> in_progress -> completed | voided. Answering True for
+        # them would mean the change-order vocabulary is being applied to a
+        # variation order, which is how every agreed VO once fell out of the
+        # committed baseline.
+        ("approved", False),
+        ("executed", False),
+        ("", False),
+    ],
+)
+def test_is_committed_variation_order_vocabulary(status: str, expected: bool) -> None:
+    assert is_committed(status, KIND_VARIATION_ORDER) is expected
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +183,7 @@ def test_single_candidate_no_committed_baseline() -> None:
 
 def test_single_candidate_negative_delta_is_a_credit() -> None:
     # A candidate credit / acceleration: signed amounts carry through.
-    committed = [_impact("variation_order", "USD", "500.00", "10")]
+    committed = [_impact("variation_order", "USD", "500.00", "10", status="completed")]
     candidate = _impact("variation_order", "USD", "-120.50", "-3", status="draft")
     result = project_with_pending(committed, candidate)
 
@@ -265,7 +297,7 @@ def test_currencies_never_blend_across_rows() -> None:
 def test_currency_totals_kept_separate() -> None:
     committed = [
         _impact("change_order", "USD", "100.00", "5"),
-        _impact("variation_order", "EUR", "200.00", "10"),
+        _impact("variation_order", "EUR", "200.00", "10", status="completed"),
     ]
     candidate = _impact("change_order", "USD", "25.00", "1", status="draft")
     result = project_with_pending(committed, candidate)
@@ -304,9 +336,11 @@ def test_empty_currency_code_is_its_own_bucket() -> None:
 def test_multiple_kinds_each_get_a_row() -> None:
     committed = [
         _impact("change_order", "USD", "100.00", "5"),
-        _impact("variation_order", "USD", "200.00", "10"),
+        _impact("variation_order", "USD", "200.00", "10", status="in_progress"),
     ]
-    candidate = _impact("variation_order", "USD", "50.00", "2", status="draft")
+    # The candidate carries a committed VO status on purpose: it must still be
+    # read as a prospective delta, not folded into the VO baseline.
+    candidate = _impact("variation_order", "USD", "50.00", "2", status="completed")
     result = project_with_pending(committed, candidate)
 
     co = _row_by_key(result, "change_order", "USD")
@@ -319,7 +353,7 @@ def test_multiple_kinds_each_get_a_row() -> None:
 
 def test_rows_ordered_by_kind_then_currency() -> None:
     committed = [
-        _impact("variation_order", "USD", "1.00", "0"),
+        _impact("variation_order", "USD", "1.00", "0", status="issued"),
         _impact("change_order", "USD", "1.00", "0"),
         _impact("change_order", "EUR", "1.00", "0"),
     ]
@@ -370,7 +404,7 @@ def test_many_candidates_same_kind_currency_sum() -> None:
 def test_many_candidates_across_kinds_and_currencies() -> None:
     committed = [
         _impact("change_order", "USD", "100.00", "5"),
-        _impact("variation_order", "EUR", "200.00", "10"),
+        _impact("variation_order", "EUR", "200.00", "10", status="completed"),
     ]
     candidates = [
         _impact("change_order", "USD", "30.00", "1", status="draft"),
@@ -414,7 +448,7 @@ def test_many_candidates_noncommitted_baseline_still_filtered() -> None:
 def test_many_with_empty_candidate_list_shows_baseline_only() -> None:
     committed = [
         _impact("change_order", "USD", "100.00", "5"),
-        _impact("variation_order", "EUR", "200.00", "10"),
+        _impact("variation_order", "EUR", "200.00", "10", status="issued"),
     ]
     result = project_with_pending_many(committed, [])
 
