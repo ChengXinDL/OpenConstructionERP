@@ -18,6 +18,7 @@ self-redirect (``test_tenant_isolation``, ``test_register_bootstrap``,
 etc.) are still fine — they overwrite this with their own connection.
 """
 
+import inspect
 import os
 
 # ── Windows asyncpg event-loop policy ──────────────────────────────────────
@@ -149,19 +150,44 @@ import app.modules.users.models  # noqa: E402,F401
 # event has already fanned out to subscribers.
 from app.core.events import event_bus as _event_bus  # noqa: E402
 
-# Handlers that perform real async I/O - they open their own DB session
-# (webhook dispatch), write an activity-log row (BOQ) or persist a timeline
-# ActivityLog row (timeline bridge). These are the three ``"*"`` wildcard
-# subscribers in the codebase, so each is present for *every* event once the
-# full app has started (i.e. in integration tests). Manually stepping a
-# coroutine that does real asyncpg I/O via ``coro.send(None)`` corrupts the
-# connection ("await wasn't used with future") and poisons the test's session,
-# so whenever one of these is registered we let the event loop drive the publish
-# instead. NOTE: keep this in sync with every ``event_bus.subscribe("*", ...)``
-# in app/ - a wildcard handler missing here is half-stepped and silently
-# poisons whichever unit test happens to publish first (manifests as a
-# ``GeneratorExit`` deep in asyncpg on the next DB op).
-_ASYNC_IO_EVENT_HANDLERS = {"_dispatch_to_webhooks", "_log_boq_activity", "_record_event"}
+
+# Which subscribers must be driven by the event loop rather than stepped by hand
+# ---------------------------------------------------------------------------
+# This used to be a set of three handler names, kept by hand and documented with
+# "keep this in sync with every event_bus.subscribe('*', ...) in app/". It went
+# stale the way every such list does. It named only the three wildcard
+# subscribers, so all 150-odd *per-event* subscribers under app/ - each of which
+# opens its own database session, because that is the entire reason
+# ``publish_detached`` exists - were classified as pure and hand-stepped. One
+# leaked ``boq.position.created`` subscriber was enough to suspend a hand-stepped
+# coroutine inside a live asyncpg read and corrupt the session-scoped loop, and
+# every later test in that process then died in ``selectors.py`` without ever
+# reaching application code.
+#
+# The classification is therefore structural now, and derived from something the
+# author of a new subscriber cannot forget to update: the module the handler was
+# defined in. Anything defined under ``app.`` may do real I/O and is never
+# hand-stepped. A new ``event_bus.subscribe`` anywhere in the application is
+# covered the day it lands, and no test needs to know it exists.
+def _is_application_subscriber(handler: object) -> bool:
+    """True when *handler* was defined inside the application package."""
+    module = getattr(handler, "__module__", "") or ""
+    return module == "app" or module.startswith("app.")
+
+
+def _needs_event_loop(handler: object) -> bool:
+    """True when stepping *handler* by hand would suspend the publish coroutine."""
+    if _is_application_subscriber(handler):
+        return True
+    # A plain (non-async) subscriber is dispatched through ``asyncio.to_thread``
+    # by :meth:`EventBus.publish`, which suspends the publish coroutine even
+    # though the handler itself touches nothing. Ask the same question the bus
+    # asks, so the two can never disagree.
+    return not inspect.iscoroutinefunction(handler)
+
+
+# Set per test by :func:`_isolate_unit_tests_from_leaked_subscribers` below.
+_unit_test_scope = False
 
 # Keep strong references to scheduled publish tasks so the loop can't garbage-
 # collect them mid-flight (which would raise "Task was destroyed but it is
@@ -178,69 +204,123 @@ def _schedule_publish(coro):
     return task
 
 
-def _sync_publish_detached(name, data=None, source_module=None):
-    """Test-time replacement for :meth:`EventBus.publish_detached`.
+def _drive_in_line(name, data, source_module, named, wildcard):
+    """Fan *name* out synchronously to the vetted handler set, and only to it.
 
-    Two regimes, distinguished by whether a real-I/O wildcard handler is wired:
+    Every handler passed here answered ``False`` to :func:`_needs_event_loop`, so
+    :meth:`EventBus.publish` runs start to finish on a single ``send(None)`` and
+    the synchronous contract unit tests are written against holds.
 
-    * **Unit tests** subscribe a pure-Python recorder to the bus, call a
-      service that fires ``publish_detached`` and then immediately assert on the
-      captured events. No I/O handler is registered, so we drive the publish
-      coroutine to completion in-line — pure subscribers finish on the first
-      ``send(None)`` — preserving that synchronous contract exactly.
-
-    * **Integration tests** run the full app, which registers wildcard handlers
-      that open their own DB session (webhook dispatch, BOQ activity log). Those
-      do real asyncpg I/O; stepping them by hand corrupts the connection. When
-      such a handler is registered for the event we instead schedule the publish
-      as a detached task, exactly as production does, so the loop drives the I/O
-      correctly.
-
-    Either way an awaitable is returned for callers/tests that use it.
+    The bus registries hold the vetted set for the duration of that one step, so
+    ``publish`` fans out to exactly what we vetted rather than to whatever is on
+    the bus. The window is invisible: the step is straight-line synchronous code
+    with no suspension point, so nothing else in the process can observe it. The
+    ``_handlers`` mapping itself is kept (only the one key is borrowed) so the
+    bus never changes shape.
     """
     import asyncio as __asyncio
 
-    handlers = list(_event_bus._handlers.get(name, ())) + list(_event_bus._wildcard_handlers)
-    needs_loop = any(getattr(h, "__name__", "") in _ASYNC_IO_EVENT_HANDLERS for h in handlers)
-    if needs_loop:
+    fut: __asyncio.Future = __asyncio.Future()
+    had_key = name in _event_bus._handlers
+    saved_named = _event_bus._handlers.get(name)
+    saved_wildcard = _event_bus._wildcard_handlers
+    _event_bus._handlers[name] = named
+    _event_bus._wildcard_handlers = wildcard
+    try:
+        coro = _event_bus.publish(name, data, source_module=source_module)
         try:
+            coro.send(None)
+        except StopIteration as stop:
+            fut.set_result(stop.value)
+            return fut
+        except BaseException as exc:
+            fut.set_exception(exc)
+            return fut
+    finally:
+        if had_key:
+            _event_bus._handlers[name] = saved_named
+        else:
+            _event_bus._handlers.pop(name, None)
+        _event_bus._wildcard_handlers = saved_wildcard
+
+    # Unreachable by construction, and loud rather than silent if construction
+    # ever slips. The old code closed the half-stepped coroutine here and
+    # re-published, which is unsound twice over: ``close()`` throws GeneratorExit
+    # into a coroutine that may be suspended inside asyncpg, abandoning a socket
+    # that is still registered on the session-scoped loop, and the re-publish
+    # fires again every handler that already completed. Closing is safe *here*
+    # because no application subscriber can be in this set - that is what
+    # :func:`_needs_event_loop` guarantees - so what is left is a test-owned
+    # handler that awaited something, and the test author is the one who can fix
+    # it. Fail at the publish site rather than poisoning a later test.
+    coro.close()
+    raise RuntimeError(
+        f"event {name!r} suspended while being published in line; handlers "
+        f"{[getattr(h, '__qualname__', repr(h)) for h in named + wildcard]} were "
+        "all classified as unable to suspend. A subscriber registered by a test "
+        "awaited real I/O: subscribe it from the application package, or make it "
+        "complete without awaiting."
+    )
+
+
+def _sync_publish_detached(name, data=None, source_module=None):
+    """Test-time replacement for :meth:`EventBus.publish_detached`.
+
+    Two regimes, chosen by :func:`_needs_event_loop` over the handlers actually
+    registered for the event, in *both* bus registries:
+
+    * **Unit tests** subscribe a pure-Python recorder to the bus, call a service
+      that fires ``publish_detached`` and then immediately assert on the captured
+      events. Nothing on that path does I/O, so the publish coroutine is driven
+      to completion in line, preserving that synchronous contract exactly.
+
+    * **Integration tests** run the full app, whose subscribers open their own DB
+      session. Those do real asyncpg I/O; stepping them by hand corrupts the
+      connection. So the publish is scheduled as a detached task, exactly as
+      production does, and the loop drives the I/O correctly.
+
+    Either way an awaitable is returned for callers/tests that use it.
+    """
+    named = list(_event_bus._handlers.get(name, ()))
+    wildcard = list(_event_bus._wildcard_handlers)
+    if _unit_test_scope:
+        # A unit test never started the app, so every application subscriber on
+        # the bus is leakage from some earlier test that imported a module and
+        # did not put the bus back. Leave it registered - tests that assert on
+        # the wiring need to see it - but keep it out of this publish, so it
+        # neither runs nor decides the regime.
+        named = [h for h in named if not _is_application_subscriber(h)]
+        wildcard = [h for h in wildcard if not _is_application_subscriber(h)]
+
+    if any(_needs_event_loop(h) for h in named + wildcard):
+        try:
+            # Deliberately the unfiltered publish: once the loop is driving it,
+            # a leaked subscriber doing its own I/O is merely unwanted, never
+            # corrupting, and re-deriving the fan-out here would duplicate
+            # ``EventBus.publish`` in the harness.
             return _schedule_publish(_event_bus.publish(name, data, source_module=source_module))
         except RuntimeError:
-            pass  # no running loop (rare) — fall through to the synchronous drive
+            # No running loop (rare): ``publish_detached`` was called from plain
+            # synchronous code. Nothing can drive a handler that suspends, and
+            # hand-stepping one is the corruption this shim exists to prevent,
+            # so deliver to the handlers that can complete in line and skip the
+            # rest rather than half-running them.
+            named = [h for h in named if not _needs_event_loop(h)]
+            wildcard = [h for h in wildcard if not _needs_event_loop(h)]
 
-    coro = _event_bus.publish(name, data, source_module=source_module)
-    fut: __asyncio.Future = __asyncio.Future()
-    try:
-        # Pure subscribers (no real I/O) finish in a single send.
-        coro.send(None)
-    except StopIteration as stop:
-        fut.set_result(stop.value)
-        return fut
-    except BaseException as exc:
-        fut.set_exception(exc)
-        return fut
-    # A subscriber yielded for real I/O but no recognised wildcard handler was
-    # registered (e.g. a module-specific handler imported without the full app).
-    # NEVER hand a half-stepped coroutine to the loop — that is exactly what
-    # corrupts asyncpg. Discard it and re-publish cleanly as a detached task.
-    coro.close()
-    try:
-        return _schedule_publish(_event_bus.publish(name, data, source_module=source_module))
-    except RuntimeError:
-        fut.set_result(None)
-        return fut
+    return _drive_in_line(name, data, source_module, named, wildcard)
 
 
 _event_bus.publish_detached = _sync_publish_detached  # type: ignore[method-assign]
 
 
 @pytest.fixture(autouse=True)
-def _drop_leaked_io_subscribers(request):
-    """Keep a leaked real-I/O subscriber from changing the publish regime.
+def _isolate_unit_tests_from_leaked_subscribers(request):
+    """Keep a leaked application subscriber out of a unit test's publishes.
 
     ``_sync_publish_detached`` above picks its regime from what is on the bus:
-    with a real-I/O wildcard handler registered it schedules the publish on the
-    loop, and every pure recorder goes with it. That is correct for an
+    with a subscriber that does real I/O registered it schedules the publish on
+    the loop, and every pure recorder goes with it. That is correct for an
     integration test, which starts the app and wants those handlers to run, and
     wrong for a unit test, which subscribes a recorder and asserts on it on the
     very next line with no await in between.
@@ -253,30 +333,30 @@ def _drop_leaked_io_subscribers(request):
     was the one that surfaced it, on ``assert 'snapshot.created' in []``.
 
     Unit tests never start the app, so for them these handlers are always
-    leakage. Pull them off for the duration of the test and put them back at the
-    same index afterwards, which leaves integration tests untouched.
+    leakage. This fixture marks the scope; the exclusion itself happens in
+    ``_sync_publish_detached`` and covers **both** registries, the per-event
+    ``_handlers`` as well as the ``"*"`` ``_wildcard_handlers``. The predecessor
+    of this fixture looked only at the wildcard list, which is how a leaked
+    ``boq.position.created`` subscriber survived and got hand-stepped into a live
+    asyncpg read, corrupting the session-scoped loop for the rest of the process.
 
-    Note this only removes; it deliberately does not step or cancel anything.
-    Half-stepping a handler that has begun real asyncpg I/O corrupts the
-    connection, which is the failure mode the regime split exists to avoid.
+    Excluding at the publish boundary rather than deleting from the bus is
+    deliberate. Deleting would make every test that asserts on the wiring
+    order-dependent: ``test_doc_assistant_wiring.py`` imports its events modules
+    *inside* the test body, so run alone it re-registers after the deletion and
+    passes, and run in a chunk the import is a no-op and it fails. Shipping a
+    fresh instance of the bug class we are removing is not a fix. So the bus
+    keeps its handlers and the publish simply does not fan out to them.
     """
-    path = str(getattr(request.node, "fspath", "")).replace("\\", "/")
-    if "/tests/unit/" not in path:
-        yield
-        return
+    global _unit_test_scope
 
-    leaked = [
-        (i, h)
-        for i, h in enumerate(_event_bus._wildcard_handlers)
-        if getattr(h, "__name__", "") in _ASYNC_IO_EVENT_HANDLERS
-    ]
-    for i, _h in reversed(leaked):
-        del _event_bus._wildcard_handlers[i]
+    path = str(getattr(request.node, "fspath", "")).replace("\\", "/")
+    previous = _unit_test_scope
+    _unit_test_scope = "/tests/unit/" in path
     try:
         yield
     finally:
-        for i, h in leaked:
-            _event_bus._wildcard_handlers.insert(i, h)
+        _unit_test_scope = previous
 
 
 @pytest.fixture(autouse=True)

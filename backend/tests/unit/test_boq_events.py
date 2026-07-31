@@ -32,6 +32,47 @@ from app.core.events import Event, event_bus
 # ---------------------------------------------------------------------------
 
 
+def _snapshot_bus() -> tuple[dict[str, list], list]:
+    """Copy both event-bus registries so they can be put back verbatim."""
+    return (
+        {name: list(handlers) for name, handlers in event_bus._handlers.items()},
+        list(event_bus._wildcard_handlers),
+    )
+
+
+def _restore_bus(snapshot: tuple[dict[str, list], list]) -> None:
+    """Put the event bus back exactly as :func:`_snapshot_bus` found it."""
+    named, wildcard = snapshot
+    event_bus._handlers.clear()
+    for name, handlers in named.items():
+        event_bus._handlers[name] = list(handlers)
+    event_bus._wildcard_handlers[:] = wildcard
+
+
+@pytest.fixture(autouse=True)
+def _restore_event_bus():
+    """Undo, per test, everything the reload helper below does to the bus.
+
+    ``_reload_boq_events`` clears the global bus and re-runs the BOQ module's
+    ``_register_handlers()``. Both halves leak: the clear drops every *other*
+    module's subscriptions for the rest of the process, and the re-registration
+    leaves ``_on_position_created`` subscribed to ``boq.position.created`` with
+    nobody to take it off again. A later BOQ test that wrote a position then
+    published into that leaked subscriber, which opens its own asyncpg session -
+    on Windows the whole file after it died in ``selectors.py`` with WinError
+    10038, deterministically, and passed the moment the two files were ordered
+    the other way round.
+
+    A test that re-registers handlers on a process-global bus owns putting the
+    bus back. Snapshot both registries, restore them verbatim.
+    """
+    snapshot = _snapshot_bus()
+    try:
+        yield
+    finally:
+        _restore_bus(snapshot)
+
+
 def _reload_boq_events(database_url: str):
     """Re-import :mod:`app.modules.boq.events` under a monkeypatched
     ``database_url`` so the module-level ``_register_handlers()`` call
@@ -185,13 +226,19 @@ class TestVectorIndexFailureLogging:
 
 @pytest.fixture(autouse=True, scope="module")
 def _reset_after_module():
-    """After these tests run, reload boq.events with the real settings
-    so the global ``event_bus`` ends up in the same shape that app
-    startup would produce.  Mirrors test_cache_logging's discipline of
-    not leaving the module bus in a test-specific state.
+    """Leave :mod:`app.modules.boq.events` itself loaded under the real settings.
+
+    The per-test fixture above restores the bus, so this only has to undo the
+    monkeypatched reload of the module object. It reloads inside its own
+    snapshot/restore because that reload re-runs ``_register_handlers()`` too:
+    without the guard, module teardown would put back exactly the leak the
+    per-test fixture spent the file removing.
     """
     yield
-    event_bus.clear()
-    import app.modules.boq.events as boq_events_mod  # noqa: I001
+    snapshot = _snapshot_bus()
+    try:
+        import app.modules.boq.events as boq_events_mod  # noqa: I001
 
-    importlib.reload(boq_events_mod)
+        importlib.reload(boq_events_mod)
+    finally:
+        _restore_bus(snapshot)
