@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Pinned searches in Find Records are kept by the server rather than by the browser, so a pin survives a reload, a cleared browser and a move to another machine. Searches pinned before this change stay in the browser under the `oce.retrieval.saved` entry and are not imported, because a silent one-way import would copy one person's private list into a shared one without asking. Those pins can be re-created, and the leftover entry can be cleared from site data at any time. The recent-search list is unchanged and still belongs to the device.
+
+Inbox items on the dashboard can be acknowledged or assigned where they are shown, instead of opening the module the item came from and finding the record by hand.
+
+The resource matcher says when semantic matching is not part of the installation. It used to check only whether the vector server was reachable, so it offered to download and start one, and a user who accepted got a running server and the same empty results, because the missing piece was the client library rather than the server.
+
 ## [14.0.0] - 2026-07-29
 
 Mesh models now open in the browser instead of waiting on the server. The formats the server never actually converted have also stopped being advertised as though it did, so what the import dialog offers is now what it can deliver.
