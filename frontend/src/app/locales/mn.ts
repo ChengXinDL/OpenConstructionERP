@@ -8500,7 +8500,7 @@ const resource = {
     "compliance.modal.create_title": "Шинэ дагалт баримт бичиг",
     "compliance.page.new": "Шинэ баримт",
     "compliance.page.subtitle": "Даатгал, зөвшөөрөл, баталгаа, гэрчилгээг хугацаа дуусах сануулгатай хянана.",
-    "compliance.page.title": "Нийцэлийн баримт бичиг",
+    "compliance.page.title": "Нийцлийн баримт бичиг",
     "compliance.status.active": "Идэвхтэй",
     "compliance.status.cancelled": "Цуцлагдсан",
     "compliance.status.expired": "Дууссан",
@@ -11336,7 +11336,7 @@ const resource = {
     "punch.status_resolved": "Шийдвэрлэсэн",
     "punch.status_updated": "Status шинэчлэгдсэн хүртэл {{status}}",
     "punch.status_verified": "Баталгаажсан",
-    "punch.title": "Шалгах жагсаалт",
+    "punch.title": "Согогийн жагсаалт",
 
     "punch.header_subtitle": "Дутагдал, гологдлыг хүлээлгэн өгөх хүртэл хянана",
     "punch.title_placeholder": "e.g. Дутуу fire seal дээр Түвшин 3 penetration",

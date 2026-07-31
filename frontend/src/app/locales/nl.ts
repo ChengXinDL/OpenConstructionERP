@@ -8764,7 +8764,7 @@ const resource = {
     "submittals.stat_total": "Totaal",
     "submittals.submit_review": "Beoordeling indienen",
     "submittals.submitted": "Inzending ingediend",
-    "submittals.title": "Indieningsst.",
+    "submittals.title": "Indieningen",
     "submittals.title_placeholder": "Titel van inzending",
     "submittals.title_required": "Titel is verplicht",
     "tasks.assignee_placeholder": "Verantwoordelijke selecteren",

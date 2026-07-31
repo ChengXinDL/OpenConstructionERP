@@ -11648,7 +11648,7 @@ const resource = {
     "boq.warn_zero_rate": "Ne sazba, kontrola před commit",
     "boq.warnings": "varování",
     "compliance.tab_label": "Soulad",
-    "compliance.page.title": "Soulad dokumenty",
+    "compliance.page.title": "Dokumenty souladu",
     "compliance.page.subtitle": "Sledujte pojištění, povolení, záruky a certifikace s upozorněním na blížící se konec platnosti.",
     "compliance.page.new": "Nový dokument",
     "compliance.modal.create_title": "Nový soulad dokument",

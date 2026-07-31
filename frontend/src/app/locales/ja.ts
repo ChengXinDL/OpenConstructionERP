@@ -9224,7 +9224,7 @@ const resource = {
     "correspondence.showing_count": "{{count}}件の記録を表示",
     "correspondence.subject_placeholder": "件名",
     "correspondence.subject_required": "件名は必須です",
-    "correspondence.title": "文書管理",
+    "correspondence.title": "往復文書",
     "correspondence.to_placeholder": "受信者名または組織",
     "finance.actual": "実績",
     "finance.amount": "金額",

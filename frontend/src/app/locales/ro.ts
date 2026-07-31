@@ -11639,7 +11639,7 @@ const resource = {
     "boq.warn_zero_rate": "Nu tarif, revizuire înainte commit",
     "boq.warnings": "avertismente",
     "compliance.tab_label": "Conformitate",
-    "compliance.page.title": "Conformitate documente",
+    "compliance.page.title": "Documente de conformitate",
     "compliance.page.subtitle": "Urmăriți asigurări, autorizații, garanții și certificări cu alerte de expirare.",
     "compliance.page.new": "Nou document",
     "compliance.modal.create_title": "Nou conformitate document",

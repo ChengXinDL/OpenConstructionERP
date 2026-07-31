@@ -11591,7 +11591,7 @@ const resource = {
     "boq.warn_zero_rate": "Ne stopa, pregled prije commit",
     "boq.warnings": "upozorenja",
     "compliance.tab_label": "Sukladnost",
-    "compliance.page.title": "Usklađenost dokumenti",
+    "compliance.page.title": "Dokumenti usklađenosti",
     "compliance.page.subtitle": "Pratite osiguranja, dozvole, garancije i certifikate s podsjetnicima o isteku.",
     "compliance.page.new": "Novi dokument",
     "compliance.modal.create_title": "Novi usklađenost dokument",

@@ -11765,7 +11765,7 @@ const resource = {
     "boq.warn_zero_rate": "Nie stawka, przegląd przed commit",
     "boq.warnings": "ostrzeżenia",
     "compliance.tab_label": "Zgodność",
-    "compliance.page.title": "Zgodność dokumenty",
+    "compliance.page.title": "Dokumenty zgodności",
     "compliance.page.subtitle": "Śledź ubezpieczenia, pozwolenia, gwarancje i certyfikaty z przypomnieniami o wygaśnięciu.",
     "compliance.page.new": "Nowy dokument",
     "compliance.modal.create_title": "Nowy zgodność dokument",
