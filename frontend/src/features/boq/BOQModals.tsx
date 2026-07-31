@@ -139,8 +139,19 @@ export function AssemblyPickerModal({
   const [quantity, setQuantity] = useState<Record<string, number>>({});
   const addToast = useToastStore((s) => s.addToast);
 
+  // The sibling picker in this issue (AutocompleteInput) waits 300ms before it
+  // asks the server; this one asked on every keystroke. The estimator who
+  // reported #406 types the discriminating words rather than the head of the
+  // position, so "installation de chantier grue" was close to thirty searches
+  // for one lookup. Same delay as the sibling, so the two pickers feel alike.
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(handle);
+  }, [search]);
+
   const { data: assemblies, isLoading } = useQuery({
-    queryKey: ['assemblies', search],
+    queryKey: ['assemblies', debouncedSearch],
     queryFn: () => apiGet<{ items: Array<{
       id: string;
       code: string;
@@ -150,7 +161,7 @@ export function AssemblyPickerModal({
       total_rate: number;
       currency: string;
       components: Array<{ description: string; unit: string; unit_cost: number; quantity: number }>;
-    }>; total: number }>(`/v1/assemblies/?q=${encodeURIComponent(search)}&limit=20`).then((r) => r.items),
+    }>; total: number }>(`/v1/assemblies/?q=${encodeURIComponent(debouncedSearch)}&limit=20`).then((r) => r.items),
     retry: false,
   });
 
@@ -240,12 +251,12 @@ export function AssemblyPickerModal({
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Layers size={32} className="text-content-quaternary mb-3" />
               <p className="text-sm font-medium text-content-secondary mb-1">
-                {search ? t('assemblies.no_search_match', { defaultValue: 'No assemblies match your search' }) : t('assemblies.no_assemblies', { defaultValue: 'No assemblies yet' })}
+                {debouncedSearch ? t('assemblies.no_search_match', { defaultValue: 'No assemblies match your search' }) : t('assemblies.no_assemblies', { defaultValue: 'No assemblies yet' })}
               </p>
               <p className="text-xs text-content-tertiary mb-3">
-                {search ? t('assemblies.try_different_term', { defaultValue: 'Try a different search term' }) : t('assemblies.create_from_catalog', { defaultValue: 'Create assemblies from the Resource Catalog' })}
+                {debouncedSearch ? t('assemblies.try_different_term', { defaultValue: 'Try a different search term' }) : t('assemblies.create_from_catalog', { defaultValue: 'Create assemblies from the Resource Catalog' })}
               </p>
-              {!search && (
+              {!debouncedSearch && (
                 <Button variant="secondary" size="sm" onClick={() => { onClose(); navigate('/catalog'); }}>
                   {t('catalog.go_to_catalog', { defaultValue: 'Go to Catalog' })}
                 </Button>
