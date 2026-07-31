@@ -6,9 +6,15 @@ from app.core.module_loader import ModuleManifest
 
 manifest = ModuleManifest(
     name="oe_formwork",
-    version="0.1.0",
+    version="1.0.0",
     display_name="Formwork",
-    description=("Formwork system catalogue + per-BOQ assignments with reuse-aware unit-cost computation"),
+    description=(
+        "Formwork system catalogue with a two-part rate build-up (amortising panel cost plus "
+        "per-use erect and strike), per-BOQ assignments that re-price whenever the catalogue "
+        "moves, pour-cycle scheduling that derives the reuse count and checks the striking "
+        "time, a project rollup showing what the reuse assumption is worth, and eleven "
+        "validation rules over the whole thing"
+    ),
     author="OpenConstructionERP Core Team",
     category="estimation",
     depends=["oe_projects", "oe_boq"],

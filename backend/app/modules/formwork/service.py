@@ -2,13 +2,33 @@
 # Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
 """Formwork business logic.
 
-Centralises the reuse-aware unit-cost math so callers (router, future
-import wizard, future BOQ-rollup webhook) all share one source of truth.
+Centralises the reuse-aware rate build-up so every caller (router, import
+wizard, BOQ rollup) shares one source of truth for what a formwork rate is:
+
+    material unit cost = unit_rate * (1 + waste_pct/100) / reuse_count
+    labour unit cost   = erect_strike_rate
+    unit cost          = material + labour
+    total              = area_m2 * unit cost
+
+The two halves matter because only the first one amortises. Panels are bought
+once and turned around ``reuse_count`` times; the labour and consumables to
+set and strike them are paid on every one of those turnarounds.
+
+Three things follow from that, and this module owns all three:
+
+* a catalogue rate change re-prices every assignment that depends on it
+  (:meth:`FormworkService.reprice_for_system`), because a stored total that no
+  longer matches its own catalogue row is worse than no total at all;
+* the pour schedule, not the estimator's memory, decides how many reuses the
+  programme actually delivers (:meth:`FormworkService.analyse_cycle`);
+* every assignment can be validated against the ``formwork`` rule set before
+  its rate reaches the bill (:meth:`FormworkService.validate_assignment`).
 """
 
 from __future__ import annotations
 
 import uuid
+from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
@@ -27,14 +47,28 @@ from app.modules.formwork.repository import (
 from app.modules.formwork.schemas import (
     FormworkAssignmentCreate,
     FormworkAssignmentUpdate,
+    FormworkCycleAnalysis,
+    FormworkCycleConflict,
+    FormworkProjectSummary,
+    FormworkRepriceResult,
     FormworkScheduleLineCreate,
     FormworkScheduleLineUpdate,
     FormworkSystemCreate,
     FormworkSystemUpdate,
+    FormworkSystemUsage,
+    FormworkTypeBreakdown,
+    FormworkValidationReport,
     default_seed_systems,
 )
+from app.modules.formwork.validators import evaluate_assignment, evaluate_project
 
 _TWO_DP = Decimal("0.01")
+
+# Fields on FormworkSystem that are nullable in the database. Anything else
+# rejects an explicit ``null`` instead of writing one and failing at flush.
+_NULLABLE_SYSTEM_FIELDS = frozenset({"supplier", "notes"})
+_NULLABLE_ASSIGNMENT_FIELDS = frozenset({"boq_position_id", "notes"})
+_NULLABLE_SCHEDULE_FIELDS = frozenset({"pour_date", "notes"})
 
 
 class ReuseCountExceedsMaxError(ValueError):
@@ -54,9 +88,90 @@ class ReuseCountExceedsMaxError(ValueError):
         )
 
 
+class FieldNotNullableError(ValueError):
+    """Raised when a patch sends an explicit ``null`` for a NOT NULL column.
+
+    The update schemas type every patchable field as optional so an omitted
+    field can be told apart from a supplied one. That makes ``{"name": null}``
+    parseable, but the column is NOT NULL, so writing it would fail at flush
+    with a database integrity error the caller cannot act on. Rejecting it here
+    names the field instead.
+    """
+
+    def __init__(self, field: str) -> None:
+        self.field = field
+        super().__init__(f"field '{field}' cannot be set to null")
+
+
 def _q(v: Decimal) -> Decimal:
-    """Round to 2 dp using banker-safe ROUND_HALF_UP (matches contracts)."""
+    """Round to 2 dp, half away from zero.
+
+    ROUND_HALF_UP, matching the rest of the money paths in the platform. Not
+    banker's rounding - that is ROUND_HALF_EVEN, which this deliberately is
+    not, because a rate that rounds 0.125 to 0.12 half the time is harder to
+    reconcile against a supplier quote than one that always rounds up.
+    """
     return Decimal(v).quantize(_TWO_DP, rounding=ROUND_HALF_UP)
+
+
+def _patch_fields(
+    data: Any,
+    *,
+    nullable: frozenset[str],
+) -> dict[str, Any]:
+    """Turn a partial-update model into the fields to write.
+
+    ``exclude_unset`` keeps the distinction the schema exists for: an omitted
+    field is untouched, an explicitly supplied one is written - including an
+    explicit ``null``, which is the only way to clear a nullable column. A
+    ``null`` aimed at a NOT NULL column is refused by name rather than left to
+    fail as an integrity error at flush.
+    """
+    fields = data.model_dump(exclude_unset=True)
+    for name, value in fields.items():
+        if value is None and name not in nullable:
+            raise FieldNotNullableError(name)
+    return fields
+
+
+class FormworkCost:
+    """The four figures that make up one assignment's priced formwork.
+
+    A small value object rather than a bare tuple: the caller reads
+    ``cost.material``, not ``cost[1]``, and adding the labour split did not
+    silently re-index every existing unpack site.
+    """
+
+    __slots__ = ("labour", "material", "total", "unit_cost")
+
+    def __init__(
+        self,
+        *,
+        unit_cost: Decimal,
+        material: Decimal,
+        labour: Decimal,
+        total: Decimal,
+    ) -> None:
+        self.unit_cost = unit_cost
+        self.material = material
+        self.labour = labour
+        self.total = total
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, FormworkCost):
+            return NotImplemented
+        return (
+            self.unit_cost == other.unit_cost
+            and self.material == other.material
+            and self.labour == other.labour
+            and self.total == other.total
+        )
+
+    def __repr__(self) -> str:
+        return (
+            f"FormworkCost(unit_cost={self.unit_cost}, material={self.material}, "
+            f"labour={self.labour}, total={self.total})"
+        )
 
 
 def compute_cost(
@@ -65,34 +180,140 @@ def compute_cost(
     area_m2: Decimal,
     waste_pct: Decimal,
     reuse_count: int,
-) -> tuple[Decimal, Decimal]:
-    """Return ``(computed_unit_cost, computed_total)`` for an assignment.
+    erect_strike_rate: Decimal = Decimal("0"),
+) -> FormworkCost:
+    """Return the full rate build-up for one assignment.
 
-    Formula (per ROADMAP task #112 spec):
+    Formula:
 
-        unit_cost = unit_rate * (1 + waste_pct/100) / reuse_count
-        total     = area_m2  * unit_cost
+        material = unit_rate * (1 + waste_pct/100) / reuse_count
+        labour   = erect_strike_rate
+        unit     = material + labour
+        total    = area_m2 * unit
 
-    Both figures are persisted and shown to the user, so ``total`` is
-    derived from the **rounded** ``unit_cost`` (not the raw quotient).
-    Otherwise ``area_m2 * computed_unit_cost`` recomputed client-side
-    would not match the stored ``computed_total`` whenever the quotient
-    carried fractional cents (e.g. unit_rate 65.00, waste 5%, reuse 2 =>
-    34.125, where area 100 gave 3412.50 stored vs 3413.00 displayed).
+    Waste applies to the panel cost only. Over-ordering covers offcuts and
+    damaged panels; it does not buy extra erect-and-strike labour, which is
+    driven by the area formed and is paid on every reuse. That is why the
+    labour component is NOT divided by ``reuse_count``: forming 1000 m2 with a
+    100 m2 set means ten sets of erect-and-strike, not one.
 
-    ``reuse_count`` is guaranteed >= 1 by the schema; we still defend
-    against 0 here in case the service is called from a future import
-    path that bypasses Pydantic.
+    Every component is persisted and shown, so each is rounded to 2 dp before
+    the next one uses it, and ``total`` is derived from the **rounded**
+    ``unit_cost``. Otherwise ``area_m2 * computed_unit_cost`` recomputed
+    client-side would not match the stored ``computed_total`` whenever the
+    quotient carried fractional cents (unit_rate 65.00, waste 5 percent,
+    reuse 2 gives 34.125, where area 100 stored 3412.50 against a displayed
+    3413.00).
+
+    ``reuse_count`` is guaranteed >= 1 by the schema; the clamp defends the
+    import paths that bypass Pydantic.
     """
     reuses = max(int(reuse_count), 1)
     waste_factor = Decimal("1") + (Decimal(waste_pct) / Decimal("100"))
-    unit_cost = _q((Decimal(unit_rate) * waste_factor) / Decimal(reuses))
+    material = _q((Decimal(unit_rate) * waste_factor) / Decimal(reuses))
+    labour = _q(Decimal(erect_strike_rate))
+    unit_cost = _q(material + labour)
     total = _q(Decimal(area_m2) * unit_cost)
-    return unit_cost, total
+    return FormworkCost(unit_cost=unit_cost, material=material, labour=labour, total=total)
+
+
+def single_use_cost(
+    *,
+    unit_rate: Decimal,
+    area_m2: Decimal,
+    waste_pct: Decimal,
+    erect_strike_rate: Decimal = Decimal("0"),
+) -> Decimal:
+    """What the same area costs if every pour needs brand-new panels.
+
+    The counterfactual behind the reuse assumption. Subtracting the real total
+    from this gives the money the reuse claim is worth, which is the figure a
+    reviewer challenges first.
+    """
+    return compute_cost(
+        unit_rate=unit_rate,
+        area_m2=area_m2,
+        waste_pct=waste_pct,
+        reuse_count=1,
+        erect_strike_rate=erect_strike_rate,
+    ).total
+
+
+def derive_cycle(
+    lines: list[FormworkScheduleLine],
+    *,
+    strip_time_days: int,
+) -> dict[str, Any]:
+    """Read the reuse economics out of a pour schedule.
+
+    The panel set the contractor has to buy or hire is the LARGEST single
+    pour, not the sum: every pour needs its own area formed at once, and the
+    biggest one sizes the set. Forming ``total`` m2 with a ``peak`` m2 set
+    turns that set around ``total / peak`` times.
+
+    ``derived_reuse_count`` is the FLOOR of that ratio. Rounding up would
+    divide the panel cost by a turnaround the programme does not deliver,
+    which under-prices the job; rounding down is the conservative direction and
+    the one an estimator can defend.
+
+    Pours that carry dates are also checked against ``strip_time_days``: two
+    consecutive pours closer together than the striking time cannot both be
+    served by one set, because the panels are still holding the first pour.
+    Undated pours are skipped rather than assumed - a cycle nobody has dated
+    yet is not evidence of a clash.
+    """
+    # Tie-break on the id as a string: two lines can legitimately share a pour
+    # number (that is what ``formwork.pour_numbers_unique`` reports), and a
+    # not-yet-flushed line has ``id`` None, which is not orderable against
+    # another None.
+    ordered = sorted(lines, key=lambda line: (line.pour_no, str(line.id or "")))
+    areas = [Decimal(line.area_m2 or 0) for line in ordered]
+    total = sum(areas, Decimal("0"))
+    peak = max(areas) if areas else Decimal("0")
+    if peak > 0:
+        ratio = total / peak
+        derived = max(1, int(ratio))
+    else:
+        ratio = Decimal("0")
+        derived = 0
+
+    dated: list[tuple[int, date]] = [(line.pour_no, line.pour_date) for line in ordered if line.pour_date is not None]
+    conflicts: list[FormworkCycleConflict] = []
+    min_gap: int | None = None
+    for (prev_no, prev_date), (next_no, next_date) in zip(dated, dated[1:], strict=False):
+        gap = (next_date - prev_date).days
+        min_gap = gap if min_gap is None else min(min_gap, gap)
+        if gap < strip_time_days:
+            conflicts.append(
+                FormworkCycleConflict(
+                    from_pour_no=prev_no,
+                    to_pour_no=next_no,
+                    gap_days=gap,
+                    required_days=strip_time_days,
+                ),
+            )
+
+    return {
+        "pour_count": len(ordered),
+        "total_pour_area_m2": _q(total),
+        "peak_pour_area_m2": _q(peak),
+        "reuse_ratio": _q(ratio),
+        "derived_reuse_count": derived,
+        "dated_pour_count": len(dated),
+        "min_gap_days": min_gap,
+        "conflicts": conflicts,
+    }
 
 
 class FormworkService:
-    """Thin orchestration layer over the three repositories."""
+    """Orchestration over the three formwork repositories.
+
+    Owns the invariant that a stored ``computed_*`` figure always matches the
+    catalogue row it was derived from. Every write path that can invalidate a
+    price - assignment edits, catalogue rate changes, schedule-driven reuse
+    changes - runs back through :func:`compute_cost` here rather than leaving a
+    stale total behind.
+    """
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -110,18 +331,51 @@ class FormworkService:
         self,
         system_id: uuid.UUID,
         data: FormworkSystemUpdate,
-    ) -> FormworkSystem | None:
-        fields = {k: v for k, v in data.model_dump(exclude_unset=True).items() if v is not None}
+    ) -> tuple[FormworkSystem | None, FormworkRepriceResult]:
+        """Patch a catalogue system and re-price everything that depends on it.
+
+        A catalogue rate is not a label, it is the input every assignment's
+        stored total was computed from. Editing ``unit_rate``,
+        ``erect_strike_rate`` or ``reuses_max`` and leaving the assignments
+        alone would leave every project quoting a number its own catalogue no
+        longer produces, which is the failure mode nobody notices until a
+        reviewer recomputes one rate by hand.
+
+        Returns the updated system and the re-pricing outcome, so the caller
+        can tell the user how many projects just moved.
+        """
+        fields = _patch_fields(data, nullable=_NULLABLE_SYSTEM_FIELDS)
         if fields:
             await self.system_repo.update_fields(system_id, **fields)
-        return await self.system_repo.get_by_id(system_id)
+        system = await self.system_repo.get_by_id(system_id)
+        if system is None:
+            return None, FormworkRepriceResult(examined=0, repriced=0, unchanged=0)
+        reprice = await self.reprice_for_system(system)
+        return system, reprice
+
+    async def system_usage(self, system_id: uuid.UUID) -> FormworkSystemUsage:
+        """How many priced assignments depend on one catalogue system."""
+        usage = await self.assignment_repo.usage_for_system(system_id)
+        return FormworkSystemUsage(
+            system_id=system_id,
+            assignment_count=usage["assignment_count"],
+            project_count=usage["project_count"],
+            total_area_m2=_q(Decimal(usage["total_area_m2"])),
+            total_cost=_q(Decimal(usage["total_cost"])),
+        )
 
     async def seed_defaults(
         self,
         *,
         tenant_id: uuid.UUID | None,
     ) -> dict[str, int]:
-        """Idempotently insert the starter formwork catalogue."""
+        """Idempotently insert the starter formwork catalogue.
+
+        ``total_after`` is counted from the table after the insert rather than
+        added to the number of distinct names seen beforehand: a name present
+        both globally and tenant-scoped collapses in a name set, and the
+        derived figure under-reported the catalogue by every such duplicate.
+        """
         already = await self.system_repo.list_names_for_tenant(tenant_id)
         inserted = 0
         skipped = 0
@@ -133,10 +387,29 @@ class FormworkService:
             self.session.add(obj)
             inserted += 1
         await self.session.flush()
-        total = len(already) + inserted
+        total = await self.system_repo.count_visible(tenant_id)
         return {"inserted": inserted, "skipped": skipped, "total_after": total}
 
     # ── Assignments ────────────────────────────────────────────────────
+
+    def _apply_cost(
+        self,
+        assignment: FormworkAssignment,
+        system: FormworkSystem,
+    ) -> FormworkCost:
+        """Recompute and write the four cost columns onto an assignment."""
+        cost = compute_cost(
+            unit_rate=system.unit_rate,
+            area_m2=assignment.area_m2,
+            waste_pct=assignment.waste_pct,
+            reuse_count=assignment.reuse_count,
+            erect_strike_rate=system.erect_strike_rate,
+        )
+        assignment.computed_unit_cost = cost.unit_cost
+        assignment.material_unit_cost = cost.material
+        assignment.labour_unit_cost = cost.labour
+        assignment.computed_total = cost.total
+        return cost
 
     async def create_assignment(
         self,
@@ -147,12 +420,6 @@ class FormworkService:
             raise LookupError("formwork_system_not_found")
         if data.reuse_count > system.reuses_max:
             raise ReuseCountExceedsMaxError(data.reuse_count, system.reuses_max)
-        unit_cost, total = compute_cost(
-            unit_rate=system.unit_rate,
-            area_m2=data.area_m2,
-            waste_pct=data.waste_pct,
-            reuse_count=data.reuse_count,
-        )
         obj = FormworkAssignment(
             project_id=data.project_id,
             boq_position_id=data.boq_position_id,
@@ -160,11 +427,10 @@ class FormworkService:
             area_m2=data.area_m2,
             reuse_count=data.reuse_count,
             waste_pct=data.waste_pct,
-            computed_unit_cost=unit_cost,
-            computed_total=total,
             notes=data.notes,
             tenant_id=data.tenant_id,
         )
+        self._apply_cost(obj, system)
         return await self.assignment_repo.create(obj)
 
     async def update_assignment(
@@ -172,29 +438,162 @@ class FormworkService:
         assignment_id: uuid.UUID,
         data: FormworkAssignmentUpdate,
     ) -> FormworkAssignment | None:
+        """Patch an assignment and re-price it against the resolved system.
+
+        Patches are applied in memory first so the recomputation runs against
+        the merged state, not against half the old row. An explicit ``null``
+        clears ``boq_position_id`` or ``notes``; aimed anywhere else it is
+        refused by name.
+        """
         obj = await self.assignment_repo.get_by_id(assignment_id)
         if obj is None:
             return None
-        fields: dict[str, Any] = {k: v for k, v in data.model_dump(exclude_unset=True).items() if v is not None}
-        # Apply patches in-memory so we can recompute against the merged state.
-        for k, v in fields.items():
-            setattr(obj, k, v)
+        fields = _patch_fields(data, nullable=_NULLABLE_ASSIGNMENT_FIELDS)
+        for name, value in fields.items():
+            setattr(obj, name, value)
         # Recompute cost - resolve the (possibly swapped) system.
         system = await self.system_repo.get_by_id(obj.formwork_system_id)
         if system is None:
             raise LookupError("formwork_system_not_found")
         if obj.reuse_count > system.reuses_max:
             raise ReuseCountExceedsMaxError(obj.reuse_count, system.reuses_max)
-        unit_cost, total = compute_cost(
-            unit_rate=system.unit_rate,
-            area_m2=obj.area_m2,
-            waste_pct=obj.waste_pct,
-            reuse_count=obj.reuse_count,
-        )
-        obj.computed_unit_cost = unit_cost
-        obj.computed_total = total
+        self._apply_cost(obj, system)
         await self.session.flush()
         return obj
+
+    async def reprice_for_system(
+        self,
+        system: FormworkSystem,
+    ) -> FormworkRepriceResult:
+        """Recompute every assignment priced off one catalogue system.
+
+        Assignments whose ``reuse_count`` now exceeds a lowered ``reuses_max``
+        are clamped to the new cap rather than refused: the catalogue edit has
+        already happened, and leaving a row priced over a limit the catalogue
+        no longer allows would be a worse state than a conservative re-price.
+        The clamp raises the unit cost, so it never quietly makes a job cheaper.
+        """
+        rows = await self.assignment_repo.list_for_system(system.id)
+        repriced = 0
+        unchanged = 0
+        delta = Decimal("0")
+        for row in rows:
+            before = Decimal(row.computed_total or 0)
+            if row.reuse_count > system.reuses_max:
+                row.reuse_count = system.reuses_max
+            cost = self._apply_cost(row, system)
+            if cost.total == before:
+                unchanged += 1
+            else:
+                repriced += 1
+                delta += cost.total - before
+        if rows:
+            await self.session.flush()
+        return FormworkRepriceResult(
+            examined=len(rows),
+            repriced=repriced,
+            unchanged=unchanged,
+            delta_total=_q(delta),
+        )
+
+    async def reprice_project(self, project_id: uuid.UUID) -> FormworkRepriceResult:
+        """Recompute every formwork assignment on one project.
+
+        The bulk refresh after a catalogue import, a currency correction or a
+        restore: it re-derives every stored total from the catalogue rows as
+        they stand now, and reports how much money moved.
+        """
+        rows = await self.assignment_repo.list_all_for_project(project_id)
+        repriced = 0
+        unchanged = 0
+        delta = Decimal("0")
+        for row in rows:
+            system = row.system
+            if system is None:
+                continue
+            before = Decimal(row.computed_total or 0)
+            if row.reuse_count > system.reuses_max:
+                row.reuse_count = system.reuses_max
+            cost = self._apply_cost(row, system)
+            if cost.total == before:
+                unchanged += 1
+            else:
+                repriced += 1
+                delta += cost.total - before
+        if rows:
+            await self.session.flush()
+        return FormworkRepriceResult(
+            examined=len(rows),
+            repriced=repriced,
+            unchanged=unchanged,
+            delta_total=_q(delta),
+        )
+
+    # ── Pour cycle ─────────────────────────────────────────────────────
+
+    async def analyse_cycle(
+        self,
+        assignment: FormworkAssignment,
+        system: FormworkSystem,
+    ) -> FormworkCycleAnalysis:
+        """What the pour schedule says about this assignment's reuse economics."""
+        lines = await self.schedule_repo.list_for_assignment(assignment.id)
+        cycle = derive_cycle(lines, strip_time_days=system.strip_time_days)
+        derived = int(cycle["derived_reuse_count"])
+        total_area = cycle["total_pour_area_m2"]
+        in_sync = (
+            bool(lines)
+            and derived > 0
+            and assignment.reuse_count == derived
+            and Decimal(assignment.area_m2) == total_area
+        )
+        return FormworkCycleAnalysis(
+            assignment_id=assignment.id,
+            pour_count=cycle["pour_count"],
+            total_pour_area_m2=total_area,
+            peak_pour_area_m2=cycle["peak_pour_area_m2"],
+            reuse_ratio=cycle["reuse_ratio"],
+            derived_reuse_count=derived,
+            current_reuse_count=assignment.reuse_count,
+            current_area_m2=_q(Decimal(assignment.area_m2)),
+            reuses_max=system.reuses_max,
+            strip_time_days=system.strip_time_days,
+            min_gap_days=cycle["min_gap_days"],
+            conflicts=cycle["conflicts"],
+            dated_pour_count=cycle["dated_pour_count"],
+            in_sync=in_sync,
+        )
+
+    async def derive_from_schedule(
+        self,
+        assignment: FormworkAssignment,
+        system: FormworkSystem,
+    ) -> tuple[FormworkCycleAnalysis, bool]:
+        """Write the schedule-derived area and reuse count onto the assignment.
+
+        This is the point of keeping a pour cycle at all: the estimator stops
+        typing a reuse count from memory and takes the one the programme
+        actually delivers. The derived count is clamped to the system's
+        ``reuses_max`` because a schedule can describe more turnarounds than
+        the panels survive - that is a real programme, just not one a single
+        set of panels can serve, and the ``formwork.reuse_within_limit`` rule
+        keeps reporting it.
+
+        Returns the post-write analysis and whether anything actually changed.
+        """
+        analysis = await self.analyse_cycle(assignment, system)
+        if analysis.pour_count == 0:
+            raise LookupError("formwork_schedule_empty")
+        target_reuse = min(max(analysis.derived_reuse_count, 1), system.reuses_max)
+        target_area = analysis.total_pour_area_m2
+        changed = assignment.reuse_count != target_reuse or Decimal(assignment.area_m2) != target_area
+        if changed:
+            assignment.reuse_count = target_reuse
+            assignment.area_m2 = target_area
+            self._apply_cost(assignment, system)
+            await self.session.flush()
+            analysis = await self.analyse_cycle(assignment, system)
+        return analysis, changed
 
     # ── Schedule lines ─────────────────────────────────────────────────
 
@@ -221,15 +620,199 @@ class FormworkService:
     ) -> FormworkScheduleLine | None:
         """Patch a pour-cycle line in place.
 
-        Only the fields the caller actually sent are touched, so the
-        nullable ``pour_date`` / ``notes`` can be explicitly cleared by
-        sending them as ``null`` while an omitted field is left untouched.
-        ``project_id`` and ``assignment_id`` are never reparented.
+        Only the fields the caller actually sent are touched, so the nullable
+        ``pour_date`` / ``notes`` can be explicitly cleared by sending them as
+        ``null`` while an omitted field is left untouched. A ``null`` aimed at
+        ``level_label``, ``pour_no`` or ``area_m2`` is refused by name instead
+        of failing as an integrity error at flush. ``project_id`` and
+        ``assignment_id`` are never reparented.
         """
         obj = await self.schedule_repo.get_by_id(line_id)
         if obj is None:
             return None
-        for field, value in data.model_dump(exclude_unset=True).items():
-            setattr(obj, field, value)
+        fields = _patch_fields(data, nullable=_NULLABLE_SCHEDULE_FIELDS)
+        for name, value in fields.items():
+            setattr(obj, name, value)
         await self.session.flush()
         return obj
+
+    # ── Project rollup ─────────────────────────────────────────────────
+
+    async def project_summary(self, project_id: uuid.UUID) -> FormworkProjectSummary:
+        """The project's formwork totals, with the reuse saving made explicit.
+
+        ``single_use_total`` re-prices every assignment at one use, so the
+        difference against the real total is exactly the money the reuse
+        assumption is claiming. That number, not the total, is what a reviewer
+        challenges.
+
+        When the assignments resolve to more than one catalogue currency the
+        currency is reported blank and ``currency_mixed`` is set: the totals
+        are still returned (a caller that only wants areas should not be
+        blocked) but they are a sum of unlike units and the
+        ``formwork.currency_consistent`` rule says so in the validation report.
+        """
+        rows = await self.assignment_repo.list_all_for_project(project_id)
+        total_cost = Decimal("0")
+        material_cost = Decimal("0")
+        labour_cost = Decimal("0")
+        total_area = Decimal("0")
+        single_use = Decimal("0")
+        unlinked = 0
+        system_ids: set[uuid.UUID] = set()
+        currencies: set[str] = set()
+        by_type: dict[str, dict[str, Any]] = {}
+
+        for row in rows:
+            system = row.system
+            area = Decimal(row.area_m2 or 0)
+            total = Decimal(row.computed_total or 0)
+            total_area += area
+            total_cost += total
+            material_cost += _q(area * Decimal(row.material_unit_cost or 0))
+            labour_cost += _q(area * Decimal(row.labour_unit_cost or 0))
+            system_ids.add(row.formwork_system_id)
+            if row.boq_position_id is None:
+                unlinked += 1
+            if system is not None:
+                if system.currency:
+                    currencies.add(system.currency.strip().upper())
+                single_use += single_use_cost(
+                    unit_rate=system.unit_rate,
+                    area_m2=area,
+                    waste_pct=row.waste_pct,
+                    erect_strike_rate=system.erect_strike_rate,
+                )
+                bucket = by_type.setdefault(
+                    system.system_type,
+                    {"assignment_count": 0, "area_m2": Decimal("0"), "total": Decimal("0")},
+                )
+                bucket["assignment_count"] += 1
+                bucket["area_m2"] += area
+                bucket["total"] += total
+
+        saving = single_use - total_cost
+        saving_pct = (saving / single_use * Decimal("100")) if single_use > 0 else Decimal("0")
+        average_unit = (total_cost / total_area) if total_area > 0 else Decimal("0")
+
+        breakdown = [
+            FormworkTypeBreakdown(
+                system_type=system_type,
+                assignment_count=bucket["assignment_count"],
+                area_m2=_q(bucket["area_m2"]),
+                total=_q(bucket["total"]),
+                share_pct=_q(bucket["total"] / total_cost * Decimal("100")) if total_cost > 0 else Decimal("0"),
+            )
+            for system_type, bucket in sorted(
+                by_type.items(),
+                key=lambda item: item[1]["total"],
+                reverse=True,
+            )
+        ]
+
+        return FormworkProjectSummary(
+            project_id=project_id,
+            assignment_count=len(rows),
+            system_count=len(system_ids),
+            total_area_m2=_q(total_area),
+            total_cost=_q(total_cost),
+            material_cost=_q(material_cost),
+            labour_cost=_q(labour_cost),
+            average_unit_cost=_q(average_unit),
+            single_use_total=_q(single_use),
+            amortisation_saving=_q(saving),
+            amortisation_saving_pct=_q(saving_pct),
+            unlinked_to_boq=unlinked,
+            currency=next(iter(currencies)) if len(currencies) == 1 else "",
+            currency_mixed=len(currencies) > 1,
+            by_system_type=breakdown,
+        )
+
+    # ── Validation ─────────────────────────────────────────────────────
+
+    def _assignment_payload(
+        self,
+        assignment: FormworkAssignment,
+        system: FormworkSystem | None,
+        cycle: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        """Flatten one assignment into the dict shape the rules read.
+
+        Money and quantity ride as decimal strings, never floats, so the rules
+        compare the same values the API returned.
+        """
+        payload: dict[str, Any] = {
+            "id": str(assignment.id),
+            "project_id": str(assignment.project_id),
+            "boq_position_id": str(assignment.boq_position_id) if assignment.boq_position_id else None,
+            "formwork_system_id": str(assignment.formwork_system_id),
+            "area_m2": str(assignment.area_m2 or 0),
+            "reuse_count": assignment.reuse_count,
+            "waste_pct": str(assignment.waste_pct or 0),
+            "computed_unit_cost": str(assignment.computed_unit_cost or 0),
+            "computed_total": str(assignment.computed_total or 0),
+            "notes": assignment.notes or "",
+            "system_name": system.name if system else "",
+            "system_unit_rate": str(system.unit_rate) if system else "0",
+            "erect_strike_rate": str(system.erect_strike_rate) if system else "0",
+            "reuses_max": system.reuses_max if system else 0,
+            "strip_time_days": system.strip_time_days if system else 0,
+            "currency": system.currency if system else "",
+        }
+        if cycle is not None:
+            payload["derived_reuse_count"] = cycle["derived_reuse_count"]
+            payload["dated_pour_count"] = cycle["dated_pour_count"]
+            payload["cycle_conflicts"] = [c.model_dump() for c in cycle["conflicts"]]
+        return payload
+
+    @staticmethod
+    def _pour_payload(lines: list[FormworkScheduleLine]) -> list[dict[str, Any]]:
+        """Flatten pour lines into the dict shape the rules read."""
+        return [
+            {
+                "id": str(line.id),
+                "pour_no": line.pour_no,
+                "pour_date": line.pour_date.isoformat() if line.pour_date else None,
+                "level_label": line.level_label or "",
+                "area_m2": str(line.area_m2 or 0),
+            }
+            for line in lines
+        ]
+
+    async def validate_assignment(
+        self,
+        assignment: FormworkAssignment,
+        system: FormworkSystem,
+        *,
+        locale: str = "",
+    ) -> FormworkValidationReport:
+        """Run the ``formwork`` rule set over one assignment and its cycle."""
+        lines = await self.schedule_repo.list_for_assignment(assignment.id)
+        cycle = derive_cycle(lines, strip_time_days=system.strip_time_days)
+        payload = {
+            "assignment": self._assignment_payload(assignment, system, cycle),
+            "pours": self._pour_payload(lines),
+        }
+        return await evaluate_assignment(
+            payload,
+            project_id=str(assignment.project_id),
+            locale=locale,
+        )
+
+    async def validate_project(
+        self,
+        project_id: uuid.UUID,
+        *,
+        locale: str = "",
+    ) -> FormworkValidationReport:
+        """Run the project-scope ``formwork`` rules over a whole project.
+
+        The cross-assignment checks (one currency, one assignment per BOQ
+        position) only exist at this scope - an assignment on its own cannot
+        see that another one is charging the same bill line.
+        """
+        rows = await self.assignment_repo.list_all_for_project(project_id)
+        payload = {
+            "assignments": [self._assignment_payload(row, row.system, None) for row in rows],
+        }
+        return await evaluate_project(payload, project_id=str(project_id), locale=locale)

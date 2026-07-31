@@ -10,18 +10,29 @@ Tables:
 Money columns use ``Numeric(18, 2)`` (the project's "money as Decimal" rule)
 and serialise as strings via Pydantic in :mod:`app.modules.formwork.schemas`.
 
-All NOT NULL columns carry an explicit ``server_default`` - without this the
-v3119 fresh-install cascade reappears when ``Base.metadata.create_all`` runs
-ahead of the migration (Python defaults are ignored by ``create_all``).
+Every NOT NULL column carries an explicit Python-side ``default`` so an ORM
+insert never depends on a DB-side default, and the matching migration
+(``v3132_formwork_init`` plus ``v3262_formwork_rate_buildup``) carries the
+equivalent ``server_default`` so raw-SQL inserts and column backfills on an
+existing database are safe too. Losing either half is how the v3119
+fresh-install cascade happened, so keep both in step.
+
+Relationship loading is declared explicitly on every ``relationship()`` per
+``.claude/rules/backend-modules.md``: the pour cycle is the point of an
+assignment, so it loads ``selectin``; every back-reference and every
+rarely-walked collection is ``raise_on_sql``, which still allows a free read
+off an already-loaded instance but refuses to emit lazy SQL from the async
+session.
 """
 
 from __future__ import annotations
 
 import uuid
+from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import Date, ForeignKey, Integer, Numeric, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import GUID, Base
 
@@ -29,11 +40,28 @@ from app.database import GUID, Base
 class FormworkSystem(Base):
     """Catalogue entry for one physical formwork system.
 
-    A system is the reusable thing the contractor buys/rents: a Doka Framax
-    panel set, a PERI Skydeck slab table, raw plywood + studs, etc. The
-    ``unit_rate`` is the per-m2 acquisition cost; the actual cost charged
-    to a BOQ position depends on how many times the system is reused on
-    that assignment (see :class:`FormworkAssignment.computed_unit_cost`).
+    A system is the reusable thing the contractor buys/rents: a framed steel
+    panel set, an aluminium slab table, raw plywood + studs, etc.
+
+    A formwork rate has two components and only one of them amortises:
+
+    * ``unit_rate`` - per-m2 acquisition (or full-job hire) cost of the panels
+      themselves. Buy the set once, use it ``reuse_count`` times, so this is
+      what gets divided down.
+    * ``erect_strike_rate`` - per-m2 labour and consumables (release agent,
+      ties, cones, cleaning) paid EVERY time the panels are set and struck.
+      This never amortises: forming 1000 m2 over ten uses of a 100 m2 set
+      costs ten sets of erect-and-strike labour, not one.
+
+    Pricing only the first component is the classic way to under-price a
+    concrete-heavy job, so both are carried here and reported separately on
+    the assignment (see :class:`FormworkAssignment`).
+
+    ``strip_time_days`` is the minimum age of the pour before the panels can
+    be struck and moved to the next lift. It sets the floor on the pour cycle,
+    so a schedule that turns the same set around faster than this is not
+    buildable - the ``formwork.strip_time_respected`` validation rule checks
+    exactly that.
     """
 
     __tablename__ = "oe_formwork_system"
@@ -58,12 +86,31 @@ class FormworkSystem(Base):
         nullable=False,
         default=Decimal("0"),
     )
+    # Labour + consumables per m2 of formed area, charged once per use and
+    # therefore NOT divided by ``reuse_count``. Defaults to zero so every row
+    # written before this column existed keeps its original priced total.
+    erect_strike_rate: Mapped[Decimal] = mapped_column(
+        Numeric(18, 2),
+        nullable=False,
+        default=Decimal("0"),
+    )
+    # Minimum days from pour to strike. Drives the cycle-feasibility check.
+    strip_time_days: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="")
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     tenant_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(),
         nullable=True,
         index=True,
+    )
+
+    # Rarely walked from this side and unbounded in size (one catalogue row can
+    # back every assignment on every project), so it is ``raise_on_sql``: the
+    # re-pricing path queries the assignment table directly with a filter and
+    # a limit instead of dragging the whole collection into memory.
+    assignments: Mapped[list[FormworkAssignment]] = relationship(
+        back_populates="system",
+        lazy="raise_on_sql",
     )
 
     def __repr__(self) -> str:
@@ -73,13 +120,21 @@ class FormworkSystem(Base):
 class FormworkAssignment(Base):
     """Assigns a formwork system to a project (optionally to a BOQ position).
 
-    ``computed_unit_cost`` and ``computed_total`` are persisted (not pure
-    SQL-computed columns) so reports and downstream rollups can index/sort
-    on them cheaply; the service layer recomputes them on every write.
+    ``computed_*`` columns are persisted (not pure SQL-computed columns) so
+    reports and downstream rollups can index/sort on them cheaply; the service
+    layer recomputes them on every write to the assignment AND on every write
+    to the catalogue system it points at.
 
     Formula:
-        unit cost = unit_rate * (1 + waste_pct/100) / max(reuse_count, 1)
-        total     = area_m2 * unit cost
+        material unit cost = unit_rate * (1 + waste_pct/100) / max(reuse_count, 1)
+        labour unit cost   = erect_strike_rate
+        unit cost          = material unit cost + labour unit cost
+        total              = area_m2 * unit cost
+
+    Waste is applied to the material component only: over-ordering covers
+    panel offcuts and damage, it does not buy extra erect-and-strike labour.
+    The two components are stored separately because that split is the first
+    thing a quantity surveyor checks when a formwork rate looks wrong.
     """
 
     __tablename__ = "oe_formwork_assignment"
@@ -121,6 +176,18 @@ class FormworkAssignment(Base):
         nullable=False,
         default=Decimal("0"),
     )
+    # The two halves of ``computed_unit_cost``, persisted so a report can show
+    # the rate build-up without re-deriving it from the catalogue.
+    material_unit_cost: Mapped[Decimal] = mapped_column(
+        Numeric(18, 2),
+        nullable=False,
+        default=Decimal("0"),
+    )
+    labour_unit_cost: Mapped[Decimal] = mapped_column(
+        Numeric(18, 2),
+        nullable=False,
+        default=Decimal("0"),
+    )
     computed_total: Mapped[Decimal] = mapped_column(
         Numeric(18, 2),
         nullable=False,
@@ -133,16 +200,39 @@ class FormworkAssignment(Base):
         index=True,
     )
 
+    # The pour cycle IS the point of an assignment - every detail read and
+    # every cycle computation walks it - so it loads eagerly with one extra
+    # SELECT. ``delete-orphan`` keeps the lines with their parent.
+    schedule_lines: Mapped[list[FormworkScheduleLine]] = relationship(
+        back_populates="assignment",
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        order_by="FormworkScheduleLine.pour_no",
+    )
+    # Many-to-one back up to the catalogue. The FK is already in the column, so
+    # an implicit walk up here would be a lazy SELECT from the async session -
+    # exactly the crash the loading policy exists to prevent. Callers that need
+    # the system row order it explicitly with ``selectinload``.
+    system: Mapped[FormworkSystem] = relationship(
+        back_populates="assignments",
+        lazy="raise_on_sql",
+    )
+
     def __repr__(self) -> str:
         return f"<FormworkAssignment project={self.project_id} area={self.area_m2}m2 total={self.computed_total}>"
 
 
 class FormworkScheduleLine(Base):
-    """Optional pour-by-pour cycle line under one FormworkAssignment.
+    """One pour of the cycle under a :class:`FormworkAssignment`.
 
-    Lets the estimator describe the climbing / re-use sequence
-    (Level 02 walls, Level 03 walls, ...) without breaking the
-    assignment apart. Reporting on these is deliberately deferred.
+    Lets the estimator describe the climbing / re-use sequence (Level 02
+    walls, Level 03 walls, ...) without breaking the assignment apart.
+
+    The cycle is not decoration: the largest single pour is the panel set the
+    contractor actually has to buy or hire, and the total pour area divided by
+    that set size is the reuse count the rate may honestly be amortised over.
+    ``FormworkService.analyse_cycle`` derives both, and
+    ``derive_from_schedule`` writes them back onto the assignment.
     """
 
     __tablename__ = "oe_formwork_schedule_line"
@@ -160,7 +250,10 @@ class FormworkScheduleLine(Base):
         index=True,
     )
     pour_no: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    pour_date: Mapped[str | None] = mapped_column(Date, nullable=True)
+    # Annotated ``date``, not ``str``: the column is DATE and the ORM hands
+    # back a ``datetime.date``, so the old ``str`` hint made every reader of
+    # this attribute type-check against the wrong thing.
+    pour_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     level_label: Mapped[str] = mapped_column(String(120), nullable=False, default="")
     area_m2: Mapped[Decimal] = mapped_column(
         Numeric(18, 2),
@@ -168,6 +261,14 @@ class FormworkScheduleLine(Base):
         default=Decimal("0"),
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Child back-reference: FK is already in ``assignment_id``, so walking up
+    # implicitly would fire lazy SQL. ``raise_on_sql`` still allows the free
+    # read when the parent came in through ``schedule_lines``.
+    assignment: Mapped[FormworkAssignment] = relationship(
+        back_populates="schedule_lines",
+        lazy="raise_on_sql",
+    )
 
     def __repr__(self) -> str:
         return f"<FormworkScheduleLine #{self.pour_no} {self.level_label} {self.area_m2}m2>"

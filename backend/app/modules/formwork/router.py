@@ -5,10 +5,17 @@
 Mounted at ``/api/v1/formwork/`` by the module loader.
 
 Endpoint groups:
-    /systems/                              - catalogue CRUD + seed
+    /systems/                              - catalogue CRUD + seed + usage
+    /systems/{id}/reprice                  - re-price everything using a system
     /assignments/                          - per-project assignment CRUD
+    /assignments/{id}/cycle                - reuse economics of the pour schedule
+    /assignments/{id}/derive-from-schedule - write the derived area + reuse count
+    /assignments/{id}/validate             - the ``formwork`` rule set, one assignment
     /assignments/{id}/schedule-lines/      - pour-cycle sub-resource
     /schedule-lines/{id}                   - schedule-line update + delete
+    /summary                               - project rollup with the reuse saving
+    /validate                              - the ``formwork`` rule set, whole project
+    /reprice                               - bulk re-price one project
 
 Tenant scoping follows the Wave-5 IDOR posture: requests for an object
 the caller cannot see return **404, never 403**, so we never leak the
@@ -30,8 +37,13 @@ from app.modules.formwork.models import (
 )
 from app.modules.formwork.schemas import (
     FormworkAssignmentCreate,
+    FormworkAssignmentDetail,
     FormworkAssignmentResponse,
     FormworkAssignmentUpdate,
+    FormworkCycleAnalysis,
+    FormworkDeriveResult,
+    FormworkProjectSummary,
+    FormworkRepriceResult,
     FormworkScheduleLineCreate,
     FormworkScheduleLineResponse,
     FormworkScheduleLineUpdate,
@@ -39,8 +51,15 @@ from app.modules.formwork.schemas import (
     FormworkSystemResponse,
     FormworkSystemSeedResult,
     FormworkSystemUpdate,
+    FormworkSystemUpdateResult,
+    FormworkSystemUsage,
+    FormworkValidationReport,
 )
-from app.modules.formwork.service import FormworkService, ReuseCountExceedsMaxError
+from app.modules.formwork.service import (
+    FieldNotNullableError,
+    FormworkService,
+    ReuseCountExceedsMaxError,
+)
 
 router = APIRouter(tags=["formwork"])
 
@@ -71,6 +90,30 @@ def _assignment_to_response(
     item: FormworkAssignment,
 ) -> FormworkAssignmentResponse:
     return FormworkAssignmentResponse.model_validate(item)
+
+
+def _assignment_to_detail(
+    item: FormworkAssignment,
+    system: FormworkSystem | None,
+) -> FormworkAssignmentDetail:
+    """Build the enriched row the catalogue-aware screens read.
+
+    ``system`` must already be loaded (``selectinload``); the relationship is
+    ``raise_on_sql`` precisely so this cannot become one lazy query per row.
+    """
+    detail = FormworkAssignmentDetail.model_validate(item)
+    detail.schedule_line_count = len(item.schedule_lines)
+    if system is not None:
+        detail.system_name = system.name
+        detail.system_type = system.system_type
+        detail.material = system.material
+        detail.supplier = system.supplier
+        detail.reuses_max = system.reuses_max
+        detail.system_unit_rate = system.unit_rate
+        detail.erect_strike_rate = system.erect_strike_rate
+        detail.strip_time_days = system.strip_time_days
+        detail.currency = system.currency
+    return detail
 
 
 def _line_to_response(
@@ -110,6 +153,28 @@ async def _verify_assignment_access(
     obj = await _load_assignment_or_404(session, assignment_id)
     await verify_project_access(obj.project_id, user_id, session)
     return obj
+
+
+async def _assignment_with_system(
+    service: FormworkService,
+    assignment_id: uuid.UUID,
+) -> tuple[FormworkAssignment, FormworkSystem]:
+    """Load an assignment together with the catalogue row that prices it.
+
+    Every rate-aware endpoint needs both, and the system relationship refuses
+    lazy SQL, so resolving them in one place keeps the eager load honest.
+    """
+    obj = await service.assignment_repo.get_with_system(assignment_id)
+    if obj is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Formwork assignment not found",
+        )
+    if obj.system is None:
+        # The FK is NOT NULL with ondelete=RESTRICT, so this is unreachable
+        # through the API; it can only mean the row was orphaned outside it.
+        raise HTTPException(status_code=404, detail="Formwork system not found")
+    return obj, obj.system
 
 
 # ── Systems ──────────────────────────────────────────────────────────────
@@ -168,9 +233,25 @@ async def get_system(
     return _system_to_response(obj)
 
 
+@router.get("/systems/{system_id}/usage", response_model=FormworkSystemUsage)
+async def get_system_usage(
+    system_id: uuid.UUID,
+    session: SessionDep,
+    _user_id: CurrentUserId,
+) -> FormworkSystemUsage:
+    """How many priced assignments depend on this catalogue row.
+
+    Read before re-rating or deleting: a rate change moves every one of these
+    totals, and the delete is refused while any of them exist.
+    """
+    await _load_system_or_404(session, system_id)
+    service = FormworkService(session)
+    return await service.system_usage(system_id)
+
+
 @router.patch(
     "/systems/{system_id}",
-    response_model=FormworkSystemResponse,
+    response_model=FormworkSystemUpdateResult,
     dependencies=[Depends(RequirePermission("formwork.manage_catalogue"))],
 )
 async def update_system(
@@ -178,12 +259,45 @@ async def update_system(
     data: FormworkSystemUpdate,
     session: SessionDep,
     _user_id: CurrentUserId,
-) -> FormworkSystemResponse:
+) -> FormworkSystemUpdateResult:
+    """Patch a catalogue system; every assignment using it is re-priced.
+
+    The response carries the re-pricing counts because the edit is not local:
+    changing a rate here changes the formwork total on every project that
+    picked this system.
+    """
     await _load_system_or_404(session, system_id)
     service = FormworkService(session)
-    obj = await service.update_system(system_id, data)
+    try:
+        obj, reprice = await service.update_system(system_id, data)
+    except FieldNotNullableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
     assert obj is not None  # the load_or_404 above proved existence
-    return _system_to_response(obj)
+    return FormworkSystemUpdateResult(system=_system_to_response(obj), reprice=reprice)
+
+
+@router.post(
+    "/systems/{system_id}/reprice",
+    response_model=FormworkRepriceResult,
+    dependencies=[Depends(RequirePermission("formwork.manage_catalogue"))],
+)
+async def reprice_system(
+    system_id: uuid.UUID,
+    session: SessionDep,
+    _user_id: CurrentUserId,
+) -> FormworkRepriceResult:
+    """Recompute every assignment priced off this system.
+
+    The repair path for rows that went stale outside the API - a restore, a
+    direct SQL correction, a catalogue import. Idempotent: a second run over
+    consistent data reports everything unchanged.
+    """
+    system = await _load_system_or_404(session, system_id)
+    service = FormworkService(session)
+    return await service.reprice_for_system(system)
 
 
 @router.delete(
@@ -200,6 +314,18 @@ async def delete_system(
     # so probing the catalogue for a UUID never leaks its existence.
     await _load_system_or_404(session, system_id)
     service = FormworkService(session)
+    # The FK is ondelete=RESTRICT, so deleting a system that still prices
+    # assignments raises an IntegrityError deep in the flush and surfaces as a
+    # 500. Check first and answer 409 with the count, which is actionable.
+    usage = await service.system_usage(system_id)
+    if usage.assignment_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Formwork system is used by {usage.assignment_count} assignment(s) "
+                f"across {usage.project_count} project(s) and cannot be deleted"
+            ),
+        )
     await service.system_repo.delete(system_id)
 
 
@@ -225,7 +351,7 @@ async def seed_default_systems(
 
 @router.get(
     "/assignments/",
-    response_model=list[FormworkAssignmentResponse],
+    response_model=list[FormworkAssignmentDetail],
 )
 async def list_assignments(
     session: SessionDep,
@@ -233,15 +359,23 @@ async def list_assignments(
     project_id: uuid.UUID = Query(...),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
-) -> list[FormworkAssignmentResponse]:
+) -> list[FormworkAssignmentDetail]:
+    """Formwork assignments on one project, newest first.
+
+    Each row carries the catalogue facts behind its rate (system name,
+    material, reuse cap, currency) so the list reads as a rate build-up rather
+    than a column of opaque totals. The systems are loaded eagerly in one
+    extra query, not one per row.
+    """
     await verify_project_access(project_id, user_id, session)
     service = FormworkService(session)
     items = await service.assignment_repo.list_for_project(
         project_id,
+        with_system=True,
         offset=offset,
         limit=limit,
     )
-    return [_assignment_to_response(it) for it in items]
+    return [_assignment_to_detail(it, it.system) for it in items]
 
 
 @router.post(
@@ -275,15 +409,87 @@ async def create_assignment(
 
 @router.get(
     "/assignments/{assignment_id}",
-    response_model=FormworkAssignmentResponse,
+    response_model=FormworkAssignmentDetail,
 )
 async def get_assignment(
     assignment_id: uuid.UUID,
     session: SessionDep,
     user_id: CurrentUserId,
-) -> FormworkAssignmentResponse:
+) -> FormworkAssignmentDetail:
     obj = await _verify_assignment_access(session, assignment_id, user_id)
-    return _assignment_to_response(obj)
+    service = FormworkService(session)
+    obj, system = await _assignment_with_system(service, obj.id)
+    return _assignment_to_detail(obj, system)
+
+
+@router.get(
+    "/assignments/{assignment_id}/cycle",
+    response_model=FormworkCycleAnalysis,
+)
+async def get_assignment_cycle(
+    assignment_id: uuid.UUID,
+    session: SessionDep,
+    user_id: CurrentUserId,
+) -> FormworkCycleAnalysis:
+    """What the pour schedule says about this assignment's reuse economics.
+
+    Read-only. Reports the panel set the largest pour requires, how many times
+    that set turns around, whether the typed reuse count is supported, and any
+    pair of pours scheduled closer together than the striking time allows.
+    """
+    await _verify_assignment_access(session, assignment_id, user_id)
+    service = FormworkService(session)
+    obj, system = await _assignment_with_system(service, assignment_id)
+    return await service.analyse_cycle(obj, system)
+
+
+@router.post(
+    "/assignments/{assignment_id}/derive-from-schedule",
+    response_model=FormworkDeriveResult,
+)
+async def derive_assignment_from_schedule(
+    assignment_id: uuid.UUID,
+    session: SessionDep,
+    user_id: CurrentUserId,
+) -> FormworkDeriveResult:
+    """Replace the typed area and reuse count with the ones the cycle delivers.
+
+    The estimator stops guessing the turnaround: the schedule's total pour area
+    becomes the priced area, and the total divided by the largest single pour
+    becomes the reuse count. Re-prices the assignment in the same call.
+    """
+    await _verify_assignment_access(session, assignment_id, user_id)
+    service = FormworkService(session)
+    obj, system = await _assignment_with_system(service, assignment_id)
+    try:
+        analysis, changed = await service.derive_from_schedule(obj, system)
+    except LookupError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Formwork assignment has no pour schedule to derive from",
+        ) from exc
+    return FormworkDeriveResult(
+        assignment=_assignment_to_response(obj),
+        analysis=analysis,
+        changed=changed,
+    )
+
+
+@router.post(
+    "/assignments/{assignment_id}/validate",
+    response_model=FormworkValidationReport,
+)
+async def validate_assignment(
+    assignment_id: uuid.UUID,
+    session: SessionDep,
+    user_id: CurrentUserId,
+    locale: str = Query(default=""),
+) -> FormworkValidationReport:
+    """Run the ``formwork`` rule set over one assignment and its pour cycle."""
+    await _verify_assignment_access(session, assignment_id, user_id)
+    service = FormworkService(session)
+    obj, system = await _assignment_with_system(service, assignment_id)
+    return await service.validate_assignment(obj, system, locale=locale)
 
 
 @router.patch(
@@ -306,6 +512,11 @@ async def update_assignment(
             detail="Formwork system not found",
         ) from exc
     except ReuseCountExceedsMaxError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
+    except FieldNotNullableError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(exc),
@@ -406,7 +617,13 @@ async def update_schedule_line(
 ) -> FormworkScheduleLineResponse:
     await _verify_schedule_line_access(session, line_id, user_id)
     service = FormworkService(session)
-    obj = await service.update_schedule_line(line_id, data)
+    try:
+        obj = await service.update_schedule_line(line_id, data)
+    except FieldNotNullableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
     assert obj is not None  # the access check above proved existence
     return _line_to_response(obj)
 
@@ -423,3 +640,57 @@ async def delete_schedule_line(
     await _verify_schedule_line_access(session, line_id, user_id)
     service = FormworkService(session)
     await service.schedule_repo.delete(line_id)
+
+
+# ── Project rollup, validation and bulk re-pricing ───────────────────────
+
+
+@router.get("/summary", response_model=FormworkProjectSummary)
+async def get_project_summary(
+    session: SessionDep,
+    user_id: CurrentUserId,
+    project_id: uuid.UUID = Query(...),
+) -> FormworkProjectSummary:
+    """The project's formwork totals with the reuse saving made explicit.
+
+    ``single_use_total`` re-prices every assignment at one use, so the gap
+    against the real total is exactly the money the reuse assumption is
+    claiming - the number a reviewer challenges first.
+    """
+    await verify_project_access(project_id, user_id, session)
+    service = FormworkService(session)
+    return await service.project_summary(project_id)
+
+
+@router.post("/validate", response_model=FormworkValidationReport)
+async def validate_project(
+    session: SessionDep,
+    user_id: CurrentUserId,
+    project_id: uuid.UUID = Query(...),
+    locale: str = Query(default=""),
+) -> FormworkValidationReport:
+    """Run the project-scope ``formwork`` rules over every assignment.
+
+    Catches what no single assignment can see: formwork priced in more than
+    one currency, and two assignments charging the same BOQ position.
+    """
+    await verify_project_access(project_id, user_id, session)
+    service = FormworkService(session)
+    return await service.validate_project(project_id, locale=locale)
+
+
+@router.post("/reprice", response_model=FormworkRepriceResult)
+async def reprice_project(
+    session: SessionDep,
+    user_id: CurrentUserId,
+    project_id: uuid.UUID = Query(...),
+) -> FormworkRepriceResult:
+    """Recompute every formwork assignment on one project from the catalogue.
+
+    The bulk refresh after a catalogue import, a currency correction or a
+    restore. Idempotent: a second run over consistent data reports everything
+    unchanged and a zero delta.
+    """
+    await verify_project_access(project_id, user_id, session)
+    service = FormworkService(session)
+    return await service.reprice_project(project_id)
