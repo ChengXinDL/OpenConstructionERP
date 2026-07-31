@@ -589,6 +589,8 @@ const AllowancesPage = lazy(() =>
   import('@/features/allowances').then((m) => ({ default: m.AllowancesPage }))
 );
 const DesignOptionsPage = lazy(() => import('@/features/design-options'));
+const TeamsPage = lazy(() => import('@/features/teams'));
+const FormworkPage = lazy(() => import('@/features/formwork'));
 const WasteFactorsPage = lazy(() =>
   import('@/features/waste-factors').then((m) => ({ default: m.WasteFactorsPage }))
 );
@@ -1101,6 +1103,7 @@ export default function App() {
         <Route path="/preliminaries" element={<P title="Preliminaries"><PreliminariesPage /></P>} />
         <Route path="/allowances" element={<P title="Allowances"><AllowancesPage /></P>} />
         <Route path="/design-options" element={<P title="Design Options"><DesignOptionsPage /></P>} />
+        <Route path="/formwork" element={<P title="Formwork"><FormworkPage /></P>} />
         <Route path="/price-index" element={<P title="Price Index"><PriceIndexPage /></P>} />
         <Route path="/labor-rates" element={<P title="Labor Rates"><LaborRatesPage /></P>} />
         <Route path="/resource-summary" element={<P title="Resource Summary"><ResourceSummaryPage /></P>} />
@@ -1241,6 +1244,10 @@ export default function App() {
         <Route path="/portfolio" element={<P title="Portfolio"><PortfolioPage /></P>} />
 
         <Route path="/users" element={<P title="User Management"><UserManagementPage /></P>} />
+        {/* Teams sit beside Users rather than under Governance: they are
+            per-project and edited by the project owner, not deployment-wide
+            policy set by an administrator. */}
+        <Route path="/teams" element={<P title="Teams and Visibility"><TeamsPage /></P>} />
         <Route path="/admin/audit-log" element={<P title="Audit Log"><AuditLogPage /></P>} />
         {/* Governance — merged home for Permissions, Approval Routes and
             Validation Rules (three /modules-style top tabs). The active

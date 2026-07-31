@@ -212,6 +212,7 @@ const ROUTE_ICON_MAP: Record<string, LucideIcon> = {
   '/ai-agents': Bot,
   '/advisor': MessageSquare,
   '/chat': MessageSquare,
+  '/teams': ShieldCheck,
   '/pipelines': GitBranch,
   // ── Admin grid (bottom of sidebar) ────────────────────────────────
   '/settings': Settings,
@@ -224,6 +225,7 @@ const ROUTE_ICON_MAP: Record<string, LucideIcon> = {
   '/prefab': Factory,
   '/cvr': Scale,
   '/design-options': Scale,
+  '/formwork': Boxes,
   '/site-logistics': Truck,
   '/commissioning': ClipboardCheck,
   '/esg': Leaf,

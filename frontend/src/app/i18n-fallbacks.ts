@@ -3,8 +3,12 @@
 /**
  * Test-only aggregator. Re-exports every per-locale resource as a single
  * ``fallbackResources`` object so existing tests (notably
- * ``boqResourceTypes.test.ts``) can iterate all 26 locales without
+ * ``boqResourceTypes.test.ts``) can iterate all 29 locales without
  * duplicating the imports.
+ *
+ * This file reads ``./locales/*``; it does not generate them. A locale added
+ * under that directory has to be added here by hand or it is invisible to
+ * every test that iterates this object, which is how Kyrgyz went unchecked.
  *
  * IMPORTANT: this file is intentionally NOT imported from runtime code.
  * The application boots from ``./locales/en`` and lazy-loads other
@@ -41,6 +45,7 @@ import ro from './locales/ro';
 import th from './locales/th';
 import vi from './locales/vi';
 import mn from './locales/mn';
+import ky from './locales/ky';
 
 export const fallbackResources = {
   en,
@@ -71,4 +76,5 @@ export const fallbackResources = {
   th,
   vi,
   mn,
+  ky,
 };

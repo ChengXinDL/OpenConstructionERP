@@ -310,6 +310,9 @@ const navGroups: NavGroup[] = [
       { labelKey: 'nav.preliminaries', to: '/preliminaries', icon: ClipboardList, advancedOnly: true },
       { labelKey: 'nav.allowances', to: '/allowances', icon: Wallet, advancedOnly: true },
       { labelKey: 'nav.design_options', to: '/design-options', icon: Scale, advancedOnly: true },
+      // Shares the page's own heading key rather than minting a second key
+      // holding the same word, the way the Teams row below does.
+      { labelKey: 'formwork.title', to: '/formwork', icon: Boxes, advancedOnly: true, defaultLabel: 'Formwork' },
     ],
   },
   // ── 5. REALITY CAPTURE & 3D ─────────────────────────────────────────
@@ -637,6 +640,18 @@ const navGroups: NavGroup[] = [
     hideInSimple: true,
     items: [
       { labelKey: 'contacts.title', to: '/contacts', icon: Users },
+      // Teams is the access side of "who is on this project": grouping people
+      // and narrowing records to those groups. ShieldCheck rather than Users
+      // so it does not read as a second contacts directory.
+      {
+        labelKey: 'teams.title',
+        // Matches the value seeded for `teams.title`, so the row does not
+        // change case the moment the locale key lands.
+        defaultLabel: 'Teams and visibility',
+        to: '/teams',
+        icon: ShieldCheck,
+        advancedOnly: true,
+      },
       { labelKey: 'meetings.title', to: '/meetings', icon: CalendarDays },
       { labelKey: 'rfi.title', to: '/rfi', icon: HelpCircle, advancedOnly: true },
       { labelKey: 'interface_management.title', to: '/interface-management', icon: Handshake },
@@ -903,6 +918,7 @@ const ROUTE_BACKEND_MODULE: Record<string, string> = {
   '/moc': 'oe_moc',
   '/supplier-catalogs': 'oe_supplier_catalogs',
   '/design-options': 'oe_design_options',
+  '/formwork': 'oe_formwork',
   // Real estate development
   '/property-dev': 'oe_property_dev',
   '/accommodation': 'oe_accommodation',
