@@ -30,7 +30,7 @@ from app.modules.saved_views.errors import (
 )
 from app.modules.saved_views.scoper import ProjectMemberScoper, ScopeContext
 from app.modules.saved_views.service import SavedViewService
-from tests.unit.saved_views._fixtures import SpySession
+from tests.unit.saved_views._fixtures import RecordingSession, SpySession
 
 
 def _ctx(project_id=None, role="editor", is_admin=False) -> ScopeContext:
@@ -139,15 +139,23 @@ async def test_share_scope_workspace_requires_owner():
         share_scope="workspace",
     )
 
+    # The refusal stays on SpySession: the assertion is not only that the editor
+    # is refused, but that the refusal lands BEFORE any database round trip.
     editor_service = SavedViewService(SpySession())  # type: ignore[arg-type]
     with pytest.raises(WhitelistError):
         await editor_service.save_view(_ctx(project_id=project_id, role="editor"), payload)
 
-    # A manager / project owner may grant it. save_view will call the repo, so we
-    # only need to reach past the grant check; assert no WhitelistError raised.
+    # A manager / project owner may grant it. This path is allowed, so it is
+    # allowed to query: save_view checks the name against the unique index
+    # before inserting. RecordingSession answers that probe with "no rows", i.e.
+    # the name is free; SpySession cannot, because it refuses every statement by
+    # design and that design is what makes the editor half above worth having.
     owner_ctx = _ctx(project_id=project_id, role="manager")
-    owner_service = SavedViewService(SpySession())  # type: ignore[arg-type]
-    # The SpySession.add/flush are no-ops, so this completes without the grant
-    # gate firing.
+    owner_session = RecordingSession()
+    owner_service = SavedViewService(owner_session)  # type: ignore[arg-type]
     view = await owner_service.save_view(owner_ctx, payload)
     assert view.share_scope == "workspace"
+    # The name probe is the only statement this path may issue, and the row it
+    # would insert reaches the session rather than the wire.
+    assert len(owner_session.executed) == 1
+    assert owner_session.added == [view]

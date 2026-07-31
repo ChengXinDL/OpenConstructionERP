@@ -13,9 +13,14 @@ you may see), the column whitelist (which columns exist), and the result budget
 
 
 async def on_startup() -> None:
-    """Module startup hook - register permissions and the built-in entities."""
+    """Module startup hook - permissions, built-in entities, validation rules."""
     from app.modules.saved_views.entities import register_builtin_entities
     from app.modules.saved_views.permissions import register_saved_views_permissions
+    from app.modules.saved_views.validators import register_saved_views_rules
 
     register_saved_views_permissions()
     register_builtin_entities()
+    # The validators module also registers at import, but the platform has two
+    # registration routes and a rule that only takes one of them is dormant in
+    # the other deployment.
+    register_saved_views_rules()

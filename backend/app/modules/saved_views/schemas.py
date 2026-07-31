@@ -52,7 +52,7 @@ FilterOp = Literal[
     "not_null",
 ]
 
-ShareScope = Literal["private", "project", "workspace"]
+ShareScope = Literal["private", "team", "project", "workspace"]
 
 
 class FilterCondition(BaseModel):
@@ -396,6 +396,27 @@ class BoundSpec(BaseModel):
 # ── Request / response models ──────────────────────────────────────────────
 
 
+def _assert_team_pin_consistent(share_scope: str, shared_team_id: uuid.UUID | None) -> None:
+    """Reject a share scope and a team pin that contradict each other.
+
+    Raises ``ValueError`` (not :class:`WhitelistError`) because this runs inside
+    Pydantic validation, where a ``ValueError`` becomes a 422 with the offending
+    field named and anything else becomes a 500.
+
+    Args:
+        share_scope: The requested share scope.
+        shared_team_id: The team the view is shared with, if any.
+
+    Raises:
+        ValueError: ``team`` scope without a team, or a team named on a scope
+            that is not ``team``.
+    """
+    if share_scope == "team" and shared_team_id is None:
+        raise ValueError("A team-shared view must name the team it is shared with")
+    if share_scope != "team" and shared_team_id is not None:
+        raise ValueError(f"shared_team_id is only meaningful on a team share, not on {share_scope!r}")
+
+
 class SavedViewCreate(BaseModel):
     """Payload to create a saved view."""
 
@@ -406,13 +427,25 @@ class SavedViewCreate(BaseModel):
     description: str | None = None
     spec: FilterSpec = Field(default_factory=FilterSpec)
     share_scope: ShareScope = "private"
+    shared_team_id: uuid.UUID | None = None
     is_pinned: bool = False
     project_id: uuid.UUID
     metadata_: dict[str, Any] = Field(default_factory=dict, alias="metadata")
 
+    @model_validator(mode="after")
+    def _team_pin_matches_scope(self) -> SavedViewCreate:
+        """A team share needs a team, and only a team share may name one."""
+        _assert_team_pin_consistent(self.share_scope, self.shared_team_id)
+        return self
+
 
 class SavedViewUpdate(BaseModel):
-    """Patch payload - every field optional."""
+    """Patch payload - every field optional.
+
+    ``share_scope`` and ``shared_team_id`` are checked together against the
+    stored row in the service, not here: a patch that only sends
+    ``share_scope="team"`` is legitimate when the row already carries a team.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -420,6 +453,7 @@ class SavedViewUpdate(BaseModel):
     description: str | None = None
     spec: FilterSpec | None = None
     share_scope: ShareScope | None = None
+    shared_team_id: uuid.UUID | None = None
     is_pinned: bool | None = None
     metadata_: dict[str, Any] | None = Field(default=None, alias="metadata")
 
@@ -437,10 +471,71 @@ class SavedViewResponse(BaseModel):
     description: str | None
     spec: dict[str, Any]
     share_scope: str
+    shared_team_id: uuid.UUID | None = None
     is_pinned: bool
     metadata_: dict[str, Any] = Field(serialization_alias="metadata", validation_alias="metadata_")
     created_at: datetime
     updated_at: datetime
+    #: Whether the stored spec still binds against its entity. A saved view
+    #: outlives the schema it was written against: when a field leaves an
+    #: entity whitelist, or the entity is unregistered because its module was
+    #: disabled, running the view raises rather than silently returning the
+    #: wrong rows. This flag is how a list marks the broken ones BEFORE the
+    #: user clicks them, instead of turning a dashboard into a row of 422s.
+    #: It is a pure registry comparison, no database access.
+    is_stale: bool = False
+    #: One line per reason the view is stale; empty when it is healthy.
+    stale_reasons: list[str] = Field(default_factory=list)
+
+
+class SavedViewFinding(BaseModel):
+    """One failing validation rule, rendered for the UI."""
+
+    rule_id: str
+    severity: str
+    category: str
+    message: str
+    #: i18n key the frontend can translate; falls back to ``message``.
+    key: str
+    element_ref: str | None = None
+    suggestion: str | None = None
+    context: dict[str, Any] = Field(default_factory=dict)
+
+
+class SavedViewValidationReport(BaseModel):
+    """The saved-views validation pass over one stored definition."""
+
+    target_type: str
+    target_id: Any = None
+    status: str
+    error_count: int = 0
+    warning_count: int = 0
+    info_count: int = 0
+    passed_count: int = 0
+    findings: list[SavedViewFinding] = Field(default_factory=list)
+    unsupported_rule_sets: list[str] = Field(default_factory=list)
+
+
+class RunStatsResponse(BaseModel):
+    """Aggregated run telemetry for one saved view.
+
+    The ``oe_saved_views_run`` rows have been written since the module shipped
+    and never read back. This is the read side: it answers whether a view is
+    used, whether it is slow, and whether it keeps hitting the row cap - the
+    three questions that decide if a view needs narrowing.
+    """
+
+    view_id: uuid.UUID
+    total_runs: int = 0
+    #: Run counts keyed by outcome (``ok`` / ``budget`` / ``scope`` /
+    #: ``whitelist`` / ``error``); outcomes with no runs are omitted.
+    outcomes: dict[str, int] = Field(default_factory=dict)
+    last_run_at: datetime | None = None
+    last_outcome: str | None = None
+    last_row_count: int | None = None
+    avg_elapsed_ms: int | None = None
+    max_elapsed_ms: int | None = None
+    truncated_runs: int = 0
 
 
 class RunRequest(BaseModel):

@@ -16,6 +16,8 @@ produced it:
       whitelisted for the target entity (primitive 2). Surfaces as HTTP 422.
     * :class:`BudgetError` - a spec exceeded the static complexity ceiling, the
       row cap, or the statement timeout (primitive 3). Surfaces as HTTP 422.
+    * :class:`DuplicateViewName` - the owner already has a view of that name on
+      that project and entity. Surfaces as HTTP 409.
 """
 
 from __future__ import annotations
@@ -59,3 +61,17 @@ class BudgetError(SavedViewsError):
     Raised by the static complexity ceiling, the row cap, or the statement
     timeout. The router maps this to HTTP 422.
     """
+
+
+class DuplicateViewName(SavedViewsError):
+    """The owner already has a view of this name on this project and entity.
+
+    ``uq_saved_views_owner_scope_name`` enforces it in the database. Raising
+    this instead of letting the ``IntegrityError`` escape is what turns a 500
+    into a 409 that names the collision, and it keeps the failure inside the
+    request's own transaction instead of poisoning it.
+    """
+
+    def __init__(self, name: str) -> None:
+        super().__init__(f"A saved view named {name!r} already exists here")
+        self.name = name

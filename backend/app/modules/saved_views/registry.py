@@ -195,7 +195,8 @@ def _validate_entity(entity: QueryableEntity) -> None:
     Raises:
         RegistrationError: missing scoper; a FieldSpec.column that is not a real
             mapped column; ``groupable=True`` on a non-indexed column; a
-            ``project_fk_column`` absent from the model.
+            ``project_fk_column`` absent from the model; a ``default_sort`` or
+            ``default_columns`` entry that is not a whitelisted field.
     """
     if entity.scoper is None:
         raise RegistrationError(
@@ -246,6 +247,24 @@ def _validate_entity(entity: QueryableEntity) -> None:
         )
     if sort_dir not in ("asc", "desc"):
         raise RegistrationError(f"Entity {entity.entity_type!r} default_sort direction {sort_dir!r} is invalid")
+
+    # default_columns must resolve too. A spec that names its own columns is
+    # checked by ``FilterSpec.bind``, but the default set never passes through
+    # bind: it is read straight out of the registration when a spec asks for no
+    # columns. An unresolvable name there is dropped in silence by
+    # ``_serialize_row``, so the response is short a column and the CSV export
+    # carries a header whose cells are always empty. Fail the registration.
+    for column_name in entity.default_columns:
+        fs = entity.fields.get(column_name)
+        if fs is None:
+            raise RegistrationError(
+                f"Entity {entity.entity_type!r} default_columns lists {column_name!r}, which is not a whitelisted field"
+            )
+        if not fs.selectable:
+            raise RegistrationError(
+                f"Entity {entity.entity_type!r} default_columns lists {column_name!r}, "
+                "which is whitelisted but not selectable"
+            )
 
 
 # Module-global singleton.

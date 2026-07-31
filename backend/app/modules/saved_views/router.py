@@ -7,7 +7,7 @@ legacy mirror at ``/api/v1/saved_views``. Every data endpoint takes a
 ``project_id`` so the scoper always has its pin; a run without a resolvable
 project is a 422, never an unscoped query. Each typed engine error maps to a
 fixed HTTP status: ``ScopeDenied`` -> 404 (no existence oracle), ``WhitelistError``
-and ``BudgetError`` -> 422.
+and ``BudgetError`` -> 422, ``DuplicateViewName`` -> 409.
 """
 
 from __future__ import annotations
@@ -24,21 +24,31 @@ from app.dependencies import (
     RequirePermission,
     SessionDep,
 )
-from app.modules.saved_views.errors import BudgetError, ScopeDenied, WhitelistError
+from app.modules.saved_views.errors import (
+    BudgetError,
+    DuplicateViewName,
+    ScopeDenied,
+    WhitelistError,
+)
 from app.modules.saved_views.registry import entity_registry
 from app.modules.saved_views.schemas import (
     CountResponse,
     RunRequest,
     RunResponse,
+    RunStatsResponse,
     SavedViewCreate,
     SavedViewResponse,
     SavedViewUpdate,
+    SavedViewValidationReport,
 )
 from app.modules.saved_views.scoper import ScopeContext
 from app.modules.saved_views.service import SavedViewService
 
 router = APIRouter(tags=["saved_views"])
 logger = logging.getLogger(__name__)
+
+#: Every engine error the CRUD paths translate rather than let escape as a 500.
+_HANDLED = (ScopeDenied, WhitelistError, BudgetError, DuplicateViewName)
 
 
 def _scope_ctx(payload: dict[str, Any], project_id: uuid.UUID | None) -> ScopeContext:
@@ -54,6 +64,8 @@ def _raise_http(exc: Exception) -> None:
     """Translate an engine error into the correct HTTPException."""
     if isinstance(exc, ScopeDenied):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    if isinstance(exc, DuplicateViewName):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     if isinstance(exc, WhitelistError):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     if isinstance(exc, BudgetError):
@@ -61,8 +73,17 @@ def _raise_http(exc: Exception) -> None:
     raise exc
 
 
-def _to_response(view: Any) -> SavedViewResponse:
-    return SavedViewResponse.model_validate(view)
+def _to_response(service: SavedViewService, view: Any) -> SavedViewResponse:
+    """Render a stored row, annotated with whether it still binds.
+
+    The staleness flags are a registry comparison, not a query, so annotating a
+    whole list stays free.
+    """
+    response = SavedViewResponse.model_validate(view)
+    is_stale, reasons = service.staleness(view)
+    response.is_stale = is_stale
+    response.stale_reasons = reasons
+    return response
 
 
 # ── CRUD ────────────────────────────────────────────────────────────────────
@@ -84,9 +105,9 @@ async def create_view(
     service = SavedViewService(session)
     try:
         view = await service.save_view(ctx, payload)
-    except (ScopeDenied, WhitelistError, BudgetError) as exc:
+    except _HANDLED as exc:
         _raise_http(exc)
-    return _to_response(view)
+    return _to_response(service, view)
 
 
 @router.get(
@@ -104,7 +125,7 @@ async def list_views(
     ctx = _scope_ctx(user_payload, project_id)
     service = SavedViewService(session)
     views = await service.list_views(ctx, entity_type=entity_type, project_id=project_id)
-    return [_to_response(v) for v in views]
+    return [_to_response(service, v) for v in views]
 
 
 @router.get(
@@ -155,9 +176,9 @@ async def get_view(
     service = SavedViewService(session)
     try:
         view = await service.get_view(view_id, ctx)
-    except (ScopeDenied, WhitelistError, BudgetError) as exc:
+    except _HANDLED as exc:
         _raise_http(exc)
-    return _to_response(view)
+    return _to_response(service, view)
 
 
 @router.patch(
@@ -177,9 +198,9 @@ async def update_view(
     service = SavedViewService(session)
     try:
         view = await service.update_view(view_id, ctx, payload)
-    except (ScopeDenied, WhitelistError, BudgetError) as exc:
+    except _HANDLED as exc:
         _raise_http(exc)
-    return _to_response(view)
+    return _to_response(service, view)
 
 
 @router.delete(
@@ -198,7 +219,7 @@ async def delete_view(
     service = SavedViewService(session)
     try:
         await service.delete_view(view_id, ctx)
-    except (ScopeDenied, WhitelistError, BudgetError) as exc:
+    except _HANDLED as exc:
         _raise_http(exc)
 
 
@@ -223,7 +244,7 @@ async def run_view(
     service = SavedViewService(session)
     try:
         return await service.run_view(view_id, ctx, page=page, page_size=page_size)
-    except (ScopeDenied, WhitelistError, BudgetError) as exc:
+    except _HANDLED as exc:
         _raise_http(exc)
         raise  # unreachable, keeps type checker happy
 
@@ -243,7 +264,7 @@ async def run_adhoc(
     service = SavedViewService(session)
     try:
         return await service.run_adhoc(payload.entity_type, payload.spec, ctx)
-    except (ScopeDenied, WhitelistError, BudgetError) as exc:
+    except _HANDLED as exc:
         _raise_http(exc)
         raise
 
@@ -264,7 +285,55 @@ async def count_view(
     service = SavedViewService(session)
     try:
         return await service.count_for_reminder(view_id, ctx)
-    except (ScopeDenied, WhitelistError, BudgetError) as exc:
+    except _HANDLED as exc:
+        _raise_http(exc)
+        raise
+
+
+@router.get(
+    "/{view_id}/validation",
+    response_model=SavedViewValidationReport,
+    dependencies=[Depends(RequirePermission("saved_views.read"))],
+)
+async def validate_view(
+    view_id: uuid.UUID,
+    session: SessionDep,
+    user_payload: CurrentUserPayload,
+    project_id: Annotated[uuid.UUID | None, Query()] = None,
+    locale: Annotated[str, Query(max_length=16)] = "",
+) -> SavedViewValidationReport:
+    """Check a stored view against the register as it is registered now.
+
+    Answers "will this still work, and if not, what changed" without running
+    the query, so a broken view can be repaired instead of being clicked and
+    refused.
+    """
+    ctx = _scope_ctx(user_payload, project_id)
+    service = SavedViewService(session)
+    try:
+        return await service.validate_view(view_id, ctx, locale=locale)
+    except _HANDLED as exc:
+        _raise_http(exc)
+        raise
+
+
+@router.get(
+    "/{view_id}/runs",
+    response_model=RunStatsResponse,
+    dependencies=[Depends(RequirePermission("saved_views.read"))],
+)
+async def view_run_stats(
+    view_id: uuid.UUID,
+    session: SessionDep,
+    user_payload: CurrentUserPayload,
+    project_id: Annotated[uuid.UUID | None, Query()] = None,
+) -> RunStatsResponse:
+    """Aggregated run telemetry: how often a view runs, how slow, how truncated."""
+    ctx = _scope_ctx(user_payload, project_id)
+    service = SavedViewService(session)
+    try:
+        return await service.run_stats(view_id, ctx)
+    except _HANDLED as exc:
         _raise_http(exc)
         raise
 
@@ -293,7 +362,7 @@ async def export_view(
         try:
             async for chunk in service.to_export(view_id, ctx, fmt):
                 yield chunk
-        except (ScopeDenied, WhitelistError, BudgetError) as exc:
+        except _HANDLED as exc:
             logger.warning("saved-view export refused: %s", exc)
             return
 

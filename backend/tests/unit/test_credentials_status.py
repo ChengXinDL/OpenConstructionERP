@@ -159,9 +159,7 @@ def test_a_missing_credential_is_a_blocking_gap() -> None:
 
 def test_a_current_credential_satisfies_and_produces_no_gap() -> None:
     credential = _credential(valid_until=_TODAY + timedelta(days=200))
-    gap, satisfying = RequirementService(None)._assess(
-        _requirement(), [credential], today=_TODAY
-    )
+    gap, satisfying = RequirementService(None)._assess(_requirement(), [credential], today=_TODAY)
     assert gap is None
     assert satisfying is credential
 
@@ -206,9 +204,7 @@ def test_the_healthiest_credential_of_several_is_the_one_judged() -> None:
     """A renewal beside a lapsed row satisfies the requirement."""
     lapsed = _credential(valid_until=_TODAY - timedelta(days=100))
     renewed = _credential(valid_until=_TODAY + timedelta(days=365))
-    gap, satisfying = RequirementService(None)._assess(
-        _requirement(), [lapsed, renewed], today=_TODAY
-    )
+    gap, satisfying = RequirementService(None)._assess(_requirement(), [lapsed, renewed], today=_TODAY)
     assert gap is None
     assert satisfying is renewed
 
@@ -217,9 +213,7 @@ def test_a_perpetual_credential_outranks_a_dated_one() -> None:
     """Neither is lapsing, so the one that never will is the one to report."""
     dated = _credential(valid_until=_TODAY + timedelta(days=400))
     perpetual = _credential(valid_until=None)
-    _gap, satisfying = RequirementService(None)._assess(
-        _requirement(), [dated, perpetual], today=_TODAY
-    )
+    _gap, satisfying = RequirementService(None)._assess(_requirement(), [dated, perpetual], today=_TODAY)
     assert satisfying is perpetual
 
 
@@ -244,9 +238,5 @@ def test_one_person_under_two_names_is_one_holder_when_linked() -> None:
 
 def test_two_unlinked_holders_are_told_apart_by_name_not_case() -> None:
     """Without a user link the case-folded name is the best available key."""
-    assert _holder_key(_credential(holder_name="jo smith")) == _holder_key(
-        _credential(holder_name="Jo Smith")
-    )
-    assert _holder_key(_credential(holder_name="Jo Smith")) != _holder_key(
-        _credential(holder_name="Sam Reed")
-    )
+    assert _holder_key(_credential(holder_name="jo smith")) == _holder_key(_credential(holder_name="Jo Smith"))
+    assert _holder_key(_credential(holder_name="Jo Smith")) != _holder_key(_credential(holder_name="Sam Reed"))

@@ -22,7 +22,12 @@ from fastapi import APIRouter, Query
 
 from app.dependencies import CurrentUserId, SessionDep, verify_project_access
 from app.modules.timeline.schemas import TimelineEntry, TimelineResponse
-from app.modules.timeline.service import count_project_timeline, get_project_timeline
+from app.modules.timeline.service import (
+    count_entity_timeline,
+    count_project_timeline,
+    get_entity_timeline,
+    get_project_timeline,
+)
 
 router = APIRouter(tags=["Timeline"])
 logger = logging.getLogger(__name__)
@@ -68,6 +73,10 @@ async def get_project_timeline_endpoint(
         default=None,
         description="Filter to an exact entity_type.",
     ),
+    actor: uuid.UUID | None = Query(
+        default=None,
+        description="Filter to one acting user.",
+    ),
     since: datetime | None = Query(
         default=None,
         description="Inclusive lower bound on created_at (UTC).",
@@ -88,6 +97,7 @@ async def get_project_timeline_endpoint(
         modules=module,
         actions=action,
         entity_type=entity_type,
+        actor_id=actor,
         since=since,
         until=until,
         limit=limit,
@@ -99,8 +109,53 @@ async def get_project_timeline_endpoint(
         modules=module,
         actions=action,
         entity_type=entity_type,
+        actor_id=actor,
         since=since,
         until=until,
+    )
+    return TimelineResponse(
+        entries=[_to_entry(r) for r in rows],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.get(
+    "/projects/{project_id}/entities/{entity_type}/{entity_id}",
+    response_model=TimelineResponse,
+)
+async def get_entity_timeline_endpoint(
+    project_id: uuid.UUID,
+    entity_type: str,
+    entity_id: str,
+    session: SessionDep,
+    user_id: CurrentUserId = None,  # type: ignore[assignment]
+    limit: int = Query(default=100, ge=1, le=500, description="Max entries to return."),
+    offset: int = Query(default=0, ge=0, description="Pagination offset."),
+) -> TimelineResponse:
+    """Newest-first history of one record, across every module that touched it.
+
+    Nested under the project so the same access check applies, and scoped to it
+    in SQL: ``entity_id`` is a free string on the activity log rather than a
+    foreign key, so without that clause a caller authorised for one project
+    could read another project's record history by guessing an id.
+    """
+    await verify_project_access(project_id, user_id or "", session)
+
+    rows = await get_entity_timeline(
+        session,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        project_id=project_id,
+        limit=limit,
+        offset=offset,
+    )
+    total = await count_entity_timeline(
+        session,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        project_id=project_id,
     )
     return TimelineResponse(
         entries=[_to_entry(r) for r in rows],

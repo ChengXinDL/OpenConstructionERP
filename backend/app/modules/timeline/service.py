@@ -6,12 +6,13 @@ The timeline is a cross-module rollup view. A row belongs to a project's
 timeline when either:
 
 * it was logged with ``parent_entity_id`` == the project id (the normal case
-  for module events that carry their umbrella project - RFIs, NCRs, change
-  orders, ...), or
+  for module events that carry their umbrella project - NCRs, approvals,
+  change orders, ...), or
 * it was logged directly against the project itself
   (``entity_id`` == the project id), e.g. a ``project.status_changed`` row.
 
 No new table and no migration: this reads :class:`app.core.audit_log.ActivityLog`.
+Statement construction lives in :mod:`app.modules.timeline.repository`.
 """
 
 from __future__ import annotations
@@ -19,47 +20,10 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.audit_log import ActivityLog
-
-
-def _project_scope(project_id: str | uuid.UUID):
-    """SQLAlchemy predicate selecting rows that belong to a project's timeline.
-
-    A row is in scope when its ``parent_entity_id`` is the project (module
-    events rolled up to their umbrella project) OR its ``entity_id`` is the
-    project (events logged directly against the project row).
-    """
-    pid = str(project_id)
-    return or_(
-        ActivityLog.parent_entity_id == pid,
-        ActivityLog.entity_id == pid,
-    )
-
-
-def _apply_filters(
-    stmt,
-    *,
-    modules: list[str] | None,
-    actions: list[str] | None,
-    entity_type: str | None,
-    since: datetime | None,
-    until: datetime | None,
-):
-    """Apply the optional timeline filters to a select statement."""
-    if modules:
-        stmt = stmt.where(ActivityLog.module.in_(list(modules)))
-    if actions:
-        stmt = stmt.where(ActivityLog.action.in_(list(actions)))
-    if entity_type is not None:
-        stmt = stmt.where(ActivityLog.entity_type == entity_type)
-    if since is not None:
-        stmt = stmt.where(ActivityLog.created_at >= since)
-    if until is not None:
-        stmt = stmt.where(ActivityLog.created_at <= until)
-    return stmt
+from app.modules.timeline import repository
 
 
 async def get_project_timeline(
@@ -69,6 +33,7 @@ async def get_project_timeline(
     modules: list[str] | None = None,
     actions: list[str] | None = None,
     entity_type: str | None = None,
+    actor_id: uuid.UUID | None = None,
     since: datetime | None = None,
     until: datetime | None = None,
     limit: int = 100,
@@ -79,28 +44,30 @@ async def get_project_timeline(
     Args:
         session: Active async session.
         project_id: The umbrella project to roll activity up to.
-        modules: Optional ``module`` allowlist (e.g. ``["rfi", "ncr"]``).
+        modules: Optional ``module`` allowlist (e.g. ``["ncr", "approval"]``).
         actions: Optional ``action`` allowlist (full event names).
         entity_type: Optional exact ``entity_type`` filter.
+        actor_id: Optional filter to one acting user.
         since / until: Optional inclusive ``created_at`` bounds (UTC).
-        limit: Max rows to return (clamped to a sane window by the caller).
+        limit: Max rows to return.
         offset: Pagination offset.
 
     Returns:
-        A list of :class:`ActivityLog` rows ordered by ``created_at`` DESC.
+        :class:`ActivityLog` rows, newest first, ordered totally so that paging
+        cannot drop or repeat a row.
     """
-    stmt = select(ActivityLog).where(_project_scope(project_id))
-    stmt = _apply_filters(
-        stmt,
+    return await repository.list_for_project(
+        session,
+        project_id=project_id,
         modules=modules,
         actions=actions,
         entity_type=entity_type,
+        actor_id=actor_id,
         since=since,
         until=until,
+        limit=limit,
+        offset=offset,
     )
-    stmt = stmt.order_by(ActivityLog.created_at.desc()).offset(offset).limit(limit)
-    result = await session.execute(stmt)
-    return list(result.scalars().all())
 
 
 async def count_project_timeline(
@@ -110,6 +77,7 @@ async def count_project_timeline(
     modules: list[str] | None = None,
     actions: list[str] | None = None,
     entity_type: str | None = None,
+    actor_id: uuid.UUID | None = None,
     since: datetime | None = None,
     until: datetime | None = None,
 ) -> int:
@@ -118,14 +86,64 @@ async def count_project_timeline(
     Mirrors :func:`get_project_timeline` so the API can return an accurate
     ``total`` for pagination without re-fetching every row.
     """
-    stmt = select(func.count()).select_from(ActivityLog).where(_project_scope(project_id))
-    stmt = _apply_filters(
-        stmt,
+    return await repository.count_for_project(
+        session,
+        project_id=project_id,
         modules=modules,
         actions=actions,
         entity_type=entity_type,
+        actor_id=actor_id,
         since=since,
         until=until,
     )
-    result = await session.execute(stmt)
-    return int(result.scalar_one() or 0)
+
+
+async def get_entity_timeline(
+    session: AsyncSession,
+    *,
+    entity_type: str,
+    entity_id: str,
+    project_id: str | uuid.UUID,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[ActivityLog]:
+    """Newest-first history of one record, across every module that touched it.
+
+    The project feed answers "what happened on this job"; this answers "what
+    happened to this NCR", which is the question a reader asks once they have
+    picked a row out of the feed. Scoped to *project_id* - see
+    :func:`app.modules.timeline.repository._entity_scope` for why that is a
+    correctness requirement and not a convenience.
+    """
+    return await repository.list_for_entity(
+        session,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        project_id=project_id,
+        limit=limit,
+        offset=offset,
+    )
+
+
+async def count_entity_timeline(
+    session: AsyncSession,
+    *,
+    entity_type: str,
+    entity_id: str,
+    project_id: str | uuid.UUID,
+) -> int:
+    """Total number of history rows for one record within one project."""
+    return await repository.count_for_entity(
+        session,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        project_id=project_id,
+    )
+
+
+__all__ = [
+    "count_entity_timeline",
+    "count_project_timeline",
+    "get_entity_timeline",
+    "get_project_timeline",
+]

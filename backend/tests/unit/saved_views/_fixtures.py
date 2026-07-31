@@ -43,6 +43,15 @@ class RecordingSession:
             def scalar_one(self_inner) -> Any:  # noqa: N805
                 return len(rows)
 
+            def first(self_inner) -> Any:  # noqa: N805
+                """The first row, or ``None`` - what an existence probe reads.
+
+                ``rows`` defaults to empty, so a service asking "is this name
+                already taken" gets "no" on a stub session that was not seeded
+                to say otherwise.
+                """
+                return rows[0] if rows else None
+
         return _Result()
 
     def add(self, obj: Any) -> None:  # noqa: ANN401

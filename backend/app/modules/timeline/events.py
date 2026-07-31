@@ -46,6 +46,18 @@ async def _record_event(event: Event) -> None:
         if mapped is None:
             return
 
+        # A row with neither a parent project nor an entity id cannot be
+        # returned by any timeline query - see mapping.is_routable. Writing it
+        # would cost an insert and then read as coverage forever, so drop it
+        # here and say why at WARNING rather than accumulating silent rows.
+        if not mapping.is_routable(mapped):
+            logger.warning(
+                "timeline: dropping %s - payload carries no project id and no entity id, "
+                "so the row could never appear on a timeline",
+                event.name,
+            )
+            return
+
         metadata = {
             **mapped.get("metadata", {}),
             "_via": "event_bus",
@@ -55,7 +67,7 @@ async def _record_event(event: Event) -> None:
         async with async_session_factory() as session:
             await log_activity(
                 session,
-                actor_id=None,
+                actor_id=mapped["actor_id"],
                 action=mapped["action"],
                 entity_type=mapped["entity_type"],
                 entity_id=mapped["entity_id"],

@@ -20,6 +20,7 @@ import uuid
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     ForeignKey,
     Index,
     Integer,
@@ -27,9 +28,14 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import GUID, Base
+
+#: Every share scope the column accepts. ``public`` is deliberately absent:
+#: there is no unauthenticated share token, and a saved view never grants a
+#: viewer access to a row the row scoper would have withheld.
+SHARE_SCOPES: tuple[str, ...] = ("private", "team", "project", "workspace")
 
 
 class SavedView(Base):
@@ -37,8 +43,12 @@ class SavedView(Base):
 
     The ``spec`` JSON is the serialized ``FilterSpec``; it is re-validated by
     Pydantic on every read and write, never trusted as-is. ``share_scope`` is one
-    of ``private`` / ``project`` / ``workspace`` - never ``public``; there is no
-    unauthenticated share token in Phase 1.
+    of ``private`` / ``team`` / ``project`` / ``workspace`` - never ``public``;
+    there is no unauthenticated share token in Phase 1.
+
+    Sharing widens who can see the DEFINITION, never what the run returns. Every
+    run still passes through the entity scoper under the viewer's own identity,
+    so a shared view executed by a colleague returns that colleague's rows.
     """
 
     __tablename__ = "oe_saved_views_view"
@@ -51,6 +61,22 @@ class SavedView(Base):
             "entity_type",
             "name",
             name="uq_saved_views_owner_scope_name",
+        ),
+        # The ``ck`` naming convention wraps these names as
+        # ``ck_<table>_<name>``, so they are given bare here and spelled out in
+        # full in the migration. A name that only matches one of the two routes
+        # into this schema is a constraint nobody can drop.
+        CheckConstraint(
+            "share_scope IN ('private', 'team', 'project', 'workspace')",
+            name="share_scope",
+        ),
+        # A team pin only means something on a team share. The reverse is NOT
+        # constrained on purpose: dropping a team SET NULLs this column, and a
+        # team share that has lost its team must degrade to owner-only rather
+        # than block the delete or take the saved view down with it.
+        CheckConstraint(
+            "shared_team_id IS NULL OR share_scope = 'team'",
+            name="team_pin_scope",
         ),
     )
 
@@ -81,6 +107,12 @@ class SavedView(Base):
         default="private",
         server_default="private",
     )
+    shared_team_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(),
+        ForeignKey("oe_teams_team.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     is_pinned: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
@@ -95,6 +127,22 @@ class SavedView(Base):
         server_default="{}",
     )
 
+    #: Run telemetry for this view, newest first.
+    #:
+    #: ``raise_on_sql`` rather than ``selectin``: run history grows without
+    #: bound and is not what a caller listing or executing a view wants, so a
+    #: reader must page it through the repository instead of walking the
+    #: attribute. Reading it off an instance that already loaded it stays free.
+    #: ``passive_deletes`` leaves the ``ON DELETE SET NULL`` on the database:
+    #: without it SQLAlchemy would load the whole collection on every delete
+    #: just to null the FK it has already told PostgreSQL to null.
+    runs: Mapped[list["SavedViewRun"]] = relationship(
+        back_populates="view",
+        lazy="raise_on_sql",
+        passive_deletes=True,
+        order_by="SavedViewRun.created_at.desc()",
+    )
+
     def __repr__(self) -> str:  # pragma: no cover - debug only
         return f"<SavedView {self.name!r} entity={self.entity_type} scope={self.share_scope}>"
 
@@ -107,7 +155,13 @@ class SavedViewRun(Base):
     """
 
     __tablename__ = "oe_saved_views_run"
-    __table_args__ = (Index("ix_saved_views_run_view_created", "saved_view_id", "created_at"),)
+    __table_args__ = (
+        Index("ix_saved_views_run_view_created", "saved_view_id", "created_at"),
+        CheckConstraint(
+            "outcome IN ('ok', 'budget', 'scope', 'whitelist', 'error')",
+            name="outcome",
+        ),
+    )
 
     saved_view_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(),
@@ -132,6 +186,16 @@ class SavedViewRun(Base):
         nullable=False,
         default=dict,
         server_default="{}",
+    )
+
+    #: The view this run belongs to, ``None`` once that view is deleted.
+    #:
+    #: ``raise_on_sql`` because the FK column already carries the id: walking
+    #: up from a run row is exactly the implicit round trip the loading policy
+    #: exists to catch. A caller that needs the parent orders it eagerly.
+    view: Mapped["SavedView | None"] = relationship(
+        back_populates="runs",
+        lazy="raise_on_sql",
     )
 
     def __repr__(self) -> str:  # pragma: no cover - debug only
