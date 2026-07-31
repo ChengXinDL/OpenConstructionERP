@@ -4,9 +4,8 @@
  * Markup register's contribution to the Module Insights panel: it turns the
  * markups the page already loaded into one dataset plus a set of built-in KPIs
  * and charts (markups by type, by status, assigned versus unassigned, and how
- * many are raised over time). When a document has no markups yet, a clearly-
- * labelled sample set stands in so the panel still shows what it can do; the
- * panel marks it "Sample data" so it is never mistaken for the real thing.
+ * many are raised over time). When a document has no markups yet, the panel
+ * simply stays empty until the register holds records.
  *
  * Value labels reuse the same `markups.type_*` / `markups.status_*` i18n keys
  * the markup list uses, so a slice in a chart reads exactly like the badge on
@@ -124,20 +123,6 @@ function toRow(r: MarkupLite, t: Translate): Row {
   };
 }
 
-// Illustrative markups for a document with none yet - a realistic spread of
-// types, statuses, assignment and months (three of them carrying a measurement
-// value) so every built-in chart has something to draw.
-const SAMPLE: Array<Omit<MarkupLite, 'created_at'> & { month: string }> = [
-  { type: 'cloud', status: 'active', label: 'Clash at grid B', text: null, assignee_id: 'u1', measurement_value: null, month: '2026-02' },
-  { type: 'distance', status: 'active', label: null, text: null, assignee_id: null, measurement_value: 4.2, month: '2026-02' },
-  { type: 'stamp', status: 'resolved', label: 'For construction', text: null, assignee_id: 'u2', measurement_value: null, month: '2026-03' },
-  { type: 'arrow', status: 'active', label: 'Check door swing', text: null, assignee_id: null, measurement_value: null, month: '2026-03' },
-  { type: 'area', status: 'resolved', label: 'Room 204', text: null, assignee_id: 'u1', measurement_value: 58.5, month: '2026-04' },
-  { type: 'count', status: 'active', label: 'Sprinkler heads', text: null, assignee_id: null, measurement_value: 12, month: '2026-04' },
-  { type: 'highlight', status: 'archived', label: 'Superseded note', text: null, assignee_id: null, measurement_value: null, month: '2026-05' },
-  { type: 'text', status: 'resolved', label: null, text: 'Coordinate with MEP', assignee_id: 'u3', measurement_value: null, month: '2026-05' },
-];
-
 export interface MarkupsInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -148,19 +133,14 @@ export function buildMarkupsInsights(
   currency: string,
   t: Translate,
 ): MarkupsInsights {
-  const real = markups.length > 0;
-
-  const rows: Row[] = real
-    ? [...markups]
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        .map((r) => toRow(r, t))
-    : SAMPLE.map((s) => toRow({ ...s, created_at: `${s.month}-01` }, t));
+  const rows: Row[] = [...markups]
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .map((r) => toRow(r, t));
 
   const dataset: InsightDataset = {
     id: 'markups',
     label: t('markups.insights.ds_markups', { defaultValue: 'Markups' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'title', label: t('markups.insights.f_title', { defaultValue: 'Markup' }), kind: 'dimension' },
       { key: 'type', label: t('markups.insights.f_type', { defaultValue: 'Type' }), kind: 'dimension' },

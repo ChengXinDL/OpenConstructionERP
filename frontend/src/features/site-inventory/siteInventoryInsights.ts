@@ -4,9 +4,8 @@
  * Site Inventory's contribution to the Module Insights panel. It turns the two
  * ledgers the page already loaded into charts client-side: the stock-on-hand
  * snapshot (what is on site right now) and the movement log (every inbound,
- * consumption, waste and transfer). When a project has nothing yet, a clearly
- * labelled sample set stands in so the panel still shows what it can do; the
- * panel marks it "Sample data" so it is never mistaken for the real thing.
+ * consumption, waste and transfer). When a project has nothing yet both datasets
+ * come back empty and the panel shows nothing, which is the honest answer.
  *
  * Two datasets, not one, because stock-on-hand is a point-in-time snapshot with
  * no date on it, so the "over time" chart can only come from the movement log
@@ -80,8 +79,8 @@ function movementTypeLabel(code: string, t: Translate): string {
 }
 
 // Resolved stock line: quantity, unit cost and reorder point already coerced to
-// numbers, so the real path (join snapshot to item meta) and the sample path
-// (numbers inline) converge on one row builder.
+// numbers once the snapshot has been joined to the item meta, so the row builder
+// only ever sees numbers.
 interface StockResolved {
   name: string;
   unit: string;
@@ -131,41 +130,6 @@ function toMoveRow(m: MovementLite, itemName: string, t: Translate): MoveRow {
   };
 }
 
-// Illustrative on-site stock for an empty project - real construction materials
-// with a spread of units, values and a few lines under their reorder point so
-// every stock chart has something to draw. Cost and reorder are inline so the
-// sample path never touches the (empty) real item map.
-const SAMPLE_STOCK: StockResolved[] = [
-  { name: 'Ready-mix concrete C30/37', unit: 'm3', on_hand: 48, unit_cost: 112, reorder: 20 },
-  { name: 'Reinforcement steel B500B', unit: 't', on_hand: 6.2, unit_cost: 890, reorder: 8 },
-  { name: 'Formwork panels', unit: 'm2', on_hand: 320, unit_cost: 46, reorder: 150 },
-  { name: 'Cement bags 25kg', unit: 'bag', on_hand: 140, unit_cost: 6.5, reorder: 200 },
-  { name: 'Scaffold tubes', unit: 'pcs', on_hand: 540, unit_cost: 12, reorder: 200 },
-  { name: 'Insulation boards', unit: 'm2', on_hand: 210, unit_cost: 18, reorder: 100 },
-  { name: 'Drainage pipe DN200', unit: 'm', on_hand: 96, unit_cost: 28, reorder: 60 },
-  { name: 'Sand 0-4mm', unit: 't', on_hand: 15, unit_cost: 24, reorder: 25 },
-];
-
-// Illustrative movements for an empty project - inbound, consumption, waste and
-// transfers across a few months so the type and time charts have data. Uppercase
-// movement_type so the label lookup hits the ledger's keys.
-const SAMPLE_MOVEMENTS: Array<{
-  item: string;
-  movement_type: string;
-  quantity: number;
-  unit_cost: number;
-  month: string;
-}> = [
-  { item: 'Ready-mix concrete C30/37', movement_type: 'INBOUND', quantity: 60, unit_cost: 112, month: '2026-02' },
-  { item: 'Reinforcement steel B500B', movement_type: 'INBOUND', quantity: 14, unit_cost: 890, month: '2026-02' },
-  { item: 'Ready-mix concrete C30/37', movement_type: 'CONSUMPTION', quantity: 12, unit_cost: 112, month: '2026-03' },
-  { item: 'Formwork panels', movement_type: 'TRANSFER', quantity: 40, unit_cost: 46, month: '2026-03' },
-  { item: 'Cement bags 25kg', movement_type: 'CONSUMPTION', quantity: 60, unit_cost: 6.5, month: '2026-04' },
-  { item: 'Insulation boards', movement_type: 'WASTE', quantity: 8, unit_cost: 18, month: '2026-04' },
-  { item: 'Scaffold tubes', movement_type: 'INBOUND', quantity: 120, unit_cost: 12, month: '2026-05' },
-  { item: 'Sand 0-4mm', movement_type: 'CONSUMPTION', quantity: 10, unit_cost: 24, month: '2026-05' },
-];
-
 export interface SiteInventoryInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -178,7 +142,6 @@ export function buildSiteInventoryInsights(
   currency: string,
   t: Translate,
 ): SiteInventoryInsights {
-  const real = stock.length > 0 || movements.length > 0;
   const noUnit = t('site_inventory.insights.no_unit', { defaultValue: 'No unit' });
   const unknownItem = t('site_inventory.unknown_item', { defaultValue: 'Unknown item' });
 
@@ -187,45 +150,28 @@ export function buildSiteInventoryInsights(
   // snapshot (which pairs item_id with the material name); item meta has no name.
   const nameById = new Map(stock.map((s) => [s.item_id, s.name] as const));
 
-  const stockRows: StockRow[] = real
-    ? stock.map((s) => {
-        const meta = metaById.get(s.item_id);
-        return toStockRow(
-          {
-            name: s.name,
-            unit: s.unit,
-            on_hand: toNum(s.on_hand),
-            unit_cost: toNum(meta?.standard_unit_cost),
-            reorder: toNum(meta?.reorder_point),
-          },
-          noUnit,
-        );
-      })
-    : SAMPLE_STOCK.map((s) => toStockRow(s, noUnit));
+  const stockRows: StockRow[] = stock.map((s) => {
+    const meta = metaById.get(s.item_id);
+    return toStockRow(
+      {
+        name: s.name,
+        unit: s.unit,
+        on_hand: toNum(s.on_hand),
+        unit_cost: toNum(meta?.standard_unit_cost),
+        reorder: toNum(meta?.reorder_point),
+      },
+      noUnit,
+    );
+  });
 
-  const moveRows: MoveRow[] = real
-    ? [...movements]
-        .sort((a, b) => new Date(a.occurred_at).getTime() - new Date(b.occurred_at).getTime())
-        .map((m) => toMoveRow(m, nameById.get(m.item_id) ?? unknownItem, t))
-    : SAMPLE_MOVEMENTS.map((s) =>
-        toMoveRow(
-          {
-            item_id: '',
-            movement_type: s.movement_type,
-            quantity: s.quantity,
-            unit_cost: s.unit_cost,
-            occurred_at: `${s.month}-15`,
-          },
-          s.item,
-          t,
-        ),
-      );
+  const moveRows: MoveRow[] = [...movements]
+    .sort((a, b) => new Date(a.occurred_at).getTime() - new Date(b.occurred_at).getTime())
+    .map((m) => toMoveRow(m, nameById.get(m.item_id) ?? unknownItem, t));
 
   const stockDataset: InsightDataset = {
     id: 'stock',
     label: t('site_inventory.insights.ds_stock', { defaultValue: 'Stock on hand' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'material', label: t('site_inventory.insights.f_material', { defaultValue: 'Material' }), kind: 'dimension' },
       { key: 'unit', label: t('site_inventory.insights.f_unit', { defaultValue: 'Unit' }), kind: 'dimension' },
@@ -240,7 +186,6 @@ export function buildSiteInventoryInsights(
     id: 'movements',
     label: t('site_inventory.insights.ds_movements', { defaultValue: 'Stock movements' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'item', label: t('site_inventory.insights.f_mv_item', { defaultValue: 'Item' }), kind: 'dimension' },
       { key: 'type', label: t('site_inventory.insights.f_mv_type', { defaultValue: 'Movement type' }), kind: 'dimension' },

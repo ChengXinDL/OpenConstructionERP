@@ -6,9 +6,8 @@
  * general-conditions items, each with a line total and a category) into one
  * dataset plus built-in KPIs and charts: the preliminaries total, how many
  * items are time-related and fixed, cost by category, the time-vs-fixed split
- * and how the cost builds up over time. When a project has no items yet, a
- * clearly-labelled sample set stands in so the panel still shows what it can do;
- * the panel marks it "Sample data" so it is never mistaken for the real thing.
+ * and how the cost builds up over time. When a project has no items yet, the
+ * panel simply stays empty until the estimator holds records.
  *
  * Slice labels reuse the same `preliminaries.category_*` keys the tables use and
  * the `preliminaries.time_related_total` / `preliminaries.fixed_total` labels
@@ -86,27 +85,6 @@ function toRow(item: PrelimItemLite, t: Translate): Row {
   };
 }
 
-// Illustrative preliminaries for an empty project - a realistic spread of
-// time-related and fixed general-conditions items across the standard
-// categories and several months so every built-in KPI and chart has something
-// to draw.
-const SAMPLE: Array<{
-  label: string;
-  category: string;
-  item_type: string;
-  line_total: number;
-  month: string;
-}> = [
-  { label: 'Site manager', category: 'site_staff', item_type: 'time_related', line_total: 96000, month: '2026-02' },
-  { label: 'Site accommodation and offices', category: 'site_establishment', item_type: 'time_related', line_total: 42000, month: '2026-02' },
-  { label: 'Tower crane hire', category: 'standing_plant', item_type: 'time_related', line_total: 78000, month: '2026-03' },
-  { label: 'Temporary hoarding and fencing', category: 'temporary_works', item_type: 'fixed', line_total: 18500, month: '2026-03' },
-  { label: 'Welfare units and canteen', category: 'welfare', item_type: 'time_related', line_total: 33000, month: '2026-04' },
-  { label: 'Mobilisation and set-up', category: 'general', item_type: 'fixed', line_total: 24000, month: '2026-04' },
-  { label: 'Scaffolding to perimeter', category: 'temporary_works', item_type: 'time_related', line_total: 51000, month: '2026-05' },
-  { label: 'Final clean and demobilisation', category: 'general', item_type: 'fixed', line_total: 15000, month: '2026-05' },
-];
-
 export interface PreliminariesInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -117,30 +95,14 @@ export function buildPreliminariesInsights(
   currency: string,
   t: Translate,
 ): PreliminariesInsights {
-  const real = items.length > 0;
-
   const dateOf = (i: PrelimItemLite): number => new Date(i.created_at ?? '').getTime();
 
-  const rows: Row[] = real
-    ? [...items].sort((a, b) => (dateOf(a) || 0) - (dateOf(b) || 0)).map((i) => toRow(i, t))
-    : SAMPLE.map((s) =>
-        toRow(
-          {
-            label: s.label,
-            category: s.category,
-            item_type: s.item_type,
-            line_total: s.line_total,
-            created_at: `${s.month}-01`,
-          },
-          t,
-        ),
-      );
+  const rows: Row[] = [...items].sort((a, b) => (dateOf(a) || 0) - (dateOf(b) || 0)).map((i) => toRow(i, t));
 
   const dataset: InsightDataset = {
     id: 'preliminaries',
     label: t('preliminaries.insights.ds_items', { defaultValue: 'Preliminaries' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'label', label: t('preliminaries.insights.f_label', { defaultValue: 'Item' }), kind: 'dimension' },
       { key: 'category', label: t('preliminaries.insights.f_category', { defaultValue: 'Category' }), kind: 'dimension' },

@@ -4,10 +4,8 @@
  * Change Orders' contribution to the Module Insights panel: it turns the
  * change orders the page already loaded into one dataset plus a set of
  * built-in KPIs and charts (cost impact by reason, orders by status, register
- * growth over time, total committed value). When a project has no change
- * orders yet, a clearly-labelled sample set stands in so the panel still shows
- * what it can do; the panel marks it "Sample data" so it is never mistaken for
- * the real thing.
+ * growth over time, total committed value). The panel stays empty until the
+ * project holds change orders.
  *
  * Labels reuse the same `changeorders.status_*` and `changeorders.reason_*`
  * i18n keys the register table and badges use, so a slice in a chart reads
@@ -98,29 +96,6 @@ function toRow(co: ChangeOrderLite, t: Translate): Row {
   };
 }
 
-// Illustrative change orders for an empty project - realistic scope changes
-// with a spread of reasons, statuses, cost impacts and months so every
-// built-in KPI and chart has something to draw.
-const SAMPLE: Array<{
-  code: string;
-  title: string;
-  status: string;
-  reason_category: string;
-  cost_impact: number;
-  schedule_impact_days: number;
-  item_count: number;
-  month: string;
-}> = [
-  { code: 'CO-001', title: 'Additional foundation piling', status: 'approved', reason_category: 'unforeseen', cost_impact: 145000, schedule_impact_days: 12, item_count: 4, month: '2026-02' },
-  { code: 'CO-002', title: 'Client lobby finish upgrade', status: 'executed', reason_category: 'client_request', cost_impact: 88000, schedule_impact_days: 5, item_count: 6, month: '2026-02' },
-  { code: 'CO-003', title: 'Revised MEP routing', status: 'submitted', reason_category: 'design_change', cost_impact: 52000, schedule_impact_days: 8, item_count: 3, month: '2026-03' },
-  { code: 'CO-004', title: 'Fire code compliance works', status: 'approved', reason_category: 'regulatory', cost_impact: 63000, schedule_impact_days: 10, item_count: 5, month: '2026-03' },
-  { code: 'CO-005', title: 'Rebar schedule correction', status: 'rejected', reason_category: 'error', cost_impact: 21000, schedule_impact_days: 0, item_count: 2, month: '2026-04' },
-  { code: 'CO-006', title: 'Facade material substitution', status: 'draft', reason_category: 'client_request', cost_impact: 47000, schedule_impact_days: 4, item_count: 3, month: '2026-04' },
-  { code: 'CO-007', title: 'Groundwater management works', status: 'submitted', reason_category: 'unforeseen', cost_impact: 96000, schedule_impact_days: 15, item_count: 4, month: '2026-05' },
-  { code: 'CO-008', title: 'Additional drainage works', status: 'approved', reason_category: 'design_change', cost_impact: 34000, schedule_impact_days: 6, item_count: 3, month: '2026-05' },
-];
-
 export interface ChangeordersInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -131,21 +106,16 @@ export function buildChangeordersInsights(
   currency: string,
   t: Translate,
 ): ChangeordersInsights {
-  const real = orders.length > 0;
-
   const dateOf = (o: ChangeOrderLite): number => new Date(o.created_at ?? '').getTime();
 
-  const rows: Row[] = real
-    ? [...orders]
-        .sort((a, b) => (dateOf(a) || 0) - (dateOf(b) || 0))
-        .map((o) => toRow(o, t))
-    : SAMPLE.map((s) => toRow({ ...s, created_at: `${s.month}-01` }, t));
+  const rows: Row[] = [...orders]
+    .sort((a, b) => (dateOf(a) || 0) - (dateOf(b) || 0))
+    .map((o) => toRow(o, t));
 
   const dataset: InsightDataset = {
     id: 'changeorders',
     label: t('changeorders.insights.ds_orders', { defaultValue: 'Change orders' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'code', label: t('changeorders.insights.f_code', { defaultValue: 'Change order' }), kind: 'dimension' },
       { key: 'status', label: t('changeorders.insights.f_status', { defaultValue: 'Status' }), kind: 'dimension' },

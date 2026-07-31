@@ -90,48 +90,6 @@ function toRow(w: ApprovalWorkflow, settled: string, t: Translate): Row {
   };
 }
 
-// Illustrative submissions for an empty register: a spread of file types,
-// statuses and approvers with a realistic turnaround tail, so every built-in
-// chart has something to draw.
-interface SampleApproval {
-  file: string;
-  kind: string;
-  status: string;
-  approver: string;
-  submittedDaysAgo: number;
-  days: number;
-  steps: number;
-}
-
-const SAMPLE: SampleApproval[] = [
-  { file: 'A-201 Level 2 GA plan', kind: 'sheet', status: 'in_review', approver: 'Lead architect', submittedDaysAgo: 23, days: 23, steps: 3 },
-  { file: 'A-202 Level 3 GA plan', kind: 'sheet', status: 'in_review', approver: 'Lead architect', submittedDaysAgo: 17, days: 17, steps: 3 },
-  { file: 'S-410 Rebar schedule', kind: 'dwg_drawing', status: 'in_review', approver: 'Structural engineer', submittedDaysAgo: 9, days: 9, steps: 2 },
-  { file: 'M-300 Plant room layout', kind: 'dwg_drawing', status: 'approved', approver: 'Structural engineer', submittedDaysAgo: 31, days: 8, steps: 2 },
-  { file: 'Coordination model rev C', kind: 'bim_model', status: 'approved', approver: 'BIM manager', submittedDaysAgo: 28, days: 5, steps: 2 },
-  { file: 'Coordination model rev D', kind: 'bim_model', status: 'in_review', approver: 'BIM manager', submittedDaysAgo: 6, days: 6, steps: 2 },
-  { file: 'Method statement: lifting', kind: 'document', status: 'approved', approver: 'HSE manager', submittedDaysAgo: 24, days: 3, steps: 1 },
-  { file: 'Method statement: facade', kind: 'document', status: 'rejected', approver: 'HSE manager', submittedDaysAgo: 20, days: 6, steps: 1 },
-  { file: 'Monthly progress report', kind: 'report', status: 'approved', approver: 'Project director', submittedDaysAgo: 14, days: 2, steps: 1 },
-  { file: 'Facade takeoff rev B', kind: 'takeoff', status: 'withdrawn', approver: 'Commercial', submittedDaysAgo: 12, days: 4, steps: 2 },
-];
-
-function sampleRow(s: SampleApproval, settled: string, t: Translate): Row {
-  const iso = new Date(Date.now() - s.submittedDaysAgo * DAY_MS).toISOString();
-  const inReview = s.status === 'in_review';
-  return {
-    file: s.file,
-    kind: kindLabel(s.kind, t),
-    status: statusLabel(s.status, t),
-    approver: inReview ? s.approver : settled,
-    month: monthKey(iso),
-    open: inReview ? 1 : 0,
-    rejected: s.status === 'rejected' ? 1 : 0,
-    days: s.days,
-    steps: s.steps,
-  };
-}
-
 export interface FileApprovalsInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -145,20 +103,16 @@ export function buildFileApprovalsInsights(
   workflows: ApprovalWorkflow[],
   t: Translate,
 ): FileApprovalsInsights {
-  const real = workflows.length > 0;
   const settled = t('files.approvals.insights.settled', { defaultValue: 'Decided' });
 
-  const rows: Row[] = real
-    ? [...workflows]
-        .sort((a, b) => new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime())
-        .map((w) => toRow(w, settled, t))
-    : SAMPLE.map((s) => sampleRow(s, settled, t));
+  const rows: Row[] = [...workflows]
+    .sort((a, b) => new Date(a.submitted_at).getTime() - new Date(b.submitted_at).getTime())
+    .map((w) => toRow(w, settled, t));
 
   const dataset: InsightDataset = {
     id: 'approvals',
     label: t('files.approvals.insights.ds_approvals', { defaultValue: 'Approvals register' }),
     currency: '',
-    sample: !real,
     fields: [
       { key: 'file', label: t('files.approvals.insights.f_file', { defaultValue: 'File' }), kind: 'dimension' },
       { key: 'kind', label: t('files.approvals.insights.f_kind', { defaultValue: 'File type' }), kind: 'dimension' },

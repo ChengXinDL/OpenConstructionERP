@@ -4,9 +4,8 @@
  * Temporary works register's contribution to the Module Insights panel: it
  * turns the items the page already loaded into one dataset plus a set of built-in
  * KPIs and charts (items by type, by status, by design check category, and how
- * many are added over time). When a project has no items yet, a clearly labelled
- * sample set stands in so the panel still shows what it can do; the panel marks
- * it "Sample data" so it is never mistaken for the real thing.
+ * many are added over time). When a project has no items yet, the panel simply
+ * stays empty until the register holds records.
  *
  * Value labels reuse the same `temporary_works.status_*` / `temporary_works.tw_type_*`
  * / `temporary_works.category_*` i18n keys the register table uses, so a slice in
@@ -134,21 +133,6 @@ function toRow(r: ItemLite, unassigned: string, today: string, t: Translate): Ro
   };
 }
 
-// Illustrative temporary works for an empty project - realistic falsework,
-// propping, excavation support and the like with a spread of types, statuses,
-// design check categories, coordinators and months so every built-in chart has
-// something to draw.
-const SAMPLE: Array<Omit<ItemLite, 'created_at'> & { month: string }> = [
-  { title: 'Slab soffit falsework, Level 3', status: 'in_use', tw_type: 'falsework', design_check_category: '2', twc_name: 'A. Novak', required_load_date: '2026-02-20', updated_at: '2026-02-25', month: '2026-02' },
-  { title: 'Transfer-slab column propping, Level 2', status: 'loaded', tw_type: 'propping', design_check_category: '2', twc_name: 'A. Novak', required_load_date: '2026-03-01', updated_at: '2026-03-02', month: '2026-02' },
-  { title: 'Basement excavation support, Zone A', status: 'approved_to_load', tw_type: 'excavation_support', design_check_category: '3', twc_name: 'R. Singh', required_load_date: '2026-03-15', updated_at: '2026-03-16', month: '2026-03' },
-  { title: 'Perimeter edge protection, Level 4', status: 'design_checked', tw_type: 'edge_protection', design_check_category: '0', twc_name: 'R. Singh', required_load_date: '2026-04-10', updated_at: '2026-03-28', month: '2026-03' },
-  { title: 'Core wall formwork, lift 5', status: 'design_submitted', tw_type: 'formwork', design_check_category: '1', twc_name: 'A. Novak', required_load_date: '2026-04-20', updated_at: '2026-04-12', month: '2026-04' },
-  { title: 'Heritage facade retention', status: 'on_hold', tw_type: 'facade_retention', design_check_category: '3', twc_name: 'R. Singh', required_load_date: '2026-03-10', updated_at: '2026-04-15', month: '2026-04' },
-  { title: 'Tower crane base TC2', status: 'struck', tw_type: 'crane_base', design_check_category: '2', twc_name: 'A. Novak', required_load_date: '2026-02-15', updated_at: '2026-05-18', month: '2026-05' },
-  { title: 'Drainage trench shoring, run D3', status: 'identified', tw_type: 'excavation_support', design_check_category: null, twc_name: null, required_load_date: '2026-05-25', updated_at: '2026-05-26', month: '2026-05' },
-];
-
 export interface TemporaryWorksInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -159,21 +143,17 @@ export function buildTemporaryWorksInsights(
   currency: string,
   t: Translate,
 ): TemporaryWorksInsights {
-  const real = items.length > 0;
   const unassigned = t('temporary_works.insights.unassigned', { defaultValue: 'Unassigned' });
   const today = new Date().toISOString().slice(0, 10);
 
-  const rows: Row[] = real
-    ? [...items]
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        .map((r) => toRow(r, unassigned, today, t))
-    : SAMPLE.map((s) => toRow({ ...s, created_at: `${s.month}-01` }, unassigned, today, t));
+  const rows: Row[] = [...items]
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .map((r) => toRow(r, unassigned, today, t));
 
   const dataset: InsightDataset = {
     id: 'items',
     label: t('temporary_works.insights.ds_items', { defaultValue: 'Temporary works register' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'title', label: t('temporary_works.insights.f_title', { defaultValue: 'Item' }), kind: 'dimension' },
       { key: 'type', label: t('temporary_works.insights.f_type', { defaultValue: 'Type' }), kind: 'dimension' },

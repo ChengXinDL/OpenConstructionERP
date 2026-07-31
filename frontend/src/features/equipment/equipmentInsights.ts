@@ -4,9 +4,8 @@
  * Equipment's contribution to the Module Insights panel: it turns the fleet
  * register the page already loaded into one dataset plus a set of built-in KPIs
  * and charts (units by type, status and ownership, fleet value, assets added
- * over time). When there is no equipment yet, a clearly labelled sample set
- * stands in so the panel still shows what it can do; the panel marks it
- * "Sample data" so it is never mistaken for the real thing.
+ * over time). When there is no equipment yet, the panel simply stays empty
+ * until the module holds records.
  *
  * The equipment record carries a real money field (`purchase_value`) and a
  * currency, so the fleet-value measure formats as currency (rented / leased
@@ -101,21 +100,6 @@ function toRow(e: EquipmentLite, uncategorised: string, t: Translate): Row {
   };
 }
 
-// Illustrative plant for an empty register - real construction equipment with a
-// spread of types, statuses and ownership so every built-in chart has something
-// to draw. Rented / leased units carry no owned value (fleet value is what you
-// own), so their purchase value reads as zero.
-const SAMPLE: Array<Omit<EquipmentLite, 'created_at'> & { month: string }> = [
-  { name: 'Excavator 22t', type_code: 'excavator', status: 'active', ownership: 'owned', purchase_value: 185000, month: '2026-01' },
-  { name: 'Tower crane', type_code: 'crane', status: 'active', ownership: 'leased', purchase_value: 0, month: '2026-01' },
-  { name: 'Wheel loader', type_code: 'loader', status: 'active', ownership: 'owned', purchase_value: 145000, month: '2026-02' },
-  { name: 'Telehandler', type_code: 'telehandler', status: 'under_maintenance', ownership: 'rented', purchase_value: 0, month: '2026-02' },
-  { name: 'Concrete pump', type_code: 'concrete_pump', status: 'reserved', ownership: 'leased', purchase_value: 0, month: '2026-03' },
-  { name: 'Tipper truck', type_code: 'truck', status: 'active', ownership: 'owned', purchase_value: 98000, month: '2026-03' },
-  { name: 'Diesel generator', type_code: 'generator', status: 'under_maintenance', ownership: 'owned', purchase_value: 34000, month: '2026-04' },
-  { name: 'Boom lift 20m', type_code: 'access', status: 'decommissioned', ownership: 'rented', purchase_value: 0, month: '2026-05' },
-];
-
 export interface EquipmentInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -126,20 +110,16 @@ export function buildEquipmentInsights(
   currency: string,
   t: Translate,
 ): EquipmentInsights {
-  const real = equipment.length > 0;
   const uncategorised = t('equipment.insights.uncategorised', { defaultValue: 'Uncategorised' });
 
-  const rows: Row[] = real
-    ? [...equipment]
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        .map((e) => toRow(e, uncategorised, t))
-    : SAMPLE.map((s) => toRow({ ...s, created_at: `${s.month}-01` }, uncategorised, t));
+  const rows: Row[] = [...equipment]
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .map((e) => toRow(e, uncategorised, t));
 
   const dataset: InsightDataset = {
     id: 'equipment',
     label: t('equipment.insights.ds_equipment', { defaultValue: 'Fleet register' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'name', label: t('equipment.insights.f_name', { defaultValue: 'Name' }), kind: 'dimension' },
       { key: 'type', label: t('equipment.insights.f_type', { defaultValue: 'Type' }), kind: 'dimension' },

@@ -7,9 +7,7 @@
  * confidentiality level) and turns them into one dataset plus built-in KPIs and
  * charts: package count, total budget, awarded and open counts, budget by
  * status, the confidentiality split, and how budget and package count build up
- * over time. When a project has no packages yet, a clearly-labelled sample set
- * stands in so the panel still shows what it can do; the panel marks it
- * "Sample data" so it is never mistaken for the real thing.
+ * over time. The panel stays empty until the project holds bid packages.
  *
  * The panel charts packages specifically (not the bids inside them): packages
  * are the flat register the page loads at the top level, and each row already
@@ -113,26 +111,6 @@ function toRow(pkg: PackageLite, untitled: string, t: Translate): Row {
   };
 }
 
-// Illustrative bid packages for a project with none yet - a realistic spread of
-// construction trades, statuses, confidentiality levels, budgets and months so
-// every built-in KPI and chart has something to show.
-const SAMPLE: Array<{
-  title: string;
-  status: string;
-  confidentiality_level: string;
-  total_budget_estimate: number;
-  month: string;
-}> = [
-  { title: 'Earthworks & piling', status: 'awarded', confidentiality_level: 'public', total_budget_estimate: 320000, month: '2026-02' },
-  { title: 'Concrete frame & superstructure', status: 'open', confidentiality_level: 'limited', total_budget_estimate: 780000, month: '2026-03' },
-  { title: 'Roofing & waterproofing', status: 'published', confidentiality_level: 'public', total_budget_estimate: 210000, month: '2026-03' },
-  { title: 'Mechanical & electrical (MEP)', status: 'open', confidentiality_level: 'confidential', total_budget_estimate: 640000, month: '2026-04' },
-  { title: 'Facade & cladding', status: 'draft', confidentiality_level: 'limited', total_budget_estimate: 450000, month: '2026-04' },
-  { title: 'Internal fit-out', status: 'closed', confidentiality_level: 'public', total_budget_estimate: 380000, month: '2026-05' },
-  { title: 'Lifts & escalators', status: 'awarded', confidentiality_level: 'limited', total_budget_estimate: 160000, month: '2026-05' },
-  { title: 'External works & landscaping', status: 'published', confidentiality_level: 'public', total_budget_estimate: 120000, month: '2026-06' },
-];
-
 export interface BidManagementInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -143,34 +121,18 @@ export function buildBidManagementInsights(
   currency: string,
   t: Translate,
 ): BidManagementInsights {
-  const real = packages.length > 0;
   const untitled = t('bid_management.insights.untitled', { defaultValue: 'Untitled package' });
 
   const dateOf = (p: PackageLite): number => new Date(p.created_at ?? '').getTime();
 
-  const rows: Row[] = real
-    ? [...packages]
-        .sort((a, b) => (dateOf(a) || 0) - (dateOf(b) || 0))
-        .map((p) => toRow(p, untitled, t))
-    : SAMPLE.map((s) =>
-        toRow(
-          {
-            title: s.title,
-            status: s.status,
-            confidentiality_level: s.confidentiality_level,
-            total_budget_estimate: s.total_budget_estimate,
-            created_at: `${s.month}-15`,
-          },
-          untitled,
-          t,
-        ),
-      );
+  const rows: Row[] = [...packages]
+    .sort((a, b) => (dateOf(a) || 0) - (dateOf(b) || 0))
+    .map((p) => toRow(p, untitled, t));
 
   const dataset: InsightDataset = {
     id: 'packages',
     label: t('bid_management.insights.ds_packages', { defaultValue: 'Bid packages' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'title', label: t('bid_management.insights.f_title', { defaultValue: 'Package' }), kind: 'dimension' },
       { key: 'status', label: t('bid_management.insights.f_status', { defaultValue: 'Status' }), kind: 'dimension' },

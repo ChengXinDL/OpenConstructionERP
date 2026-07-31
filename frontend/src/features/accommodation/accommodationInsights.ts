@@ -4,10 +4,8 @@
  * Accommodation register's contribution to the Module Insights panel: it turns
  * the properties the page already loaded into one dataset plus a set of built-in
  * KPIs and charts (capacity by type, properties by type, how many are pinned on
- * the map, and how the register grows over time). When a project has no
- * accommodation yet, a clearly-labelled sample set stands in so the panel still
- * shows what it can do; the panel marks it "Sample data" so it is never mistaken
- * for the real thing.
+ * the map, and how the register grows over time). The panel stays empty until
+ * the register holds accommodation records.
  *
  * Value labels reuse the same `accommodation.kind.*` i18n keys the register uses,
  * so a slice in a chart reads exactly like the badge on the row it came from.
@@ -92,20 +90,6 @@ function toRow(r: AccommodationLite, t: Translate): Row {
   };
 }
 
-// Illustrative accommodation for an empty project - a realistic mix of worker
-// camps, rentals and hotel contracts with a spread of capacities, map coverage
-// and months so every built-in chart has something to draw.
-const SAMPLE: Array<Omit<AccommodationLite, 'created_at'> & { month: string }> = [
-  { name: 'Worker camp North', kind: 'worker_camp', capacity_total: 240, geo_lat: '52.51', geo_lon: '13.40', month: '2026-02' },
-  { name: 'City centre rental block', kind: 'rental', capacity_total: 40, geo_lat: '52.52', geo_lon: '13.41', month: '2026-02' },
-  { name: 'Riverside hotel contract', kind: 'hotel', capacity_total: 120, geo_lat: null, geo_lon: null, month: '2026-03' },
-  { name: 'Worker camp South', kind: 'worker_camp', capacity_total: 180, geo_lat: '52.49', geo_lon: '13.38', month: '2026-03' },
-  { name: 'Staff apartments', kind: 'rental', capacity_total: 60, geo_lat: null, geo_lon: null, month: '2026-04' },
-  { name: 'Site lodge', kind: 'worker_camp', capacity_total: 96, geo_lat: '52.50', geo_lon: '13.42', month: '2026-04' },
-  { name: 'Partner hotel rooms', kind: 'hotel', capacity_total: 75, geo_lat: '52.53', geo_lon: '13.39', month: '2026-05' },
-  { name: 'Overflow rental units', kind: 'rental', capacity_total: 28, geo_lat: null, geo_lon: null, month: '2026-05' },
-];
-
 export interface AccommodationInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -116,19 +100,14 @@ export function buildAccommodationInsights(
   currency: string,
   t: Translate,
 ): AccommodationInsights {
-  const real = accommodations.length > 0;
-
-  const rows: Row[] = real
-    ? [...accommodations]
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        .map((r) => toRow(r, t))
-    : SAMPLE.map((s) => toRow({ ...s, created_at: `${s.month}-01` }, t));
+  const rows: Row[] = [...accommodations]
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .map((r) => toRow(r, t));
 
   const dataset: InsightDataset = {
     id: 'accommodation',
     label: t('accommodation.insights.ds_accommodation', { defaultValue: 'Accommodation register' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'name', label: t('accommodation.insights.f_name', { defaultValue: 'Property' }), kind: 'dimension' },
       { key: 'kind', label: t('accommodation.insights.f_kind', { defaultValue: 'Type' }), kind: 'dimension' },

@@ -99,59 +99,6 @@ function toRow(
   };
 }
 
-// An illustrative commercial handover pack for a project with no package yet:
-// a realistic spread of categories, disciplines and part-finished evidence, so
-// every built-in chart has something to draw.
-interface SampleSlot {
-  slot: string;
-  category: string;
-  discipline: string;
-  status: 'empty' | 'bound' | 'verified';
-  source: string;
-  required: boolean;
-  ai: boolean;
-}
-
-const SAMPLE: SampleSlot[] = [
-  { slot: 'As-built drawings, architectural', category: 'as_built', discipline: 'Architectural', status: 'verified', source: 'cde_document', required: true, ai: false },
-  { slot: 'As-built drawings, structural', category: 'as_built', discipline: 'Structural', status: 'bound', source: 'cde_document', required: true, ai: true },
-  { slot: 'As-built drawings, electrical', category: 'as_built', discipline: 'Electrical', status: 'empty', source: 'cde_document', required: true, ai: false },
-  { slot: 'As-built drawings, mechanical', category: 'as_built', discipline: 'Mechanical', status: 'empty', source: 'cde_document', required: true, ai: false },
-  { slot: 'O&M manual, HVAC', category: 'om_manual', discipline: 'Mechanical', status: 'bound', source: 'manual_upload', required: true, ai: true },
-  { slot: 'O&M manual, electrical distribution', category: 'om_manual', discipline: 'Electrical', status: 'empty', source: 'manual_upload', required: true, ai: false },
-  { slot: 'O&M manual, lifts', category: 'om_manual', discipline: 'Mechanical', status: 'verified', source: 'manual_upload', required: true, ai: false },
-  { slot: 'Warranty, roofing', category: 'warranty', discipline: 'Architectural', status: 'verified', source: 'external_url', required: true, ai: false },
-  { slot: 'Warranty, curtain walling', category: 'warranty', discipline: 'Architectural', status: 'bound', source: 'external_url', required: true, ai: true },
-  { slot: 'Warranty, switchgear', category: 'warranty', discipline: 'Electrical', status: 'empty', source: 'external_url', required: true, ai: false },
-  { slot: 'Asset register, COBie export', category: 'asset_register', discipline: '', status: 'bound', source: 'generated', required: true, ai: false },
-  { slot: 'Punch closure certificate', category: 'punch_closure', discipline: '', status: 'empty', source: 'generated', required: true, ai: false },
-  { slot: 'Final inspection certificate', category: 'inspection', discipline: '', status: 'verified', source: 'generated', required: true, ai: false },
-  { slot: 'Fire alarm commissioning record', category: 'commissioning', discipline: 'Electrical', status: 'bound', source: 'cde_document', required: true, ai: true },
-  { slot: 'Health and safety file', category: 'hs_file', discipline: '', status: 'verified', source: 'manual_upload', required: true, ai: false },
-  { slot: 'Training record, building operators', category: 'other', discipline: '', status: 'empty', source: 'manual_upload', required: false, ai: false },
-  { slot: 'Spare parts schedule', category: 'other', discipline: 'Mechanical', status: 'empty', source: 'manual_upload', required: false, ai: false },
-];
-
-function sampleRow(
-  s: SampleSlot,
-  labels: { noDiscipline: string; required: string; optional: string },
-  t: Translate,
-): Row {
-  const bound = s.status === 'bound';
-  return {
-    slot: s.slot,
-    category: categoryLabel(s.category, t),
-    discipline: s.discipline.trim() || labels.noDiscipline,
-    status: statusLabel(s.status, t),
-    source: sourceLabel(s.source, t),
-    obligation: s.required ? labels.required : labels.optional,
-    missing: s.required && s.status === 'empty' ? 1 : 0,
-    unverified: bound ? 1 : 0,
-    ai_unchecked: bound && s.ai ? 1 : 0,
-    delivered: s.status !== 'empty' ? 1 : 0,
-  };
-}
-
 export interface CloseoutInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -170,16 +117,12 @@ export function buildCloseoutInsights(slots: CloseoutSlot[], t: Translate): Clos
     optional: t('closeout.insights.optional', { defaultValue: 'Optional' }),
   };
 
-  const real = slots.length > 0;
-  const rows: Row[] = real
-    ? [...slots].sort((a, b) => a.ordinal - b.ordinal).map((s) => toRow(s, labels, t))
-    : SAMPLE.map((s) => sampleRow(s, labels, t));
+  const rows: Row[] = [...slots].sort((a, b) => a.ordinal - b.ordinal).map((s) => toRow(s, labels, t));
 
   const dataset: InsightDataset = {
     id: 'slots',
     label: t('closeout.insights.ds_slots', { defaultValue: 'Handover checklist items' }),
     currency: '',
-    sample: !real,
     fields: [
       { key: 'slot', label: t('closeout.insights.f_slot', { defaultValue: 'Checklist item' }), kind: 'dimension' },
       { key: 'category', label: t('closeout.insights.f_category', { defaultValue: 'Category' }), kind: 'dimension' },

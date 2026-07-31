@@ -7,7 +7,7 @@
 // direction that makes the pack look ready when it is not.
 import { describe, it, expect } from 'vitest';
 import { buildCloseoutInsights } from './closeoutInsights';
-import type { CloseoutBinding, CloseoutSlot, SlotStatus } from './api';
+import type { CloseoutBinding, CloseoutSlot } from './api';
 
 /** Mirrors i18next's defaultValue behaviour without pulling in the runtime. */
 const t = ((key: string, opts?: { defaultValue?: string }) => opts?.defaultValue ?? key) as never;
@@ -135,9 +135,9 @@ describe('buildCloseoutInsights', () => {
     expect(row({ is_required: false })?.obligation).toBe('Optional');
   });
 
-  it('falls back to a clearly-marked sample when there is no package yet', () => {
-    expect(build([]).datasets[0]?.sample).toBe(true);
-    expect(build([slot()]).datasets[0]?.sample).toBe(false);
+  it('draws nothing at all when there is no package yet', () => {
+    expect(build([]).datasets[0]?.rows).toHaveLength(0);
+    expect(build([slot()]).datasets[0]?.rows).toHaveLength(1);
   });
 
   it('exposes no currency-formatted measure, because a handover item carries no money', () => {
@@ -160,24 +160,4 @@ describe('buildCloseoutInsights', () => {
     expect(new Set(builtins.map((b) => b.id)).size).toBe(builtins.length);
   });
 
-  it('draws every builtin from the sample, so an empty package is not a blank panel', () => {
-    const rows = build([]).datasets[0]?.rows ?? [];
-    expect(rows.length).toBeGreaterThan(0);
-    for (const measure of ['missing', 'unverified', 'ai_unchecked', 'delivered']) {
-      const total = rows.reduce((sum, r) => sum + Number(r[measure] ?? 0), 0);
-      expect(total, measure).toBeGreaterThan(0);
-    }
-    // The two bar charts need more than one bucket each or they are just a KPI
-    // with extra steps.
-    for (const dimension of ['discipline', 'source']) {
-      const buckets = new Set(rows.filter((r) => Number(r.missing) > 0).map((r) => r[dimension]));
-      expect(buckets.size, dimension).toBeGreaterThan(1);
-    }
-  });
-
-  it('keeps the sample honest about the status vocabulary it claims to show', () => {
-    const statuses = new Set(build([]).datasets[0]?.rows.map((r) => r.status));
-    const expected: SlotStatus[] = ['empty', 'bound', 'verified'];
-    expect(statuses.size).toBe(expected.length);
-  });
 });

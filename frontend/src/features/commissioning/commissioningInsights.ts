@@ -67,47 +67,6 @@ function toRow(s: CxSystem, unset: string, notDefined: string, t: Translate): Ro
   };
 }
 
-// Illustrative systems for an empty project: a spread of disciplines, statuses
-// and readiness levels so every built-in chart has something to draw.
-interface SampleSystem {
-  name: string;
-  type: string;
-  status: string;
-  location: string;
-  level: string;
-  defined: boolean;
-  pct: number;
-  openChecks: number;
-  openCritical: number;
-}
-
-const SAMPLE: SampleSystem[] = [
-  { name: 'AHU-01 supply air', type: 'hvac', status: 'tests_complete', location: 'Roof plant', level: 'green', defined: true, pct: 96, openChecks: 1, openCritical: 0 },
-  { name: 'AHU-02 extract', type: 'hvac', status: 'in_progress', location: 'Roof plant', level: 'amber', defined: true, pct: 64, openChecks: 7, openCritical: 1 },
-  { name: 'LV switchboard A', type: 'electrical', status: 'commissioned', location: 'Basement', level: 'green', defined: true, pct: 100, openChecks: 0, openCritical: 0 },
-  { name: 'Standby generator', type: 'electrical', status: 'in_progress', location: 'Basement', level: 'red', defined: true, pct: 38, openChecks: 14, openCritical: 2 },
-  { name: 'Sprinkler zone 1-4', type: 'fire', status: 'tests_complete', location: 'Level 1', level: 'green', defined: true, pct: 92, openChecks: 2, openCritical: 0 },
-  { name: 'Fire alarm panel', type: 'fire', status: 'in_progress', location: 'Level 1', level: 'amber', defined: true, pct: 58, openChecks: 9, openCritical: 1 },
-  { name: 'Domestic water booster', type: 'plumbing', status: 'in_progress', location: 'Basement', level: 'amber', defined: true, pct: 71, openChecks: 5, openCritical: 0 },
-  { name: 'BMS head end', type: 'controls', status: 'not_started', location: 'Level 2', level: 'red', defined: false, pct: 0, openChecks: 0, openCritical: 0 },
-  { name: 'Passenger lift 1', type: 'elevator', status: 'tests_complete', location: 'Core A', level: 'green', defined: true, pct: 89, openChecks: 3, openCritical: 0 },
-  { name: 'Access control', type: 'security', status: 'not_started', location: 'Level 0', level: 'red', defined: false, pct: 0, openChecks: 0, openCritical: 0 },
-];
-
-function sampleRow(s: SampleSystem, notDefined: string, t: Translate): Row {
-  return {
-    name: s.name,
-    type: typeLabel(s.type, t),
-    status: statusLabel(s.status, t),
-    location: s.location,
-    readiness: s.defined ? readinessLabel(s.level, t) : notDefined,
-    pct: s.pct,
-    open_checks: s.openChecks,
-    open_critical: s.openCritical,
-    commissioned: s.status === 'commissioned' ? 1 : 0,
-  };
-}
-
 export interface CommissioningInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -123,19 +82,15 @@ export function buildCommissioningInsights(
   systems: CxSystem[],
   t: Translate,
 ): CommissioningInsights {
-  const real = systems.length > 0;
   const unset = t('commissioning.insights.no_location', { defaultValue: 'No location' });
   const notDefined = t('commissioning.insights.rl_undefined', { defaultValue: 'No checks defined' });
 
-  const rows: Row[] = real
-    ? systems.map((s) => toRow(s, unset, notDefined, t))
-    : SAMPLE.map((s) => sampleRow(s, notDefined, t));
+  const rows: Row[] = systems.map((s) => toRow(s, unset, notDefined, t));
 
   const dataset: InsightDataset = {
     id: 'systems',
     label: t('commissioning.insights.ds_systems', { defaultValue: 'Commissioning systems' }),
     currency: '',
-    sample: !real,
     fields: [
       { key: 'name', label: t('commissioning.insights.f_name', { defaultValue: 'System' }), kind: 'dimension' },
       { key: 'type', label: t('commissioning.insights.f_type', { defaultValue: 'System type' }), kind: 'dimension' },

@@ -5,9 +5,8 @@
  * subcontractor register the page already loaded into one dataset plus a set
  * of built-in KPIs and charts (firms by trade, prequalification status split,
  * insurance compliance, register growth over time). When there are no
- * subcontractors yet, a clearly-labelled sample set stands in so the panel
- * still shows what it can do; the panel marks it "Sample data" so it is never
- * mistaken for the real thing.
+ * subcontractors yet, the panel simply stays empty until the register holds
+ * records.
  *
  * Note: the `Subcontractor` list record carries no contract value - money
  * (total_value / currency) lives on the per-firm `Agreement`, which this page
@@ -100,20 +99,6 @@ function toRow(s: SubcontractorLite, unassigned: string, t: Translate): Row {
   };
 }
 
-// Illustrative subcontractors for an empty register - real construction
-// trades with a spread of prequalification statuses, insurance states and
-// months so every built-in chart has something to draw.
-const SAMPLE: Array<Omit<SubcontractorLite, 'created_at'> & { month: string }> = [
-  { legal_name: 'Meridian Groundworks', trade_categories: ['groundworks'], prequalification_status: 'approved', rating_score: 84, is_active: true, is_blocked: false, insurance_expiry_date: '2027-06-30', month: '2026-01' },
-  { legal_name: 'Corestone Concrete', trade_categories: ['concrete'], prequalification_status: 'approved', rating_score: 78, is_active: true, is_blocked: false, insurance_expiry_date: '2027-04-15', month: '2026-01' },
-  { legal_name: 'Ironline Steel Erectors', trade_categories: ['steel'], prequalification_status: 'approved', rating_score: 71, is_active: true, is_blocked: false, insurance_expiry_date: '2026-08-15', month: '2026-02' },
-  { legal_name: 'Voltaic Electrical', trade_categories: ['electrical'], prequalification_status: 'pending', rating_score: 63, is_active: true, is_blocked: false, insurance_expiry_date: '2027-02-01', month: '2026-02' },
-  { legal_name: 'Airflow Mechanical', trade_categories: ['mechanical'], prequalification_status: 'pending', rating_score: 58, is_active: true, is_blocked: false, insurance_expiry_date: null, month: '2026-03' },
-  { legal_name: 'Summit Roofing', trade_categories: ['roofing'], prequalification_status: 'suspended', rating_score: 44, is_active: true, is_blocked: true, insurance_expiry_date: '2026-06-01', month: '2026-03' },
-  { legal_name: 'Clearline Glazing', trade_categories: ['glazing'], prequalification_status: 'approved', rating_score: 69, is_active: true, is_blocked: false, insurance_expiry_date: '2027-01-20', month: '2026-04' },
-  { legal_name: 'Trueline Drywall', trade_categories: ['drywall'], prequalification_status: 'rejected', rating_score: 31, is_active: false, is_blocked: false, insurance_expiry_date: '2026-05-10', month: '2026-05' },
-];
-
 export interface SubcontractorsInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -124,20 +109,16 @@ export function buildSubcontractorsInsights(
   currency: string,
   t: Translate,
 ): SubcontractorsInsights {
-  const real = subs.length > 0;
   const unassigned = t('subcontractors.insights.trade_unassigned', { defaultValue: 'Unassigned' });
 
-  const rows: Row[] = real
-    ? [...subs]
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        .map((s) => toRow(s, unassigned, t))
-    : SAMPLE.map((s) => toRow({ ...s, created_at: `${s.month}-01` }, unassigned, t));
+  const rows: Row[] = [...subs]
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .map((s) => toRow(s, unassigned, t));
 
   const dataset: InsightDataset = {
     id: 'subcontractors',
     label: t('subcontractors.insights.ds_subcontractors', { defaultValue: 'Subcontractor register' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'name', label: t('subcontractors.insights.f_name', { defaultValue: 'Name' }), kind: 'dimension' },
       { key: 'trade', label: t('subcontractors.insights.f_trade', { defaultValue: 'Trade' }), kind: 'dimension' },

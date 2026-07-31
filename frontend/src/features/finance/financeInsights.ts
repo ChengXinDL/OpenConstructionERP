@@ -6,9 +6,8 @@
  * receivable amount, its lifecycle status and its due date) and turns them
  * into one dataset plus built-in KPIs and charts: total invoiced value, paid
  * and overdue counts, amount by counterparty, the status split and how the
- * invoiced value builds up over time. When a project has no invoices yet, a
- * clearly-labelled sample set stands in so the panel still shows what it can
- * do; the panel marks it "Sample data" so it is never mistaken for real data.
+ * invoiced value builds up over time. When a project has no invoices yet, the
+ * panel simply stays empty until the module holds records.
  *
  * The panel charts invoices specifically (not budgets or payments): invoices
  * are where the money owed and owed-to-us lives together with a status the
@@ -122,29 +121,6 @@ function toRow(inv: InvoiceLite, unassigned: string, t: Translate): Row {
   };
 }
 
-// Illustrative invoices for a project with none yet - a realistic spread of
-// payables and receivables, statuses, counterparties, amounts and months so
-// every built-in KPI and chart has something to show. Due dates are set so a
-// few open invoices read as overdue.
-const SAMPLE: Array<{
-  invoice_number: string;
-  direction: string;
-  counterparty_name: string;
-  status: string;
-  amount: number;
-  month: string;
-  due: string;
-}> = [
-  { invoice_number: 'INV-1001', direction: 'payable', counterparty_name: 'Readymix concrete supplier', status: 'paid', amount: 84000, month: '2026-02', due: '2026-03-15' },
-  { invoice_number: 'INV-1002', direction: 'payable', counterparty_name: 'Groundworks subcontractor', status: 'approved', amount: 52000, month: '2026-03', due: '2026-04-15' },
-  { invoice_number: 'INV-1003', direction: 'receivable', counterparty_name: 'Main contractor (client)', status: 'paid', amount: 130000, month: '2026-03', due: '2026-04-30' },
-  { invoice_number: 'INV-1004', direction: 'payable', counterparty_name: 'Rebar and steel fixing', status: 'pending', amount: 27000, month: '2026-04', due: '2026-05-15' },
-  { invoice_number: 'INV-1005', direction: 'payable', counterparty_name: 'MEP subcontractor', status: 'disputed', amount: 41000, month: '2026-04', due: '2026-05-30' },
-  { invoice_number: 'INV-1006', direction: 'receivable', counterparty_name: 'Main contractor (client)', status: 'approved', amount: 96000, month: '2026-05', due: '2026-06-30' },
-  { invoice_number: 'INV-1007', direction: 'payable', counterparty_name: 'Scaffolding hire', status: 'draft', amount: 18500, month: '2026-06', due: '2026-08-15' },
-  { invoice_number: 'INV-1008', direction: 'payable', counterparty_name: 'Formwork hire', status: 'cancelled', amount: 12000, month: '2026-06', due: '2026-07-15' },
-];
-
 export interface FinanceInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -155,37 +131,19 @@ export function buildFinanceInsights(
   currency: string,
   t: Translate,
 ): FinanceInsights {
-  const real = invoices.length > 0;
   const unassigned = t('finance.insights.unassigned', { defaultValue: 'Unassigned' });
 
   const dateOf = (i: InvoiceLite): number =>
     new Date(i.issue_date ?? i.invoice_date ?? i.created_at ?? '').getTime();
 
-  const rows: Row[] = real
-    ? [...invoices]
-        .sort((a, b) => (dateOf(a) || 0) - (dateOf(b) || 0))
-        .map((r) => toRow(r, unassigned, t))
-    : SAMPLE.map((s) =>
-        toRow(
-          {
-            invoice_number: s.invoice_number,
-            direction: s.direction,
-            counterparty_name: s.counterparty_name,
-            status: s.status,
-            amount: s.amount,
-            issue_date: `${s.month}-05`,
-            due_date: s.due,
-          },
-          unassigned,
-          t,
-        ),
-      );
+  const rows: Row[] = [...invoices]
+    .sort((a, b) => (dateOf(a) || 0) - (dateOf(b) || 0))
+    .map((r) => toRow(r, unassigned, t));
 
   const dataset: InsightDataset = {
     id: 'invoices',
     label: t('finance.insights.ds_invoices', { defaultValue: 'Invoices' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'number', label: t('finance.insights.f_number', { defaultValue: 'Invoice' }), kind: 'dimension' },
       { key: 'type', label: t('finance.insights.f_type', { defaultValue: 'Direction' }), kind: 'dimension' },

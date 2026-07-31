@@ -5,9 +5,7 @@
  * meetings the page already loaded into one dataset plus a set of built-in
  * KPIs and charts (meetings by status and type, action items by meeting type,
  * and how many meetings are held over time). When a project has no meetings
- * yet, a clearly labelled sample set stands in so the panel still shows what
- * it can do; the panel marks it "Sample data" so it is never mistaken for the
- * real thing.
+ * yet, the panel simply stays empty until the register holds records.
  *
  * Value labels reuse the same `meetings.status_*` / `meetings.type_*` i18n
  * keys the register uses, so a slice in a chart reads exactly like the badge
@@ -87,28 +85,6 @@ function toRow(r: MeetingLite, t: Translate): Row {
   };
 }
 
-// Illustrative meetings for an empty project - realistic construction meetings
-// with a spread of types, statuses, months, attendee counts and action items
-// (some still open) so every built-in chart has something to draw.
-const SAMPLE: Array<{
-  title: string;
-  meeting_type: string;
-  status: string;
-  month: string;
-  attendees: number;
-  actions: number;
-  done_actions: number;
-}> = [
-  { title: 'Weekly progress meeting #11', meeting_type: 'progress', status: 'completed', month: '2026-02', attendees: 8, actions: 6, done_actions: 5 },
-  { title: 'Design coordination - MEP clashes', meeting_type: 'design', status: 'completed', month: '2026-02', attendees: 6, actions: 5, done_actions: 3 },
-  { title: 'Safety stand-down after near miss', meeting_type: 'safety', status: 'completed', month: '2026-03', attendees: 14, actions: 4, done_actions: 4 },
-  { title: 'Subcontractor coordination - facade', meeting_type: 'subcontractor', status: 'in_progress', month: '2026-03', attendees: 7, actions: 3, done_actions: 1 },
-  { title: 'Project kickoff - fit-out package', meeting_type: 'kickoff', status: 'completed', month: '2026-04', attendees: 10, actions: 7, done_actions: 4 },
-  { title: 'Weekly progress meeting #12', meeting_type: 'progress', status: 'scheduled', month: '2026-05', attendees: 8, actions: 0, done_actions: 0 },
-  { title: 'Design review - core walls', meeting_type: 'design', status: 'cancelled', month: '2026-05', attendees: 0, actions: 0, done_actions: 0 },
-  { title: 'Closeout and handover walkthrough', meeting_type: 'closeout', status: 'scheduled', month: '2026-06', attendees: 5, actions: 2, done_actions: 0 },
-];
-
 export interface MeetingsInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -119,33 +95,14 @@ export function buildMeetingsInsights(
   currency: string,
   t: Translate,
 ): MeetingsInsights {
-  const real = meetings.length > 0;
-
-  const rows: Row[] = real
-    ? [...meetings]
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-        .map((r) => toRow(r, t))
-    : SAMPLE.map((s) =>
-        toRow(
-          {
-            title: s.title,
-            meeting_type: s.meeting_type,
-            status: s.status,
-            date: `${s.month}-15`,
-            attendees: new Array(s.attendees).fill(null),
-            action_items: Array.from({ length: s.actions }, (_, i) => ({
-              completed: i < s.done_actions,
-            })),
-          },
-          t,
-        ),
-    );
+  const rows: Row[] = [...meetings]
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .map((r) => toRow(r, t));
 
   const dataset: InsightDataset = {
     id: 'meetings',
     label: t('meetings.insights.ds_meetings', { defaultValue: 'Meeting register' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'title', label: t('meetings.insights.f_title', { defaultValue: 'Meeting' }), kind: 'dimension' },
       { key: 'type', label: t('meetings.insights.f_type', { defaultValue: 'Type' }), kind: 'dimension' },

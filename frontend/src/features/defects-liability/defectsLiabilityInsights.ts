@@ -5,9 +5,8 @@
  * turns the defect notices the page already loaded into one dataset plus a set
  * of built-in KPIs and charts (defects by status, by severity, who owns the
  * rectification, and how many are raised over time). When a project has no
- * defect notices yet, a clearly labelled sample set stands in so the panel
- * still shows what it can do; the panel marks it "Sample data" so it is never
- * mistaken for the real thing.
+ * defect notices yet, the panel simply stays empty until the register holds
+ * records.
  *
  * Value labels reuse the same `defects_liability.defect_status_*` and
  * `defects_liability.defect_severity_*` i18n keys the register table uses, so a
@@ -132,20 +131,6 @@ function toRow(d: DefectLite, t: Translate): Row {
   };
 }
 
-// Illustrative post-handover defects for an empty project - a realistic spread
-// of statuses, severities, responsible parties and raised months so every
-// built-in chart has something to draw.
-const SAMPLE: Array<Omit<DefectLite, 'created_at'> & { month: string }> = [
-  { reference: 'D-001', severity: 'major', status: 'open', raised_date: '2026-02-05', due_date: '2026-02-28', rectified_date: null, responsible_party: 'Facade subcontractor', month: '2026-02' },
-  { reference: 'D-002', severity: 'critical', status: 'rectifying', raised_date: '2026-02-18', due_date: '2026-03-10', rectified_date: null, responsible_party: 'Lift installer', month: '2026-02' },
-  { reference: 'D-003', severity: 'minor', status: 'rectified', raised_date: '2026-03-02', due_date: '2026-03-20', rectified_date: '2026-03-15', responsible_party: 'Finishes contractor', month: '2026-03' },
-  { reference: 'D-004', severity: 'major', status: 'open', raised_date: '2026-03-12', due_date: '2026-03-25', rectified_date: null, responsible_party: 'M and E subcontractor', month: '2026-03' },
-  { reference: 'D-005', severity: 'critical', status: 'rectified', raised_date: '2026-04-06', due_date: '2026-04-20', rectified_date: '2026-04-16', responsible_party: 'Steelwork subcontractor', month: '2026-04' },
-  { reference: 'D-006', severity: 'minor', status: 'closed', raised_date: '2026-04-19', due_date: '2026-05-05', rectified_date: '2026-04-30', responsible_party: 'Main contractor', month: '2026-04' },
-  { reference: 'D-007', severity: 'major', status: 'rejected', raised_date: '2026-05-04', due_date: '2026-05-22', rectified_date: null, responsible_party: 'Roofing subcontractor', month: '2026-05' },
-  { reference: 'D-008', severity: 'minor', status: 'rectifying', raised_date: '2026-05-15', due_date: '2026-05-30', rectified_date: null, responsible_party: 'Finishes contractor', month: '2026-05' },
-];
-
 export interface DefectsLiabilityInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -156,23 +141,18 @@ export function buildDefectsLiabilityInsights(
   currency: string,
   t: Translate,
 ): DefectsLiabilityInsights {
-  const real = defects.length > 0;
-
-  const rows: Row[] = real
-    ? [...defects]
-        .sort(
-          (a, b) =>
-            new Date(a.raised_date ?? a.created_at).getTime() -
-            new Date(b.raised_date ?? b.created_at).getTime(),
-        )
-        .map((d) => toRow(d, t))
-    : SAMPLE.map((s) => toRow({ ...s, created_at: `${s.month}-01` }, t));
+  const rows: Row[] = [...defects]
+    .sort(
+      (a, b) =>
+        new Date(a.raised_date ?? a.created_at).getTime() -
+        new Date(b.raised_date ?? b.created_at).getTime(),
+    )
+    .map((d) => toRow(d, t));
 
   const dataset: InsightDataset = {
     id: 'defects',
     label: t('defects_liability.insights.ds_defects', { defaultValue: 'Defect register' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'reference', label: t('defects_liability.insights.f_reference', { defaultValue: 'Reference' }), kind: 'dimension' },
       { key: 'status', label: t('defects_liability.insights.f_status', { defaultValue: 'Status' }), kind: 'dimension' },

@@ -72,9 +72,9 @@ describe('buildDeadlinesInsights', () => {
     expect(rows([item({ owner_name: '  ' })])[0]?.owner).toBe('Unassigned');
   });
 
-  it('falls back to a clearly-marked sample on an empty register', () => {
-    expect(buildDeadlinesInsights([], t).datasets[0]?.sample).toBe(true);
-    expect(buildDeadlinesInsights([item({})], t).datasets[0]?.sample).toBe(false);
+  it('draws nothing at all on an empty register', () => {
+    expect(buildDeadlinesInsights([], t).datasets[0]?.rows).toHaveLength(0);
+    expect(buildDeadlinesInsights([item({})], t).datasets[0]?.rows).toHaveLength(1);
   });
 
   it('exposes no currency-formatted measure, because a deadline carries no money', () => {

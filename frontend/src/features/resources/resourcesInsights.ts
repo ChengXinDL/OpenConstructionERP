@@ -4,9 +4,8 @@
  * Resources' contribution to the Module Insights panel: it turns the resource
  * register the page already loaded into one dataset plus a set of built-in KPIs
  * and charts (resources by type and status, average cost rate, register growth
- * over time). When there are no resources yet, a clearly labelled sample set
- * stands in so the panel still shows what it can do; the panel marks it
- * "Sample data" so it is never mistaken for the real thing.
+ * over time). When there are no resources yet, the panel simply stays empty
+ * until the register holds records.
  *
  * The record carries one real money field, the default cost rate, so the rate
  * measure formats as currency; the active / on-leave measures are plain counts.
@@ -103,20 +102,6 @@ function toRow(r: ResourceLite, t: Translate): Row {
   };
 }
 
-// Illustrative resources for an empty register - people, crews, equipment and a
-// subcontractor with a spread of statuses, cost rates and months so every
-// built-in chart has something to draw.
-const SAMPLE: Array<Omit<ResourceLite, 'created_at'> & { month: string }> = [
-  { name: 'Site foreman', resource_type: 'person', status: 'active', default_cost_rate: 68, month: '2026-01' },
-  { name: 'Concrete crew A', resource_type: 'crew', status: 'active', default_cost_rate: 320, month: '2026-01' },
-  { name: 'Tower crane + operator', resource_type: 'equipment', status: 'active', default_cost_rate: 145, month: '2026-02' },
-  { name: 'Groundworks subcontractor', resource_type: 'subcontractor', status: 'active', default_cost_rate: 0, month: '2026-02' },
-  { name: 'Steel fixer', resource_type: 'person', status: 'on_leave', default_cost_rate: 54, month: '2026-03' },
-  { name: 'Electrician', resource_type: 'person', status: 'active', default_cost_rate: 58, month: '2026-03' },
-  { name: 'Formwork crew', resource_type: 'crew', status: 'active', default_cost_rate: 280, month: '2026-04' },
-  { name: 'Excavator + driver', resource_type: 'equipment', status: 'inactive', default_cost_rate: 95, month: '2026-05' },
-];
-
 export interface ResourcesInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -127,19 +112,14 @@ export function buildResourcesInsights(
   currency: string,
   t: Translate,
 ): ResourcesInsights {
-  const real = resources.length > 0;
-
-  const rows: Row[] = real
-    ? [...resources]
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        .map((r) => toRow(r, t))
-    : SAMPLE.map((s) => toRow({ ...s, created_at: `${s.month}-01` }, t));
+  const rows: Row[] = [...resources]
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .map((r) => toRow(r, t));
 
   const dataset: InsightDataset = {
     id: 'resources',
     label: t('resources.insights.ds_resources', { defaultValue: 'Resource register' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'name', label: t('resources.insights.f_name', { defaultValue: 'Name' }), kind: 'dimension' },
       { key: 'type', label: t('resources.insights.f_type', { defaultValue: 'Type' }), kind: 'dimension' },

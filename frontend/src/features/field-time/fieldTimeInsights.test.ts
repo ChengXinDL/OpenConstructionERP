@@ -85,9 +85,11 @@ describe('buildFieldTimeInsights', () => {
     );
   });
 
-  it('shows the sample when a project has sheets but no booked lines', () => {
-    expect(buildFieldTimeInsights([sheet({ lines: [] })], t).datasets[0]?.sample).toBe(true);
-    expect(buildFieldTimeInsights([sheet({})], t).datasets[0]?.sample).toBe(false);
+  it('draws nothing when a project has sheets but no booked lines', () => {
+    expect(buildFieldTimeInsights([sheet({ lines: [] })], t).datasets[0]?.rows).toHaveLength(0);
+    expect(
+      buildFieldTimeInsights([sheet({})], t).datasets[0]?.rows.length,
+    ).toBeGreaterThan(0);
   });
 
   it('exposes no currency-formatted measure, because a line carries no rate', () => {

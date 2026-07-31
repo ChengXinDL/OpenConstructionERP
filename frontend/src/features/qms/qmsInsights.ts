@@ -6,9 +6,8 @@
  * punch items the page loaded into one dataset plus built-in KPIs and charts:
  * how many items are open, how many are overdue, how long they take to close,
  * which trades they land on and how the list grows over time. When a project
- * has no punch items yet, a clearly-labelled sample set stands in so the panel
- * still shows what it can do; the panel marks it "Sample data" so it is never
- * mistaken for the real thing.
+ * has no punch items yet, the panel simply stays empty until the register
+ * holds records.
  *
  * Labels reuse the same `qms.category_label.*` / `qms.severity_level.*` /
  * `qms.status.*` i18n keys the punch table uses, so a slice in a chart reads
@@ -107,21 +106,6 @@ function toRow(r: PunchLite, t: Translate, now: number): Row {
   };
 }
 
-// Illustrative punch items for an empty project - a realistic spread of trades,
-// severities, statuses, months, due dates and close dates so every built-in
-// chart has something to draw and the open / overdue / close-time KPIs read
-// true. Due dates in the past on still-open items make the overdue KPI non-zero.
-const SAMPLE: PunchLite[] = [
-  { title: 'Cracked floor tile at entrance', category: 'finishes', severity: 'minor', status: 'closed', raised_at: '2026-02-04', due_date: '2026-02-20', closed_at: '2026-02-16' },
-  { title: 'Fire damper missing to riser', category: 'mechanical', severity: 'major', status: 'open', raised_at: '2026-02-18', due_date: '2026-03-10', closed_at: null },
-  { title: 'Paint scuffs in lobby', category: 'finishes', severity: 'minor', status: 'closed', raised_at: '2026-03-02', due_date: '2026-03-18', closed_at: '2026-03-14' },
-  { title: 'Conduit left unterminated', category: 'electrical', severity: 'major', status: 'in_progress', raised_at: '2026-03-21', due_date: '2026-04-15', closed_at: null },
-  { title: 'Door leaf out of alignment', category: 'architectural', severity: 'minor', status: 'assigned', raised_at: '2026-04-06', due_date: '2026-08-30', closed_at: null },
-  { title: 'Render crack on column', category: 'structure', severity: 'critical', status: 'open', raised_at: '2026-04-19', due_date: '2026-05-20', closed_at: null },
-  { title: 'Grout missing between tiles', category: 'finishes', severity: 'minor', status: 'ready_for_inspection', raised_at: '2026-05-08', due_date: '2026-09-05', closed_at: null },
-  { title: 'Sealant gap at window head', category: 'architectural', severity: 'minor', status: 'closed', raised_at: '2026-05-22', due_date: '2026-06-20', closed_at: '2026-06-11' },
-];
-
 export interface QMSInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -132,11 +116,9 @@ export function buildQMSInsights(
   currency: string,
   t: Translate,
 ): QMSInsights {
-  const real = punchItems.length > 0;
-  const source: PunchLite[] = real ? punchItems : SAMPLE;
   const now = Date.now();
 
-  const rows: Row[] = [...source]
+  const rows: Row[] = [...punchItems]
     .sort((a, b) => new Date(a.raised_at ?? '').getTime() - new Date(b.raised_at ?? '').getTime())
     .map((r) => toRow(r, t, now));
 
@@ -146,7 +128,6 @@ export function buildQMSInsights(
     // Punch items carry no money field, so no currency measure is charted; the
     // parameter is kept for template parity with the other module builders.
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'title', label: t('qms.insights.f_title', { defaultValue: 'Item' }), kind: 'dimension' },
       { key: 'category', label: t('qms.insights.f_category', { defaultValue: 'Category' }), kind: 'dimension' },

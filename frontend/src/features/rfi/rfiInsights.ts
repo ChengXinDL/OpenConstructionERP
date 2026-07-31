@@ -4,9 +4,8 @@
  * RFI register's contribution to the Module Insights panel: it turns the RFIs
  * the page already loaded into one dataset plus a set of built-in KPIs and
  * charts (RFIs by discipline, by status, who currently owes the next move, and
- * how many are raised over time). When a project has no RFIs yet, a clearly
- * labelled sample set stands in so the panel still shows what it can do; the
- * panel marks it "Sample data" so it is never mistaken for the real thing.
+ * how many are raised over time). When a project has no RFIs yet, the panel
+ * simply stays empty until the register holds records.
  *
  * Value labels reuse the same `rfi.status_*` / `rfi.priority_*` /
  * `rfi.discipline_*` i18n keys the register table uses, so a slice in a chart
@@ -105,20 +104,6 @@ function toRow(r: RFILite, t: Translate): Row {
   };
 }
 
-// Illustrative RFIs for an empty project - realistic construction queries with
-// a spread of statuses, priorities, disciplines, months and overdue flags so
-// every built-in chart has something to draw.
-const SAMPLE: Array<Omit<RFILite, 'created_at'> & { month: string }> = [
-  { subject: 'Foundation depth at grid line A-3', status: 'open', priority: 'high', discipline: 'structural', is_overdue: true, days_open: 21, month: '2026-02' },
-  { subject: 'Rebar spec clashes with duct run', status: 'open', priority: 'critical', discipline: 'mep', is_overdue: true, days_open: 17, month: '2026-02' },
-  { subject: 'Curtain wall anchor detail', status: 'answered', priority: 'normal', discipline: 'architectural', is_overdue: false, days_open: 9, month: '2026-03' },
-  { subject: 'Fire damper location on Level 2', status: 'open', priority: 'high', discipline: 'mep', is_overdue: false, days_open: 6, month: '2026-03' },
-  { subject: 'Drainage invert level conflict', status: 'answered', priority: 'normal', discipline: 'civil', is_overdue: false, days_open: 12, month: '2026-04' },
-  { subject: 'Socket layout in plant room', status: 'closed', priority: 'low', discipline: 'electrical', is_overdue: false, days_open: 4, month: '2026-04' },
-  { subject: 'Waterproofing lap at podium', status: 'open', priority: 'normal', discipline: 'architectural', is_overdue: false, days_open: 3, month: '2026-05' },
-  { subject: 'Landscape kerb line at entrance', status: 'closed', priority: 'low', discipline: 'landscape', is_overdue: false, days_open: 8, month: '2026-05' },
-];
-
 export interface RFIInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -129,19 +114,14 @@ export function buildRFIInsights(
   currency: string,
   t: Translate,
 ): RFIInsights {
-  const real = rfis.length > 0;
-
-  const rows: Row[] = real
-    ? [...rfis]
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        .map((r) => toRow(r, t))
-    : SAMPLE.map((s) => toRow({ ...s, created_at: `${s.month}-01` }, t));
+  const rows: Row[] = [...rfis]
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .map((r) => toRow(r, t));
 
   const dataset: InsightDataset = {
     id: 'rfis',
     label: t('rfi.insights.ds_rfis', { defaultValue: 'RFI register' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'subject', label: t('rfi.insights.f_subject', { defaultValue: 'RFI' }), kind: 'dimension' },
       { key: 'status', label: t('rfi.insights.f_status', { defaultValue: 'Status' }), kind: 'dimension' },

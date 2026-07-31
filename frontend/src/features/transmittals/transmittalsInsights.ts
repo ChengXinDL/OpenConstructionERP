@@ -129,53 +129,6 @@ function toRows(tr: Transmittal, noCompany: string, t: Translate): Row[] {
   });
 }
 
-// Illustrative distribution lines for an empty register: a spread of purposes,
-// companies and receipt states with a realistic waiting tail, so every built-in
-// chart has something to draw.
-interface SampleLine {
-  transmittal: string;
-  recipient: string;
-  company: string;
-  purpose: TransmittalPurpose;
-  issuedDaysAgo: number;
-  acknowledgedAfter: number | null;
-  responded: boolean;
-  dueDaysAgo: number | null;
-}
-
-const SAMPLE: SampleLine[] = [
-  { transmittal: 'TR-0018', recipient: 'Marta Feld', company: 'Nordbau Facades', purpose: 'for_approval', issuedDaysAgo: 21, acknowledgedAfter: 2, responded: false, dueDaysAgo: 3 },
-  { transmittal: 'TR-0018', recipient: 'Piotr Lange', company: 'Nordbau Facades', purpose: 'for_approval', issuedDaysAgo: 21, acknowledgedAfter: null, responded: false, dueDaysAgo: 3 },
-  { transmittal: 'TR-0018', recipient: 'Site engineer', company: 'Main contractor', purpose: 'for_approval', issuedDaysAgo: 21, acknowledgedAfter: 1, responded: true, dueDaysAgo: 3 },
-  { transmittal: 'TR-0019', recipient: 'Helena Voss', company: 'Voss Structural', purpose: 'for_review', issuedDaysAgo: 14, acknowledgedAfter: 6, responded: false, dueDaysAgo: null },
-  { transmittal: 'TR-0019', recipient: 'Quality manager', company: 'Main contractor', purpose: 'for_review', issuedDaysAgo: 14, acknowledgedAfter: 1, responded: true, dueDaysAgo: null },
-  { transmittal: 'TR-0020', recipient: 'Andres Kutt', company: 'Baltic MEP', purpose: 'for_construction', issuedDaysAgo: 9, acknowledgedAfter: null, responded: false, dueDaysAgo: null },
-  { transmittal: 'TR-0020', recipient: 'Foreman, level 3', company: 'Main contractor', purpose: 'for_construction', issuedDaysAgo: 9, acknowledgedAfter: 1, responded: false, dueDaysAgo: null },
-  { transmittal: 'TR-0021', recipient: 'Client representative', company: 'Employer', purpose: 'for_information', issuedDaysAgo: 6, acknowledgedAfter: 4, responded: false, dueDaysAgo: null },
-  { transmittal: 'TR-0021', recipient: 'Cost consultant', company: 'Employer', purpose: 'for_information', issuedDaysAgo: 6, acknowledgedAfter: null, responded: false, dueDaysAgo: null },
-  { transmittal: 'TR-0022', recipient: 'Helena Voss', company: 'Voss Structural', purpose: 'for_approval', issuedDaysAgo: 4, acknowledgedAfter: null, responded: false, dueDaysAgo: null },
-  { transmittal: 'TR-0022', recipient: 'Andres Kutt', company: 'Baltic MEP', purpose: 'for_approval', issuedDaysAgo: 4, acknowledgedAfter: 2, responded: false, dueDaysAgo: null },
-  { transmittal: 'TR-0023', recipient: 'Tender registry', company: 'Employer', purpose: 'for_tender', issuedDaysAgo: 2, acknowledgedAfter: 1, responded: false, dueDaysAgo: null },
-];
-
-function sampleRow(s: SampleLine, noCompany: string, t: Translate): Row {
-  const issuedIso = new Date(Date.now() - s.issuedDaysAgo * DAY_MS).toISOString();
-  const acknowledged = s.acknowledgedAfter !== null;
-  const owesResponse = RESPONSE_EXPECTED.includes(s.purpose) || s.dueDaysAgo !== null;
-  return {
-    transmittal: s.transmittal,
-    recipient: s.recipient,
-    company: s.company.trim() || noCompany,
-    purpose: purposeLabel(s.purpose, t),
-    status: statusLabel(s.responded ? 'responded' : 'issued', t),
-    month: monthKey(issuedIso),
-    outstanding: acknowledged ? 0 : 1,
-    awaiting_response: owesResponse && !s.responded ? 1 : 0,
-    overdue: s.dueDaysAgo !== null && !s.responded ? 1 : 0,
-    days_waiting: acknowledged ? (s.acknowledgedAfter as number) : s.issuedDaysAgo,
-  };
-}
-
 export interface TransmittalsInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -192,12 +145,10 @@ export function buildTransmittalsInsights(
   const noCompany = t('transmittals.insights.no_company', { defaultValue: 'No company recorded' });
 
   // Drafts and undated records drop out, so a register holding only drafts has
-  // nothing to measure and correctly falls back to the sample.
-  const live: Row[] = [...transmittals]
+  // nothing to measure and the dataset is legitimately empty.
+  const rows: Row[] = [...transmittals]
     .sort((a, b) => new Date(a.issued_date ?? 0).getTime() - new Date(b.issued_date ?? 0).getTime())
     .flatMap((tr) => toRows(tr, noCompany, t));
-  const real = live.length > 0;
-  const rows: Row[] = real ? live : SAMPLE.map((s) => sampleRow(s, noCompany, t));
 
   const dataset: InsightDataset = {
     id: 'lines',
@@ -207,7 +158,6 @@ export function buildTransmittalsInsights(
       defaultValue: 'Distribution lines, one per recipient',
     }),
     currency: '',
-    sample: !real,
     fields: [
       { key: 'transmittal', label: t('transmittals.insights.f_transmittal', { defaultValue: 'Transmittal' }), kind: 'dimension' },
       { key: 'recipient', label: t('transmittals.insights.f_recipient', { defaultValue: 'Recipient' }), kind: 'dimension' },

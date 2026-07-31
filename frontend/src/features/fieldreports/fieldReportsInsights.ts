@@ -4,9 +4,8 @@
  * Field reports' contribution to the Module Insights panel: it turns the daily
  * site reports the page already loaded into one dataset plus a set of built-in
  * KPIs and charts (reports by type, by status, by weather, and how many reports
- * and labour hours land over time). When a project has no reports yet, a clearly
- * labelled sample set stands in so the panel still shows what it can do; the
- * panel marks it "Sample data" so it is never mistaken for the real thing.
+ * and labour hours land over time). When a project has no reports yet, the panel
+ * simply stays empty until the module holds records.
  *
  * Value labels reuse the same `fieldreports.type_*` / `fieldreports.status_*` /
  * `fieldreports.weather_*` i18n keys the register uses, so a slice in a chart
@@ -118,20 +117,6 @@ function toRow(r: FieldReportLite, t: Translate): Row {
   };
 }
 
-// Illustrative field reports for an empty project - realistic daily, inspection,
-// safety and concrete-pour records with a spread of statuses, weather, workforce
-// and months so every built-in chart has something to draw.
-const SAMPLE: FieldReportLite[] = [
-  { report_date: '2026-02-03', report_type: 'daily', weather_condition: 'cloudy', status: 'approved', workforce: [{ count: 12, hours: 8 }, { count: 4, hours: 8 }], delay_hours: 0, created_at: '2026-02-03T17:00:00' },
-  { report_date: '2026-02-17', report_type: 'inspection', weather_condition: 'clear', status: 'approved', workforce: [{ count: 3, hours: 6 }], delay_hours: 0, created_at: '2026-02-17T17:00:00' },
-  { report_date: '2026-03-04', report_type: 'concrete_pour', weather_condition: 'rain', status: 'submitted', workforce: [{ count: 18, hours: 10 }, { count: 6, hours: 10 }], delay_hours: 3, created_at: '2026-03-04T17:00:00' },
-  { report_date: '2026-03-19', report_type: 'daily', weather_condition: 'fog', status: 'approved', workforce: [{ count: 14, hours: 8 }], delay_hours: 2, created_at: '2026-03-19T17:00:00' },
-  { report_date: '2026-04-02', report_type: 'safety', weather_condition: 'clear', status: 'submitted', workforce: [{ count: 9, hours: 8 }], delay_hours: 0, created_at: '2026-04-02T17:00:00' },
-  { report_date: '2026-04-21', report_type: 'daily', weather_condition: 'storm', status: 'draft', workforce: [{ count: 5, hours: 4 }], delay_hours: 6, created_at: '2026-04-21T17:00:00' },
-  { report_date: '2026-05-06', report_type: 'concrete_pour', weather_condition: 'cloudy', status: 'approved', workforce: [{ count: 20, hours: 9 }, { count: 8, hours: 9 }], delay_hours: 0, created_at: '2026-05-06T17:00:00' },
-  { report_date: '2026-05-18', report_type: 'inspection', weather_condition: 'snow', status: 'draft', workforce: [{ count: 4, hours: 6 }], delay_hours: 1, created_at: '2026-05-18T17:00:00' },
-];
-
 export interface FieldReportsInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -142,19 +127,14 @@ export function buildFieldReportsInsights(
   currency: string,
   t: Translate,
 ): FieldReportsInsights {
-  const real = reports.length > 0;
-
-  const rows: Row[] = real
-    ? [...reports]
-        .sort((a, b) => new Date(a.report_date).getTime() - new Date(b.report_date).getTime())
-        .map((r) => toRow(r, t))
-    : SAMPLE.map((s) => toRow(s, t));
+  const rows: Row[] = [...reports]
+    .sort((a, b) => new Date(a.report_date).getTime() - new Date(b.report_date).getTime())
+    .map((r) => toRow(r, t));
 
   const dataset: InsightDataset = {
     id: 'fieldreports',
     label: t('fieldreports.insights.ds_reports', { defaultValue: 'Field reports' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'date', label: t('fieldreports.insights.f_date', { defaultValue: 'Report date' }), kind: 'dimension' },
       { key: 'type', label: t('fieldreports.insights.f_type', { defaultValue: 'Type' }), kind: 'dimension' },

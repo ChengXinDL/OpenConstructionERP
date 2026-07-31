@@ -6,9 +6,8 @@
  * contingencies, each holding an amount that is drawn down as scope firms up)
  * into one dataset plus built-in KPIs and charts: total held and remaining, how
  * many are over-drawn, held by type, the status split and how the register
- * builds up over time. When a project has no allowances yet, a clearly-labelled
- * sample set stands in so the panel still shows what it can do; the panel marks
- * it "Sample data" so it is never mistaken for the real thing.
+ * builds up over time. The panel stays empty until the register holds
+ * allowance records.
  *
  * Slice labels reuse the same `allowances.type_*` keys the register table uses
  * (via allowanceTypeLabelKey) and the `allowances.overdrawn` badge key, so a
@@ -94,28 +93,6 @@ function toRow(a: AllowanceLite, t: Translate): Row {
   };
 }
 
-// Illustrative allowances for an empty project - a realistic spread of
-// provisional sums, prime-cost sums and contingencies with held / drawn /
-// remaining amounts, a couple over-drawn, across several months so every
-// built-in KPI and chart has something to draw.
-const SAMPLE: Array<{
-  label: string;
-  allowance_type: AllowanceType;
-  held_amount: number;
-  drawn: number;
-  overdrawn: boolean;
-  month: string;
-}> = [
-  { label: 'Kitchen fit-out PC sum', allowance_type: 'pc_sum', held_amount: 45000, drawn: 20000, overdrawn: false, month: '2026-02' },
-  { label: 'External works provisional sum', allowance_type: 'provisional_sum', held_amount: 120000, drawn: 40000, overdrawn: false, month: '2026-02' },
-  { label: 'Design development contingency', allowance_type: 'contingency', held_amount: 200000, drawn: 60000, overdrawn: false, month: '2026-03' },
-  { label: 'Lift installation PC sum', allowance_type: 'pc_sum', held_amount: 85000, drawn: 90000, overdrawn: true, month: '2026-03' },
-  { label: 'Ground conditions contingency', allowance_type: 'contingency', held_amount: 150000, drawn: 55000, overdrawn: false, month: '2026-04' },
-  { label: 'Soft landscaping provisional sum', allowance_type: 'provisional_sum', held_amount: 60000, drawn: 15000, overdrawn: false, month: '2026-04' },
-  { label: 'Signage and wayfinding PC sum', allowance_type: 'pc_sum', held_amount: 22000, drawn: 8000, overdrawn: false, month: '2026-05' },
-  { label: 'Statutory undertakers provisional sum', allowance_type: 'provisional_sum', held_amount: 38000, drawn: 42000, overdrawn: true, month: '2026-05' },
-];
-
 export interface AllowancesInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -126,32 +103,16 @@ export function buildAllowancesInsights(
   currency: string,
   t: Translate,
 ): AllowancesInsights {
-  const real = allowances.length > 0;
-
   const dateOf = (a: AllowanceLite): number => new Date(a.created_at ?? '').getTime();
 
-  const rows: Row[] = real
-    ? [...allowances].sort((a, b) => (dateOf(a) || 0) - (dateOf(b) || 0)).map((a) => toRow(a, t))
-    : SAMPLE.map((s) =>
-        toRow(
-          {
-            label: s.label,
-            allowance_type: s.allowance_type,
-            held_amount: s.held_amount,
-            drawn: s.drawn,
-            remaining: s.held_amount - s.drawn,
-            overdrawn: s.overdrawn,
-            created_at: `${s.month}-01`,
-          },
-          t,
-        ),
-      );
+  const rows: Row[] = [...allowances]
+    .sort((a, b) => (dateOf(a) || 0) - (dateOf(b) || 0))
+    .map((a) => toRow(a, t));
 
   const dataset: InsightDataset = {
     id: 'allowances',
     label: t('allowances.insights.ds_allowances', { defaultValue: 'Allowances register' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'label', label: t('allowances.insights.f_label', { defaultValue: 'Allowance' }), kind: 'dimension' },
       { key: 'type', label: t('allowances.insights.f_type', { defaultValue: 'Type' }), kind: 'dimension' },

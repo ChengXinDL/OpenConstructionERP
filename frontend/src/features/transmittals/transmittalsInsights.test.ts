@@ -69,9 +69,9 @@ describe('buildTransmittalsInsights', () => {
     expect(rows.map((r) => r.recipient)).toEqual(['Marta Feld', 'Piotr Lange', 'Site engineer']);
   });
 
-  // A record that contributes nothing leaves the dataset with no live rows at
-  // all, which flips it to the sample. So the observable proof that a record
-  // was excluded is that its own number appears nowhere in the result.
+  // A record that contributes nothing leaves the dataset with no rows at all.
+  // So the observable proof that a record was excluded is that its own number
+  // appears nowhere in the result.
   const contributes = (over: Partial<Transmittal>) =>
     rowsOf([transmittal({ transmittal_number: 'TR-UNIQUE-1', ...over })]).some(
       (r) => r.transmittal === 'TR-UNIQUE-1',
@@ -170,11 +170,11 @@ describe('buildTransmittalsInsights', () => {
     expect(r?.status).toBe('transmittals.status_issued');
   });
 
-  it('falls back to a clearly-marked sample when nothing is measurable', () => {
-    expect(build([]).datasets[0]?.sample).toBe(true);
+  it('draws nothing at all when nothing is measurable', () => {
+    expect(build([]).datasets[0]?.rows).toHaveLength(0);
     // A register holding only drafts has no measurable line either.
-    expect(build([transmittal({ status: 'draft' })]).datasets[0]?.sample).toBe(true);
-    expect(build([transmittal({})]).datasets[0]?.sample).toBe(false);
+    expect(build([transmittal({ status: 'draft' })]).datasets[0]?.rows).toHaveLength(0);
+    expect(build([transmittal({})]).datasets[0]?.rows.length).toBeGreaterThan(0);
   });
 
   it('exposes no currency-formatted measure, because a transmittal carries no money', () => {
@@ -197,12 +197,4 @@ describe('buildTransmittalsInsights', () => {
     expect(new Set(builtins.map((b) => b.id)).size).toBe(builtins.length);
   });
 
-  it('draws every builtin from the sample, so an empty register is not a blank panel', () => {
-    const rows = build([]).datasets[0]?.rows ?? [];
-    expect(rows.length).toBeGreaterThan(0);
-    for (const measure of ['outstanding', 'awaiting_response', 'overdue', 'days_waiting']) {
-      const total = rows.reduce((sum, r) => sum + Number(r[measure] ?? 0), 0);
-      expect(total, measure).toBeGreaterThan(0);
-    }
-  });
 });

@@ -105,9 +105,9 @@ describe('buildReviewAuthorityInsights', () => {
     expect(row(cycle({ submission_ref: null }))?.submission).toBe('abcdef12');
   });
 
-  it('falls back to a clearly-marked sample on an empty project', () => {
-    expect(buildReviewAuthorityInsights([], t).datasets[0]?.sample).toBe(true);
-    expect(buildReviewAuthorityInsights([cycle({})], t).datasets[0]?.sample).toBe(false);
+  it('draws nothing at all on an empty project', () => {
+    expect(buildReviewAuthorityInsights([], t).datasets[0]?.rows).toHaveLength(0);
+    expect(buildReviewAuthorityInsights([cycle({})], t).datasets[0]?.rows).toHaveLength(1);
   });
 
   it('exposes no currency-formatted measure, because a review cycle carries no money', () => {

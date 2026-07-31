@@ -4,9 +4,8 @@
  * Tasks register's contribution to the Module Insights panel: it turns the
  * tasks the page already loaded into one dataset plus a set of built-in KPIs
  * and charts (tasks by status, priority and type, and how many are created
- * over time). When a project has no tasks yet, a clearly labelled sample set
- * stands in so the panel still shows what it can do; the panel marks it
- * "Sample data" so it is never mistaken for the real thing.
+ * over time). When a project has no tasks yet the dataset is empty and the
+ * panel shows nothing, which is the honest answer for an empty register.
  *
  * Value labels reuse the same `tasks.status_*` / `tasks.priority_*` /
  * `tasks.type_*` i18n keys the board and badges use, so a slice in a chart
@@ -32,8 +31,8 @@ interface TaskLite {
   created_at: string;
   completed_at?: string | null;
   // Server-computed authoritative overdue flag (status != completed AND due
-  // date strictly before today). Present on real rows; absent on samples,
-  // where overdue is derived from due_date instead.
+  // date strictly before today). Optional here so a caller holding a record
+  // without it still gets a due-date compare rather than a type error.
   is_overdue?: boolean;
   metadata?: Record<string, unknown>;
 }
@@ -81,7 +80,7 @@ function daysOpen(r: TaskLite): number {
 
 /** Not done and past due. Honours the server-computed is_overdue when present
  *  (the codebase warns against recomputing it client-side); falls back to a
- *  due-date compare for sample rows that carry no flag. */
+ *  due-date compare for a row that carries no flag. */
 function isOverdue(r: TaskLite, done: boolean): boolean {
   if (done) return false;
   if (typeof r.is_overdue === 'boolean') return r.is_overdue;
@@ -126,21 +125,6 @@ function toRow(r: TaskLite, unassigned: string, t: Translate): Row {
   };
 }
 
-// Illustrative tasks for an empty project - realistic construction action
-// items with a spread of statuses, priorities, types, assignees, months and
-// due dates (a couple already past due and still open) so every built-in
-// chart has something to draw.
-const SAMPLE: Array<Omit<TaskLite, 'created_at' | 'is_overdue' | 'metadata'> & { month: string }> = [
-  { title: 'Review structural drawings for Level 5', status: 'open', task_type: 'task', priority: 'high', assigned_to_name: 'Site engineer', due_date: '2026-08-10', completed_at: null, month: '2026-02' },
-  { title: 'Confirm rebar delivery date', status: 'in_progress', task_type: 'task', priority: 'urgent', assigned_to_name: 'Procurement', due_date: '2026-06-20', completed_at: null, month: '2026-02' },
-  { title: 'Decision on facade cladding supplier', status: 'open', task_type: 'decision', priority: 'high', assigned_to_name: 'Project director', due_date: '2026-09-01', completed_at: null, month: '2026-03' },
-  { title: 'Circulate updated site logistics plan', status: 'completed', task_type: 'information', priority: 'normal', assigned_to_name: 'Site manager', due_date: '2026-03-05', completed_at: '2026-03-04', month: '2026-03' },
-  { title: 'Toolbox talk: working at height', status: 'completed', task_type: 'topic', priority: 'normal', assigned_to_name: 'HSE lead', due_date: '2026-03-20', completed_at: '2026-03-18', month: '2026-03' },
-  { title: 'Chase outstanding RFI on drainage', status: 'open', task_type: 'task', priority: 'high', assigned_to_name: '', due_date: '2026-07-01', completed_at: null, month: '2026-04' },
-  { title: 'Draft weekly progress note', status: 'draft', task_type: 'personal', priority: 'low', assigned_to_name: 'Site manager', due_date: null, completed_at: null, month: '2026-04' },
-  { title: 'Close out snagging in Block B', status: 'in_progress', task_type: 'task', priority: 'normal', assigned_to_name: 'Foreman', due_date: '2026-08-20', completed_at: null, month: '2026-05' },
-];
-
 export interface TasksInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -151,20 +135,16 @@ export function buildTasksInsights(
   currency: string,
   t: Translate,
 ): TasksInsights {
-  const real = tasks.length > 0;
   const unassigned = t('tasks.insights.unassigned', { defaultValue: 'Unassigned' });
 
-  const rows: Row[] = real
-    ? [...tasks]
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        .map((r) => toRow(r, unassigned, t))
-    : SAMPLE.map((s) => toRow({ ...s, created_at: `${s.month}-01` }, unassigned, t));
+  const rows: Row[] = [...tasks]
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .map((r) => toRow(r, unassigned, t));
 
   const dataset: InsightDataset = {
     id: 'tasks',
     label: t('tasks.insights.ds_tasks', { defaultValue: 'Task register' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'title', label: t('tasks.insights.f_title', { defaultValue: 'Task' }), kind: 'dimension' },
       { key: 'status', label: t('tasks.insights.f_status', { defaultValue: 'Status' }), kind: 'dimension' },

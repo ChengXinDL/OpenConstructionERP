@@ -5,9 +5,8 @@
  * the letters, notices, emails and memos the page already loaded into one
  * dataset plus a set of built-in KPIs and charts (by type, by status, incoming
  * vs outgoing, and how many entries land over time). When a project has no
- * correspondence yet, a clearly labelled sample set stands in so the panel still
- * shows what it can do; the panel marks it "Sample data" so it is never mistaken
- * for the real thing.
+ * correspondence yet, the panel simply stays empty until the register holds
+ * records.
  *
  * Value labels reuse the same `correspondence.type_*` / `correspondence.status_*`
  * / `correspondence.dir_*` i18n keys the register uses, so a slice in a chart
@@ -125,20 +124,6 @@ function toRow(r: CorrespondenceLite, t: Translate): Row {
   };
 }
 
-// Illustrative correspondence for an empty project - realistic letters, notices,
-// emails and memos with a spread of directions, types, statuses and months (a
-// couple overdue) so every built-in chart has something to draw.
-const SAMPLE: CorrespondenceLite[] = [
-  { subject: 'Notice of delay - foundation works', direction: 'outgoing', correspondence_type: 'notice', status: 'awaiting_response', date_sent: '2026-02-05', date_received: null, is_overdue: true, created_at: '2026-02-05T09:00:00', updated_at: '2026-02-05T09:00:00' },
-  { subject: 'RFI response - rebar spacing', direction: 'incoming', correspondence_type: 'letter', status: 'closed', date_sent: null, date_received: '2026-02-18', is_overdue: false, created_at: '2026-02-18T09:00:00', updated_at: '2026-02-25T09:00:00' },
-  { subject: 'Weekly progress summary', direction: 'outgoing', correspondence_type: 'email', status: 'responded', date_sent: '2026-03-02', date_received: null, is_overdue: false, created_at: '2026-03-02T09:00:00', updated_at: '2026-03-06T09:00:00' },
-  { subject: 'Instruction to open up works', direction: 'incoming', correspondence_type: 'notice', status: 'open', date_sent: null, date_received: '2026-03-14', is_overdue: false, created_at: '2026-03-14T09:00:00', updated_at: '2026-03-14T09:00:00' },
-  { subject: 'Material approval request', direction: 'outgoing', correspondence_type: 'email', status: 'awaiting_response', date_sent: '2026-03-22', date_received: null, is_overdue: false, created_at: '2026-03-22T09:00:00', updated_at: '2026-03-22T09:00:00' },
-  { subject: 'Site meeting minutes', direction: 'incoming', correspondence_type: 'memo', status: 'closed', date_sent: null, date_received: '2026-04-03', is_overdue: false, created_at: '2026-04-03T09:00:00', updated_at: '2026-04-05T09:00:00' },
-  { subject: 'Extension of time claim', direction: 'outgoing', correspondence_type: 'letter', status: 'awaiting_response', date_sent: '2026-04-18', date_received: null, is_overdue: true, created_at: '2026-04-18T09:00:00', updated_at: '2026-04-18T09:00:00' },
-  { subject: 'Delivery schedule confirmation', direction: 'incoming', correspondence_type: 'email', status: 'responded', date_sent: null, date_received: '2026-05-06', is_overdue: false, created_at: '2026-05-06T09:00:00', updated_at: '2026-05-08T09:00:00' },
-];
-
 export interface CorrespondenceInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -149,19 +134,14 @@ export function buildCorrespondenceInsights(
   currency: string,
   t: Translate,
 ): CorrespondenceInsights {
-  const real = items.length > 0;
-
-  const rows: Row[] = real
-    ? [...items]
-        .sort((a, b) => parseTime(keyDate(a)) - parseTime(keyDate(b)))
-        .map((r) => toRow(r, t))
-    : SAMPLE.map((s) => toRow(s, t));
+  const rows: Row[] = [...items]
+    .sort((a, b) => parseTime(keyDate(a)) - parseTime(keyDate(b)))
+    .map((r) => toRow(r, t));
 
   const dataset: InsightDataset = {
     id: 'correspondence',
     label: t('correspondence.insights.ds_correspondence', { defaultValue: 'Correspondence register' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'subject', label: t('correspondence.insights.f_subject', { defaultValue: 'Subject' }), kind: 'dimension' },
       { key: 'type', label: t('correspondence.insights.f_type', { defaultValue: 'Type' }), kind: 'dimension' },

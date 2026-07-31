@@ -72,9 +72,9 @@ describe('buildCommissioningInsights', () => {
     expect(row(system({ status: 'in_progress' }))?.commissioned).toBe(0);
   });
 
-  it('falls back to a clearly-marked sample on an empty project', () => {
-    expect(buildCommissioningInsights([], t).datasets[0]?.sample).toBe(true);
-    expect(buildCommissioningInsights([system({})], t).datasets[0]?.sample).toBe(false);
+  it('draws nothing at all on an empty project', () => {
+    expect(buildCommissioningInsights([], t).datasets[0]?.rows).toHaveLength(0);
+    expect(buildCommissioningInsights([system({})], t).datasets[0]?.rows).toHaveLength(1);
   });
 
   it('exposes no currency-formatted measure, because a system carries no money', () => {

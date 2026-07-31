@@ -118,55 +118,6 @@ function toRow(
   };
 }
 
-// An illustrative service desk for an empty register: a mix of planned and
-// reactive work across priorities, with breaches concentrated where they
-// usually are, so every built-in chart has something to draw.
-interface SampleTicket {
-  ticket: string;
-  priority: string;
-  status: string;
-  planned: boolean;
-  breached: boolean;
-  assigned: boolean;
-  reportedDaysAgo: number;
-  hours: number;
-}
-
-const SAMPLE: SampleTicket[] = [
-  { ticket: 'SV-1042', priority: 'critical', status: 'in_progress', planned: false, breached: true, assigned: true, reportedDaysAgo: 2, hours: 41 },
-  { ticket: 'SV-1041', priority: 'critical', status: 'resolved', planned: false, breached: false, assigned: true, reportedDaysAgo: 6, hours: 5 },
-  { ticket: 'SV-1040', priority: 'high', status: 'assigned', planned: false, breached: true, assigned: true, reportedDaysAgo: 3, hours: 62 },
-  { ticket: 'SV-1039', priority: 'high', status: 'new', planned: false, breached: false, assigned: false, reportedDaysAgo: 1, hours: 9 },
-  { ticket: 'SV-1038', priority: 'high', status: 'closed', planned: false, breached: false, assigned: true, reportedDaysAgo: 11, hours: 18 },
-  { ticket: 'SV-1037', priority: 'med', status: 'in_progress', planned: true, breached: false, assigned: true, reportedDaysAgo: 4, hours: 30 },
-  { ticket: 'SV-1036', priority: 'med', status: 'resolved', planned: true, breached: false, assigned: true, reportedDaysAgo: 9, hours: 12 },
-  { ticket: 'SV-1035', priority: 'med', status: 'new', planned: false, breached: false, assigned: false, reportedDaysAgo: 1, hours: 14 },
-  { ticket: 'SV-1034', priority: 'low', status: 'assigned', planned: true, breached: true, assigned: true, reportedDaysAgo: 15, hours: 168 },
-  { ticket: 'SV-1033', priority: 'low', status: 'new', planned: true, breached: false, assigned: false, reportedDaysAgo: 8, hours: 96 },
-  { ticket: 'SV-1032', priority: 'low', status: 'closed', planned: true, breached: false, assigned: true, reportedDaysAgo: 22, hours: 40 },
-  { ticket: 'SV-1031', priority: 'med', status: 'cancelled', planned: false, breached: false, assigned: false, reportedDaysAgo: 18, hours: 6 },
-];
-
-function sampleRow(
-  s: SampleTicket,
-  labels: { planned: string; reactive: string },
-  t: Translate,
-): Row {
-  const live = !TERMINAL.includes(s.status);
-  return {
-    ticket: s.ticket,
-    priority: priorityLabel(s.priority, t),
-    status: statusLabel(s.status, t),
-    origin: s.planned ? labels.planned : labels.reactive,
-    month: monthKey(new Date(Date.now() - s.reportedDaysAgo * 24 * HOUR_MS).toISOString()),
-    open: live ? 1 : 0,
-    breached: s.breached ? 1 : 0,
-    unassigned: live && !s.assigned ? 1 : 0,
-    planned: s.planned ? 1 : 0,
-    hours_open: s.hours,
-  };
-}
-
 export interface ServiceInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -182,19 +133,15 @@ export function buildServiceInsights(tickets: ServiceTicket[], t: Translate): Se
     reactive: t('service.insights.origin_reactive', { defaultValue: 'Reactive callout' }),
   };
 
-  const real = tickets.length > 0;
-  const rows: Row[] = real
-    ? [...tickets]
-        .sort((a, b) => Date.parse(a.reported_at) - Date.parse(b.reported_at))
-        .map((ticket) => toRow(ticket, labels, t))
-    : SAMPLE.map((s) => sampleRow(s, labels, t));
+  const rows: Row[] = [...tickets]
+    .sort((a, b) => Date.parse(a.reported_at) - Date.parse(b.reported_at))
+    .map((ticket) => toRow(ticket, labels, t));
 
   const dataset: InsightDataset = {
     id: 'tickets',
     label: t('service.insights.ds_tickets', { defaultValue: 'Service tickets' }),
     // No money measure, so no currency to format against.
     currency: '',
-    sample: !real,
     fields: [
       { key: 'ticket', label: t('service.insights.f_ticket', { defaultValue: 'Ticket' }), kind: 'dimension' },
       { key: 'priority', label: t('service.insights.f_priority', { defaultValue: 'Priority' }), kind: 'dimension' },

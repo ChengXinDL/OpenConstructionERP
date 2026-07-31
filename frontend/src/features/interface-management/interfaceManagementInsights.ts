@@ -4,9 +4,8 @@
  * Interface register's contribution to the Module Insights panel: it turns the
  * interfaces the page already loaded into one dataset plus a set of built-in
  * KPIs and charts (interfaces by type, by status, by priority, and how many are
- * raised over time). When a project has no interfaces yet, a clearly labelled
- * sample set stands in so the panel still shows what it can do; the panel marks
- * it "Sample data" so it is never mistaken for the real thing.
+ * raised over time). When a project has no interfaces yet, the panel simply
+ * stays empty until the module holds records.
  *
  * Value labels reuse the same `interface_management.status_*` / `type_*` /
  * `priority_*` i18n keys the register table uses (the module ships default maps
@@ -115,21 +114,6 @@ function toRow(r: InterfaceLite, today: string, t: Translate): Row {
   };
 }
 
-// Illustrative interfaces for an empty project - realistic handshakes between
-// work packages and contractors with a spread of types, statuses, priorities,
-// owners, need-by dates and months so every built-in chart has something to
-// draw.
-const SAMPLE: Array<Omit<InterfaceLite, 'created_at'> & { month: string }> = [
-  { title: 'Duct penetration through core wall at L3', status: 'in_progress', interface_type: 'physical', priority: 'high', owner_party: 'MEP contractor', need_by_date: '2026-05-30', updated_at: '2026-04-10', month: '2026-02' },
-  { title: 'Facade-to-slab movement joint sign-off', status: 'open', interface_type: 'functional', priority: 'medium', owner_party: 'Facade subcontractor', need_by_date: '2026-06-15', updated_at: '2026-03-20', month: '2026-02' },
-  { title: 'Piling rig access vs tower crane radius', status: 'disputed', interface_type: 'contractual', priority: 'critical', owner_party: 'Groundworks', need_by_date: '2026-05-01', updated_at: '2026-04-22', month: '2026-03' },
-  { title: 'Riser shaft builderswork openings', status: 'agreed', interface_type: 'spatial', priority: 'low', owner_party: 'Structures', need_by_date: '2026-04-20', updated_at: '2026-04-25', month: '2026-03' },
-  { title: 'Federated model exchange for MEP', status: 'identified', interface_type: 'information', priority: 'medium', owner_party: 'BIM coordinator', need_by_date: '2026-09-01', updated_at: '2026-04-05', month: '2026-04' },
-  { title: 'Commissioning window vs fit-out handover', status: 'on_hold', interface_type: 'schedule', priority: 'high', owner_party: 'MEP contractor', need_by_date: '2026-05-10', updated_at: '2026-04-18', month: '2026-04' },
-  { title: 'Fire damper interface at compartment line', status: 'closed', interface_type: 'physical', priority: 'critical', owner_party: 'Fire stopping', need_by_date: '2026-03-15', updated_at: '2026-05-20', month: '2026-05' },
-  { title: 'Handrail-to-cladding tolerance', status: 'open', interface_type: 'functional', priority: null, owner_party: null, need_by_date: null, updated_at: '2026-05-12', month: '2026-05' },
-];
-
 export interface InterfaceManagementInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -140,20 +124,16 @@ export function buildInterfaceManagementInsights(
   currency: string,
   t: Translate,
 ): InterfaceManagementInsights {
-  const real = interfaces.length > 0;
   const today = new Date().toISOString().slice(0, 10);
 
-  const rows: Row[] = real
-    ? [...interfaces]
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        .map((r) => toRow(r, today, t))
-    : SAMPLE.map((s) => toRow({ ...s, created_at: `${s.month}-01` }, today, t));
+  const rows: Row[] = [...interfaces]
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .map((r) => toRow(r, today, t));
 
   const dataset: InsightDataset = {
     id: 'interfaces',
     label: t('interface_management.insights.ds_interfaces', { defaultValue: 'Interface register' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'title', label: t('interface_management.insights.f_title', { defaultValue: 'Interface' }), kind: 'dimension' },
       { key: 'type', label: t('interface_management.insights.f_type', { defaultValue: 'Type' }), kind: 'dimension' },

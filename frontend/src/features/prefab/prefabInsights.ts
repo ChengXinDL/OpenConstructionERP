@@ -82,47 +82,6 @@ function toRow(u: PrefabUnit, t: Translate): Row {
   };
 }
 
-// Illustrative units for an empty project: a spread of unit types and stages
-// with a couple already past their install date, so every built-in chart has
-// something to draw.
-interface SampleUnit {
-  ref: string;
-  type: string;
-  stage: string;
-  targetInDays: number;
-  basis: number;
-  progress: number;
-}
-
-const SAMPLE: SampleUnit[] = [
-  { ref: 'POD-101', type: 'pod', stage: 'installed', targetInDays: -34, basis: 42000, progress: 100 },
-  { ref: 'POD-102', type: 'pod', stage: 'installed', targetInDays: -27, basis: 42000, progress: 100 },
-  { ref: 'POD-103', type: 'pod', stage: 'delivered', targetInDays: -6, basis: 42000, progress: 85 },
-  { ref: 'PNL-201', type: 'panel', stage: 'dispatched', targetInDays: -2, basis: 18500, progress: 70 },
-  { ref: 'PNL-202', type: 'panel', stage: 'qa', targetInDays: 4, basis: 18500, progress: 55 },
-  { ref: 'PNL-203', type: 'panel', stage: 'in_production', targetInDays: 11, basis: 18500, progress: 40 },
-  { ref: 'MOD-301', type: 'module', stage: 'in_production', targetInDays: 18, basis: 96000, progress: 40 },
-  { ref: 'MOD-302', type: 'module', stage: 'approved_for_production', targetInDays: 25, basis: 96000, progress: 20 },
-  { ref: 'SKD-401', type: 'skid', stage: 'design', targetInDays: 39, basis: 61000, progress: 5 },
-  { ref: 'SKD-402', type: 'skid', stage: 'design', targetInDays: 46, basis: 61000, progress: 5 },
-];
-
-function sampleRow(s: SampleUnit, t: Translate): Row {
-  const target = new Date(Date.now() + s.targetInDays * 24 * 60 * 60 * 1000);
-  const installed = s.stage === 'installed';
-  return {
-    ref: s.ref,
-    type: typeLabel(s.type, t),
-    stage: stageLabel(s.stage, t),
-    target_month: monthKey(target.toISOString()),
-    basis: s.basis,
-    earned: Math.round((s.basis * s.progress) / 100),
-    progress: s.progress,
-    late: !installed && s.targetInDays < 0 ? 1 : 0,
-    installed: installed ? 1 : 0,
-  };
-}
-
 export interface PrefabInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -137,15 +96,12 @@ export function buildPrefabInsights(
   currency: string,
   t: Translate,
 ): PrefabInsights {
-  const real = units.length > 0;
-
-  const rows: Row[] = real ? units.map((u) => toRow(u, t)) : SAMPLE.map((s) => sampleRow(s, t));
+  const rows: Row[] = units.map((u) => toRow(u, t));
 
   const dataset: InsightDataset = {
     id: 'units',
     label: t('prefab.insights.ds_units', { defaultValue: 'Prefab units' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'ref', label: t('prefab.insights.f_ref', { defaultValue: 'Unit' }), kind: 'dimension' },
       { key: 'type', label: t('prefab.insights.f_type', { defaultValue: 'Unit type' }), kind: 'dimension' },

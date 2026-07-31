@@ -8,8 +8,8 @@
  * on week. Those are exactly the numbers a row-by-row table hides.
  *
  * Everything is derived from the punch items the page already loaded, so the
- * panel costs no extra request. On a project with no snags a clearly-labelled
- * sample set stands in so the panel still shows what it can do.
+ * panel costs no extra request. On a project with no snags there is nothing to
+ * draw, and the panel stays empty rather than inventing a list.
  *
  * Row VALUES reuse the same `punch.status_*` / `punch.priority_*` /
  * `punch.category_*` keys the table badges use, so a chart slice reads exactly
@@ -103,56 +103,6 @@ function toRow(item: PunchItem, unassigned: string, none: string, t: Translate):
   };
 }
 
-// Illustrative snags for an empty project: a realistic spread of trades,
-// categories, priorities and statuses so every built-in chart has something to
-// draw. Dates are relative to now so the "raised over time" series and the
-// overdue count stay sensible whenever the panel is opened.
-interface SampleSnag {
-  title: string;
-  status: string;
-  priority: string;
-  category: string;
-  trade: string;
-  assignee: string;
-  /** Days before today the snag was raised. */
-  raisedDaysAgo: number;
-  /** Days from today the snag is due; negative means already past due. */
-  dueInDays: number | null;
-  reopened: number;
-}
-
-const SAMPLE: SampleSnag[] = [
-  { title: 'Fire door closer not self-latching', status: 'open', priority: 'critical', category: 'fire_safety', trade: 'Joinery', assignee: 'A. Novak', raisedDaysAgo: 41, dueInDays: -12, reopened: 1 },
-  { title: 'Riser duct penetration unsealed', status: 'in_progress', priority: 'high', category: 'mechanical', trade: 'Mechanical', assignee: 'M. Ferreira', raisedDaysAgo: 33, dueInDays: -4, reopened: 0 },
-  { title: 'Socket outlet loose in unit 4.02', status: 'open', priority: 'medium', category: 'electrical', trade: 'Electrical', assignee: 'K. Bauer', raisedDaysAgo: 27, dueInDays: 6, reopened: 0 },
-  { title: 'Plaster crack above lobby lintel', status: 'assigned', priority: 'medium', category: 'finishing', trade: 'Finishes', assignee: 'S. Ilic', raisedDaysAgo: 24, dueInDays: 9, reopened: 0 },
-  { title: 'Rainwater outlet ponding on roof', status: 'open', priority: 'high', category: 'exterior', trade: 'Roofing', assignee: 'T. Adeyemi', raisedDaysAgo: 19, dueInDays: -2, reopened: 0 },
-  { title: 'WC waste trap weeping', status: 'resolved', priority: 'medium', category: 'plumbing', trade: 'Plumbing', assignee: 'M. Ferreira', raisedDaysAgo: 16, dueInDays: 3, reopened: 0 },
-  { title: 'Handrail bracket fixing short', status: 'verified', priority: 'high', category: 'structural', trade: 'Steelwork', assignee: 'K. Bauer', raisedDaysAgo: 12, dueInDays: 5, reopened: 1 },
-  { title: 'AHU filter access panel fouls duct', status: 'in_progress', priority: 'low', category: 'hvac', trade: 'Mechanical', assignee: 'A. Novak', raisedDaysAgo: 9, dueInDays: 11, reopened: 0 },
-  { title: 'Ceiling tile cut oversize at grille', status: 'open', priority: 'low', category: 'finishing', trade: 'Finishes', assignee: 'S. Ilic', raisedDaysAgo: 5, dueInDays: 14, reopened: 0 },
-  { title: 'Kerb line out of tolerance at entrance', status: 'closed', priority: 'medium', category: 'landscaping', trade: 'Groundworks', assignee: 'T. Adeyemi', raisedDaysAgo: 3, dueInDays: 18, reopened: 0 },
-];
-
-function sampleRow(s: SampleSnag, t: Translate): Row {
-  const now = Date.now();
-  const created = new Date(now - s.raisedDaysAgo * DAY_MS).toISOString();
-  const isOpen = !DONE_STATUSES.includes(s.status);
-  return {
-    title: s.title,
-    status: statusLabel(s.status, t),
-    priority: priorityLabel(s.priority, t),
-    category: categoryLabel(s.category, t, s.category),
-    trade: s.trade,
-    assignee: s.assignee,
-    month: monthKey(created),
-    open: isOpen ? 1 : 0,
-    overdue: isOpen && s.dueInDays !== null && s.dueInDays < 0 ? 1 : 0,
-    age: isOpen ? s.raisedDaysAgo : Math.max(1, Math.round(s.raisedDaysAgo * 0.6)),
-    reopened: s.reopened,
-  };
-}
-
 export interface PunchlistInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -165,21 +115,17 @@ export interface PunchlistInsights {
  * carries no money, and a fake currency KPI would be worse than none.
  */
 export function buildPunchlistInsights(items: PunchItem[], t: Translate): PunchlistInsights {
-  const real = items.length > 0;
   const unassigned = t('punch.insights.unassigned', { defaultValue: 'Unassigned' });
   const none = t('punch.insights.none', { defaultValue: 'Not set' });
 
-  const rows: Row[] = real
-    ? [...items]
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        .map((item) => toRow(item, unassigned, none, t))
-    : SAMPLE.map((s) => sampleRow(s, t));
+  const rows: Row[] = [...items]
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .map((item) => toRow(item, unassigned, none, t));
 
   const dataset: InsightDataset = {
     id: 'punch',
     label: t('punch.insights.ds_punch', { defaultValue: 'Punch list' }),
     currency: '',
-    sample: !real,
     fields: [
       { key: 'title', label: t('punch.insights.f_title', { defaultValue: 'Item' }), kind: 'dimension' },
       { key: 'status', label: t('punch.insights.f_status', { defaultValue: 'Status' }), kind: 'dimension' },

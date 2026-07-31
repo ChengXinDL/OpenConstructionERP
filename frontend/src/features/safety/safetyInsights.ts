@@ -5,9 +5,7 @@
  * incidents the page already loaded into one dataset plus a set of built-in
  * KPIs and charts (incidents by type, by severity and status, and the register
  * growing over time, with lost-time days rolled up). When a project has no
- * incidents yet, a clearly-labelled sample set stands in so the panel still
- * shows what it can do; the panel marks it "Sample data" so it is never
- * mistaken for the real thing.
+ * incidents yet, the panel simply stays empty until the module holds records.
  *
  * Labels reuse the same `safety.type_*` / `safety.severity_*` / `safety.status_*`
  * i18n keys the incidents table uses, so a slice in a chart reads exactly like
@@ -88,20 +86,6 @@ function toRow(r: SafetyLite, t: Translate): Row {
   };
 }
 
-// Illustrative incidents for an empty project - a realistic spread of types,
-// severities, statuses, months and lost-time days so every built-in chart has
-// something to draw.
-const SAMPLE: Array<Omit<SafetyLite, 'date'> & { month: string }> = [
-  { incident_number: 'INC-001', type: 'injury', severity: 'major', status: 'investigating', days_lost: 12, month: '2026-02' },
-  { incident_number: 'INC-002', type: 'near_miss', severity: 'minor', status: 'closed', days_lost: 0, month: '2026-02' },
-  { incident_number: 'INC-003', type: 'property_damage', severity: 'moderate', status: 'corrective_action', days_lost: 0, month: '2026-03' },
-  { incident_number: 'INC-004', type: 'injury', severity: 'critical', status: 'investigating', days_lost: 30, month: '2026-03' },
-  { incident_number: 'INC-005', type: 'environmental', severity: 'moderate', status: 'reported', days_lost: 0, month: '2026-04' },
-  { incident_number: 'INC-006', type: 'near_miss', severity: 'minor', status: 'closed', days_lost: 0, month: '2026-04' },
-  { incident_number: 'INC-007', type: 'fire', severity: 'major', status: 'corrective_action', days_lost: 3, month: '2026-05' },
-  { incident_number: 'INC-008', type: 'injury', severity: 'minor', status: 'closed', days_lost: 2, month: '2026-05' },
-];
-
 export interface SafetyInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -112,19 +96,14 @@ export function buildSafetyInsights(
   currency: string,
   t: Translate,
 ): SafetyInsights {
-  const real = incidents.length > 0;
-
-  const rows: Row[] = real
-    ? [...incidents]
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-        .map((r) => toRow(r, t))
-    : SAMPLE.map((s) => toRow({ ...s, date: `${s.month}-01` }, t));
+  const rows: Row[] = [...incidents]
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .map((r) => toRow(r, t));
 
   const dataset: InsightDataset = {
     id: 'incidents',
     label: t('safety.insights.ds_incidents', { defaultValue: 'Incidents' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'number', label: t('safety.insights.f_number', { defaultValue: 'Incident #' }), kind: 'dimension' },
       { key: 'type', label: t('safety.insights.f_type', { defaultValue: 'Type' }), kind: 'dimension' },

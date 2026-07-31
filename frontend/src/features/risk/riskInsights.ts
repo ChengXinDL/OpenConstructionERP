@@ -4,9 +4,8 @@
  * Risk register's contribution to the Module Insights panel: it turns the
  * risks the page already loaded into one dataset plus a set of built-in KPIs
  * and charts (exposure by category, risks by severity and status, register
- * growth over time). When a project has no risks yet, a clearly-labelled
- * sample set stands in so the panel still shows what it can do; the panel
- * marks it "Sample data" so it is never mistaken for the real thing.
+ * growth over time). When a project has no risks yet, the panel simply stays
+ * empty until the register holds records.
  *
  * Labels reuse the same `risk.cat_*` / `risk.severity_*` / `risk.status_*`
  * i18n keys the register table uses, so a slice in a chart reads exactly like
@@ -84,20 +83,6 @@ function toRow(r: RiskLite, unassigned: string, t: Translate): Row {
   };
 }
 
-// Illustrative risks for an empty project - realistic construction threats
-// with a spread of categories, severities, statuses and months so every
-// built-in chart has something to draw.
-const SAMPLE: Array<Omit<RiskLite, 'created_at'> & { month: string }> = [
-  { title: 'Ground conditions worse than survey', category: 'technical', impact_severity: 'high', status: 'mitigating', risk_score: 16, impact_cost: 180000, impact_schedule_days: 20, owner_name: 'Geotech lead', month: '2026-02' },
-  { title: 'Steel price escalation', category: 'financial', impact_severity: 'critical', status: 'monitoring', risk_score: 20, impact_cost: 240000, impact_schedule_days: 0, owner_name: 'Commercial', month: '2026-02' },
-  { title: 'Permit approval delay', category: 'regulatory', impact_severity: 'high', status: 'open', risk_score: 15, impact_cost: 60000, impact_schedule_days: 30, owner_name: 'Project director', month: '2026-03' },
-  { title: 'Late design information', category: 'schedule', impact_severity: 'medium', status: 'mitigating', risk_score: 9, impact_cost: 45000, impact_schedule_days: 15, owner_name: 'Design manager', month: '2026-03' },
-  { title: 'Contaminated soil removal', category: 'environmental', impact_severity: 'high', status: 'assessed', risk_score: 12, impact_cost: 130000, impact_schedule_days: 10, owner_name: 'HSE', month: '2026-04' },
-  { title: 'Working-at-height incident', category: 'safety', impact_severity: 'critical', status: 'monitoring', risk_score: 20, impact_cost: 90000, impact_schedule_days: 5, owner_name: 'HSE', month: '2026-04' },
-  { title: 'Key subcontractor insolvency', category: 'procurement', impact_severity: 'medium', status: 'open', risk_score: 10, impact_cost: 75000, impact_schedule_days: 25, owner_name: 'Commercial', month: '2026-05' },
-  { title: 'Crane availability clash', category: 'schedule', impact_severity: 'low', status: 'mitigated', risk_score: 4, impact_cost: 12000, impact_schedule_days: 3, owner_name: 'Site manager', month: '2026-05' },
-];
-
 export interface RiskInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -108,20 +93,16 @@ export function buildRiskInsights(
   currency: string,
   t: Translate,
 ): RiskInsights {
-  const real = risks.length > 0;
   const unassigned = t('risk.insights.unassigned', { defaultValue: 'Unassigned' });
 
-  const rows: Row[] = real
-    ? [...risks]
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        .map((r) => toRow(r, unassigned, t))
-    : SAMPLE.map((s) => toRow({ ...s, created_at: `${s.month}-01` }, unassigned, t));
+  const rows: Row[] = [...risks]
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .map((r) => toRow(r, unassigned, t));
 
   const dataset: InsightDataset = {
     id: 'risks',
     label: t('risk.insights.ds_risks', { defaultValue: 'Risk register' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'title', label: t('risk.insights.f_title', { defaultValue: 'Risk' }), kind: 'dimension' },
       { key: 'category', label: t('risk.insights.f_category', { defaultValue: 'Category' }), kind: 'dimension' },

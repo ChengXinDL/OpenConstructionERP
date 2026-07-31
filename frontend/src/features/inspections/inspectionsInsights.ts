@@ -4,9 +4,8 @@
  * Quality inspections' contribution to the Module Insights panel: it turns the
  * inspections the page already loaded into one dataset plus a set of built-in
  * KPIs and charts (inspections by type, by result, by status, and how many are
- * carried out over time). When a project has no inspections yet, a clearly
- * labelled sample set stands in so the panel still shows what it can do; the
- * panel marks it "Sample data" so it is never mistaken for the real thing.
+ * carried out over time). When a project has no inspections yet, the panel
+ * simply stays empty until the module holds records.
  *
  * Value labels reuse the same `inspections.status_*` / `inspections.type_*` /
  * `inspections.result_*` i18n keys the register table uses, so a slice in a
@@ -95,20 +94,6 @@ function toRow(r: InspectionLite, t: Translate): Row {
   };
 }
 
-// Illustrative inspections for an empty project - realistic site quality checks
-// across trades with a spread of types, results, statuses and months so every
-// built-in chart has something to draw.
-const SAMPLE: Array<Omit<InspectionLite, 'created_at'>> = [
-  { title: 'Foundation concrete pour - Grid A1-A5', status: 'completed', inspection_type: 'concrete', result: 'pass', date: '2026-02-12' },
-  { title: 'Rebar placement - Core walls L2', status: 'completed', inspection_type: 'structural', result: 'pass', date: '2026-02-25' },
-  { title: 'Fire-stopping - Riser 3', status: 'completed', inspection_type: 'fire_safety', result: 'partial', date: '2026-03-08' },
-  { title: 'Electrical rough-in - Level 4', status: 'completed', inspection_type: 'electrical', result: 'pass', date: '2026-03-20' },
-  { title: 'Waterproofing - Podium deck', status: 'failed', inspection_type: 'waterproofing', result: 'fail', date: '2026-04-05' },
-  { title: 'Drainage pipework pressure test', status: 'completed', inspection_type: 'plumbing', result: 'pass', date: '2026-04-18' },
-  { title: 'MEP coordination walk - Plant room', status: 'in_progress', inspection_type: 'mep', result: null, date: '2026-05-10' },
-  { title: 'Handover snagging - Unit 12', status: 'scheduled', inspection_type: 'handover', result: null, date: '2026-05-28' },
-];
-
 export interface InspectionsInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -119,22 +104,17 @@ export function buildInspectionsInsights(
   currency: string,
   t: Translate,
 ): InspectionsInsights {
-  const real = inspections.length > 0;
-
-  const rows: Row[] = real
-    ? [...inspections]
-        .sort(
-          (a, b) =>
-            new Date(a.date || a.created_at).getTime() - new Date(b.date || b.created_at).getTime(),
-        )
-        .map((r) => toRow(r, t))
-    : SAMPLE.map((s) => toRow({ ...s, created_at: s.date }, t));
+  const rows: Row[] = [...inspections]
+    .sort(
+      (a, b) =>
+        new Date(a.date || a.created_at).getTime() - new Date(b.date || b.created_at).getTime(),
+    )
+    .map((r) => toRow(r, t));
 
   const dataset: InsightDataset = {
     id: 'inspections',
     label: t('inspections.insights.ds_inspections', { defaultValue: 'Inspection register' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'title', label: t('inspections.insights.f_title', { defaultValue: 'Inspection' }), kind: 'dimension' },
       { key: 'status', label: t('inspections.insights.f_status', { defaultValue: 'Status' }), kind: 'dimension' },

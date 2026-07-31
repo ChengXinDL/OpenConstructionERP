@@ -4,10 +4,8 @@
  * Management of Change's contribution to the Module Insights panel: it turns
  * the change requests the page already loaded into one dataset plus a set of
  * built-in KPIs and charts (cost impact by category, changes by status and
- * risk level, register growth over time). When a project has no changes yet, a
- * clearly-labelled sample set stands in so the panel still shows what it can
- * do; the panel marks it "Sample data" so it is never mistaken for the real
- * thing.
+ * risk level, register growth over time). When a project has no changes yet,
+ * the panel simply stays empty until the register holds records.
  *
  * Labels reuse the same `moc.status_*`, `moc.category_*` and `moc.risk_*` i18n
  * keys the register uses, so a slice in a chart reads exactly like the badge on
@@ -106,29 +104,6 @@ function toRow(e: MoCLite, t: Translate): Row {
   };
 }
 
-// Illustrative change requests for an empty project - realistic management-of-
-// change cases with a spread of categories, risk bands, statuses, cost impacts
-// and months so every built-in KPI and chart has something to draw.
-const SAMPLE: Array<{
-  code: string;
-  title: string;
-  status: string;
-  change_category: string;
-  risk_level: string;
-  cost_impact: number;
-  schedule_delta_days: number;
-  month: string;
-}> = [
-  { code: 'MOC-001', title: 'Switch facade cladding to rainscreen', status: 'implemented', change_category: 'material', risk_level: 'medium', cost_impact: 120000, schedule_delta_days: 8, month: '2026-02' },
-  { code: 'MOC-002', title: 'Revise foundation detail for soil', status: 'accepted', change_category: 'engineering', risk_level: 'high', cost_impact: 180000, schedule_delta_days: 20, month: '2026-02' },
-  { code: 'MOC-003', title: 'Add basement to project scope', status: 'reviewed', change_category: 'scope', risk_level: 'high', cost_impact: 240000, schedule_delta_days: 30, month: '2026-03' },
-  { code: 'MOC-004', title: 'Change concrete mix design', status: 'accepted', change_category: 'design', risk_level: 'medium', cost_impact: 45000, schedule_delta_days: 5, month: '2026-03' },
-  { code: 'MOC-005', title: 'New site access procedure', status: 'proposed', change_category: 'process', risk_level: 'low', cost_impact: 12000, schedule_delta_days: 0, month: '2026-04' },
-  { code: 'MOC-006', title: 'Add fall-arrest to roof works', status: 'accepted', change_category: 'safety', risk_level: 'critical', cost_impact: 60000, schedule_delta_days: 4, month: '2026-04' },
-  { code: 'MOC-007', title: 'Reorganise site logistics team', status: 'declined', change_category: 'organizational', risk_level: 'low', cost_impact: 15000, schedule_delta_days: 0, month: '2026-05' },
-  { code: 'MOC-008', title: 'Comply with revised fire regulations', status: 'reviewed', change_category: 'regulatory', risk_level: 'high', cost_impact: 90000, schedule_delta_days: 12, month: '2026-05' },
-];
-
 export interface MocInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -139,21 +114,16 @@ export function buildMocInsights(
   currency: string,
   t: Translate,
 ): MocInsights {
-  const real = entries.length > 0;
-
   const dateOf = (e: MoCLite): number => new Date(e.proposed_at ?? '').getTime();
 
-  const rows: Row[] = real
-    ? [...entries]
-        .sort((a, b) => (dateOf(a) || 0) - (dateOf(b) || 0))
-        .map((e) => toRow(e, t))
-    : SAMPLE.map((s) => toRow({ ...s, proposed_at: `${s.month}-01` }, t));
+  const rows: Row[] = [...entries]
+    .sort((a, b) => (dateOf(a) || 0) - (dateOf(b) || 0))
+    .map((e) => toRow(e, t));
 
   const dataset: InsightDataset = {
     id: 'moc',
     label: t('moc.insights.ds_changes', { defaultValue: 'Change requests' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'code', label: t('moc.insights.f_code', { defaultValue: 'Change' }), kind: 'dimension' },
       { key: 'status', label: t('moc.insights.f_status', { defaultValue: 'Status' }), kind: 'dimension' },

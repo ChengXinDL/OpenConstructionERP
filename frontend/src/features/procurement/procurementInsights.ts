@@ -6,9 +6,8 @@
  * committed value of every order, its supplier and its delivery status) and
  * turns them into one dataset plus built-in KPIs and charts: total committed
  * value, open vs received counts, value by supplier, the status split and how
- * the committed value builds up over time. When a project has no orders yet, a
- * clearly-labelled sample set stands in so the panel still shows what it can
- * do; the panel marks it "Sample data" so it is never mistaken for real data.
+ * the committed value builds up over time. When a project has no orders yet,
+ * the panel simply stays empty until the register holds records.
  *
  * The panel charts purchase orders specifically (not requisitions): orders are
  * where the committed spend and the delivery status live together, so a chart
@@ -101,26 +100,6 @@ function toRow(po: PurchaseOrderLite, unassigned: string, t: Translate): Row {
   };
 }
 
-// Illustrative purchase orders for a project with none yet - a realistic
-// spread of construction suppliers, delivery statuses, committed values and
-// months so every built-in KPI and chart has something to show.
-const SAMPLE: Array<{
-  po_number: string;
-  vendor_name: string;
-  status: string;
-  amount_total: number;
-  month: string;
-}> = [
-  { po_number: 'PO-2001', vendor_name: 'Readymix concrete supplier', status: 'completed', amount_total: 128000, month: '2026-02' },
-  { po_number: 'PO-2002', vendor_name: 'Rebar and steel fixing', status: 'issued', amount_total: 74000, month: '2026-03' },
-  { po_number: 'PO-2003', vendor_name: 'Formwork hire', status: 'received', amount_total: 32000, month: '2026-03' },
-  { po_number: 'PO-2004', vendor_name: 'Groundworks subcontractor', status: 'approved', amount_total: 156000, month: '2026-04' },
-  { po_number: 'PO-2005', vendor_name: 'MEP subcontractor', status: 'partial', amount_total: 98000, month: '2026-04' },
-  { po_number: 'PO-2006', vendor_name: 'Scaffolding hire', status: 'draft', amount_total: 21000, month: '2026-05' },
-  { po_number: 'PO-2007', vendor_name: 'Aggregate supplier', status: 'issued', amount_total: 44000, month: '2026-05' },
-  { po_number: 'PO-2008', vendor_name: 'Waterproofing supplier', status: 'cancelled', amount_total: 15000, month: '2026-06' },
-];
-
 export interface ProcurementInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -131,35 +110,19 @@ export function buildProcurementInsights(
   currency: string,
   t: Translate,
 ): ProcurementInsights {
-  const real = orders.length > 0;
   const unassigned = t('procurement.insights.unassigned', { defaultValue: 'Unassigned' });
 
   const dateOf = (o: PurchaseOrderLite): number =>
     new Date(o.issue_date ?? o.created_at ?? '').getTime();
 
-  const rows: Row[] = real
-    ? [...orders]
-        .sort((a, b) => (dateOf(a) || 0) - (dateOf(b) || 0))
-        .map((o) => toRow(o, unassigned, t))
-    : SAMPLE.map((s) =>
-        toRow(
-          {
-            po_number: s.po_number,
-            vendor_name: s.vendor_name,
-            status: s.status,
-            amount_total: s.amount_total,
-            issue_date: `${s.month}-05`,
-          },
-          unassigned,
-          t,
-        ),
-      );
+  const rows: Row[] = [...orders]
+    .sort((a, b) => (dateOf(a) || 0) - (dateOf(b) || 0))
+    .map((o) => toRow(o, unassigned, t));
 
   const dataset: InsightDataset = {
     id: 'purchase_orders',
     label: t('procurement.insights.ds_orders', { defaultValue: 'Purchase orders' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'number', label: t('procurement.insights.f_number', { defaultValue: 'PO' }), kind: 'dimension' },
       { key: 'supplier', label: t('procurement.insights.f_supplier', { defaultValue: 'Supplier' }), kind: 'dimension' },

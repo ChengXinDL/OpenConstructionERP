@@ -140,9 +140,9 @@ describe('buildServiceInsights', () => {
     expect(ds?.fields.some((f) => /value|amount|billed|cost/i.test(f.key))).toBe(false);
   });
 
-  it('falls back to a clearly-marked sample on an empty desk', () => {
-    expect(build([]).datasets[0]?.sample).toBe(true);
-    expect(build([ticket({})]).datasets[0]?.sample).toBe(false);
+  it('draws nothing at all on an empty desk', () => {
+    expect(build([]).datasets[0]?.rows).toHaveLength(0);
+    expect(build([ticket({})]).datasets[0]?.rows).toHaveLength(1);
   });
 
   it('points every builtin at a dataset and a field that exist', () => {
@@ -159,18 +159,4 @@ describe('buildServiceInsights', () => {
     expect(new Set(builtins.map((b) => b.id)).size).toBe(builtins.length);
   });
 
-  it('draws every builtin from the sample, so an empty desk is not a blank panel', () => {
-    const rows = build([]).datasets[0]?.rows ?? [];
-    expect(rows.length).toBeGreaterThan(0);
-    for (const measure of ['open', 'breached', 'unassigned', 'planned', 'hours_open']) {
-      const total = rows.reduce((sum, r) => sum + Number(r[measure] ?? 0), 0);
-      expect(total, measure).toBeGreaterThan(0);
-    }
-    // The origin donut needs both slices or it is a circle with one colour.
-    expect(new Set(rows.map((r) => r.origin)).size).toBe(2);
-    // Breaches must land on more than one priority, or the bar chart says
-    // nothing the KPI above it did not already say.
-    const hit = new Set(rows.filter((r) => Number(r.breached) > 0).map((r) => r.priority));
-    expect(hit.size).toBeGreaterThan(1);
-  });
 });

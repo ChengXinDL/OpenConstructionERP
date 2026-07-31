@@ -3,9 +3,8 @@
 /**
  * Tendering's contribution to the Module Insights panel: it turns the tender
  * packages the page already loaded into one dataset plus a set of built-in
- * KPIs and charts. When a project has no packages yet, a clearly-labelled
- * sample set stands in so the panel still shows what it can do; the panel marks
- * it "Sample data" so it is never mistaken for the real thing.
+ * KPIs and charts. When a project has no packages yet, the panel simply stays
+ * empty until the module holds records.
  *
  * This is the template every other module follows: expose a dataset (rows +
  * typed fields) and a few built-in definitions, and the shared panel does the
@@ -60,18 +59,6 @@ function toRow(name: string, code: string, month: string, bids: number, t: Trans
   };
 }
 
-// Illustrative packages for an empty project - realistic trades, a spread of
-// statuses and a few months so every built-in chart has something to draw.
-const SAMPLE: Array<{ name: string; code: string; month: string; bids: number }> = [
-  { name: 'Earthworks', code: 'awarded', month: '2026-02', bids: 4 },
-  { name: 'Concrete works', code: 'awarded', month: '2026-03', bids: 5 },
-  { name: 'Structural steel', code: 'evaluating', month: '2026-04', bids: 4 },
-  { name: 'Facade & glazing', code: 'collecting', month: '2026-05', bids: 3 },
-  { name: 'MEP services', code: 'collecting', month: '2026-05', bids: 6 },
-  { name: 'Roofing', code: 'issued', month: '2026-06', bids: 2 },
-  { name: 'Fit-out & finishes', code: 'draft', month: '2026-06', bids: 0 },
-];
-
 export interface TenderingInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -82,19 +69,14 @@ export function buildTenderingInsights(
   currency: string,
   t: Translate,
 ): TenderingInsights {
-  const real = packages.length > 0;
-
-  const rows: Row[] = real
-    ? [...packages]
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        .map((p) => toRow(p.name, p.status, monthKey(p.created_at), p.bid_count ?? 0, t))
-    : SAMPLE.map((s) => toRow(s.name, s.code, s.month, s.bids, t));
+  const rows: Row[] = [...packages]
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .map((p) => toRow(p.name, p.status, monthKey(p.created_at), p.bid_count ?? 0, t));
 
   const dataset: InsightDataset = {
     id: 'packages',
     label: t('tendering.insights.ds_packages', { defaultValue: 'Tender packages' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'name', label: t('tendering.insights.f_name', { defaultValue: 'Package' }), kind: 'dimension' },
       { key: 'status', label: t('tendering.insights.f_status', { defaultValue: 'Status' }), kind: 'dimension' },

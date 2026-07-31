@@ -93,52 +93,6 @@ function toRow(c: ReviewCycle, noJurisdiction: string, t: Translate): Row {
   };
 }
 
-// Illustrative cycles for an empty project: a spread of authority kinds and
-// statuses with a realistic overdue tail, so every built-in chart has
-// something to draw.
-interface SampleCycle {
-  submission: string;
-  authority: string;
-  kind: string;
-  status: string;
-  jurisdiction: string;
-  openedDaysAgo: number;
-  daysOpen: number;
-  overdue: boolean;
-  daysLate: number;
-  drift: boolean;
-}
-
-const SAMPLE: SampleCycle[] = [
-  { submission: 'EXP-2026-014', authority: 'State expertise board', kind: 'state_expertise', status: 'under_review', jurisdiction: 'Region North', openedDaysAgo: 71, daysOpen: 71, overdue: true, daysLate: 26, drift: true },
-  { submission: 'EXP-2026-013', authority: 'State expertise board', kind: 'state_expertise', status: 'remarks_issued', jurisdiction: 'Region North', openedDaysAgo: 58, daysOpen: 58, overdue: true, daysLate: 13, drift: false },
-  { submission: 'EXP-2026-009', authority: 'State expertise board', kind: 'state_expertise', status: 'approved', jurisdiction: 'Region North', openedDaysAgo: 120, daysOpen: 54, overdue: false, daysLate: 0, drift: false },
-  { submission: 'BC-0442', authority: 'City building control', kind: 'building_control', status: 'responding', jurisdiction: 'City centre', openedDaysAgo: 34, daysOpen: 34, overdue: false, daysLate: 0, drift: true },
-  { submission: 'BC-0431', authority: 'City building control', kind: 'building_control', status: 'approved', jurisdiction: 'City centre', openedDaysAgo: 96, daysOpen: 21, overdue: false, daysLate: 0, drift: false },
-  { submission: 'BC-0428', authority: 'City building control', kind: 'building_control', status: 'resubmitted', jurisdiction: 'City centre', openedDaysAgo: 47, daysOpen: 47, overdue: true, daysLate: 5, drift: false },
-  { submission: 'AHJ-77', authority: 'Fire authority', kind: 'ahj', status: 'under_review', jurisdiction: 'City centre', openedDaysAgo: 19, daysOpen: 19, overdue: false, daysLate: 0, drift: false },
-  { submission: 'AHJ-71', authority: 'Fire authority', kind: 'ahj', status: 'approved', jurisdiction: 'City centre', openedDaysAgo: 88, daysOpen: 16, overdue: false, daysLate: 0, drift: false },
-  { submission: 'TRB-05', authority: 'Structural review board', kind: 'technical_review', status: 'submitted', jurisdiction: 'Region North', openedDaysAgo: 8, daysOpen: 8, overdue: false, daysLate: 0, drift: false },
-  { submission: 'TRB-04', authority: 'Structural review board', kind: 'technical_review', status: 'rejected', jurisdiction: 'Region North', openedDaysAgo: 64, daysOpen: 39, overdue: false, daysLate: 0, drift: true },
-];
-
-function sampleRow(s: SampleCycle, t: Translate): Row {
-  const settled = SETTLED_STATUSES.includes(s.status);
-  return {
-    submission: s.submission,
-    authority: s.authority,
-    kind: kindLabel(s.kind, t),
-    status: statusLabel(s.status, t),
-    jurisdiction: s.jurisdiction,
-    opened_month: monthKey(new Date(Date.now() - s.openedDaysAgo * DAY_MS).toISOString()),
-    open: settled ? 0 : 1,
-    overdue: s.overdue ? 1 : 0,
-    days_late: s.overdue ? s.daysLate : 0,
-    days_open: s.daysOpen,
-    drift: s.drift ? 1 : 0,
-  };
-}
-
 export interface ReviewAuthorityInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -152,20 +106,16 @@ export function buildReviewAuthorityInsights(
   cycles: ReviewCycle[],
   t: Translate,
 ): ReviewAuthorityInsights {
-  const real = cycles.length > 0;
   const noJurisdiction = t('review_authority.insights.no_jurisdiction', {
     defaultValue: 'No jurisdiction set',
   });
 
-  const rows: Row[] = real
-    ? cycles.map((c) => toRow(c, noJurisdiction, t))
-    : SAMPLE.map((s) => sampleRow(s, t));
+  const rows: Row[] = cycles.map((c) => toRow(c, noJurisdiction, t));
 
   const dataset: InsightDataset = {
     id: 'cycles',
     label: t('review_authority.insights.ds_cycles', { defaultValue: 'Review cycles' }),
     currency: '',
-    sample: !real,
     fields: [
       { key: 'submission', label: t('review_authority.insights.f_submission', { defaultValue: 'Submission' }), kind: 'dimension' },
       { key: 'authority', label: t('review_authority.insights.f_authority', { defaultValue: 'Authority' }), kind: 'dimension' },

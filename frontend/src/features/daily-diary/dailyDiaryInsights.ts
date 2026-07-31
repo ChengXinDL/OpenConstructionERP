@@ -4,10 +4,8 @@
  * Daily site diary's contribution to the Module Insights panel: it turns the
  * diaries the calendar already loaded into one dataset plus a set of built-in
  * KPIs and charts (site days logged over time, labour on site over time,
- * diaries by status and by weather). When a project has no diaries yet, a
- * clearly labelled sample set stands in so the panel still shows what it can
- * do; the panel marks it "Sample data" so it is never mistaken for the real
- * thing.
+ * diaries by status and by weather). When a project has no diaries yet, the
+ * panel simply stays empty until the register holds records.
  *
  * Value labels reuse the same `daily_diary.status.*` i18n keys the calendar
  * badges use, so a slice in a chart reads exactly like the badge on the day it
@@ -95,26 +93,6 @@ function toRow(d: DiaryLite, t: Translate): Row {
   };
 }
 
-// Illustrative diaries for an empty project - a run of site days across a few
-// months with a spread of statuses, weather and a rising labour curve so every
-// built-in chart has something to draw.
-const SAMPLE: Array<{
-  diary_date: string;
-  status: string;
-  labour_count: number;
-  equipment_count: number;
-  conditions: string;
-}> = [
-  { diary_date: '2026-02-03', status: 'signed', labour_count: 18, equipment_count: 4, conditions: 'clear' },
-  { diary_date: '2026-02-17', status: 'signed', labour_count: 24, equipment_count: 5, conditions: 'cloudy' },
-  { diary_date: '2026-03-05', status: 'signed', labour_count: 31, equipment_count: 6, conditions: 'rain' },
-  { diary_date: '2026-03-19', status: 'archived', labour_count: 28, equipment_count: 5, conditions: 'overcast' },
-  { diary_date: '2026-04-08', status: 'signed', labour_count: 35, equipment_count: 7, conditions: 'clear' },
-  { diary_date: '2026-04-22', status: 'closed', labour_count: 40, equipment_count: 8, conditions: 'rain' },
-  { diary_date: '2026-05-06', status: 'open', labour_count: 33, equipment_count: 6, conditions: 'snow' },
-  { diary_date: '2026-05-20', status: 'open', labour_count: 29, equipment_count: 5, conditions: 'cloudy' },
-];
-
 export interface DailyDiaryInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -125,30 +103,14 @@ export function buildDailyDiaryInsights(
   currency: string,
   t: Translate,
 ): DailyDiaryInsights {
-  const real = diaries.length > 0;
-
-  const rows: Row[] = real
-    ? [...diaries]
-        .sort((a, b) => (a.diary_date ?? '').localeCompare(b.diary_date ?? ''))
-        .map((d) => toRow(d, t))
-    : SAMPLE.map((s) =>
-        toRow(
-          {
-            diary_date: s.diary_date,
-            status: s.status,
-            labour_count: s.labour_count,
-            equipment_count: s.equipment_count,
-            weather_summary: { conditions: s.conditions },
-          },
-          t,
-        ),
-      );
+  const rows: Row[] = [...diaries]
+    .sort((a, b) => (a.diary_date ?? '').localeCompare(b.diary_date ?? ''))
+    .map((d) => toRow(d, t));
 
   const dataset: InsightDataset = {
     id: 'diaries',
     label: t('daily_diary.insights.ds_diaries', { defaultValue: 'Site diary register' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'date', label: t('daily_diary.insights.f_date', { defaultValue: 'Diary date' }), kind: 'dimension' },
       { key: 'status', label: t('daily_diary.insights.f_status', { defaultValue: 'Status' }), kind: 'dimension' },

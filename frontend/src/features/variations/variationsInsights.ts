@@ -6,9 +6,8 @@
  * commercial and programme impact of every proposed change) and turns them
  * into one dataset plus built-in KPIs and charts: total cost impact, approved
  * vs pending counts, cost by change type, the approval-status split and how
- * the exposure builds up over time. When a project has no requests yet, a
- * clearly-labelled sample set stands in so the panel still shows what it can
- * do; the panel marks it "Sample data" so it is never mistaken for real data.
+ * the exposure builds up over time. When a project has no requests yet, the
+ * panel simply stays empty until the register holds records.
  *
  * The panel charts variation requests specifically (not notices, orders,
  * daywork or EOT) because requests are where the estimated cost and schedule
@@ -116,20 +115,6 @@ function toRow(r: VariationRequestLite, t: Translate): Row {
   };
 }
 
-// Illustrative variation requests for a project with none yet - a realistic
-// spread of change types, urgencies, approval states, cost impacts and months
-// so every built-in KPI and chart has something to show.
-const SAMPLE: Array<Omit<VariationRequestLite, 'created_at'> & { month: string }> = [
-  { title: 'Additional piling to grid C', classification: 'unforeseen', status: 'approved', urgency: 'high', estimated_cost_impact: 48000, estimated_schedule_days: 6, month: '2026-02' },
-  { title: 'Revised lobby cladding', classification: 'owner_change', status: 'under_review', urgency: 'med', estimated_cost_impact: 72000, estimated_schedule_days: 10, month: '2026-02' },
-  { title: 'Rock removal at south basement', classification: 'unforeseen', status: 'approved', urgency: 'high', estimated_cost_impact: 95000, estimated_schedule_days: 14, month: '2026-03' },
-  { title: 'Upgraded fire detection', classification: 'regulatory', status: 'submitted', urgency: 'med', estimated_cost_impact: 26000, estimated_schedule_days: 4, month: '2026-03' },
-  { title: 'Coordinated MEP routing', classification: 'design_dev', status: 'approved', urgency: 'low', estimated_cost_impact: 18000, estimated_schedule_days: 3, month: '2026-04' },
-  { title: 'Extra parking bays', classification: 'scope_change', status: 'rejected', urgency: 'low', estimated_cost_impact: 34000, estimated_schedule_days: 5, month: '2026-04' },
-  { title: 'Facade colour change', classification: 'owner_change', status: 'draft', urgency: 'low', estimated_cost_impact: 12000, estimated_schedule_days: 2, month: '2026-05' },
-  { title: 'Accessibility ramp revision', classification: 'regulatory', status: 'converted_to_vo', urgency: 'high', estimated_cost_impact: 41000, estimated_schedule_days: 7, month: '2026-05' },
-];
-
 export interface VariationsInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -140,19 +125,14 @@ export function buildVariationsInsights(
   currency: string,
   t: Translate,
 ): VariationsInsights {
-  const real = requests.length > 0;
-
-  const rows: Row[] = real
-    ? [...requests]
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        .map((r) => toRow(r, t))
-    : SAMPLE.map((r) => toRow({ ...r, created_at: `${r.month}-01` }, t));
+  const rows: Row[] = [...requests]
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .map((r) => toRow(r, t));
 
   const dataset: InsightDataset = {
     id: 'variation_requests',
     label: t('variations.insights.ds_requests', { defaultValue: 'Variation requests' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'title', label: t('variations.insights.f_title', { defaultValue: 'Request' }), kind: 'dimension' },
       { key: 'type', label: t('variations.insights.f_type', { defaultValue: 'Type' }), kind: 'dimension' },

@@ -14,9 +14,8 @@
  * certified -> paid) and a reporting period, so "value over time" and the status
  * split - the natural CVR centrepieces - are drawn from real money.
  *
- * When a project has no applications yet, a clearly-labelled sample set stands
- * in so the panel still shows what it can do; the panel marks it "Sample data"
- * so it is never mistaken for the real thing. Status labels reuse the same
+ * When a project has no applications yet, the panel simply stays empty until
+ * the register holds records. Status labels reuse the same
  * `cvr.payapp_status_*` i18n keys the applications table uses, so a chart slice
  * reads exactly like the status pill on the row it came from.
  *
@@ -98,27 +97,6 @@ function toRow(app: PayappLite, unnumbered: string, t: Translate): Row {
   };
 }
 
-// Illustrative payment applications for a project with none yet - a realistic
-// run of monthly interim applications across the lifecycle, with gross,
-// retention and the resulting net due, so every built-in KPI and chart has
-// something to show. Net = gross - retention.
-const SAMPLE: Array<{
-  application_number: string;
-  period: string;
-  status: string;
-  gross_value: number;
-  retention: number;
-}> = [
-  { application_number: 'IPA-001', period: '2026-02', status: 'paid', gross_value: 180000, retention: 9000 },
-  { application_number: 'IPA-002', period: '2026-03', status: 'paid', gross_value: 240000, retention: 12000 },
-  { application_number: 'IPA-003', period: '2026-04', status: 'certified', gross_value: 310000, retention: 15500 },
-  { application_number: 'IPA-004', period: '2026-05', status: 'certified', gross_value: 275000, retention: 13750 },
-  { application_number: 'IPA-005', period: '2026-06', status: 'submitted', gross_value: 330000, retention: 16500 },
-  { application_number: 'IPA-006', period: '2026-07', status: 'submitted', gross_value: 290000, retention: 14500 },
-  { application_number: 'IPA-007', period: '2026-08', status: 'draft', gross_value: 210000, retention: 10500 },
-  { application_number: 'IPA-008', period: '2026-09', status: 'draft', gross_value: 195000, retention: 9750 },
-];
-
 export interface CvrInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -129,33 +107,16 @@ export function buildCvrInsights(
   currency: string,
   t: Translate,
 ): CvrInsights {
-  const real = applications.length > 0;
   const unnumbered = t('cvr.insights.unnumbered', { defaultValue: 'Unnumbered' });
 
-  const rows: Row[] = real
-    ? [...applications]
-        .sort((a, b) => (a.period ?? '').localeCompare(b.period ?? ''))
-        .map((a) => toRow(a, unnumbered, t))
-    : SAMPLE.map((s) =>
-        toRow(
-          {
-            application_number: s.application_number,
-            period: s.period,
-            status: s.status,
-            gross_value: s.gross_value,
-            retention: s.retention,
-            net_value: s.gross_value - s.retention,
-          },
-          unnumbered,
-          t,
-        ),
-      );
+  const rows: Row[] = [...applications]
+    .sort((a, b) => (a.period ?? '').localeCompare(b.period ?? ''))
+    .map((a) => toRow(a, unnumbered, t));
 
   const dataset: InsightDataset = {
     id: 'payapps',
     label: t('cvr.insights.ds_payapps', { defaultValue: 'Payment applications' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'application', label: t('cvr.insights.f_application', { defaultValue: 'Application' }), kind: 'dimension' },
       { key: 'status', label: t('cvr.insights.f_status', { defaultValue: 'Status' }), kind: 'dimension' },

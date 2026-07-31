@@ -79,9 +79,9 @@ describe('buildFileApprovalsInsights', () => {
     expect(cell([workflow({ submitted_at: daysAgo(23) })], 'days')).toBe(23);
   });
 
-  it('marks the dataset as sample only when there is nothing real to show', () => {
-    expect(buildFileApprovalsInsights([], t).datasets[0]?.sample).toBe(true);
-    expect(buildFileApprovalsInsights([workflow({})], t).datasets[0]?.sample).toBe(false);
+  it('leaves the dataset empty when there is nothing real to show', () => {
+    expect(buildFileApprovalsInsights([], t).datasets[0]?.rows).toHaveLength(0);
+    expect(buildFileApprovalsInsights([workflow({})], t).datasets[0]?.rows).toHaveLength(1);
   });
 
   it('exposes no currency-formatted measure, because an approval carries no money', () => {

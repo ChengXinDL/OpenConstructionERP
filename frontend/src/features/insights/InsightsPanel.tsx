@@ -53,7 +53,16 @@ export function InsightsPanel({
   const all = useMemo(() => [...builtins, ...custom], [builtins, custom]);
   const kpis = all.filter((d) => d.chart === 'kpi');
   const charts = all.filter((d) => d.chart !== 'kpi');
-  const hasSample = datasets.some((d) => d.sample);
+  // Only rows that are genuinely the user's own count as something to draw.
+  // A dataset flagged `sample` is illustrative, and a panel full of invented
+  // figures reads as if the project already held that work. We would rather
+  // show nothing: an empty register is a fact about the project, whereas a
+  // fabricated chart is a claim nobody can act on.
+  const real = useMemo(
+    () => datasets.filter((d) => !d.sample && d.rows.length > 0),
+    [datasets],
+  );
+  const hasData = real.length > 0;
 
   if (!open) return null;
 
@@ -84,17 +93,6 @@ export function InsightsPanel({
           <div className="min-w-0">
             <h2 className="flex items-center gap-2 text-sm font-semibold text-content-primary">
               {title ?? t('insights.toggle', { defaultValue: 'Insights' })}
-              {hasSample && (
-                <span
-                  className="inline-flex items-center gap-1 rounded-full border border-semantic-warning/30 bg-semantic-warning-bg/50 px-2 py-0.5 text-2xs font-medium text-semantic-warning"
-                  title={t('insights.sample_hint', {
-                    defaultValue: 'This project has no data yet, so the panel shows sample figures to illustrate.',
-                  })}
-                >
-                  <FlaskConical size={11} />
-                  {t('insights.sample', { defaultValue: 'Sample data' })}
-                </span>
-              )}
             </h2>
             <p className="truncate text-xs text-content-tertiary">
               {subtitle ??
@@ -112,15 +110,31 @@ export function InsightsPanel({
             setEditing(null);
             setBuilding(true);
           }}
-          disabled={datasets.length === 0}
+          disabled={!hasData}
         >
           {t('insights.new_chart', { defaultValue: 'New chart' })}
         </Button>
       </div>
 
       <div className="space-y-4 p-4">
+        {/* No records in this module yet, so there is nothing honest to draw. */}
+        {!hasData && (
+          <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+            <FlaskConical size={26} className="text-content-tertiary" strokeWidth={1.5} />
+            <p className="text-sm text-content-secondary">
+              {t('insights.no_data_title', { defaultValue: 'No data to chart yet' })}
+            </p>
+            <p className="max-w-sm text-xs text-content-tertiary">
+              {t('insights.no_data_desc', {
+                defaultValue:
+                  'Charts appear here as soon as this module holds records. Until then the panel stays empty rather than showing made-up figures.',
+              })}
+            </p>
+          </div>
+        )}
+
         {/* KPI row */}
-        {kpis.length > 0 && (
+        {hasData && kpis.length > 0 && (
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {kpis.map((def) => {
               const ds = dsMap[def.datasetId];
@@ -145,7 +159,7 @@ export function InsightsPanel({
         )}
 
         {/* Chart grid */}
-        {charts.length > 0 && (
+        {hasData && charts.length > 0 && (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {charts.map((def) => (
               <InsightCard
@@ -159,8 +173,8 @@ export function InsightsPanel({
           </div>
         )}
 
-        {/* Nothing to show yet */}
-        {all.length === 0 && (
+        {/* There is data, but the user has removed every chart. */}
+        {hasData && all.length === 0 && (
           <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
             <BarChart3 size={26} className="text-content-tertiary" strokeWidth={1.5} />
             <p className="text-sm text-content-secondary">

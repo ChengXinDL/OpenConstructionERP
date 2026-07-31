@@ -79,47 +79,6 @@ function toRow(it: DeadlineItem, unassigned: string, t: Translate): Row {
   };
 }
 
-// Illustrative items for an empty register: a spread across the three source
-// modules, owners and severities, with a realistic tail of slip, so every
-// built-in chart has something to draw.
-interface SampleDeadline {
-  title: string;
-  module: string;
-  owner: string;
-  severity: string;
-  classification: string;
-  daysOverdue: number;
-}
-
-const SAMPLE: SampleDeadline[] = [
-  { title: 'Response to RFI on stair core rebar', module: 'correspondence', owner: 'Design manager', severity: 'critical', classification: 'overdue', daysOverdue: 14 },
-  { title: 'Response to variation instruction 042', module: 'correspondence', owner: 'Commercial', severity: 'warning', classification: 'overdue', daysOverdue: 6 },
-  { title: 'Letter of intent acknowledgement', module: 'correspondence', owner: 'Project director', severity: 'info', classification: 'approaching', daysOverdue: -4 },
-  { title: 'Corrective action: concrete cube failure', module: 'qms_ncr_action', owner: 'QA lead', severity: 'critical', classification: 'overdue', daysOverdue: 21 },
-  { title: 'Corrective action: weld inspection gap', module: 'qms_ncr_action', owner: 'QA lead', severity: 'warning', classification: 'overdue', daysOverdue: 3 },
-  { title: 'Corrective action: membrane lap width', module: 'qms_ncr_action', owner: 'Site manager', severity: 'info', classification: 'approaching', daysOverdue: -7 },
-  { title: 'Fire door closer not self-latching', module: 'punchlist', owner: 'Site manager', severity: 'critical', classification: 'overdue', daysOverdue: 12 },
-  { title: 'Riser duct penetration unsealed', module: 'punchlist', owner: 'Site manager', severity: 'warning', classification: 'overdue', daysOverdue: 4 },
-  { title: 'Rainwater outlet ponding on roof', module: 'punchlist', owner: 'Unassigned', severity: 'warning', classification: 'approaching', daysOverdue: -2 },
-  { title: 'Socket outlet loose in unit 4.02', module: 'punchlist', owner: 'Unassigned', severity: 'info', classification: 'approaching', daysOverdue: -6 },
-];
-
-function sampleRow(s: SampleDeadline, t: Translate): Row {
-  const due = new Date(Date.now() - s.daysOverdue * 24 * 60 * 60 * 1000);
-  const late = s.daysOverdue > 0;
-  return {
-    title: s.title,
-    module: moduleLabel(s.module, t),
-    owner: s.owner,
-    severity: severityLabel(s.severity, t),
-    classification: classificationLabel(s.classification, t),
-    due_month: monthKey(due.toISOString()),
-    overdue: late ? 1 : 0,
-    approaching: s.classification === 'approaching' ? 1 : 0,
-    days_late: late ? s.daysOverdue : 0,
-  };
-}
-
 export interface DeadlinesInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -130,18 +89,14 @@ export interface DeadlinesInsights {
  * money, so there is no currency and no currency-formatted measure.
  */
 export function buildDeadlinesInsights(items: DeadlineItem[], t: Translate): DeadlinesInsights {
-  const real = items.length > 0;
   const unassigned = t('deadlines.no_owner', { defaultValue: 'Unassigned' });
 
-  const rows: Row[] = real
-    ? items.map((it) => toRow(it, unassigned, t))
-    : SAMPLE.map((s) => sampleRow(s, t));
+  const rows: Row[] = items.map((it) => toRow(it, unassigned, t));
 
   const dataset: InsightDataset = {
     id: 'deadlines',
     label: t('deadlines.insights.ds_deadlines', { defaultValue: 'Deadline register' }),
     currency: '',
-    sample: !real,
     fields: [
       { key: 'title', label: t('deadlines.insights.f_title', { defaultValue: 'Item' }), kind: 'dimension' },
       { key: 'module', label: t('deadlines.insights.f_module', { defaultValue: 'Source module' }), kind: 'dimension' },

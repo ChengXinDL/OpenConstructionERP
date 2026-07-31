@@ -4,9 +4,8 @@
  * Contracts' contribution to the Module Insights panel: it turns the contract
  * register the page already loaded into one dataset plus a set of built-in KPIs
  * and charts (contract value by type, contracts by status and counterparty,
- * register value over time). When a project has no contracts yet, a clearly
- * labelled sample set stands in so the panel still shows what it can do; the
- * panel marks it "Sample data" so it is never mistaken for the real thing.
+ * register value over time). When a project has no contracts yet, the panel
+ * simply stays empty until the register holds records.
  *
  * Labels reuse the same `contracts.type_*` / `contracts.status_*` /
  * `contracts.cp_*` i18n keys the register table uses, so a slice in a chart
@@ -99,20 +98,6 @@ function toRow(c: ContractLite, t: Translate): Row {
   };
 }
 
-// Illustrative contracts for an empty register - realistic construction
-// packages with a spread of contract types, statuses, counterparties, months
-// and values so every built-in chart has something to draw.
-const SAMPLE: Array<Omit<ContractLite, 'created_at'> & { month: string }> = [
-  { title: 'Main works - superstructure', contract_type: 'lump_sum', status: 'active', counterparty_type: 'subcontractor', total_value: 2450000, month: '2026-01' },
-  { title: 'Groundworks & piling', contract_type: 'remeasurement', status: 'active', counterparty_type: 'subcontractor', total_value: 680000, month: '2026-01' },
-  { title: 'Mechanical & electrical', contract_type: 'gmp', status: 'draft', counterparty_type: 'subcontractor', total_value: 1320000, month: '2026-02' },
-  { title: 'Facade design & build', contract_type: 'design_build', status: 'active', counterparty_type: 'subcontractor', total_value: 940000, month: '2026-02' },
-  { title: 'Head contract - developer', contract_type: 'lump_sum', status: 'active', counterparty_type: 'client', total_value: 5600000, month: '2026-03' },
-  { title: 'Internal fit-out packages', contract_type: 'unit_price', status: 'suspended', counterparty_type: 'subcontractor', total_value: 410000, month: '2026-03' },
-  { title: 'Enabling & demolition', contract_type: 'cost_plus', status: 'completed', counterparty_type: 'subcontractor', total_value: 220000, month: '2026-04' },
-  { title: 'Temporary works hire', contract_type: 'tm', status: 'terminated', counterparty_type: 'subcontractor', total_value: 85000, month: '2026-05' },
-];
-
 export interface ContractsInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -123,19 +108,14 @@ export function buildContractsInsights(
   currency: string,
   t: Translate,
 ): ContractsInsights {
-  const real = contracts.length > 0;
-
-  const rows: Row[] = real
-    ? [...contracts]
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        .map((c) => toRow(c, t))
-    : SAMPLE.map((s) => toRow({ ...s, created_at: `${s.month}-01` }, t));
+  const rows: Row[] = [...contracts]
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .map((c) => toRow(c, t));
 
   const dataset: InsightDataset = {
     id: 'contracts',
     label: t('contracts.insights.ds_contracts', { defaultValue: 'Contract register' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'title', label: t('contracts.insights.f_title', { defaultValue: 'Contract' }), kind: 'dimension' },
       { key: 'type', label: t('contracts.insights.f_type', { defaultValue: 'Type' }), kind: 'dimension' },

@@ -98,50 +98,6 @@ function toRows(sheets: FieldTimesheet[], labels: Labels, t: Translate): Row[] {
   return rows;
 }
 
-// Illustrative bookings for an empty project: a fortnight of labour and plant
-// across a handful of cost codes, with a slice of daywork, so every built-in
-// chart has something to draw.
-interface SampleLine {
-  reference: string;
-  daysAgo: number;
-  status: string;
-  costCode: string;
-  kind: string;
-  daywork: boolean;
-  hours: number;
-}
-
-const SAMPLE: SampleLine[] = [
-  { reference: 'TS-0104', daysAgo: 12, status: 'approved', costCode: '02-300 Groundworks', kind: 'labour', daywork: false, hours: 64 },
-  { reference: 'TS-0104', daysAgo: 12, status: 'approved', costCode: '02-300 Groundworks', kind: 'plant', daywork: false, hours: 18 },
-  { reference: 'TS-0105', daysAgo: 11, status: 'approved', costCode: '03-100 Concrete frame', kind: 'labour', daywork: false, hours: 88 },
-  { reference: 'TS-0105', daysAgo: 11, status: 'approved', costCode: '03-100 Concrete frame', kind: 'plant', daywork: false, hours: 24 },
-  { reference: 'TS-0106', daysAgo: 9, status: 'approved', costCode: '03-100 Concrete frame', kind: 'labour', daywork: true, hours: 22 },
-  { reference: 'TS-0107', daysAgo: 8, status: 'approved', costCode: '05-200 Steelwork', kind: 'labour', daywork: false, hours: 56 },
-  { reference: 'TS-0108', daysAgo: 6, status: 'submitted', costCode: '05-200 Steelwork', kind: 'plant', daywork: false, hours: 16 },
-  { reference: 'TS-0109', daysAgo: 5, status: 'submitted', costCode: '22-100 Plumbing first fix', kind: 'labour', daywork: false, hours: 40 },
-  { reference: 'TS-0110', daysAgo: 3, status: 'submitted', costCode: '22-100 Plumbing first fix', kind: 'labour', daywork: true, hours: 14 },
-  { reference: 'TS-0111', daysAgo: 2, status: 'draft', costCode: '26-100 Electrical first fix', kind: 'labour', daywork: false, hours: 32 },
-  { reference: 'TS-0111', daysAgo: 2, status: 'draft', costCode: '26-100 Electrical first fix', kind: 'plant', daywork: false, hours: 8 },
-  { reference: 'TS-0112', daysAgo: 1, status: 'draft', costCode: '01-500 Preliminaries', kind: 'labour', daywork: true, hours: 9 },
-];
-
-function sampleRow(s: SampleLine, labels: Labels, t: Translate): Row {
-  const iso = new Date(Date.now() - s.daysAgo * 24 * 60 * 60 * 1000).toISOString();
-  const pendingApproval = s.status === 'draft' || s.status === 'submitted';
-  return {
-    reference: s.reference,
-    month: monthKey(iso),
-    status: statusLabel(s.status, t),
-    cost_code: s.costCode,
-    kind: kindLabel(s.kind, t),
-    daywork_flag: s.daywork ? labels.yes : labels.no,
-    hours: s.hours,
-    daywork: s.daywork ? s.hours : 0,
-    unapproved: pendingApproval ? s.hours : 0,
-  };
-}
-
 /**
  * Build the field time dataset and its built-in charts.
  *
@@ -155,15 +111,14 @@ export function buildFieldTimeInsights(sheets: FieldTimesheet[], t: Translate): 
     no: t('field_time.insights.daywork_no', { defaultValue: 'Measured work' }),
   };
 
-  const realRows = toRows(sheets, labels, t);
-  const real = realRows.length > 0;
-  const rows = real ? realRows : SAMPLE.map((s) => sampleRow(s, labels, t));
+  // Sheets with no booked lines contribute nothing, so a project that has only
+  // empty sheets ends up with an empty dataset rather than an invented one.
+  const rows = toRows(sheets, labels, t);
 
   const dataset: InsightDataset = {
     id: 'lines',
     label: t('field_time.insights.ds_lines', { defaultValue: 'Booked time' }),
     currency: '',
-    sample: !real,
     fields: [
       { key: 'reference', label: t('field_time.insights.f_reference', { defaultValue: 'Timesheet' }), kind: 'dimension' },
       { key: 'month', label: t('field_time.insights.f_month', { defaultValue: 'Month' }), kind: 'dimension' },

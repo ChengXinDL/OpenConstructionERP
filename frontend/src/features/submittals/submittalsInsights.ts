@@ -5,9 +5,8 @@
  * submittals the page already loaded into one dataset plus a set of built-in
  * KPIs and charts (submittals by type, by status, who currently owes the next
  * move, and how many are raised over time). When a project has no submittals
- * yet, a clearly labelled sample set stands in so the panel still shows what it
- * can do; the panel marks it "Sample data" so it is never mistaken for the real
- * thing.
+ * yet the dataset is empty and the panel shows nothing, which is the honest
+ * answer for a register nobody has filled in.
  *
  * Value labels reuse the same `submittals.status_*` / `submittals.type_*` i18n
  * keys the register table uses, so a slice in a chart reads exactly like the
@@ -134,21 +133,6 @@ function toRow(r: SubmittalLite, t: Translate): Row {
   };
 }
 
-// Illustrative submittals for an empty project - realistic shop drawings,
-// product data, samples and certificates with a spread of statuses, types,
-// spec sections, months and due dates so every built-in chart has something to
-// draw.
-const SAMPLE: Array<Omit<SubmittalLite, 'created_at'> & { month: string }> = [
-  { title: 'Structural steel shop drawings - Level 3', status: 'under_review', type: 'shop_drawing', spec_section: '05 12 00', date_required: '2026-03-15', updated_at: '2026-02-20', month: '2026-02' },
-  { title: 'Curtain wall product data', status: 'submitted', type: 'product_data', spec_section: '08 44 00', date_required: '2026-08-30', updated_at: '2026-02-10', month: '2026-02' },
-  { title: 'Concrete mix design C40/50', status: 'approved', type: 'product_data', spec_section: '03 30 00', date_required: '2026-03-20', updated_at: '2026-03-12', month: '2026-03' },
-  { title: 'Waterproofing membrane sample', status: 'approved_as_noted', type: 'sample', spec_section: '07 13 00', date_required: '2026-04-10', updated_at: '2026-03-28', month: '2026-03' },
-  { title: 'Fire damper test certificate', status: 'revise_and_resubmit', type: 'certificate', spec_section: '23 33 00', date_required: '2026-05-01', updated_at: '2026-04-18', month: '2026-04' },
-  { title: 'Precast facade panel mock-up', status: 'draft', type: 'mock_up', spec_section: '03 45 00', date_required: '2026-09-01', updated_at: '2026-04-05', month: '2026-04' },
-  { title: 'Rebar mill test report', status: 'approved', type: 'test_report', spec_section: '03 21 00', date_required: '2026-05-20', updated_at: '2026-05-14', month: '2026-05' },
-  { title: 'Door hardware product data', status: 'rejected', type: 'product_data', spec_section: '08 71 00', date_required: '2026-05-25', updated_at: '2026-05-30', month: '2026-05' },
-];
-
 export interface SubmittalsInsights {
   datasets: InsightDataset[];
   builtins: InsightDef[];
@@ -159,19 +143,14 @@ export function buildSubmittalsInsights(
   currency: string,
   t: Translate,
 ): SubmittalsInsights {
-  const real = submittals.length > 0;
-
-  const rows: Row[] = real
-    ? [...submittals]
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        .map((r) => toRow(r, t))
-    : SAMPLE.map((s) => toRow({ ...s, created_at: `${s.month}-01` }, t));
+  const rows: Row[] = [...submittals]
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    .map((r) => toRow(r, t));
 
   const dataset: InsightDataset = {
     id: 'submittals',
     label: t('submittals.insights.ds_submittals', { defaultValue: 'Submittal register' }),
     currency: currency || '',
-    sample: !real,
     fields: [
       { key: 'title', label: t('submittals.insights.f_title', { defaultValue: 'Submittal' }), kind: 'dimension' },
       { key: 'status', label: t('submittals.insights.f_status', { defaultValue: 'Status' }), kind: 'dimension' },

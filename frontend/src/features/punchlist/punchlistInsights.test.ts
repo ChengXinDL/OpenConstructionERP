@@ -71,9 +71,9 @@ describe('buildPunchlistInsights', () => {
     expect(row(punch({ created_at: daysAgo(20) }))?.age).toBe(20);
   });
 
-  it('falls back to a clearly-marked sample on an empty list', () => {
-    expect(buildPunchlistInsights([], t).datasets[0]?.sample).toBe(true);
-    expect(buildPunchlistInsights([punch({})], t).datasets[0]?.sample).toBe(false);
+  it('draws nothing at all on an empty list', () => {
+    expect(buildPunchlistInsights([], t).datasets[0]?.rows).toHaveLength(0);
+    expect(buildPunchlistInsights([punch({})], t).datasets[0]?.rows).toHaveLength(1);
   });
 
   it('exposes no currency-formatted measure, because a snag carries no money', () => {
