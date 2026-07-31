@@ -12,7 +12,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.orm_write import apply_update
-from app.modules.rfq_bidding.models import RFQ, RFQBid
+from app.modules.rfq_bidding.models import (
+    RFQ,
+    RFQAward,
+    RFQBid,
+    RFQBidAdjustment,
+    RFQLine,
+)
 
 
 class RFQRepository:
@@ -99,6 +105,47 @@ class RFQRepository:
         return f"RFQ-{numeric + 1:03d}"
 
 
+class RFQLineRepository:
+    """Data access for the scope lines of an RFQ."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def get(self, line_id: uuid.UUID) -> RFQLine | None:
+        """Get one scope line by ID."""
+        return await self.session.get(RFQLine, line_id)
+
+    async def list_for_rfq(self, rfq_id: uuid.UUID) -> list[RFQLine]:
+        """Every scope line of one RFQ, in line order."""
+        result = await self.session.execute(select(RFQLine).where(RFQLine.rfq_id == rfq_id).order_by(RFQLine.line_no))
+        return list(result.scalars().all())
+
+    async def create(self, line: RFQLine) -> RFQLine:
+        """Insert a new scope line."""
+        self.session.add(line)
+        await self.session.flush()
+        return line
+
+    async def update(self, line_id: uuid.UUID, **fields: object) -> None:
+        """Update specific fields on a scope line."""
+        await apply_update(self.session, RFQLine, line_id, **fields)
+
+    async def delete(self, line: RFQLine) -> None:
+        """Delete a scope line and any quoted lines that referenced it."""
+        await self.session.delete(line)
+        await self.session.flush()
+
+    async def next_line_no(self, rfq_id: uuid.UUID) -> int:
+        """The next free line number, taken from the current maximum.
+
+        Counting rows would reuse a number after a deletion and collide with
+        the ``(rfq_id, line_no)`` unique constraint.
+        """
+        stmt = select(func.max(RFQLine.line_no)).where(RFQLine.rfq_id == rfq_id)
+        current = (await self.session.execute(stmt)).scalar_one()
+        return int(current or 0) + 1
+
+
 class RFQBidRepository:
     """Data access for RFQBid model."""
 
@@ -139,3 +186,32 @@ class RFQBidRepository:
     async def update(self, bid_id: uuid.UUID, **fields: object) -> None:
         """Update specific fields on a bid."""
         await apply_update(self.session, RFQBid, bid_id, **fields)
+
+    async def add_adjustment(self, adjustment: RFQBidAdjustment) -> RFQBidAdjustment:
+        """Insert one inclusion or exclusion against an existing quote."""
+        self.session.add(adjustment)
+        await self.session.flush()
+        return adjustment
+
+
+class RFQAwardRepository:
+    """Data access for the award decision record.
+
+    One row per RFQ, written when a quote is awarded and never rewritten: the
+    ranked table it carries is the state of the comparison at that moment, and
+    recomputing it later answers a different question.
+    """
+
+    def __init__(self, session: AsyncSession) -> None:
+        self.session = session
+
+    async def get_for_rfq(self, rfq_id: uuid.UUID) -> RFQAward | None:
+        """The award record of one RFQ, or ``None`` if it has not been awarded."""
+        result = await self.session.execute(select(RFQAward).where(RFQAward.rfq_id == rfq_id))
+        return result.scalar_one_or_none()
+
+    async def create(self, award: RFQAward) -> RFQAward:
+        """Insert the award record."""
+        self.session.add(award)
+        await self.session.flush()
+        return award

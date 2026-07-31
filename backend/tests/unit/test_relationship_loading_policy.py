@@ -111,7 +111,6 @@ KNOWN_DEFAULT_LAZY: frozenset[str] = frozenset(
         "requirements.GateResult.requirement_set",
         "requirements.Requirement.requirement_set",
         "requirements.RequirementDeliverable.requirement",
-        "rfq_bidding.RFQBid.rfq",
         "schedule.Activity.schedule",
         "schedule.WorkOrder.activity",
         "service.DebriefReport.work_order",
