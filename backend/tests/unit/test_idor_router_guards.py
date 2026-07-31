@@ -184,6 +184,10 @@ _GUARD_WRAPPERS = frozenset(
         "_gate_by_drawing",
         "_gate_by_annotation",
         "_gate_by_group",
+        # teams.router — resolves the team's owning project and delegates to
+        # verify_project_access, normalising its 404 to "Team not found" so a
+        # team id cannot be probed for existence across projects.
+        "_gate_team_admin",
     }
 )
 

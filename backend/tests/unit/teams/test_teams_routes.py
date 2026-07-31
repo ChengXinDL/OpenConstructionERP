@@ -160,6 +160,32 @@ async def test_an_unknown_team_and_a_foreign_team_answer_alike(session) -> None:
     assert foreign.json()["detail"] == invented.json()["detail"]
 
 
+async def test_a_write_to_a_foreign_team_is_refused_and_says_nothing(session) -> None:
+    """PATCH and DELETE answer like the reads: 404, with one body for both cases.
+
+    The reads above are covered; the writes were not, and they are the two
+    handlers the IDOR guard pins. Renaming or deleting another project's team
+    must be indistinguishable from acting on a team id that names nothing.
+    """
+    owner_a = await make_user(session)
+    owner_b = await make_user(session)
+    await make_project(session, owner_a.id)
+    project_b = await make_project(session, owner_b.id)
+    team_b = await make_team(session, project_b.id, name="Theirs", is_default=True)
+
+    async with http_client(build_app(session, caller_id=owner_a.id)) as client:
+        renamed = await client.patch(f"{API_PREFIX}/{team_b.id}", json={"name": "Mine now"})
+        invented = await client.patch(f"{API_PREFIX}/{uuid.uuid4()}", json={"name": "Mine now"})
+        removed = await client.delete(f"{API_PREFIX}/{team_b.id}")
+
+    assert renamed.status_code == invented.status_code == removed.status_code == 404
+    assert renamed.json()["detail"] == invented.json()["detail"]
+
+    # And the team is still there, under its own name.
+    await session.refresh(team_b)
+    assert team_b.name == "Theirs"
+
+
 # ── Members over HTTP ────────────────────────────────────────────────────────
 
 

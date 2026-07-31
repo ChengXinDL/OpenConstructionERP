@@ -53,7 +53,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.dependencies import CurrentUserId, SessionDep
+from app.dependencies import CurrentUserId, SessionDep, verify_project_access
 from app.modules.teams.schemas import (
     AccessMatrixResponse,
     AddMemberRequest,
@@ -79,6 +79,36 @@ logger = logging.getLogger(__name__)
 
 def _get_service(session: SessionDep) -> TeamService:
     return TeamService(session)
+
+
+async def _gate_team_admin(
+    team_id: uuid.UUID,
+    user_id: str | None,
+    service: TeamService,
+    session: SessionDep,
+) -> None:
+    """Resolve a team and gate the caller on the project that owns it.
+
+    For an HTTP caller the service is the gate that does the enforcing, and it
+    reaches the same verdict on its own: these two layers are behaviourally
+    indistinguishable from the wire, which was measured rather than assumed.
+    What this adds is structural. ``test_idor_router_guards`` pins that every
+    single-resource mutation resolves its parent project at the route, so a
+    later refactor of the service cannot quietly become the only thing
+    standing between a caller and someone else's data.
+
+    A team id that names nothing and a team in someone else's project both
+    answer "Team not found", so the id cannot be probed for existence.
+    Ownership stays with the service, which answers 403 only once the caller
+    has already proved they can see the project.
+    """
+    team = await service.get_team(team_id)
+    try:
+        await verify_project_access(team.project_id, str(user_id or ""), session)
+    except HTTPException as exc:
+        if exc.status_code == 404:
+            raise HTTPException(status_code=404, detail="Team not found") from exc
+        raise
 
 
 # ── Catalogue ────────────────────────────────────────────────────────────
@@ -162,9 +192,15 @@ async def update_team(
     team_id: uuid.UUID,
     data: TeamUpdate,
     user_id: CurrentUserId,
+    session: SessionDep,
     service: TeamService = Depends(_get_service),
 ) -> TeamResponse:
-    """Update team fields (project owner or system admin)."""
+    """Update team fields (project owner or system admin).
+
+    Gated on the owning project at the route as well as in the service, so a
+    team in another project answers 404 either way.
+    """
+    await _gate_team_admin(team_id, user_id, service, session)
     updated = await service.update_team(team_id, data, actor_id=user_id)
     return TeamResponse.model_validate(updated)
 
@@ -174,6 +210,7 @@ async def update_team(
 async def delete_team(
     team_id: uuid.UUID,
     user_id: CurrentUserId,
+    session: SessionDep,
     service: TeamService = Depends(_get_service),
 ) -> None:
     """Delete a team, its memberships and its restrictions.
@@ -181,7 +218,11 @@ async def delete_team(
     Records that were restricted only to this team become open to every
     project member again. That widens their audience within the project but
     cannot reach anyone outside it.
+
+    Gated on the owning project at the route as well as in the service, so a
+    team in another project answers 404 either way.
     """
+    await _gate_team_admin(team_id, user_id, service, session)
     await service.delete_team(team_id, actor_id=user_id)
 
 
