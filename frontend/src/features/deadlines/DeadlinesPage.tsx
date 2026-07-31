@@ -32,10 +32,27 @@ import { buildDeadlinesInsights } from './deadlinesInsights';
 
 const FILTERS: DeadlineStatusFilter[] = ['all', 'overdue', 'approaching'];
 
+// One entry per backend collector (app/modules/deadlines/service.py:_COLLECTORS).
+// The group heading falls back to the raw module key when a source is missing
+// here, so every new collector needs a row - the English `def` keeps the heading
+// readable in locales that have not picked up the key yet.
 const MODULE_LABELS: Record<string, { key: string; def: string }> = {
   correspondence: { key: 'deadlines.module.correspondence', def: 'Correspondence' },
   qms_ncr_action: { key: 'deadlines.module.qms_ncr_action', def: 'NCR actions' },
   punchlist: { key: 'deadlines.module.punchlist', def: 'Punch list' },
+  rfi: { key: 'deadlines.module.rfi', def: 'RFIs' },
+  submittals: { key: 'deadlines.module.submittals', def: 'Submittals' },
+  variations: { key: 'deadlines.module.variations', def: 'Variation decisions' },
+  temporary_works: { key: 'deadlines.module.temporary_works', def: 'Temporary works design' },
+  temporary_works_permit: {
+    key: 'deadlines.module.temporary_works_permit',
+    def: 'Temporary works permits',
+  },
+  defects_liability: { key: 'deadlines.module.defects_liability', def: 'Defect rectification' },
+  inspections: { key: 'deadlines.module.inspections', def: 'Inspections' },
+  compliance_docs: { key: 'deadlines.module.compliance_docs', def: 'Compliance documents' },
+  bid_management: { key: 'deadlines.module.bid_management', def: 'Bid submissions' },
+  signing: { key: 'deadlines.module.signing', def: 'Signatures' },
 };
 
 /** Humanise a source-native status string ("awaiting_response" -> "Awaiting response"). */
