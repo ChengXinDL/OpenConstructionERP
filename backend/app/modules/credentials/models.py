@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
 """Professional-credentials registry ORM model.
 
-Table:
+Tables:
     oe_credentials_credential - a project-scoped register of the professional
         credentials a delivery relies on: licences, certifications, statutory
         memberships, professional indemnity, trade/registration cards and
@@ -11,6 +11,13 @@ Table:
         statutory-notification obligation (the "notify the authority within N
         days of appointment" duty that exists, in different forms, in most
         jurisdictions).
+    oe_credentials_requirement - what the project *demands*. A credential row
+        on its own can only answer "does this ticket expire soon". Answering
+        "who may not work today" needs the other half: which credential types
+        are required, of whom, and whether a gap stops work or merely warrants
+        a note. Requirements are matched to credentials by ``credential_type``
+        rather than by a foreign key, because a requirement exists precisely
+        when the matching credential does *not*.
 
 Why a dedicated register
 ========================
@@ -42,7 +49,17 @@ from __future__ import annotations
 import uuid
 from datetime import date as _date
 
-from sqlalchemy import JSON, Date, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Date,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy import true as sa_true
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import GUID, Base
@@ -124,6 +141,14 @@ class Credential(Base):
         index=True,
     )
 
+    # ── Verification ───────────────────────────────────────────────────
+    # A credential someone typed in and a credential someone checked against
+    # the issuing authority carry different weight on an audit. Both columns
+    # NULL means "claimed, never checked"; the compliance report says so rather
+    # than treating an unchecked entry as proof.
+    verified_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    verified_at: Mapped[_date | None] = mapped_column(Date, nullable=True)
+
     # ── Free-form ──────────────────────────────────────────────────────
     notes: Mapped[str] = mapped_column(
         Text,
@@ -153,4 +178,105 @@ class Credential(Base):
         )
 
 
-__all__ = ["Credential"]
+class CredentialRequirement(Base):
+    """A credential the project requires of a class of people or firms.
+
+    Deliberately not related to :class:`Credential` by a foreign key. A
+    requirement is a statement about a *type* of credential, and its most
+    important reading is the negative one: the holder who has no matching row
+    at all is exactly the holder the report must name. An FK could only point
+    at credentials that exist, which is the case that needs no reporting.
+    """
+
+    __tablename__ = "oe_credentials_requirement"
+
+    project_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(),
+        ForeignKey("oe_projects_project.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # Matched against Credential.credential_type. Open-ended String for the
+    # same reason the credential side is: a regional pack introduces a new
+    # family without a migration.
+    credential_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+
+    # Who the requirement binds. "all" covers everyone on the register; any
+    # other value is matched against the holder's discipline, which is how a
+    # site rule like "supervisors need a first-aid ticket" is expressed without
+    # this module inventing a roles table of its own.
+    applies_to: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        default="all",
+        server_default="all",
+    )
+    holder_kind: Mapped[str] = mapped_column(
+        String(16),
+        nullable=False,
+        default="person",
+        server_default="person",
+    )
+
+    # Blocking is the whole point of the distinction: a missing blocking
+    # credential stops the holder working today, a non-blocking one is a note
+    # for the file. The compliance report separates them and never silently
+    # promotes one to the other.
+    is_blocking: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=sa_true(),
+    )
+    # Days a lapsed credential is tolerated before it starts blocking. Zero is
+    # the strict reading (expired means stop); a positive value models the site
+    # rule that gives someone a fortnight to get the renewal back.
+    grace_days: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+    description: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="",
+        server_default="",
+    )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=sa_true(),
+        index=True,
+    )
+    metadata_: Mapped[dict] = mapped_column(  # type: ignore[assignment]
+        "metadata",
+        JSON,
+        nullable=False,
+        default=dict,
+        server_default="{}",
+    )
+    created_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+    __table_args__ = (
+        # One rule per (type, audience, holder kind) per project. Without this a
+        # requirement added twice would double every gap it reports.
+        UniqueConstraint(
+            "project_id",
+            "credential_type",
+            "applies_to",
+            "holder_kind",
+            name="uq_credentials_requirement_scope",
+        ),
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug only
+        return (
+            f"<CredentialRequirement {self.credential_type} applies_to={self.applies_to!r} blocking={self.is_blocking}>"
+        )
+
+
+__all__ = ["Credential", "CredentialRequirement"]
