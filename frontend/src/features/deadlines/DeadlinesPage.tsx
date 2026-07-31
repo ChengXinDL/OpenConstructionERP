@@ -3,10 +3,10 @@
 /**
  * DeadlinesPage - the cross-module deadline register (item #18).
  *
- * Aggregates overdue + approaching work from across modules (correspondence
- * response deadlines, NCR corrective actions, punch items) into one read-only
- * register, grouped by module and filterable by all / overdue / approaching.
- * Server state lives entirely in React Query - no new Zustand store.
+ * Aggregates overdue + approaching work from the thirteen collectors registered
+ * in app/modules/deadlines/service.py into one read-only register, grouped by
+ * module and filterable by all / overdue / approaching. Server state lives
+ * entirely in React Query - no new Zustand store.
  */
 import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -55,6 +55,42 @@ const MODULE_LABELS: Record<string, { key: string; def: string }> = {
   signing: { key: 'deadlines.module.signing', def: 'Signatures' },
 };
 
+// Explainer chips, one per collector, in _COLLECTORS order.
+//
+// Deliberately a separate family from MODULE_LABELS above, which is not
+// interchangeable with it. MODULE_LABELS names the *kind of item* that carries
+// the date, because it heads a group of rows ("Bid submissions", "Defect
+// rectification"). These name the *place you land*, because they are links, so
+// they follow the module's own sidebar label shortened to chip length ("Bid
+// management", "Defects liability"). Merging the two would put item types in a
+// row of navigation chips.
+const PULLS_FROM: { key: string; def: string; to: string }[] = [
+  { key: 'deadlines.mod_correspondence', def: 'Correspondence', to: '/correspondence' },
+  { key: 'deadlines.mod_ncr', def: 'NCR register', to: '/ncr' },
+  { key: 'deadlines.mod_punchlist', def: 'Punch list', to: '/punchlist' },
+  { key: 'deadlines.mod_rfi', def: 'RFIs', to: '/rfi' },
+  { key: 'deadlines.mod_submittals', def: 'Submittals', to: '/submittals' },
+  { key: 'deadlines.mod_variations', def: 'Variations', to: '/variations' },
+  { key: 'deadlines.mod_temporary_works', def: 'Temporary works', to: '/temporary-works' },
+  // Designs and permits are two collectors with two due dates on one screen.
+  { key: 'deadlines.mod_temporary_works_permit', def: 'Work permits', to: '/temporary-works' },
+  { key: 'deadlines.mod_defects_liability', def: 'Defects liability', to: '/defects-liability' },
+  { key: 'deadlines.mod_inspections', def: 'Inspections', to: '/inspections' },
+  // The compliance register has no standalone route - it is a tab on the
+  // project page, which is where the item's own action_url points. Resolved
+  // against the active project below; /projects is the fallback when none is.
+  { key: 'deadlines.mod_compliance_docs', def: 'Compliance documents', to: '/projects' },
+  { key: 'deadlines.mod_bid_management', def: 'Bid management', to: '/bid-management' },
+  { key: 'deadlines.mod_signing', def: 'E-signatures', to: '/signing' },
+];
+
+// Where an overdue date ends up: the sweeper writes deadline_overdue and
+// deadline_escalated notifications, and the inbox rolls unread notifications in.
+const FEEDS: { key: string; def: string; to: string }[] = [
+  { key: 'deadlines.mod_notifications', def: 'Notifications', to: '/notifications' },
+  { key: 'deadlines.mod_inbox', def: 'Inbox', to: '/inbox' },
+];
+
 /** Humanise a source-native status string ("awaiting_response" -> "Awaiting response"). */
 function humaniseStatus(status: string): string {
   const s = status.replace(/_/g, ' ').trim();
@@ -74,14 +110,27 @@ function ModLink({ to, children }: { to: string; children: ReactNode }) {
  * what it is not.
  *
  * This page owns nothing. It creates no deadlines of its own, it aggregates
- * only the three sources that carry a date - correspondence response
- * deadlines, NCR corrective actions and punch items - and an item leaves the
- * list by being answered in its own module, not here. A site manager who reads
- * it as "everything that is late on the project" is trusting it wrongly, so
- * the intro says the boundary out loud.
+ * only the sources that carry a date, and an item leaves the list by being
+ * answered in its own module, not here. A site manager who reads it as
+ * "everything that is late on the project" is trusting it wrongly, so the
+ * intro says the boundary out loud, and the chip rows name every source it
+ * does read rather than leaving the reader to guess the coverage.
  */
 function HowDeadlinesWork() {
   const { t } = useTranslation();
+  const projectId = useProjectContextStore((s) => s.activeProjectId) ?? '';
+
+  // The compliance register lives on the project page, so its chip can only be
+  // aimed once a project is active.
+  const pulls = useMemo(
+    () =>
+      PULLS_FROM.map((m) =>
+        m.key === 'deadlines.mod_compliance_docs' && projectId
+          ? { ...m, to: `/projects/${projectId}?tab=compliance` }
+          : m,
+      ),
+    [projectId],
+  );
 
   const steps: { icon: ReactNode; title: string; desc: string }[] = [
     {
@@ -163,15 +212,25 @@ function HowDeadlinesWork() {
       <div className="mt-3 flex flex-col gap-1.5 border-t border-border-light pt-3 text-2xs text-content-tertiary sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-1">
         <span>
           <span className="font-medium text-content-secondary">
-            {t('deadlines.flow_connects', { defaultValue: 'Connects with:' })}
+            {t('deadlines.flow_pulls', { defaultValue: 'Pulls from:' })}
           </span>{' '}
-          <ModLink to="/correspondence">
-            {t('deadlines.mod_correspondence', { defaultValue: 'Correspondence' })}
-          </ModLink>{' '}
-          · <ModLink to="/ncr">{t('deadlines.mod_ncr', { defaultValue: 'NCR register' })}</ModLink> ·{' '}
-          <ModLink to="/punchlist">
-            {t('deadlines.mod_punchlist', { defaultValue: 'Punch list' })}
-          </ModLink>
+          {pulls.map((m, i) => (
+            <Fragment key={m.key}>
+              {i > 0 && ' · '}
+              <ModLink to={m.to}>{t(m.key, { defaultValue: m.def })}</ModLink>
+            </Fragment>
+          ))}
+        </span>
+        <span>
+          <span className="font-medium text-content-secondary">
+            {t('deadlines.flow_feeds', { defaultValue: 'Feeds:' })}
+          </span>{' '}
+          {FEEDS.map((m, i) => (
+            <Fragment key={m.key}>
+              {i > 0 && ' · '}
+              <ModLink to={m.to}>{t(m.key, { defaultValue: m.def })}</ModLink>
+            </Fragment>
+          ))}
         </span>
       </div>
     </CollapsibleSection>
