@@ -6,12 +6,12 @@ from app.core.module_loader import ModuleManifest
 
 manifest = ModuleManifest(
     name="oe_cost_match",
-    version="0.1.0",
+    version="1.0.0",
     display_name="Cost Match",
     description=(
-        "Automatic CWICR item matching for material layers: exact "
-        "match first, then semantic via Qdrant when [semantic] extra is "
-        "installed, then needs-review candidates."
+        "Match free-text bill-of-quantities lines against a cost base and "
+        "review the suggestions: every line lands in one of four tiers by "
+        "confidence, and a person confirms, overrides or rejects each one."
     ),
     author="OpenConstructionERP Core Team",
     category="core",

@@ -1,12 +1,12 @@
 """Baseline shape tests for the ``cost_match`` module.
 
-As of v4.2.2 the module is **scaffolding-only** — manifest + router with
-a single ``_health`` endpoint + event-name constants + en/de/ru locale
-bundle. The T12 work (three-tier matcher: exact → semantic → needs-
-review, against CWICR for assembly material layers) has not landed yet.
+The matcher work has landed: the module now persists a run, its results
+and a per-result review decision, and exposes the three-tier surface
+(exact, high-confidence, needs-review) the docstring always described.
+Behavioural coverage of that lives in ``tests/modules/cost_match/``.
 
-This file pins the *current* surface so the eventual T12 implementation
-will fail loudly when it changes any of:
+This file stays what it was, the module's *shape* contract, and fails
+loudly when any of these change:
 
   * manifest identity (name / category / dependencies / auto_install)
   * router prefix + ``_health`` response payload (used by the module
@@ -17,18 +17,12 @@ will fail loudly when it changes any of:
   * locale-bundle parity en/de/ru (release gate: no missing
     translations slipping into a release)
 
-Sister T00 wiring tests already live in ``test_dashboards_scaffolding``
+Sister wiring tests already live in ``test_dashboards_scaffolding``
 (manifest fields, router importability, event source-module). This file
-adds the missing module-scoped baselines: health-endpoint round-trip,
-locale parity at the JSON-file level, and translate() fall-through
-behaviour for the one user-facing message that already exists.
-
-When the T12 matcher lands, this file should grow a happy-path test
-(exact-match returns the CWICR row, semantic stage degrades to needs-
-review when ``[semantic]`` isn't installed, Decimal-typed unit-rate +
-currency are propagated from the source cost item, project-scope auth
-is enforced on every endpoint). Until then, the scaffolding tests below
-are the contract.
+adds the module-scoped baselines: health-endpoint round-trip, locale
+parity at the JSON-file level, translate() fall-through, and the shipped
+surface, meaning the tables the module owns and the roles its routes are
+gated behind.
 """
 
 from __future__ import annotations
@@ -36,7 +30,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -167,19 +160,35 @@ class TestMessages:
 # ── Documented stub state (pin until T12 lands) ─────────────────────────────
 
 
-class TestStubState:
-    """When T12 ships these will start failing — that's the trigger to
-    expand this file with real matcher behaviour (exact + semantic +
-    needs-review tiers, Decimal-typed money, project-scope auth)."""
+class TestShippedSurface:
+    """What the module now owns, pinned so a rename is a failing test.
 
-    def test_no_business_routes_yet(self) -> None:
-        """Only the loader health-check is wired today. Any new route
-        must arrive alongside auth + Decimal-money + i18n + tests."""
-        non_health = [route.path for route in router.routes if route.path != "/cost-match/_health"]
-        assert non_health == [], f"new cost_match routes shipped without matching test coverage: {non_health}"
+    This class replaces the tripwires that asserted the module was still
+    scaffolding. They fired the moment the matcher shipped, which is what
+    they were for.
+    """
 
-    def test_models_module_not_yet_present(self) -> None:
-        """Once T12 lands this import will succeed and this test should
-        be replaced with real model coverage."""
-        with pytest.raises(ModuleNotFoundError):
-            import app.modules.cost_match.models  # noqa: F401
+    def test_business_routes_are_mounted(self) -> None:
+        """The review workflow is reachable, not just the health probe."""
+        paths = {route.path for route in router.routes}
+        assert "/runs/" in paths
+        assert "/runs/{run_id}/review-queue" in paths
+        assert "/results/{result_id}/decision" in paths
+
+    def test_models_define_the_three_tables(self) -> None:
+        """A run, its results, and the ruling a human made on each."""
+        from app.modules.cost_match.models import MatchDecision, MatchResult, MatchRun
+
+        assert MatchRun.__tablename__ == "oe_cost_match_run"
+        assert MatchResult.__tablename__ == "oe_cost_match_result"
+        assert MatchDecision.__tablename__ == "oe_cost_match_decision"
+
+    def test_ruling_on_a_line_is_gated_above_reading(self) -> None:
+        """Confirming a suggestion is the human confirmation the whole
+        workflow rests on, so it must not be open to everyone who can
+        read the project. Reading stays viewer-level."""
+        from app.core.permissions import Role, permission_registry
+
+        assert permission_registry.get_min_role("cost_match.read") == Role.VIEWER
+        assert permission_registry.get_min_role("cost_match.run") == Role.EDITOR
+        assert permission_registry.get_min_role("cost_match.review") == Role.EDITOR
