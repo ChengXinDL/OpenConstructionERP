@@ -1338,6 +1338,7 @@ def _qdrant_health_to_dict(health: object) -> dict[str, object]:
         "message": getattr(health, "message", ""),
         "install_hint": getattr(health, "install_hint", ""),
         "download_url": getattr(health, "download_url", None),
+        "client_installed": getattr(health, "client_installed", True),
     }
 
 

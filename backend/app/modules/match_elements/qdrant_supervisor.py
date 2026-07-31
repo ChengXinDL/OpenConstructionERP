@@ -172,6 +172,45 @@ class QdrantHealth:
     message: str
     install_hint: str
     download_url: str | None
+    #: Whether ``qdrant_client`` can be imported in this process. The server
+    #: being up says nothing about this, and without the client nothing can
+    #: talk to the server at all, so a health report that omits it can be
+    #: green while every match returns an empty list.
+    client_installed: bool = True
+
+
+#: Said once so the four report paths cannot drift apart. Deliberately does not
+#: offer to download the server binary: on an installation without the client
+#: that button installs something the process still cannot reach, which is the
+#: dead end this whole field exists to stop.
+_MISSING_CLIENT_HINT = (
+    "The vector client library is not part of this installation. Install the "
+    "semantic extra to enable it: pip install openconstructionerp[semantic]. "
+    "Packaged builds cannot install it themselves; use a source or container "
+    "install if you need semantic matching. Everything else works without it."
+)
+
+_client_installed: bool | None = None
+
+
+def qdrant_client_available() -> bool:
+    """Whether the ``qdrant_client`` package can actually be imported here.
+
+    Imported rather than located. A package can be present on disk, and so
+    resolvable by the import machinery, and still raise at import time on a
+    partial install or a missing native wheel; the two answers differ exactly
+    when it matters. Cached because the health card polls every 30 seconds and
+    the answer cannot change without a process restart.
+    """
+    global _client_installed
+    if _client_installed is None:
+        try:
+            import qdrant_client  # noqa: F401 - imported for the side effect of failing
+        except Exception:  # noqa: BLE001 - any import failure means unusable
+            _client_installed = False
+        else:
+            _client_installed = True
+    return _client_installed
 
 
 def find_qdrant_binary() -> Path | None:
@@ -563,6 +602,10 @@ def ensure_qdrant_running(url: str | None, *, spawn_if_installed: bool = True) -
     binary = find_qdrant_binary()
     installed = binary is not None
     spawn_attempted = False
+    # A running server the process cannot speak to is not a working setup, and
+    # it is the one state the old report called healthy. Answered once here so
+    # every return below carries it.
+    has_client = qdrant_client_available()
 
     if url and probe_qdrant(url):
         return QdrantHealth(
@@ -572,9 +615,17 @@ def ensure_qdrant_running(url: str | None, *, spawn_if_installed: bool = True) -
             binary_path=str(binary) if binary else None,
             storage_dir=str(QDRANT_STORAGE_DIR),
             spawn_attempted=False,
-            message="Vector database is up and answering on the configured URL.",
-            install_hint="",
+            message=(
+                "Vector database is up and answering on the configured URL."
+                if has_client
+                else (
+                    "Vector database is up, but this installation has no client "
+                    "library for it, so nothing here can query it."
+                )
+            ),
+            install_hint="" if has_client else _MISSING_CLIENT_HINT,
             download_url=None,
+            client_installed=has_client,
         )
 
     # Unreachable - try to auto-spawn if we have the binary on disk.
@@ -591,14 +642,39 @@ def ensure_qdrant_running(url: str | None, *, spawn_if_installed: bool = True) -
                     binary_path=str(binary),
                     storage_dir=str(QDRANT_STORAGE_DIR),
                     spawn_attempted=True,
-                    message="Vector database started from local binary.",
-                    install_hint="",
+                    message=(
+                        "Vector database started from local binary."
+                        if has_client
+                        else (
+                            "Vector database started from local binary, but this "
+                            "installation has no client library for it, so nothing "
+                            "here can query it."
+                        )
+                    ),
+                    install_hint="" if has_client else _MISSING_CLIENT_HINT,
                     download_url=None,
+                    client_installed=has_client,
                 )
             time.sleep(0.4)
 
-    # Still down. Build a hint that does NOT mention Docker - the
-    # native binary is the only recommended path here.
+    # Still down. Downloading the server is pointless when the process has no
+    # client for it, so say what is actually missing before offering the
+    # installer. This is the state a stock container or desktop build is in:
+    # the image installs the base extra only, so the client was never there.
+    if not has_client:
+        return QdrantHealth(
+            reachable=False,
+            url=url,
+            installed=installed,
+            binary_path=str(binary) if binary else None,
+            storage_dir=str(QDRANT_STORAGE_DIR),
+            spawn_attempted=spawn_attempted,
+            message=("Semantic matching is not available in this installation."),
+            install_hint=_MISSING_CLIENT_HINT,
+            download_url=None,
+            client_installed=False,
+        )
+
     if not installed:
         try:
             asset_name, asset_url = _resolve_release_asset()
@@ -627,6 +703,7 @@ def ensure_qdrant_running(url: str | None, *, spawn_if_installed: bool = True) -
             message="Vector database is not running.",
             install_hint=install_hint,
             download_url=download_url,
+            client_installed=True,
         )
 
     # Installed but spawn didn't bring it up in time. Common cause:
@@ -645,6 +722,7 @@ def ensure_qdrant_running(url: str | None, *, spawn_if_installed: bool = True) -
         ),
         install_hint=(f"Binary found at {binary}. Check ~/.openestimator/qdrant/qdrant.log for startup errors."),
         download_url=None,
+        client_installed=True,
     )
 
 
