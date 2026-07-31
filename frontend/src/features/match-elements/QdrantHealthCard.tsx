@@ -60,7 +60,12 @@ export function QdrantHealthCard({ alwaysShow = false, onReachable }: Props) {
     // elsewhere (started a manual qdrant from terminal etc.) sees the
     // card disappear without a hard refresh. We do not poll when
     // reachable — no point hitting the backend on a stable box.
-    refetchInterval: (q) => (q.state.data?.reachable ? false : 30_000),
+    // A missing client library cannot appear while the process runs, so
+    // polling for it is thirty seconds of nothing, forever.
+    refetchInterval: (q) =>
+      q.state.data?.reachable || q.state.data?.client_installed === false
+        ? false
+        : 30_000,
     staleTime: 5_000,
   });
 
@@ -135,6 +140,48 @@ export function QdrantHealthCard({ alwaysShow = false, onReachable }: Props) {
   }
 
   const health = healthQ.data;
+
+  // Checked before reachability, because the two are independent and the
+  // combination that used to render green - server up, no client to talk to it
+  // - is the one where every match silently comes back empty. Nothing on this
+  // screen can fix it, so the card states the situation and offers no button
+  // rather than pointing at an installer that would change nothing.
+  if (health.client_installed === false) {
+    return (
+      <section
+        role="status"
+        className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/30 shadow-sm"
+      >
+        <div className="px-4 py-4 flex items-start gap-3">
+          <div className="shrink-0 w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/50 border border-amber-200 dark:border-amber-800 flex items-center justify-center">
+            <Server className="w-5 h-5 text-amber-700 dark:text-amber-200" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+              {t(
+                'qdrant_health.no_client_title',
+                'Semantic matching is not part of this installation',
+              )}
+            </h3>
+            <p className="mt-1 text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
+              {health.message}
+            </p>
+            {health.install_hint && (
+              <p className="mt-1 text-xs text-amber-700/90 dark:text-amber-300/90 leading-relaxed">
+                {health.install_hint}
+              </p>
+            )}
+            <p className="mt-2 text-xs text-amber-700/90 dark:text-amber-300/90 leading-relaxed">
+              {t(
+                'qdrant_health.no_client_alternative',
+                'The resource matcher works without it and searches the raw materials catalogue by name.',
+              )}
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   if (health.reachable && !alwaysShow) {
     return null;

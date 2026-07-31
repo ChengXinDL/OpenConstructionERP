@@ -1056,6 +1056,11 @@ export interface QdrantHealth {
   message: string;
   install_hint: string;
   download_url: string | null;
+  /** Whether the backend can import a client for the vector database.
+   *  A server that is up but has no client is still unusable, and it is the
+   *  state that used to report as healthy. Optional so a response from an
+   *  older backend is read as "yes" rather than as a missing client. */
+  client_installed?: boolean;
 }
 
 export async function fetchQdrantHealth(): Promise<QdrantHealth> {
