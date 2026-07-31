@@ -296,11 +296,11 @@ export function AboutPage() {
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
             {[
               { value: '120K+', label: t('about.stat_costs', { defaultValue: 'Cost Items' }) },
-              { value: '27', label: t('about.stat_langs', { defaultValue: 'Languages' }) },
-              { value: '48', label: t('about.stat_regions', { defaultValue: 'Regional Databases' }) },
+              { value: '29', label: t('about.stat_langs', { defaultValue: 'Languages' }) },
+              { value: '47', label: t('about.stat_regions', { defaultValue: 'Countries covered' }) },
               { value: '6', label: t('about.stat_cad_formats', { defaultValue: 'CAD/BIM formats supported' }) },
-              { value: '161', label: t('about.stat_modules', { defaultValue: 'Backend modules' }) },
-              { value: '12', label: t('about.stat_sections', { defaultValue: 'Menu sections' }) },
+              { value: '180', label: t('about.stat_modules', { defaultValue: 'Backend modules' }) },
+              { value: '28', label: t('about.stat_sections', { defaultValue: 'Menu sections' }) },
             ].map((s, i) => (
               <div key={i} className="text-center rounded-xl bg-surface-secondary/50 px-2 py-3">
                 <div className="text-xl font-bold text-content-primary leading-none">{s.value}</div>
@@ -980,9 +980,9 @@ export function AboutPage() {
               </p>
               <div className="grid grid-cols-2 gap-2.5 mb-4">
                 {[
-                  { value: '27', label: t('about.support_kpi_langs', { defaultValue: 'Languages translated' }) },
-                  { value: '48', label: t('about.support_kpi_regions', { defaultValue: 'Regional cost packs' }) },
-                  { value: '161', label: t('about.support_kpi_modules', { defaultValue: 'Backend modules' }) },
+                  { value: '29', label: t('about.support_kpi_langs', { defaultValue: 'Languages translated' }) },
+                  { value: '47', label: t('about.support_kpi_regions', { defaultValue: 'Countries covered' }) },
+                  { value: '180', label: t('about.support_kpi_modules', { defaultValue: 'Backend modules' }) },
                   { value: '55K+', label: t('about.support_kpi_cwicr', { defaultValue: 'CWICR positions' }) },
                 ].map((kpi, i) => (
                   <div key={i} className="rounded-lg bg-surface-primary/60 backdrop-blur-sm border border-border-light px-3 py-2.5">

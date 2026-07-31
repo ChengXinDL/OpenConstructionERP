@@ -226,7 +226,9 @@ function headerIndex(table: HTMLElement, label: string): number {
 }
 
 function cellText(row: HTMLElement, table: HTMLElement, label: string): string {
-  return within(row).getAllByRole('cell')[headerIndex(table, label)].textContent?.trim() ?? '';
+  const cell = within(row).getAllByRole('cell')[headerIndex(table, label)];
+  expect(cell, `row has no cell under column "${label}"`).toBeDefined();
+  return cell?.textContent?.trim() ?? '';
 }
 
 /** The body row priced at `reuseCount` reuses, found by its own reuse cell. */

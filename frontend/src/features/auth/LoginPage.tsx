@@ -535,11 +535,11 @@ export function LoginPage() {
         <div className="mt-5 flex items-center gap-5 animate-stagger-in" style={{ animationDelay: '180ms' }}>
           {[
             { value: '120K+', label: t('login.stat_costs', { defaultValue: 'cost items' }) },
-            { value: '28', label: t('login.stat_langs', { defaultValue: 'languages' }) },
-            { value: '48', label: t('login.stat_regions', { defaultValue: 'regions' }) },
+            { value: '29', label: t('login.stat_langs', { defaultValue: 'languages' }) },
+            { value: '47', label: t('login.stat_regions', { defaultValue: 'countries' }) },
             { value: '6', label: t('login.stat_cad', { defaultValue: 'CAD formats' }) },
-            { value: '161', label: t('login.stat_modules', { defaultValue: 'modules' }) },
-            { value: '12', label: t('login.stat_sections', { defaultValue: 'sections' }) },
+            { value: '180', label: t('login.stat_modules', { defaultValue: 'modules' }) },
+            { value: '28', label: t('login.stat_sections', { defaultValue: 'sections' }) },
           ].map((s) => (
             <div key={s.label} className="text-center">
               <div className="text-[22px] font-semibold text-content-primary tracking-tight">{s.value}</div>
@@ -1116,7 +1116,7 @@ export function LoginPage() {
                 {[
                   { value: '120,441', label: t('about.stat.costs', 'Cost items') },
                   { value: '48', label: t('about.stat.regions', 'Regional databases') },
-                  { value: '28', label: t('about.stat.languages', 'Languages') },
+                  { value: '29', label: t('about.stat.languages', 'Languages') },
                   { value: '100%', label: t('about.stat.free', 'Free & open source') },
                 ].map((stat) => (
                   <div key={stat.label} className="rounded-lg bg-surface-secondary/50 py-2.5">

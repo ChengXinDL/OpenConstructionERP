@@ -42,10 +42,10 @@ Professional BOQ, CAD and BIM takeoff, 4D scheduling, 5D cost model, and tenderi
 <tr>
 <td align="center" width="16.66%"><b>120K+</b><br/><sub>cost&nbsp;items</sub></td>
 <td align="center" width="16.66%"><b>29</b><br/><sub>languages</sub></td>
-<td align="center" width="16.66%"><b>48</b><br/><sub>regions</sub></td>
+<td align="center" width="16.66%"><b>47</b><br/><sub>countries</sub></td>
 <td align="center" width="16.66%"><b>6</b><br/><sub>CAD&nbsp;formats</sub></td>
-<td align="center" width="16.66%"><b>161</b><br/><sub>modules</sub></td>
-<td align="center" width="16.66%"><b>12</b><br/><sub>sections</sub></td>
+<td align="center" width="16.66%"><b>180</b><br/><sub>modules</sub></td>
+<td align="center" width="16.66%"><b>28</b><br/><sub>sections</sub></td>
 </tr>
 </table>
 
