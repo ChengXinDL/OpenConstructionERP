@@ -6,12 +6,20 @@ from app.core.module_loader import ModuleManifest
 
 manifest = ModuleManifest(
     name="oe_full_evm",
-    version="0.1.0",
+    version="1.0.0",
     display_name="Full EVM",
-    description="Advanced Earned Value Management with forecasting, S-curves, and TCPI analysis",
+    description=(
+        "Earned Value Management register: approved performance measurement baselines with a "
+        "cumulative planned-value curve, period measurements, and the full metric set (PV, EV, "
+        "AC, SV, CV, SPI, CPI, EAC, ETC, VAC, TCPI) with every EAC formula reported side by side"
+    ),
     author="OpenConstructionERP Core Team",
     category="enterprise",
-    depends=["oe_finance"],
+    # oe_finance supplies the EVM snapshots the forecast surface reads.
+    # oe_eac supplies the shared EAC method vocabulary and metric glossary, so
+    # "combined" means the same formula everywhere on the platform.
+    # oe_projects backs the per-project ownership check on every endpoint.
+    depends=["oe_finance", "oe_eac", "oe_projects"],
     auto_install=False,
     enabled=True,
 )
