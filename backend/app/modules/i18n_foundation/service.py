@@ -33,6 +33,45 @@ from app.modules.i18n_foundation.schemas import ConvertResponse, WorkingDaysResp
 logger = logging.getLogger(__name__)
 
 
+def _parse_stored_rate(raw: str, from_code: str, to_code: str) -> Decimal:
+    """Parse a stored rate string into a positive, finite Decimal.
+
+    Rate rows reach the table by two write paths - the authenticated POST
+    endpoint, whose schema only checks the string's length, and the ECB
+    fetcher, which copies whatever the feed's ``rate`` attribute said. Neither
+    checks that the string is a usable number, so the value is validated here,
+    at the single point where a stored rate is turned into money.
+
+    Args:
+        raw: The rate exactly as stored.
+        from_code: Source currency of the row, for the error message.
+        to_code: Target currency of the row, for the error message.
+
+    Returns:
+        The rate as a positive, finite Decimal.
+
+    Raises:
+        HTTPException 422: If the stored rate is not a number, is NaN or
+            infinite, or is zero or negative. A zero rate would otherwise
+            price the whole conversion at nothing, and a non-numeric one
+            would surface as an uncaught InvalidOperation.
+    """
+    try:
+        rate = Decimal(raw)
+    except (InvalidOperation, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Stored exchange rate for {from_code}/{to_code} is not a valid number: '{raw}'",
+        ) from exc
+
+    if not rate.is_finite() or rate <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(f"Stored exchange rate for {from_code}/{to_code} must be a positive finite number, got '{raw}'"),
+        )
+    return rate
+
+
 class I18nFoundationService:
     """Business logic for internationalization foundation operations."""
 
@@ -68,8 +107,11 @@ class I18nFoundationService:
             ConvertResponse with original and converted amounts.
 
         Raises:
-            HTTPException 400: If amount is not a valid decimal number.
+            HTTPException 400: If amount is not a valid decimal number, or is
+                NaN or infinite. Decimal() accepts both of those spellings, so
+                they are rejected explicitly - money must never be NaN.
             HTTPException 404: If no exchange rate is found for the pair.
+            HTTPException 422: If the stored rate itself is unusable.
         """
         # Validate amount as Decimal
         try:
@@ -79,6 +121,15 @@ class I18nFoundationService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid amount: '{amount}' is not a valid number",
             ) from exc
+
+        # Decimal("NaN") and Decimal("Infinity") parse without raising. Left
+        # unchecked, NaN flows straight through the same-currency shortcut into
+        # the response body, and Infinity blows up in quantize() as a 500.
+        if not decimal_amount.is_finite():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid amount: '{amount}' is not a finite number",
+            )
 
         from_code = from_currency.upper()
         to_code = to_currency.upper()
@@ -98,7 +149,7 @@ class I18nFoundationService:
         rate_obj = await self.exchange_rate_repo.get_rate(from_code, to_code, rate_date)
 
         if rate_obj is not None:
-            rate_decimal = Decimal(rate_obj.rate)
+            rate_decimal = _parse_stored_rate(rate_obj.rate, from_code, to_code)
             converted = decimal_amount * rate_decimal
             return ConvertResponse(
                 original_amount=amount,
@@ -112,18 +163,17 @@ class I18nFoundationService:
         # Try reverse pair (e.g. looking for USD->EUR when only EUR->USD exists)
         reverse_obj = await self.exchange_rate_repo.get_rate(to_code, from_code, rate_date)
         if reverse_obj is not None:
-            reverse_rate = Decimal(reverse_obj.rate)
-            if reverse_rate != 0:
-                effective_rate = Decimal("1") / reverse_rate
-                converted = decimal_amount * effective_rate
-                return ConvertResponse(
-                    original_amount=amount,
-                    converted_amount=str(converted.quantize(Decimal("0.0001"))),
-                    from_currency=from_code,
-                    to_currency=to_code,
-                    rate=str(effective_rate.quantize(Decimal("0.000001"))),
-                    rate_date=reverse_obj.rate_date,
-                )
+            reverse_rate = _parse_stored_rate(reverse_obj.rate, to_code, from_code)
+            effective_rate = Decimal("1") / reverse_rate
+            converted = decimal_amount * effective_rate
+            return ConvertResponse(
+                original_amount=amount,
+                converted_amount=str(converted.quantize(Decimal("0.0001"))),
+                from_currency=from_code,
+                to_currency=to_code,
+                rate=str(effective_rate.quantize(Decimal("0.000001"))),
+                rate_date=reverse_obj.rate_date,
+            )
 
         # Try cross-rate via EUR (most ECB rates are EUR-based)
         if from_code != "EUR" and to_code != "EUR":
@@ -131,20 +181,23 @@ class I18nFoundationService:
             eur_to = await self.exchange_rate_repo.get_rate("EUR", to_code, rate_date)
 
             if eur_from is not None and eur_to is not None:
-                rate_from = Decimal(eur_from.rate)
-                rate_to = Decimal(eur_to.rate)
-                if rate_from != 0:
-                    cross_rate = rate_to / rate_from
-                    converted = decimal_amount * cross_rate
-                    used_date = max(eur_from.rate_date, eur_to.rate_date)
-                    return ConvertResponse(
-                        original_amount=amount,
-                        converted_amount=str(converted.quantize(Decimal("0.0001"))),
-                        from_currency=from_code,
-                        to_currency=to_code,
-                        rate=str(cross_rate.quantize(Decimal("0.000001"))),
-                        rate_date=used_date,
-                    )
+                rate_from = _parse_stored_rate(eur_from.rate, "EUR", from_code)
+                rate_to = _parse_stored_rate(eur_to.rate, "EUR", to_code)
+                cross_rate = rate_to / rate_from
+                converted = decimal_amount * cross_rate
+                # Without an explicit rate_date each leg fetched its own latest
+                # row, so the two legs can be from different days. A cross rate
+                # is only as fresh as its stalest leg - reporting the newer date
+                # would claim a freshness the number does not have.
+                used_date = min(eur_from.rate_date, eur_to.rate_date)
+                return ConvertResponse(
+                    original_amount=amount,
+                    converted_amount=str(converted.quantize(Decimal("0.0001"))),
+                    from_currency=from_code,
+                    to_currency=to_code,
+                    rate=str(cross_rate.quantize(Decimal("0.000001"))),
+                    rate_date=used_date,
+                )
 
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -161,8 +214,15 @@ class I18nFoundationService:
     ) -> WorkingDaysResponse:
         """Calculate the number of working days between two dates.
 
-        Loads the work calendar for the country and year(s), counts
-        business days excluding holidays defined in the calendar.
+        Loads the work calendar for every year the range spans and counts
+        business days excluding the holidays those calendars declare. Both
+        ends of the range are inclusive, so a range whose start equals its end
+        is one calendar day.
+
+        Each date is judged against its own year's work week. A year with no
+        calendar of its own carries the work week forward from the nearest
+        year that has one, and falls back to Monday-Friday when the country
+        has no calendar at all in the range.
 
         Args:
             country_code: Two-letter ISO country code (e.g. "DE").
@@ -173,8 +233,8 @@ class I18nFoundationService:
             WorkingDaysResponse with working and calendar day counts.
 
         Raises:
-            HTTPException 400: If dates are invalid.
-            HTTPException 404: If no work calendar exists for the country/year.
+            HTTPException 400: If the dates are unparseable or out of order.
+                A missing calendar is not an error - see the fallback above.
         """
         try:
             start = date.fromisoformat(from_date)
@@ -193,31 +253,46 @@ class I18nFoundationService:
 
         code = country_code.upper()
 
-        # Collect all unique years spanned by the date range
-        years = set()
-        for yr in range(start.year, end.year + 1):
-            years.add(str(yr))
+        spanned_years = list(range(start.year, end.year + 1))
 
-        # Load calendars for each year
+        # Load the calendar of every spanned year and keep the work weeks
+        # apart. A country that changes its working week (the Gulf move from
+        # Sun-Thu to Mon-Fri, for instance) has one calendar per year, and a
+        # range crossing that boundary must judge each date by its own year.
         holiday_dates: set[date] = set()
-        work_day_numbers: set[int] = {1, 2, 3, 4, 5}  # Default Mon-Fri
+        declared_work_days: dict[int, set[int]] = {}
 
-        for year_str in sorted(years):
-            calendar = await self.work_calendar_repo.get_for_country(code, year_str)
-            if calendar is not None:
-                work_day_numbers = set(calendar.work_days)
-                # Parse holiday exceptions
-                for exc_entry in calendar.exceptions or []:
-                    exc_date_str = exc_entry.get("date")
-                    if exc_date_str:
-                        try:
-                            holiday_dates.add(date.fromisoformat(exc_date_str))
-                        except ValueError:
-                            logger.warning(
-                                "Invalid holiday date in calendar %s: %s",
-                                calendar.id,
-                                exc_date_str,
-                            )
+        for year in spanned_years:
+            calendar = await self.work_calendar_repo.get_for_country(code, str(year))
+            if calendar is None:
+                continue
+            declared_work_days[year] = set(calendar.work_days)
+            # Parse holiday exceptions
+            for exc_entry in calendar.exceptions or []:
+                exc_date_str = exc_entry.get("date")
+                if exc_date_str:
+                    try:
+                        holiday_dates.add(date.fromisoformat(exc_date_str))
+                    except ValueError:
+                        logger.warning(
+                            "Invalid holiday date in calendar %s: %s",
+                            calendar.id,
+                            exc_date_str,
+                        )
+
+        # Resolve a work week for every spanned year: its own if declared,
+        # otherwise the nearest declared year (ties go to the earlier one),
+        # otherwise Monday-Friday.
+        default_work_days = {1, 2, 3, 4, 5}
+        work_days_by_year: dict[int, set[int]] = {}
+        for year in spanned_years:
+            if year in declared_work_days:
+                work_days_by_year[year] = declared_work_days[year]
+            elif declared_work_days:
+                nearest = min(declared_work_days, key=lambda y, target=year: (abs(y - target), y))
+                work_days_by_year[year] = declared_work_days[nearest]
+            else:
+                work_days_by_year[year] = default_work_days
 
         # Count working days
         working_days = 0
@@ -226,7 +301,7 @@ class I18nFoundationService:
         while current <= end:
             calendar_days += 1
             # isoweekday(): Monday=1, Sunday=7
-            if current.isoweekday() in work_day_numbers and current not in holiday_dates:
+            if current.isoweekday() in work_days_by_year[current.year] and current not in holiday_dates:
                 working_days += 1
             current += timedelta(days=1)
 

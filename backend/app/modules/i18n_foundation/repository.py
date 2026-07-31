@@ -419,7 +419,11 @@ class TaxConfigRepository:
     ) -> list[TaxConfiguration]:
         """Get all currently active tax configurations for a country.
 
-        Active means effective_to is NULL or effective_to >= today's date.
+        Active means today falls inside the row's effective window: its
+        ``effective_from`` is NULL or already past, AND its ``effective_to`` is
+        NULL or not yet past. A rate announced for a future date is stored
+        ahead of time - it is scheduled, not active, and must not be handed to
+        a caller pricing work today.
 
         Args:
             country_code: Two-letter ISO country code.
@@ -432,6 +436,7 @@ class TaxConfigRepository:
             select(TaxConfiguration)
             .where(
                 TaxConfiguration.country_code == country_code.upper(),
+                (TaxConfiguration.effective_from.is_(None)) | (TaxConfiguration.effective_from <= today),
                 (TaxConfiguration.effective_to.is_(None)) | (TaxConfiguration.effective_to >= today),
             )
             .order_by(TaxConfiguration.tax_name)

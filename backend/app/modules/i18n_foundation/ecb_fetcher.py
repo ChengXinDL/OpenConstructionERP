@@ -75,7 +75,16 @@ def _parse_ecb_xml(xml_text: str) -> list[dict]:
         xml_text: Raw XML response body.
 
     Returns:
-        List of rate dicts ready for storage.
+        List of rate dicts ready for storage. Empty when the feed carries no
+        dated Cube, when that Cube's date is blank, or when no child Cube has
+        both a currency and a rate. The rate itself is passed through as the
+        feed wrote it - see ``_parse_stored_rate`` in the service, which is
+        where a non-numeric rate is refused.
+
+    Raises:
+        Any parse error from the XML reader. ``fetch_ecb_daily_rates`` is the
+        layer that turns a broken feed into an empty list; this function stays
+        loud so the reason reaches the log.
     """
     root = ElementTree.fromstring(xml_text)
     rates: list[dict] = []
@@ -94,6 +103,12 @@ def _parse_ecb_xml(xml_text: str) -> list[dict]:
         return []
 
     rate_date = time_cube.get("time", "")
+    if not rate_date:
+        # An empty 'time' attribute would be written straight into the NOT NULL
+        # rate_date column, leaving rows nobody can date. A feed that cannot say
+        # when its rates are from is no more usable than one with no rates.
+        logger.warning("ECB XML: Cube element has an empty 'time' attribute")
+        return []
 
     # Iterate over currency Cube elements
     for cube in time_cube:

@@ -1,0 +1,197 @@
+"""Shared fixtures for the i18n Foundation test suite.
+
+The session fixture runs against the shared PostgreSQL unit database from
+``tests/_pg.py``, inside an outer transaction that is rolled back on teardown.
+
+Foreign keys stay ON (no ``disable_fks``) simply because this module has none:
+its four tables - exchange rates, countries, work calendars, tax configs - are
+flat reference data with no cross-module columns, so nothing here needs the
+replication role.
+
+There are no validation rules to register: the module ships no ``validators.py``
+at all, which the suite records as a finding rather than papering over.
+
+Money is written and asserted as strings throughout. Every amount, rate and
+percentage the module stores is a ``String`` column holding a decimal literal,
+so a test that compares floats would be testing something the module never
+does. Assertions are on the exact string.
+"""
+
+from __future__ import annotations
+
+import uuid
+from collections.abc import AsyncIterator
+from typing import Any
+
+import pytest_asyncio
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.dependencies import (
+    get_current_user_id,
+    get_current_user_payload,
+    get_session,
+)
+from app.modules.i18n_foundation.models import (
+    Country,
+    ExchangeRate,
+    TaxConfiguration,
+    WorkCalendar,
+)
+from app.modules.i18n_foundation.router import router as i18n_foundation_router
+from tests._pg import transactional_session
+
+API_PREFIX = "/v1/i18n-foundation"
+
+
+@pytest_asyncio.fixture
+async def session() -> AsyncIterator[AsyncSession]:
+    """A rolled-back session on the shared PostgreSQL unit database."""
+    async with transactional_session() as s:
+        yield s
+
+
+# ── Row factories ────────────────────────────────────────────────────────────
+
+
+async def make_rate(
+    session: AsyncSession,
+    *,
+    from_currency: str = "EUR",
+    to_currency: str = "USD",
+    rate: str = "1.0850",
+    rate_date: str = "2026-04-07",
+    source: str = "manual",
+    is_manual: bool = True,
+) -> ExchangeRate:
+    """Persist one exchange-rate row with the rate as a decimal string."""
+    row = ExchangeRate(
+        from_currency=from_currency,
+        to_currency=to_currency,
+        rate=rate,
+        rate_date=rate_date,
+        source=source,
+        is_manual=is_manual,
+        metadata_={},
+    )
+    session.add(row)
+    await session.flush()
+    return row
+
+
+async def make_country(
+    session: AsyncSession,
+    *,
+    iso_code: str = "DE",
+    name_en: str = "Germany",
+    currency_default: str | None = "EUR",
+    region_group: str | None = "DACH",
+    is_active: bool = True,
+) -> Country:
+    """Persist one country row."""
+    row = Country(
+        iso_code=iso_code,
+        iso_code_3=None,
+        name_en=name_en,
+        name_translations={"en": name_en},
+        currency_default=currency_default,
+        measurement_default="metric",
+        phone_code=None,
+        region_group=region_group,
+        is_active=is_active,
+        metadata_={},
+    )
+    session.add(row)
+    await session.flush()
+    return row
+
+
+async def make_calendar(
+    session: AsyncSession,
+    *,
+    country_code: str = "DE",
+    year: str = "2026",
+    work_days: list[int] | None = None,
+    exceptions: list[dict[str, Any]] | None = None,
+    work_hours_per_day: str = "8",
+) -> WorkCalendar:
+    """Persist one work calendar. ``work_days`` are ISO weekdays, Monday=1."""
+    row = WorkCalendar(
+        country_code=country_code,
+        name=f"{country_code} {year}",
+        name_translations=None,
+        year=year,
+        work_hours_per_day=work_hours_per_day,
+        work_days=[1, 2, 3, 4, 5] if work_days is None else work_days,
+        exceptions=exceptions or [],
+        metadata_={},
+    )
+    session.add(row)
+    await session.flush()
+    return row
+
+
+async def make_tax(
+    session: AsyncSession,
+    *,
+    country_code: str = "DE",
+    tax_name: str = "Standard VAT",
+    rate_pct: str = "19.0",
+    tax_type: str = "vat",
+    tax_code: str | None = "VAT",
+    effective_from: str | None = None,
+    effective_to: str | None = None,
+    is_default: bool = True,
+) -> TaxConfiguration:
+    """Persist one tax configuration with the percentage as a string."""
+    row = TaxConfiguration(
+        country_code=country_code,
+        tax_name=tax_name,
+        tax_name_translations=None,
+        tax_code=tax_code,
+        rate_pct=rate_pct,
+        tax_type=tax_type,
+        effective_from=effective_from,
+        effective_to=effective_to,
+        is_default=is_default,
+        metadata_={},
+    )
+    session.add(row)
+    await session.flush()
+    return row
+
+
+# ── HTTP plumbing ────────────────────────────────────────────────────────────
+
+
+def build_app(db_session: AsyncSession, *, caller_id: uuid.UUID | str | None = None) -> FastAPI:
+    """Mount the module router with the test session and a fixed caller."""
+    app = FastAPI()
+    app.include_router(i18n_foundation_router, prefix=API_PREFIX)
+
+    resolved_caller = str(caller_id) if caller_id is not None else str(uuid.uuid4())
+
+    async def _session_override() -> AsyncIterator[AsyncSession]:
+        yield db_session
+
+    async def _user_override() -> str:
+        return resolved_caller
+
+    async def _payload_override() -> dict[str, Any]:
+        return {"sub": resolved_caller, "role": "editor", "permissions": []}
+
+    app.dependency_overrides[get_session] = _session_override
+    app.dependency_overrides[get_current_user_id] = _user_override
+    app.dependency_overrides[get_current_user_payload] = _payload_override
+    return app
+
+
+def http_client(app: FastAPI) -> AsyncClient:
+    """In-process async client bound to ``app`` on the current event loop.
+
+    ``httpx.AsyncClient`` over ``ASGITransport`` keeps the app on the test's own
+    event loop; the synchronous ``TestClient`` would drive it from a worker
+    thread on a second loop and break the asyncpg session created here.
+    """
+    return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
