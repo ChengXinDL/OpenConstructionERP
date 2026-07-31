@@ -10,9 +10,21 @@ database that does not need it), and that ``downgrade()`` genuinely reverses it
 rather than being the ``pass`` that so many downgrades quietly are.
 
 The migration is driven directly through an Alembic ``MigrationContext`` instead
-of ``alembic upgrade head``: the repository's revision graph has several
-independent heads, so no single linear run reaches this revision, and the point
-here is this revision's own SQL rather than the graph's shape.
+of ``alembic upgrade head``, so that what is under test is this revision's own
+SQL rather than the state of the graph around it.
+
+That choice used to be excused here by the claim that the graph had several
+independent heads and no linear run reached this revision. The claim was
+accurate, and it was describing a bug rather than a quirk. This revision names
+``v3234_cost_search_trgm`` as its parent, a node ``v3250_merge_open_heads`` had
+already folded into the mainline, so it sat alone on a second head and
+``alembic upgrade head`` refused to run at all. Since this file is the only
+one that creates the three tables below, every install built by migrations
+instead of ``create_all`` was missing the whole rate register.
+``v3268_merge_fx_branch`` folds the branch back in, and
+``tests/unit/test_alembic_single_head.py`` now fails if any revision opens a
+second head again. Whether this revision is reachable is that test's job, and
+deliberately not this one's.
 
 Everything runs against a throwaway database from ``isolated_engine()``, which
 is cloned per test and dropped afterwards. The shared unit database is off
