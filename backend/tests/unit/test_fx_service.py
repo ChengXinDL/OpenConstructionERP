@@ -257,9 +257,16 @@ async def test_get_rates_rebases_to_non_eur_base(session, monkeypatch):
 
     data = await svc.get_rates("USD")
     assert data["base"] == "USD"
-    # EUR per 1 USD = 1 / 1.08 ; TRY per 1 USD = 42.0 / 1.08
-    assert data["rates"]["EUR"] == (Decimal("1") / Decimal("1.08")).quantize(Decimal("0.000001"))
+    # EUR per 1 USD = 1 / 1.08 ; TRY per 1 USD = 42.0 / 1.08. Rebasing divides,
+    # so the two land on opposite sides of 1 and take the two different arms of
+    # the rate rounding: TRY is above 1 and keeps six decimals, EUR is below 1,
+    # where six decimals would discard digits that still carry value, so it
+    # keeps twelve significant ones instead.
     assert data["rates"]["TRY"] == (Decimal("42.0") / Decimal("1.08")).quantize(Decimal("0.000001"))
+    assert data["rates"]["EUR"] == Decimal("0.925925925926")
+    # The two forms genuinely differ here, so the line above is the wider scale
+    # being asserted rather than the same six-decimal answer written longer.
+    assert data["rates"]["EUR"] != (Decimal("1") / Decimal("1.08")).quantize(Decimal("0.000001"))
 
 
 @pytest.mark.asyncio
