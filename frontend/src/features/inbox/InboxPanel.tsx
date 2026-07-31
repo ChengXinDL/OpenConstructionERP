@@ -12,25 +12,43 @@
  *
  * Each row links to the originating item via its ``action_url``; an alert
  * carries an i18n ``title_key`` we render with its ``body_context``.
+ *
+ * Rows can also be acted on. Acknowledging keeps the row and marks it seen, so
+ * a long list can be worked through without anything vanishing; dismissing
+ * takes it off the list and offers an undo. Both are per-user triage state -
+ * dismissing an approval never decides it, and the toast says so.
  */
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
   ArrowRight,
   Bell,
+  Check,
   CheckSquare,
   ClipboardCheck,
   Filter,
   Info,
   Inbox as InboxIcon,
   Loader2,
+  Undo2,
+  X,
   XCircle,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { Badge, Card, CardHeader } from '@/shared/ui';
-import { type InboxItem, type InboxSeverity } from './api';
+import { getErrorMessage } from '@/shared/lib/api';
+import { useToastStore } from '@/stores/useToastStore';
+import {
+  acknowledgeInboxItem,
+  dismissInboxItem,
+  restoreInboxItem,
+  type InboxItem,
+  type InboxSeverity,
+  type InboxState,
+} from './api';
 import {
   countApprovals,
   filterInboxItems,
@@ -40,7 +58,7 @@ import {
   sortInboxItems,
   type InboxFilter,
 } from './inboxUtils';
-import { useInboxQuery } from './useInbox';
+import { INBOX_QUERY_ROOT, useInboxQuery } from './useInbox';
 
 export interface InboxPanelProps {
   /** Max rows requested from the backend. Default 8 (a compact widget). */
@@ -82,9 +100,17 @@ function kindIcon(item: InboxItem) {
   return Bell;
 }
 
+/** Shared styling for the small icon buttons at the end of a row. */
+const ROW_ACTION_CLASS =
+  'shrink-0 rounded-md p-1 text-content-quaternary transition-colors hover:bg-surface-tertiary ' +
+  'hover:text-content-primary focus-visible:outline-none focus-visible:ring-2 ' +
+  'focus-visible:ring-oe-blue/40 disabled:pointer-events-none disabled:opacity-40';
+
 function InboxRow({ item }: { item: InboxItem }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const addToast = useToastStore((s) => s.addToast);
 
   const sev = normalizeSeverity(item.severity);
   const sevStyle = SEVERITY_STYLE[sev];
@@ -107,20 +133,61 @@ function InboxRow({ item }: { item: InboxItem }) {
     if (item.action_url) navigate(item.action_url);
   }, [item.action_url, navigate]);
 
-  const clickable = Boolean(item.action_url);
-  const RowTag = clickable ? 'button' : 'div';
+  // Both the dashboard widget and the /inbox page hold an ['inbox', limit]
+  // entry; a prefix invalidation is what keeps them agreeing after an action.
+  const refreshInbox = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: [INBOX_QUERY_ROOT] });
+  }, [queryClient]);
 
-  return (
-    <RowTag
-      type={clickable ? 'button' : undefined}
-      onClick={clickable ? onClick : undefined}
-      className={clsx(
-        'group flex w-full items-start gap-3 px-4 py-2.5 text-left',
-        'border-b border-border-light/60 last:border-b-0 transition-colors',
-        clickable &&
-          'hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40',
-      )}
-    >
+  // Undo runs from a toast, by which point this row has already left the list
+  // and unmounted, so it cannot go through the row's own mutation. The query
+  // client outlives the row, so the refresh still lands.
+  const undoDismiss = useCallback(() => {
+    restoreInboxItem(item.id)
+      .then(refreshInbox)
+      .catch((error: unknown) => {
+        addToast({
+          type: 'error',
+          title: t('inbox.restore_failed', { defaultValue: 'Could not put that back' }),
+          message: getErrorMessage(error),
+        });
+      });
+  }, [item.id, refreshInbox, addToast, t]);
+
+  const action = useMutation({
+    mutationFn: (next: InboxState) => {
+      if (next === null) return restoreInboxItem(item.id);
+      if (next === 'dismissed') return dismissInboxItem(item.id);
+      return acknowledgeInboxItem(item.id);
+    },
+    onSuccess: (_data, next) => {
+      refreshInbox();
+      if (next !== 'dismissed') return;
+      addToast(
+        {
+          type: 'info',
+          title: t('inbox.dismissed_toast', { defaultValue: 'Removed from your inbox' }),
+          // An approval leaves the list without being decided. Saying so here
+          // is the whole reason dismissing an approval is allowed at all.
+          message:
+            item.kind === 'approval'
+              ? t('inbox.dismissed_approval_note', {
+                  defaultValue:
+                    'The approval is still pending a decision in the module that owns it.',
+                })
+              : undefined,
+          action: { label: t('common.undo', { defaultValue: 'Undo' }), onClick: undoDismiss },
+        },
+        { duration: 8000 },
+      );
+    },
+  });
+
+  const acknowledged = item.acknowledged === true;
+  const clickable = Boolean(item.action_url);
+
+  const rowBody = (
+    <>
       <span
         className={clsx(
           'shrink-0 h-7 w-7 rounded-md flex items-center justify-center',
@@ -134,6 +201,11 @@ function InboxRow({ item }: { item: InboxItem }) {
           <p className="min-w-0 flex-1 truncate text-xs font-semibold text-content-primary">
             {title}
           </p>
+          {acknowledged && (
+            <Badge variant="neutral" size="sm">
+              {t('inbox.acknowledged_badge', { defaultValue: 'Seen' })}
+            </Badge>
+          )}
           {item.kind === 'approval' && (
             <Badge variant="warning" size="sm">
               {t('inbox.badge_approval', { defaultValue: 'Approval' })}
@@ -154,7 +226,59 @@ function InboxRow({ item }: { item: InboxItem }) {
           className="shrink-0 mt-0.5 text-content-quaternary opacity-0 transition-all group-hover:translate-x-0.5 group-hover:text-oe-blue group-hover:opacity-100"
         />
       )}
-    </RowTag>
+    </>
+  );
+
+  const acknowledgeLabel = acknowledged
+    ? t('inbox.action_unacknowledge', { defaultValue: 'Mark as not seen' })
+    : t('inbox.action_acknowledge', { defaultValue: 'Mark as seen' });
+  const dismissLabel = t('common.dismiss', { defaultValue: 'Dismiss' });
+
+  return (
+    <div
+      className={clsx(
+        'group flex w-full items-start gap-1 px-2 py-2.5 text-left',
+        'border-b border-border-light/60 last:border-b-0 transition-colors',
+        clickable && 'hover:bg-surface-secondary',
+        acknowledged && 'opacity-60',
+      )}
+    >
+      {/* The navigate target is its own control so the action buttons are not
+          nested inside a button, which is invalid and silently breaks clicks. */}
+      {clickable ? (
+        <button
+          type="button"
+          onClick={onClick}
+          className="flex min-w-0 flex-1 items-start gap-3 rounded-md px-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40"
+        >
+          {rowBody}
+        </button>
+      ) : (
+        <div className="flex min-w-0 flex-1 items-start gap-3 px-2">{rowBody}</div>
+      )}
+      <div className="flex shrink-0 items-center gap-0.5 pt-0.5">
+        <button
+          type="button"
+          onClick={() => action.mutate(acknowledged ? null : 'acknowledged')}
+          disabled={action.isPending}
+          aria-label={acknowledgeLabel}
+          title={acknowledgeLabel}
+          className={ROW_ACTION_CLASS}
+        >
+          {acknowledged ? <Undo2 size={13} /> : <Check size={13} />}
+        </button>
+        <button
+          type="button"
+          onClick={() => action.mutate('dismissed')}
+          disabled={action.isPending}
+          aria-label={dismissLabel}
+          title={dismissLabel}
+          className={ROW_ACTION_CLASS}
+        >
+          <X size={13} />
+        </button>
+      </div>
+    </div>
   );
 }
 

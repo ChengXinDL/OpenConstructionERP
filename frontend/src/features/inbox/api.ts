@@ -10,10 +10,12 @@
  * IDOR-safely to accessible projects. We READ existing per-module data - this
  * client introduces no new store.
  */
-import { apiGet } from '@/shared/lib/api';
+import { apiDelete, apiGet, apiPost } from '@/shared/lib/api';
 
 export type InboxKind = 'approval' | 'alert';
 export type InboxSeverity = 'info' | 'warning' | 'critical';
+/** What the caller recorded against a row. ``null`` once it is restored. */
+export type InboxState = 'acknowledged' | 'dismissed' | null;
 
 /** One actionable row in the unified inbox. */
 export interface InboxItem {
@@ -38,6 +40,12 @@ export interface InboxItem {
   severity: InboxSeverity;
   /** ISO-8601; drives the newest-first sort. */
   created_at?: string | null;
+  /**
+   * True when the caller marked this row seen. Acknowledged rows stay in the
+   * list so they can recede without disappearing; dismissed rows are not
+   * returned at all.
+   */
+  acknowledged?: boolean;
 }
 
 export interface InboxResponse {
@@ -59,4 +67,45 @@ export interface InboxResponse {
 export function fetchInbox(limit = 50): Promise<InboxResponse> {
   const params = new URLSearchParams({ limit: String(limit) });
   return apiGet<InboxResponse>(`/v1/dashboard/inbox/?${params.toString()}`);
+}
+
+/** One validation finding the server recorded alongside an action. */
+export interface InboxActionFinding {
+  rule_id: string;
+  severity: string;
+  message: string;
+  suggestion?: string | null;
+}
+
+/** Outcome of acknowledging, dismissing or restoring one row. */
+export interface InboxActionResponse {
+  item_id: string;
+  state: InboxState;
+  /**
+   * Non-blocking findings. Dismissing an approval reports here that the step is
+   * still pending a decision - the frontend renders its own translated note off
+   * the row's kind rather than showing this English text.
+   */
+  findings: InboxActionFinding[];
+}
+
+const ITEM_BASE = (itemId: string) => `/v1/dashboard/inbox/${encodeURIComponent(itemId)}`;
+
+/** Mark a row seen. It stays in the list, flagged, and nothing else changes. */
+export function acknowledgeInboxItem(itemId: string): Promise<InboxActionResponse> {
+  return apiPost<InboxActionResponse>(`${ITEM_BASE(itemId)}/acknowledge`, {});
+}
+
+/**
+ * Take a row off the caller's list. An alert is also marked read so the
+ * notifications screen agrees; an approval stays pending in the module that
+ * owns it, which is triage, not a decision.
+ */
+export function dismissInboxItem(itemId: string): Promise<InboxActionResponse> {
+  return apiPost<InboxActionResponse>(`${ITEM_BASE(itemId)}/dismiss`, {});
+}
+
+/** Undo an acknowledge or a dismiss and put the row back on the list. */
+export function restoreInboxItem(itemId: string): Promise<InboxActionResponse> {
+  return apiDelete<InboxActionResponse>(`${ITEM_BASE(itemId)}/state`);
 }

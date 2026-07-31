@@ -14,10 +14,10 @@
 // today (see RetrievalService.gather); broadening coverage needs a backend
 // change, so the type filter deliberately lists only those three.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowUpRight,
   ChevronLeft,
@@ -30,7 +30,13 @@ import {
 import { Badge, Card, DismissibleInfo, EmptyState, IntroRichText, SkeletonTable } from '@/shared/ui';
 import { getErrorMessage } from '@/shared/lib/api';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
-import { searchRecords } from './api';
+import {
+  createSavedSearch,
+  deleteSavedSearch,
+  listSavedSearches,
+  recordSavedSearchUse,
+  searchRecords,
+} from './api';
 import { buildHighlightTerms, HighlightedText } from './highlight';
 import { SavedSearches } from './SavedSearchesPanel';
 import {
@@ -39,12 +45,8 @@ import {
   pushRecent,
   querySignature,
   readRecent,
-  readSaved,
-  removeSaved,
-  saveSearch,
-  type SavedSearch,
 } from './savedSearches';
-import type { RetrievalQuery, RetrievalResult } from './types';
+import type { RetrievalQuery, RetrievalResult, SavedSearch } from './types';
 
 type BadgeVariant = 'neutral' | 'blue' | 'success' | 'warning' | 'error';
 type SortMode = 'relevance' | 'date' | 'type';
@@ -54,6 +56,9 @@ const PAGE_SIZE = 10;
 
 /** Stable empty array so memo deps do not change when a search returns nothing. */
 const NO_RESULTS: RetrievalResult[] = [];
+
+/** Same, for the pinned-search list while it loads or comes back empty. */
+const NO_SAVED: SavedSearch[] = [];
 
 const RECORD_TYPE_VARIANT: Record<string, BadgeVariant> = {
   document: 'blue',
@@ -244,15 +249,52 @@ export function RetrievalPage() {
   const [sort, setSort] = useState<SortMode>('relevance');
   const [page, setPage] = useState(1);
 
-  // Search history (localStorage-backed).
+  // Recent searches are per-device scratch and stay in localStorage. Pinned
+  // searches are server-owned, so they survive a reload and follow the person
+  // to another machine.
   const [recent, setRecent] = useState<RetrievalQuery[]>(() => readRecent());
-  const [saved, setSaved] = useState<SavedSearch[]>(() => readSaved());
 
   const searchQuery = useQuery({
     queryKey: ['retrieval', 'search', projectId, query],
     queryFn: () => searchRecords(projectId, query ?? {}),
     enabled: !!projectId && query !== null,
     retry: false,
+  });
+
+  const queryClient = useQueryClient();
+  const savedKey = useMemo(() => ['retrieval', 'saved-searches', projectId], [projectId]);
+  const savedSearchesQuery = useQuery({
+    queryKey: savedKey,
+    queryFn: () => listSavedSearches(projectId),
+    // The page renders before the project context resolves; asking for pins on
+    // no project is a guaranteed 422.
+    enabled: !!projectId,
+    retry: false,
+  });
+  const saved = savedSearchesQuery.data?.results ?? NO_SAVED;
+
+  const invalidateSaved = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: savedKey });
+  }, [queryClient, savedKey]);
+
+  const saveMutation = useMutation({
+    mutationFn: (vars: { label: string; query: RetrievalQuery }) =>
+      createSavedSearch(projectId, vars.label, vars.query),
+    onSuccess: invalidateSaved,
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (savedId: string) => deleteSavedSearch(savedId),
+    onSuccess: invalidateSaved,
+  });
+
+  // Replaying a pin bumps it up the list. Nobody asked for this write, so a
+  // failure stays quiet: the search itself already ran and the only casualty
+  // is the ordering of a list the user is looking straight at.
+  const recordUseMutation = useMutation({
+    mutationFn: (savedId: string) => recordSavedSearchUse(savedId),
+    onSuccess: invalidateSaved,
+    meta: { suppressGlobalErrorToast: true },
   });
 
   const runSearch = () => {
@@ -301,11 +343,21 @@ export function RetrievalPage() {
       : t('retrieval.saved_all', { defaultValue: 'All records' });
   };
 
-  const handleSaveCurrent = () => {
-    if (!query || !isMeaningfulQuery(query)) return;
-    setSaved(saveSearch(describeQuery(query), query));
+  // Re-run a pin, and tell the server it was used so the list keeps ordering
+  // itself by what this person actually reaches for.
+  const runSavedSearch = (s: SavedSearch) => {
+    applyQuery(s.query);
+    recordUseMutation.mutate(s.id);
   };
 
+  const handleSaveCurrent = () => {
+    if (!query || !isMeaningfulQuery(query)) return;
+    saveMutation.mutate({ label: describeQuery(query), query });
+  };
+
+  // Compared through the client signature on both sides rather than against the
+  // server's `signature` field: the two are computed differently, and the only
+  // question here is whether these facets are already pinned.
   const currentIsSaved = useMemo(
     () =>
       query ? saved.some((s) => querySignature(s.query) === querySignature(query)) : false,
@@ -488,10 +540,12 @@ export function RetrievalPage() {
         saved={saved}
         currentCanSave={currentCanSave}
         currentIsSaved={currentIsSaved}
+        saveBusy={saveMutation.isPending}
         describeQuery={describeQuery}
         onRun={applyQuery}
+        onRunSaved={runSavedSearch}
         onSaveCurrent={handleSaveCurrent}
-        onRemoveSaved={(id) => setSaved(removeSaved(id))}
+        onRemoveSaved={(id) => removeMutation.mutate(id)}
         onClearRecent={() => setRecent(clearRecent())}
       />
 

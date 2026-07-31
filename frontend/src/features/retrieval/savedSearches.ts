@@ -2,25 +2,25 @@
 // Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
 //
 // Local persistence for Find Records history. Recent searches are the last few
-// committed queries (auto-recorded), saved searches are ones the user pinned to
-// re-run later. Both live in localStorage so they survive reloads without a new
-// backend endpoint. The preferences store has no slot for these, so this small
-// helper owns the read/write. Every function is pure and swallows storage
-// errors (private mode / quota) so a failure here never breaks search.
+// committed queries, auto-recorded as the user works, and they stay in
+// localStorage: they are per-device scratch, nobody needs them on another
+// machine, and writing every committed query to the server would be a request
+// per keystroke-ending Enter for no benefit.
+//
+// Saved searches are the deliberate ones the user pinned to re-run later, and
+// those live on the server (see ./api) so a pin survives a reload, a cleared
+// browser and a different machine. This file no longer stores them.
+//
+// Every function here swallows storage errors (private mode / quota) so a
+// failure never breaks search.
 
 import type { RetrievalQuery } from './types';
 
-const RECENT_KEY = 'oce.retrieval.recent';
-const SAVED_KEY = 'oce.retrieval.saved';
-const RECENT_LIMIT = 8;
-const SAVED_LIMIT = 30;
+// The server row shape, re-exported so importers keep one name for "a pin".
+export type { SavedSearch } from './types';
 
-/** A search the user pinned, with a human label and the facets to re-run. */
-export interface SavedSearch {
-  id: string;
-  label: string;
-  query: RetrievalQuery;
-}
+const RECENT_KEY = 'oce.retrieval.recent';
+const RECENT_LIMIT = 8;
 
 /** True when a query carries at least one non-empty facet worth remembering. */
 export function isMeaningfulQuery(q: RetrievalQuery): boolean {
@@ -77,29 +77,4 @@ export function pushRecent(q: RetrievalQuery): RetrievalQuery[] {
 export function clearRecent(): RetrievalQuery[] {
   writeList<RetrievalQuery>(RECENT_KEY, []);
   return [];
-}
-
-/* ── Saved searches ───────────────────────────────────────────────────── */
-
-export function readSaved(): SavedSearch[] {
-  return readList<SavedSearch>(SAVED_KEY);
-}
-
-/** Pin a query under `label`, replacing an earlier save of the same facets. */
-export function saveSearch(label: string, q: RetrievalQuery): SavedSearch[] {
-  const sig = querySignature(q);
-  const id = `s_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
-  const entry: SavedSearch = { id, label, query: q };
-  const next = [entry, ...readSaved().filter((s) => querySignature(s.query) !== sig)].slice(
-    0,
-    SAVED_LIMIT,
-  );
-  writeList(SAVED_KEY, next);
-  return next;
-}
-
-export function removeSaved(id: string): SavedSearch[] {
-  const next = readSaved().filter((s) => s.id !== id);
-  writeList(SAVED_KEY, next);
-  return next;
 }

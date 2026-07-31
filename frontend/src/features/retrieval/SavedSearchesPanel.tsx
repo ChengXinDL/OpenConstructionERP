@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
 //
 // Saved and recent searches for Find Records. Purely presentational: the page
-// owns the state (localStorage-backed via ./savedSearches) and passes it down,
-// so this component just renders history and reports intent through callbacks.
-// It renders nothing when there is no history and nothing to save, staying out
-// of the way for a first-time user.
+// owns the state - recent from localStorage, saved from the server - and passes
+// it down, so this component just renders history and reports intent through
+// callbacks. It renders nothing when there is no history and nothing to save,
+// staying out of the way for a first-time user.
 
 import { useTranslation } from 'react-i18next';
 import { Bookmark, BookmarkCheck, Clock, RotateCcw, Search, Trash2 } from 'lucide-react';
@@ -20,9 +20,13 @@ interface SavedSearchesProps {
   currentCanSave: boolean;
   /** Whether the current committed query is already in the saved list. */
   currentIsSaved: boolean;
+  /** A save is in flight; the button waits rather than claiming success early. */
+  saveBusy?: boolean;
   /** Short human label for a query, used for recent chips and saved fallback. */
   describeQuery: (q: RetrievalQuery) => string;
   onRun: (q: RetrievalQuery) => void;
+  /** Replaying a pin carries the whole row so the page can record the use. */
+  onRunSaved: (saved: SavedSearch) => void;
   onSaveCurrent: () => void;
   onRemoveSaved: (id: string) => void;
   onClearRecent: () => void;
@@ -33,8 +37,10 @@ export function SavedSearches({
   saved,
   currentCanSave,
   currentIsSaved,
+  saveBusy = false,
   describeQuery,
   onRun,
+  onRunSaved,
   onSaveCurrent,
   onRemoveSaved,
   onClearRecent,
@@ -56,7 +62,7 @@ export function SavedSearches({
           <button
             type="button"
             onClick={onSaveCurrent}
-            disabled={currentIsSaved}
+            disabled={currentIsSaved || saveBusy}
             className="inline-flex items-center gap-1.5 rounded-md border border-border-light px-2.5 py-1 text-xs font-medium text-content-secondary transition-colors hover:bg-surface-secondary disabled:cursor-default disabled:opacity-50"
           >
             {currentIsSaved ? (
@@ -82,7 +88,7 @@ export function SavedSearches({
               <li key={s.id} className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => onRun(s.query)}
+                  onClick={() => onRunSaved(s)}
                   className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1 text-start text-sm text-content-secondary transition-colors hover:bg-surface-secondary hover:text-content-primary"
                 >
                   <Search className="h-3.5 w-3.5 shrink-0 text-content-tertiary" />

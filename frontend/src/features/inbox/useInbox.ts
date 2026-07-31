@@ -14,9 +14,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { fetchInbox } from './api';
 
+/**
+ * Root of every inbox query key. Acting on a row invalidates this prefix rather
+ * than one cap, so the widget (limit 8) and the page (limit 50) never disagree
+ * about what is still in the list.
+ */
+export const INBOX_QUERY_ROOT = 'inbox';
+
 /** Query key for the unified inbox at a given cap. */
 export function inboxQueryKey(limit: number): (string | number)[] {
-  return ['inbox', limit];
+  return [INBOX_QUERY_ROOT, limit];
 }
 
 /** Fetch the unified inbox, shared across the widget and the full page. */
