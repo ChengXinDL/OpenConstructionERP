@@ -311,7 +311,9 @@ async def test_findings_carry_a_stable_i18n_key(session) -> None:
 
     report = await evaluate_project_teams(session, project.id)
     finding = next(f for f in report.findings if f.rule_id == "teams.empty_team")
-    assert finding.key == "teams.validation.teams.empty_team"
+    # One "teams." segment, not two: the rule id is already namespaced, so the
+    # key must not read "teams.validation.teams.empty_team".
+    assert finding.key == "teams.validation.empty_team"
     assert finding.message
     assert finding.suggestion
 

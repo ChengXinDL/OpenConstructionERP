@@ -361,6 +361,44 @@ async def test_the_access_matrix_endpoint_answers_who_sees_what(session) -> None
     assert by_name["Lost"]["hidden_restricted_count"] == 1
 
 
+async def test_the_team_list_counts_restrictions_held_by_a_team_with_no_members(
+    session,
+) -> None:
+    """The list route carries the counts the "stranded team" warning reads.
+
+    The screen flags a team that holds restrictions but has nobody in it,
+    because that is the shape of having locked everyone out of a record. It
+    decides that from `member_count` and `restricted_record_count` on this
+    route alone. A route that returned the plain team shape, or that left the
+    restriction count at null, would leave the warning permanently unreachable
+    while still looking correct, so assert the non-zero side of both counts
+    rather than the zero one an unpopulated field would also satisfy.
+    """
+    owner = await make_user(session)
+    project = await make_project(session, owner.id)
+    stranded = await make_team(session, project.id, name="Stranded", is_default=True)
+    staffed = await make_team(session, project.id, name="Staffed", sort_order=1)
+    member = await make_user(session)
+    await make_membership(session, staffed.id, member.id)
+
+    async with http_client(build_app(session, caller_id=owner.id)) as client:
+        restricted = await client.post(
+            f"{API_PREFIX}/{stranded.id}/visibility",
+            json={"entity_type": "contract", "entity_id": str(uuid.uuid4())},
+        )
+        assert restricted.status_code in {200, 201}, restricted.text
+        listed = await client.get(f"{API_PREFIX}/project/{project.id}")
+
+    assert listed.status_code == 200
+    by_name = {t["name"]: t for t in listed.json()}
+    assert by_name["Stranded"]["restricted_record_count"] == 1
+    assert by_name["Stranded"]["member_count"] == 0
+    # The counts are per team, not per project: the staffed team must not
+    # inherit the other team's restriction.
+    assert by_name["Staffed"]["restricted_record_count"] == 0
+    assert by_name["Staffed"]["member_count"] == 1
+
+
 async def test_the_validate_endpoint_returns_the_rule_findings(session) -> None:
     """The banner's payload, with counts and localisable keys."""
     owner = await make_user(session)

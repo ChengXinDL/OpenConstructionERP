@@ -568,9 +568,13 @@ def _to_finding(result: RuleResult) -> TeamsValidationFinding:
         context["ref"] = result.element_ref
     if result.suggestion:
         context["suggestion"] = result.suggestion
+    # Rule ids are already namespaced ("teams.empty_team"), so the raw id would
+    # render "teams.validation.teams.empty_team". Drop the duplicated segment:
+    # the translator sees "teams.validation.empty_team" and the rule_id field
+    # still carries the unabridged id for anyone correlating with the registry.
     return TeamsValidationFinding(
         rule_id=result.rule_id,
-        key=f"teams.validation.{result.rule_id}",
+        key=f"teams.validation.{result.rule_id.removeprefix('teams.')}",
         severity=result.severity.value,
         message=result.message,
         element_ref=result.element_ref,
