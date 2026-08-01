@@ -7540,7 +7540,7 @@ const resource = {
     "bim.upload_advanced_element_data": "بيانات العناصر",
     "bim.upload_advanced_element_data_hint": "CSV / Excel",
     "bim.upload_advanced_geometry": "الهندسة ثلاثية الأبعاد",
-    "bim.upload_advanced_geometry_hint": "DAE / COLLADA",
+    "bim.upload_advanced_geometry_hint": "تنسيقات الشبكة ثلاثية الأبعاد",
     "bim.upload_advanced_mode_toggle": "تم التحويل مسبقاً؟ ارفع البيانات والهندسة بشكل منفصل",
     "bim.upload_btn": "رفع",
     "bim.upload_cad_hint": "مدعوم: RVT، IFC، DWG، DGN",

@@ -10036,7 +10036,7 @@ const resource = {
     "bim.upload_advanced_element_data": "Element Data",
     "bim.upload_advanced_element_data_hint": "CSV / Excel",
     "bim.upload_advanced_geometry": "3D Geometry",
-    "bim.upload_advanced_geometry_hint": "DAE / COLLADA",
+    "bim.upload_advanced_geometry_hint": "3D mesh formats",
     "bim.upload_advanced_mode_toggle": "Already converted? Upload data + geometry separately",
     "bim.upload_depth_label": "Conversion depth",
     "bim.upload_depth_standard": "Standard · main categories (fast)",

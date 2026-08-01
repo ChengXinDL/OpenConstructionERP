@@ -11102,7 +11102,7 @@ const resource = {
     "bim.upload_advanced_element_data": "Elementtidata",
     "bim.upload_advanced_element_data_hint": "CSV / Excel",
     "bim.upload_advanced_geometry": "3D-geometria",
-    "bim.upload_advanced_geometry_hint": "DAE / COLLADA",
+    "bim.upload_advanced_geometry_hint": "3D-mesh-muodot",
     "bim.upload_advanced_mode_toggle": "Jo muunnettu? Lataa data + geometria erikseen",
     "bim.upload_depth_label": "Muunnossyvyys",
     "bim.upload_depth_standard": "Vakio · pääkategoriat (nopea)",

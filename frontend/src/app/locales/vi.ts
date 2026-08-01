@@ -11103,7 +11103,7 @@ const resource = {
     "bim.upload_advanced_element_data": "Dữ liệu cấu kiện",
     "bim.upload_advanced_element_data_hint": "CSV / Excel",
     "bim.upload_advanced_geometry": "Hình học 3D",
-    "bim.upload_advanced_geometry_hint": "DAE / COLLADA",
+    "bim.upload_advanced_geometry_hint": "Định dạng lưới 3D",
     "bim.upload_advanced_mode_toggle": "Đã chuyển đổi? Tải lên dữ liệu + hình học riêng",
     "bim.upload_depth_label": "Độ sâu chuyển đổi",
     "bim.upload_depth_standard": "Tiêu chuẩn · danh mục chính (nhanh)",

@@ -11042,7 +11042,7 @@ const resource = {
     "bim.upload_advanced_element_data": "Eleman Verisi",
     "bim.upload_advanced_element_data_hint": "CSV / Excel",
     "bim.upload_advanced_geometry": "3D Geometri",
-    "bim.upload_advanced_geometry_hint": "DAE / COLLADA",
+    "bim.upload_advanced_geometry_hint": "3D mesh formatları",
     "bim.upload_advanced_mode_toggle": "Zaten dönüştürdünüz mü? Veri + geometriyi ayrı ayrı yükleyin",
     "bim.upload_depth_label": "Dönüştürme derinliği",
     "bim.upload_depth_standard": "Standart · ana kategoriler (hızlı)",

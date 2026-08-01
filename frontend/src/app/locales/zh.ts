@@ -11145,7 +11145,7 @@ const resource = {
     "bim.upload_advanced_element_data": "构件数据",
     "bim.upload_advanced_element_data_hint": "CSV / Excel",
     "bim.upload_advanced_geometry": "3D 几何体",
-    "bim.upload_advanced_geometry_hint": "DAE / COLLADA",
+    "bim.upload_advanced_geometry_hint": "3D 网格格式",
     "bim.upload_advanced_mode_toggle": "已转换？分别上传数据和几何体",
     "bim.upload_depth_label": "转换深度",
     "bim.upload_depth_standard": "标准 · 主要类别（快速）",

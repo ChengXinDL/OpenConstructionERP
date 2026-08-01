@@ -10884,7 +10884,7 @@ const resource = {
     "bim.upload_advanced_element_data": "Elementdaten",
     "bim.upload_advanced_element_data_hint": "CSV / Excel",
     "bim.upload_advanced_geometry": "3D-Geometrie",
-    "bim.upload_advanced_geometry_hint": "DAE / COLLADA",
+    "bim.upload_advanced_geometry_hint": "3D-Mesh-Formate",
     "bim.upload_advanced_mode_toggle": "Bereits konvertiert? Daten und Geometrie getrennt hochladen",
     "bim.upload_discipline_label": "Gewerk",
     "bim.upload_drop_here": "Datei hier ablegen",

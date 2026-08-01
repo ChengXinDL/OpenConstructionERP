@@ -11144,7 +11144,7 @@ const resource = {
     "bim.upload_advanced_element_data": "요소 데이터",
     "bim.upload_advanced_element_data_hint": "CSV / Excel",
     "bim.upload_advanced_geometry": "3D 지오메트리",
-    "bim.upload_advanced_geometry_hint": "DAE / COLLADA",
+    "bim.upload_advanced_geometry_hint": "3D 메쉬 형식",
     "bim.upload_advanced_mode_toggle": "이미 변환하셨나요? 데이터 + 지오메트리를 별도로 업로드",
     "bim.upload_depth_label": "변환 깊이",
     "bim.upload_depth_standard": "표준 · 주요 카테고리 (빠름)",

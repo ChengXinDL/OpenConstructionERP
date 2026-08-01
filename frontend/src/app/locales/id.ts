@@ -11104,7 +11104,7 @@ const resource = {
     "bim.upload_advanced_element_data": "Data Elemen",
     "bim.upload_advanced_element_data_hint": "CSV / Excel",
     "bim.upload_advanced_geometry": "Geometri 3D",
-    "bim.upload_advanced_geometry_hint": "DAE / COLLADA",
+    "bim.upload_advanced_geometry_hint": "Format mesh 3D",
     "bim.upload_advanced_mode_toggle": "Sudah dikonversi? Unggah data + geometri secara terpisah",
     "bim.upload_depth_label": "Kedalaman konversi",
     "bim.upload_depth_standard": "Standar · kategori utama (cepat)",

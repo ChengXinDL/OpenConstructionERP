@@ -7405,7 +7405,7 @@ const resource = {
     "bim.upload_advanced_element_data": "Элемент Өгөгдөл",
     "bim.upload_advanced_element_data_hint": "Дэмждэг: CSV / Excel",
     "bim.upload_advanced_geometry": "3D геометр",
-    "bim.upload_advanced_geometry_hint": "Дэмждэг: DAE / COLLADA",
+    "bim.upload_advanced_geometry_hint": "Дэмждэг: 3D сүлжээний форматууд",
     "bim.upload_advanced_mode_toggle": "Already хөрвүүлсэн? Байршуулах өгөгдөл + geometry separately",
     "bim.upload_btn": "Илгээх",
     "bim.upload_cad_hint": "Дэмжигддэг: RVT, IFC, DWG, DGN",

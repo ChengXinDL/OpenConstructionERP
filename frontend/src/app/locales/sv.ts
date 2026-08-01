@@ -13126,7 +13126,7 @@ const resource = {
     "bim.upload_advanced_element_data": "Elementdata",
     "bim.upload_advanced_element_data_hint": "CSV / Excel",
     "bim.upload_advanced_geometry": "3D-geometri",
-    "bim.upload_advanced_geometry_hint": "DAE / COLLADA",
+    "bim.upload_advanced_geometry_hint": "3D-meshformat",
     "bim.upload_advanced_mode_toggle": "Redan konverterat? Ladda upp data + geometri separat",
     "bim.upload_depth_label": "Konverteringsdjup",
     "bim.upload_depth_standard": "Standard · huvudkategorier (snabb)",

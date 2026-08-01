@@ -10366,7 +10366,7 @@ const resource = {
     "bim.upload_advanced_element_data": "Elementgegevens",
     "bim.upload_advanced_element_data_hint": "CSV / Excel",
     "bim.upload_advanced_geometry": "3D-geometrie",
-    "bim.upload_advanced_geometry_hint": "DAE / COLLADA",
+    "bim.upload_advanced_geometry_hint": "3D-meshformaten",
     "bim.upload_advanced_mode_toggle": "Al geconverteerd? Gegevens + geometrie apart uploaden",
     "bim.upload_depth_label": "Conversiediepte",
     "bim.upload_depth_standard": "Standaard · hoofdcategorieën (snel)",

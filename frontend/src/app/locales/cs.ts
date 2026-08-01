@@ -11021,7 +11021,7 @@ const resource = {
     "bim.upload_advanced_element_data": "Data prvků",
     "bim.upload_advanced_element_data_hint": "CSV / Excel",
     "bim.upload_advanced_geometry": "3D geometrie",
-    "bim.upload_advanced_geometry_hint": "DAE / COLLADA",
+    "bim.upload_advanced_geometry_hint": "Formáty 3D sítě",
     "bim.upload_advanced_mode_toggle": "Již konvertováno? Nahrát data + geometrii samostatně",
     "bim.upload_depth_label": "Hloubka konverze",
     "bim.upload_depth_standard": "Standardní · hlavní kategorie (rychlé)",

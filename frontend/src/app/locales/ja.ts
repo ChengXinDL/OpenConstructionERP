@@ -11145,7 +11145,7 @@ const resource = {
     "bim.upload_advanced_element_data": "要素データ",
     "bim.upload_advanced_element_data_hint": "CSV／Excel",
     "bim.upload_advanced_geometry": "3Dジオメトリ",
-    "bim.upload_advanced_geometry_hint": "DAE／COLLADA",
+    "bim.upload_advanced_geometry_hint": "3Dメッシュ形式",
     "bim.upload_advanced_mode_toggle": "変換済みの場合はデータ + ジオメトリを別々にアップロード",
     "bim.upload_depth_label": "変換の深さ",
     "bim.upload_depth_standard": "標準 · 主要カテゴリ（高速）",

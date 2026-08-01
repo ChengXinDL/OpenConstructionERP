@@ -10963,7 +10963,7 @@ const resource = {
     "bim.upload_advanced_element_data": "Podaci o elementima",
     "bim.upload_advanced_element_data_hint": "CSV / Excel",
     "bim.upload_advanced_geometry": "3D geometrija",
-    "bim.upload_advanced_geometry_hint": "DAE / COLLADA",
+    "bim.upload_advanced_geometry_hint": "3D mesh formati",
     "bim.upload_advanced_mode_toggle": "Već konvertirano? Učitajte podatke i geometriju odvojeno",
     "bim.upload_depth_label": "Dubina konverzije",
     "bim.upload_depth_standard": "Standardno · glavne kategorije (brzo)",

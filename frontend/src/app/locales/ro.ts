@@ -11011,7 +11011,7 @@ const resource = {
     "bim.upload_advanced_element_data": "Date elemente",
     "bim.upload_advanced_element_data_hint": "CSV / Excel",
     "bim.upload_advanced_geometry": "Geometrie 3D",
-    "bim.upload_advanced_geometry_hint": "DAE / COLLADA",
+    "bim.upload_advanced_geometry_hint": "Formate mesh 3D",
     "bim.upload_advanced_mode_toggle": "Deja convertit? Încărcați datele și geometria separat",
     "bim.upload_depth_label": "Adâncimea conversiei",
     "bim.upload_depth_standard": "Standard · categorii principale (rapid)",
