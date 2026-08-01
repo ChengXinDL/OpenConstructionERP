@@ -24,6 +24,7 @@ import {
   useMemo,
   useCallback,
   useEffect,
+  useId,
   type MouseEvent as ReactMouseEvent,
 } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -108,6 +109,11 @@ export function GanttChart({
 }: GanttProps) {
   const { t } = useTranslation();
   const locale = getIntlLocale();
+
+  // Prefix for the per-cell header clip paths. Two charts can share a page, and
+  // their columns land at different x, so the ids have to be per instance or one
+  // chart clips its labels against the other's geometry.
+  const clipPrefix = useId();
 
   // Refs for scroll sync
   const tableBodyRef = useRef<HTMLDivElement>(null);
@@ -788,6 +794,35 @@ export function GanttChart({
             >
               <path d="M 0 0 L 8 3 L 0 6 Z" fill="#94a3b8" />
             </marker>
+
+            {/*
+             * One clip per top-row cell. The label is a plain <text>, which does
+             * not wrap or truncate to anything, so a cell narrower than its own
+             * label used to paint straight over its neighbour: a range starting
+             * mid-month gives the leading cell a few days of width while its
+             * label still reads "January 2026", and the result on screen was
+             * JANFEBRUARY2026 at the zoom the chart opens on.
+             *
+             * Clipping rather than measuring is deliberate. Deciding what fits
+             * needs the rendered width of the string, and the labels come from
+             * Intl in 29 locales, so any character-count estimate is right for
+             * English and wrong for the CJK and Arabic ones. getComputedTextLength
+             * would be exact but forces layout per cell on every render, which is
+             * the cost tasks #84 and #88 went and removed elsewhere. The clip is
+             * exact in every locale and costs no measurement.
+             */}
+            {headers.topRow.map((cell, i) => (
+              <clipPath key={`top-clip-${i}`} id={`${clipPrefix}-top-${i}`}>
+                {/* Inset by the same 6px the text is, so a clipped label stops
+                    short of the divider instead of touching it. */}
+                <rect
+                  x={cell.x}
+                  y={0}
+                  width={Math.max(0, cell.width - 6)}
+                  height={HEADER_HEIGHT / 2}
+                />
+              </clipPath>
+            ))}
           </defs>
 
           {/* ── Header area ─────────────────────────────────────── */}
@@ -813,6 +848,7 @@ export function GanttChart({
                   x={cell.x + 6}
                   y={HEADER_HEIGHT / 4 + 1}
                   dominantBaseline="central"
+                  clipPath={`url(#${clipPrefix}-top-${i})`}
                   className="fill-current text-[10px] font-semibold uppercase tracking-wider"
                   fill="var(--color-content-tertiary, #94a3b8)"
                 >
