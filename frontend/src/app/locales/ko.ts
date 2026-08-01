@@ -11100,7 +11100,7 @@ const resource = {
     "bim.landing_hero_subtitle": "건물 요소를 시각화하고, 수량을 추출하고, 물량 명세서에 연결하려면 IFC 또는 RVT 파일을 업로드하세요.",
     "bim.landing_hero_title": "BIM 3D 뷰어",
     "bim.landing_processing": "처리 중...",
-    "bim.landing_size_hint": "IFC, RVT, CSV 또는 Excel · 최대 500MB",
+    "bim.landing_size_hint": "IFC, RVT, CSV 또는 Excel",
     "bim.landing_upload_process": "업로드 & 처리",
     "bim.mode_cad": "직접 CAD 업로드",
     "bim.mode_data": "사전 처리된 데이터",

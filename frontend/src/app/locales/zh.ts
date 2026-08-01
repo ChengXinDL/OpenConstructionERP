@@ -11101,7 +11101,7 @@ const resource = {
     "bim.landing_hero_subtitle": "上传 IFC 或 RVT 文件以可视化建筑构件、提取工程量并关联至工程量清单。",
     "bim.landing_hero_title": "BIM 3D 查看器",
     "bim.landing_processing": "处理中...",
-    "bim.landing_size_hint": "IFC、RVT、CSV 或 Excel · 最大 500 MB",
+    "bim.landing_size_hint": "IFC、RVT、CSV 或 Excel",
     "bim.landing_upload_process": "上传并处理",
     "bim.mode_cad": "直接上传 CAD",
     "bim.mode_data": "预处理数据",

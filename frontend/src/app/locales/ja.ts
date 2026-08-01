@@ -11101,7 +11101,7 @@ const resource = {
     "bim.landing_hero_subtitle": "建物要素を可視化し、数量を抽出し、数量内訳書にリンクするためにIFCまたはRevitファイルをアップロードしてください。",
     "bim.landing_hero_title": "BIM 3Dビューアー",
     "bim.landing_processing": "処理中...",
-    "bim.landing_size_hint": "IFC、RVT、CSV、またはExcel · 最大500MB",
+    "bim.landing_size_hint": "IFC、RVT、CSV、またはExcel",
     "bim.landing_upload_process": "アップロード & 処理",
     "bim.mode_cad": "直接CADアップロード",
     "bim.mode_data": "事前処理済みデータ",

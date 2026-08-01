@@ -7480,7 +7480,7 @@ const resource = {
     "bim.landing_hero_subtitle": "ارفع ملفات IFC أو RVT لعرض عناصر المبنى واستخراج الكميات وربطها بجدول الكميات.",
     "bim.landing_hero_title": "عارض BIM ثلاثي الأبعاد",
     "bim.landing_processing": "جارٍ المعالجة...",
-    "bim.landing_size_hint": "IFC، RVT، CSV، أو Excel · الحد الأقصى 500 ميغابايت",
+    "bim.landing_size_hint": "IFC، RVT، CSV، أو Excel",
     "bim.landing_upload_process": "رفع ومعالجة",
     "bim.link_to_boq": "ربط بـ BOQ",
     "bim.load_error": "فشل تحميل عناصر النموذج",

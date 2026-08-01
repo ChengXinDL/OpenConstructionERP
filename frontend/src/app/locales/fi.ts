@@ -11058,7 +11058,7 @@ const resource = {
     "bim.landing_hero_subtitle": "Lataa IFC- tai RVT-tiedostot rakennuselementtien visualisointiin, määrien purkamiseen ja linkittämiseen määräluetteloosi.",
     "bim.landing_hero_title": "BIM 3D -näkymä",
     "bim.landing_processing": "Käsitellään...",
-    "bim.landing_size_hint": "IFC, RVT, CSV tai Excel · enintään 500 Mt",
+    "bim.landing_size_hint": "IFC, RVT, CSV tai Excel",
     "bim.landing_upload_process": "Lataa ja käsittele",
     "bim.mode_cad": "Suora CAD-lataus",
     "bim.mode_data": "Esikäsitelty data",
