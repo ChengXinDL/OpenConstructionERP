@@ -1827,7 +1827,21 @@ function LandingPage({ projectId, onUploadComplete: _onUploadComplete, breadcrum
                   {t('bim.landing_hero_subtitle')}
                 </p>
                 <p className="text-xs text-content-tertiary mt-3 leading-relaxed">
-                  {t('bim.landing_formats_detailed', { defaultValue: 'RVT 2015\u20132026 (.rvt) \u00B7 IFC 2x3, 4.0, 4.1, 4.3 (.ifc) \u00B7 CSV \u00B7 Excel. DWG \u2192 DWG Takeoff.' })}
+                  {/* Deliberately plain ASCII, and deliberately by category.
+                      The old text named neither of the two mesh tiers, which is
+                      the omission the user reported, and spelling out seven of
+                      the eleven mesh formats would just be the same defect in a
+                      new place. The four clauses map to the four tiers in
+                      uploadFormats.ts, so this stays true when a format is
+                      added.
+
+                      The escapes it used to carry were doubled in the locale
+                      files, so 25 of 29 rendered a literal backslash-u-2013
+                      rather than a dash. Keeping this line free of dashes,
+                      middle dots and arrows means there is nothing left to
+                      double. Version specifics are not lost:
+                      bim.landing_version_note carries them on the same screen. */}
+                  {t('bim.landing_formats_detailed', { defaultValue: 'RVT and IFC models, 3D mesh formats, and element data as CSV or Excel. DWG and DXF drawings are routed to DWG Takeoff.' })}
                 </p>
                 <div className="mt-4 flex items-center justify-start">
                   <div className="inline-flex flex-wrap items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20">
