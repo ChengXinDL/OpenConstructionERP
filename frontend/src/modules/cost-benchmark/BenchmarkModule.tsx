@@ -684,7 +684,18 @@ export default function BenchmarkModule() {
                 {t(confMeta.key, { defaultValue: confMeta.defaultValue })}
               </span>
             </div>
-            <p className="mb-4 text-xs text-content-tertiary">{ownPortfolio.note}</p>
+            {/* The server composes `note` in English and we cannot translate a
+                sentence that arrives at render time, so translate the code it
+                sends instead and keep the prose as the fallback for a server
+                that predates it. */}
+            <p className="mb-4 text-xs text-content-tertiary">
+              {ownPortfolio.note_code
+                ? t(`benchmarks.portfolio_note_${ownPortfolio.note_code}`, {
+                    defaultValue: ownPortfolio.note,
+                    count: ownPortfolio.project_count,
+                  })
+                : ownPortfolio.note}
+            </p>
 
             {/* Distribution bar: P25-P75 band with a median tick and your marker */}
             <div className="relative">
@@ -713,7 +724,12 @@ export default function BenchmarkModule() {
 
             {portfolioQuery.data?.explanation && (
               <p className="mt-3 text-xs font-medium text-content-secondary">
-                {t('benchmarks.portfolio_reading', { defaultValue: portfolioQuery.data.explanation })}
+                {portfolioQuery.data.explanation_code
+                  ? t(`benchmarks.portfolio_reading_${portfolioQuery.data.explanation_code}`, {
+                      defaultValue: portfolioQuery.data.explanation,
+                      currency: portfolioQuery.data.currency,
+                    })
+                  : portfolioQuery.data.explanation}
               </p>
             )}
           </div>

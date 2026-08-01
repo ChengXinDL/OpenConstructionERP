@@ -23,6 +23,13 @@ export interface OwnPortfolio {
   max: string;
   confidence: 'high' | 'medium' | 'low';
   note: string;
+  /**
+   * Which basis line `note` states. `note` is composed server-side in English
+   * and arrives at render time, so it cannot be localized; read this instead
+   * and look the wording up, pairing it with `project_count` for the plural.
+   * Optional so older payloads stay valid, as with `metric` below.
+   */
+  note_code?: 'cost_and_area' | 'budget_and_boq' | 'recovery_ledger' | '';
 }
 
 export interface BenchmarkResponse {
@@ -37,6 +44,12 @@ export interface BenchmarkResponse {
   own_portfolio: OwnPortfolio | null;
   percentile_vs_own: number | null;
   explanation: string;
+  /**
+   * Which reading `explanation` states. Same reasoning as `note_code`: the
+   * prose is English and only the code can be translated. `specify_currency`
+   * names the currency held in `currency` above.
+   */
+  explanation_code?: 'below_median' | 'above_median' | 'at_median' | 'specify_currency' | '';
 }
 
 export interface BenchmarkRequest {
