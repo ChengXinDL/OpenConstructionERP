@@ -103,10 +103,27 @@ convention = {
 
 
 class GUID(TypeDecorator):
-    """Platform-independent UUID type.
+    """UUID-valued column stored as text.
 
-    Uses PostgreSQL UUID when available, otherwise stores as String(36).
-    This allows the same models to work with both PostgreSQL and SQLite.
+    Always ``VARCHAR(36)``, on every dialect. Values are converted to and
+    from :class:`uuid.UUID` in Python, so the ORM layer sees UUIDs, but the
+    column the database gets is text.
+
+    This docstring used to claim "uses PostgreSQL UUID when available".
+    It never did: honouring that would need ``load_dialect_impl`` returning
+    ``postgresql.UUID``, and there is no such method here. Measured across
+    all 598 tables, ``create_all`` emits 597 ``varchar(36)`` id columns, one
+    ``varchar(64)`` and zero ``uuid``.
+
+    The claim mattered because 53 Alembic revisions declare native
+    ``UUID`` columns and 45 of those hang foreign keys off them. Read
+    against the old docstring those revisions look consistent with the
+    models; against the actual behaviour they disagree, and a database
+    built by walking the chain collides with one built by ``create_all``
+    (``DatatypeMismatch``). Do not "fix" this by adding
+    ``load_dialect_impl`` on its own: that changes the column type under
+    every existing install and is a data migration across all 598 tables,
+    not a type-decorator tweak.
     """
 
     impl = String(36)
