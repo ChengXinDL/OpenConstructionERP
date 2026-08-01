@@ -10,9 +10,10 @@ Tables:
 """
 
 import uuid
+from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import JSON, ForeignKey, Index, Integer, Numeric, String, Text
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import GUID, Base
@@ -48,6 +49,30 @@ class DwgDrawing(Base):
     sheet_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
     thumbnail_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Liveness signal from the background conversion, refreshed on a fixed
+    # interval for as long as that task is alive.
+    #
+    # This exists so the orphan detector can answer the question it is actually
+    # asking - "did the process that owned this conversion die?" - instead of
+    # the question it used to approximate, "has this taken too long?". Elapsed
+    # time cannot separate the two: the xlsx parse has no timeout and is slow
+    # in proportion to the drawing, so any cutoff derived from how long work
+    # *should* take will eventually condemn a conversion that is running
+    # perfectly well. An interval we choose ourselves is a fact we control.
+    #
+    # NULL means no conversion has ever run for this row, which is NOT evidence
+    # of death: every row that predates this column reads NULL, and so does
+    # every drawing uploaded but never converted. The detector must not treat
+    # it as staleness.
+    #
+    # Deliberately not ``updated_at``. That column means "when this drawing last
+    # changed" and the UI is entitled to sort on it; writing it every interval
+    # would make a converting drawing look repeatedly edited. Liveness and
+    # last-modified are different facts and do not share a column.
+    conversion_heartbeat_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     # Scale denominator for this drawing. 1.0 = raw DXF units (treated as
     # metres). 50.0 = 1:50 architectural scale. Calibrated values from the
     # two-point tool land here too, so the server has a single source of
