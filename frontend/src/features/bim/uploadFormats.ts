@@ -91,15 +91,3 @@ export const RAW_GEOMETRY_EXTENSIONS = ['.dae', '.glb', '.gltf'] as const;
 export function extensionsInTier(tier: UploadTier): string[] {
   return UPLOAD_FORMATS.filter((f) => f.tier === tier).map((f) => f.ext);
 }
-
-/**
- * Human-readable format list for interpolation into a translated sentence.
- *
- * Upper-cased and dotless (``RVT, IFC``) because that is how the strings read
- * mid-sentence. Callers pass the result as ``{{formats}}`` rather than typing
- * the names into the value, so a format added above reaches every locale
- * without touching 29 files.
- */
-export function formatNames(exts: readonly string[]): string {
-  return exts.map((e) => e.replace(/^\./, '').toUpperCase()).join(', ');
-}
