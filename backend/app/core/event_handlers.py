@@ -25,10 +25,44 @@ Dataflows wired:
 """
 
 import logging
+from typing import TYPE_CHECKING
 
 from app.core.events import Event, event_bus
 
+if TYPE_CHECKING:
+    import uuid
+
+    from sqlalchemy.ext.asyncio import AsyncSession
+
 logger = logging.getLogger(__name__)
+
+
+async def _resolve_project_currency(
+    session: "AsyncSession",
+    project_id: "str | uuid.UUID",
+) -> str:
+    """Return the project's currency code, or "" when it cannot be read.
+
+    ``ProjectBudget.currency_code`` carries no DB default on purpose - the
+    model comment requires service code to supply it from the project
+    context so per-project rollups do not bias toward one currency. A
+    budget line written without it reaches the UI with no currency and
+    renders as an em-dash instead of money.
+
+    Mirrors ``FinanceService.create_budget``: best-effort, never raises.
+    An empty string is the honest "unknown", and a wrong hardcoded
+    currency is worse than a blank one.
+    """
+    from sqlalchemy import select
+
+    from app.modules.projects.models import Project
+
+    try:
+        row = await session.execute(select(Project.currency).where(Project.id == project_id))
+        return row.scalar_one_or_none() or ""
+    except Exception:  # noqa: BLE001 - lookup is non-critical, never fail the handler
+        logger.exception("Project-currency lookup failed for project %s", project_id)
+        return ""
 
 
 # ---------------------------------------------------------------------------
@@ -628,6 +662,7 @@ async def _handle_estimate_approved(event: Event) -> None:
                 wbs_totals[wbs_key] = wbs_totals.get(wbs_key, Decimal("0")) + total
 
             # Upsert budget lines for each WBS group
+            currency_code = await _resolve_project_currency(session, project_id)
             created_count = 0
             for wbs_key, total in wbs_totals.items():
                 existing = await session.execute(
@@ -648,6 +683,7 @@ async def _handle_estimate_approved(event: Event) -> None:
                             project_id=project_id,
                             wbs_id=wbs_key if wbs_key != "general" else None,
                             category="estimate",
+                            currency_code=currency_code,
                             original_budget=str(total),
                             revised_budget=str(total),
                         )
@@ -1066,6 +1102,10 @@ async def _handle_variation_approved(event: Event) -> None:
                         project_id=project_id,
                         wbs_id=None,
                         category="variations",
+                        # The project is already loaded above - reuse it
+                        # rather than re-query. "" when the project row is
+                        # missing, matching _resolve_project_currency.
+                        currency_code=(getattr(project, "currency", None) or "") if project else "",
                         original_budget="0",
                         revised_budget=str(amount),
                     )

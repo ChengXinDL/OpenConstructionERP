@@ -12,6 +12,15 @@ Pins the contract for the markups-module remediation done this round:
   not own — the auth gate cannot be silently dropped from the listing
   route in a future refactor.
 
+Stamp-template tenancy is pinned here too. The rule the module actually
+implements is *global templates carry ``project_id IS NULL``* — see
+``MarkupsService.seed_default_stamps`` (which writes every shipped stamp
+with ``project_id=None``) and the ``_authorize_stamp_mutation`` docstring
+in the router. ``category == "predefined"`` is a label, not a scope, and
+the demo seeder writes project-scoped rows carrying it. The three tests
+below hold both halves: one project must not see another project's own
+templates, and the shipped global ones must stay visible to everyone.
+
 The test runs on a transaction-isolated PostgreSQL session (rolled back
 on teardown) via ``tests._pg.transactional_session`` — never
 ``backend/openestimate.db``.
@@ -27,7 +36,8 @@ import pytest_asyncio
 from fastapi import HTTPException
 
 from app.dependencies import verify_project_access
-from app.modules.markups.schemas import MarkupCreate, ScaleConfigCreate
+from app.modules.markups.router import list_stamp_templates
+from app.modules.markups.schemas import MarkupCreate, ScaleConfigCreate, StampTemplateCreate
 from app.modules.markups.service import MarkupsService
 from tests._pg import transactional_session
 
@@ -161,4 +171,137 @@ async def test_verify_project_access_rejects_outsider(session_owner) -> None:
     with pytest.raises(HTTPException) as exc:
         await verify_project_access(project_id, str(outsider_id), session)
     # 404 — auth failures and missing projects must look identical.
+    assert exc.value.status_code == 404
+
+
+# ── Stamp-template tenancy ───────────────────────────────────────────────
+
+
+@pytest_asyncio.fixture
+async def two_projects():
+    """Yield (session, owner_a, project_a, owner_b, project_b).
+
+    Two unrelated tenants: each user owns exactly one project and has no
+    access to the other. This is the shape a cross-project leak needs —
+    a single-project fixture cannot see one.
+    """
+    async with transactional_session() as s:
+        from app.modules.projects.models import Project
+        from app.modules.users.models import User
+
+        made: list[tuple[uuid.UUID, uuid.UUID]] = []
+        for label in ("A", "B"):
+            owner_id = uuid.uuid4()
+            project_id = uuid.uuid4()
+            s.add(
+                User(
+                    id=owner_id,
+                    email=f"owner-{label.lower()}-{uuid.uuid4().hex[:6]}@test.io",
+                    hashed_password="x",
+                    full_name=f"Owner {label}",
+                ),
+            )
+            await s.flush()
+            s.add(
+                Project(
+                    id=project_id,
+                    name=f"Stamp Tenancy {label}",
+                    owner_id=owner_id,
+                    currency="EUR",
+                ),
+            )
+            made.append((owner_id, project_id))
+        await s.commit()
+        yield s, str(made[0][0]), made[0][1], str(made[1][0]), made[1][1]
+
+
+async def _make_stamp(
+    service: MarkupsService,
+    *,
+    project_id: uuid.UUID | None,
+    name: str,
+    owner_id: str,
+    category: str = "predefined",
+):
+    """Create one stamp template through the service (the real write path)."""
+    return await service.create_stamp(
+        StampTemplateCreate(
+            project_id=project_id,
+            name=name,
+            category=category,
+            text=name.upper(),
+        ),
+        user_id=owner_id,
+    )
+
+
+@pytest.mark.asyncio
+async def test_stamp_templates_do_not_leak_between_projects(two_projects) -> None:
+    """A query scoped to project A must not return project B's own templates.
+
+    Both rows carry ``category="predefined"`` on purpose — that is what the
+    demo seeder writes (``markups/seed.py``), and it is the only shape that
+    reproduces the leak. With ``category="custom"`` the pre-fix query already
+    scoped correctly, so the test would pass without proving anything.
+    """
+    session, owner_a, project_a, owner_b, project_b = two_projects
+    service = MarkupsService(session)
+
+    await _make_stamp(service, project_id=project_a, name="A only", owner_id=owner_a)
+    await _make_stamp(service, project_id=project_b, name="B only", owner_id=owner_b)
+    await session.commit()
+
+    visible_to_a = await service.list_stamps(project_a)
+    names = {s.name for s in visible_to_a}
+
+    assert "A only" in names, "project A must still see its own template"
+    assert "B only" not in names, "project A must never see project B's template"
+    # And symmetrically, so the assertion is not satisfied by an empty result.
+    visible_to_b = {s.name for s in await service.list_stamps(project_b)}
+    assert visible_to_b == {"B only"}
+
+
+@pytest.mark.asyncio
+async def test_global_predefined_stamps_stay_shared(two_projects) -> None:
+    """Shipped global templates (``project_id IS NULL``) reach every project.
+
+    Regression pin for the deliberate design, NOT leak evidence: this holds
+    both before and after the scoping fix. It exists so a future tightening
+    of the query cannot quietly turn the shared stamp library into a
+    per-project one.
+    """
+    session, owner_a, project_a, _owner_b, project_b = two_projects
+    service = MarkupsService(session)
+
+    await _make_stamp(service, project_id=None, name="Approved (global)", owner_id="system")
+    await session.commit()
+
+    for project_id in (project_a, project_b):
+        names = {s.name for s in await service.list_stamps(project_id)}
+        assert "Approved (global)" in names
+
+
+@pytest.mark.asyncio
+async def test_listing_stamps_for_a_foreign_project_is_refused(two_projects) -> None:
+    """The listing route gates ``project_id`` the way the mutation route does.
+
+    Scoping the query stops the accidental leak; it does not stop a caller
+    simply asking for another tenant's project id. ``_authorize_stamp_mutation``
+    already gates PATCH/DELETE — GET must not be the one door left open.
+    """
+    session, owner_a, _project_a, owner_b, project_b = two_projects
+    service = MarkupsService(session)
+
+    await _make_stamp(service, project_id=project_b, name="B only", owner_id=owner_b)
+    await session.commit()
+
+    with pytest.raises(HTTPException) as exc:
+        await list_stamp_templates(
+            session=session,
+            project_id=project_b,
+            user_id=owner_a,
+            service=service,
+        )
+    # 404 — matches verify_project_access: a refused project and a missing
+    # one must be indistinguishable.
     assert exc.value.status_code == 404

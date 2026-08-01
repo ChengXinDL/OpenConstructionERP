@@ -476,11 +476,25 @@ async def create_stamp_template(
 
 @router.get("/stamps/templates/", response_model=list[StampTemplateResponse])
 async def list_stamp_templates(
+    session: SessionDep,
     project_id: uuid.UUID | None = Query(default=None),
     user_id: CurrentUserId = None,  # type: ignore[assignment]
     service: MarkupsService = Depends(_get_service),
 ) -> list[StampTemplateResponse]:
-    """List stamp templates (predefined + project-specific)."""
+    """List stamp templates (predefined + project-specific).
+
+    When ``project_id`` is supplied it is verified the same way the
+    mutation routes verify theirs - scoping the query stops templates
+    leaking into a project by accident, but only the membership check
+    stops a caller naming another tenant's project outright. The check is
+    conditional because the parameter is optional: omitting it returns the
+    unscoped (``project_id IS NULL``) templates, which today means the
+    shipped global stamps *and* every user's private ones - narrowing that
+    to the caller's own needs ``owner_id`` threaded through the service and
+    is left alone here.
+    """
+    if project_id is not None:
+        await verify_project_access(project_id, str(user_id), session)
     items = await service.list_stamps(project_id)
     return [_stamp_to_response(i) for i in items]
 

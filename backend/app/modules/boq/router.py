@@ -1666,6 +1666,12 @@ async def create_budget_from_boq(
             if isinstance(row.metadata_, dict) and row.metadata_.get("boq_id") == str(boq_id)
         }
 
+        # ProjectBudget.currency_code has no DB default - the model requires
+        # the writer to supply it from the project context. Omitting it here
+        # wrote budget lines with "", which reach the finance table as
+        # em-dashes instead of money. Best-effort resolver, "" on failure.
+        currency_code = await service._resolve_project_currency(boq_id)  # noqa: SLF001
+
         for group_key, total_amount in groups.items():
             if group_key in existing_group_keys:
                 skipped_existing += 1
@@ -1674,6 +1680,7 @@ async def create_budget_from_boq(
                 project_id=boq.project_id,
                 wbs_id=group_key if group_key != "ungrouped" else None,
                 category="other",
+                currency_code=currency_code,
                 original_budget=str(total_amount),
                 revised_budget=str(total_amount),
                 metadata_={"source": "boq", "boq_id": str(boq_id)},

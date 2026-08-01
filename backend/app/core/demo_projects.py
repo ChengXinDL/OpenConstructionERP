@@ -8465,6 +8465,13 @@ async def _seed_module_data(
 
     try:
         budget_list = _BUDGETS.get(demo_id) or generated.get("finance_budgets", [])
+        # ProjectBudget.currency_code carries no DB default - the model
+        # requires the writer to supply it from the project context. Neither
+        # the hand-authored _BUDGETS dicts nor the generated ones carry one,
+        # so every seeded line landed with "" and the finance table rendered
+        # a column of em-dashes instead of money. The template currency is
+        # the same value that went into Project.currency.
+        budget_currency = (template.currency or "").strip()[:3].upper()
         for bl in budget_list:
             session.add(
                 ProjectBudget(
@@ -8474,6 +8481,7 @@ async def _seed_module_data(
                     # section label would roll back the whole demo install, so
                     # clip it defensively here.
                     category=bl["category"][:100],
+                    currency_code=bl.get("currency_code") or budget_currency,
                     original_budget=bl["original_budget"],
                     revised_budget=bl["revised_budget"],
                     committed=bl["committed"],
