@@ -126,6 +126,7 @@ def _drawing_to_response(
     latest_version: object | None = None,
     *,
     view_status: str | None = None,
+    view_error_message: str | None = None,
 ) -> DwgDrawingResponse:
     """Build a DwgDrawingResponse from a DwgDrawing ORM object.
 
@@ -134,6 +135,12 @@ def _drawing_to_response(
     never sits on a perpetual spinner: a seeded ``.dwg`` row with no parsed
     entities and no converter resolves to ``needs_conversion`` rather than a
     stuck ``uploaded``/``processing``.
+
+    ``view_error_message`` carries the explanation for a status this call
+    derived rather than read. It used to be written to the row so it could be
+    served from there, which meant a GET mutating the record to make a
+    verdict it had inferred look like something that happened. Passing it
+    through instead keeps the stored row honest.
     """
     version_resp = None
     if latest_version is not None:
@@ -149,7 +156,7 @@ def _drawing_to_response(
         discipline=item.discipline,  # type: ignore[attr-defined]
         sheet_number=item.sheet_number,  # type: ignore[attr-defined]
         thumbnail_key=item.thumbnail_key,  # type: ignore[attr-defined]
-        error_message=item.error_message,  # type: ignore[attr-defined]
+        error_message=item.error_message or view_error_message,  # type: ignore[attr-defined]
         scale_denominator=float(getattr(item, "scale_denominator", 1.0) or 1.0),
         scale_mode=str(getattr(item, "scale_mode", "preset") or "preset"),
         metadata=getattr(item, "metadata_", {}),  # type: ignore[attr-defined]
@@ -423,8 +430,15 @@ async def list_drawings(
             has_entities=False,
             converter_present=converter_present,
             age_seconds=service.conversion_age_seconds(i),
+            heartbeat_at=getattr(i, "conversion_heartbeat_at", None),
         )
-        out.append(_drawing_to_response(i, view_status=view_status))
+        out.append(
+            _drawing_to_response(
+                i,
+                view_status=view_status,
+                view_error_message=service.view_error_message(i, view_status),
+            )
+        )
     return out
 
 
@@ -441,8 +455,13 @@ async def get_drawing(
     Audit B-DWG-IDOR - was IDOR. The ``drawing_id`` was trusted blindly.
     """
     await _gate_by_drawing(drawing_id, user_id, service, session)
-    drawing, version, view_status = await service.get_drawing_with_view_status(drawing_id)
-    return _drawing_to_response(drawing, version, view_status=view_status)
+    drawing, version, view_status, view_error = await service.get_drawing_with_view_status(drawing_id)
+    return _drawing_to_response(
+        drawing,
+        version,
+        view_status=view_status,
+        view_error_message=view_error,
+    )
 
 
 @router.delete("/drawings/{drawing_id}", status_code=204)

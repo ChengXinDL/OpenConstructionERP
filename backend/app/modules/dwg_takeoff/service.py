@@ -14,11 +14,13 @@ import json
 import logging
 import os
 import uuid
+from contextlib import suppress
 from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Any
 
 from fastapi import HTTPException, UploadFile, status
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import async_session_factory
@@ -67,22 +69,59 @@ def _spawn_dwg_conversion(drawing_id: uuid.UUID, file_path: str) -> "asyncio.Tas
 
 
 # ── Orphaned-conversion (stale) detection ───────────────────────────────────
-# A live DWG conversion self-fails at OE_DWG_CONVERT_TIMEOUT_S (default 300s):
-# subprocess.run(timeout=...) hard-kills the converter at that bound. So a
-# drawing still sitting at "processing"/"uploaded" with NO parsed entities long
-# past that bound is orphaned - its detached background task died with the
-# process (a server restart / reinstall / crash), and asyncio tasks never
-# survive a restart, so nothing will ever complete or fail it. Left alone the
-# frontend polls "processing" forever - the "Converting... 2547m" infinite
-# spinner a real user hit after reinstalling. Treat anything older than the
-# convert timeout plus a generous margin as dead and surface an actionable error.
+# The question this has to answer is "did the process that owned this
+# conversion die?", not "has this taken too long?". Only the first one is a
+# real defect: a detached asyncio task never survives a restart, so after a
+# crash or reinstall nothing will ever complete or fail the row and the page
+# polls "processing" forever - the "Converting... 2547m" spinner a real user
+# hit.
+#
+# This used to be approximated with elapsed time, and the approximation was
+# wrong in the expensive direction. It condemned conversions that were running
+# perfectly well, and then told the user to delete the drawing, which is the
+# one operation that was blocked at the time. Elapsed time cannot separate the
+# two cases, because the work has no upper bound to compare against: the DDC
+# subprocess is capped at OE_DWG_CONVERT_TIMEOUT_S, but the xlsx parse that
+# follows it has no timeout at all and its cost tracks the size of the
+# drawing. Measured on a 200,000 row export, that parse alone took 86 seconds.
+# A 22 MB drawing can therefore cross any cutoff derived from the converter's
+# budget while doing exactly what it should.
+#
+# So the task now reports that it is alive, and this reads that report. The
+# cutoff stops being a guess about how long a customer's drawing takes and
+# becomes a fact about how often we write, which is the one number we control.
 
 
-def _stale_conversion_cutoff_seconds() -> int:
-    """Seconds after which a still-``processing`` drawing is deemed orphaned."""
+def _heartbeat_interval_seconds() -> int:
+    """How often a live conversion refreshes ``conversion_heartbeat_at``."""
+    return max(1, int(os.getenv("OE_DWG_HEARTBEAT_S", "30")))
+
+
+def _heartbeat_grace_seconds() -> int:
+    """Silence after which a heartbeat-carrying conversion is deemed dead.
+
+    Six missed beats. The generosity is deliberate and the errors are not
+    symmetric: calling a live conversion dead tells the user to delete work
+    that is still running, while calling a dead one live costs a spinner that
+    lingers a while longer. Measured jitter on the heartbeat is 1.3x the
+    interval even through the pure-Python xlsx parse that holds the GIL, so
+    six beats is far outside anything scheduling delay can produce.
+    """
+    return _heartbeat_interval_seconds() * 6
+
+
+def _legacy_stale_cutoff_seconds() -> int:
+    """Elapsed-time cutoff used only for rows that carry no heartbeat at all.
+
+    A NULL heartbeat means no conversion has run for this row since the
+    heartbeat shipped. That is every row that predates the column, including
+    genuinely orphaned ones, so the old elapsed-time rule is kept for exactly
+    those and nothing else. It cannot misfire on a current conversion: the
+    heartbeat is written in the same commit as the transition to
+    ``processing``, so anything running today has a non-NULL value from its
+    first moment.
+    """
     convert_timeout = int(os.getenv("OE_DWG_CONVERT_TIMEOUT_S", "300"))
-    # Twice the convert timeout, floored at 10 minutes - comfortably past any
-    # real run (which is force-killed at the timeout) without false positives.
     return max(convert_timeout * 2, 600)
 
 
@@ -104,6 +143,80 @@ def _seconds_since(ts: datetime | None) -> float | None:
     if ts.tzinfo is None:
         ts = ts.replace(tzinfo=UTC)
     return (now - ts).total_seconds()
+
+
+def _is_conversion_orphaned(
+    *,
+    heartbeat_at: datetime | None,
+    age_seconds: float | None,
+) -> bool:
+    """True when the task owning a pre-terminal conversion is gone.
+
+    Two rules, because there are two kinds of row and only one of them can
+    speak for itself:
+
+    * a heartbeat is present, so the conversion has run since this feature
+      shipped and its silence is meaningful. Dead once it has stopped
+      reporting for longer than the grace period.
+    * the heartbeat is NULL, which is not evidence of death. It is what every
+      row predating the column reads, and what a drawing that was uploaded but
+      never converted reads. Fall back to elapsed time for those, which is the
+      old rule kept for the only population it was ever right about.
+    """
+    if heartbeat_at is not None:
+        silence = _seconds_since(heartbeat_at)
+        return silence is not None and silence > _heartbeat_grace_seconds()
+    return age_seconds is not None and age_seconds > _legacy_stale_cutoff_seconds()
+
+
+class DrawingRemovedDuringConversion(Exception):
+    """The drawing was deleted while its conversion was still running.
+
+    Not an error condition. Deleting a drawing mid-conversion is something a
+    user is entitled to do, and it is now the documented advice when a
+    conversion really has been orphaned. Raised so the background task can
+    stop and say what happened, rather than discovering it as a foreign key
+    violation on the version insert and reporting a conversion failure that
+    did not occur.
+    """
+
+
+async def _beat_while_converting(drawing_id: uuid.UUID) -> None:
+    """Report the conversion alive until cancelled.
+
+    Runs on its own session, opened and committed per beat, and this is the
+    part that matters rather than an implementation detail. Sharing the
+    conversion's session would put every beat inside whatever transaction the
+    conversion happens to have open, holding a row lock on the drawing for the
+    length of the work - which is precisely the defect that made a converting
+    drawing impossible to edit or delete. A beat has to be a complete, tiny
+    transaction of its own or it reintroduces the problem it exists to help
+    diagnose.
+
+    Failures are swallowed. A missed beat costs a little accuracy in the
+    orphan check; a beat that raises would take down a conversion that is
+    otherwise fine, and the tail wagging the dog is not a trade worth making.
+    """
+    interval = _heartbeat_interval_seconds()
+    while True:
+        try:
+            async with async_session_factory() as session:
+                touched = await session.execute(
+                    update(DwgDrawing)
+                    .where(DwgDrawing.id == drawing_id)
+                    .values(conversion_heartbeat_at=datetime.now(UTC))
+                )
+                await session.commit()
+            if touched.rowcount == 0:
+                # The drawing is gone. Nothing to report alive, and continuing
+                # would be a pointless write every interval until the
+                # conversion notices for itself.
+                return
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001 - a missed beat must never fail a conversion
+            logger.debug("Heartbeat write failed for drawing %s", drawing_id, exc_info=True)
+        await asyncio.sleep(interval)
 
 
 # ── DWG version sniff & gating (Indian-user stability ticket 2026-05-13) ────
@@ -1410,7 +1523,16 @@ class DwgTakeoffService:
             )
             return
 
-        await self.drawing_repo.update_fields(drawing_id, status="processing")
+        # The first heartbeat goes in with the transition, not on the beat
+        # task's first tick. That closes the window where a conversion is
+        # genuinely running but carries no heartbeat, which the orphan check
+        # would otherwise have to interpret - and a NULL heartbeat means
+        # "predates this feature", a different thing entirely.
+        await self.drawing_repo.update_fields(
+            drawing_id,
+            status="processing",
+            conversion_heartbeat_at=datetime.now(UTC),
+        )
         # Commit the transition before the conversion, not after it.
         #
         # Everything below can run for minutes, and until this session commits,
@@ -1579,6 +1701,16 @@ class DwgTakeoffService:
             with open(entities_path, "w", encoding="utf-8") as f:
                 json.dump(result["entities"], f)
 
+            # The drawing may have been deleted while this ran, and telling
+            # people to delete it is exactly what the orphan message does.
+            # Check before inserting rather than discovering it afterwards:
+            # drawing_id is a NOT NULL foreign key, so an insert against a
+            # missing parent raises an integrity error which, in a detached
+            # task nobody is watching, gets logged as "conversion failed" - a
+            # false statement about a conversion that had in fact succeeded.
+            if not await self._drawing_exists(drawing_id):
+                raise DrawingRemovedDuringConversion(str(drawing_id))
+
             # Create drawing version
             version_number = await self.version_repo.get_next_version_number(drawing_id)
             version = DwgDrawingVersion(
@@ -1606,6 +1738,11 @@ class DwgTakeoffService:
                 len(result["layers"]),
             )
 
+        except DrawingRemovedDuringConversion:
+            # Must outrun the generic handler below. Caught there it would be
+            # written onto the drawing as a parsing error, and there is no
+            # drawing left to write it to and no parsing error to report.
+            raise
         except Exception as exc:
             await self.drawing_repo.update_fields(
                 drawing_id,
@@ -1626,13 +1763,24 @@ class DwgTakeoffService:
             )
         return item
 
+    async def _drawing_exists(self, drawing_id: uuid.UUID) -> bool:
+        """True when the drawing row is still there.
+
+        Deliberately a fresh SELECT rather than a repository read: this is
+        asked from a long-running background task whose session loaded the
+        drawing minutes ago, and the identity map would happily hand back the
+        copy it remembers from before the user deleted it.
+        """
+        found = await self.session.execute(select(DwgDrawing.id).where(DwgDrawing.id == drawing_id))
+        return found.scalar_one_or_none() is not None
+
     @staticmethod
     def conversion_age_seconds(drawing: object) -> float | None:
         """Seconds since a drawing was last touched (updated_at, else created_at).
 
-        Used to detect an orphaned conversion - a drawing left at
-        ``processing``/``uploaded`` long past the convert timeout because its
-        background task died with a server restart.
+        Feeds the legacy half of the orphan check only, for rows carrying no
+        heartbeat. Anything converting today reports itself alive and is
+        judged on that instead; see :func:`_is_conversion_orphaned`.
         """
         return _seconds_since(getattr(drawing, "updated_at", None)) or _seconds_since(
             getattr(drawing, "created_at", None)
@@ -1646,6 +1794,7 @@ class DwgTakeoffService:
         has_entities: bool,
         converter_present: bool | None = None,
         age_seconds: float | None = None,
+        heartbeat_at: datetime | None = None,
     ) -> str:
         """Resolve a definitive viewer status for a drawing.
 
@@ -1677,13 +1826,14 @@ class DwgTakeoffService:
             return "ready"
 
         normalized = (status_value or "").lower()
-        # An orphaned conversion (processing/uploaded, no entities, untouched well
-        # past the convert timeout) is dead - report a terminal error so the
-        # viewer stops spinning forever instead of passing "processing" through.
-        if (
-            normalized in ("processing", "uploaded")
-            and age_seconds is not None
-            and age_seconds > _stale_conversion_cutoff_seconds()
+        # An orphaned conversion (processing/uploaded, no entities, and no
+        # longer reporting itself alive) is dead - report a terminal error so
+        # the viewer stops spinning forever instead of passing "processing"
+        # through. Judged on the heartbeat rather than elapsed time, so a slow
+        # conversion that is still working is left alone.
+        if normalized in ("processing", "uploaded") and _is_conversion_orphaned(
+            heartbeat_at=heartbeat_at,
+            age_seconds=age_seconds,
         ):
             return "error"
         if normalized in ("ready", "empty", "error", "processing", "needs_conversion"):
@@ -1704,52 +1854,49 @@ class DwgTakeoffService:
     async def get_drawing_with_view_status(
         self,
         drawing_id: uuid.UUID,
-    ) -> tuple[DwgDrawing, DwgDrawingVersion | None, str]:
-        """Resolve a drawing, its latest version, and a definitive view status.
+    ) -> tuple[DwgDrawing, DwgDrawingVersion | None, str, str | None]:
+        """Resolve a drawing, its latest version, view status and view message.
 
         Single read used by the single-drawing GET so the viewer always
         receives a terminal answer (see :meth:`resolve_view_status`). The
         latest version is fetched through :meth:`get_latest_version` so the
         lazy units backfill still runs.
+
+        The orphan verdict is derived and returned, never written. It used to
+        be persisted here, and that was wrong twice over. A GET that mutates
+        is a surprise in itself, and this particular mutation stamped a row
+        with a verdict the request had inferred rather than observed: before
+        the row lock was fixed it also queued behind the very conversion it
+        was declaring dead. Deriving costs one comparison per read and leaves
+        the record saying only what actually happened.
         """
         drawing = await self.get_drawing(drawing_id)
         version = await self.get_latest_version(drawing_id)
         has_entities = version is not None and (version.entity_count or 0) > 0 and version.entities_key is not None
-        age_seconds = self.conversion_age_seconds(drawing)
         view_status = self.resolve_view_status(
             status_value=drawing.status,
             file_format=drawing.file_format,
             has_entities=has_entities,
-            age_seconds=age_seconds,
+            age_seconds=self.conversion_age_seconds(drawing),
+            heartbeat_at=getattr(drawing, "conversion_heartbeat_at", None),
         )
-        # Self-heal an orphaned conversion: persist the terminal error (with an
-        # actionable message) so the DB stops reporting "processing" forever and
-        # every later poll/list is fast and correct. Re-fetch the version AFTER
-        # the write so the router serialises the terminal error just persisted
-        # rather than the stale "processing" state it was loaded with, and never
-        # lazy-loads mid-serialise (MissingGreenlet).
-        if (
-            view_status == "error"
-            and (drawing.status or "").lower() in ("processing", "uploaded")
-            and not drawing.error_message
-        ):
-            try:
-                await self.drawing_repo.update_fields(
-                    drawing_id,
-                    status="error",
-                    error_message=_STALE_CONVERSION_MESSAGE,
-                )
-                await self.session.commit()
-                await self.session.refresh(drawing)
-                version = await self.get_latest_version(drawing_id)
-            except Exception:  # noqa: BLE001 - heal is best-effort; never fail the read
-                logger.warning(
-                    "Could not persist stale-conversion heal for drawing %s",
-                    drawing_id,
-                    exc_info=True,
-                )
-                await self.session.rollback()
-        return drawing, version, view_status
+        return drawing, version, view_status, self.view_error_message(drawing, view_status)
+
+    @staticmethod
+    def view_error_message(drawing: object, view_status: str) -> str | None:
+        """Message to show for a derived error state, or ``None``.
+
+        Only speaks when the verdict is inferred rather than stored: a row
+        that already carries its own ``error_message`` reports that, because
+        the conversion's own account of what went wrong beats ours.
+        """
+        if view_status != "error":
+            return None
+        if getattr(drawing, "error_message", None):
+            return None
+        if (getattr(drawing, "status", "") or "").lower() not in ("processing", "uploaded"):
+            return None
+        return _STALE_CONVERSION_MESSAGE
 
     async def list_drawings(
         self,
@@ -2820,14 +2967,30 @@ async def _run_dwg_conversion_in_background(
     upload row is committed before this task is spawned so the
     fresh session here can find the row.
     """
+    beat = asyncio.create_task(_beat_while_converting(drawing_id))
     async with async_session_factory() as session:
         try:
             svc = DwgTakeoffService(session)
             await svc._handle_dwg(drawing_id, file_path)
             await session.commit()
+        except DrawingRemovedDuringConversion:
+            # Not a failure. The user deleted the drawing while it was
+            # converting, which they are entitled to do, and the work simply
+            # has nowhere to land. Rolled back and reported as what it is:
+            # calling this a conversion failure sends the next person reading
+            # the log after a bug that never happened.
+            await session.rollback()
+            logger.info(
+                "Drawing %s was deleted while converting; discarding the result",
+                drawing_id,
+            )
         except Exception:
             await session.rollback()
             logger.exception(
                 "Background DDC conversion failed for drawing %s",
                 drawing_id,
             )
+        finally:
+            beat.cancel()
+            with suppress(asyncio.CancelledError):
+                await beat
