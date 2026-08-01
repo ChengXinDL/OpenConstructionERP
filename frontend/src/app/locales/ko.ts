@@ -33944,7 +33944,7 @@ const resource = {
     "daily_diary.insights.f_weather": "날씨",
     "daily_diary.insights.f_month": "월",
     "daily_diary.insights.f_labour": "현장 인력",
-    "daily_diary.insights.f_equipment": "플랜트 및 장비",
+    "daily_diary.insights.f_equipment": "현장 중장비",
     "daily_diary.insights.f_signed": "서명된 기록",
     "daily_diary.insights.k_diaries": "기록된 현장 일수",
     "daily_diary.insights.k_total_labour": "기록된 총 인력",

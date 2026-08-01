@@ -33937,7 +33937,7 @@ const resource = {
     "daily_diary.insights.f_weather": "Väder",
     "daily_diary.insights.f_month": "Månad",
     "daily_diary.insights.f_labour": "Arbetare på plats",
-    "daily_diary.insights.f_equipment": "Anläggning och utrustning",
+    "daily_diary.insights.f_equipment": "Anläggningsmaskiner och utrustning",
     "daily_diary.insights.f_signed": "Signerade protokoll",
     "daily_diary.insights.k_diaries": "Arbetsdagar registrerade",
     "daily_diary.insights.k_total_labour": "Total arbetstid registrerad",

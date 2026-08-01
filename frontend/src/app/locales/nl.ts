@@ -34042,7 +34042,7 @@ const resource = {
     "daily_diary.insights.f_weather": "Weer",
     "daily_diary.insights.f_month": "Maand",
     "daily_diary.insights.f_labour": "Personeel op locatie",
-    "daily_diary.insights.f_equipment": "Installaties en materieel",
+    "daily_diary.insights.f_equipment": "Materieel op locatie",
     "daily_diary.insights.f_signed": "Ondertekende rapporten",
     "daily_diary.insights.k_diaries": "Dagen op locatie geregistreerd",
     "daily_diary.insights.k_total_labour": "Totaal personeel geregistreerd",

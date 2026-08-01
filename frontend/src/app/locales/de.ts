@@ -34061,7 +34061,7 @@ const resource = {
     "daily_diary.insights.f_weather": "Wetter",
     "daily_diary.insights.f_month": "Monat",
     "daily_diary.insights.f_labour": "Personal vor Ort",
-    "daily_diary.insights.f_equipment": "Anlagen und Ausrüstung",
+    "daily_diary.insights.f_equipment": "Baumaschinen und Ausrüstung",
     "daily_diary.insights.f_signed": "Unterzeichnete Einträge",
     "daily_diary.insights.k_diaries": "Erfasste Baustellentage",
     "daily_diary.insights.k_total_labour": "Gesamterfasstes Personal",

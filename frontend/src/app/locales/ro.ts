@@ -8361,7 +8361,7 @@ const resource = {
     "nav.project_controls": "Control proiect",
     "controls.title": "Control proiect",
     "controls.subtitle": "KPI de cost, grafic, calitate, siguranță, risc și modificări într-o singură vizualizare. Faceți clic pe o dală pentru a o urmări înapoi la înregistrările sursă.",
-    "controls.scope": "Scop",
+    "controls.scope": "Domeniu",
     "controls.portfolio": "Portofoliu",
     "controls.multi_currency": "multi-valută",
     "controls.alerts_heading": "{{n}} KPI necesită atenție",

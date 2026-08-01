@@ -33991,7 +33991,7 @@ const resource = {
     "daily_diary.insights.f_weather": "Hava durumu",
     "daily_diary.insights.f_month": "Ay",
     "daily_diary.insights.f_labour": "Sahadaki iş gücü",
-    "daily_diary.insights.f_equipment": "Tesis ve ekipman",
+    "daily_diary.insights.f_equipment": "Sahadaki makine ve ekipman",
     "daily_diary.insights.f_signed": "İmzalanmış kayıtlar",
     "daily_diary.insights.k_diaries": "Kaydedilen saha günleri",
     "daily_diary.insights.k_total_labour": "Kaydedilen toplam iş gücü",

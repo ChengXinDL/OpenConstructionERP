@@ -34090,7 +34090,7 @@ const resource = {
     "daily_diary.insights.f_weather": "Цаг агаар",
     "daily_diary.insights.f_month": "Сар",
     "daily_diary.insights.f_labour": "Сайт дахь ажиллах хүч",
-    "daily_diary.insights.f_equipment": "Ургамал ба тоног төхөөрөмж",
+    "daily_diary.insights.f_equipment": "Сайт дахь техник, тоног төхөөрөмж",
     "daily_diary.insights.f_signed": "Гарын үсэг зурсан бүртгэл",
     "daily_diary.insights.k_diaries": "Сайтын өдрүүд бүртгэгдсэн",
     "daily_diary.insights.k_total_labour": "Нийт бүртгэгдсэн ажиллах хүч",

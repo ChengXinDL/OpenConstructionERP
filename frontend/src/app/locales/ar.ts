@@ -33994,7 +33994,7 @@ const resource = {
     "daily_diary.insights.f_weather": "الطقس",
     "daily_diary.insights.f_month": "الشهر",
     "daily_diary.insights.f_labour": "العمالة في الموقع",
-    "daily_diary.insights.f_equipment": "النباتات والمعدات",
+    "daily_diary.insights.f_equipment": "الآليات والمعدات في الموقع",
     "daily_diary.insights.f_signed": "السجلات الموقعة",
     "daily_diary.insights.k_diaries": "أيام الموقع المسجلة",
     "daily_diary.insights.k_total_labour": "إجمالي العمالة المسجلة",

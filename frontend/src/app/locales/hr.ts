@@ -33950,7 +33950,7 @@ const resource = {
     "daily_diary.insights.f_weather": "Vrijeme",
     "daily_diary.insights.f_month": "Mjesec",
     "daily_diary.insights.f_labour": "Radna snaga na gradilištu",
-    "daily_diary.insights.f_equipment": "Postrojenja i oprema",
+    "daily_diary.insights.f_equipment": "Strojevi i oprema na gradilištu",
     "daily_diary.insights.f_signed": "Potpisani zapisi",
     "daily_diary.insights.k_diaries": "Dani gradilišta prijavljeni",
     "daily_diary.insights.k_total_labour": "Ukupna prijavljena radna snaga",

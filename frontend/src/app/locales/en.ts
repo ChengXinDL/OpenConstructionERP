@@ -9609,7 +9609,7 @@ const resource = {
     "daily_diary.insights.f_weather": "Weather",
     "daily_diary.insights.f_month": "Month",
     "daily_diary.insights.f_labour": "Labour on site",
-    "daily_diary.insights.f_equipment": "Plant and equipment",
+    "daily_diary.insights.f_equipment": "Site plant and equipment",
     "daily_diary.insights.f_signed": "Signed records",
     "daily_diary.insights.k_diaries": "Site days logged",
     "daily_diary.insights.k_total_labour": "Total labour logged",

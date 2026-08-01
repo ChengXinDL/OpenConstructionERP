@@ -33998,7 +33998,7 @@ const resource = {
     "daily_diary.insights.f_weather": "Meteo",
     "daily_diary.insights.f_month": "Mese",
     "daily_diary.insights.f_labour": "Manodopera in cantiere",
-    "daily_diary.insights.f_equipment": "Impianti e attrezzature",
+    "daily_diary.insights.f_equipment": "Macchinari e attrezzature di cantiere",
     "daily_diary.insights.f_signed": "Registrazioni firmate",
     "daily_diary.insights.k_diaries": "Giorni di cantiere registrati",
     "daily_diary.insights.k_total_labour": "Manodopera totale registrata",
