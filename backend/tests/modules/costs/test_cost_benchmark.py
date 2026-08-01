@@ -82,9 +82,14 @@ async def _boq_total(session: AsyncSession, project_id: uuid.UUID, total: str) -
     await session.flush()
     # A leaf (non-section): real unit + non-zero quantity/rate. With no
     # metadata.currency the leaf total is read as-is in the project base currency.
+    # ``ordinal`` and ``description`` are NOT NULL on the model, and omitting
+    # them made every test that priced a BOQ fail in setup rather than on its
+    # own assertion. One position per BOQ here, so the ordinal cannot collide.
     session.add(
         Position(
             boq_id=boq.id,
+            ordinal="01",
+            description="Benchmark leaf",
             unit="m2",
             quantity="1",
             unit_rate=total,
