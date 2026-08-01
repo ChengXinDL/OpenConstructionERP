@@ -43,7 +43,7 @@
     "copyright": "Copyright DataDrivenConstruction. Licensed under AGPL-3.0.",
     "category": "Business",
     "shortDescription": "Open-source construction cost estimation and BOQ platform.",
-    "longDescription": "OpenConstructionERP is an open-source platform for construction cost estimation, bills of quantities, and data validation, with CAD/BIM quantity takeoff and multi-currency support across 27 locales. It runs fully local on an embedded database, so there is no Python install or extra setup to manage. Import, validate, estimate, and report from a single desktop app that works offline.",
+    "longDescription": "OpenConstructionERP is an open-source platform for construction cost estimation, bills of quantities, and data validation, with CAD/BIM quantity takeoff and multi-currency support across 29 locales. It runs fully local on an embedded database, so there is no Python install or extra setup to manage. Import, validate, estimate, and report from a single desktop app that works offline.",
     "licenseFile": "../../LICENSE",
     "icon": [
       "icons/32x32.png",

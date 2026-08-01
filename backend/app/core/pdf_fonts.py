@@ -6,7 +6,7 @@ OpenEstimate principle #2 is *i18n EVERYWHERE*. reportlab's built-in Type-1
 fonts (Helvetica / Times / Courier) are Latin-1 only, so any PDF that renders
 Cyrillic (ru, bg, uk, sr), Greek, or the many accented Latin scripts with the
 default font shows empty boxes ("tofu") instead of text. A construction ERP
-that ships 27 locales but prints unreadable invoices and contracts in half of
+that ships 29 locales but prints unreadable invoices and contracts in half of
 them is broken.
 
 This module bundles **DejaVu Sans** (regular + bold) and registers it with

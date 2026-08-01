@@ -51,7 +51,7 @@ export interface DismissibleInfoLink {
      - lines starting with "1. "-> numbered list (any digits + dot)
      - **bold** inline          -> <strong> (lead-ins like "**You put in:**")
 
-   Translators keep the same markers in all 27 locales; everything else is
+   Translators keep the same markers in all 29 locales; everything else is
    rendered verbatim, so there is no HTML-injection surface. */
 
 function renderInline(text: string): ReactNode[] {
