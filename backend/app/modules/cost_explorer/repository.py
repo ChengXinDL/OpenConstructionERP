@@ -16,7 +16,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import AsyncIterator, Sequence
 
-from sqlalchemy import case, delete, distinct, func, insert, or_, select
+from sqlalchemy import String, case, cast, delete, distinct, func, insert, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.catalog.models import CatalogResource
@@ -209,8 +209,13 @@ class CostExplorerRepository:
         """
         suggestion = spelling.suggest_from_tokens(tokens)
         concept_preds = []
+        literal_preds = []
         for tok in tokens:
             like_clauses = []
+            # The typed word alone, kept apart from the synonyms it expands to.
+            # match_terms marks machine-injected cross-language synonyms as
+            # whole-word, so the substring variants ARE what the user typed.
+            typed_clauses = []
             for variant, whole_word in search.match_terms(tok):
                 if whole_word:
                     rx = rf"\y{search.boundary_pattern(variant)}\y"
@@ -218,12 +223,23 @@ class CostExplorerRepository:
                     like_clauses.append(CostItem.description.op("~*")(rx))
                 else:
                     pattern = f"%{_escape_like(variant)}%"
-                    like_clauses.append(CostItem.code.ilike(pattern, escape="\\"))
-                    like_clauses.append(CostItem.description.ilike(pattern, escape="\\"))
+                    typed_clauses.append(CostItem.code.ilike(pattern, escape="\\"))
+                    typed_clauses.append(CostItem.description.ilike(pattern, escape="\\"))
+            like_clauses.extend(typed_clauses)
             if like_clauses:
                 concept_preds.append(or_(*like_clauses))
+            if typed_clauses:
+                literal_preds.append(or_(*typed_clauses))
 
         stmt = select(CostItem).where(CostItem.is_active.is_(True))
+        # The ORDER BY has to be a TOTAL order, because this pool is cut by
+        # LIMIT and the caller only ever sees the survivors. Ordering by a
+        # score alone is not enough: for a one-word query every row that got
+        # past the WHERE scores the same, so the sort key is a constant, the
+        # database returns whichever rows the plan happened to produce, and
+        # the same search run twice returns different work items at different
+        # rates. An estimator cannot cite a rate they cannot find again.
+        order_terms = []
         if concept_preds:
             stmt = stmt.where(or_(*concept_preds))
             # Rank by concept-match count (PostgreSQL has no boolean->int cast,
@@ -231,7 +247,28 @@ class CostExplorerRepository:
             match_score = case((concept_preds[0], 1), else_=0)
             for pred in concept_preds[1:]:
                 match_score = match_score + case((pred, 1), else_=0)
-            stmt = stmt.order_by(match_score.desc())
+            if literal_preds:
+                # The word the user typed outranks a synonym we injected for
+                # them. The caller scores a literal hit at 1.0 and a
+                # synonym-only hit at 0.5, so cutting the pool this way keeps
+                # the rows it is about to rank highest instead of discarding
+                # them for rows it will then rank below.
+                literal_score = case((literal_preds[0], 1), else_=0)
+                for pred in literal_preds[1:]:
+                    literal_score = literal_score + case((pred, 1), else_=0)
+                order_terms.append(literal_score.desc())
+            order_terms.append(match_score.desc())
+        # Shortest description first, the same tiebreak the caller applies: a
+        # row whose whole description is the query is a better answer than one
+        # that mentions it in passing.
+        order_terms.append(func.length(CostItem.description).asc())
+        # Terminate on a unique key so the order is total and stable. ``code``
+        # is not unique across bases, and the id is cast to text because SQLite
+        # stores UUIDs as VARCHAR(36) while PostgreSQL needs the explicit cast -
+        # comparing the string form sorts identically on both.
+        order_terms.append(CostItem.code.asc())
+        order_terms.append(cast(CostItem.id, String).asc())
+        stmt = stmt.order_by(*order_terms)
         if region is not None:
             stmt = stmt.where(CostItem.region == region)
         if sources:
