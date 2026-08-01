@@ -24349,7 +24349,7 @@ const resource = {
     "dwg_takeoff.confirm_delete": "Зургийг устгах уу?",
     "dwg_takeoff.confirm_delete_annotation": "Тэмдэглэлийг устгах уу?",
     "dwg_takeoff.confirm_delete_annotation_desc": "Энэ тэмдэглэл байнга устгагдах болно.",
-    "dwg_takeoff.conv_aria_live": "{{name}} хувиргаж байна, 4-ийн {{step}} алхам, {{elapsed}} өнгөрөв",
+    "dwg_takeoff.conv_aria_live": "{{name}} хувиргаж байна, 3-ын {{step}} алхам, {{elapsed}} өнгөрөв",
     "dwg_takeoff.conv_cancel": "Цуцлах - энэ зургийг арилгах",
     "dwg_takeoff.conv_delete": "Зургийг устгах",
     "dwg_takeoff.conv_elapsed": "Өнгөрсөн цаг",

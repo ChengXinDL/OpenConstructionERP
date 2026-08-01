@@ -562,7 +562,11 @@ export default function BenchmarkModule() {
                 type: buildingInfo.label,
                 region: regionInfo.label,
                 pct: analysis.percentile.toFixed(0),
-                label: t(pctLabel.key, { defaultValue: pctLabel.defaultValue }).toLowerCase(),
+                // Not lowercased: the label is a translated string, and casing is
+                // not a safe transform across locales. German keeps nouns capital
+                // mid-sentence, and Turkish maps I to i rather than the dotless
+                // form. It follows a dash here, so sentence case reads correctly.
+                label: t(pctLabel.key, { defaultValue: pctLabel.defaultValue }),
                 sign: analysis.diffPct > 0 ? '+' : '',
                 diff: analysis.diffPct.toFixed(1),
                 median: fmtRate(benchmarkRange.median, regionInfo.currency),

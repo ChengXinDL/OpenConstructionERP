@@ -24797,7 +24797,7 @@ const resource = {
     "dwg_takeoff.confirm_delete": "删除图纸？",
     "dwg_takeoff.confirm_delete_annotation": "删除注释？",
     "dwg_takeoff.confirm_delete_annotation_desc": "此注释将被永久删除。",
-    "dwg_takeoff.conv_aria_live": "转换 {{name}}，第 {{step}} 步共 4 步，已用时 {{elapsed}}",
+    "dwg_takeoff.conv_aria_live": "转换 {{name}}，第 {{step}} 步共 3 步，已用时 {{elapsed}}",
     "dwg_takeoff.conv_cancel": "取消 - 删除此图纸",
     "dwg_takeoff.conv_delete": "删除图纸",
     "dwg_takeoff.conv_elapsed": "已用时",

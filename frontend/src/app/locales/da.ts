@@ -24787,7 +24787,7 @@ const resource = {
     "dwg_takeoff.confirm_delete": "Slet tegning?",
     "dwg_takeoff.confirm_delete_annotation": "Slet annotation?",
     "dwg_takeoff.confirm_delete_annotation_desc": "Denne annotation vil blive permanent fjernet.",
-    "dwg_takeoff.conv_aria_live": "Konverterer {{name}}, trin {{step}} af 4, {{elapsed}} forløbet",
+    "dwg_takeoff.conv_aria_live": "Konverterer {{name}}, trin {{step}} af 3, {{elapsed}} forløbet",
     "dwg_takeoff.conv_cancel": "Annuller - fjern denne tegning",
     "dwg_takeoff.conv_delete": "Slet tegning",
     "dwg_takeoff.conv_elapsed": "Forløbet tid",

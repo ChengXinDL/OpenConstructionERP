@@ -24804,7 +24804,7 @@ const resource = {
     "dwg_takeoff.confirm_delete": "Smazat kreslení?",
     "dwg_takeoff.confirm_delete_annotation": "Smazat poznámku?",
     "dwg_takeoff.confirm_delete_annotation_desc": "Tato poznámka bude trvale odstraněna.",
-    "dwg_takeoff.conv_aria_live": "Konverze {{name}}, krok {{step}} z 4, {{elapsed}} uplynulo",
+    "dwg_takeoff.conv_aria_live": "Konverze {{name}}, krok {{step}} z 3, {{elapsed}} uplynulo",
     "dwg_takeoff.conv_cancel": "Zrušit - odebrat toto kreslení",
     "dwg_takeoff.conv_delete": "Smazat kreslení",
     "dwg_takeoff.conv_elapsed": "Uplynulý čas",

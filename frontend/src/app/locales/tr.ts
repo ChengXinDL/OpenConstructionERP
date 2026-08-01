@@ -24797,7 +24797,7 @@ const resource = {
     "dwg_takeoff.confirm_delete": "Çizimi sil?",
     "dwg_takeoff.confirm_delete_annotation": "Ek açıklamayı sil?",
     "dwg_takeoff.confirm_delete_annotation_desc": "Bu ek açıklama kalıcı olarak kaldırılacak.",
-    "dwg_takeoff.conv_aria_live": "{{name}} dönüştürülüyor, {{step}} adım 4'ün içinde, {{elapsed}} geçti",
+    "dwg_takeoff.conv_aria_live": "{{name}} dönüştürülüyor, {{step}} adım 3'ün içinde, {{elapsed}} geçti",
     "dwg_takeoff.conv_cancel": "İptal - bu çizimi kaldır",
     "dwg_takeoff.conv_delete": "Çizimi sil",
     "dwg_takeoff.conv_elapsed": "Geçen süre",

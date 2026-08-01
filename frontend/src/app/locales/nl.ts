@@ -24797,7 +24797,7 @@ const resource = {
     "dwg_takeoff.confirm_delete": "Tekening verwijderen?",
     "dwg_takeoff.confirm_delete_annotation": "Annotatie verwijderen?",
     "dwg_takeoff.confirm_delete_annotation_desc": "Deze annotatie wordt permanent verwijderd.",
-    "dwg_takeoff.conv_aria_live": "{{name}} wordt geconverteerd, stap {{step}} van 4, {{elapsed}} verstreken",
+    "dwg_takeoff.conv_aria_live": "{{name}} wordt geconverteerd, stap {{step}} van 3, {{elapsed}} verstreken",
     "dwg_takeoff.conv_cancel": "Annuleren - deze tekening verwijderen",
     "dwg_takeoff.conv_delete": "Tekening verwijderen",
     "dwg_takeoff.conv_elapsed": "Verstreken tijd",

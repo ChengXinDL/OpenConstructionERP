@@ -24638,7 +24638,7 @@ const resource = {
     "dwg_takeoff.confirm_delete": "Slette tegning?",
     "dwg_takeoff.confirm_delete_annotation": "Slette merknad?",
     "dwg_takeoff.confirm_delete_annotation_desc": "Denne merknaden vil bli permanent fjernet.",
-    "dwg_takeoff.conv_aria_live": "Konverterer {{name}}, steg {{step}} av 4, {{elapsed}} forløpt",
+    "dwg_takeoff.conv_aria_live": "Konverterer {{name}}, steg {{step}} av 3, {{elapsed}} forløpt",
     "dwg_takeoff.conv_cancel": "Avbryt - fjern denne tegningen",
     "dwg_takeoff.conv_delete": "Slett tegning",
     "dwg_takeoff.conv_elapsed": "Forløpt tid",

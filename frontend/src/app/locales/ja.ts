@@ -24794,7 +24794,7 @@ const resource = {
     "dwg_takeoff.confirm_delete": "図面を削除しますか?",
     "dwg_takeoff.confirm_delete_annotation": "注釈を削除しますか?",
     "dwg_takeoff.confirm_delete_annotation_desc": "この注釈は永続的に削除されます。",
-    "dwg_takeoff.conv_aria_live": "{{name}}を変換中、ステップ {{step}} (4中)、経過{{elapsed}}",
+    "dwg_takeoff.conv_aria_live": "{{name}}を変換中、ステップ {{step}} (3中)、経過{{elapsed}}",
     "dwg_takeoff.conv_cancel": "キャンセル - この図面を削除",
     "dwg_takeoff.conv_delete": "図面を削除",
     "dwg_takeoff.conv_elapsed": "経過時間",

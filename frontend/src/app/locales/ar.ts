@@ -24889,7 +24889,7 @@ const resource = {
     "dwg_takeoff.confirm_delete": "حذف الرسم؟",
     "dwg_takeoff.confirm_delete_annotation": "حذف التعليق؟",
     "dwg_takeoff.confirm_delete_annotation_desc": "سيتم حذف هذا التعليق بشكل دائم.",
-    "dwg_takeoff.conv_aria_live": "تحويل {{name}}، الخطوة {{step}} من 4، {{elapsed}} انقضت",
+    "dwg_takeoff.conv_aria_live": "تحويل {{name}}، الخطوة {{step}} من 3، {{elapsed}} انقضت",
     "dwg_takeoff.conv_cancel": "إلغاء - إزالة هذا الرسم",
     "dwg_takeoff.conv_delete": "حذف الرسم",
     "dwg_takeoff.conv_elapsed": "الوقت المنقضي",

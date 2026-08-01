@@ -24802,7 +24802,7 @@ const resource = {
     "dwg_takeoff.confirm_delete": "Ștergeți desenul?",
     "dwg_takeoff.confirm_delete_annotation": "Ștergeți adnotarea?",
     "dwg_takeoff.confirm_delete_annotation_desc": "Această adnotare va fi permanent eliminată.",
-    "dwg_takeoff.conv_aria_live": "Se convertește {{name}}, pasul {{step}} din 4, {{elapsed}} scurs",
+    "dwg_takeoff.conv_aria_live": "Se convertește {{name}}, pasul {{step}} din 3, {{elapsed}} scurs",
     "dwg_takeoff.conv_cancel": "Anulare - eliminați acest desen",
     "dwg_takeoff.conv_delete": "Ștergeți desenul",
     "dwg_takeoff.conv_elapsed": "Timp scurs",

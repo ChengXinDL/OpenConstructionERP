@@ -24806,7 +24806,7 @@ const resource = {
     "dwg_takeoff.confirm_delete": "Xóa bản vẽ?",
     "dwg_takeoff.confirm_delete_annotation": "Xóa chú thích?",
     "dwg_takeoff.confirm_delete_annotation_desc": "Chú thích này sẽ bị xóa vĩnh viễn.",
-    "dwg_takeoff.conv_aria_live": "Chuyển đổi {{name}}, bước {{step}} của 4, {{elapsed}} đã trôi qua",
+    "dwg_takeoff.conv_aria_live": "Chuyển đổi {{name}}, bước {{step}} của 3, {{elapsed}} đã trôi qua",
     "dwg_takeoff.conv_cancel": "Hủy - xóa bản vẽ này",
     "dwg_takeoff.conv_delete": "Xóa bản vẽ",
     "dwg_takeoff.conv_elapsed": "Thời gian trôi qua",

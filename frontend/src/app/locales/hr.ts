@@ -24797,7 +24797,7 @@ const resource = {
     "dwg_takeoff.confirm_delete": "Obrisati crtež?",
     "dwg_takeoff.confirm_delete_annotation": "Obrisati napomenu?",
     "dwg_takeoff.confirm_delete_annotation_desc": "Ova napomena će biti trajno uklonjenja.",
-    "dwg_takeoff.conv_aria_live": "Konverzija {{name}}, korak {{step}} od 4, {{elapsed}} prošlo",
+    "dwg_takeoff.conv_aria_live": "Konverzija {{name}}, korak {{step}} od 3, {{elapsed}} prošlo",
     "dwg_takeoff.conv_cancel": "Odustani - ukloni ovaj crtež",
     "dwg_takeoff.conv_delete": "Obrisati crtež",
     "dwg_takeoff.conv_elapsed": "Prošlo vrijeme",

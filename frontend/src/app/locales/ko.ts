@@ -24800,7 +24800,7 @@ const resource = {
     "dwg_takeoff.confirm_delete": "도면을 삭제하시겠습니까?",
     "dwg_takeoff.confirm_delete_annotation": "주석을 삭제하시겠습니까?",
     "dwg_takeoff.confirm_delete_annotation_desc": "이 주석이 영구적으로 제거됩니다.",
-    "dwg_takeoff.conv_aria_live": "변환 중 {{name}}, 4단계 중 {{step}}, {{elapsed}} 경과",
+    "dwg_takeoff.conv_aria_live": "변환 중 {{name}}, 3단계 중 {{step}}, {{elapsed}} 경과",
     "dwg_takeoff.conv_cancel": "취소 - 이 도면 제거",
     "dwg_takeoff.conv_delete": "도면 삭제",
     "dwg_takeoff.conv_elapsed": "경과 시간",

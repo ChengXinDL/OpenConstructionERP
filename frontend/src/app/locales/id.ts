@@ -24793,7 +24793,7 @@ const resource = {
     "dwg_takeoff.confirm_delete": "Hapus gambar?",
     "dwg_takeoff.confirm_delete_annotation": "Hapus anotasi?",
     "dwg_takeoff.confirm_delete_annotation_desc": "Anotasi ini akan dihapus secara permanen.",
-    "dwg_takeoff.conv_aria_live": "Mengonversi {{name}}, langkah {{step}} dari 4, {{elapsed}} berlalu",
+    "dwg_takeoff.conv_aria_live": "Mengonversi {{name}}, langkah {{step}} dari 3, {{elapsed}} berlalu",
     "dwg_takeoff.conv_cancel": "Batal - hapus gambar ini",
     "dwg_takeoff.conv_delete": "Hapus gambar",
     "dwg_takeoff.conv_elapsed": "Waktu berlalu",

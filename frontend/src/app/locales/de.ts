@@ -24905,7 +24905,7 @@ const resource = {
     "dwg_takeoff.confirm_delete": "Zeichnung löschen?",
     "dwg_takeoff.confirm_delete_annotation": "Anmerkung löschen?",
     "dwg_takeoff.confirm_delete_annotation_desc": "Diese Anmerkung wird endgültig entfernt.",
-    "dwg_takeoff.conv_aria_live": "Konvertierung {{name}}, Schritt {{step}} von 4, {{elapsed}} verstrichene Zeit",
+    "dwg_takeoff.conv_aria_live": "Konvertierung {{name}}, Schritt {{step}} von 3, {{elapsed}} verstrichene Zeit",
     "dwg_takeoff.conv_cancel": "Abbrechen - diese Zeichnung entfernen",
     "dwg_takeoff.conv_delete": "Zeichnung löschen",
     "dwg_takeoff.conv_elapsed": "Verstrichene Zeit",

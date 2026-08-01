@@ -24789,7 +24789,7 @@ const resource = {
     "dwg_takeoff.confirm_delete": "Ta bort ritning?",
     "dwg_takeoff.confirm_delete_annotation": "Ta bort anteckning?",
     "dwg_takeoff.confirm_delete_annotation_desc": "Den här anteckningen tas bort permanent.",
-    "dwg_takeoff.conv_aria_live": "Konverterar {{name}}, steg {{step}} av 4, {{elapsed}} förfluten",
+    "dwg_takeoff.conv_aria_live": "Konverterar {{name}}, steg {{step}} av 3, {{elapsed}} förfluten",
     "dwg_takeoff.conv_cancel": "Avbryt - ta bort denna ritning",
     "dwg_takeoff.conv_delete": "Ta bort ritning",
     "dwg_takeoff.conv_elapsed": "Förfluten tid",

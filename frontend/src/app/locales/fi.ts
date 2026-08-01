@@ -24797,7 +24797,7 @@ const resource = {
     "dwg_takeoff.confirm_delete": "Poista piirustus?",
     "dwg_takeoff.confirm_delete_annotation": "Poista merkintä?",
     "dwg_takeoff.confirm_delete_annotation_desc": "Tämä merkintä poistetaan pysyvästi.",
-    "dwg_takeoff.conv_aria_live": "Muutetaan {{name}}, vaihe {{step}} neljästä, {{elapsed}} kulunut",
+    "dwg_takeoff.conv_aria_live": "Muutetaan {{name}}, vaihe {{step}} kolmesta, {{elapsed}} kulunut",
     "dwg_takeoff.conv_cancel": "Peruuta - poista tämä piirustus",
     "dwg_takeoff.conv_delete": "Poista piirustus",
     "dwg_takeoff.conv_elapsed": "Kulunut aika",

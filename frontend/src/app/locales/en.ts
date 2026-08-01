@@ -22622,7 +22622,7 @@ const resource = {
     "dwg_takeoff.conv_step_extract_hint": "Building the entity list the viewer will render.",
     "dwg_takeoff.conv_step_render": "Opening the viewer",
     "dwg_takeoff.conv_step_render_hint": "You will see the drawing here as soon as the entities arrive.",
-    "dwg_takeoff.conv_aria_live": "Converting {{name}}, step {{step}} of 4, {{elapsed}} elapsed",
+    "dwg_takeoff.conv_aria_live": "Converting {{name}}, step {{step}} of 3, {{elapsed}} elapsed",
     "dwg_takeoff.conv_title": "Converting your drawing…",
     "dwg_takeoff.conv_elapsed": "Elapsed time",
     "dwg_takeoff.conv_progress_label": "Conversion progress (indeterminate)",

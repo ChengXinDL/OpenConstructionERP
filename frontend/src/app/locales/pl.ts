@@ -24816,7 +24816,7 @@ const resource = {
     "dwg_takeoff.confirm_delete": "Usunąć rysunek?",
     "dwg_takeoff.confirm_delete_annotation": "Usunąć adnotację?",
     "dwg_takeoff.confirm_delete_annotation_desc": "Ta adnotacja zostanie trwale usunięta.",
-    "dwg_takeoff.conv_aria_live": "Konwersja {{name}}, krok {{step}} z 4, {{elapsed}} upłynęło",
+    "dwg_takeoff.conv_aria_live": "Konwersja {{name}}, krok {{step}} z 3, {{elapsed}} upłynęło",
     "dwg_takeoff.conv_cancel": "Anuluj - usuń ten rysunek",
     "dwg_takeoff.conv_delete": "Usuń rysunek",
     "dwg_takeoff.conv_elapsed": "Czas upłynięty",

@@ -6410,12 +6410,22 @@ function ConversionProgressCard({
       ? `${elapsedSec}s`
       : `${Math.floor(elapsedSec / 60)}m ${elapsedSec % 60}s`;
 
-  // Step machine - drives the highlighted "current step". When the
-  // backend says `uploaded` the file is on disk but conversion has not
-  // started yet (step 1). `processing` covers steps 2 and 3 - we can't
-  // distinguish them from the API, so step 2 is "current" until the
-  // status flips out of processing.
-  const currentStep = status === 'uploaded' ? 1 : status === 'processing' ? 2 : 4;
+  // Step machine - drives the highlighted "current step".
+  //
+  // Three steps, not four, and the missing one is the point. Conversion and
+  // entity extraction used to be listed separately while the API reports a
+  // single `processing` for both, so the card marked "Converting" as current
+  // and left "Extracting" greyed out ahead of it for the whole run. That reads
+  // as knowledge we do not have. It cost us a real diagnosis: the reporter on
+  // issue #409 told us their conversion failed at step 2, which was the only
+  // thing the screen could ever have said, so it narrowed nothing.
+  //
+  // The two are one row until the backend can tell them apart. What actually
+  // failed is already in the drawing's error message, which names the phase,
+  // so nothing diagnostic is lost by not guessing here. The conv_step_extract
+  // keys are kept translated in all 29 locales for the day the backend can
+  // report the phase - they are unreferenced now, not abandoned.
+  const currentStep = status === 'uploaded' ? 1 : status === 'processing' ? 2 : 3;
 
   const steps: { id: number; label: string; hint: string }[] = [
     {
@@ -6437,15 +6447,6 @@ function ConversionProgressCard({
     },
     {
       id: 3,
-      label: t('dwg_takeoff.conv_step_extract', {
-        defaultValue: 'Extracting entities and layers',
-      }),
-      hint: t('dwg_takeoff.conv_step_extract_hint', {
-        defaultValue: 'Building the entity list the viewer will render.',
-      }),
-    },
-    {
-      id: 4,
       label: t('dwg_takeoff.conv_step_render', { defaultValue: 'Opening the viewer' }),
       hint: t('dwg_takeoff.conv_step_render_hint', {
         defaultValue: 'You will see the drawing here as soon as the entities arrive.',
@@ -6455,10 +6456,11 @@ function ConversionProgressCard({
 
   // Live-region announcement: changes whenever the backend status flips
   // (uploaded → processing → ready/error). Screen readers hear "Converting
-  // your drawing…" / "Step 2 of 4 - extracting entities" etc., instead of
-  // silently rendering a spinner. Kept terse so it doesn't drone on.
+  // your drawing, step 2 of 3" instead of a silently rendered spinner. Kept
+  // terse so it doesn't drone on. The total is spelled out in every locale
+  // rather than interpolated, so it moves with the step list above.
   const liveAnnouncement = t('dwg_takeoff.conv_aria_live', {
-    defaultValue: 'Converting {{name}}, step {{step}} of 4, {{elapsed}} elapsed',
+    defaultValue: 'Converting {{name}}, step {{step}} of 3, {{elapsed}} elapsed',
     name: drawingName || filename,
     step: currentStep,
     elapsed: elapsedLabel,

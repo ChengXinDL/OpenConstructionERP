@@ -24799,7 +24799,7 @@ const resource = {
     "dwg_takeoff.confirm_delete": "Deletar desenho?",
     "dwg_takeoff.confirm_delete_annotation": "Deletar anotação?",
     "dwg_takeoff.confirm_delete_annotation_desc": "Esta anotação será permanentemente removida.",
-    "dwg_takeoff.conv_aria_live": "Convertendo {{name}}, etapa {{step}} de 4, {{elapsed}} decorrido",
+    "dwg_takeoff.conv_aria_live": "Convertendo {{name}}, etapa {{step}} de 3, {{elapsed}} decorrido",
     "dwg_takeoff.conv_cancel": "Cancelar - remover este desenho",
     "dwg_takeoff.conv_delete": "Deletar desenho",
     "dwg_takeoff.conv_elapsed": "Tempo decorrido",
