@@ -239,6 +239,74 @@ class TestAssetOpsService:
         assert resp.items[0].stable_id == "exp"
 
     @pytest.mark.asyncio
+    async def test_needs_attention_filter_total_matches_portfolio_count(self, session):
+        """The KPI figure and the rows behind it must be the same number.
+
+        The tile count comes from the portfolio roll-up, computed over every
+        asset in the project. The list is paginated, so if the two were
+        computed separately a user could click a tile reading three and be
+        shown a different number of rows with nothing to explain the gap.
+        Asserting ``total`` against ``needs_attention`` is what pins them
+        together; ``limit=1`` is deliberate, so a page smaller than the match
+        set cannot disguise a disagreement.
+        """
+        pid = uuid.uuid4()
+        # Two need attention (expired warranty, overdue maintenance), one does
+        # not, and one is decommissioned - which scores zero however bad its
+        # warranty looks, so it must not be counted or listed.
+        await _seed(
+            session, pid, stable_id="expired", asset_info={"warranty_until": "2020-01-01"}, is_tracked_asset=True
+        )
+        await _seed(
+            session,
+            pid,
+            stable_id="overdue",
+            asset_info={"installation_date": "2024-01-01", "maintenance_interval_days": "180"},
+            is_tracked_asset=True,
+        )
+        await _seed(
+            session,
+            pid,
+            stable_id="healthy",
+            asset_info={"warranty_until": "2031-01-01", "operational_status": "operational"},
+            is_tracked_asset=True,
+        )
+        await _seed(
+            session,
+            pid,
+            stable_id="retired",
+            asset_info={"warranty_until": "2019-01-01", "operational_status": "decommissioned"},
+            is_tracked_asset=True,
+        )
+
+        svc = AssetOpsService(session)
+        summary = await svc.portfolio_summary(pid)
+        filtered = await svc.list_assets(pid, needs_attention=True, limit=1)
+
+        assert summary.needs_attention == 2
+        assert filtered.total == summary.needs_attention
+        # Paginated down to one row, but still reporting the full match count.
+        assert len(filtered.items) == 1
+        assert filtered.total == 2
+
+        everything = await svc.list_assets(pid, needs_attention=True, limit=100)
+        assert {r.stable_id for r in everything.items} == {"expired", "overdue"}
+
+    @pytest.mark.asyncio
+    async def test_needs_attention_filter_off_by_default(self, session):
+        """Absent the flag the list is unfiltered, so existing callers are unaffected."""
+        pid = uuid.uuid4()
+        await _seed(
+            session, pid, stable_id="expired", asset_info={"warranty_until": "2020-01-01"}, is_tracked_asset=True
+        )
+        await _seed(
+            session, pid, stable_id="healthy", asset_info={"warranty_until": "2031-01-01"}, is_tracked_asset=True
+        )
+
+        svc = AssetOpsService(session)
+        assert (await svc.list_assets(pid)).total == 2
+
+    @pytest.mark.asyncio
     async def test_portfolio_summary_counts(self, session):
         pid = uuid.uuid4()
         await _seed(session, pid, asset_info={"warranty_until": "2020-01-01"}, is_tracked_asset=True)

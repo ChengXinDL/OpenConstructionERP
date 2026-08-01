@@ -30,6 +30,7 @@ __all__ = [
     "AssetHealth",
     "parse_iso_date",
     "compute_health",
+    "needs_attention",
 ]
 
 # ── Warranty states ──────────────────────────────────────────────────────────
@@ -231,3 +232,17 @@ def compute_health(
     health.attention_score = max(0, min(100, score))
 
     return health
+
+
+def needs_attention(health: AssetHealth) -> bool:
+    """Whether an asset counts as needing attention.
+
+    The single definition of "needs attention". The portfolio roll-up counts
+    with it and the asset list filters with it, so the KPI figure and the rows
+    a user sees after clicking that figure are the same computation rather
+    than two expressions that happen to agree today. Duplicating the test
+    would let the count and the list drift apart the first time the rule
+    changes, and the resulting mismatch is silent: a tile says twelve, eight
+    rows appear, and nothing errors to explain the gap.
+    """
+    return health.attention_score > 0

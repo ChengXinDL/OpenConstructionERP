@@ -110,6 +110,7 @@ class AssetOpsService:
         warranty_status: str | None = None,
         maintenance_status: str | None = None,
         operational_status: str | None = None,
+        needs_attention: bool = False,
         search: str | None = None,
         sort: str = "attention",
         offset: int = 0,
@@ -122,6 +123,10 @@ class AssetOpsService:
         after the cheap stored-column filters narrow the set. ``sort`` is
         ``attention`` (worst first), ``name``, or ``warranty`` (soonest
         expiry first).
+
+        ``needs_attention`` narrows to the same set the portfolio roll-up
+        counts, through the same predicate, so the KPI figure and the rows
+        behind it cannot disagree.
         """
         today = date.today()
         stmt = self._tracked_query(project_id)
@@ -144,6 +149,8 @@ class AssetOpsService:
             all_rows = [r for r in all_rows if r.health.warranty_status == warranty_status]
         if maintenance_status:
             all_rows = [r for r in all_rows if r.health.maintenance_status == maintenance_status]
+        if needs_attention:
+            all_rows = [r for r in all_rows if lc.needs_attention(r.health)]
 
         total = len(all_rows)
         all_rows = _sort_rows(all_rows, sort)
@@ -175,7 +182,7 @@ class AssetOpsService:
                 summary.maintenance_overdue += 1
             elif ms == lc.MAINT_DUE:
                 summary.maintenance_due += 1
-            if a.health.attention_score > 0:
+            if lc.needs_attention(a.health):
                 summary.needs_attention += 1
             if a.health.age_years is not None:
                 ages.append(a.health.age_years)
@@ -183,7 +190,7 @@ class AssetOpsService:
         summary.models_covered = len(models)
         if ages:
             summary.avg_age_years = round(sum(ages) / len(ages), 1)
-        summary.top_attention = _sort_rows([a for a in assets if a.health.attention_score > 0], "attention")[:8]
+        summary.top_attention = _sort_rows([a for a in assets if lc.needs_attention(a.health)], "attention")[:8]
         return summary
 
     # ── Discovery ────────────────────────────────────────────────────────

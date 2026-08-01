@@ -65,6 +65,10 @@ async def list_assets(
     warranty_status: str | None = Query(default=None, description="ok|expiring|expired|unknown"),
     maintenance_status: str | None = Query(default=None, description="ok|due|overdue|unknown"),
     operational_status: str | None = Query(default=None),
+    needs_attention: bool = Query(
+        default=False,
+        description="Only assets the portfolio roll-up counts as needing attention",
+    ),
     search: str | None = Query(default=None, min_length=1, max_length=200),
     sort: str = Query(default="attention", pattern="^(attention|name|warranty)$"),
     offset: int = Query(default=0, ge=0),
@@ -80,6 +84,7 @@ async def list_assets(
         warranty_status=warranty_status,
         maintenance_status=maintenance_status,
         operational_status=operational_status,
+        needs_attention=needs_attention,
         search=search,
         sort=sort,
         offset=offset,
