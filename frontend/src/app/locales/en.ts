@@ -31343,6 +31343,7 @@ const resource = {
     "whatsnew.v1110.cases.chip": "Start-here cases",
     "whatsnew.v1110.cases.b1": "A start-here row on the dashboard opens worked cases you can follow step by step.",
     "whatsnew.v1110.cases.b2": "The full case library is translated into every language.",
+    "validation.score_capped": "Capped by blocking errors, not a pass rate",
   }
 } as { translation: Record<string, string> };
 

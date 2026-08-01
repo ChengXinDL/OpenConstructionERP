@@ -34805,6 +34805,7 @@ const resource = {
     "whatsnew.v1110.cases.chip": "Ví dụ khởi đầu",
     "whatsnew.v1110.cases.b1": "Một hàng khởi đầu trên bảng điều khiển mở ra các ví dụ đã hoàn thành mà bạn có thể làm theo từng bước.",
     "whatsnew.v1110.cases.b2": "Toàn bộ thư viện ví dụ được dịch sang mọi ngôn ngữ.",
+    "validation.score_capped": "Bị giới hạn bởi lỗi chặn, không phải tỷ lệ đạt",
   }
 } as { translation: Record<string, string> };
 

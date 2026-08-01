@@ -34793,6 +34793,7 @@ const resource = {
     "whatsnew.v1110.cases.chip": "Kom i gang-eksempler",
     "whatsnew.v1110.cases.b1": "En kom i gang-række på dashboardet åbner gennemarbejdede eksempler, du kan følge trin for trin.",
     "whatsnew.v1110.cases.b2": "Hele eksempelbiblioteket er oversat til hvert sprog.",
+    "validation.score_capped": "Begrænset af blokerende fejl, ikke en bestået-rate",
   }
 } as { translation: Record<string, string> };
 

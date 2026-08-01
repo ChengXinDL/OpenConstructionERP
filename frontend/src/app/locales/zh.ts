@@ -34800,6 +34800,7 @@ const resource = {
     "whatsnew.v1110.cases.chip": "入门案例",
     "whatsnew.v1110.cases.b1": "仪表盘上的入门行会打开可以逐步跟做的实际案例。",
     "whatsnew.v1110.cases.b2": "完整的案例库已翻译成每种语言。",
+    "validation.score_capped": "受阻断性错误限制，并非通过率",
   }
 } as { translation: Record<string, string> };
 

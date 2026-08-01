@@ -34807,6 +34807,7 @@ const resource = {
     "whatsnew.v1110.cases.chip": "Cas pour démarrer",
     "whatsnew.v1110.cases.b1": "Une ligne pour démarrer sur le tableau de bord ouvre des cas traités que vous pouvez suivre étape par étape.",
     "whatsnew.v1110.cases.b2": "La bibliothèque complète de cas est traduite dans toutes les langues.",
+    "validation.score_capped": "Plafonné par des erreurs bloquantes, pas un taux de réussite",
   }
 } as { translation: Record<string, string> };
 

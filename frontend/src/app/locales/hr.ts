@@ -34806,6 +34806,7 @@ const resource = {
     "whatsnew.v1110.cases.chip": "Primjeri za početak",
     "whatsnew.v1110.cases.b1": "Redak za početak na nadzornoj ploči otvara obrađene primjere koje možeš pratiti korak po korak.",
     "whatsnew.v1110.cases.b2": "Cijela knjižnica primjera prevedena je na svaki jezik.",
+    "validation.score_capped": "Ograničeno blokirajućim greškama, ne stopa prolaznosti",
   }
 } as { translation: Record<string, string> };
 

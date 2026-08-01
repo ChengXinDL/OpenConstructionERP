@@ -34804,6 +34804,7 @@ const resource = {
     "whatsnew.v1110.cases.chip": "Cazuri de pornire",
     "whatsnew.v1110.cases.b1": "Un rând de pornire din tabloul de bord deschide cazuri lucrate pe care le poți urma pas cu pas.",
     "whatsnew.v1110.cases.b2": "Întreaga bibliotecă de cazuri este tradusă în fiecare limbă.",
+    "validation.score_capped": "Limitat de erori blocante, nu o rată de promovare",
   }
 } as { translation: Record<string, string> };
 

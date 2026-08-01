@@ -34800,6 +34800,7 @@ const resource = {
     "whatsnew.v1110.cases.chip": "スタートケース",
     "whatsnew.v1110.cases.b1": "ダッシュボードのスタート行から、手順どおりに進められる実例が開く。",
     "whatsnew.v1110.cases.b2": "実例ライブラリ全体があらゆる言語に翻訳されている。",
+    "validation.score_capped": "ブロッキングエラーによる上限、合格率ではない",
   }
 } as { translation: Record<string, string> };
 

@@ -34800,6 +34800,7 @@ const resource = {
     "whatsnew.v1110.cases.chip": "시작 예제",
     "whatsnew.v1110.cases.b1": "대시보드의 시작하기 행에서 단계별로 따라 할 수 있는 완성된 사례를 엽니다.",
     "whatsnew.v1110.cases.b2": "전체 사례 라이브러리가 모든 언어로 번역되어 있습니다.",
+    "validation.score_capped": "차단 오류로 인한 상한, 합격률이 아님",
   }
 } as { translation: Record<string, string> };
 

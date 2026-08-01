@@ -34807,6 +34807,7 @@ const resource = {
     "whatsnew.v1110.cases.chip": "Příklady pro začátek",
     "whatsnew.v1110.cases.b1": "Řádek pro začátek na nástěnce otevírá zpracované případy, které můžeš sledovat krok za krokem.",
     "whatsnew.v1110.cases.b2": "Celá knihovna případů je přeložena do každého jazyka.",
+    "validation.score_capped": "Omezeno blokujícími chybami, ne úspěšnost",
   }
 } as { translation: Record<string, string> };
 

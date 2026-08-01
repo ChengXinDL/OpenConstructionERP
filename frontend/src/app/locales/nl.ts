@@ -34798,6 +34798,7 @@ const resource = {
     "whatsnew.v1110.cases.chip": "Startvoorbeelden",
     "whatsnew.v1110.cases.b1": "Een startrij op het dashboard opent uitgewerkte voorbeelden die je stap voor stap kunt volgen.",
     "whatsnew.v1110.cases.b2": "De volledige voorbeeldbibliotheek is in elke taal vertaald.",
+    "validation.score_capped": "Beperkt door blokkerende fouten, geen slagingspercentage",
   }
 } as { translation: Record<string, string> };
 

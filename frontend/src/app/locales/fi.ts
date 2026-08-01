@@ -34797,6 +34797,7 @@ const resource = {
     "whatsnew.v1110.cases.chip": "Aloitusesimerkit",
     "whatsnew.v1110.cases.b1": "Kojelaudan aloitusrivi avaa läpikäytyjä tapauksia, joita voit seurata askel askeleelta.",
     "whatsnew.v1110.cases.b2": "Koko tapauskirjasto on käännetty jokaiselle kielelle.",
+    "validation.score_capped": "Rajoitettu estävien virheiden vuoksi, ei läpäisyprosentti",
   }
 } as { translation: Record<string, string> };
 

@@ -34800,6 +34800,7 @@ const resource = {
     "whatsnew.v1110.cases.chip": "Casos para começar",
     "whatsnew.v1110.cases.b1": "Uma linha para começar no painel abre casos resolvidos que você pode seguir passo a passo.",
     "whatsnew.v1110.cases.b2": "A biblioteca completa de casos está traduzida em todos os idiomas.",
+    "validation.score_capped": "Limitado por erros bloqueantes, não uma taxa de aprovação",
   }
 } as { translation: Record<string, string> };
 

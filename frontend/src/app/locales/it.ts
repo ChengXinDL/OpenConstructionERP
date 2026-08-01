@@ -34804,6 +34804,7 @@ const resource = {
     "whatsnew.v1110.cases.chip": "Casi per iniziare",
     "whatsnew.v1110.cases.b1": "Una riga per iniziare nella dashboard apre casi svolti che puoi seguire passo dopo passo.",
     "whatsnew.v1110.cases.b2": "L'intera libreria di casi è tradotta in ogni lingua.",
+    "validation.score_capped": "Limitato da errori bloccanti, non un tasso di superamento",
   }
 } as { translation: Record<string, string> };
 

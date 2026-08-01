@@ -34793,6 +34793,7 @@ const resource = {
     "whatsnew.v1110.cases.chip": "Startexempel",
     "whatsnew.v1110.cases.b1": "En startrad på instrumentpanelen öppnar genomarbetade exempel du kan följa steg för steg.",
     "whatsnew.v1110.cases.b2": "Hela exempelbiblioteket är översatt till varje språk.",
+    "validation.score_capped": "Begränsad av blockerande fel, inte en godkäntgrad",
   }
 } as { translation: Record<string, string> };
 

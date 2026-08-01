@@ -34797,6 +34797,7 @@ const resource = {
     "whatsnew.v1110.cases.chip": "Başlangıç örnekleri",
     "whatsnew.v1110.cases.b1": "Panodaki başlangıç satırı, adım adım takip edebileceğin işlenmiş örnekleri açar.",
     "whatsnew.v1110.cases.b2": "Tüm örnek kütüphanesi her dile çevrilmiştir.",
+    "validation.score_capped": "Engelleyici hatalarla sınırlandı, geçme oranı değil",
   }
 } as { translation: Record<string, string> };
 

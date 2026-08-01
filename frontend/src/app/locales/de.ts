@@ -34867,6 +34867,7 @@ const resource = {
     "whatsnew.v1110.cases.chip": "Einstiegsbeispiele",
     "whatsnew.v1110.cases.b1": "Eine Einstiegszeile im Dashboard öffnet durchgearbeitete Beispiele, die du Schritt für Schritt nachvollziehen kannst.",
     "whatsnew.v1110.cases.b2": "Die gesamte Beispielbibliothek ist in jede Sprache übersetzt.",
+    "validation.score_capped": "Durch blockierende Fehler begrenzt, keine Erfolgsquote",
   }
 } as { translation: Record<string, string> };
 

@@ -34845,6 +34845,7 @@ const resource = {
     "whatsnew.v1110.cases.chip": "أمثلة للبدء",
     "whatsnew.v1110.cases.b1": "صف البدء في لوحة التحكم يفتح أمثلة عملية يمكنك اتباعها خطوة بخطوة.",
     "whatsnew.v1110.cases.b2": "مكتبة الأمثلة الكاملة مترجمة إلى كل لغة.",
+    "validation.score_capped": "مقيد بأخطاء حاجبة وليس معدل نجاح",
   }
 } as { translation: Record<string, string> };
 

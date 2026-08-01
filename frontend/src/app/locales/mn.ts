@@ -34796,6 +34796,7 @@ const resource = {
     "whatsnew.v1110.cases.chip": "Эхлэх жишээнүүд",
     "whatsnew.v1110.cases.b1": "Хяналтын самбар дахь эхлэх мөр нь алхам алхмаар дагаж болох боловсруулсан жишээнүүдийг нээнэ.",
     "whatsnew.v1110.cases.b2": "Жишээний бүх сан бүх хэл рүү орчуулагдсан.",
+    "validation.score_capped": "Хориглох алдаагаар хязгаарлагдсан, тэнцсэн хувь биш",
   }
 } as { translation: Record<string, string> };
 

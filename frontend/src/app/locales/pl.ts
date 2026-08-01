@@ -34815,6 +34815,7 @@ const resource = {
     "whatsnew.v1110.cases.chip": "Przykłady na start",
     "whatsnew.v1110.cases.b1": "Wiersz na start w panelu otwiera opracowane przypadki, które możesz śledzić krok po kroku.",
     "whatsnew.v1110.cases.b2": "Cała biblioteka przypadków jest przetłumaczona na każdy język.",
+    "validation.score_capped": "Ograniczone przez błędy blokujące, nie wskaźnik zaliczenia",
   }
 } as { translation: Record<string, string> };
 

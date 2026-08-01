@@ -34806,6 +34806,7 @@ const resource = {
     "whatsnew.v1110.cases.chip": "Casos para empezar",
     "whatsnew.v1110.cases.b1": "Una fila para empezar en el panel abre casos resueltos que puedes seguir paso a paso.",
     "whatsnew.v1110.cases.b2": "La biblioteca completa de casos está traducida a todos los idiomas.",
+    "validation.score_capped": "Limitado por errores bloqueantes, no una tasa de aprobación",
   }
 } as { translation: Record<string, string> };
 

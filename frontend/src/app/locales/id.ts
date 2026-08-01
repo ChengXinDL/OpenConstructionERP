@@ -34796,6 +34796,7 @@ const resource = {
     "whatsnew.v1110.cases.chip": "Contoh untuk memulai",
     "whatsnew.v1110.cases.b1": "Baris mulai di sini pada dashboard membuka kasus yang telah dikerjakan yang dapat Anda ikuti langkah demi langkah.",
     "whatsnew.v1110.cases.b2": "Seluruh pustaka kasus diterjemahkan ke setiap bahasa.",
+    "validation.score_capped": "Dibatasi oleh error yang memblokir, bukan tingkat kelulusan",
   }
 } as { translation: Record<string, string> };
 
