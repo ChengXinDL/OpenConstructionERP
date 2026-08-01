@@ -32,21 +32,28 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
   },
   {
     titleKey: 'shortcuts.group.navigation',
+    // Each row's descriptionKey below is the SAME locale key the target
+    // route uses for its own name (Sidebar.tsx `labelKey` / the page's own
+    // title key), not a dedicated shortcuts.nav_* string. A standalone
+    // shortcuts.nav_* copy previously drifted out of sync with the sidebar
+    // in up to 21/29 locales, and shortcuts.nav_finance was never added to
+    // any locale at all, so opening this dialog printed the raw key.
+    // Reusing the sidebar's own key removes the second copy that could drift.
     items: [
-      { keys: ['g', 'd'], descriptionKey: 'shortcuts.nav_dashboard' },
-      { keys: ['g', 'p'], descriptionKey: 'shortcuts.nav_projects' },
-      { keys: ['g', 'b'], descriptionKey: 'shortcuts.nav_boq' },
-      { keys: ['g', 'c'], descriptionKey: 'shortcuts.nav_costs' },
-      { keys: ['g', 'a'], descriptionKey: 'shortcuts.nav_assemblies' },
-      { keys: ['g', 'v'], descriptionKey: 'shortcuts.nav_validation' },
-      { keys: ['g', 's'], descriptionKey: 'shortcuts.nav_schedule' },
-      { keys: ['g', 'f'], descriptionKey: 'shortcuts.nav_finance' },
-      { keys: ['g', '5'], descriptionKey: 'shortcuts.nav_5d' },
-      { keys: ['g', 'r'], descriptionKey: 'shortcuts.nav_reports' },
-      { keys: ['g', 't'], descriptionKey: 'shortcuts.nav_tendering' },
-      { keys: ['g', 'm'], descriptionKey: 'shortcuts.nav_meetings' },
-      { keys: ['g', 'i'], descriptionKey: 'shortcuts.nav_rfi' },
-      { keys: ['g', 'o'], descriptionKey: 'shortcuts.nav_contacts' },
+      { keys: ['g', 'd'], descriptionKey: 'nav.dashboard' },
+      { keys: ['g', 'p'], descriptionKey: 'projects.title' },
+      { keys: ['g', 'b'], descriptionKey: 'boq.title' },
+      { keys: ['g', 'c'], descriptionKey: 'costs.title' },
+      { keys: ['g', 'a'], descriptionKey: 'nav.assemblies' },
+      { keys: ['g', 'v'], descriptionKey: 'validation.title' },
+      { keys: ['g', 's'], descriptionKey: 'schedule.title' },
+      { keys: ['g', 'f'], descriptionKey: 'finance.title' },
+      { keys: ['g', '5'], descriptionKey: 'nav.5d_cost_model' },
+      { keys: ['g', 'r'], descriptionKey: 'nav.reports' },
+      { keys: ['g', 't'], descriptionKey: 'tendering.title' },
+      { keys: ['g', 'm'], descriptionKey: 'meetings.title' },
+      { keys: ['g', 'i'], descriptionKey: 'rfi.title' },
+      { keys: ['g', 'o'], descriptionKey: 'contacts.title' },
     ],
   },
   {
