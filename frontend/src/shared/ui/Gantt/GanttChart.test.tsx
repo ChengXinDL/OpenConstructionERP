@@ -65,11 +65,15 @@ describe('GanttChart header', () => {
     // The partial leading month must get a visibly smaller clip than the whole
     // months after it. One shared width would defeat the fix while still
     // satisfying the previous test.
+    //
+    // Compare against the widest of the rest rather than looping over them. The
+    // trailing month can be partial too, so a loop has to skip it, and skipping
+    // it leaves nothing to assert on a two-cell range: the body never runs and
+    // the test passes without checking anything.
     const [leading, ...rest] = widths;
     expect(leading!).toBeGreaterThan(0);
-    for (const w of rest.slice(0, -1)) {
-      expect(w).toBeGreaterThan(leading! * 2);
-    }
+    expect(rest.length).toBeGreaterThan(0);
+    expect(Math.max(...rest)).toBeGreaterThan(leading! * 2);
   });
 
   it('scopes clip ids per chart so two charts on a page do not share them', () => {
