@@ -85,3 +85,17 @@ repos:
         entry: python scripts/check_commit_trailers.py
         language: system
         stages: [commit-msg]
+
+      # Catch doubled Unicode escapes in locale values (`\\u2013` where a
+      # correct value has one backslash, `–`). A doubled backslash is
+      # syntactically valid TypeScript, so tsc, the build and key-count
+      # checks all stay green; it only shows as literal `–` garbage on
+      # screen. Found and fixed 4 keys / 78 values across 28 locales
+      # (a023d1e42, c452e3ecd); this guard is what stops a fifth instance
+      # shipping unnoticed. CI runs the same script on every push.
+      - id: locale-escape-check
+        name: Block doubled Unicode escapes in locale files
+        entry: python scripts/check_locale_escapes.py
+        language: system
+        pass_filenames: false
+        files: ^frontend/src/app/locales/.*\.ts$

@@ -1,13 +1,16 @@
 # Repo hygiene gate.
 #
-# Two guards run on every push and pull request:
+# Three guards run on every push and pull request:
 #   * no internal-only files (planning, strategy, QA artifacts, audits,
-#     runbooks) reach the public repository or a release artifact, and
+#     runbooks) reach the public repository or a release artifact,
 #   * no commit message records an AI assistant as a contributor (a
-#     "Co-authored-by:" trailer or "Generated with ..." footer naming one).
-# The file guard also runs in the publish pipelines against the built wheel and
-# as a pre-commit hook; the trailer guard runs as a commit-msg pre-commit hook.
-# So a violation is caught at commit time, in CI, and at build time.
+#     "Co-authored-by:" trailer or "Generated with ..." footer naming one), and
+#   * no locale value carries a doubled Unicode escape (`\\u2013` instead of
+#     `–`), which is syntactically valid so tsc and the build stay green while
+#     the string renders as literal garbage.
+# The file and escape guards also run as pre-commit hooks; the trailer guard
+# runs as a commit-msg pre-commit hook. So a violation is caught at commit
+# time and in CI, and the file guard is caught again at build time.
 name: Repo hygiene
 
 on:
@@ -43,3 +46,14 @@ jobs:
           python-version: '3.12'
       - name: Scan commit messages for AI attribution trailers
         run: python scripts/check_commit_trailers.py
+
+  locale-escapes:
+    name: No doubled Unicode escapes in locale files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check locale files for doubled escapes
+        run: python scripts/check_locale_escapes.py
