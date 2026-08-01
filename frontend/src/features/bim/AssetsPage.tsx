@@ -33,10 +33,18 @@ import {
   Network,
   Package,
   Search,
+  X,
 } from 'lucide-react';
 
 import { Badge, Breadcrumb, Button, Card, CollapsibleSection, DismissibleInfo, IntroRichText, EmptyState, Input } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
+import { AssetOperationsToolbar, AssetPortfolioStrip } from '@/features/assets';
+import {
+  listAssets,
+  type AssetRow,
+  type MaintenanceStatus,
+  type WarrantyStatus,
+} from '@/features/assets/api';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { useToastStore } from '@/stores/useToastStore';
 
@@ -45,6 +53,8 @@ import { AssetEditModal } from './AssetEditModal';
 import {
   downloadCobieXlsx,
   listTrackedAssets,
+  type AssetInfoPayload,
+  type AssetListResponse,
   type AssetSummary,
 } from './api';
 
@@ -56,6 +66,14 @@ const OPERATIONAL_STATUSES: Array<{ value: string; labelKey: string; tone: strin
   { value: 'decommissioned', labelKey: 'assets.status.decommissioned', tone: 'bg-rose-500/15 text-rose-300 border-rose-500/30' },
   { value: 'planned', labelKey: 'assets.status.planned', tone: 'bg-sky-500/15 text-sky-300 border-sky-500/30' },
 ];
+
+/** Labels for the active-tile-filter chip, keyed to the tiles themselves. */
+const TILE_FILTER_LABELS = {
+  attention: { key: 'assets.kpi.needs_attention', fallback: 'Needs attention' },
+  maintenance_overdue: { key: 'assets.kpi.maintenance_overdue', fallback: 'Maintenance overdue' },
+  warranty_expired: { key: 'assets.kpi.warranty_expired', fallback: 'Warranty expired' },
+  warranty_expiring: { key: 'assets.kpi.warranty_expiring', fallback: 'Expiring soon' },
+} as const;
 
 function statusTone(status?: string | null): string {
   return (
@@ -183,6 +201,71 @@ function HowAssetsWork() {
 
 /* ── AssetsPage ────────────────────────────────────────────────────────── */
 
+/** Filters the register can be narrowed by, including the KPI-tile ones. */
+interface RegisterFilters {
+  search: string;
+  status: string;
+  warranty: string;
+  maintenance: string;
+  attention: boolean;
+}
+
+/** Shape an Asset Operations row into the BIM Hub row this page renders. */
+function toAssetSummary(row: AssetRow): AssetSummary {
+  return {
+    id: row.id,
+    stable_id: row.stable_id,
+    element_type: row.element_type ?? '',
+    name: row.name,
+    model_id: row.model_id,
+    model_name: row.model_name,
+    project_id: row.project_id,
+    // Both endpoints return the same stored blob - `dict(element.asset_info)`
+    // on one side, `_summarise_asset` on the other - so the columns read the
+    // same values whichever source answered.
+    asset_info: row.asset_info as AssetInfoPayload,
+  };
+}
+
+/**
+ * List through Asset Operations, falling back to the BIM Hub.
+ *
+ * Asset Operations is the better source: it owns the warranty and maintenance
+ * filters the KPI tiles need, and it computes per-asset health. It is also
+ * optional. The module can be switched off, and the endpoint sits behind the
+ * `assets.read` permission, while the BIM Hub list has neither restriction and
+ * is what this page used before. Falling back keeps the register working for
+ * everyone who can open it today instead of trading a working page for a 403.
+ *
+ * The fallback deliberately does not run when a tile filter is set. The BIM
+ * Hub cannot filter by warranty, maintenance or attention, so answering a
+ * filtered request from it would show the wrong rows under the right heading -
+ * worse than an error, because nothing on screen would look wrong.
+ */
+async function loadRegister(projectId: string, f: RegisterFilters): Promise<AssetListResponse> {
+  const opsOnlyFilter = !!(f.warranty || f.maintenance || f.attention);
+  try {
+    const resp = await listAssets(projectId, {
+      search: f.search || undefined,
+      operationalStatus: f.status || undefined,
+      warrantyStatus: (f.warranty || undefined) as WarrantyStatus | undefined,
+      maintenanceStatus: (f.maintenance || undefined) as MaintenanceStatus | undefined,
+      needsAttention: f.attention || undefined,
+      // Without an explicit limit this endpoint answers with its default of
+      // 50, well under the 200 the register showed before.
+      limit: 500,
+    });
+    return { items: resp.items.map(toAssetSummary), total: resp.total };
+  } catch (err) {
+    if (opsOnlyFilter) throw err;
+    return listTrackedAssets(projectId, {
+      search: f.search || undefined,
+      operationalStatus: f.status || undefined,
+      limit: 500,
+    });
+  }
+}
+
 export function AssetsPage() {
   const { t } = useTranslation();
   const activeProjectId = useProjectContextStore((s) => s.activeProjectId);
@@ -193,12 +276,17 @@ export function AssetsPage() {
 
   const search = searchParams.get('search') ?? '';
   const status = searchParams.get('status') ?? '';
+  // Tile filters live in the URL like the other two, so a narrowed register
+  // survives a reload and can be shared.
+  const warranty = searchParams.get('warranty') ?? '';
+  const maintenance = searchParams.get('maintenance') ?? '';
+  const attention = searchParams.get('attention') === '1';
 
   const [editing, setEditing] = useState<AssetSummary | null>(null);
   const [detailing, setDetailing] = useState<AssetSummary | null>(null);
 
   const patchSearch = useCallback(
-    (next: Partial<Record<'search' | 'status', string>>) => {
+    (next: Partial<Record<'search' | 'status' | 'warranty' | 'maintenance' | 'attention', string>>) => {
       const updated = new URLSearchParams(searchParams);
       for (const [key, value] of Object.entries(next)) {
         if (!value) updated.delete(key);
@@ -210,12 +298,9 @@ export function AssetsPage() {
   );
 
   const assetsQuery = useQuery({
-    queryKey: ['bim-assets', activeProjectId, search, status],
+    queryKey: ['bim-assets', activeProjectId, search, status, warranty, maintenance, attention],
     queryFn: () =>
-      listTrackedAssets(activeProjectId!, {
-        search: search || undefined,
-        operationalStatus: status || undefined,
-      }),
+      loadRegister(activeProjectId!, { search, status, warranty, maintenance, attention }),
     enabled: !!activeProjectId,
     staleTime: 30_000,
     // Avoids an edge-case re-render that detaches filter-chip / edit
@@ -227,6 +312,18 @@ export function AssetsPage() {
 
   const items = assetsQuery.data?.items ?? [];
   const total = assetsQuery.data?.total ?? 0;
+
+  // Which KPI tile the register is currently narrowed by, labelled with that
+  // tile's own key so the chip and the tile can never word it differently.
+  const tileFilter = attention
+    ? TILE_FILTER_LABELS.attention
+    : maintenance === 'overdue'
+      ? TILE_FILTER_LABELS.maintenance_overdue
+      : warranty === 'expired'
+        ? TILE_FILTER_LABELS.warranty_expired
+        : warranty === 'expiring'
+          ? TILE_FILTER_LABELS.warranty_expiring
+          : null;
 
   if (!activeProjectId) {
     return (
@@ -297,6 +394,28 @@ export function AssetsPage() {
         <HowAssetsWork />
       </div>
 
+      {/* ── Portfolio roll-up ────────────────────────────────────────────
+          Warranty / maintenance / attention counts computed by the Asset
+          Operations module. Renders nothing until the project has tracked
+          assets, so it stays out of the way on an empty register.
+
+          Each tile narrows the list to the set it counts. The counts and the
+          rows come from the same server-side computation, so a tile reading
+          twelve lists twelve; see lifecycle.needs_attention on the backend.
+          Selecting one tile clears the others, because the endpoint would
+          intersect them and a user who clicks two counts in turn means the
+          second one. */}
+      <AssetPortfolioStrip
+        projectId={activeProjectId}
+        onFilter={(f) =>
+          patchSearch({
+            warranty: f.warrantyStatus ?? '',
+            maintenance: f.maintenanceStatus ?? '',
+            attention: f.attention ? '1' : '',
+          })
+        }
+      />
+
       {/* ── Filters ──────────────────────────────────────────────────── */}
       <Card className="mb-4">
         <div className="flex flex-wrap items-center gap-3 p-3">
@@ -343,7 +462,35 @@ export function AssetsPage() {
                 {t(s.labelKey, { defaultValue: s.value.replace('_', ' ') })}
               </button>
             ))}
+
+            {/* A tile filter is set from the roll-up above, so the control
+                that clears it has to live down here with the other filters -
+                otherwise the only way back to the full register is editing
+                the URL. Labelled with the tile's own key, so the chip and
+                the tile cannot describe the same filter differently. */}
+            {tileFilter && (
+              <button
+                type="button"
+                onClick={() => patchSearch({ warranty: '', maintenance: '', attention: '' })}
+                title={t('common.clear_filters', { defaultValue: 'Clear filters' })}
+                className="flex items-center gap-1 rounded-md border border-oe-blue bg-oe-blue/10 px-3 py-1 text-xs text-oe-blue"
+                data-testid="asset-kpi-filter-clear"
+              >
+                {t(tileFilter.key, { defaultValue: tileFilter.fallback })}
+                <X size={12} />
+              </button>
+            )}
           </div>
+
+          {/* Discover candidates from the BIM models and scan warranties.
+              A bulk promotion adds rows to this register, so refetch once
+              the modal reports it changed something. */}
+          <AssetOperationsToolbar
+            projectId={activeProjectId}
+            onChanged={() => {
+              void assetsQuery.refetch();
+            }}
+          />
         </div>
       </Card>
 

@@ -148,6 +148,8 @@ export interface ListAssetsOpts {
   warrantyStatus?: WarrantyStatus;
   maintenanceStatus?: MaintenanceStatus;
   operationalStatus?: string;
+  /** Narrow to the same set the portfolio roll-up counts as needing attention. */
+  needsAttention?: boolean;
   search?: string;
   sort?: 'attention' | 'name' | 'warranty';
   offset?: number;
@@ -162,6 +164,7 @@ export async function listAssets(
   if (opts.warrantyStatus) params.set('warranty_status', opts.warrantyStatus);
   if (opts.maintenanceStatus) params.set('maintenance_status', opts.maintenanceStatus);
   if (opts.operationalStatus) params.set('operational_status', opts.operationalStatus);
+  if (opts.needsAttention) params.set('needs_attention', 'true');
   if (opts.search) params.set('search', opts.search);
   if (opts.sort) params.set('sort', opts.sort);
   params.set('offset', String(opts.offset ?? 0));
