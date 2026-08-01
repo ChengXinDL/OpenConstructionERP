@@ -15716,7 +15716,7 @@ const resource = {
     "dwg_takeoff.format_support_dwg": "DWG 2000〜2025 · DXF R12〜R2025",
     "dwg_takeoff.linked_to_boq": "BOQ にリンク済み",
     "dwg_takeoff.linked_unit_kept_note": "単位 {{kept}} を維持（計測値 {{measured}}）",
-    "dwg_takeoff.linked_unit_mismatch": "リンク済み \\u00b7 単位を維持",
+    "dwg_takeoff.linked_unit_mismatch": "リンク済み · 単位を維持",
     "dwg_takeoff.offline_ready_tooltip_local": "このツールは完全にオフラインで動作します、変換はお使いのマシン上で実行されます。",
     "dwg_takeoff.offline_ready_tooltip_server": "変換はお使いの OpenConstructionERP サーバー上で実行され、第三者に送信されることはありません。",
     "dwg_takeoff.processed_on_your_server": "お使いの OpenConstructionERP サーバーで処理 · 第三者に送信されません",

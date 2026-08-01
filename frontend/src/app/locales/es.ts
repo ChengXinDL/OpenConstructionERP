@@ -15220,7 +15220,7 @@ const resource = {
     "dwg_takeoff.format_support_dwg": "DWG 2000-2025 · DXF R12-R2025",
     "dwg_takeoff.linked_to_boq": "Vinculado al BOQ",
     "dwg_takeoff.linked_unit_kept_note": "se mantuvo la unidad {{kept}} (medido {{measured}})",
-    "dwg_takeoff.linked_unit_mismatch": "Vinculado \\u00b7 unidad mantenida",
+    "dwg_takeoff.linked_unit_mismatch": "Vinculado · unidad mantenida",
     "dwg_takeoff.offline_ready_tooltip_local": "Esta herramienta funciona totalmente sin conexión, las conversiones se ejecutan en su equipo.",
     "dwg_takeoff.offline_ready_tooltip_server": "Las conversiones se ejecutan en su servidor de OpenConstructionERP y nunca se envían a terceros.",
     "dwg_takeoff.processed_on_your_server": "Procesado en su servidor de OpenConstructionERP · nunca se envía a terceros",

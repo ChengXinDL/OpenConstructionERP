@@ -12826,7 +12826,7 @@ const resource = {
     "dwg_takeoff.import_doc_failed": "Could not open this document in DWG Takeoff",
     "dwg_takeoff.linked_to_boq": "Linked to BOQ",
     "dwg_takeoff.linked_unit_kept_note": "kept unit {{kept}} (measured {{measured}})",
-    "dwg_takeoff.linked_unit_mismatch": "Linked \\u00b7 unit kept",
+    "dwg_takeoff.linked_unit_mismatch": "Linked · unit kept",
     "dwg_takeoff.offline_ready_tooltip_local": "This tool works fully offline, conversions run on your machine.",
     "dwg_takeoff.opening_document": "Opening document…",
     "dwg_takeoff.opening_document_hint": "Preparing this drawing for takeoff. This can take a few minutes for large DWG files.",
