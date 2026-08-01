@@ -40,6 +40,8 @@ import { useDisplayQuantity } from '@/shared/hooks/useDisplayQuantity';
 
 import { useToastStore } from '@/stores/useToastStore';
 
+import { ServiceLogPanel } from '@/features/assets';
+
 import { AssetEditModal } from './AssetEditModal';
 import {
   downloadCobieXlsx,
@@ -108,6 +110,14 @@ export function AssetDetailDrawer({ asset, onClose }: AssetDetailDrawerProps) {
   const navigate = useNavigate();
   const toast = useToastStore((s) => s.addToast);
   const [editing, setEditing] = useState(false);
+
+  // asset_info is typed with a string-valued index signature, but the
+  // backend stores service_log as an array of entries. Narrow through
+  // unknown and fall back to empty only when it genuinely is not a list.
+  const serviceLog = useMemo(() => {
+    const raw = (asset.asset_info as Record<string, unknown>).service_log;
+    return Array.isArray(raw) ? (raw as Array<Record<string, unknown>>) : [];
+  }, [asset.asset_info]);
 
   // Esc to close
   useEffect(() => {
@@ -302,6 +312,27 @@ export function AssetDetailDrawer({ asset, onClose }: AssetDetailDrawerProps) {
               />
             </KvList>
           </Section>
+
+          {/* Maintenance & service log.
+
+              The history is read straight off the asset_info blob, which
+              _summarise_asset returns whole, so an asset that already has
+              entries shows them rather than an empty list. AssetInfoPayload
+              declares its values as string | null | undefined, but
+              service_log is a JSON array, so it is narrowed through unknown
+              instead of being trusted through the index signature.
+
+              No initialHealth: this list comes from the BIM Hub, which does
+              not compute maintenance state. The panel shows "unknown" until
+              the first entry is logged, and the append response carries the
+              real health back. That is honest - the alternative would be
+              guessing a status from data this endpoint does not return. */}
+          <div className="mb-5">
+            <ServiceLogPanel
+              assetId={asset.id}
+              initialLog={serviceLog}
+            />
+          </div>
 
           {/* Geometry / quantities */}
           {(quantities.area ||
