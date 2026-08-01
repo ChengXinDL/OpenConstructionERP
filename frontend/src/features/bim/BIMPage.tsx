@@ -13,7 +13,7 @@
  * Route: /projects/:projectId/bim  or  /bim
  */
 
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { Fragment, useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
@@ -880,7 +880,14 @@ function UploadPanel({
             htmlFor="bim-upload-file-input"
             role="button"
             tabIndex={0}
-            aria-label={t('bim.upload_dropzone_aria_mesh', { defaultValue: 'Upload BIM or 3D mesh file (RVT, IFC, DWG, glTF, GLB, OBJ, DAE, 3DS, FBX, LWO, STL, PLY, USD)' })}
+            aria-label={t('bim.upload_dropzone_aria_mesh', { defaultValue: 'Upload a BIM model, drawing or 3D mesh file' })}
+            /* The label names the action; the badge row below supplies the
+               formats as a description, so focusing the drop zone announces the
+               generated list instead of a hand-typed one that goes stale. The
+               row is absent once a file is picked and the description then
+               resolves to nothing, which is correct: the list has stopped
+               being the useful thing to say. */
+            aria-describedby="bim-upload-formats-list"
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
@@ -910,14 +917,19 @@ function UploadPanel({
                     replaced showed six of fifteen and hid the rest behind a
                     "+ more" span with no handler, which read as a control and
                     answered nothing. */}
-                <div data-testid="bim-upload-formats" className="flex flex-wrap items-center justify-center gap-1.5 mt-1">
+                <div id="bim-upload-formats-list" data-testid="bim-upload-formats" className="flex flex-wrap items-center justify-center gap-1.5 mt-1">
                   {UPLOAD_FORMATS.map((fmt) => (
-                    <span
-                      key={fmt.ext}
-                      className={`text-[9px] font-mono px-1 py-0.5 rounded border ${TIER_BADGE_CLASS[fmt.tier]}`}
-                    >
-                      {fmt.ext}
-                    </span>
+                    /* The trailing space is a real text node and it is load
+                       bearing. CSS gap separates the badges visually but does
+                       not reach the accessible description, so without it the
+                       whole row is announced as one run-on token. */
+                    <Fragment key={fmt.ext}>
+                      <span
+                        className={`text-[9px] font-mono px-1 py-0.5 rounded border ${TIER_BADGE_CLASS[fmt.tier]}`}
+                      >
+                        {fmt.ext}
+                      </span>{' '}
+                    </Fragment>
                   ))}
                 </div>
                 <p className="text-[10px] text-content-quaternary leading-relaxed max-w-[17rem]">
@@ -1626,7 +1638,12 @@ function LandingPage({ projectId, onUploadComplete: _onUploadComplete, breadcrum
             <div className="flex flex-col">
               <div className="rounded-2xl bg-white dark:bg-gray-800/60 border border-border-light shadow-lg shadow-black/5 dark:shadow-black/20 p-6 flex flex-col h-full">
                 <label
-                  aria-label={t('bim.landing_dropzone_aria', { defaultValue: 'Drop a BIM model file here or click to browse. Supported formats: .rvt, .ifc, .csv, .xlsx' })}
+                  aria-label={t('bim.landing_dropzone_aria', { defaultValue: 'Drop a BIM model, drawing or 3D mesh file here, or click to browse' })}
+                  /* Same arrangement as the modal drop zone: semantic name,
+                     formats supplied by the badge row as a description. The
+                     old label promised CSV and Excel to a screen reader on the
+                     one element whose handler rejects both. */
+                  aria-describedby="bim-landing-formats-list"
                   onDrop={(e) => {
                     e.preventDefault();
                     const f = e.dataTransfer.files?.[0];
@@ -1670,18 +1687,29 @@ function LandingPage({ projectId, onUploadComplete: _onUploadComplete, breadcrum
                       </div>
                       {/* Same list as the modal row, same source. This one
                           showed four of fifteen. */}
-                      <div data-testid="bim-landing-formats" className="flex flex-wrap items-center justify-center gap-2">
+                      <div id="bim-landing-formats-list" data-testid="bim-landing-formats" className="flex flex-wrap items-center justify-center gap-2">
                         {UPLOAD_FORMATS.map((fmt) => (
-                          <span
-                            key={fmt.ext}
-                            className={`text-[10px] font-mono px-2 py-1 rounded-md border font-semibold ${TIER_BADGE_CLASS[fmt.tier]}`}
-                          >
-                            {fmt.ext}
-                          </span>
+                          /* Trailing space is a text node, not decoration:
+                             the accessible description joins text content and
+                             ignores CSS gap. See the modal row. */
+                          <Fragment key={fmt.ext}>
+                            <span
+                              className={`text-[10px] font-mono px-2 py-1 rounded-md border font-semibold ${TIER_BADGE_CLASS[fmt.tier]}`}
+                            >
+                              {fmt.ext}
+                            </span>{' '}
+                          </Fragment>
                         ))}
                       </div>
+                      {/* Was literal JSX with no t() at all, so this line
+                          shipped English to all 29 locales. The whole sentence
+                          is one value rather than assembled from fragments:
+                          the version numbers stay put but the separator and
+                          the order around them are a translator's call. */}
                       <p className="text-[10px] text-content-quaternary leading-relaxed mt-1 text-center">
-                        RVT 2015–2026 &middot; IFC 2x3, 4.0, 4.1, 4.3
+                        {t('bim.landing_version_note', {
+                          defaultValue: 'RVT 2015–2026 · IFC 2x3, 4.0, 4.1, 4.3',
+                        })}
                       </p>
                       <p className="text-[10px] text-content-quaternary leading-relaxed max-w-[20rem] text-center">
                         {t('bim.upload_format_note', {
