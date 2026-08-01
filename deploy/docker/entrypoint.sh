@@ -41,16 +41,28 @@ if [ -n "${DATABASE_URL:-}" ]; then
   _authority="${DATABASE_URL#*://}"
   _authority="${_authority%%/*}"
   if [ "$(printf '%s' "$_authority" | tr -cd '@' | wc -c)" -gt 1 ]; then
-    echo "ERROR: DATABASE_URL has more than one '@' before the database name." >&2
-    echo "" >&2
-    echo "The password almost certainly contains a literal '@'. In a URL that" >&2
-    echo "splits the user info early, so the host is read as everything after" >&2
-    echo "the first '@' and cannot be resolved." >&2
-    echo "" >&2
-    echo "Either percent-encode the '@' as %40, or let this container build" >&2
-    echo "the URL for you by passing the parts instead:" >&2
-    echo "      -e OE_DB_PASSWORD=... -e OE_DB_HOST=... (and no DATABASE_URL)" >&2
-    exit 1
+    if [ -n "${OE_DB_PASSWORD:-}" ]; then
+      # Recoverable: the parts are here as well, and app/config.py prefers them
+      # over a URL whose host is visibly wrong. Say so and carry on rather than
+      # refusing to start over a URL nobody has to use. A compose file that
+      # passes both is doing it on purpose, so that one file works with an
+      # image published before the parts existed.
+      echo "NOTE: DATABASE_URL has more than one '@' before the database name," >&2
+      echo "which means the password contains a literal '@' and the host in it" >&2
+      echo "is not the host you typed. Using OE_DB_HOST and the other parts" >&2
+      echo "instead, where the password is encoded properly." >&2
+    else
+      echo "ERROR: DATABASE_URL has more than one '@' before the database name." >&2
+      echo "" >&2
+      echo "The password almost certainly contains a literal '@'. In a URL that" >&2
+      echo "splits the user info early, so the host is read as everything after" >&2
+      echo "the first '@' and cannot be resolved." >&2
+      echo "" >&2
+      echo "Either percent-encode the '@' as %40, or let this container build" >&2
+      echo "the URL for you by passing the parts instead:" >&2
+      echo "      -e OE_DB_PASSWORD=... -e OE_DB_HOST=... (and no DATABASE_URL)" >&2
+      exit 1
+    fi
   fi
   unset _authority
 fi

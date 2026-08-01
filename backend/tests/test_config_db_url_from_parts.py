@@ -90,6 +90,46 @@ def test_an_explicit_url_still_wins(monkeypatch: pytest.MonkeyPatch) -> None:
     assert url.database == "other"
 
 
+def test_a_mangled_url_loses_to_the_parts(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A URL whose host swallowed the password is overruled by the parts.
+
+    The quickstart image path has to pass both. The compose file cannot know
+    how old the image it is about to run is, and an image published before the
+    parts existed sees no ``DATABASE_URL`` and refuses to start. Passing both
+    would otherwise undo the fix for anyone taking that route, because a URL
+    normally wins. It does not win here: a host containing ``@`` is not a host,
+    so the URL is unusable however it was meant.
+    """
+    monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://oe:pa@ss@postgres:5432/openestimate")
+    monkeypatch.setenv("DATABASE_SYNC_URL", "postgresql://oe:pa@ss@postgres:5432/openestimate")
+    monkeypatch.setenv("OE_DB_HOST", "postgres")
+    monkeypatch.setenv("OE_DB_PORT", "5432")
+    monkeypatch.setenv("OE_DB_USER", "oe")
+    monkeypatch.setenv("OE_DB_NAME", "openestimate")
+    monkeypatch.setenv("OE_DB_PASSWORD", "pa@ss")
+
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+
+    for url_text in (settings.database_url, settings.database_sync_url):
+        url = make_url(url_text)
+        assert url.host == "postgres", f"the mangled URL was used: host {url.host!r}"
+        assert url.password == "pa@ss"
+
+
+def test_a_mangled_url_alone_is_left_to_fail(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without the parts there is nothing to fall back to, so nothing is guessed.
+
+    The container entrypoint refuses to start on this and names the reason.
+    Quietly inventing a host here would take that message away and turn a
+    diagnosed configuration error back into a resolver failure.
+    """
+    monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://oe:pa@ss@elsewhere:5432/other")
+    for name in ("OE_DB_PASSWORD", "OE_DB_HOST", "OE_DB_PORT", "OE_DB_USER", "OE_DB_NAME"):
+        monkeypatch.delenv(name, raising=False)
+
+    assert make_url(Settings(_env_file=None).database_url).host == "ss@elsewhere"  # type: ignore[call-arg]
+
+
 def test_no_parts_and_no_url_leaves_the_default_alone(monkeypatch: pytest.MonkeyPatch) -> None:
     """Without a password there is nothing to assemble, and nothing is invented.
 

@@ -37,3 +37,25 @@
 services:
   app:
     image: ghcr.io/datadrivenconstruction/openconstructionerp:${OE_IMAGE_TAG:-latest}
+    environment:
+      # The one place where this file has to know it is running an image that
+      # is older than the tree it sits in.
+      #
+      # The base compose file hands the database over as parts, OE_DB_HOST and
+      # friends, because a password containing '@' cannot survive being
+      # interpolated into a URL and compose has no urlencode to prevent it.
+      # Reading the parts is a property of the image, and no published image
+      # has it yet: `latest` is whatever we released last, and a released
+      # image built before that change sees no DATABASE_URL at all and exits
+      # with "DATABASE_URL is not set" before it reaches Python.
+      #
+      # So this path passes the finished URL as well. An image that predates
+      # the parts uses it and starts. An image that has them ignores it,
+      # except when it carries the exact damage described above, in which case
+      # the parts win, so nobody loses the fix by taking this route.
+      #
+      # These two lines can go once every image anyone is likely to pull knows
+      # about the parts. Until then they are what makes `make quickstart-image`
+      # work on the image that is actually out there.
+      DATABASE_URL: postgresql+asyncpg://oe:${POSTGRES_PASSWORD}@postgres:5432/openestimate
+      DATABASE_SYNC_URL: postgresql://oe:${POSTGRES_PASSWORD}@postgres:5432/openestimate

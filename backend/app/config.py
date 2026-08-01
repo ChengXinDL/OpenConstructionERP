@@ -186,6 +186,30 @@ def _canonicalize_db_url(url: str, *, driver: str) -> str:
         return url
 
 
+def _userinfo_split_at_the_wrong_at_sign(url: str) -> bool:
+    """True when a URL's host swallowed part of the password.
+
+    A URL splits its user info at the *first* ``@``, so a password containing
+    one moves everything after it into the host:
+    ``postgresql://oe:pa@ss@postgres/db`` parses with host ``ss@postgres``. A
+    host is not allowed to contain ``@``, so seeing one there is proof the URL
+    was assembled by interpolation rather than encoded, and the URL is
+    unusable however it was meant.
+
+    This is only a question worth asking when the same settings also carry the
+    parts, which is the case for a compose file that passes both so it can work
+    with an image older than itself.
+    """
+    if not url:
+        return False
+    try:
+        from sqlalchemy.engine import make_url
+
+        return "@" in (make_url(url).host or "")
+    except Exception:  # noqa: BLE001 - an unparseable URL is a different problem
+        return False
+
+
 class Settings(BaseSettings):
     """OpenConstructionERP application settings."""
 
@@ -609,11 +633,17 @@ class Settings(BaseSettings):
         Compose files have no urlencode, so they cannot fix this themselves.
         Accepting the parts here does, for every image and every deployment
         rather than only the ones that run the shell entrypoint. Supplying
-        ``DATABASE_URL`` directly still wins: this only fills a blank.
+        ``DATABASE_URL`` directly still wins, with one exception: a URL whose
+        host carries an ``@`` is the damage described above and cannot be what
+        anyone intended, so when the parts are there too they are used instead
+        of failing on a host nobody typed. That exception is what lets a
+        compose file pass both, which it has to do while images older than the
+        parts are still in circulation.
         """
-        if self.database_url.strip() or self.database_sync_url.strip():
-            return self
         password = os.environ.get("OE_DB_PASSWORD", "")
+        supplied = [u for u in (self.database_url.strip(), self.database_sync_url.strip()) if u]
+        if supplied and not (password and any(_userinfo_split_at_the_wrong_at_sign(u) for u in supplied)):
+            return self
         if not password:
             return self
         from urllib.parse import quote
