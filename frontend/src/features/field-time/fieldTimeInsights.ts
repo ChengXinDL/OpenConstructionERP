@@ -137,7 +137,11 @@ export function buildFieldTimeInsights(sheets: FieldTimesheet[], t: Translate): 
   const builtins: InsightDef[] = [
     { ...base, id: 'kpi-hours', title: t('field_time.insights.k_hours', { defaultValue: 'Hours booked' }), chart: 'kpi', measure: 'hours', agg: 'sum', color: 0 },
     { ...base, id: 'kpi-daywork', title: t('field_time.insights.k_daywork', { defaultValue: 'Daywork hours' }), chart: 'kpi', measure: 'daywork', agg: 'sum', color: 1 },
-    { ...base, id: 'kpi-unapproved', title: t('field_time.insights.k_unapproved', { defaultValue: 'Hours awaiting approval' }), chart: 'kpi', measure: 'unapproved', agg: 'sum', color: 4 },
+    // "Not yet approved", not "awaiting approval". This sums drafts as well as
+    // submitted sheets, and a draft is not awaiting anything - nobody has been
+    // asked to act on it. The KPI band above counts submitted sheets under the
+    // awaiting label, so the two must not share a word they mean differently.
+    { ...base, id: 'kpi-unapproved', title: t('field_time.insights.k_unapproved', { defaultValue: 'Hours not yet approved' }), chart: 'kpi', measure: 'unapproved', agg: 'sum', color: 4 },
     { ...base, id: 'kpi-lines', title: t('field_time.insights.k_lines', { defaultValue: 'Lines booked' }), chart: 'kpi', agg: 'count', color: 5 },
     { ...base, id: 'bar-by-cost-code', title: t('field_time.insights.c_by_cost_code', { defaultValue: 'Hours by cost code' }), chart: 'bar', dimension: 'cost_code', measure: 'hours', agg: 'sum', color: 0 },
     { ...base, id: 'donut-by-kind', title: t('field_time.insights.c_by_kind', { defaultValue: 'Labour against plant' }), chart: 'donut', dimension: 'kind', measure: 'hours', agg: 'sum', color: 4 },

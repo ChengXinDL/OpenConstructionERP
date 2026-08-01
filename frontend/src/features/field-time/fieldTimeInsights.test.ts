@@ -3,7 +3,7 @@
 //
 // This dataset is built at line level, not sheet level, because cost code and
 // daywork live on the line. The sheet's date and status have to come down onto
-// each line for the time series and the "awaiting approval" figure to work.
+// each line for the time series and the "not yet approved" figure to work.
 import { describe, it, expect } from 'vitest';
 import { buildFieldTimeInsights } from './fieldTimeInsights';
 import type { FieldTimesheet } from './api';
@@ -69,12 +69,12 @@ describe('buildFieldTimeInsights', () => {
     expect(mw?.daywork_flag).toBe('Measured work');
   });
 
-  it('counts draft and submitted hours as awaiting approval', () => {
+  it('counts draft and submitted hours as not yet approved', () => {
     expect(rows([sheet({ status: 'draft' })])[0]?.unapproved).toBe(8);
     expect(rows([sheet({ status: 'submitted' })])[0]?.unapproved).toBe(8);
   });
 
-  it('does not count approved or reversed hours as awaiting approval', () => {
+  it('does not count approved or reversed hours as not yet approved', () => {
     expect(rows([sheet({ status: 'approved' })])[0]?.unapproved).toBe(0);
     expect(rows([sheet({ status: 'reversed' } as Partial<FieldTimesheet>)])[0]?.unapproved).toBe(0);
   });

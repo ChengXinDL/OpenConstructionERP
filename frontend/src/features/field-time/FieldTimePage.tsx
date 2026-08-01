@@ -255,8 +255,12 @@ function FieldTimeContent() {
         icon: Wrench,
       },
       {
+        // Sheets, not hours, and submitted only. The two tiles either side of
+        // it are hours, and the Insights panel carries an hours figure over a
+        // wider population (drafts included), so this label has to name both
+        // its unit and its scope or the two read as one number disagreeing.
         key: 'submitted',
-        label: t('field_time.kpi_awaiting', { defaultValue: 'Awaiting approval' }),
+        label: t('field_time.kpi_awaiting', { defaultValue: 'Sheets awaiting approval' }),
         value: summary.by_status.submitted ?? 0,
         tone: 'warning' as const,
       },
