@@ -240,6 +240,11 @@ const navGroups: NavGroup[] = [
       // and above Project files so the "learn by example" entry is seen first.
       { labelKey: 'nav.cases', to: '/cases', icon: Route },
       { labelKey: 'nav.project_files', to: '/files', icon: HardDrive },
+      // Drawing sheets indexed out of those files. Directly under Project
+      // files because that is where someone goes looking for a drawing.
+      // Reuses the page's own title key, which is already translated in all
+      // 29 locales, so the sidebar entry and the page heading cannot drift.
+      { labelKey: 'sheets.page_title', to: '/sheets', icon: FileText },
     ],
   },
   // ── 2. TAKEOFF ─────────────────────────────────────────────────────

@@ -284,6 +284,9 @@ const ProjectIntelligencePage = lazy(() =>
 const FileManagerPage = lazy(() =>
   import('@/features/file-manager/FileManagerPage').then((m) => ({ default: m.FileManagerPage }))
 );
+const SheetsIndexPage = lazy(() =>
+  import('@/features/file-manager/SheetsIndexPage').then((m) => ({ default: m.SheetsIndexPage }))
+);
 const TrashPage = lazy(() =>
   import('@/features/file-trash/TrashPage').then((m) => ({ default: m.TrashPage }))
 );
@@ -1157,6 +1160,11 @@ export default function App() {
         <Route path="/files/approvals" element={<P title="Approvals register"><FileApprovalsRegisterPage /></P>} />
         <Route path="/files" element={<P title="Project Files"><FileManagerPage /></P>} />
         <Route path="/projects/:projectId/files" element={<P title="Project Files"><FileManagerPage /></P>} />
+        {/* Drawing-sheet index. The page takes :projectId when it is there
+            and otherwise falls back to the active project, so both entries
+            work and the sidebar can link the bare path. */}
+        <Route path="/sheets" element={<P title="Drawing Sheets"><SheetsIndexPage /></P>} />
+        <Route path="/projects/:projectId/sheets" element={<P title="Drawing Sheets"><SheetsIndexPage /></P>} />
 
         <Route path="/risks" element={<P title="Risk Register"><RiskRegisterPage /></P>} />
         {/* Monte Carlo IA merge (#71): the standalone Risk Analysis tool

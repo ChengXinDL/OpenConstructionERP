@@ -103,6 +103,7 @@ const ROUTE_ICON_MAP: Record<string, LucideIcon> = {
   '/': LayoutDashboard,
   '/projects': FolderOpen,
   '/files': HardDrive,
+  '/sheets': FileText,
   // ── 2. Estimating ─────────────────────────────────────────────────
   '/boq': Table2,
   '/match-elements': Link2,
