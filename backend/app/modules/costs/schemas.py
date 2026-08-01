@@ -892,6 +892,15 @@ class OwnPortfolio(BaseModel):
     note: str = Field(
         ..., description="Plain-language basis line, e.g. 'Based on 7 of your projects with cost and area.'"
     )
+    note_code: Literal["", "cost_and_area", "budget_and_boq", "recovery_ledger"] = Field(
+        default="",
+        description=(
+            "Which basis line ``note`` states, as a stable token the client can "
+            "translate. ``note`` itself is English only and cannot be localized, "
+            "since it is built here and rendered as it arrives. Pair this with "
+            "``project_count`` for the plural form."
+        ),
+    )
 
 
 class BenchmarkResponse(BaseModel):
@@ -923,6 +932,15 @@ class BenchmarkResponse(BaseModel):
     explanation: str = Field(
         default="",
         description="Short plain-language reading of the position, e.g. 'Your value sits below your own portfolio median.'",
+    )
+    explanation_code: Literal["", "below_median", "above_median", "at_median", "specify_currency"] = Field(
+        default="",
+        description=(
+            "Which reading ``explanation`` states, as a stable token the client "
+            "can translate. ``explanation`` stays for any consumer already "
+            "reading it, but it is English only. ``specify_currency`` names the "
+            "currency in ``currency`` on this same response."
+        ),
     )
 
 

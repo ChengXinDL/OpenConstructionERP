@@ -1655,6 +1655,7 @@ class CostBenchmarkService:
             "max": values[-1],
             "confidence": self._confidence(count),
             "note": (f"Based on {count} of your {'project' if count == 1 else 'projects'} with cost and area."),
+            "note_code": "cost_and_area",
         }
 
         # ── 6. Position the caller's value, but only within ITS OWN currency.
@@ -1670,11 +1671,14 @@ class CostBenchmarkService:
         # misleading percentile.
         percentile_vs_own: float | None = None
         explanation = ""
+        explanation_code = ""
         if cost_per_m2 is not None:
             if requested_currency:
                 percentile_vs_own = _position_in_distribution(cost_per_m2, values)
+                explanation_code = self._explain_code(cost_per_m2, portfolio["median"])
                 explanation = self._explain(cost_per_m2, portfolio["median"], percentile_vs_own)
             else:
+                explanation_code = "specify_currency"
                 explanation = (
                     "Specify the currency of your value to position it against your "
                     f"portfolio. The distribution below is in {target_currency}."
@@ -1686,6 +1690,7 @@ class CostBenchmarkService:
             "own_portfolio": portfolio,
             "percentile_vs_own": percentile_vs_own,
             "explanation": explanation,
+            "explanation_code": explanation_code,
         }
 
     # ── Metric variants: regional overrun / recovery-rate benchmarks (#21) ──
@@ -1752,9 +1757,11 @@ class CostBenchmarkService:
         if metric == "overrun_pct":
             values = await self._overrun_values(projects)
             basis = "with an approved budget and a priced BOQ"
+            note_code = "budget_and_boq"
         else:  # recovery_rate
             values = await self._recovery_values(projects)
             basis = "with a recovery ledger"
+            note_code = "recovery_ledger"
 
         values = sorted(values)
         if not values:
@@ -1770,12 +1777,15 @@ class CostBenchmarkService:
             "max": values[-1],
             "confidence": self._confidence(count),
             "note": (f"Based on {count} of your {'project' if count == 1 else 'projects'} {basis}."),
+            "note_code": note_code,
         }
 
         percentile_vs_own: float | None = None
         explanation = ""
+        explanation_code = ""
         if input_value is not None:
             percentile_vs_own = _position_in_distribution(input_value, values)
+            explanation_code = self._explain_code(input_value, portfolio["median"])
             explanation = self._explain(input_value, portfolio["median"], percentile_vs_own)
 
         return {
@@ -1785,6 +1795,7 @@ class CostBenchmarkService:
             "own_portfolio": portfolio,
             "percentile_vs_own": percentile_vs_own,
             "explanation": explanation,
+            "explanation_code": explanation_code,
         }
 
     async def _overrun_values(self, projects: list[Any]) -> list[Decimal]:
@@ -1903,13 +1914,28 @@ class CostBenchmarkService:
             return "medium"
         return "low"
 
+    # The English sentence is derived from the code rather than written beside
+    # it, so a change to the thresholds below cannot leave the two disagreeing.
+    # Only the code reaches the client's translator; this text is the fallback
+    # for any consumer reading ``explanation`` directly.
+    _EXPLAIN_SENTENCES = {
+        "below_median": "Your value sits below your own portfolio median.",
+        "above_median": "Your value sits above your own portfolio median.",
+        "at_median": "Your value sits right at your own portfolio median.",
+    }
+
     @staticmethod
-    def _explain(value: Decimal, median: Decimal, percentile: float) -> str:
+    def _explain_code(value: Decimal, median: Decimal) -> str:
+        """Which reading applies, as a stable token the client can translate."""
         if value < median:
-            return "Your value sits below your own portfolio median."
+            return "below_median"
         if value > median:
-            return "Your value sits above your own portfolio median."
-        return "Your value sits right at your own portfolio median."
+            return "above_median"
+        return "at_median"
+
+    @classmethod
+    def _explain(cls, value: Decimal, median: Decimal, percentile: float) -> str:
+        return cls._EXPLAIN_SENTENCES[cls._explain_code(value, median)]
 
     @staticmethod
     def _empty(metric: str = "cost_per_m2") -> dict[str, Any]:
