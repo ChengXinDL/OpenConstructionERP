@@ -18,6 +18,7 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem},
@@ -40,14 +41,24 @@ struct AppState {
     app_url: Mutex<Option<String>>,
 }
 
-/// Open a URL or file path in the operating system's default handler.
+/// How long to give the platform opener a chance to report failure.
+///
+/// `cmd /c start` and `open` hand the target to the OS and exit within a few
+/// milliseconds, so a real failure lands well inside this window. `xdg-open`
+/// may exec the browser in place instead and stay alive for the whole desktop
+/// session, which is why the opener is never simply waited on: that would block
+/// the caller until the user closed their browser. Polling for an early
+/// non-zero exit catches the failures the OS does report and returns
+/// immediately on the normal path.
+const OPENER_FAILURE_WINDOW: Duration = Duration::from_millis(400);
+const OPENER_POLL_INTERVAL: Duration = Duration::from_millis(20);
+
+/// Start the platform opener for a URL or file path.
 ///
 /// Uses the platform opener directly (`cmd /c start` on Windows, `open` on
-/// macOS, `xdg-open` on Linux) for the same reason `open_log_file` does: it is
-/// fully cross-platform, adds no dependency, and avoids the tauri shell
-/// plugin's deprecated `open`. For a URL this lands the user in their normal
-/// web browser at the local address.
-fn open_with_os_default(target: &str) -> std::io::Result<std::process::Child> {
+/// macOS, `xdg-open` on Linux) rather than the tauri shell plugin's deprecated
+/// `open`: it is fully cross-platform and adds no dependency.
+fn spawn_os_opener(target: &str) -> std::io::Result<std::process::Child> {
     if cfg!(target_os = "windows") {
         // The empty "" is start's title argument; without it a quoted target is
         // mis-parsed as the window title and nothing opens.
@@ -58,6 +69,45 @@ fn open_with_os_default(target: &str) -> std::io::Result<std::process::Child> {
         std::process::Command::new("open").arg(target).spawn()
     } else {
         std::process::Command::new("xdg-open").arg(target).spawn()
+    }
+}
+
+/// Open a URL or file path in the operating system's default handler, and say
+/// so honestly when the operating system refuses.
+///
+/// For a URL this lands the user in their normal web browser at the local
+/// address. Spawning alone proves nothing: it succeeds the moment the launcher
+/// process starts, so a machine with no registered browser, a broken file
+/// association or no `xdg-open` handler used to be reported back as a success
+/// and the user was told nothing at all.
+///
+/// This is not a complete detector, and callers should not present it as one.
+/// Windows `start` still exits 0 when it puts up the "How do you want to open
+/// this file?" chooser, so `Ok` here means the OS accepted the request, not
+/// that a browser window appeared.
+fn open_with_os_default(target: &str) -> Result<(), String> {
+    let mut child = spawn_os_opener(target).map_err(|e| e.to_string())?;
+    let deadline = Instant::now() + OPENER_FAILURE_WINDOW;
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) if status.success() => return Ok(()),
+            Ok(Some(status)) => {
+                return Err(match status.code() {
+                    Some(code) => format!("the system opener exited with code {code}"),
+                    None => "the system opener was terminated".to_string(),
+                })
+            }
+            Ok(None) => {
+                if Instant::now() >= deadline {
+                    // Still running past the window: it has taken ownership of
+                    // the target (the normal xdg-open case) and there is
+                    // nothing left to report.
+                    return Ok(());
+                }
+                std::thread::sleep(OPENER_POLL_INTERVAL);
+            }
+            Err(e) => return Err(e.to_string()),
+        }
     }
 }
 
@@ -83,9 +133,7 @@ fn open_app_in_browser(app: tauri::AppHandle, path: Option<String>) -> Result<()
         "The app is still starting. Please try again in a moment.".to_string()
     })?;
     let url = build_local_url(&base, path.as_deref());
-    open_with_os_default(&url)
-        .map(|_| ())
-        .map_err(|e| format!("Could not open your browser: {e}"))
+    open_with_os_default(&url).map_err(|e| format!("Could not open your browser: {e}"))
 }
 
 /// Open an arbitrary external link (http/https/mailto) in the OS default handler.
@@ -105,9 +153,7 @@ fn open_external_url(url: String) -> Result<(), String> {
     if !allowed {
         return Err("Only http, https and mailto links can be opened".to_string());
     }
-    open_with_os_default(target)
-        .map(|_| ())
-        .map_err(|e| format!("Could not open the link: {e}"))
+    open_with_os_default(target).map_err(|e| format!("Could not open the link: {e}"))
 }
 
 /// Combine the resolved local base URL with a caller-supplied app path.
@@ -145,31 +191,15 @@ fn get_app_url(app: tauri::AppHandle) -> String {
 ///
 /// Exposed to the splash screen (via `withGlobalTauri`) so the failure UI can
 /// offer a one-click "Open log" button. Returns an error string the splash can
-/// show if the log path cannot be resolved or opened. Shells out to the
-/// platform's default opener (`cmd /c start` on Windows, `open` on macOS,
-/// `xdg-open` on Linux) rather than the tauri shell plugin's `open`, which is
-/// deprecated; this keeps the dependency surface unchanged and avoids the
-/// deprecation while still being fully cross-platform.
+/// show if the log path cannot be resolved or opened. Shares `open_with_os_default`
+/// with the browser and link commands rather than repeating the platform block:
+/// this is the surface a user reaches for when something has already gone
+/// wrong, so it is the last place that should quietly claim success.
 #[tauri::command]
 fn open_log_file(_app: tauri::AppHandle) -> Result<(), String> {
     let path = log_path().ok_or_else(|| "Could not resolve the log file path".to_string())?;
     let path_str = path.to_string_lossy().to_string();
-
-    let result = if cfg!(target_os = "windows") {
-        // The empty "" is start's title argument; without it a quoted path is
-        // mis-parsed as the window title and the file never opens.
-        std::process::Command::new("cmd")
-            .args(["/c", "start", "", &path_str])
-            .spawn()
-    } else if cfg!(target_os = "macos") {
-        std::process::Command::new("open").arg(&path_str).spawn()
-    } else {
-        std::process::Command::new("xdg-open").arg(&path_str).spawn()
-    };
-
-    result
-        .map(|_| ())
-        .map_err(|e| format!("Could not open the log file: {e}"))
+    open_with_os_default(&path_str).map_err(|e| format!("Could not open the log file: {e}"))
 }
 
 /// Resolve the user's home directory without pulling in extra crates.

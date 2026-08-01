@@ -92,13 +92,14 @@ export function DesktopToolbar() {
   const goHome = useCallback(() => navigate('/'), [navigate]);
 
   const openHere = useCallback(() => {
-    void openAppInBrowser(currentPath()).then((ok) => {
-      if (!ok) {
+    void openAppInBrowser(currentPath()).then((result) => {
+      if (!result.ok) {
         addToast({
           type: 'warning',
           title: t('desktop.open_in_browser_failed', {
             defaultValue: 'Could not open your browser',
           }),
+          message: result.reason,
         });
       }
     });

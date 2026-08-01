@@ -50,6 +50,22 @@ function getTauriInvoke(): TauriInvoke | undefined {
 }
 
 /**
+ * Outcome of an "open in your browser" attempt.
+ *
+ * Deliberately an object and not a boolean. This helper used to return `true`
+ * from every branch a desktop user could reach, so the `if (!ok)` guard at both
+ * call sites was dead code and a failed open told the user nothing. Swapping
+ * one truthy shape for another would have preserved that trap, so failure now
+ * has to be read from a named field to be missed.
+ */
+export interface OpenInBrowserResult {
+  /** True when the shell accepted the request. NOT a promise that a browser window appeared. */
+  ok: boolean;
+  /** Why it failed, as reported by the native command, when `ok` is false. */
+  reason?: string;
+}
+
+/**
  * Open the running app in the user's normal web browser (desktop only).
  *
  * In the Tauri shell the app is served at a local address like
@@ -57,32 +73,34 @@ function getTauriInvoke(): TauriInvoke | undefined {
  * people who prefer tabs over a separate window can use it there.
  *
  * Pass `path` (for example the current route) to open that exact page rather
- * than the home page. It first asks the native shell (the `open_app_in_browser`
- * command, which knows the dynamic port authoritatively). If that bridge is
- * missing for any reason it falls back to opening the same path on the current
- * origin, which inside the webview is already the local address. Returns true
- * when an open was attempted.
+ * than the home page. It asks the native shell (the `open_app_in_browser`
+ * command, which knows the dynamic port authoritatively), and reports back
+ * whatever the shell said, including its error text.
+ *
+ * There is deliberately NO `window.open` fallback. This returns early unless
+ * it is running inside the Tauri shell, and inside that shell a webview
+ * swallows target navigation - which is precisely why every outbound link goes
+ * through a native command instead (see `openExternalUrl` below). A fallback
+ * could therefore only ever run in the one environment where it cannot work:
+ * it opened nothing, reported success, and that is what made a failed open
+ * completely silent.
  */
-export async function openAppInBrowser(path?: string): Promise<boolean> {
-  if (!isTauri) return false;
+export async function openAppInBrowser(path?: string): Promise<OpenInBrowserResult> {
+  if (!isTauri) return { ok: false, reason: 'Not running in the desktop app.' };
 
   const cleanPath = safeAppPath(path);
   const invoke = getTauriInvoke();
-
-  if (invoke) {
-    try {
-      await invoke('open_app_in_browser', cleanPath ? { path: cleanPath } : {});
-      return true;
-    } catch {
-      // Fall through to opening the current origin directly.
-    }
-  }
+  if (!invoke) return { ok: false, reason: 'The desktop bridge is unavailable.' };
 
   try {
-    window.open(window.location.origin + (cleanPath ?? '/'), '_blank', 'noopener');
-    return true;
-  } catch {
-    return false;
+    await invoke('open_app_in_browser', cleanPath ? { path: cleanPath } : {});
+    return { ok: true };
+  } catch (err) {
+    // The native command returns a human-readable string (for example "The app
+    // is still starting. Please try again in a moment."), so pass it straight
+    // through rather than replacing a specific cause with a generic warning.
+    console.warn('open_app_in_browser failed:', err);
+    return { ok: false, reason: typeof err === 'string' ? err : undefined };
   }
 }
 

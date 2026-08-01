@@ -876,13 +876,14 @@ function HelpMenu() {
               role="menuitem"
               onClick={() => {
                 setOpen(false);
-                void openAppInBrowser().then((ok) => {
-                  if (!ok) {
+                void openAppInBrowser().then((result) => {
+                  if (!result.ok) {
                     addToast({
                       type: 'warning',
                       title: t('desktop.open_in_browser_failed', {
                         defaultValue: 'Could not open your browser',
                       }),
+                      message: result.reason,
                     });
                   }
                 });
