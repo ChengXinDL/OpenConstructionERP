@@ -102,6 +102,7 @@ import {
   DATA_EXTENSIONS as TABULAR_EXTENSIONS,
   HANDOFF_EXTENSIONS,
   MESH_ACCEPT,
+  RAW_GEOMETRY_EXTENSIONS as RAW_GEOMETRY_FORMATS,
   UPLOAD_ACCEPT,
   UPLOAD_FORMATS,
   type UploadTier,
@@ -146,7 +147,7 @@ const DATA_EXTENSIONS = new Set<string>(TABULAR_EXTENSIONS);
 const DWG_EXTENSIONS = new Set<string>(HANDOFF_EXTENSIONS);
 /** Geometry formats the backend accepts raw alongside a data file (advanced
  *  mode). Anything else in the geometry slot is routed to the mesh importer. */
-const RAW_GEOMETRY_EXTENSIONS = new Set(['.dae', '.glb', '.gltf']);
+const RAW_GEOMETRY_EXTENSIONS = new Set<string>(RAW_GEOMETRY_FORMATS);
 
 /** Badge treatment per tier. Colour carries the meaning the note spells out:
  *  blue imports as BIM, green is geometry only, amber leaves for another

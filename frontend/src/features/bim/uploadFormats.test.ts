@@ -23,6 +23,7 @@ import { isMeshImportFile, MESH_IMPORT_EXTENSIONS } from './meshImport/formats';
 import {
   DATA_ACCEPT,
   MESH_ACCEPT,
+  RAW_GEOMETRY_EXTENSIONS,
   UPLOAD_ACCEPT,
   UPLOAD_FORMATS,
   extensionsInTier,
@@ -84,6 +85,26 @@ describe('the shown list and the routing predicate cannot disagree', () => {
     expect(MESH_ACCEPT.split(',')).toEqual([...MESH_IMPORT_EXTENSIONS]);
     for (const ext of DATA_ACCEPT.split(',')) {
       expect(isMeshImportFile(`sheet${ext}`)).toBe(false);
+    }
+  });
+
+  /**
+   * The tier partition alone does not pin this. Refiling drawings under ``bim``
+   * keeps every other assertion green - the tiers still cover the list exactly
+   * once, and ``isMeshImportFile`` still says false for both - while the badges
+   * turn blue and promise a server-side BIM conversion that never runs. The old
+   * badge row made exactly that claim about .dwg.
+   */
+  it('files drawings as a handoff rather than as a BIM import', () => {
+    expect(extensionsInTier('handoff')).toEqual(expect.arrayContaining(['.dwg', '.dxf']));
+    expect(extensionsInTier('bim')).not.toContain('.dwg');
+    expect(extensionsInTier('bim')).not.toContain('.dxf');
+  });
+
+  it('keeps the raw-geometry subset inside the mesh tier', () => {
+    const mesh = new Set(extensionsInTier('mesh'));
+    for (const ext of RAW_GEOMETRY_EXTENSIONS) {
+      expect(mesh.has(ext), `${ext} is posted raw but the importer does not read it`).toBe(true);
     }
   });
 });

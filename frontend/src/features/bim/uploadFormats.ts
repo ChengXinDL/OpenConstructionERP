@@ -74,6 +74,19 @@ export const MESH_ACCEPT = MESH_IMPORT_EXTENSIONS.join(',');
 /** ``accept`` for the advanced mode's element-data slot: tabular only. */
 export const DATA_ACCEPT = DATA_EXTENSIONS.join(',');
 
+/**
+ * Mesh formats the backend also stores raw, alongside a data file, in the
+ * advanced two-slot mode. Anything else dropped in the geometry slot goes
+ * through the in-browser mesh importer first and is posted as a normalized GLB.
+ *
+ * Written out rather than derived, because membership is decided by what the
+ * server will store, which nothing about the extension itself tells you. It
+ * lives here anyway so it is not the one list left somewhere else, and the
+ * tests pin it as a subset of the mesh tier so it cannot come to name a format
+ * the importer does not read.
+ */
+export const RAW_GEOMETRY_EXTENSIONS = ['.dae', '.glb', '.gltf'] as const;
+
 /** The extensions in one tier, for a badge row or an interpolated string. */
 export function extensionsInTier(tier: UploadTier): string[] {
   return UPLOAD_FORMATS.filter((f) => f.tier === tier).map((f) => f.ext);
