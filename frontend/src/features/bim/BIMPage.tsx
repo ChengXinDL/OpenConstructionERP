@@ -912,6 +912,14 @@ function UploadPanel({
               <>
                 <div className="w-12 h-12 rounded-xl bg-surface-secondary border border-border-light flex items-center justify-center"><FileUp size={22} className="text-content-quaternary" /></div>
                 <p className="text-sm font-medium text-content-primary">{t('bim.upload_drop_here')}</p>
+                {/* Left alone deliberately. This names two of the fifteen
+                    formats directly above the row that lists all of them, so
+                    the enumeration should go - but 14 of the 29 locales also
+                    carry a "max 500 MB" here that English lost, and the only
+                    500 MB in the backend is MAX_BIM_GEOMETRY_BYTES, scoped in
+                    its own comment to DAE/GLB/glTF rather than to this input.
+                    Deleting the key would drop a statement that may be true;
+                    rewriting it would assert a limit nobody has checked. */}
                 <p className="text-[10px] text-content-quaternary">{t('bim.upload_size_hint')}</p>
                 {/* Every accepted extension, not a sample. The row this
                     replaced showed six of fifteen and hid the rest behind a
