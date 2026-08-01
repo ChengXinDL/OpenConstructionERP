@@ -10323,7 +10323,6 @@ const resource = {
     "bim.landing_hero_subtitle": "Faça o upload de arquivos IFC ou RVT para visualizar elementos do edifício, extrair quantitativos e vinculá-los à sua planilha de quantitativos.",
     "bim.landing_hero_title": "Visualizador BIM 3D",
     "bim.landing_processing": "Processando...",
-    "bim.landing_size_hint": "IFC, RVT, CSV ou Excel",
     "bim.landing_upload_process": "Upload & Processar",
     "bim.mode_cad": "Upload CAD direto",
     "bim.mode_data": "Dados pré-processados",

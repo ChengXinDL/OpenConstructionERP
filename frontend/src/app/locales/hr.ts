@@ -10919,7 +10919,6 @@ const resource = {
     "bim.landing_hero_subtitle": "Učitajte IFC ili RVT datoteke za vizualizaciju građevinskih elemenata, izvlačenje količina i povezivanje s Vašim Troškovnikom.",
     "bim.landing_hero_title": "BIM 3D preglednik",
     "bim.landing_processing": "Obrada...",
-    "bim.landing_size_hint": "IFC, RVT, CSV ili Excel",
     "bim.landing_upload_process": "Učitaj i obradi",
     "bim.mode_cad": "Izravno učitavanje CAD-a",
     "bim.mode_data": "Unaprijed obrađeni podaci",

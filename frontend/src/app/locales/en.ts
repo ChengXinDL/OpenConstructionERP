@@ -9938,7 +9938,6 @@ const resource = {
     "bim.landing_hero_subtitle": "Upload IFC or RVT files to visualize building elements, extract quantities, and link to your Bill of Quantities.",
     "bim.landing_hero_title": "BIM 3D Viewer",
     "bim.landing_processing": "Processing...",
-    "bim.landing_size_hint": "IFC, RVT, CSV, or Excel",
     "bim.landing_upload_process": "Upload & Process",
     "bim.mode_cad": "Direct CAD Upload",
     "bim.mode_data": "Pre-processed Data",

@@ -10998,7 +10998,6 @@ const resource = {
     "bim.landing_hero_subtitle": "Bina elemanlarını görselleştirmek, miktarları çıkarmak ve Metraj ile Keşfinize bağlamak için IFC veya RVT dosyaları yükleyin.",
     "bim.landing_hero_title": "BIM 3D Görüntüleyici",
     "bim.landing_processing": "İşleniyor...",
-    "bim.landing_size_hint": "IFC, RVT, CSV veya Excel",
     "bim.landing_upload_process": "Yükle & İşle",
     "bim.mode_cad": "Doğrudan CAD Yükleme",
     "bim.mode_data": "Önceden İşlenmiş Veri",

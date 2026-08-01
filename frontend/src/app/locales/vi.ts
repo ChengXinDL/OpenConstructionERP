@@ -11059,7 +11059,6 @@ const resource = {
     "bim.landing_hero_subtitle": "Tải lên tệp IFC hoặc RVT để trực quan hóa cấu kiện công trình, trích xuất khối lượng và liên kết với Bảng khối lượng của bạn.",
     "bim.landing_hero_title": "Trình xem BIM 3D",
     "bim.landing_processing": "Đang xử lý...",
-    "bim.landing_size_hint": "IFC, RVT, CSV hoặc Excel",
     "bim.landing_upload_process": "Tải lên & Xử lý",
     "bim.mode_cad": "Tải CAD trực tiếp",
     "bim.mode_data": "Dữ liệu đã xử lý sẵn",

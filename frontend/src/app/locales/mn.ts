@@ -7345,7 +7345,6 @@ const resource = {
     "bim.landing_hero_subtitle": "Байршуулах IFC эсвэл RVT файлууд хүртэл visualize барилга элементүүд, гаргаж авах тоо хэмжээ, ба холбоос хүртэл таны Ажил жагсаалт -н Тоо хэмжээ.",
     "bim.landing_hero_title": "BIM 3D үзэгч",
     "bim.landing_processing": "Боловсруулж байна...",
-    "bim.landing_size_hint": "IFC, RVT, CSV, эсвэл Excel",
     "bim.landing_upload_process": "Байршуулах & Боловсруулах",
     "bim.link_to_boq": "Холбоос хүртэл BOQ",
     "bim.load_error": "ачаалах загвар элементүүд амжилтгүй",

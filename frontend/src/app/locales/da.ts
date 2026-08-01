@@ -13031,7 +13031,6 @@ const resource = {
     "bim.landing_hero_subtitle": "Upload IFC- eller RVT-filer for at visualisere bygningselementer, udtrække mængder og linke til din mængdeliste.",
     "bim.landing_hero_title": "BIM 3D-visning",
     "bim.landing_processing": "Behandler...",
-    "bim.landing_size_hint": "IFC, RVT, CSV eller Excel",
     "bim.landing_upload_process": "Upload & behandl",
     "bim.mode_cad": "Direkte CAD-upload",
     "bim.mode_data": "Forbehandlede data",

@@ -10723,7 +10723,6 @@ const resource = {
     "bim.landing_hero_subtitle": "Suba archivos IFC o RVT para visualizar elementos del edificio, extraer cantidades y vincularlos al presupuesto.",
     "bim.landing_hero_title": "Visor BIM 3D",
     "bim.landing_processing": "Procesando...",
-    "bim.landing_size_hint": "IFC, RVT, CSV o Excel",
     "bim.landing_upload_process": "Subir y procesar",
     "bim.mode_cad": "Subida CAD directa",
     "bim.mode_data": "Datos preprocesados",

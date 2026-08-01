@@ -10977,7 +10977,6 @@ const resource = {
     "bim.landing_hero_subtitle": "Nahrajte soubory IFC nebo RVT pro vizualizaci stavebních prvků, extrakci výměr a propojení s Vaším výkazem výměr.",
     "bim.landing_hero_title": "BIM 3D Prohlížeč",
     "bim.landing_processing": "Zpracovávám...",
-    "bim.landing_size_hint": "IFC, RVT, CSV nebo Excel",
     "bim.landing_upload_process": "Nahrát & Zpracovat",
     "bim.mode_cad": "Přímé nahrání CAD",
     "bim.mode_data": "Předem zpracovaná data",

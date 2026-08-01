@@ -10815,7 +10815,6 @@ const resource = {
     "bim.landing_hero_subtitle": "Laden Sie IFC- oder RVT-Dateien hoch, um Gebäudeelemente zu visualisieren, Mengen zu extrahieren und mit Ihrem Leistungsverzeichnis zu verknüpfen.",
     "bim.landing_hero_title": "BIM 3D-Viewer",
     "bim.landing_processing": "Wird verarbeitet...",
-    "bim.landing_size_hint": "IFC, RVT, CSV oder Excel",
     "bim.landing_upload_process": "Hochladen & Verarbeiten",
     "bim.overlay_converter_outdated_hint": "Mit der Neuinstallation wird der aktuelle Konverter von GitHub geladen und Ihr Upload automatisch wiederholt.",
     "bim.overlay_converter_outdated_title": "Konverter ist veraltet",

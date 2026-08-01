@@ -10977,7 +10977,6 @@ const resource = {
     "bim.landing_hero_subtitle": "Proszę przesłać pliki IFC lub RVT, aby wizualizować elementy budynku, wyodrębniać ilości i powiązać z kosztorysem.",
     "bim.landing_hero_title": "Przeglądarka BIM 3D",
     "bim.landing_processing": "Przetwarzanie...",
-    "bim.landing_size_hint": "IFC, RVT, CSV lub Excel",
     "bim.landing_upload_process": "Prześlij i przetwórz",
     "bim.mode_cad": "Bezpośrednie przesłanie CAD",
     "bim.mode_data": "Dane wstępnie przetworzone",

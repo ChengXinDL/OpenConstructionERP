@@ -13031,7 +13031,6 @@ const resource = {
     "bim.landing_hero_subtitle": "Ladda upp IFC- eller RVT-filer för att visualisera byggnadselement, extrahera mängder och länka till din mängdförteckning.",
     "bim.landing_hero_title": "BIM 3D-visare",
     "bim.landing_processing": "Bearbetar...",
-    "bim.landing_size_hint": "IFC, RVT, CSV eller Excel",
     "bim.landing_upload_process": "Ladda upp & bearbeta",
     "bim.mode_cad": "Direkt CAD-uppladdning",
     "bim.mode_data": "Förbearbetade data",

@@ -10432,7 +10432,6 @@ const resource = {
     "bim.landing_hero_subtitle": "Carichi file IFC o RVT per visualizzare gli elementi edilizi, estrarre le quantità e collegarle al computo metrico.",
     "bim.landing_hero_title": "Visualizzatore BIM 3D",
     "bim.landing_processing": "Elaborazione in corso...",
-    "bim.landing_size_hint": "IFC, RVT, CSV o Excel",
     "bim.landing_upload_process": "Carica ed elabora",
     "bim.mode_cad": "Caricamento CAD diretto",
     "bim.mode_data": "Dati pre-elaborati",

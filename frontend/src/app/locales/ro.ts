@@ -10967,7 +10967,6 @@ const resource = {
     "bim.landing_hero_subtitle": "Încărcați fișiere IFC sau RVT pentru a vizualiza elementele clădirii, a extrage cantități și a le lega de Antemăsurătoarea dumneavoastră.",
     "bim.landing_hero_title": "Vizualizator BIM 3D",
     "bim.landing_processing": "Se procesează...",
-    "bim.landing_size_hint": "IFC, RVT, CSV sau Excel",
     "bim.landing_upload_process": "Încărcați și procesați",
     "bim.mode_cad": "Încărcare directă CAD",
     "bim.mode_data": "Date pre-procesate",

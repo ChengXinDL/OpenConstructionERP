@@ -10251,7 +10251,6 @@ const resource = {
     "bim.landing_hero_subtitle": "Téléversez des fichiers IFC ou RVT pour visualiser les éléments du bâtiment, extraire les quantités et les lier à votre avant-métré.",
     "bim.landing_hero_title": "Visionneur BIM 3D",
     "bim.landing_processing": "Traitement en cours...",
-    "bim.landing_size_hint": "IFC, RVT, CSV ou Excel",
     "bim.landing_upload_process": "Téléverser & Traiter",
     "bim.mode_cad": "Téléversement CAD direct",
     "bim.mode_data": "Données prétraitées",

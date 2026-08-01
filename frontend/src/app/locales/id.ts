@@ -11060,7 +11060,6 @@ const resource = {
     "bim.landing_hero_subtitle": "Unggah file IFC atau RVT untuk memvisualisasikan elemen bangunan, mengekstrak kuantitas, dan menautkan ke Daftar Kuantitas Anda.",
     "bim.landing_hero_title": "Penampil BIM 3D",
     "bim.landing_processing": "Memproses...",
-    "bim.landing_size_hint": "IFC, RVT, CSV, atau Excel",
     "bim.landing_upload_process": "Unggah & Proses",
     "bim.mode_cad": "Unggah CAD Langsung",
     "bim.mode_data": "Data yang Telah Diproses",

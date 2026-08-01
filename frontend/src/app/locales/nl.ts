@@ -10322,7 +10322,6 @@ const resource = {
     "bim.landing_hero_subtitle": "Upload IFC- of RVT-bestanden om bouwcomponenten te visualiseren, hoeveelheden te extraheren en te koppelen aan uw hoeveelheidsstaat.",
     "bim.landing_hero_title": "BIM 3D-viewer",
     "bim.landing_processing": "Verwerken...",
-    "bim.landing_size_hint": "IFC, RVT, CSV of Excel",
     "bim.landing_upload_process": "Uploaden & verwerken",
     "bim.mode_cad": "Directe CAD-upload",
     "bim.mode_data": "Voorverwerkte gegevens",
