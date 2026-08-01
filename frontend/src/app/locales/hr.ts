@@ -8568,7 +8568,7 @@ const resource = {
     "requirements.tab_csv": "Iz CSV-a",
     "requirements.tab_json": "Iz JSON-a",
     "requirements.tab_text": "Iz teksta",
-    "nav.markups": "Marže",
+    "nav.markups": "Oznake",
     "nav.punchlist": "Popis nedostataka",
     "closeout.title": "Primopredaja i zatvaranje",
     "closeout.chip_commissioning": "Puštanje u rad",

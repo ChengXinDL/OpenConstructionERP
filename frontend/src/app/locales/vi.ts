@@ -8650,7 +8650,7 @@ const resource = {
     "requirements.tab_csv": "Từ CSV",
     "requirements.tab_json": "Từ JSON",
     "requirements.tab_text": "Từ văn bản",
-    "nav.markups": "Mức cộng thêm",
+    "nav.markups": "Chú thích",
     "nav.punchlist": "Danh sách sửa chữa",
     "closeout.title": "Bàn giao & kết thúc",
     "closeout.chip_commissioning": "Chạy thử",

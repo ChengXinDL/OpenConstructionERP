@@ -8602,7 +8602,7 @@ const resource = {
     "requirements.tab_csv": "Din CSV",
     "requirements.tab_json": "Din JSON",
     "requirements.tab_text": "Din Text",
-    "nav.markups": "Adaosuri",
+    "nav.markups": "Adnotări",
     "nav.punchlist": "Listă de remedieri",
     "closeout.title": "Predare și recepție finală",
     "closeout.chip_commissioning": "Punere în funcțiune",
