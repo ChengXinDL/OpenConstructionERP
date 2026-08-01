@@ -18,7 +18,7 @@
  */
 import { Fragment, useCallback, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Activity,
@@ -66,6 +66,21 @@ const OPERATIONAL_STATUSES: Array<{ value: string; labelKey: string; tone: strin
   { value: 'decommissioned', labelKey: 'assets.status.decommissioned', tone: 'bg-rose-500/15 text-rose-300 border-rose-500/30' },
   { value: 'planned', labelKey: 'assets.status.planned', tone: 'bg-sky-500/15 text-sky-300 border-sky-500/30' },
 ];
+
+/**
+ * Rows fetched per request.
+ *
+ * The register used to ask for one slab and render whatever came back. The
+ * count beside the heading is the server's total for the whole matching set,
+ * so a project past the cap showed a number and a shorter list and said
+ * nothing about the difference. Paging makes the shortfall visible and gives
+ * the user a way to close it, rather than only confessing to it.
+ *
+ * 200 rather than the endpoint's 500 ceiling: a page has to be small enough
+ * that a second one exists to be asked for, otherwise the control that proves
+ * the rest are reachable never appears on any real project.
+ */
+const REGISTER_PAGE_SIZE = 200;
 
 /** Labels for the active-tile-filter chip, keyed to the tiles themselves. */
 const TILE_FILTER_LABELS = {
@@ -242,7 +257,11 @@ function toAssetSummary(row: AssetRow): AssetSummary {
  * filtered request from it would show the wrong rows under the right heading -
  * worse than an error, because nothing on screen would look wrong.
  */
-async function loadRegister(projectId: string, f: RegisterFilters): Promise<AssetListResponse> {
+async function loadRegister(
+  projectId: string,
+  f: RegisterFilters,
+  offset: number,
+): Promise<AssetListResponse> {
   const opsOnlyFilter = !!(f.warranty || f.maintenance || f.attention);
   try {
     const resp = await listAssets(projectId, {
@@ -251,9 +270,8 @@ async function loadRegister(projectId: string, f: RegisterFilters): Promise<Asse
       warrantyStatus: (f.warranty || undefined) as WarrantyStatus | undefined,
       maintenanceStatus: (f.maintenance || undefined) as MaintenanceStatus | undefined,
       needsAttention: f.attention || undefined,
-      // Without an explicit limit this endpoint answers with its default of
-      // 50, well under the 200 the register showed before.
-      limit: 500,
+      offset,
+      limit: REGISTER_PAGE_SIZE,
     });
     return { items: resp.items.map(toAssetSummary), total: resp.total };
   } catch (err) {
@@ -261,7 +279,8 @@ async function loadRegister(projectId: string, f: RegisterFilters): Promise<Asse
     return listTrackedAssets(projectId, {
       search: f.search || undefined,
       operationalStatus: f.status || undefined,
-      limit: 500,
+      offset,
+      limit: REGISTER_PAGE_SIZE,
     });
   }
 }
@@ -297,10 +316,19 @@ export function AssetsPage() {
     [searchParams, setSearchParams],
   );
 
-  const assetsQuery = useQuery({
+  const assetsQuery = useInfiniteQuery<AssetListResponse, Error>({
     queryKey: ['bim-assets', activeProjectId, search, status, warranty, maintenance, attention],
-    queryFn: () =>
-      loadRegister(activeProjectId!, { search, status, warranty, maintenance, attention }),
+    queryFn: ({ pageParam }) =>
+      loadRegister(
+        activeProjectId!,
+        { search, status, warranty, maintenance, attention },
+        (pageParam as number) ?? 0,
+      ),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      const loaded = allPages.reduce((sum, page) => sum + page.items.length, 0);
+      return loaded < lastPage.total ? loaded : undefined;
+    },
     enabled: !!activeProjectId,
     staleTime: 30_000,
     // Avoids an edge-case re-render that detaches filter-chip / edit
@@ -310,8 +338,11 @@ export function AssetsPage() {
     refetchOnWindowFocus: false,
   });
 
-  const items = assetsQuery.data?.items ?? [];
-  const total = assetsQuery.data?.total ?? 0;
+  const items = assetsQuery.data?.pages.flatMap((page) => page.items) ?? [];
+  // The server filters the whole set before slicing a page out of it, so every
+  // page carries the same total: the size of the matching set, not of the page.
+  const total = assetsQuery.data?.pages[0]?.total ?? 0;
+  const remaining = Math.max(0, total - items.length);
 
   // Which KPI tile the register is currently narrowed by, labelled with that
   // tile's own key so the chip and the tile can never word it differently.
@@ -668,6 +699,38 @@ export function AssetsPage() {
               ))}
             </tbody>
           </table>
+        )}
+
+        {/* The count beside the heading is the whole matching set. When the
+            list is shorter than that, say so and hand over the difference,
+            rather than leaving two numbers on screen that disagree in
+            silence.
+
+            Gated on `hasNextPage` rather than on `remaining > 0`, even though
+            the two agree: `hasNextPage` is what decides whether the click
+            does anything, so gating on the arithmetic instead would let the
+            button promise rows it cannot fetch. `hasNextPage` is false while
+            loading and on error, so this cannot appear over an empty or
+            failed table either. */}
+        {assetsQuery.hasNextPage && (
+          <div className="flex justify-center border-t border-border-light p-3">
+            <Button
+              variant="secondary"
+              size="sm"
+              data-testid="asset-load-more"
+              disabled={assetsQuery.isFetchingNextPage}
+              onClick={() => {
+                void assetsQuery.fetchNextPage();
+              }}
+            >
+              {assetsQuery.isFetchingNextPage
+                ? t('common.loading', { defaultValue: 'Loading…' })
+                : t('bim.load_more', {
+                    defaultValue: 'Load more ({{remaining}} remaining)',
+                    remaining,
+                  })}
+            </Button>
+          </div>
         )}
       </Card>
 

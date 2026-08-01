@@ -315,15 +315,69 @@ describe('AssetsPage register source', () => {
     expect(listTrackedAssets).not.toHaveBeenCalled();
   });
 
-  it('asks for enough rows that the switch does not shrink the register', async () => {
-    (listAssets as any).mockResolvedValue({ items: [], total: 0, offset: 0, limit: 500 });
+  it('asks for an explicit page and starts at the first row', async () => {
+    (listAssets as any).mockResolvedValue({ items: [], total: 0, offset: 0, limit: 200 });
 
     renderAt('/assets');
 
-    // The endpoint's own default is 50, well under the 200 this page showed
-    // before, so an absent limit would quietly drop rows.
+    // The endpoint's own default is 50, well under what this page shows, so an
+    // absent limit would quietly drop rows.
     await waitFor(() =>
-      expect(listAssets).toHaveBeenCalledWith('proj-1', expect.objectContaining({ limit: 500 })),
+      expect(listAssets).toHaveBeenCalledWith(
+        'proj-1',
+        expect.objectContaining({ limit: 200, offset: 0 }),
+      ),
+    );
+  });
+
+  /* ── Truncation (#124) ────────────────────────────────────────────────
+   *
+   * The register showed a count for the whole matching set above a list
+   * capped at one page and said nothing about the difference. These pin the
+   * shortfall being both stated and reachable; asserting only that the button
+   * exists would pass while it fetched the same page forever.
+   */
+  it('says how many rows are missing when the list is shorter than the count', async () => {
+    const page = Array.from({ length: 200 }, (_, i) => ({
+      ...sampleOpsRow,
+      id: `a-${i}`,
+      element_id: `a-${i}`,
+    }));
+    (listAssets as any).mockResolvedValue({ items: page, total: 250, offset: 0, limit: 200 });
+
+    renderAt('/assets');
+
+    expect(await screen.findByTestId('asset-load-more')).toHaveTextContent('50 remaining');
+  });
+
+  it('offers nothing more when the list already holds every row', async () => {
+    (listAssets as any).mockResolvedValue({ items: [sampleOpsRow], total: 1, offset: 0, limit: 200 });
+
+    renderAt('/assets');
+
+    expect(await screen.findByText('Grundfos')).toBeInTheDocument();
+    expect(screen.queryByTestId('asset-load-more')).not.toBeInTheDocument();
+  });
+
+  it('fetches the next page from where the rendered list ends', async () => {
+    const page = Array.from({ length: 200 }, (_, i) => ({
+      ...sampleOpsRow,
+      id: `a-${i}`,
+      element_id: `a-${i}`,
+    }));
+    (listAssets as any).mockResolvedValue({ items: page, total: 250, offset: 0, limit: 200 });
+
+    renderAt('/assets');
+
+    fireEvent.click(await screen.findByTestId('asset-load-more'));
+
+    // Offset 200, not 0 again: a second request for the same slice would keep
+    // the button on screen for ever and never reach the missing rows.
+    await waitFor(() =>
+      expect(listAssets).toHaveBeenCalledWith(
+        'proj-1',
+        expect.objectContaining({ limit: 200, offset: 200 }),
+      ),
     );
   });
 
