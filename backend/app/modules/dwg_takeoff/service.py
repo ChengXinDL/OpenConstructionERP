@@ -1411,6 +1411,21 @@ class DwgTakeoffService:
             return
 
         await self.drawing_repo.update_fields(drawing_id, status="processing")
+        # Commit the transition before the conversion, not after it.
+        #
+        # Everything below can run for minutes, and until this session commits,
+        # the UPDATE above holds a row lock on the drawing. Every other write to
+        # the same row queues behind it: setting the scale, renaming, deleting.
+        # The client gives up after 45 seconds, so a large drawing under
+        # conversion presented as a dead application, with the failed upload
+        # stuck on screen and no way to remove it short of a restart, which is
+        # exactly what issue #409 describes.
+        #
+        # It also makes the status true. The point of persisting
+        # uploaded -> processing -> ready is that the page polling this row can
+        # see it, and an uncommitted transition is visible to nobody. The page
+        # was reading "uploaded" for the whole conversion.
+        await self.session.commit()
 
         import subprocess
         from pathlib import Path as _Path
@@ -1516,7 +1531,16 @@ class DwgTakeoffService:
             await self.drawing_repo.update_fields(
                 drawing_id,
                 status="error",
-                error_message=f"DWG conversion timed out ({convert_timeout_s}s limit)",
+                # Name the limit and how to raise it. A large drawing from a
+                # real project can legitimately need longer than the default,
+                # and without this the message reads like a permanent verdict
+                # on the file, so people retry the same upload instead.
+                error_message=(
+                    f"DWG conversion timed out after {convert_timeout_s}s. "
+                    "Large drawings can need longer: raise the limit by setting "
+                    "OE_DWG_CONVERT_TIMEOUT_S on the server, for example "
+                    "OE_DWG_CONVERT_TIMEOUT_S=900, and upload again."
+                ),
             )
             return
         except Exception as exc:
