@@ -26,12 +26,17 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { copyToClipboard } from '@/shared/lib/browser';
+import {
+  reviewAskShownWithin,
+  CROSS_SURFACE_QUIET_MS,
+} from '@/stores/useReviewPromptStore';
 
 const REPO_URL = 'https://github.com/datadrivenconstruction/OpenConstructionERP';
 const PAYPAL_DONATE_URL = 'https://www.paypal.com/donate/?hosted_button_id=DWBCLNLY2VWAA';
 const GITHUB_SPONSORS_URL = 'https://github.com/sponsors/datadrivenconstruction';
-const G2_REVIEWS_URL =
-  'https://www.g2.com/products/openconstructionerp/reviews?source=search';
+// Clean product URL. The "?source=search" suffix this used to carry is G2's
+// own search-result tracking and does not belong in a link handed to a user.
+const G2_REVIEWS_URL = 'https://www.g2.com/products/openconstructionerp/reviews';
 const CASE_STUDY_EMAIL = 'info@datadrivenconstruction.io';
 const CASE_STUDY_MAILTO = `mailto:${CASE_STUDY_EMAIL}?subject=${encodeURIComponent(
   'Case study / article - OpenConstructionERP',
@@ -156,12 +161,23 @@ export function SupportUsButton({ condensed = false }: { condensed?: boolean } =
    *   • not already open
    *   • active-tab time has crossed the threshold
    *   • cooldown window has elapsed since the last view (manual or auto)
+   *   • the review card has not just asked the same thing
+   *
+   * Only the UNPROMPTED popup is gated. Opening the modal from the button is
+   * someone deciding to support us, and that is never suppressed - see
+   * handleOpen above, which has no such check.
    */
   useEffect(() => {
     if (isDemo || open) return;
     if (activeMs < AUTO_POPUP_AFTER_MS) return;
     const seenAt = readSeenAt();
     if (seenAt && Date.now() - seenAt < COOLDOWN_MS) return;
+    // ReviewPromptCard makes the same asks (star, review, share). If it has
+    // shown in the last few days, don't stack this modal on top of it. The
+    // window is short and the card is hard-capped, so this can only ever
+    // delay the modal, never mute it - the reasoning is written out in full
+    // on reviewAskShownWithin().
+    if (reviewAskShownWithin(CROSS_SURFACE_QUIET_MS)) return;
     setOpen(true);
     writeSeenAt();
   }, [activeMs, isDemo, open]);

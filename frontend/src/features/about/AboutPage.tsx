@@ -23,7 +23,8 @@ import { Changelog, getRecentReleases } from './Changelog';
 import { CONTRIBUTORS, SPONSORS, acknowledgedUrl, type Acknowledged } from './acknowledgments';
 
 const REPO_URL = 'https://github.com/datadrivenconstruction/OpenConstructionERP';
-const G2_REVIEWS_URL = 'https://www.g2.com/products/openconstructionerp/reviews?source=search';
+// Clean product URL - "?source=search" is G2's search-result tracking.
+const G2_REVIEWS_URL = 'https://www.g2.com/products/openconstructionerp/reviews';
 const PAYPAL_DONATE_URL = 'https://www.paypal.com/donate/?hosted_button_id=DWBCLNLY2VWAA';
 const GITHUB_SPONSORS_URL = 'https://github.com/sponsors/datadrivenconstruction';
 
