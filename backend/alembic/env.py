@@ -2,29 +2,86 @@
 
 Auto-discovers all module models via Base.metadata.
 
-Fresh-blank-DB handling
------------------------
-The canonical install path boots the FastAPI app first, which calls
-``Base.metadata.create_all()`` to materialise every table at the
-latest schema. Alembic is then used only to track future column
-additions. Ops who instead run ``alembic upgrade head`` against a
-fresh blank DB without booting the app first used to hit a cascade
-of crashes — the very first batch_alter_table on a table whose new
-FK targets ``oe_users_user`` failed with ``no such table:`` because
-no migration ever creates ``oe_users_user`` (it lives only in the
-ORM ``Base.metadata``). Later migrations also crash with ``add_column``
-on tables that no migration ever created (oe_assemblies_component,
-oe_costs_item, oe_dwg_takeoff_drawing_version, ...). This is the
-same class of bug closed for the seed loader in v4.4.1 (#154).
+What actually builds the schema
+-------------------------------
+``Base.metadata.create_all()`` builds the schema and is the source of
+truth for its shape. Alembic does not build it. Alembic records which
+revisions are considered applied, and applies the ones that a database
+has not seen yet.
 
-The fix here is to detect a fresh blank DB on alembic entry (no
-``alembic_version`` table and no other tables) and short-circuit:
-create every table at the latest schema via ``Base.metadata.create_all``
-and stamp the alembic version directly at the head. That mirrors
-exactly what the app boot path does, and keeps ``alembic upgrade head``
-on a non-empty already-stamped DB on the normal migration code path
-so future column-add migrations still execute correctly.
+Every fresh install takes the ``create_all`` path, including installs
+that run ``alembic upgrade head`` and never boot the app:
+``_is_fresh_blank_db`` detects an empty database on entry and
+``_bootstrap_fresh_db`` short-circuits to ``create_all`` plus a stamp at
+the head. The migration chain is not walked. This is not a fallback for
+an unusual case, it is what happens every time.
+
+The chain does not walk from base
+---------------------------------
+It cannot. The root revision ``129188e46db8_init_create_all_tables`` has
+an empty body — its ``upgrade()`` is ``pass`` — so nothing creates the
+tables that every later revision assumes. 93 tables are never created by
+any revision (``oe_users_user``, ``oe_assemblies_component``,
+``oe_costs_item``, ``oe_dwg_takeoff_drawing_version``, ...); they exist
+only in ``Base.metadata``. A walk from base dies within a handful of
+revisions on ``no such table``. Even with the tables supplied it stops
+again on a type conflict, because ``create_all`` renders identity
+columns as ``varchar(36)`` while 53 revisions declare native
+``postgresql.UUID``, and the foreign key between them is rejected.
+``tests/unit/test_migration_uuid_convention.py`` freezes that set so it
+stops growing.
+
+Making the chain walkable was measured and deliberately not done. The
+short-circuit above is what keeps every supported install working, so it
+is load-bearing, not a workaround awaiting removal.
+
+The population this does not serve
+----------------------------------
+A database that has ``oe_*`` tables but no ``alembic_version`` row is
+neither fresh nor stamped. ``_is_fresh_blank_db`` correctly declines to
+short-circuit it, so alembic tries to walk the chain from base, and that
+walk fails. This is a real state — an install whose stamp never landed.
+
+The fix is to stamp it rather than migrate it. The tables are already at
+the current schema, so record that fact::
+
+    alembic stamp head
+
+Do not run ``alembic upgrade head`` on such a database expecting it to
+repair itself; it will fail partway and leave the transaction rolled
+back.
 """
+
+# Known and permitted differences between the two schema-building paths.
+#
+# A database built by create_all and one built by walking the chain do not
+# agree in the places below. They are recorded rather than fixed, because the
+# chain is not walked by any supported install, which makes them latent
+# forever rather than blocking. Do not file these as bugs, and do not "fix"
+# one half without the other - the two names below are both live, in different
+# populations.
+#
+# Constraint names, where a migration hardcoded a name the metadata naming
+# convention would have generated differently:
+#   v3258  uq_progress_entry_seq
+#            vs uq_oe_progress_entry_seq
+#   v3157  fk_qms_itp_item_predecessor
+#            vs fk_oe_qms_itp_item_predecessor_itp_item_id_oe_qms_itp_item
+#   v2b0   ck_oe_dashboards_preset_sync_status
+#            vs ck_oe_dashboards_preset_ck_oe_dashboards_preset_sync_status
+#
+# Sequence ownership: v3258 creates its sequence with OWNED BY, create_all
+# creates a standalone sequence. Dropping the column therefore drops the
+# sequence on one path and leaves it on the other.
+#
+# Tables only the migrations create, absent from Base.metadata and so absent
+# from every create_all install:
+#   oe_tender_addendum    (v3085_tendering_addendum_leveling)
+#   oe_translation_cache  (v280_translation_cache)
+#
+# Columns only the migrations add, absent from create_all:
+#   oe_boq_boq.tax_rate            oe_projects_project.unit_system
+#   oe_tendering_bid.leveled_amount    oe_tendering_bid.leveling_notes
 
 import importlib
 import os
