@@ -427,6 +427,17 @@ const PIXELS_PER_DAY: Record<ZoomLevel, number> = {
 
 const ROW_HEIGHT = 44;
 
+/**
+ * Unreachable. The only render site is the final else of the viewMode chain
+ * below, and every member of that union is already matched by an earlier
+ * branch, so this never draws. The chart users actually see is SVGGanttChart
+ * from shared/ui/Gantt.
+ *
+ * Flagged rather than deleted because the label-collision handling here
+ * (MIN_GAP_PCT) reads like the live implementation and is not: the real one
+ * clips each header label to its own cell instead. Removal is queued
+ * separately.
+ */
 function GanttChart({
   activities,
   onUpdateProgress,

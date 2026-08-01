@@ -1699,7 +1699,13 @@ function LandingPage({ projectId, onUploadComplete: _onUploadComplete, breadcrum
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-content-primary">{t('bim.landing_drop_here')}</p>
-                        <p className="text-xs text-content-tertiary mt-1">{t('bim.landing_size_hint')}</p>
+                        {/* bim.landing_size_hint used to sit here reading
+                            "IFC, RVT, CSV, or Excel". Removed rather than
+                            reworded: it was a partial list directly above the
+                            badge row below, which lists all fifteen from the
+                            shared source, and two of the four things it named
+                            were not accepted by this input at all. CSV and
+                            Excel belong to the advanced two-slot data picker. */}
                       </div>
                       {/* Same list as the modal row, same source. This one
                           showed four of fifteen. */}
