@@ -11038,7 +11038,7 @@ const resource = {
     "bim.upload_remove_file": "Usuń",
     "bim.upload_rvt_note": "Uwaga: Pliki RVT wymagają DDC cad2data. Proszę rozważyć IFC.",
     "bim.upload_simple_mode_toggle": "Przełącz na tryb prosty",
-    "bim.upload_size_hint": "RVT (.rvt), IFC (.ifc) · Maks. 500 MB",
+    "bim.upload_size_hint": "RVT (.rvt), IFC (.ifc)",
     "bim.upload_success_desc": "Model przesłany pomyślnie.",
     "bim.upload_title": "Prześlij dane BIM",
     "bim.upload_unsupported_format": "Nieobsługiwany format.",

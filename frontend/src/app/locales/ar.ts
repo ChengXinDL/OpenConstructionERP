@@ -7570,7 +7570,7 @@ const resource = {
     "bim.upload_result": "نتيجة الرفع",
     "bim.upload_rvt_note": "ملاحظة: ملفات RVT تتطلب DDC cad2data. يُنصح باستخدام IFC.",
     "bim.upload_simple_mode_toggle": "التبديل إلى الوضع البسيط",
-    "bim.upload_size_hint": "RVT (.rvt)، IFC (.ifc) · الحد الأقصى 500 ميغابايت",
+    "bim.upload_size_hint": "RVT (.rvt)، IFC (.ifc)",
     "bim.upload_storeys": "الطوابق:",
     "bim.upload_success": "تم رفع بيانات BIM",
     "bim.upload_success_desc": "تم رفع النموذج بنجاح.",
