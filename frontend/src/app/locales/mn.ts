@@ -34716,7 +34716,7 @@ const resource = {
     "dashboard.layout.w_portfolio_desc": "Олон төслийн ажлын орчинд зориулсан төслүүд хоорондын нэгдсэн тойм",
     "dashboard.layout.w_map": "Төслийн газрын зураг",
     "dashboard.layout.w_map_desc": "Төслийн байршлын газарзүйн зураг",
-    "dashboard.layout.w_inbox": "Ирсэн ирсэн ирсэн",
+    "dashboard.layout.w_inbox": "Ирсэн хайрцаг",
     "dashboard.layout.w_inbox_desc": "Таныг хүлээж буй зөвшөөрөл, сэрэмжлүүлгийг нэг жагсаалтад харуулна",
     "dashboard.layout.w_upload": "Түргэн байршуулах",
     "dashboard.layout.w_upload_desc": "Эхлэхийн тулд зураг эсвэл баримт бичгийг чирж оруулна уу",
