@@ -38,6 +38,13 @@ interface ChangelogEntry {
 // date, title and meaning intact; trim the prose, not the facts.
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '14.1.0',
+    date: '2026-08-01',
+    tag: 'NEW',
+    summary:
+      'Six registers became places to decide something rather than only look at data, with rates priced as of a date, bids put on the same basis before one is picked, and a matching engine that stores a run for a person to rule on. Stamp templates no longer cross between projects, budget lines carry their own project currency, self-hosted upgrades work again, and module analytics leaves an empty panel empty instead of filling it with plausible looking figures.',
+  },
+  {
     version: '14.0.0',
     date: '2026-07-29',
     tag: 'NEW',

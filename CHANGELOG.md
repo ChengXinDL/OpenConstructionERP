@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [14.1.0] - 2026-08-01
+
+Stamp templates no longer cross between projects. A template saved in one project appeared in the markup toolbar of every other project on the installation, because the query asked for templates that are either built in or belong to this project and the built-in branch did not also require the template to have no project of its own. A template belonging to a project and marked as built in therefore satisfied the first branch from anywhere. Templates are now scoped as they were meant to be, so anyone who noticed unfamiliar stamps in a project's toolbar will find them gone, and templates saved in the wrong place will need saving again where they belong.
+
+Self-hosted upgrades work again. The revision chain had grown a second head, which makes the upgrade command refuse to run rather than pick one, so every installation that upgrades by walking the chain has been unable to since that point. The two heads are merged. Installations that deploy by building the schema directly were never affected and need to do nothing.
+
+Budget lines carry the currency of their project. The column was added with a default of EUR, which writes EUR into every row already in the table whether or not that was its currency, and code that created a budget line afterwards left the field blank. Blank rows are filled from the project they belong to, and only where the project states a currency and the line does not, so a line that was deliberately set to something other than its project's currency is left alone. Rows stamped EUR by the original migration cannot be told apart from rows a person set to EUR and are not touched.
+
+Six registers stopped being places to look at data and became places to decide something. Foreign exchange rates can be looked up as of a date rather than only as they stand today, which is what a valuation dated last quarter needs. Earned value produces the figures a project can actually be judged on rather than a partial set. Requests for quotation put returned bids on the same basis before one of them is picked, since bids priced in different currencies or against different scopes are not comparable by their totals. Credentials answer the question of who may not work today. Saved views and the timeline gained the service layer and validation they had been missing. The matching engine, which was seven hundred lines of good multilingual matching reachable only by a health check, is now a register where a run is stored and a person can rule on it.
+
+The deadline register reads from thirteen sources instead of three, and each of them is named in every language, so a date that appears in the list can be traced back to the thing that set it.
+
+Module analytics stopped drawing rows the project does not have. Where a panel had nothing to show it was filling the space with plausible looking figures, which is worse than an empty panel because it invites someone to act on them.
+
+The estimate catalogue picker behaves like a search box. It matches on the terms typed rather than on the whole string as one phrase, so a description found by its second and fourth words comes back instead of nothing, the matched words are marked in both pickers, and it no longer issues a query on every keystroke.
+
+Component lists in assemblies can be reordered without dragging, which is the only way to reorder them on a touch screen.
+
+Nine module titles named the wrong thing and ten strings were left half translated by an earlier machine pass. Both are corrected across the interface languages. The application ships 29 locales, and the places in the packaging and the interface that still described 27 have been brought up to date.
+
+Two deployment problems that produce confusing failures. A database password containing an at sign broke the connection string, and the quickstart image command named a target that does not match the image that is published. The quickstart stack can also sit behind a TLS proxy without the compose file being edited by hand.
+
+A CAD conversion no longer holds the drawing row for as long as it runs, so a large drawing being converted does not block work on the record it belongs to.
+
+The interface asks for a rating or a review on a four-day rhythm rather than at a moment of its own choosing.
+
+The file naming banner can fix the name it is complaining about instead of only reporting that the name is wrong.
+
 Pinned searches in Find Records are kept by the server rather than by the browser, so a pin survives a reload, a cleared browser and a move to another machine. Searches pinned before this change stay in the browser under the `oce.retrieval.saved` entry and are not imported, because a silent one-way import would copy one person's private list into a shared one without asking. Those pins can be re-created, and the leftover entry can be cleared from site data at any time. The recent-search list is unchanged and still belongs to the device.
 
 Inbox items on the dashboard can be acknowledged or assigned where they are shown, instead of opening the module the item came from and finding the record by hand.
