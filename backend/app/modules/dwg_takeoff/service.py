@@ -219,6 +219,41 @@ async def _beat_while_converting(drawing_id: uuid.UUID) -> None:
         await asyncio.sleep(interval)
 
 
+def _sidecar_xlsx_path(file_path: str) -> str:
+    """Where the DDC converter's intermediate spreadsheet lands for an upload.
+
+    One definition with three callers: the conversion that creates it, the
+    task that cleans it up afterwards, and drawing deletion. Deriving the name
+    separately in each of those is how two of them end up disagreeing and the
+    file survives whichever one was supposed to remove it.
+    """
+    return file_path.rsplit(".", 1)[0] + "_dwg.xlsx"
+
+
+def _remove_sidecar_xlsx(file_path: str) -> None:
+    """Delete the intermediate spreadsheet for an upload, if it is still there.
+
+    It is a staging artefact. The entities JSON is written from it and nothing
+    reads it afterwards, so keeping it costs disk proportional to the drawing
+    for no benefit. A 22 MB DWG makes a large one, and a conversion that fails
+    is usually retried, so the copies accumulate exactly on the installations
+    least able to spare the room.
+
+    Never raises. Cleanup that can fail a conversion is worse than the litter
+    it removes.
+    """
+    sidecar = _sidecar_xlsx_path(file_path)
+    try:
+        os.remove(sidecar)
+    except FileNotFoundError:
+        pass
+    except OSError:
+        # Windows keeps a handle open a moment longer than the process that
+        # held it, and a converter that was killed can leave one behind, so
+        # this is expected often enough not to be a warning.
+        logger.debug("Could not remove intermediate spreadsheet %s", sidecar, exc_info=True)
+
+
 # ── DWG version sniff & gating (Indian-user stability ticket 2026-05-13) ────
 
 
@@ -1565,7 +1600,7 @@ class DwgTakeoffService:
         # allows. The old 120s cap timed out files the explorer converts fine.
         # Overridable via env for very large sets or slow boxes.
         convert_timeout_s = int(os.getenv("OE_DWG_CONVERT_TIMEOUT_S", "300"))
-        xlsx_path = file_path.rsplit(".", 1)[0] + "_dwg.xlsx"
+        xlsx_path = _sidecar_xlsx_path(file_path)
         try:
             caps = detect_converter_capabilities("dwg")
             args = build_ddc_args(
@@ -1947,6 +1982,14 @@ class DwgTakeoffService:
                 os.remove(drawing.file_path)
             except OSError:
                 logger.warning("Could not delete file: %s", drawing.file_path)
+
+        # And the converter's intermediate spreadsheet beside it. The
+        # conversion clears this up itself, so reaching it here means the
+        # process died mid-conversion and there is nothing left that knows the
+        # file exists. Deleting the drawing is the last moment anything can
+        # connect the two, and a drawing big enough to matter leaves a big one.
+        if drawing.file_path:
+            _remove_sidecar_xlsx(drawing.file_path)
 
         # Remove entities and thumbnail files for all versions
         versions = await self.version_repo.list_for_drawing(drawing_id)
@@ -2994,3 +3037,10 @@ async def _run_dwg_conversion_in_background(
             beat.cancel()
             with suppress(asyncio.CancelledError):
                 await beat
+            # Cleared here rather than inside the conversion because this is
+            # the only place every ending meets. ``_handle_dwg`` leaves by one
+            # of five returns, a raise, or success, and a removal written at
+            # each of those is a removal that will be missed the next time one
+            # is added. Deriving the path from ``file_path`` costs the caller
+            # nothing: it is the same input the conversion derived it from.
+            await asyncio.to_thread(_remove_sidecar_xlsx, file_path)
