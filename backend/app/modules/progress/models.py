@@ -28,9 +28,21 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.database import GUID, Base
 
 # Backs ProgressEntry.seq. Attached to the metadata so create_all emits
-# CREATE SEQUENCE before the column that defaults from it, and so the
-# auto-migrator's ADD COLUMN ... DEFAULT nextval(...) finds it already there.
-# Dialects without sequences (the legacy SQLite upgrade source) skip it.
+# CREATE SEQUENCE before the column that defaults from it, when it builds the
+# table. Dialects without sequences (the legacy SQLite upgrade source) skip it.
+#
+# The metadata attachment does NOT hand the sequence to the auto-migrator, and
+# the comment here used to claim it did. create_all's visit_metadata keeps only
+# the sequences whose .column is None; this one is passed to mapped_column, so
+# its .column is set and it is filtered out, leaving CREATE TABLE as its only
+# route - and that does not run for a table that already exists, which is
+# exactly the population the auto-migrator heals. So on an upgraded install this
+# sequence was absent when ADD COLUMN ... DEFAULT nextval(...) ran, the seq
+# column silently failed to land, and it failed again on every later boot: the
+# breakage was permanent, not one boot long, and invisible on fresh installs.
+# app.core.postgres_migrator._heal_sequences now creates it, and is the ONLY
+# thing in the app-managed upgrade path that ever will. Do not delete it on the
+# assumption that create_all covers this.
 _SEQUENCE_NAME = "oe_progress_entry_seq_seq"
 _progress_entry_seq = Sequence(_SEQUENCE_NAME, metadata=Base.metadata)
 

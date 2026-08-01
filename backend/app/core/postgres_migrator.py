@@ -36,7 +36,7 @@ failure cannot poison the rest of the heal.
 
 import logging
 
-from sqlalchemy import CheckConstraint, Column, UniqueConstraint, inspect, text
+from sqlalchemy import CheckConstraint, Column, Sequence, UniqueConstraint, inspect, text
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -52,7 +52,9 @@ _HEAL_ADVISORY_LOCK_KEY = 826340271
 async def postgres_auto_migrate(engine: AsyncEngine, base) -> int:
     """Compare SQLAlchemy models against the PostgreSQL schema and heal it.
 
-    Adds missing columns (``ALTER TABLE ... ADD COLUMN IF NOT EXISTS``) and
+    Adds missing sequences that a column defaults from (``CREATE SEQUENCE IF NOT
+    EXISTS``, and first, because the ADD COLUMN below needs them), missing
+    columns (``ALTER TABLE ... ADD COLUMN IF NOT EXISTS``) and
     missing model-declared single/multi-column btree indexes
     (``CREATE INDEX IF NOT EXISTS``). Functional / expression / dialect-
     specific indexes are skipped defensively - their SQL cannot be
@@ -63,8 +65,10 @@ async def postgres_auto_migrate(engine: AsyncEngine, base) -> int:
         base: The declarative ``Base`` whose metadata holds every model.
 
     Returns:
-        Total number of schema objects added (columns + indexes).
+        Total number of schema objects added (sequences + columns + indexes +
+        constraints).
     """
+    sequences_added = 0
     columns_added = 0
     indexes_added = 0
     constraints_added = 0
@@ -94,6 +98,10 @@ async def postgres_auto_migrate(engine: AsyncEngine, base) -> int:
         await conn.execute(text("SET LOCAL lock_timeout = '3s'"))
 
         existing_tables = await conn.run_sync(lambda sync_conn: set(inspect(sync_conn).get_table_names()))
+
+        # Sequences first: a column added below may default from one, and the
+        # ADD COLUMN fails outright if the sequence is not there yet.
+        sequences_added = await _heal_sequences(conn, base)
 
         for table in base.metadata.sorted_tables:
             if table.name not in existing_tables:
@@ -235,15 +243,77 @@ async def postgres_auto_migrate(engine: AsyncEngine, base) -> int:
 
             constraints_added += await _heal_constraints(conn, table, existing_names, existing_col_tuples)
 
-    if columns_added > 0 or indexes_added > 0 or constraints_added > 0:
+    if sequences_added > 0 or columns_added > 0 or indexes_added > 0 or constraints_added > 0:
         logger.info(
-            "PostgreSQL auto-migration complete: %d columns, %d indexes, %d constraints added",
+            "PostgreSQL auto-migration complete: %d sequences, %d columns, %d indexes, %d constraints added",
+            sequences_added,
             columns_added,
             indexes_added,
             constraints_added,
         )
 
-    return columns_added + indexes_added + constraints_added
+    return sequences_added + columns_added + indexes_added + constraints_added
+
+
+async def _heal_sequences(conn, base) -> int:
+    """Create the sequences that model columns default from, before the column heal.
+
+    ``oe_progress_entry.seq`` is a BIGINT whose server default is
+    ``nextval('oe_progress_entry_seq_seq')``. On a database created before that
+    column existed, the column heal below emits
+    ``ALTER TABLE ... ADD COLUMN ... DEFAULT nextval(...)`` - and PostgreSQL
+    rejects that statement outright when the sequence is absent, taking the two
+    indexes over the column and its unique constraint down with it, all at
+    WARNING level while the boot carries on.
+
+    **Do not assume ``create_all`` has this covered - it never will.** That
+    assumption is what produced the bug. ``SchemaGenerator.visit_metadata``
+    builds its standalone sequence list as
+    ``[s for s in metadata._sequences.values() if s.column is None and ...]``,
+    and a sequence passed to ``mapped_column`` has ``s.column`` set, so it is
+    filtered out. Its only other route is ``CREATE TABLE``, which does not run
+    for a table that already exists - precisely the databases that need healing.
+    So the ordering of the two calls was never the issue: moving the heal after
+    ``create_all`` would fix nothing. After this function, the heal is the only
+    thing in the whole app-managed upgrade path that will ever create such a
+    sequence. Verified against a live cluster in
+    ``tests/pg/test_postgres_migrator_sequence_heal.py``.
+
+    Deliberately no ``OWNED BY``. ``create_all`` does not emit it either, and
+    this runs immediately before ``create_all`` against the same database, so
+    matching it keeps one install from having two different sequence shapes
+    depending on which statement got there first. (The Alembic path *does* set
+    ``OWNED BY``, so the two schema-building routes already disagree - a
+    divergence to settle deliberately, not to paper over here.)
+
+    Args:
+        conn: The open async connection running inside the heal transaction.
+        base: The declarative ``Base`` whose metadata holds every model.
+
+    Returns:
+        Number of sequences created.
+    """
+    # A Sequence passed positionally to ``mapped_column`` lands on ``col.default``.
+    wanted: dict[str | None, set[str]] = {}
+    for table in base.metadata.sorted_tables:
+        for col in table.columns:
+            if isinstance(col.default, Sequence) and col.default.name:
+                wanted.setdefault(col.default.schema, set()).add(col.default.name)
+
+    added = 0
+    for schema, names in wanted.items():
+        try:
+            live = await conn.run_sync(lambda sync_conn, s=schema: set(inspect(sync_conn).get_sequence_names(schema=s)))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("PostgreSQL migration: could not inspect sequences: %s", exc)
+            continue
+
+        for name in sorted(names - live):
+            qualified = f'"{schema}"."{name}"' if schema else f'"{name}"'
+            if await _run_ddl(conn, f"CREATE SEQUENCE IF NOT EXISTS {qualified}", f"sequence {name}"):
+                added += 1
+
+    return added
 
 
 #: PostgreSQL's identifier limit (NAMEDATALEN - 1).
