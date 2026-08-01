@@ -347,9 +347,17 @@ function getScoreRingColor(pct: number): string {
 
 /* ── Sub-components ────────────────────────────────────────────────────── */
 
-function ScoreCircle({ score }: { score: number }) {
+/**
+ * The score is not a pass rate. Any blocking error caps it at
+ * `0.5 / (1 + errors)` (see `compute_quality_score`, E-VAL-007), so a run with
+ * a handful of errors reads near zero even when almost every rule passed. Shown
+ * on its own next to "Passed 4721 of 4975" that looks like two numbers
+ * contradicting each other, so when the cap is what produced the number, say so.
+ */
+function ScoreCircle({ score, errors }: { score: number; errors: number }) {
   const { t } = useTranslation();
   const pct = Math.round(score * 100);
+  const capped = errors > 0;
   const radius = 54;
   const circumference = 2 * Math.PI * radius;
   const dashOffset = circumference - (pct / 100) * circumference;
@@ -391,6 +399,13 @@ function ScoreCircle({ score }: { score: number }) {
       <span className={`text-sm font-semibold ${getScoreColor(pct)}`}>
         {getScoreLabel(pct, t)}
       </span>
+      {capped && (
+        <span className="max-w-40 text-center text-xs text-content-secondary">
+          {t('validation.score_capped', {
+            defaultValue: 'Capped by blocking errors, not a pass rate',
+          })}
+        </span>
+      )}
     </div>
   );
 }
@@ -1299,7 +1314,7 @@ export function ValidationPage() {
           <div className="grid gap-6 md:grid-cols-[200px_1fr]">
             {/* Score circle card */}
             <Card className="flex items-center justify-center">
-              <ScoreCircle score={report.score} />
+              <ScoreCircle score={report.score} errors={report.counts.errors} />
             </Card>
 
             {/* Summary card */}
