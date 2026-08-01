@@ -19120,7 +19120,7 @@ const resource = {
     "bim.issue_on_elements": "{{count}}要素の課題",
     "bim.just_now": "たった今",
     "bim.landing_dropzone_aria": "ここに BIM モデル、図面、または 3D メッシュファイルをドロップするか、クリックして参照します",
-    "bim.landing_formats_detailed": "RVT 2015\\\\u20132026 (.rvt) \\\\u00B7 IFC 2x3, 4.0, 4.1, 4.3 (.ifc) \\\\u00B7 CSV \\\\u00B7 Excel. DWG \\\\u2192 DWGテイクオフ。",
+    "bim.landing_formats_detailed": "RVTおよびIFCモデル、3Dメッシュ形式、CSVまたはExcelの要素データ。DWGおよびDXF図面はDWGテイクオフモジュールに転送されます。",
     "bim.landing_version_note": "RVT 2015–2026 · IFC 2x3, 4.0, 4.1, 4.3",
     "bim.landing_what_you_get": "得られるもの",
     "bim.layers_hide_category": "{{category}}を非表示",

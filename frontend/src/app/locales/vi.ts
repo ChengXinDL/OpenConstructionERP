@@ -19026,7 +19026,7 @@ const resource = {
     "bim.issue_on_elements": "Vấn đề trên {{count}} phần tử",
     "bim.just_now": "vừa xong",
     "bim.landing_dropzone_aria": "Thả mô hình BIM, bản vẽ hoặc tệp lưới 3D vào đây, hoặc nhấp để duyệt",
-    "bim.landing_formats_detailed": "RVT 2015-2026 (.rvt) · IFC 2x3, 4.0, 4.1, 4.3 (.ifc) · CSV · Excel. DWG → DWG Takeoff.",
+    "bim.landing_formats_detailed": "Mô hình RVT và IFC, định dạng lưới 3D, và dữ liệu cấu kiện dạng CSV hoặc Excel. Bản vẽ DWG và DXF được chuyển đến mô-đun DWG Takeoff.",
     "bim.landing_version_note": "RVT 2015–2026 · IFC 2x3, 4.0, 4.1, 4.3",
     "bim.landing_what_you_get": "Những gì bạn nhận được",
     "bim.layers_hide_category": "Ẩn {{category}}",

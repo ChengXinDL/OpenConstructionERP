@@ -19120,7 +19120,7 @@ const resource = {
     "bim.issue_on_elements": "요소 {{count}}개에 대한 이슈",
     "bim.just_now": "방금 전",
     "bim.landing_dropzone_aria": "여기에 BIM 모델, 도면 또는 3D 메시 파일을 끌어다 놓거나 클릭하여 찾아보세요",
-    "bim.landing_formats_detailed": "RVT 2015-2026 (.rvt) · IFC 2x3, 4.0, 4.1, 4.3 (.ifc) · CSV · Excel. DWG → DWG Takeoff.",
+    "bim.landing_formats_detailed": "RVT 및 IFC 모델, 3D 메쉬 형식, CSV 또는 Excel 형식의 요소 데이터. DWG 및 DXF 도면은 DWG Takeoff 모듈로 이동됩니다.",
     "bim.landing_version_note": "RVT 2015–2026 · IFC 2x3, 4.0, 4.1, 4.3",
     "bim.landing_what_you_get": "제공 기능",
     "bim.layers_hide_category": "{{category}} 숨기기",

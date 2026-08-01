@@ -18861,7 +18861,7 @@ const resource = {
     "bim.issue_on_elements": "Problem na {{count}} elemenata",
     "bim.just_now": "upravo sada",
     "bim.landing_dropzone_aria": "Ispustite BIM model, crtež ili 3D mesh datoteku ovdje, ili kliknite za pregledavanje",
-    "bim.landing_formats_detailed": "RVT 2015\\\\u20132026 (.rvt) \\\\u00B7 IFC 2x3, 4.0, 4.1, 4.3 (.ifc) \\\\u00B7 CSV \\\\u00B7 Excel. DWG \\\\u2192 DWG Takeoff.",
+    "bim.landing_formats_detailed": "RVT i IFC modeli, 3D mesh formati i podaci o elementima kao CSV ili Excel. DWG i DXF crteži preusmjeravaju se u modul DWG Takeoff.",
     "bim.landing_version_note": "RVT 2015–2026 · IFC 2x3, 4.0, 4.1, 4.3",
     "bim.landing_what_you_get": "Što dobivate",
     "bim.layers_hide_category": "Sakrij {{category}}",

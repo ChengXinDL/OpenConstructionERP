@@ -18990,7 +18990,7 @@ const resource = {
     "bim.issue_on_elements": "Problemă pe {{count}} elemente",
     "bim.just_now": "chiar acum",
     "bim.landing_dropzone_aria": "Plasați un model BIM, desen sau fișier plasă 3D aici, sau faceți clic pentru a răsfoi",
-    "bim.landing_formats_detailed": "RVT 2015\\\\u20132026 (.rvt) \\\\u00B7 IFC 2x3, 4.0, 4.1, 4.3 (.ifc) \\\\u00B7 CSV \\\\u00B7 Excel. DWG \\\\u2192 DWG Takeoff.",
+    "bim.landing_formats_detailed": "Modele RVT și IFC, formate mesh 3D și date de elemente ca CSV sau Excel. Desenele DWG și DXF sunt direcționate către modulul DWG Takeoff.",
     "bim.landing_version_note": "RVT 2015–2026 · IFC 2x3, 4.0, 4.1, 4.3",
     "bim.landing_what_you_get": "Ce obțineți",
     "bim.layers_hide_category": "Ascunde {{category}}",

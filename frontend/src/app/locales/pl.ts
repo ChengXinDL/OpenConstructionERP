@@ -18863,7 +18863,7 @@ const resource = {
     "bim.issue_on_elements": "Zgłoszenie na {{count}} elementach",
     "bim.just_now": "przed chwilą",
     "bim.landing_dropzone_aria": "Upuść tutaj model BIM, rysunek lub plik siatki 3D, lub kliknij, aby przeglądać",
-    "bim.landing_formats_detailed": "RVT 2015\\\\u20132026 (.rvt) \\\\u00B7 IFC 2x3, 4.0, 4.1, 4.3 (.ifc) \\\\u00B7 CSV \\\\u00B7 Excel. DWG \\\\u2192 DWG Takeoff.",
+    "bim.landing_formats_detailed": "Modele RVT i IFC, formaty siatki 3D oraz dane elementów jako CSV lub Excel. Rysunki DWG i DXF są przekierowywane do modułu DWG Takeoff.",
     "bim.landing_version_note": "RVT 2015–2026 · IFC 2x3, 4.0, 4.1, 4.3",
     "bim.landing_what_you_get": "Co otrzymujesz",
     "bim.layers_hide_category": "Ukryj {{category}}",

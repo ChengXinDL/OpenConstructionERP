@@ -19011,7 +19011,7 @@ const resource = {
     "bim.issue_on_elements": "Sak på {{count}} elementer",
     "bim.just_now": "akkurat nå",
     "bim.landing_dropzone_aria": "Slipp en BIM-modell, tegning eller 3D-meshfil her, eller klikk for å bla gjennom",
-    "bim.landing_formats_detailed": "RVT 2015\\\\u20132026 (.rvt) \\\\u00B7 IFC 2x3, 4.0, 4.1, 4.3 (.ifc) \\\\u00B7 CSV \\\\u00B7 Excel. DWG \\\\u2192 DWG Takeoff.",
+    "bim.landing_formats_detailed": "RVT- og IFC-modeller, 3D-meshformater og elementdata som CSV eller Excel. DWG- og DXF-tegninger sendes videre til DWG Takeoff-modulen.",
     "bim.landing_version_note": "RVT 2015–2026 · IFC 2x3, 4.0, 4.1, 4.3",
     "bim.landing_what_you_get": "Dette får du",
     "bim.layers_hide_category": "Skjul {{category}}",

@@ -19123,7 +19123,7 @@ const resource = {
     "bim.issue_on_elements": "{{count}} элемент дээрх асуудал",
     "bim.just_now": "дөнгөж сая",
     "bim.landing_dropzone_aria": "BIM загвар, зураг эсвэл 3D торны файлыг энд чирэх эсвэл сонгохын тулд дарна уу",
-    "bim.landing_formats_detailed": "RVT 2015\\\\u20132026 (.rvt) \\\\u00B7 IFC 2x3, 4.0, 4.1, 4.3 (.ifc) \\\\u00B7 CSV \\\\u00B7 Excel. DWG \\\\u2192 DWG Takeoff.",
+    "bim.landing_formats_detailed": "RVT болон IFC загварууд, 3D сүлжээний форматууд, мөн CSV эсвэл Excel хэлбэрийн элемент өгөгдөл. DWG болон DXF зурагууд нь DWG Takeoff модуль руу шилжүүлдэг.",
     "bim.landing_version_note": "RVT 2015–2026 · IFC 2x3, 4.0, 4.1, 4.3",
     "bim.landing_what_you_get": "Та юу авах вэ",
     "bim.layers_hide_category": "{{category}}-г нуух",

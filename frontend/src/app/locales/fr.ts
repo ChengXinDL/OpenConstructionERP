@@ -18901,7 +18901,7 @@ const resource = {
     "bim.issue_on_elements": "Problème sur {{count}} éléments",
     "bim.just_now": "à l'instant",
     "bim.landing_dropzone_aria": "Déposez un modèle BIM, un dessin ou un fichier de maillage 3D ici, ou cliquez pour parcourir",
-    "bim.landing_formats_detailed": "RVT 2015\\\\u20132026 (.rvt) \\\\u00B7 IFC 2x3, 4.0, 4.1, 4.3 (.ifc) \\\\u00B7 CSV \\\\u00B7 Excel. DWG \\\\u2192 Métré DWG.",
+    "bim.landing_formats_detailed": "Modèles RVT et IFC, formats de maillage 3D et données d'éléments en CSV ou Excel. Les plans DWG et DXF sont redirigés vers le module Métré DWG.",
     "bim.landing_version_note": "RVT 2015–2026 · IFC 2x3, 4.0, 4.1, 4.3",
     "bim.landing_what_you_get": "Ce que vous obtenez",
     "bim.layers_hide_category": "Masquer {{category}}",

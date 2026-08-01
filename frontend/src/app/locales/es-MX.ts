@@ -18852,7 +18852,7 @@ const resource = {
     "bim.issue_on_elements": "Incidencia en {{count}} elementos",
     "bim.just_now": "ahora mismo",
     "bim.landing_dropzone_aria": "Suelte un modelo BIM, dibujo o archivo de malla 3D aquí, o haga clic para explorar",
-    "bim.landing_formats_detailed": "RVT 2015-2026 (.rvt) · IFC 2x3, 4.0, 4.1, 4.3 (.ifc) · CSV · Excel. DWG → DWG Takeoff.",
+    "bim.landing_formats_detailed": "Modelos RVT e IFC, formatos de malla 3D y datos de elementos en CSV o Excel. Los planos DWG y DXF se redirigen al módulo DWG Takeoff.",
     "bim.landing_version_note": "RVT 2015–2026 · IFC 2x3, 4.0, 4.1, 4.3",
     "bim.landing_what_you_get": "Lo que obtiene",
     "bim.layers_hide_category": "Ocultar {{category}}",

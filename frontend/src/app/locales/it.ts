@@ -19131,7 +19131,7 @@ const resource = {
     "bim.issue_on_elements": "Problema su {{count}} elementi",
     "bim.just_now": "proprio ora",
     "bim.landing_dropzone_aria": "Trascina qui un modello BIM, un disegno o un file mesh 3D, o fai clic per sfogliare",
-    "bim.landing_formats_detailed": "RVT 2015\\\\u20132026 (.rvt) \\\\u00B7 IFC 2x3, 4.0, 4.1, 4.3 (.ifc) \\\\u00B7 CSV \\\\u00B7 Excel. DWG \\\\u2192 DWG Takeoff.",
+    "bim.landing_formats_detailed": "Modelli RVT e IFC, formati mesh 3D e dati degli elementi come CSV o Excel. I disegni DWG e DXF vengono reindirizzati al modulo DWG Takeoff.",
     "bim.landing_version_note": "RVT 2015–2026 · IFC 2x3, 4.0, 4.1, 4.3",
     "bim.landing_what_you_get": "Cosa ottieni",
     "bim.layers_hide_category": "Nascondi {{category}}",

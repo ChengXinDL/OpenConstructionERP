@@ -19014,7 +19014,7 @@ const resource = {
     "bim.issue_on_elements": "Isu pada {{count}} elemen",
     "bim.just_now": "baru saja",
     "bim.landing_dropzone_aria": "Letakkan model BIM, gambar, atau file mesh 3D di sini, atau klik untuk menelusuri",
-    "bim.landing_formats_detailed": "RVT 2015\\\\u20132026 (.rvt) \\\\u00B7 IFC 2x3, 4.0, 4.1, 4.3 (.ifc) \\\\u00B7 CSV \\\\u00B7 Excel. DWG \\\\u2192 DWG Takeoff.",
+    "bim.landing_formats_detailed": "Model RVT dan IFC, format mesh 3D, dan data elemen sebagai CSV atau Excel. Gambar DWG dan DXF dialihkan ke modul DWG Takeoff.",
     "bim.landing_version_note": "RVT 2015–2026 · IFC 2x3, 4.0, 4.1, 4.3",
     "bim.landing_what_you_get": "Yang Anda dapatkan",
     "bim.layers_hide_category": "Sembunyikan {{category}}",

@@ -19018,7 +19018,7 @@ const resource = {
     "bim.issue_on_elements": "{{count}} eleman üzerinde sorun",
     "bim.just_now": "az önce",
     "bim.landing_dropzone_aria": "BIM modelini, çizimi veya 3D ağ dosyasını buraya bırakın veya göz atmak için tıklayın",
-    "bim.landing_formats_detailed": "RVT 2015\\\\u20132026 (.rvt) \\\\u00B7 IFC 2x3, 4.0, 4.1, 4.3 (.ifc) \\\\u00B7 CSV \\\\u00B7 Excel. DWG \\\\u2192 DWG Metraj.",
+    "bim.landing_formats_detailed": "RVT ve IFC modelleri, 3D mesh formatları ve CSV veya Excel olarak eleman verisi. DWG ve DXF çizimleri DWG Metraj modülüne yönlendirilir.",
     "bim.landing_version_note": "RVT 2015–2026 · IFC 2x3, 4.0, 4.1, 4.3",
     "bim.landing_what_you_get": "Elde edecekleriniz",
     "bim.layers_hide_category": "{{category}} gizle",
