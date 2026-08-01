@@ -6400,8 +6400,9 @@ class BOQService:
         If no resource metadata is found on any position, the full position
         total is categorised based on description keyword heuristics.
 
-        Overhead and profit are computed from the BOQ's markup lines or
-        default to 15% overhead + 10% profit when no markups exist.
+        Overhead and profit come from the BOQ's own markup lines. A BOQ with no
+        markup lines has no overhead and no profit, and its grand total equals
+        its direct cost. There is deliberately no default markup here.
 
         Args:
             boq_id: Target BOQ identifier.
@@ -6522,7 +6523,16 @@ class BOQService:
                 )
             )
 
-        # Calculate markups from BOQ markup lines (or defaults)
+        # Markups come from the BOQ's own markup lines and from nowhere else.
+        #
+        # This branch used to invent a 15% overhead and a 10% profit whenever a
+        # BOQ had no markup rows, and fold them into grand_total. A BOQ nobody
+        # had put a markup on therefore reported direct cost times 1.25 as its
+        # grand total, on the same screen where the editor showed the real
+        # direct cost under the same "Grand Total" label. Two figures 25% apart,
+        # both named the same thing, and the larger one was money no one had
+        # entered. Never default a markup: an absent markup is zero, not a
+        # typical value, and a costing screen has no business guessing margin.
         markups_orm = await self.markup_repo.list_for_boq(boq_id)
         markup_lines: list[CostBreakdownMarkup] = []
         markup_total = Decimal("0")
@@ -6539,22 +6549,6 @@ class BOQService:
                         )
                     )
                     markup_total += amount
-        else:
-            overhead_amount = Decimal(str(direct_cost_val)) * Decimal("0.15")
-            profit_amount = Decimal(str(direct_cost_val)) * Decimal("0.10")
-            markup_lines = [
-                CostBreakdownMarkup(
-                    name="Overhead",
-                    percentage=15.0,
-                    amount=round(float(overhead_amount), 2),
-                ),
-                CostBreakdownMarkup(
-                    name="Profit",
-                    percentage=10.0,
-                    amount=round(float(profit_amount), 2),
-                ),
-            ]
-            markup_total = overhead_amount + profit_amount
 
         grand_total = float(Decimal(str(direct_cost_val)) + markup_total)
 
