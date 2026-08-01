@@ -44,15 +44,79 @@ if _sys.platform == "win32":
 #     a temp data dir for the session. ``embedded_pg.boot`` points
 #     ``DATABASE_URL`` / ``DATABASE_SYNC_URL`` at the embedded cluster and is
 #     registered for shutdown via ``atexit`` so the postmaster is stopped when
-#     the run ends (the temp dir is reclaimed by the OS regardless).
+#     the run ends, and the data dir is removed with it.
 # This must happen before any ``from app...`` import that pulls in
 # ``app.database`` (which builds the engine from ``settings.database_url`` at
 # import time).
+#
+# This used to say the temp dir was reclaimed by the OS regardless, and that
+# belief is why nobody looked: shutdown stops the postmaster and never removed
+# the directory, and nothing else does either, so every single run left its
+# cluster on disk. One workstation had accumulated 712 of them, 59.5 GB, before
+# anyone noticed the disk rather than the cause.
+
+#: How recently a data dir may have been touched and still be considered a
+#: candidate for reaping. Only a belt to the braces below: a session that has
+#: just called ``mkdtemp`` but whose postmaster has not yet written its pid file
+#: is indistinguishable from a dead one for a second or two.
+_PG_REAP_MIN_AGE_SECONDS = 3600
+
+
+def _reap_stale_pg_data_dirs() -> None:
+    """Remove data dirs left by earlier runs that ended without cleaning up.
+
+    Safe to run while other suites are in progress. A cluster writes
+    ``postmaster.pid`` when it starts and removes it on a clean stop, so a dir
+    without one is a cluster that is definitively not running. Any dir that
+    still has a pid file is left alone: it belongs either to a live session or
+    to a killed one whose postmaster is still up, and this is not the place to
+    decide which. Those are warned about rather than removed, because a growing
+    count of them is the leak this function cannot fix.
+
+    The warning is a ``warnings.warn`` and not a print on purpose. pytest
+    captures stdout and stderr from conftest import and shows them only when
+    something fails, so a print here is swallowed on exactly the green runs
+    that are quietly filling the disk. Warnings get their own summary whatever
+    the outcome.
+    """
+    import shutil
+    import time
+    import warnings
+
+    root = Path(tempfile.gettempdir())
+    now = time.time()
+    removed = 0
+    still_running = 0
+    for entry in root.glob("oe-tests-pg-*"):
+        if not entry.is_dir():
+            continue
+        try:
+            if (entry / "postmaster.pid").exists():
+                still_running += 1
+                continue
+            if now - entry.stat().st_mtime < _PG_REAP_MIN_AGE_SECONDS:
+                continue
+        except OSError:
+            continue
+        shutil.rmtree(entry, ignore_errors=True)
+        if not entry.exists():
+            removed += 1
+    if still_running:
+        warnings.warn(
+            f"embedded PostgreSQL: reaped {removed} abandoned data dir(s), but "
+            f"{still_running} still hold a postmaster.pid and were left alone. "
+            "Each of those is a cluster this machine never shut down; they hold "
+            "their own disk until the process dies.",
+            stacklevel=2,
+        )
+
+
 if not os.environ.get("DATABASE_URL", "").strip():
     import atexit
 
     from app.core import embedded_pg
 
+    _reap_stale_pg_data_dirs()
     _PG_DATA_DIR = Path(tempfile.mkdtemp(prefix="oe-tests-pg-"))
     if not embedded_pg.boot(_PG_DATA_DIR):
         raise RuntimeError(
@@ -63,7 +127,22 @@ if not os.environ.get("DATABASE_URL", "").strip():
     # must leave it alone: without this pin the first test that exercises the app
     # lifespan stops the postmaster and every test after it errors on connect.
     embedded_pg.retain()
-    atexit.register(lambda: embedded_pg.shutdown(force=True))
+
+    def _stop_and_remove_cluster() -> None:
+        """Stop the postmaster, then take its data dir with it.
+
+        Stopping is not enough on its own. The dir is ours, we made it with
+        ``mkdtemp``, and nothing else will ever come for it. This does not run
+        when the process is killed outright, which is what the reaper above is
+        for: between them, a clean run leaves nothing and a killed run is
+        cleared by whichever run comes next.
+        """
+        import shutil
+
+        embedded_pg.shutdown(force=True)
+        shutil.rmtree(_PG_DATA_DIR, ignore_errors=True)
+
+    atexit.register(_stop_and_remove_cluster)
 
 # ── Rate-limiter relaxation for tests ──────────────────────────────────────
 # The integration suites repeatedly hit ``/auth/register`` and ``/auth/login``
