@@ -170,6 +170,39 @@ async def test_a_fresh_row_without_a_heartbeat_is_not_condemned(session_factory,
 
 
 @pytest.mark.asyncio
+async def test_a_null_heartbeat_is_never_read_as_death(session_factory, drawing) -> None:
+    """NULL means no conversion has run, which is not the same as a dead one.
+
+    Named for the semantics rather than the scenario, because this is the test
+    that has to survive somebody later "simplifying" the two-branch check into
+    one. The tempting simplification reads the silence since the heartbeat and
+    treats a missing one as infinite silence, which is a single line and looks
+    tidier. It would declare every row that predates the column orphaned on the
+    first read after an upgrade, which on a real installation means the whole
+    drawing register at once.
+
+    The drawing here has never been converted at all: uploaded, no heartbeat,
+    no entities, and recent. The assertion is that it is not reported dead
+    rather than naming the state it is in, because the alternative between
+    ``processing`` and ``needs_conversion`` turns on whether a converter binary
+    happens to exist on the machine running the test, and that is not what is
+    being pinned here.
+    """
+    async with session_factory() as session:
+        await session.execute(
+            text(f"UPDATE {_TABLE} SET status = 'uploaded' WHERE id = :id"),
+            {"id": str(drawing)},
+        )
+        await session.commit()
+    await _set_clock(session_factory, drawing, touched_ago=timedelta(seconds=3), heartbeat_ago=None)
+
+    status, message = await _view_status(session_factory, drawing)
+
+    assert status != "error", "a drawing with no heartbeat was reported dead"
+    assert message is None
+
+
+@pytest.mark.asyncio
 async def test_reading_an_orphaned_drawing_does_not_write_to_it(session_factory, drawing) -> None:
     """A GET reports the verdict and leaves the record alone.
 
