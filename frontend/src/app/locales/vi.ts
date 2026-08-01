@@ -3919,7 +3919,6 @@ const resource = {
     "bim.mesh_import.import_btn": "Nhập mô hình",
     "bim.mesh_import.upload_success_title": "Đã nhập mô hình",
     "bim.mesh_import.upload_failed_title": "Nhập thất bại",
-    "bim.mesh_import.more_formats": "+ thêm",
     "bim.mesh_import.unit_mm": "Milimét (mm)",
     "bim.mesh_import.unit_cm": "Xentimét (cm)",
     "bim.mesh_import.unit_m": "Mét (m)",

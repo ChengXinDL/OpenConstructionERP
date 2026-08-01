@@ -3919,7 +3919,6 @@ const resource = {
     "bim.mesh_import.import_btn": "Tuo malli",
     "bim.mesh_import.upload_success_title": "Malli tuotu",
     "bim.mesh_import.upload_failed_title": "Tuonti epäonnistui",
-    "bim.mesh_import.more_formats": "+ lisää",
     "bim.mesh_import.unit_mm": "Millimetrit (mm)",
     "bim.mesh_import.unit_cm": "Senttimetrit (cm)",
     "bim.mesh_import.unit_m": "Metrit (m)",

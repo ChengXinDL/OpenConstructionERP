@@ -3919,7 +3919,6 @@ const resource = {
     "bim.mesh_import.import_btn": "Modeli içe aktar",
     "bim.mesh_import.upload_success_title": "Model içe aktarıldı",
     "bim.mesh_import.upload_failed_title": "İçe aktarma başarısız",
-    "bim.mesh_import.more_formats": "+ daha fazla",
     "bim.mesh_import.unit_mm": "Milimetre (mm)",
     "bim.mesh_import.unit_cm": "Santimetre (cm)",
     "bim.mesh_import.unit_m": "Metre (m)",

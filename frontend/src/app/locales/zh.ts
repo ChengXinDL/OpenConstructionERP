@@ -3919,7 +3919,6 @@ const resource = {
     "bim.mesh_import.import_btn": "导入模型",
     "bim.mesh_import.upload_success_title": "模型已导入",
     "bim.mesh_import.upload_failed_title": "导入失败",
-    "bim.mesh_import.more_formats": "+ 更多",
     "bim.mesh_import.unit_mm": "毫米 (mm)",
     "bim.mesh_import.unit_cm": "厘米 (cm)",
     "bim.mesh_import.unit_m": "米 (m)",

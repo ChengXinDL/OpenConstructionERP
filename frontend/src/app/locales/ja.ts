@@ -3919,7 +3919,6 @@ const resource = {
     "bim.mesh_import.import_btn": "モデルをインポート",
     "bim.mesh_import.upload_success_title": "モデルをインポートしました",
     "bim.mesh_import.upload_failed_title": "インポートに失敗しました",
-    "bim.mesh_import.more_formats": "+ その他",
     "bim.mesh_import.unit_mm": "ミリメートル (mm)",
     "bim.mesh_import.unit_cm": "センチメートル (cm)",
     "bim.mesh_import.unit_m": "メートル (m)",

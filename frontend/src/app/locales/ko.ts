@@ -3919,7 +3919,6 @@ const resource = {
     "bim.mesh_import.import_btn": "모델 가져오기",
     "bim.mesh_import.upload_success_title": "모델을 가져왔습니다",
     "bim.mesh_import.upload_failed_title": "가져오기 실패",
-    "bim.mesh_import.more_formats": "+ 더보기",
     "bim.mesh_import.unit_mm": "밀리미터 (mm)",
     "bim.mesh_import.unit_cm": "센티미터 (cm)",
     "bim.mesh_import.unit_m": "미터 (m)",

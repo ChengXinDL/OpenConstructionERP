@@ -3919,7 +3919,6 @@ const resource = {
     "bim.mesh_import.import_btn": "Загвар импортлох",
     "bim.mesh_import.upload_success_title": "Загвар импортлолоо",
     "bim.mesh_import.upload_failed_title": "Импорт амжилтгүй боллоо",
-    "bim.mesh_import.more_formats": "+ бусад",
     "bim.mesh_import.unit_mm": "Миллиметр (mm)",
     "bim.mesh_import.unit_cm": "Сантиметр (cm)",
     "bim.mesh_import.unit_m": "Метр (m)",

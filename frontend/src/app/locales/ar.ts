@@ -3919,7 +3919,6 @@ const resource = {
     "bim.mesh_import.import_btn": "استيراد النموذج",
     "bim.mesh_import.upload_success_title": "تم استيراد النموذج",
     "bim.mesh_import.upload_failed_title": "فشل الاستيراد",
-    "bim.mesh_import.more_formats": "+ المزيد",
     "bim.mesh_import.unit_mm": "مليمتر (mm)",
     "bim.mesh_import.unit_cm": "سنتيمتر (cm)",
     "bim.mesh_import.unit_m": "متر (m)",

@@ -3919,7 +3919,6 @@ const resource = {
     "bim.mesh_import.import_btn": "Importovat model",
     "bim.mesh_import.upload_success_title": "Model importován",
     "bim.mesh_import.upload_failed_title": "Import se nezdařil",
-    "bim.mesh_import.more_formats": "+ více",
     "bim.mesh_import.unit_mm": "Milimetry (mm)",
     "bim.mesh_import.unit_cm": "Centimetry (cm)",
     "bim.mesh_import.unit_m": "Metry (m)",

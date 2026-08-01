@@ -3919,7 +3919,6 @@ const resource = {
     "bim.mesh_import.import_btn": "Uvezi model",
     "bim.mesh_import.upload_success_title": "Model je uvezen",
     "bim.mesh_import.upload_failed_title": "Uvoz nije uspio",
-    "bim.mesh_import.more_formats": "+ još",
     "bim.mesh_import.unit_mm": "Milimetri (mm)",
     "bim.mesh_import.unit_cm": "Centimetri (cm)",
     "bim.mesh_import.unit_m": "Metri (m)",
