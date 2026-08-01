@@ -1,0 +1,9 @@
+region,country_iso,city,currency,price_status,notes
+BR,BR,Paraiba,BRL,priced,SINAPI PB price layer present in parquet.
+ES_ANDALUCIA,ES,Andalucia,EUR,priced,BCCA Andalucia.
+GR,GR,Athens,EUR,priced,Greece national tariff proxy economy.
+ID,ID,Jakarta,IDR,coefficient_only,AHSP coefficients; prices pending regional HSD layer.
+IT_TOSCANA,IT,Florence,EUR,priced,Toscana regional price list.
+TR,TR,Ankara,TRY,priced,Turkey national price books; Ankara used as national proxy economy.
+VN,VN,Hanoi,VND,coefficient_only,Vietnam norms coefficients; prices pending provincial don gia layer.
+ZH_CHINA,CN,Beijing,CNY,priced,China Beijing/Bole combined; Beijing used as national source proxy economy.

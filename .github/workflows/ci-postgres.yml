@@ -48,3 +48,14 @@ jobs:
         # thread method because signal based timeouts are Unix-only and this
         # suite is expected to stay runnable on Windows developer machines.
         run: pytest tests/pg -q -p no:cacheprovider --timeout=300 --timeout-method=thread
+      # The cost base pipeline produces the parquet editions people download from us, so it
+      # needs a blocking gate. It needs no database; it is attached here because this is the
+      # only merge-blocking lane that runs pytest, and an ungated test is the situation this
+      # suite exists to end. Its own working-directory keeps the flat sibling imports and the
+      # conftest sys.path entry working exactly as they do locally. Deps are already present:
+      # pandas and pyarrow are base dependencies of the backend package installed above.
+      # A dedicated fast lane would be the better home; that is a new shared workflow and a
+      # separate decision.
+      - name: Run cost base pipeline suite
+        working-directory: tools/costbase_pipeline
+        run: pytest tests -q -p no:cacheprovider

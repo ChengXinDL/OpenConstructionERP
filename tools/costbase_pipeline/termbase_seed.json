@@ -1,0 +1,22 @@
+[
+  {
+    "term_id": "authority.gr.ggde",
+    "source_lang": "el",
+    "source_term": "ΓΓΔΕ",
+    "target_lang": "de",
+    "approved_target_term": "GGDE",
+    "required": true,
+    "audit_status": "approved",
+    "notes": "Greek General Secretariat for Public Works acronym, Latinized for German display."
+  },
+  {
+    "term_id": "authority.gr.ggde.en",
+    "source_lang": "el",
+    "source_term": "ΓΓΔΕ",
+    "target_lang": "en",
+    "approved_target_term": "GGDE",
+    "required": true,
+    "audit_status": "approved",
+    "notes": "Greek General Secretariat for Public Works acronym, Latinized for English display."
+  }
+]
