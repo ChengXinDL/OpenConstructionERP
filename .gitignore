@@ -105,6 +105,9 @@ data/geo_hub/
 data/tilesets/
 data/reports/
 data/takeoff_documents/
+data/dwg_uploads/
+data/dwg_entities/
+data/dwg_thumbnails/
 frontend/debug-bim/
 
 # MCP artifacts
