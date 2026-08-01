@@ -10,8 +10,10 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Iterable
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.projects.models import Project
 from app.modules.variations.models import (
     DayworkSheet,
     DayworkSheetLine,
@@ -64,6 +66,21 @@ _DISRUPTION_STATUSES = ("draft", "submitted", "under_review", "agreed", "rejecte
 _EOT_CAUSES = ("employer_caused", "neutral", "contractor_caused", "concurrent")
 
 
+async def _project_currencies(
+    session: AsyncSession,
+    project_ids: list[uuid.UUID],
+) -> dict[uuid.UUID, str]:
+    """Currency per project, so seeded money is in the unit the project uses.
+
+    This seeder used to write EUR on every row. A variation order priced in
+    EUR against a project that budgets in AED is not a display problem, it is
+    two numbers that must not be added, and the demo estate offered them in one
+    list. Projects that never set a currency keep the old default.
+    """
+    rows = await session.execute(select(Project.id, Project.currency).where(Project.id.in_(project_ids)))
+    return {pid: (currency or "EUR") for pid, currency in rows.all()}
+
+
 async def seed_variations_demo(
     session: AsyncSession,
     project_ids: Iterable[uuid.UUID],
@@ -89,6 +106,7 @@ async def seed_variations_demo(
         return {"projects": 0}
 
     rng = random.Random(_SEED)
+    currencies = await _project_currencies(session, projects)
 
     # ── Notices ───────────────────────────────────────────────────────────
     notices: list[Notice] = []
@@ -128,7 +146,7 @@ async def seed_variations_demo(
             urgency=rng.choice(["low", "med", "high"]),
             estimated_cost_impact=Decimal(str(rng.randint(500, 50000))),
             estimated_schedule_days=rng.randint(0, 30),
-            currency="EUR",
+            currency=currencies.get(pid, "EUR"),
             status=rng.choice(_VR_STATUSES),
         )
         session.add(vr)
@@ -149,7 +167,7 @@ async def seed_variations_demo(
             title=f"Variation order {i + 1}",
             final_cost_impact=Decimal(str(rng.randint(1000, 80000))),
             final_schedule_days=rng.randint(0, 21),
-            currency="EUR",
+            currency=currencies.get(pid, "EUR"),
             agreed_at=_date_offset(rng),
             status=rng.choice(_VO_STATUSES),
         )
@@ -171,7 +189,8 @@ async def seed_variations_demo(
                 unit=rng.choice(["m2", "m3", "h", "pcs"]),
                 unit_rate=rate,
                 total=qty * rate,
-                currency="EUR",
+                # Follows the order it belongs to, not the loop it sits in.
+                currency=currencies.get(vo.project_id, "EUR"),
                 source=rng.choice(["manual", "from_bom", "from_estimate"]),
             )
             session.add(line)
@@ -220,7 +239,7 @@ async def seed_variations_demo(
             work_date=_short_date_offset(rng),
             description=f"Seed daywork sheet #{i + 1}",
             total_amount=Decimal("0"),
-            currency="EUR",
+            currency=currencies.get(pid, "EUR"),
             status=rng.choice(_DW_STATUSES),
             owner_signature_ref=f"dw-sig-{i + 1:04d}" if rng.random() < 0.5 else "",
         )
@@ -264,7 +283,7 @@ async def seed_variations_demo(
             root_cause="Owner-caused delay (seed)",
             cost_amount=amount,
             schedule_days=rng.randint(0, 30),
-            currency="EUR",
+            currency=currencies.get(pid, "EUR"),
             evidence_refs=[f"diary-{i + 1}", f"rfi-{i + 1}"],
             status=st,
             decided_amount=amount if st == "agreed" else None,
@@ -307,7 +326,7 @@ async def seed_variations_demo(
             retention_held=Decimal("75000"),
             retention_released=Decimal("75000"),
             final_value=Decimal("1678000"),
-            currency="EUR",
+            currency=currencies.get(pid, "EUR"),
             status="closed",
             agreed_at=_date_offset(rng),
             closed_at=_date_offset(rng),

@@ -4790,7 +4790,12 @@ def _generate_module_data(
                 "final_cost_impact": f"{amount}",
                 "final_schedule_days": 2 + (i % 4),
                 "currency": cur,
-                "status": ("issued", "agreed", "implemented")[i % 3],
+                # Must come from the variations module's own vocabulary
+                # (_VO_STATUS in modules/variations/schemas.py). "agreed" and
+                # "implemented" read naturally but are not in it, so two of
+                # every three demo orders carried a status the module rejects
+                # on write and cannot offer back in a status dropdown.
+                "status": ("issued", "in_progress", "completed")[i % 3],
                 "agreed_at": _d(40 + i * 12),
             }
         )
