@@ -47,9 +47,24 @@ def upgrade() -> None:
         return
     if _has_column(inspector, _TABLE, _COLUMN):
         return
+    # server_default is "" and not "EUR". The model declares "" and says why in
+    # a comment on the column: no DB default, because service code must supply
+    # the currency from the project context or per-project rollups silently
+    # bias toward one currency. This revision used to say "EUR", which is
+    # exactly the bias that comment warns about, and add_column applies the
+    # server_default to every row already in the table - so an install that
+    # walked this revision had every existing budget line stamped EUR whether
+    # or not that was its currency.
+    #
+    # Changing it here only affects installs that have not run this revision
+    # yet, which is precisely the population still at risk; an install that
+    # already ran it keeps its EUR rows, and those cannot be repaired, because
+    # a row reading EUR because a migration stamped it is indistinguishable
+    # from one a user set to EUR. The two populations therefore stay different,
+    # and the direction of travel is toward what create_all builds.
     op.add_column(
         _TABLE,
-        sa.Column(_COLUMN, sa.String(length=3), nullable=False, server_default="EUR"),
+        sa.Column(_COLUMN, sa.String(length=3), nullable=False, server_default=""),
     )
 
 
