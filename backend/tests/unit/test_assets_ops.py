@@ -122,6 +122,41 @@ class TestDiscovery:
         cs = disc.score_candidate(element_type="Basic Wall", properties={"category": "Walls", "manufacturer": "X"})
         assert not cs.is_candidate
 
+    def test_both_spellings_of_specialty_equipment_score_the_same(self):
+        # specialty is American, speciality British, both correct, and authoring
+        # templates ship both. The variant scored zero with nothing logged, so a
+        # whole category of equipment was simply absent from the register.
+        american = disc.score_candidate(
+            element_type="Specialty Equipment", properties={"category": "Specialty Equipment"}
+        )
+        british = disc.score_candidate(
+            element_type="Speciality Equipment", properties={"category": "Speciality Equipment"}
+        )
+        assert british.is_candidate
+        assert british.score == american.score
+        assert british.reasons == american.reasons
+
+    def test_a_geometry_word_in_the_family_name_never_zeroes_a_real_category(self):
+        # A family name says where plant is MOUNTED, not what it is. Real models
+        # ship "Floor Mounted Pump", "Wall Hung Boiler" and "Rooftop AHU", and
+        # matching the geometry negatives against the family name rejected all
+        # of them before the positive category was ever read. Asserted over the
+        # whole negative vocabulary, because each word fails the same silent way.
+        for word in disc._GEOMETRY_CATEGORY_HINTS:
+            cs = disc.score_candidate(
+                element_type="Mechanical Equipment",
+                properties={"category": "Mechanical Equipment", "family": f"{word} mounted pump"},
+            )
+            assert cs.is_candidate, f"{word!r} in the family name zeroed mechanical equipment"
+            assert cs.score >= 35
+
+    def test_a_geometry_word_in_the_category_still_rejects(self):
+        # Narrowing where the negatives look must not cost them their job.
+        for category in ("Walls", "Floors", "Structural Framing", "Generic Models"):
+            cs = disc.score_candidate(element_type=category, properties={"category": category})
+            assert not cs.is_candidate, f"{category!r} was accepted as an asset"
+            assert cs.score == 0
+
     def test_extract_suggested_asset_info_maps_keys(self):
         out = disc.extract_suggested_asset_info({"Manufacturer": "Grundfos", "Type Name": "CR-5", "Mark": "P-12"})
         assert out == {"manufacturer": "Grundfos", "model": "CR-5", "asset_tag": "P-12"}

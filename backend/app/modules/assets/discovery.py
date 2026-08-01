@@ -24,10 +24,27 @@ from typing import Any
 
 __all__ = ["CandidateScore", "score_candidate", "extract_suggested_asset_info"]
 
+# Spellings of the SAME term that authoring tools emit interchangeably,
+# rewritten to the one form the tables below carry. The category strings come
+# out of a converted model and are not ours to control, so the matcher has to
+# normalise rather than the data.
+#
+# This exists because a spelling variant fails silently. "Speciality Equipment"
+# simply scored zero against a table holding "specialty equipment", nothing
+# logged, and the register looked like a model with fewer assets in it - a user
+# would conclude their building has no specialty equipment at all. Both are
+# correct English, specialty American and speciality British, and templates
+# ship both.
+#
+# Kept as an explicit list rather than matching space-insensitively, because
+# dropping spaces matches across word boundaries: "air terminal" would then
+# match a family called "Repair Terminal".
+_CATEGORY_ALIASES: tuple[tuple[str, str], ...] = (("speciality", "specialty"),)
+
 # Categories that are almost always managed assets in FM (serviceable
 # equipment with manufacturers, serials and warranties). Matched
 # case-insensitively as substrings against the element's category /
-# element_type / family.
+# element_type / family, after _CATEGORY_ALIASES has normalised the spelling.
 _ASSET_CATEGORY_HINTS: dict[str, int] = {
     "mechanical equipment": 50,
     "air terminal": 45,
@@ -134,18 +151,50 @@ class CandidateScore:
     is_candidate: bool  # score >= threshold
 
 
-def _haystack(
+def _normalise(text: str) -> str:
+    """Lower-case and fold the spelling variants in ``_CATEGORY_ALIASES``."""
+    hay = text.lower()
+    for variant, canonical in _CATEGORY_ALIASES:
+        if variant in hay:
+            hay = hay.replace(variant, canonical)
+    return hay
+
+
+def _haystacks(
     element_type: str | None,
     properties: dict[str, Any] | None,
-) -> str:
-    """Lower-cased blob of the element's classifying strings."""
-    parts: list[str] = [element_type or ""]
+) -> tuple[str, str]:
+    """``(classification, full)`` - what the element IS, and everything about it.
+
+    They are separate because the two hint tables ask different questions.
+
+    The positive hints ask what this thing is called, and a family or type name
+    is good evidence for that. The geometry negatives ask whether it is
+    structure rather than equipment, and a family name cannot answer that: it
+    usually says where the thing is MOUNTED. "Floor Mounted Pump", "Wall Hung
+    Boiler" and "Rooftop AHU" each carry a geometry word and each name
+    serviceable plant, so matching the negatives against the full blob rejected
+    exactly the equipment the register exists to find, and did it before the
+    positive category was ever read.
+
+    The category is the field that classifies, and it is what the ingest path
+    fills ``element_type`` from - see the category column read in
+    ``bim_hub/service.py`` and the ``props["category"]`` fallback in
+    ``bim_hub/router.py``.
+    """
     props = properties or {}
-    for key in ("category", "family", "family name", "family_name", "type name", "type_name"):
+    classification: list[str] = [element_type or ""]
+    category = props.get("category")
+    if isinstance(category, str):
+        classification.append(category)
+
+    naming: list[str] = list(classification)
+    for key in ("family", "family name", "family_name", "type name", "type_name"):
         val = props.get(key)
         if isinstance(val, str):
-            parts.append(val)
-    return " ".join(parts).lower()
+            naming.append(val)
+
+    return _normalise(" ".join(classification)), _normalise(" ".join(naming))
 
 
 def score_candidate(
@@ -165,14 +214,15 @@ def score_candidate(
     if already_tracked:
         return CandidateScore(score=0, reasons=["already_tracked"], is_candidate=False)
 
-    hay = _haystack(element_type, properties)
+    classification, hay = _haystacks(element_type, properties)
     props = properties or {}
     score = 0
     reasons: list[str] = []
 
-    # Strong negative for pure geometry categories.
+    # Strong negative for pure geometry categories. Read against the
+    # classification only, never the family or type name - see _haystacks.
     for neg in _GEOMETRY_CATEGORY_HINTS:
-        if neg in hay:
+        if neg in classification:
             return CandidateScore(
                 score=0,
                 reasons=[f"geometry:{neg}"],
