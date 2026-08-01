@@ -1654,7 +1654,9 @@ class CostBenchmarkService:
             "p75": _percentile(values, 75),
             "max": values[-1],
             "confidence": self._confidence(count),
-            "note": (f"Based on {count} of your {'project' if count == 1 else 'projects'} with cost and area."),
+            # "1 of your projects" - the partitive stays plural at every count,
+            # so there is no singular form to switch to here.
+            "note": f"Based on {count} of your projects with cost and area.",
             "note_code": "cost_and_area",
         }
 
@@ -1776,7 +1778,7 @@ class CostBenchmarkService:
             "p75": _percentile(values, 75),
             "max": values[-1],
             "confidence": self._confidence(count),
-            "note": (f"Based on {count} of your {'project' if count == 1 else 'projects'} {basis}."),
+            "note": f"Based on {count} of your projects {basis}.",
             "note_code": note_code,
         }
 
