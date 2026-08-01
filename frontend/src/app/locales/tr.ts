@@ -20837,8 +20837,6 @@ const resource = {
     "benchmarks.reading_split_v2": "Bunun, inşaat işleri (KG300) yaklaşık {{kg300}}/{{unit}} ve teknik sistemler (KG400) yaklaşık {{kg400}}/{{unit}}'tir - paranın nerede yoğunlaştığını görmek için aşağıdaki eleman dağılımına bakın.",
     "benchmarks.reading_title": "Sonucunuzu nasıl okuyacağınız",
     "benchmarks.region": "Bölge",
-    "benchmarks.sample_count": "yaklaşık {{count}} proje",
-    "benchmarks.sample_size": "Planlama örneği",
     "benchmarks.secondary_basis_v2": "Ortanca temeli, birim başına yaklaşık {{area}} {{unit}} GFA.",
     "benchmarks.secondary_title": "Birim başına kıyaslama",
     "benchmarks.select_type": "{{type}} seçin",

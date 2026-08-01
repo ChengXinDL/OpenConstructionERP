@@ -20838,8 +20838,6 @@ const resource = {
     "benchmarks.reading_split_v2": "Siitä rakentamisen työt (KG300) ovat noin {{kg300}}/{{unit}} ja tekniset järjestelmät (KG400) noin {{kg400}}/{{unit}} - katso alla olevaa elementtien erittelyä nähdäksesi missä raha keskittyy.",
     "benchmarks.reading_title": "Kuinka lukea tuloksesi",
     "benchmarks.region": "Alue",
-    "benchmarks.sample_count": "noin {{count}} projektia",
-    "benchmarks.sample_size": "Suunnittelunäyte",
     "benchmarks.secondary_basis_v2": "Mediaanipohja, noin {{area}} {{unit}} GFA yksikköä kohden.",
     "benchmarks.secondary_title": "Yksikköhinta-vertailuarvo",
     "benchmarks.select_type": "Valitse {{type}}",

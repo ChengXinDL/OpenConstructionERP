@@ -21050,8 +21050,6 @@ const resource = {
     "benchmarks.reading_split_v2": "Davon sind Konstruktionsarbeiten (KG300) etwa {{kg300}}/{{unit}} und technische Systeme (KG400) etwa {{kg400}}/{{unit}} - siehe die Elementaufschlüsselung unten, um zu sehen, wo sich das Geld konzentriert.",
     "benchmarks.reading_title": "So lesen Sie Ihr Ergebnis",
     "benchmarks.region": "Region",
-    "benchmarks.sample_count": "etwa {{count}} Projekte",
-    "benchmarks.sample_size": "Planungsstichprobe",
     "benchmarks.secondary_basis_v2": "Median-Basis, etwa {{area}} {{unit}} BRI pro Einheit.",
     "benchmarks.secondary_title": "Pro-Einheit-Benchmark",
     "benchmarks.select_type": "Wählen Sie {{type}}",

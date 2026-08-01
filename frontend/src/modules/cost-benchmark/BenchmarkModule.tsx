@@ -954,17 +954,6 @@ export default function BenchmarkModule() {
           </div>
           <div>
             <p className="text-2xs uppercase tracking-wide text-content-quaternary">
-              {t('benchmarks.sample_size', { defaultValue: 'Planning sample' })}
-            </p>
-            <p className="mt-0.5 text-sm font-medium text-content-primary">
-              {t('benchmarks.sample_count', {
-                defaultValue: 'about {{count}} projects',
-                count: benchmarkRange.sampleSize,
-              })}
-            </p>
-          </div>
-          <div>
-            <p className="text-2xs uppercase tracking-wide text-content-quaternary">
               {t('benchmarks.data_confidence', { defaultValue: 'Data confidence' })}
             </p>
             <p className={`mt-0.5 text-sm font-semibold ${dataConfidence.className}`}>

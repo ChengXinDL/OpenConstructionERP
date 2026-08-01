@@ -30023,8 +30023,6 @@ const resource = {
     "benchmarks.all_types": "All Building Types",
     "benchmarks.select_type": "Select {{type}}",
     "benchmarks.year": "Year",
-    "benchmarks.sample_size": "Planning sample",
-    "benchmarks.sample_count": "about {{count}} projects",
     "benchmarks.comparison_confidence": "Comparison confidence",
     "benchmarks.disclaimer_v2": "Values represent DIN 276 KG 300+400 (construction plus technical systems) costs per m2 GFA, compiled from recognised public cost sources per region (listed under How these benchmarks work). Actual costs vary by location, specification and market conditions.",
     "gaeb.preview": "Preview",

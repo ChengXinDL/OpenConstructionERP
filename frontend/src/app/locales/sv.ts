@@ -20834,8 +20834,6 @@ const resource = {
     "benchmarks.reading_split_v2": "Av det är konstruktionsarbeten (KG300) cirka {{kg300}}/{{unit}} och tekniska system (KG400) cirka {{kg400}}/{{unit}} - se elementuppdelningen nedan för var pengarna koncentreras.",
     "benchmarks.reading_title": "Hur man läser ditt resultat",
     "benchmarks.region": "Region",
-    "benchmarks.sample_count": "cirka {{count}} projekt",
-    "benchmarks.sample_size": "Planeringsexempel",
     "benchmarks.secondary_basis_v2": "Medianbasis, cirka {{area}} {{unit}} GFA per enhet.",
     "benchmarks.secondary_title": "Riktmärke per enhet",
     "benchmarks.select_type": "Välj {{type}}",

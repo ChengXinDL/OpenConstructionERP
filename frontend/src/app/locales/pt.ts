@@ -20840,8 +20840,6 @@ const resource = {
     "benchmarks.reading_split_v2": "Disso, obras de construção (KG300) são cerca de {{kg300}}/{{unit}} e sistemas técnicos (KG400) cerca de {{kg400}}/{{unit}} - veja a divisão de elementos abaixo para ver onde o dinheiro se concentra.",
     "benchmarks.reading_title": "Como ler seu resultado",
     "benchmarks.region": "Região",
-    "benchmarks.sample_count": "cerca de {{count}} projetos",
-    "benchmarks.sample_size": "Amostra de planejamento",
     "benchmarks.secondary_basis_v2": "Base mediana, cerca de {{area}} {{unit}} GFA por unidade.",
     "benchmarks.secondary_title": "Benchmark por unidade",
     "benchmarks.select_type": "Selecione {{type}}",

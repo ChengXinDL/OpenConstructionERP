@@ -20933,8 +20933,6 @@ const resource = {
     "benchmarks.reading_split_v2": "من ذلك، أعمال البناء (KG300) حوالي {{kg300}}/{{unit}} والأنظمة التقنية (KG400) حوالي {{kg400}}/{{unit}} - انظر تفصيل العناصر أدناه حيث يركز المال.",
     "benchmarks.reading_title": "كيفية قراءة النتيجة",
     "benchmarks.region": "المنطقة",
-    "benchmarks.sample_count": "حوالي {{count}} مشاريع",
-    "benchmarks.sample_size": "عينة التخطيط",
     "benchmarks.secondary_basis_v2": "أساس الوسيط، حوالي {{area}} {{unit}} GFA لكل وحدة.",
     "benchmarks.secondary_title": "معيار لكل وحدة",
     "benchmarks.select_type": "تحديد {{type}}",

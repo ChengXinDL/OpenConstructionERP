@@ -20840,8 +20840,6 @@ const resource = {
     "benchmarks.reading_split_v2": "其中，建筑工程(KG300)约为{{kg300}}/{{unit}}，技术系统(KG400)约为{{kg400}}/{{unit}} - 请参阅下面的元素分解以了解资金集中在哪里。",
     "benchmarks.reading_title": "如何阅读您的结果",
     "benchmarks.region": "区域",
-    "benchmarks.sample_count": "约 {{count}} 个项目",
-    "benchmarks.sample_size": "规划样本",
     "benchmarks.secondary_basis_v2": "中位数基础，约每单位{{area}}{{unit}} GFA。",
     "benchmarks.secondary_title": "单位基准",
     "benchmarks.select_type": "选择 {{type}}",

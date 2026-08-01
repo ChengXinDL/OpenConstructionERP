@@ -20834,8 +20834,6 @@ const resource = {
     "benchmarks.reading_split_v2": "Av det er bygningskonstruksjonsarbeider (KG300) omtrent {{kg300}}/{{unit}} og tekniske systemer (KG400) omtrent {{kg400}}/{{unit}} - se elementnedbrytninen nedenfor for hvor pengene konsentreres.",
     "benchmarks.reading_title": "Slik leser du resultatet ditt",
     "benchmarks.region": "Region",
-    "benchmarks.sample_count": "omtrent {{count}} prosjekter",
-    "benchmarks.sample_size": "Planleggingsprøve",
     "benchmarks.secondary_basis_v2": "Mediangrunnlag, omtrent {{area}} {{unit}} GFA per enhet.",
     "benchmarks.secondary_title": "Per-enhet benchmark",
     "benchmarks.select_type": "Velg {{type}}",

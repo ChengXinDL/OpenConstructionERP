@@ -20834,8 +20834,6 @@ const resource = {
     "benchmarks.reading_split_v2": "Af det er byggeværker (KG300) omkring {{kg300}}/{{unit}} og tekniske systemer (KG400) omkring {{kg400}}/{{unit}} - se elementopdelingen nedenfor for hvor pengene koncentreres.",
     "benchmarks.reading_title": "Hvordan du læser dit resultat",
     "benchmarks.region": "Region",
-    "benchmarks.sample_count": "omkring {{count}} projekter",
-    "benchmarks.sample_size": "Planlægningsprøve",
     "benchmarks.secondary_basis_v2": "Medianbasis, omkring {{area}} {{unit}} GFA pr. enhed.",
     "benchmarks.secondary_title": "Benchmark pr. enhed",
     "benchmarks.select_type": "Vælg {{type}}",

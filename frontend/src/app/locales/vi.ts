@@ -20846,8 +20846,6 @@ const resource = {
     "benchmarks.reading_split_v2": "Trong đó, công trình xây dựng (KG300) khoảng {{kg300}}/{{unit}} và hệ thống kỹ thuật (KG400) khoảng {{kg400}}/{{unit}} - xem phân tích phần tử dưới đây để biết nơi tập trung tiền.",
     "benchmarks.reading_title": "Cách đọc kết quả của bạn",
     "benchmarks.region": "Khu vực",
-    "benchmarks.sample_count": "khoảng {{count}} dự án",
-    "benchmarks.sample_size": "Mẫu quy hoạch",
     "benchmarks.secondary_basis_v2": "Cơ sở trung bình, khoảng {{area}} {{unit}} GFA trên mỗi đơn vị.",
     "benchmarks.secondary_title": "Tiêu chuẩn trên mỗi đơn vị",
     "benchmarks.select_type": "Chọn {{type}}",

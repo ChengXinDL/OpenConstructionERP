@@ -18,9 +18,15 @@
  *
  * All values are cost per m2 GFA (gross floor area) for DIN 276 KG300+400
  * (construction works plus technical building systems). The KG300 vs KG400
- * split, the per-unit secondary metrics and the sample sizes are typical
- * planning values, not survey output. Actual costs vary by location,
- * specification and market conditions.
+ * split and the per-unit secondary metrics are typical planning values, not
+ * survey output. Actual costs vary by location, specification and market
+ * conditions.
+ *
+ * We do not survey projects and this file must never state a count of them.
+ * It used to carry a per-cell sample size built by multiplying two constant
+ * tables, rendered to the user as "about N projects" and fed into the
+ * confidence score. Nothing was counted. Do not reintroduce a sample size
+ * here unless a real one arrives with the data.
  */
 
 export type BuildingType =
@@ -82,9 +88,7 @@ export interface BenchmarkRange {
   /** per-unit secondary metric for this cell, when meaningful. */
   secondary?: SecondaryMetric;
 
-  /** number of reference projects behind the cell. */
-  sampleSize: number;
-  /** confidence label derived from sampleSize + range spread + recency. */
+  /** confidence label derived from range spread + source recency. */
   confidence: 'high' | 'medium' | 'low';
 
   /** provenance, e.g. 'German building-cost benchmark (2024)' */
@@ -486,52 +490,23 @@ export const REGION_DRIVERS: Record<BenchmarkRegion, string> = {
   CA: 'Cold-climate envelope and mechanical loads, plus remoteness in the north; metro Toronto and Vancouver sit at the top.',
 };
 
-/**
- * Typical planning sample size per region x type. National published datasets
- * are large for common types, thinner for specialty buildings and smaller
- * markets. These are honest orders of magnitude, not exact survey counts.
- */
-const SAMPLE_BASE: Record<BuildingType, number> = {
-  office: 180,
-  hospital: 55,
-  school: 140,
-  residential_single: 200,
-  residential_multi: 170,
-  industrial: 90,
-  retail: 110,
-  hotel: 60,
-  warehouse: 120,
-  data_center: 35,
-  laboratory: 45,
-  car_park: 95,
-  sports_facility: 70,
-  senior_care: 85,
-};
-
-/** Market-size factor on the sample base (bigger datasets in larger markets). */
-const SAMPLE_REGION_FACTOR: Record<BenchmarkRegion, number> = {
-  DE: 1.0,
-  US: 1.0,
-  UK: 0.85,
-  AT: 0.55,
-  CH: 0.45,
-  FR: 0.8,
-  NL: 0.6,
-  ES: 0.65,
-  IT: 0.7,
-  AU: 0.6,
-  CA: 0.6,
-};
-
 /* ── Derived helpers ────────────────────────────────────────────────── */
 
 /**
- * Confidence label from sample size, range spread and source recency.
- * A large recent sample with a tight spread is high confidence. A thin or
- * dated sample, or a very wide spread, is low confidence.
+ * Confidence label from range spread and source recency.
+ *
+ * Both inputs are properties of the published data we actually hold: the
+ * spread comes from the cell's own quartiles and the recency from the year
+ * the source was published. This deliberately does not consider a sample
+ * size. We do not survey projects, so any count we put here would be a
+ * number we invented, and a confidence score resting on an invented count
+ * reads as evidence while being none.
+ *
+ * A recent source with a tight band is high confidence. A dated source, or a
+ * very wide band, is low. With no spread available the best result is medium,
+ * which is the honest ceiling for a cell we can only date.
  */
 export function deriveConfidence(
-  sampleSize: number,
   sourceYear: number,
   spread?: number,
 ): 'high' | 'medium' | 'low' {
@@ -539,9 +514,6 @@ export function deriveConfidence(
   const age = Math.max(0, currentYear - sourceYear);
 
   let score = 0;
-  if (sampleSize >= 120) score += 2;
-  else if (sampleSize >= 60) score += 1;
-
   if (age <= 2) score += 1;
   else if (age >= 5) score -= 1;
 
@@ -551,8 +523,8 @@ export function deriveConfidence(
     else if (spread >= 2.0) score -= 1;
   }
 
-  if (score >= 3) return 'high';
-  if (score >= 1) return 'medium';
+  if (score >= 2) return 'high';
+  if (score >= 0) return 'medium';
   return 'low';
 }
 
@@ -745,7 +717,7 @@ export function comparisonConfidence(range: BenchmarkRange): { label: string; ke
     case 'high':
       return {
         key: 'benchmarks.cmp_conf_high',
-        label: 'High, the reference cell rests on a broad recent sample',
+        label: 'High, the reference band is tight and the source is recent',
       };
     case 'medium':
       return {
@@ -755,7 +727,7 @@ export function comparisonConfidence(range: BenchmarkRange): { label: string; ke
     default:
       return {
         key: 'benchmarks.cmp_conf_low',
-        label: 'Low, the reference sample is thin or the spread is wide',
+        label: 'Low, the source is dated or the reference band is wide',
       };
   }
 }
@@ -769,9 +741,8 @@ function buildRange(region: BenchmarkRegion, type: BuildingType): BenchmarkRange
   const kg400Pct = KG400_SHARE[type];
   const kg300Pct = Math.round((1 - kg400Pct) * 100) / 100;
 
-  const sampleSize = Math.round(SAMPLE_BASE[type] * SAMPLE_REGION_FACTOR[region]);
   const spread = median > 0 ? (max - min) / median : 0;
-  const confidence = deriveConfidence(sampleSize, prov.sourceYear, spread);
+  const confidence = deriveConfidence(prov.sourceYear, spread);
 
   const range: BenchmarkRange = {
     min,
@@ -780,7 +751,6 @@ function buildRange(region: BenchmarkRegion, type: BuildingType): BenchmarkRange
     q3,
     max,
     split: { kg300Pct, kg400Pct },
-    sampleSize,
     confidence,
     source: prov.source,
     sourceYear: prov.sourceYear,

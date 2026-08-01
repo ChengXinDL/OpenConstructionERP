@@ -20845,8 +20845,6 @@ const resource = {
     "benchmarks.reading_split_v2": "Din aceasta, lucrările de construcție (KG300) sunt aproximativ {{kg300}}/{{unit}} și sisteme tehnice (KG400) aproximativ {{kg400}}/{{unit}} - vezi descompunerea elementelor de mai jos pentru locul unde se concentrează banii.",
     "benchmarks.reading_title": "Cum să citiți rezultatul",
     "benchmarks.region": "Regiune",
-    "benchmarks.sample_count": "aproximativ {{count}} proiecte",
-    "benchmarks.sample_size": "Eșantion de planificare",
     "benchmarks.secondary_basis_v2": "Bază mediană, aproximativ {{area}} {{unit}} GFA per unitate.",
     "benchmarks.secondary_title": "Reper pe unitate",
     "benchmarks.select_type": "Selectați {{type}}",

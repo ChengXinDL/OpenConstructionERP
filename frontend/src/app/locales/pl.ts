@@ -20856,8 +20856,6 @@ const resource = {
     "benchmarks.reading_split_v2": "Z tego, prace budowlane (KG300) to około {{kg300}}/{{unit}} i systemy techniczne (KG400) około {{kg400}}/{{unit}} - patrz podział elementów poniżej, gdzie skupiają się pieniądze.",
     "benchmarks.reading_title": "Jak odczytać swój wynik",
     "benchmarks.region": "Region",
-    "benchmarks.sample_count": "około {{count}} projektów",
-    "benchmarks.sample_size": "Próba planowania",
     "benchmarks.secondary_basis_v2": "Podstawa mediany, około {{area}} {{unit}} PUP na jednostkę.",
     "benchmarks.secondary_title": "Wskaźnik na jednostkę",
     "benchmarks.select_type": "Wybierz {{type}}",

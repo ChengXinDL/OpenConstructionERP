@@ -20837,8 +20837,6 @@ const resource = {
     "benchmarks.reading_split_v2": "Үүнээс байгууламжийн ажил (KG300) ойролцоогоор {{kg300}}/{{unit}} ба техникийн системүүд (KG400) ойролцоогоор {{kg400}}/{{unit}} - мөнгө хаана төвлөрч байгаа болохыг үзэхийн тулд доорх элементийн хуваарилалтыг үзнэ үү.",
     "benchmarks.reading_title": "Та яаж түүнийг унших байдаг",
     "benchmarks.region": "Бүс",
-    "benchmarks.sample_count": "ойролцоогоор {{count}} төсөл",
-    "benchmarks.sample_size": "Төлөвлөлтийн жишээ",
     "benchmarks.secondary_basis_v2": "Дундаа үндэс, ойролцоогоор {{area}} {{unit}} GFA нэгж дээр.",
     "benchmarks.secondary_title": "Нэгж дээр лавлаж",
     "benchmarks.select_type": "{{type}} сонгох",

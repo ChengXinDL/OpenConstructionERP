@@ -20836,8 +20836,6 @@ const resource = {
     "benchmarks.reading_split_v2": "Dari itu, pekerjaan konstruksi (KG300) sekitar {{kg300}}/{{unit}} dan sistem teknis (KG400) sekitar {{kg400}}/{{unit}} - lihat rincian elemen di bawah untuk melihat tempat uang terkonsentrasi.",
     "benchmarks.reading_title": "Cara membaca hasil Anda",
     "benchmarks.region": "Wilayah",
-    "benchmarks.sample_count": "sekitar {{count}} proyek",
-    "benchmarks.sample_size": "Sampel perencanaan",
     "benchmarks.secondary_basis_v2": "Basis median, sekitar {{area}} {{unit}} GFA per unit.",
     "benchmarks.secondary_title": "Tolok ukur per unit",
     "benchmarks.select_type": "Pilih {{type}}",

@@ -20846,8 +20846,6 @@ const resource = {
     "benchmarks.reading_split_v2": "Z toho stavební práce (KG300) jsou přibližně {{kg300}}/{{unit}} a technické systémy (KG400) přibližně {{kg400}}/{{unit}} - viz rozdělení prvků níže, kde se peníze soustředí.",
     "benchmarks.reading_title": "Jak číst svůj výsledek",
     "benchmarks.region": "Oblast",
-    "benchmarks.sample_count": "přibližně {{count}} projektů",
-    "benchmarks.sample_size": "Vzorek plánování",
     "benchmarks.secondary_basis_v2": "Medián základ, přibližně {{area}} {{unit}} GFA na jednotku.",
     "benchmarks.secondary_title": "Benchmark na jednotku",
     "benchmarks.select_type": "Vyberte {{type}}",

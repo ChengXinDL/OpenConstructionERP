@@ -20845,8 +20845,6 @@ const resource = {
     "benchmarks.reading_split_v2": "Di quelli, i lavori di costruzione (KG300) sono circa {{kg300}}/{{unit}} e i sistemi tecnici (KG400) circa {{kg400}}/{{unit}} - vedi la scomposizione degli elementi di seguito per vedere dove si concentra il denaro.",
     "benchmarks.reading_title": "Come leggere il tuo risultato",
     "benchmarks.region": "Regione",
-    "benchmarks.sample_count": "circa {{count}} progetti",
-    "benchmarks.sample_size": "Campione di pianificazione",
     "benchmarks.secondary_basis_v2": "Base mediana, circa {{area}} {{unit}} GFA per unità.",
     "benchmarks.secondary_title": "Benchmark per unità",
     "benchmarks.select_type": "Seleziona {{type}}",

@@ -20841,8 +20841,6 @@ const resource = {
     "benchmarks.reading_split_v2": "그 중 건설 작업 (KG300)은 약 {{kg300}}/{{unit}}이고 기술 시스템 (KG400)은 약 {{kg400}}/{{unit}}입니다 - 아래의 요소 분류를 참조하여 돈이 집중되는 위치를 확인하세요.",
     "benchmarks.reading_title": "결과를 읽는 방법",
     "benchmarks.region": "지역",
-    "benchmarks.sample_count": "약 {{count}}개 프로젝트",
-    "benchmarks.sample_size": "계획 표본",
     "benchmarks.secondary_basis_v2": "중간값 기준, 단위당 약 {{area}} {{unit}} GFA입니다.",
     "benchmarks.secondary_title": "단위당 벤치마크",
     "benchmarks.select_type": "{{type}} 선택",

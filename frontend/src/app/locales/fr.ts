@@ -20885,8 +20885,6 @@ const resource = {
     "benchmarks.reading_split_v2": "De cela, les travaux de construction (KG300) sont d'environ {{kg300}}/{{unit}} et les systèmes techniques (KG400) d'environ {{kg400}}/{{unit}} - voir la ventilation des éléments ci-dessous pour voir où l'argent se concentre.",
     "benchmarks.reading_title": "Comment lire votre résultat",
     "benchmarks.region": "Région",
-    "benchmarks.sample_count": "environ {{count}} projets",
-    "benchmarks.sample_size": "Exemple de planification",
     "benchmarks.secondary_basis_v2": "Base médiane, environ {{area}} {{unit}} SBR par unité.",
     "benchmarks.secondary_title": "Repère par unité",
     "benchmarks.select_type": "Sélectionner {{type}}",

@@ -20847,8 +20847,6 @@ const resource = {
     "benchmarks.reading_split_v2": "Od toga, građevinski radovi (KG300) su otprilike {{kg300}}/{{unit}} i tehnički sustavi (KG400) otprilike {{kg400}}/{{unit}} - pogledajte raspodjelu elemenata dolje kako biste vidjeli gdje se novac koncentriira.",
     "benchmarks.reading_title": "Kako čitati vaš rezultat",
     "benchmarks.region": "Regija",
-    "benchmarks.sample_count": "otprilike {{count}} projekata",
-    "benchmarks.sample_size": "Uzorak planiranja",
     "benchmarks.secondary_basis_v2": "Osnova medijane, otprilike {{area}} {{unit}} GFA po jedinici.",
     "benchmarks.secondary_title": "Mjera po jedinici",
     "benchmarks.select_type": "Odaberite {{type}}",

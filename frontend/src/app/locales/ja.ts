@@ -20841,8 +20841,6 @@ const resource = {
     "benchmarks.reading_split_v2": "そのうち、建設工事（KG300）は約{{kg300}}/{{unit}} で、技術システム（KG400）は約{{kg400}}/{{unit}} です。お金がどこに集中しているかについては、下の要素の内訳を参照してください。",
     "benchmarks.reading_title": "結果の読み方",
     "benchmarks.region": "地域",
-    "benchmarks.sample_count": "約{{count}} 個のプロジェクト",
-    "benchmarks.sample_size": "計画サンプル",
     "benchmarks.secondary_basis_v2": "中央値ベース、単位あたり約{{area}} {{unit}} GFA。",
     "benchmarks.secondary_title": "単位あたりのベンチマーク",
     "benchmarks.select_type": "{{type}} を選択",

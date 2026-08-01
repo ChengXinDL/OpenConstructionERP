@@ -20837,8 +20837,6 @@ const resource = {
     "benchmarks.reading_split_v2": "Daarvan zijn bouwwerken (KG300) ongeveer {{kg300}}/{{unit}} en technische systemen (KG400) ongeveer {{kg400}}/{{unit}} - zie de elementuitsplitsing hieronder voor waar het geld concentreert.",
     "benchmarks.reading_title": "Hoe u uw resultaat leest",
     "benchmarks.region": "Regio",
-    "benchmarks.sample_count": "ongeveer {{count}} projecten",
-    "benchmarks.sample_size": "Planningsteekproef",
     "benchmarks.secondary_basis_v2": "Mediane basis, ongeveer {{area}} {{unit}} GFA per eenheid.",
     "benchmarks.secondary_title": "Per-eenheid benchmark",
     "benchmarks.select_type": "Selecteer {{type}}",
