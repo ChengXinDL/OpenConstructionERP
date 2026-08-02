@@ -60,7 +60,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import make_url
 
 # Project paths — anchored to this file so the tests work regardless
@@ -511,3 +511,182 @@ def test_dev_db_is_not_being_targeted(pg_throwaway: str) -> None:
     assert "oe_mig_rt_" in active_url, (
         f"Expected DATABASE_SYNC_URL to contain the throwaway DB name prefix 'oe_mig_rt_', got: {active_url!r}"
     )
+
+
+# ─────────────────────────────────────────────────────────────────────
+#  Data migrations
+#
+#  A data migration cannot be checked the way the schema ones above are.
+#  create_all builds the catalogue table empty and the seed catalogue in
+#  the source tree already carries the post-rename names, so running
+#  v3271 against a fresh test database updates zero rows and passes
+#  without executing a single branch. The rows it exists to repair only
+#  occur on a database seeded before the rename, so the test has to write
+#  that state itself.
+# ─────────────────────────────────────────────────────────────────────
+
+_SYSTEM_TABLE = "oe_formwork_system"
+
+_INSERT_SYSTEM = text(
+    f"""
+    INSERT INTO {_SYSTEM_TABLE}
+        (id, created_at, updated_at, name, system_type, supplier, material,
+         reuses_max, unit_rate, erect_strike_rate, strip_time_days, currency)
+    VALUES
+        (:id, now(), now(), :name, 'wall', :supplier, 'steel',
+         100, 65.00, 16.00, 1, '')
+    """  # noqa: S608 - table name is a module constant, not user input
+)
+
+
+def _run_revision_upgrade(sync_url: str, revision: str) -> None:
+    """Execute one revision's ``upgrade()`` body against ``sync_url``.
+
+    Not ``command.upgrade``: the database is stamped at head, so alembic
+    would consider this revision already applied and do nothing. Binding
+    the body to a connection runs the code under test directly.
+    """
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+
+    cfg = _make_alembic_config(sync_url)
+    module = ScriptDirectory.from_config(cfg).get_revision(revision).module
+
+    engine = create_engine(sync_url)
+    try:
+        with engine.begin() as conn:
+            context = MigrationContext.configure(conn)
+            with Operations.context(context):
+                module.upgrade()
+    finally:
+        engine.dispose()
+
+
+def _systems_by_id(sync_url: str) -> dict[str, tuple[str, str | None]]:
+    """Return ``{id: (name, supplier)}`` for every catalogue row."""
+    engine = create_engine(sync_url)
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(
+                text(f"SELECT id, name, supplier FROM {_SYSTEM_TABLE}")  # noqa: S608
+            ).all()
+    finally:
+        engine.dispose()
+    return {str(row[0]): (row[1], row[2]) for row in rows}
+
+
+def test_v3271_renames_only_the_rows_it_should(pg_throwaway: str) -> None:
+    """v3271 renames trademarked catalogue rows without touching tenant edits.
+
+    Five rows covering every branch the revision has:
+
+    * a plain trademarked row, which must be renamed and lose its supplier;
+    * the one pair carrying a non-ASCII character, which must move too - if
+      the literal in the migration ever stops byte-matching the column, this
+      is the row that catches it;
+    * a trademarked row whose supplier the tenant repointed at their own hire
+      yard, where the name must move and that supplier value must survive;
+    * a trademarked row whose replacement name is already present, which the
+      duplicate guard must leave alone;
+    * a row the tenant renamed themselves, which must not be touched at all
+      even though its supplier still reads as a brand.
+    """
+    cfg = _make_alembic_config(pg_throwaway)
+    _create_all_then_stamp(pg_throwaway, cfg)
+
+    plain = str(uuid.uuid4())
+    non_ascii = str(uuid.uuid4())
+    tenant_supplier = str(uuid.uuid4())
+    would_duplicate = str(uuid.uuid4())
+    already_present = str(uuid.uuid4())
+    tenant_renamed = str(uuid.uuid4())
+
+    seeded = [
+        {"id": plain, "name": "Doka Framax Xlife", "supplier": "Doka"},
+        {"id": non_ascii, "name": "Hünnebeck MANTO", "supplier": "Hünnebeck"},
+        {"id": tenant_supplier, "name": "PERI MAXIMO", "supplier": "Central hire yard"},
+        {"id": would_duplicate, "name": "Doka Dokadek 30", "supplier": "Doka"},
+        {"id": already_present, "name": "Aluminium slab deck panel", "supplier": None},
+        {"id": tenant_renamed, "name": "Site-built wall shutter", "supplier": "Doka"},
+    ]
+    engine = create_engine(pg_throwaway)
+    try:
+        with engine.begin() as conn:
+            for row in seeded:
+                conn.execute(_INSERT_SYSTEM, row)
+    finally:
+        engine.dispose()
+
+    _run_revision_upgrade(pg_throwaway, "v3271_formwork_debrand")
+    after = _systems_by_id(pg_throwaway)
+
+    assert after[plain] == ("Steel framed wall panel", None)
+    assert after[non_ascii] == ("Crane-set steel wall panel", None), (
+        "the non-ASCII pair did not move - the literal no longer matches the column"
+    )
+    assert after[tenant_supplier] == (
+        "Steel wall panel, single-side tie",
+        "Central hire yard",
+    ), "a supplier the tenant set themselves was cleared"
+    assert after[would_duplicate] == ("Doka Dokadek 30", "Doka"), (
+        "renamed onto a name already present for this tenant, creating a duplicate"
+    )
+    assert after[already_present] == ("Aluminium slab deck panel", None)
+    assert after[tenant_renamed] == ("Site-built wall shutter", "Doka"), "a row the tenant renamed was rewritten"
+
+    # Idempotent: a second run must be a no-op, including for the row the
+    # duplicate guard declined to touch.
+    _run_revision_upgrade(pg_throwaway, "v3271_formwork_debrand")
+    assert _systems_by_id(pg_throwaway) == after
+
+
+def test_v3271_lands_an_upgraded_install_on_the_shipped_catalogue(pg_throwaway: str) -> None:
+    """An upgraded install ends up with the names a fresh install has.
+
+    This test cannot check the *old* names and does not try to. It seeds from
+    ``_RENAMES``, so a mistyped old-name literal would be inserted mistyped,
+    found renamed, and passed - measured, that exact mutation went green here
+    while ``test_v3271_renames_only_the_rows_it_should`` caught it, because
+    that one spells the trademarked names out independently of the migration.
+    Drift in the old names is its job, not this one's.
+
+    What this test owns is the other half: the migration and the shipped
+    catalogue must agree on where the rows land. ``default_seed_systems()`` is
+    the denominator, so re-wording a catalogue row without updating the
+    revision fails here rather than leaving upgraded and fresh installs with
+    two different names for the same system.
+    """
+    cfg = _make_alembic_config(pg_throwaway)
+    _create_all_then_stamp(pg_throwaway, cfg)
+
+    module = ScriptDirectory.from_config(cfg).get_revision("v3271_formwork_debrand").module
+    renames = module._RENAMES  # noqa: SLF001 - the mapping is the thing under test
+
+    from app.modules.formwork.schemas import default_seed_systems
+
+    catalogue = {row["name"] for row in default_seed_systems()}
+    written = {new_name for _old, _supplier, new_name in renames}
+    assert written <= catalogue, (
+        f"revision renames rows to names a fresh install does not have: {sorted(written - catalogue)}"
+    )
+    assert len(renames) == 8, f"expected eight renamed rows, mapping carries {len(renames)}"
+
+    engine = create_engine(pg_throwaway)
+    try:
+        with engine.begin() as conn:
+            for old_name, old_supplier, _new_name in renames:
+                conn.execute(
+                    _INSERT_SYSTEM,
+                    {"id": str(uuid.uuid4()), "name": old_name, "supplier": old_supplier},
+                )
+    finally:
+        engine.dispose()
+
+    _run_revision_upgrade(pg_throwaway, "v3271_formwork_debrand")
+
+    after = _systems_by_id(pg_throwaway)
+    surviving = {name for name, _supplier in after.values()}
+    assert surviving <= catalogue, f"rows left carrying a name no fresh install has: {sorted(surviving - catalogue)}"
+
+    suppliers = {supplier for _name, supplier in after.values()}
+    assert suppliers == {None}, f"brand suppliers still in the catalogue: {suppliers - {None}}"

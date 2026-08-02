@@ -753,7 +753,23 @@ async def test_seeded_systems_carry_the_full_rate_build_up(
     client: AsyncClient,
     header: dict[str, str],
 ):
-    """A starter catalogue that only fills the panel rate teaches a bad habit."""
+    """A starter catalogue that only fills the panel rate teaches a bad habit.
+
+    The two per-row checks used to be ``erect_strike_rate > 0`` and
+    ``strip_time_days >= 1``, which hold for any catalogue anyone could
+    plausibly write and so said nothing about this one. They now compare
+    against the shipped figures, so a row that loses its labour rate or its
+    strip time on the way through the endpoint fails here.
+
+    The same loop is where the catalogue's de-branding is held at the API
+    level: these rows were named after real products from four suppliers
+    until v3271, and a row arriving with a supplier attached is the shape
+    that regression would take.
+    """
+    from app.modules.formwork.schemas import default_seed_systems
+
+    catalogue = {row["name"]: row for row in default_seed_systems()}
+
     tenant_id = str(uuid.uuid4())
     await client.post(
         "/api/v1/formwork/systems/seed-defaults",
@@ -763,9 +779,12 @@ async def test_seeded_systems_carry_the_full_rate_build_up(
     listing = await client.get("/api/v1/formwork/systems/", headers=header)
     seeded = [s for s in listing.json() if s["tenant_id"] == tenant_id]
     assert seeded, "seeded systems should be visible in the catalogue"
+    assert {s["name"] for s in seeded} == set(catalogue), "seeded names do not match the shipped catalogue"
     for system in seeded:
-        assert Decimal(system["erect_strike_rate"]) > 0
-        assert system["strip_time_days"] >= 1
+        expected = catalogue[system["name"]]
+        assert Decimal(system["erect_strike_rate"]) == expected["erect_strike_rate"]
+        assert system["strip_time_days"] == expected["strip_time_days"]
+        assert system["supplier"] is None, f"{system['name']!r} arrived carrying supplier {system['supplier']!r}"
     # Slab systems keep their props in far longer than wall systems.
     slabs = [s for s in seeded if s["system_type"] == "slab"]
     walls = [s for s in seeded if s["system_type"] == "wall"]
