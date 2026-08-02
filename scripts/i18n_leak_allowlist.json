@@ -958,5 +958,15 @@
     "en_value": "Open tickets",
     "note": "nl 'Open tickets' is genuine Dutch, not leaked English - both 'open' (identical Dutch/English adjective) and 'tickets' (established Dutch IT loanword, confirmed by service.tickets[nl]='Tickets') happen to be spelled identically in Dutch.",
     "reason_category": "cognate_loanword"
+  },
+  "punch.insights.f_status": {
+    "en_value": "Status",
+    "note": "da/de/hr/id/nl/no/pl/sv - the same 8-locale Status cognate documented across closeout/commissioning/files.approvals/review_authority/transmittals/prefab/service.",
+    "reason_category": "cognate_loanword"
+  },
+  "punch.insights.f_title": {
+    "en_value": "Item",
+    "note": "id/nl/pt keep 'Item' as an identical loanword (Indonesian, Dutch and Portuguese all use the same spelling for a single list/line entry) - corroborated by the 14-sibling app-wide pool this key was grounded from.",
+    "reason_category": "cognate_loanword"
   }
 }
