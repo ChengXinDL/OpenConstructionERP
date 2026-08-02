@@ -4362,19 +4362,26 @@ def _generate_module_data(
                 "notes": "Cost consultant / quantity surveyor",
             }
         )
-    if main_contractor_name:
-        contacts.append(
-            {
-                "contact_type": "contractor",
-                "company_name": main_contractor_name,
-                "first_name": "Project",
-                "last_name": "Director",
-                "primary_email": _email_for(main_contractor_name, "contact"),
-                "primary_phone": "",
-                "country_code": cc,
-                "notes": "Main contractor",
-            }
-        )
+    # Unconditional, where this used to be written only when the template named
+    # a firm. Every generated demo raises a main construction contract and a
+    # punch list, and both are with the main contractor, so a demo whose
+    # template happens not to name one still needs the party those rows point
+    # at. Without this row office-frankfurt seeded a main contract with no
+    # counterparty and a punch list that read Unassigned on every line, which is
+    # how the gap was found. Same reasoning as the authority contact below.
+    contractor_name = main_contractor_name or "Principal Contractor"
+    contacts.append(
+        {
+            "contact_type": "contractor",
+            "company_name": contractor_name,
+            "first_name": "Project",
+            "last_name": "Director",
+            "primary_email": _email_for(contractor_name, "contact"),
+            "primary_phone": "",
+            "country_code": cc,
+            "notes": "Main contractor",
+        }
+    )
     for i, (company, email) in enumerate(firms[:3]):
         contacts.append(
             {
@@ -4927,6 +4934,14 @@ def _generate_module_data(
                 "currency_code": cur,
                 "status": ("issued", "approved", "draft")[i % 3],
                 "notes": f"{firm} - supply for {trade}",
+                # The firm this order is with, as a contact role and a position
+                # in that role's list. The notes above name the same company in
+                # prose; this is the field the link is built from, so a reworded
+                # note cannot move the order to a different vendor. Only the
+                # first few firms get a contact seeded, and orders beyond that
+                # deliberately resolve to nothing rather than to the wrong firm.
+                "party": "subcontractor",
+                "party_index": i % len(firms) if firms else 0,
                 "items": [
                     {
                         "description": f"{item or trade} - supply",
@@ -4949,6 +4964,14 @@ def _generate_module_data(
             "title": f"Main construction contract - {proj}",
             "contract_type": "lump_sum",
             "counterparty_type": "contractor",
+            # The contact role to link to, kept separate from counterparty_type
+            # above even though the two words agree today. They are two
+            # vocabularies owned by two modules: the contracts one describes the
+            # contract, the contacts one describes the register. Reusing one as
+            # a key into the other would break silently the first time either
+            # adds a value the other does not have.
+            "party": "contractor",
+            "party_index": 0,
             "total_value": f"{round(contract_total, 2)}",
             "currency": cur[:3],
             "status": "active",
@@ -4965,6 +4988,12 @@ def _generate_module_data(
                 "title": f"Subcontract - {trade} ({company})",
                 "contract_type": "remeasurement",
                 "counterparty_type": "subcontractor",
+                # The subcontractor contacts are built from firms[:3] in this
+                # same order, so the nth subcontract is the nth firm's. Without
+                # the index all three would point at one company while their
+                # titles named three.
+                "party": "subcontractor",
+                "party_index": i,
                 "total_value": f"{sub_value}",
                 "currency": cur[:3],
                 "status": "active",
@@ -5376,6 +5405,49 @@ def _generate_module_data(
 # Module-wide demo data seeder  (Contacts, Tasks, RFIs, Meetings, Safety,
 # Inspections, Finance, Punchlist, Field Reports, NCRs, Submittals, Correspondence)
 # ---------------------------------------------------------------------------
+
+
+def _seeded_party_id(contact_ids_by_type: dict[str, list[str]], role: str | None, index: int = 0) -> str | None:
+    """Id of the ``index``-th contact seeded with ``role``, or ``None`` if there is none.
+
+    Every register that names a counterparty resolves it through here, so the
+    lookup behaves the same in all of them and can be tested without a database.
+
+    ``role`` is a contact role and always arrives as an explicit field on the
+    seed row. It is never read back out of a title, a subject or a code: those
+    are English prose that gets reworded, and a parser keyed on a word in them
+    would go on producing rows pointing at the wrong party or at none, with no
+    gate able to see it.
+
+    ``index`` picks between several contacts holding the same role, so the
+    subcontract for a given firm points at that firm rather than at whichever
+    subcontractor happens to have been written first.
+
+    An index past the end returns ``None`` rather than falling back to the
+    first. The registers seed more rows than there are firms with contacts, and
+    a row whose title names one company while its link points at another is
+    worse than a row with no link: the empty cell is visibly missing, and the
+    wrong link reads as correct on every screen that shows it.
+
+    ``None`` is a real answer in the ordinary case too. The contacts block is
+    fail-soft, so when that module is not loaded nothing was seeded and every
+    caller simply stores no link.
+    """
+    ids = contact_ids_by_type.get(role or "") or []
+    if not ids or not 0 <= index < len(ids):
+        return None
+    return ids[index]
+
+
+def _uuid_or_none(value: str | None) -> uuid.UUID | None:
+    """Contact id as a UUID, for the columns typed that way rather than as text.
+
+    The registers disagree about how they store a contact reference: some
+    columns are ``String(36)`` and take the id as it comes, others are real
+    UUID columns. This converts for the second kind so a caller never has to
+    decide what ``None`` means twice.
+    """
+    return uuid.UUID(value) if value else None
 
 
 # ── RFI dates ────────────────────────────────────────────────────────────────
@@ -7967,6 +8039,16 @@ async def _seed_module_data(
                     status=insp["status"],
                     result=insp.get("result"),
                     checklist_data=insp.get("checklist_data", []),
+                    # Who carried out the inspection. A seed row may name the
+                    # role itself; the default is the consulting engineer,
+                    # because a quality inspection on these projects is a
+                    # checking engineer's job and one of the curated German
+                    # rows says exactly that in its title. An authority
+                    # inspection would set "party" rather than be detected
+                    # from the wording, which reworders would break.
+                    inspector_id=_uuid_or_none(
+                        _seeded_party_id(contact_ids_by_type, insp.get("party") or "consultant")
+                    ),
                     created_by=owner_str,
                     metadata_={"demo_id": demo_id},
                 )
@@ -8944,6 +9026,21 @@ async def _seed_module_data(
                     location_x=p.get("location_x"),
                     location_y=p.get("location_y"),
                     resolution_notes=p.get("resolution_notes"),
+                    # The whole list read Unassigned on every row. It goes to
+                    # the main contractor, who allocates it onwards, which is
+                    # how a punch list actually works and is also the one
+                    # assignment that cannot contradict the row: there is a
+                    # single main contractor, whereas picking a trade firm
+                    # would sooner or later name a company whose trade is not
+                    # the trade in the row beside it.
+                    assigned_to=_seeded_party_id(contact_ids_by_type, p.get("party") or "contractor"),
+                    # A closed item was signed off by whoever checked it, and
+                    # an open one has not been checked by anybody yet.
+                    verified_by=(
+                        _seeded_party_id(contact_ids_by_type, "consultant")
+                        if p["status"] in ("closed", "verified")
+                        else None
+                    ),
                     created_by=owner_str,
                     metadata_={"demo_id": demo_id},
                 )
@@ -9624,6 +9721,9 @@ async def _seed_module_data(
                 amount_total=f"{round(subtotal, 2)}",
                 status=po.get("status", "draft"),
                 notes=po.get("notes"),
+                vendor_contact_id=_seeded_party_id(
+                    contact_ids_by_type, po.get("party"), int(po.get("party_index", 0) or 0)
+                ),
                 created_by=owner_id,
                 metadata_={"project_id": str(project_id), "demo_id": demo_id},
             )
@@ -9653,6 +9753,7 @@ async def _seed_module_data(
 
         contract_list = generated.get("contracts", [])
         for ct in contract_list:
+            counterparty_id = _seeded_party_id(contact_ids_by_type, ct.get("party"), int(ct.get("party_index", 0) or 0))
             session.add(
                 Contract(
                     id=_id(),
@@ -9661,6 +9762,7 @@ async def _seed_module_data(
                     title=ct.get("title", ""),
                     contract_type=ct.get("contract_type", "lump_sum"),
                     counterparty_type=ct.get("counterparty_type", "client"),
+                    counterparty_id=_uuid_or_none(counterparty_id),
                     total_value=Decimal(str(ct.get("total_value", "0"))),
                     currency=ct.get("currency", ""),
                     status=ct.get("status", "draft"),
