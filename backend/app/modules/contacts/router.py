@@ -398,6 +398,32 @@ _ALLOWED_CONTACT_TYPES = set(CONTACT_TYPES)
 _ALLOWED_PREQUAL = {"pending", "approved", "rejected", "expired"}
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
+
+def _resolve_contact_type(raw: object) -> tuple[str | None, str | None]:
+    """Read an imported contact_type cell as a role, or as an error to report.
+
+    An empty cell is the ordinary case for a file exported from an address
+    book, and supplier is a fair reading of saying nothing, so it keeps
+    defaulting. A value we do not recognise is not silence: the file is
+    asserting what this party is, and filing it as a supplier anyway stores a
+    different fact than the one supplied. Someone importing a list of main
+    contractors got back a register of suppliers and a success response.
+
+    The asymmetry inside the row loop is what gives it away. A malformed email
+    rejects the row and reports it; a country code that is not two characters
+    rejects the row and reports it; a role we do not have was the one case that
+    changed the data and told nobody.
+
+    Returns the role to store, or ``None`` and the message to report.
+    """
+    value = str(raw or "").strip().lower()
+    if not value:
+        return "supplier", None
+    if value not in _ALLOWED_CONTACT_TYPES:
+        return None, f"Unknown contact type: {value}. Expected one of: {', '.join(CONTACT_TYPES)}"
+    return value, None
+
+
 # Magic-byte signatures for the formats we actually accept on
 # ``POST /import/file/``. Trusting ``filename.endswith()`` alone lets a
 # caller upload an arbitrary binary renamed to ``payload.xlsx`` and have
@@ -635,9 +661,16 @@ async def import_contacts_file(
                 continue
 
             # Parse contact_type
-            contact_type = str(row.get("contact_type", "")).strip().lower()
-            if contact_type not in _ALLOWED_CONTACT_TYPES:
-                contact_type = "supplier"  # default
+            contact_type, contact_type_error = _resolve_contact_type(row.get("contact_type", ""))
+            if contact_type_error:
+                errors.append(
+                    {
+                        "row": row_idx,
+                        "error": contact_type_error,
+                        "data": _redact_row_for_log(row),
+                    }
+                )
+                continue
 
             # Validate email
             primary_email = str(row.get("primary_email", "")).strip() or None

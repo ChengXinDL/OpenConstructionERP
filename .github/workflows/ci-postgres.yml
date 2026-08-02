@@ -48,17 +48,21 @@ jobs:
         # thread method because signal based timeouts are Unix-only and this
         # suite is expected to stay runnable on Windows developer machines.
         run: pytest tests/pg -q -p no:cacheprovider --timeout=300 --timeout-method=thread
-      # The demo estate is shipped data and it has one recurring failure mode: the
-      # seeder builds ORM rows directly, so nothing it writes ever meets the Pydantic
-      # layer that owns the vocabulary, and it has twice ended up storing values the
-      # API itself would refuse. These two tests need no database and finish in about
-      # a second. They are attached here for the same reason as the cost base suite
-      # below, which is that tests/unit runs in no lane that blocks a merge.
-      - name: Run demo seed validity tests
+      # Vocabulary checks: the places where one list of allowed values is written
+      # down in a second place that can drift from it. The demo seeder builds ORM
+      # rows directly, so nothing it writes ever meets the Pydantic layer that owns
+      # the vocabulary, and it has twice ended up storing values the API itself
+      # would refuse; the contacts importer had the same gap from the other side
+      # and rewrote what it did not recognise without saying so. All four need no
+      # database and finish in about a second. They are attached here for the same
+      # reason as the cost base suite below, which is that tests/unit runs in no
+      # lane that blocks a merge.
+      - name: Run seed and import vocabulary tests
         run: >-
           pytest tests/unit/test_demo_contact_types.py
           tests/unit/test_demo_variations_vocabulary.py
           tests/unit/test_demo_correspondence_parties.py
+          tests/unit/test_contacts_import_vocabulary.py
           -q -p no:cacheprovider
       # The cost base pipeline produces the parquet editions people download from us, so it
       # needs a blocking gate. It needs no database; it is attached here because this is the
