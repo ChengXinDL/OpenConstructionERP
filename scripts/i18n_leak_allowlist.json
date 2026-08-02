@@ -739,6 +739,11 @@
   "note": "regex pattern shown as an input example, not prose",
   "reason_category": "regex_pattern"
  },
+ "review_authority.insights.f_status": {
+  "en_value": "Status",
+  "note": "Same established loanword and identical 8-locale set (da/de/hr/id/nl/no/pl/sv) already recorded for closeout.insights.f_status, commissioning.insights.f_status and files.approvals.insights.f_status (#182 modules 2, 3 and 4). Corroborated by 143-145 other Status-labeled keys per locale.",
+  "reason_category": "cognate_loanword"
+ },
  "risk.dist_pert": {
   "en_value": "PERT",
   "note": "bare technical/business acronym or initialism",
