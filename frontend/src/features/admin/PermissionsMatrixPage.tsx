@@ -395,7 +395,8 @@ function ModuleRows({
                     })
                   : t('admin.permissions.module_count', {
                       count: filteredPerms.length,
-                      defaultValue: '{{count}} permission_other',
+                      defaultValue_one: '{{count}} permission',
+                      defaultValue_other: '{{count}} permissions',
                     })}
               </span>
             </button>
