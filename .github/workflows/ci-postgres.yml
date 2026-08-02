@@ -67,6 +67,7 @@ jobs:
           tests/unit/test_demo_correspondence_parties.py
           tests/unit/test_contacts_import_vocabulary.py
           tests/unit/test_demo_rfi_dates.py
+          tests/unit/test_demo_party_lookup.py
           -q -p no:cacheprovider
       # The cost base pipeline produces the parquet editions people download from us, so it
       # needs a blocking gate. It needs no database; it is attached here because this is the
