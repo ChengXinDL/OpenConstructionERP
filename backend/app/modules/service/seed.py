@@ -43,6 +43,35 @@ from app.modules.service.models import (
 
 logger = logging.getLogger(__name__)
 
+# What each tier actually promises, in the words a customer would read on the
+# contract. The seeder stored "Demo gold SLA tier", which names the tier twice
+# and says nothing about the commitment, on a screen whose whole subject is
+# whether the commitment was met.
+_SLA_TEXT: dict[str, str] = {
+    "gold": "One hour to respond, four hours to resolve. Critical plant, cover around the clock.",
+    "silver": "Four hours to respond, one working day to resolve. Business hours cover.",
+    "bronze": "Eight hours to respond, three working days to resolve. Standard cover.",
+}
+
+# Faults a building-services desk actually logs. One list serves the open and
+# the closed tickets so the register reads consistently; the asset each one is
+# raised against comes from the row, so repeated fault types across different
+# assets look like the recurrence they would be in real life.
+_FAULTS: tuple[str, ...] = (
+    "Cold aisle drifting above setpoint overnight",
+    "Condensate tray overflowing onto the floor",
+    "Compressor short-cycling on the CO2 pack",
+    "Sliding entrance door not closing fully",
+    "Air handling unit left running on manual override",
+    "Lighting circuit tripping the RCD after close",
+    "Heat pump reporting a low-pressure fault",
+    "Noise complaint from the staff area ventilation",
+    "Freezer cabinet defrost cycle not completing",
+    "Building management system lost comms with the chiller",
+    "Water leak traced to a cabinet drain",
+    "Emergency lighting test failed on two fittings",
+)
+
 # Localised customer names - small, neutral list spanning EN/DE/RU markets.
 _CUSTOMER_NAMES: list[str] = [
     "ACME Facilities Ltd",
@@ -142,7 +171,7 @@ async def seed_service_demo(session: AsyncSession) -> dict[str, int]:
     ):
         sla = SLADefinition(
             name=tier,
-            description=f"Demo {tier} SLA tier",
+            description=_SLA_TEXT[tier],
             response_time_minutes=response,
             resolution_time_minutes=resolution,
             severity_levels={
@@ -184,9 +213,9 @@ async def seed_service_demo(session: AsyncSession) -> dict[str, int]:
         contract = ServiceContract(
             customer_id=customer_id,
             project_id=None,
-            contract_number=f"SC-DEMO-{idx + 1:02d}",
+            contract_number=f"SC-{idx + 1:02d}",
             title=f"Service contract - {_CUSTOMER_NAMES[idx]}",
-            description="Demo seed contract for the Service & Maintenance module.",
+            description="Planned maintenance and reactive callout cover for the site plant.",
             period_start=(today - timedelta(days=180)).isoformat(),
             period_end=(today + timedelta(days=185)).isoformat(),
             sla_definition_id=slas[idx % len(slas)].id,
@@ -241,9 +270,12 @@ async def seed_service_demo(session: AsyncSession) -> dict[str, int]:
         ticket = ServiceTicket(
             contract_id=contract.id,
             asset_id=asset.id,
-            ticket_number=f"T-DEMO-O-{i + 1:04d}",
-            title=f"Demo open ticket #{i + 1}",
-            description=f"Issue reported on {asset.name}.",
+            # Open and closed tickets share one sequence with a gap between the
+            # blocks, so the numbers stay unique without a letter in the middle
+            # that only ever meant "this row came from the seeder".
+            ticket_number=f"SR-{i + 1:05d}",
+            title=_FAULTS[i % len(_FAULTS)],
+            description=f"Reported on {asset.name} by the site team.",
             priority=priority,
             reported_at=reported_at.isoformat(),
             sla_due_at=sla_due.isoformat(),
@@ -266,9 +298,9 @@ async def seed_service_demo(session: AsyncSession) -> dict[str, int]:
         ticket = ServiceTicket(
             contract_id=contract.id,
             asset_id=asset.id,
-            ticket_number=f"T-DEMO-H-{i + 1:05d}",
-            title=f"Historical ticket #{i + 1}",
-            description="Resolved demo ticket.",
+            ticket_number=f"SR-{1000 + i + 1:05d}",
+            title=_FAULTS[i % len(_FAULTS)],
+            description=f"Reported on {asset.name} and attended on the same visit.",
             priority=priorities[rng.randrange(len(priorities))],
             reported_at=reported_at.isoformat(),
             sla_due_at=(reported_at + timedelta(hours=4)).isoformat(),
@@ -283,7 +315,7 @@ async def seed_service_demo(session: AsyncSession) -> dict[str, int]:
 
         wo = ServiceWorkOrder(
             ticket_id=ticket.id,
-            work_order_number=f"WO-DEMO-{i + 1:06d}",
+            work_order_number=f"WO-{i + 1:06d}",
             scheduled_for=(reported_at + timedelta(hours=2)).isoformat(),
             technician_id=ticket.assigned_to,
             status="billed",

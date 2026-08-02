@@ -72,6 +72,54 @@ _RNC_CATEGORIES = (
     "other",
 )
 
+# What a constraint and a reason for non-completion actually say when a planner
+# writes one on site. The seeder used to store "Demo permit constraint", which
+# tells a reader nothing about what is holding the work and reads as filler in
+# every screenshot and every evaluation install. The status, type and dates were
+# always real; only the sentence was missing.
+_CONSTRAINT_TEXT: dict[str, str] = {
+    "info": "Awaiting the reviewed shop drawing before the crew can set out.",
+    "material": "Insulation delivery confirmed for the following week, not yet on site.",
+    "labor": "Second steel-fixing gang not released from the preceding zone.",
+    "equipment": "Mobile crane double-booked with the precast erection window.",
+    "permit": "Road-closure permit for the delivery route still with the authority.",
+    "predecessor": "Slab pour below has not reached the strength needed to load out.",
+    "weather": "Wind speed above the limit for lifting the roof panels.",
+    "other": "Access through the tenant area to be agreed with the client.",
+}
+_RNC_TEXT: dict[str, tuple[str, str]] = {
+    "manpower": (
+        "Crew redeployed to close out the zone handed over first.",
+        "Two trades competing for the same labour in the same week.",
+    ),
+    "material": (
+        "Fixings arrived short against the delivery note.",
+        "Order placed against an outdated take-off quantity.",
+    ),
+    "equipment": (
+        "Telehandler off the road for an unplanned repair.",
+        "No standby plant arranged for a single-machine operation.",
+    ),
+    "info": (
+        "Setting-out dimensions still under query with the designer.",
+        "RFI raised too late to be answered inside the look-ahead.",
+    ),
+    "weather": (
+        "Rain stopped the external works for two shifts.",
+        "Task planned in an exposed area without a weather contingency.",
+    ),
+    "predecessor": (
+        "Preceding activity finished late and compressed the window.",
+        "Commitment made before the predecessor was confirmed complete.",
+    ),
+    "changes": (
+        "Instructed change to the layout after the week was planned.",
+        "Design still developing while the work was being committed.",
+    ),
+    "quality": ("Work rejected at inspection and reworked.", "Method not agreed with the inspector before starting."),
+    "other": ("Site closed for an unplanned safety stand-down.", "One-off event with no pattern to address."),
+}
+
 
 def _monday(d: date) -> date:
     return d - timedelta(days=d.weekday())
@@ -131,7 +179,7 @@ async def seed_schedule_advanced_demo(
             planned_start=today - timedelta(days=180),
             planned_finish=today + timedelta(days=365),
             status="active",
-            notes="Seed data - LPS demo",
+            notes="Contract programme, pull-planned in six week look-aheads.",
         )
         session.add(m)
         masters.append(m)
@@ -196,7 +244,7 @@ async def seed_schedule_advanced_demo(
                 look_ahead_id=la.id,
                 task_ref=uuid.uuid4(),
                 constraint_type=ctype,
-                description=f"Demo {ctype} constraint",
+                description=_CONSTRAINT_TEXT[ctype],
                 target_clear_date=target,
                 cleared_at=cleared_at,
                 status=cstatus,
@@ -221,7 +269,7 @@ async def seed_schedule_advanced_demo(
                 generated_at=datetime.now(UTC) - timedelta(weeks=week_offset),
                 status=wstatus,
                 ppc_percent=ppc,
-                notes="Seed weekly plan",
+                notes="Agreed with the trade foremen at the weekly planning meeting.",
             )
             session.add(w)
             weekly_plans.append(w)
@@ -276,9 +324,9 @@ async def seed_schedule_advanced_demo(
             r = ReasonForNonCompletion(
                 commitment_id=cid,
                 category=cat,
-                description=f"Demo {cat} RNC",
+                description=_RNC_TEXT[cat][0],
                 recorded_at=datetime.now(UTC) - timedelta(days=rng.randint(1, 14)),
-                root_cause_notes=f"Root-cause notes for {cat}",
+                root_cause_notes=_RNC_TEXT[cat][1],
             )
             session.add(r)
             counts["rncs"] += 1
@@ -307,7 +355,7 @@ async def seed_schedule_advanced_demo(
                 captured_at=datetime.now(UTC) - timedelta(days=j * 60),
                 snapshot=snapshot,
                 status="active" if j == 0 else "superseded",
-                notes="Seed baseline",
+                notes="Snapshot taken before the programme was re-issued.",
             )
             session.add(b)
             counts["baselines"] += 1
