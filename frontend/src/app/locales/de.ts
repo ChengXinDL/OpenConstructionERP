@@ -11009,7 +11009,7 @@ const resource = {
     "match_elements.new_text.name_label": "Sitzungsname (optional)",
     "match_elements.new_text.name_placeholder": "z. B. Schnellschätzung Q3",
     "match_elements.new_text.lines_label": "Beschreibungen (eine pro Zeile)",
-    "match_elements.new_text.lines_placeholder": "Stahlbetonwand C30/37, d=240mm\\nленточный фундамент 800x600\\nconcrete slab 200mm",
+    "match_elements.new_text.lines_placeholder": "Stahlbetonwand C30/37, d=240mm\nленточный фундамент 800x600\nconcrete slab 200mm",
     "match_elements.new_text.create": "Sitzung erstellen",
     "match_elements.new_excel.button": "Aus Excel-LV",
     "match_elements.new_excel.button_title": "Eine .xlsx-Leistungsverzeichnis hochladen",
