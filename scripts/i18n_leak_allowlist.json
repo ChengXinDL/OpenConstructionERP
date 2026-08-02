@@ -874,6 +874,16 @@
   "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
   "reason_category": "standard_code"
  },
+ "transmittals.insights.f_status": {
+  "en_value": "Status",
+  "note": "Same established loanword and identical 8-locale set (da/de/hr/id/nl/no/pl/sv) already recorded for closeout.insights.f_status, commissioning.insights.f_status, files.approvals.insights.f_status and review_authority.insights.f_status (#182 modules 2-4, 6). Corroborated by 135-149 of 149 other Status-labeled keys per locale.",
+  "reason_category": "cognate_loanword"
+ },
+ "transmittals.insights.f_transmittal": {
+  "en_value": "Transmittal",
+  "note": "es/es-MX/id/nl.ts genuinely keep 'Transmittal' unchanged as their own word for this document-control term; corroborated by correspondence.field_link_transmittal, the only app-wide sibling for this bare word, which independently agrees in all four locales. ru.ts itself transliterates rather than translates this term (Трансмиттал), treating it as an established industry loanword, not an untranslated leak.",
+  "reason_category": "cognate_loanword"
+ },
  "update.method_pip": {
   "en_value": "pip / PyPI",
   "note": "brand/service name, functional interop reference",
