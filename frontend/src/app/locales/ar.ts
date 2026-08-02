@@ -21460,7 +21460,7 @@ const resource = {
     "boq.compare_to_baseline": "مقارنة مع الخط الأساسي",
     "boq.cost_per_area_help": "التكلفة لكل م² هي التكلفة المباشرة للتقدير مقسومة على إجمالي مساحة الأرضية، مأخوذة من متغير $GFA. تقارن المواضع مع مشاريعك السابقة التي سجلت التكلفة والمساحة. النسبة المئوية هي عدد تلك المشاريع التي جاءت أقل من هذا التقدير، لذا فإن النسبة المئوية الأقل تعني تقديراً أرخص من معظم أعمالك.",
     "boq.cost_per_area_label": "التكلفة لكل م²",
-    "boq.cost_per_area_median": "متوسط {{median}}",
+    "boq.cost_per_area_median": "وسيط {{median}}",
     "boq.cost_per_area_over": "فوق {{area}} م²",
     "boq.cost_per_area_percentile": "{{pct}}th النسبة المئوية",
     "boq.cost_per_area_portfolio": "محفظتك",

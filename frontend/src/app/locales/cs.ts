@@ -24134,7 +24134,7 @@ const resource = {
     "costs.resource_prices.unsaved": "{{count}} neuložená změna(y). Uložit před změnou ceny.",
     "costs.variant_avg_short": "prům",
     "costs.variant_mean_word": "průměr",
-    "costs.variant_median_word": "střed",
+    "costs.variant_median_word": "medián",
     "costs_catalogs.add_position": "Přidat pozici",
     "costs_catalogs.empty_catalog_hint": "Přidejte kód, popis, jednotku a sazbu pro zahájení vytváření tohoto katalogu.",
     "costs_catalogs.empty_catalog_title": "Tento katalog zatím nemá žádné pozice",
