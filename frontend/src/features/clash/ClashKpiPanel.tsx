@@ -76,10 +76,29 @@ export function ClashKpiPanel({ projectId, runId }: ClashKpiPanelProps) {
   }
   if (!data) return null;
 
+  /* ── The headline and its buckets are ONE arithmetic (audit #156) ─────
+   *  ``data.total`` is the run's row count (``_compute_kpi``,
+   *  ``backend/app/modules/clash/service.py``) and ``by_status`` partitions
+   *  those same rows, so every clash is in exactly one bucket below.
+   *
+   *  Open is deliberately the RESIDUAL rather than a second sum. It used to be
+   *  ``new + active + reviewed`` added up directly, which left ``ignored`` —
+   *  a real member of ``CLASH_STATUSES`` (``clash/schemas.py``) — in no tile at
+   *  all: one press of "Suppress" and Open + Resolved stopped reaching Total,
+   *  while the By-status card a few centimetres below printed ``ignored: N``.
+   *  As a residual the three tiles sum to the headline for ANY status
+   *  vocabulary, including one this file has not been taught. Under today's
+   *  six values the residual is exactly new + active + reviewed, i.e. the
+   *  server's own ``OPEN_STATUSES``; a status added later lands in "needs
+   *  attention", which is the safe direction to be wrong in. */
+  const resolvedCount = (data.by_status.resolved ?? 0) + (data.by_status.approved ?? 0);
+  const ignoredCount = data.by_status.ignored ?? 0;
+  const openCount = data.total - resolvedCount - ignoredCount;
+
   return (
     <div className="space-y-4 p-4" data-testid="clash-kpi-panel">
       {/* Top KPI cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
         <div className="rounded-xl border border-border-light bg-surface-elevated/90 p-4 shadow-xs transition-shadow duration-normal ease-oe hover:shadow-sm">
           <div className="text-xs uppercase tracking-wide text-content-tertiary">
             {t('clash.kpi.total', { defaultValue: 'Total clashes' })}
@@ -93,9 +112,7 @@ export function ClashKpiPanel({ projectId, runId }: ClashKpiPanelProps) {
             {t('clash.kpi.open', { defaultValue: 'Open' })}
           </div>
           <div className="text-3xl font-semibold text-content-primary mt-1">
-            {(data.by_status.new ?? 0) +
-              (data.by_status.active ?? 0) +
-              (data.by_status.reviewed ?? 0)}
+            {openCount}
           </div>
         </div>
         <div className="rounded-xl border border-border-light bg-surface-elevated/90 p-4 shadow-xs transition-shadow duration-normal ease-oe hover:shadow-sm">
@@ -103,7 +120,18 @@ export function ClashKpiPanel({ projectId, runId }: ClashKpiPanelProps) {
             {t('clash.kpi.resolved', { defaultValue: 'Resolved' })}
           </div>
           <div className="text-3xl font-semibold text-content-primary mt-1">
-            {(data.by_status.resolved ?? 0) + (data.by_status.approved ?? 0)}
+            {resolvedCount}
+          </div>
+        </div>
+        {/* Rendered even at zero: the third bucket is what makes the row add
+            up to the headline, and a tile that appears only sometimes is a
+            rule the reader has to reconstruct. */}
+        <div className="rounded-xl border border-border-light bg-surface-elevated/90 p-4 shadow-xs transition-shadow duration-normal ease-oe hover:shadow-sm">
+          <div className="text-xs uppercase tracking-wide text-content-tertiary">
+            {t('clash.status.ignored', { defaultValue: 'Ignored' })}
+          </div>
+          <div className="text-3xl font-semibold text-content-primary mt-1">
+            {ignoredCount}
           </div>
         </div>
         {data.mttr_hours != null && (

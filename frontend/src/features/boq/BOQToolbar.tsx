@@ -162,10 +162,21 @@ export interface BOQToolbarProps {
     /** Currently picked display currency (empty string ⇒ base). */
     displayCurrency: string;
     onChangeDisplayCurrency: (code: string) => void;
-    /** Live total in base currency. */
-    grossTotal: number;
-    /** Live total converted to display currency (or base when display === base). */
-    grossTotalDisplay: number;
+    /**
+     * The BOQ's Grand Total, converted to the display currency (or the base
+     * value when display === base).
+     *
+     * Audit #156: this is the SERVER's ``cost-breakdown.grand_total``, read
+     * from the same React Query cache entry the Cost Breakdown panel renders,
+     * so the two "Grand Total" figures on this page cannot disagree. It used
+     * to be a client-side chain whose VAT came from the first percentage tax
+     * markup only, which under-stated any BOQ carrying more than one tax line.
+     * Do not repoint this at a locally computed total.
+     *
+     * ``null`` while the server has not answered yet — the card renders a
+     * placeholder, never a client-computed stand-in.
+     */
+    grandTotalDisplay: number | null;
     /** Symbol/code of the active display currency (mirrors `displayCurrency` once resolved). */
     displaySymbol: string;
     /** Resolved FX rate for the display currency, used in the conversion tooltip. */
@@ -663,11 +674,20 @@ export function BOQToolbar({
                 : undefined
             }
           >
-            {summary.displaySymbol}{' '}
-            {summary.grossTotalDisplay.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
+            {summary.grandTotalDisplay == null ? (
+              // Server total not in yet. A dash says "not known", which is the
+              // truth; printing a client-side approximation under the same
+              // label is what audit #156 removed.
+              <span className="text-content-tertiary">—</span>
+            ) : (
+              <>
+                {summary.displaySymbol}{' '}
+                {summary.grandTotalDisplay.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+              </>
+            )}
           </span>
 
           {/* Meta line: counts + quality status badges */}

@@ -276,6 +276,40 @@ export function BOQEditorPage() {
 
   const markups: Markup[] = markupsData?.markups ?? [];
 
+  /* ── Authoritative Grand Total (audit #156) ───────────────────────────
+   *  The toolbar's Grand-Total card used to print a client-side chain whose
+   *  tax came from ``getVatRateFromMarkups`` — a ``.find`` that takes only the
+   *  FIRST percentage tax markup. The shipped Brazil BDI template creates two
+   *  (PIS+COFINS 3.65% and ISS 3.0%, ``service.py`` DEFAULT_MARKUP_TEMPLATES),
+   *  so the card silently under-stated the total by ~3% of the subtotal while
+   *  the Cost Breakdown panel a screen below printed the full figure under the
+   *  same "Grand Total" label. A fixed-amount tax markup vanished from the card
+   *  entirely, and a reordered tax markup landed on the wrong base.
+   *
+   *  Widening the ``.find`` into a ``.reduce`` would have left two producers of
+   *  one number, and the next template shape would have split them again. So
+   *  the card now READS the server's figure instead of racing it. This query
+   *  deliberately uses the SAME key and the SAME queryFn as CostBreakdownPanel
+   *  (``CostBreakdownPanel.tsx``): React Query serves both observers from one
+   *  cache entry, so the two renders of "Grand Total" cannot disagree at any
+   *  point in time, loading and refetching included. Keep the options aligned
+   *  with that panel — divergent options on a shared key cause refetch thrash.
+   *
+   *  Authority: ``BOQService.get_cost_breakdown`` in
+   *  ``backend/app/modules/boq/service.py`` — ``direct_cost + Σ(every active
+   *  markup)``, N tax lines and fixed amounts included, each at its own
+   *  ``sort_order`` position in the cascade.
+   *
+   *  Enabled to mirror the panel's own mount guard (``boqId && hasPositions``)
+   *  so a BOQ with no positions issues no extra request.
+   */
+  const { data: costBreakdown } = useQuery({
+    queryKey: ['boq-cost-breakdown', boqId],
+    queryFn: () => boqApi.getCostBreakdown(boqId!),
+    enabled: !!boqId && (boq?.positions.length ?? 0) > 0,
+    staleTime: 5000,
+  });
+
   /* Issue #136 — server-enforced deep-nesting cap. Static across the
    * session; the editor disables "add child / sub-section" once a row is
    * this deep and shows an i18n tooltip. Falls back to the mirrored
@@ -2258,6 +2292,16 @@ export function BOQEditorPage() {
     return last ? last.runningTotal : directCost;
   }, [directCost, markupTotals]);
 
+  /* Client-side VAT / gross. This chain is NOT authoritative and must not be
+   * printed under a "Grand Total" label — ``vatRate`` resolves a single tax
+   * markup, so a BOQ with two tax lines (Brazil BDI) or a fixed-amount tax
+   * loses the rest. It stays client-side because the grid footer and the
+   * client Excel/PDF exports need net / VAT / gross as three separate rows
+   * that react to a cell edit instantly, which a server round-trip cannot do.
+   * The authority for the total of everything is the server's
+   * ``cost-breakdown.grand_total`` (see the ``costBreakdown`` query above),
+   * which is what the toolbar card, the Markup panel and the Cost Breakdown
+   * panel print. Audit #156. */
   const vatAmount = netTotal * vatRate;
   const grossTotal = netTotal + vatAmount;
 
@@ -2345,12 +2389,22 @@ export function BOQEditorPage() {
       setDisplayCurrency('');
     }
   }, [project, displayCurrency, displayCurrencyMeta, setDisplayCurrency]);
-  // FX rates store rate-to-base, so converting from base → display is
-  // ``base_amount / rate``. Example: base ARS, rate.USD = 1200 ⇒ 12 000 ARS
-  // shown as 10 USD.
-  const grossTotalDisplay = displayCurrencyMeta
-    ? grossTotal / displayCurrencyMeta.rate
-    : grossTotal;
+  /* Grand Total for the toolbar card, taken from the server (audit #156 — see
+   * the ``costBreakdown`` query above for why). ``null`` until the server has
+   * answered: the card then renders a placeholder rather than quietly falling
+   * back to the client ``grossTotal``, because a silent fallback is how the
+   * two figures came to disagree in the first place.
+   *
+   * FX rates store rate-to-base, so converting from base → display is
+   * ``base_amount / rate``. Example: base ARS, rate.USD = 1200 ⇒ 12 000 ARS
+   * shown as 10 USD. */
+  const serverGrandTotal = costBreakdown ? toNum(costBreakdown.grand_total) : null;
+  const grandTotalDisplay =
+    serverGrandTotal == null
+      ? null
+      : displayCurrencyMeta
+        ? serverGrandTotal / displayCurrencyMeta.rate
+        : serverGrandTotal;
   const displaySymbol = displayCurrencyMeta ? displayCurrencyMeta.currency : currencySymbol;
 
   /* ── Quality score ───────────────────────────────────────────────── */
@@ -4774,8 +4828,7 @@ export function BOQEditorPage() {
             fxRates,
             displayCurrency,
             onChangeDisplayCurrency: setDisplayCurrency,
-            grossTotal,
-            grossTotalDisplay,
+            grandTotalDisplay,
             displaySymbol,
             displayRate: displayCurrencyMeta?.rate ?? null,
           } : null}

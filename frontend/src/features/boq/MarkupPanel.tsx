@@ -140,7 +140,35 @@ export function MarkupPanel({ boqId, markups, directCost, currencySymbol, curren
   // read a row's real contribution without recomputing. Defensive against
   // malformed server payloads - Apply-Regional-Template used to crash the panel
   // when a markup came back without a numeric percentage.
-  const { calcMap, netTotal, calculated } = useMemo(() => {
+  //
+  // TWO PRODUCERS, NAMED. This cascade is a line-for-line mirror of the
+  // authoritative server one, ``_calculate_markup_amounts`` in
+  // ``backend/app/modules/boq/service.py`` (running sum, ``cumulative``/
+  // ``subtotal`` on direct cost + preceding markups, ``fixed`` taking
+  // ``fixed_amount``, inactive rows contributing zero). The SERVER IS
+  // AUTHORITATIVE - ``GET /boqs/{id}/cost-breakdown/`` returns exactly
+  // ``directCost + Σ(every active markup)`` as ``grand_total``, and that is
+  // what the toolbar's Grand-Total card and the Cost Breakdown panel print.
+  // It is duplicated here only because the panel needs a per-markup amount
+  // keyed by markup id, which the server payload does not carry, and because
+  // the toggle flash has to react before the round-trip lands. Change one, and
+  // change the other.
+  //
+  // The cascade matches; the INPUT need not. ``directCost`` here is the
+  // editor's live sum (``resourceAwareTotalInBase``, which trusts a position's
+  // stored ``total`` whenever its resources are all base-currency), while the
+  // server re-derives direct cost from the resources themselves and so heals a
+  // stale stored ``total``. When those two disagree, so will this figure and
+  // the server's - the server wins, and the gap is a direct-cost bug upstream
+  // of this block, not a markup bug inside it.
+  //
+  // What this sum is NOT is a *net* total: it runs over every active markup,
+  // ``category === 'tax'`` included, so with any of the 13 regional templates
+  // applied it is the gross figure. It used to be labelled "Net Total", which
+  // put a second, VAT-inclusive "Net Total" on the same screen as the grid
+  // footer's real one. Net-of-tax lives in exactly one place now: the grid
+  // footer in ``BOQEditorPage`` (``markupTotals`` filters ``category !== 'tax'``).
+  const { calcMap, grandTotal, calculated } = useMemo(() => {
     let running = directCost;
     const calculated = (Array.isArray(markups) ? markups : [])
       .filter((m) => m && m.is_active !== false)
@@ -156,7 +184,7 @@ export function MarkupPanel({ boqId, markups, directCost, currencySymbol, curren
           // The backend treats 'subtotal' identically to 'cumulative' (base =
           // direct cost + the markups before it); GAEB import persists tax
           // markups as 'subtotal', so basing it on directCost here would
-          // under-state the Amount column and the net total against the server.
+          // under-state the Amount column and the grand total against the server.
           amount = running * (pct / 100);
         } else {
           amount = directCost * (pct / 100);
@@ -164,7 +192,7 @@ export function MarkupPanel({ boqId, markups, directCost, currencySymbol, curren
         running += amount;
         return { id: m.id, amount };
       });
-    return { calcMap: new Map(calculated.map((c) => [c.id, c.amount])), netTotal: running, calculated };
+    return { calcMap: new Map(calculated.map((c) => [c.id, c.amount])), grandTotal: running, calculated };
   }, [markups, directCost]);
 
   const handleAddMarkup = useCallback(() => {
@@ -528,8 +556,8 @@ export function MarkupPanel({ boqId, markups, directCost, currencySymbol, curren
                 );
               })}
               <div className="flex items-center justify-between gap-4 text-sm font-semibold mt-2 pt-2 border-t border-border-light">
-                <span className="text-content-primary whitespace-nowrap">{t('boq.net_total', { defaultValue: 'Net Total' })}</span>
-                <span className="tabular-nums text-content-primary whitespace-nowrap shrink-0">{fmtWithCurrency(netTotal, locale, currencyCode)}</span>
+                <span className="text-content-primary whitespace-nowrap">{t('boq.grand_total', { defaultValue: 'Grand Total' })}</span>
+                <span className="tabular-nums text-content-primary whitespace-nowrap shrink-0">{fmtWithCurrency(grandTotal, locale, currencyCode)}</span>
               </div>
             </div>
           )}

@@ -1702,6 +1702,15 @@ def _calculate_markup_amounts(
 ) -> list[tuple[BOQMarkup, Decimal]]:
     """Compute the dollar amount for each active markup line.
 
+    This is the AUTHORITATIVE markup cascade. It is mirrored client-side by the
+    ``calcMap`` memo in ``frontend/src/features/boq/MarkupPanel.tsx``, which
+    needs a per-markup amount keyed by markup id (something the
+    ``/cost-breakdown/`` payload does not carry) and has to react to a toggle
+    before the round-trip lands. The two must stay in step: same running sum,
+    ``cumulative``/``subtotal`` based on direct cost + preceding markups,
+    ``fixed`` taking ``fixed_amount``, inactive lines contributing zero. When
+    they disagree, this one is right.
+
     Args:
         direct_cost: Sum of all position totals.
         markups: Ordered list of BOQMarkup ORM objects.

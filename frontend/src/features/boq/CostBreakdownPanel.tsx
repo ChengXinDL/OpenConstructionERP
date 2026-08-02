@@ -277,6 +277,18 @@ export function CostBreakdownPanel({ boqId, locale = 'de-DE' }: { boqId: string;
               />
             ))}
             <div className="border-t border-border pt-1.5">
+              {/* THE authoritative Grand Total: direct cost + every active
+                  markup, N tax lines and fixed amounts included
+                  (``BOQService.get_cost_breakdown``,
+                  ``backend/app/modules/boq/service.py``). Two other places on
+                  ``/boq/:id`` render this same concept, and both are meant to
+                  agree with this row (audit #156):
+                    - the toolbar's Grand-Total card reads the SAME React Query
+                      cache entry as this panel (``['boq-cost-breakdown', id]``,
+                      subscribed in ``BOQEditorPage``), so it cannot diverge;
+                    - ``MarkupPanel``'s summary line re-runs the server's markup
+                      cascade client-side because it also needs per-markup
+                      amounts keyed by id. This row wins if they ever differ. */}
               <SummaryRow
                 label={t('boq.grand_total', { defaultValue: 'Grand Total' })}
                 value={data.grand_total}
