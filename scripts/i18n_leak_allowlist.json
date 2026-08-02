@@ -1,0 +1,677 @@
+{
+ "accommodation.bim_link.label": {
+  "en_value": "BIM",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "agents.accuracy.brier": {
+  "en_value": "Brier {{score}}",
+  "note": "Brier score is a named statistical scoring rule (Glenn Brier); the term of art is not translated, rest is a template variable",
+  "reason_category": "standard_code"
+ },
+ "ai.advisor_source_rate": {
+  "en_value": "{{rate}} {{currency}}/{{unit}}",
+  "note": "entirely template variables/punctuation, no literal word to translate",
+  "reason_category": "template_placeholder"
+ },
+ "ai.advisor_source_rate_nocur": {
+  "en_value": "{{rate}}/{{unit}}",
+  "note": "entirely template variables/punctuation, no literal word to translate",
+  "reason_category": "template_placeholder"
+ },
+ "app.name": {
+  "en_value": "OpenConstructionERP",
+  "note": "our own product name, never translated",
+  "reason_category": "product_name"
+ },
+ "approvalRoutes.delegation_window_range": {
+  "en_value": "{{from}} - {{to}}",
+  "note": "entirely template variables/punctuation, no literal word to translate",
+  "reason_category": "template_placeholder"
+ },
+ "auth.how_found_github": {
+  "en_value": "GitHub",
+  "note": "brand/service name, functional interop reference",
+  "reason_category": "product_name"
+ },
+ "auth.how_found_linkedin": {
+  "en_value": "LinkedIn",
+  "note": "brand/service name, functional interop reference",
+  "reason_category": "product_name"
+ },
+ "auth.how_found_reddit": {
+  "en_value": "Reddit",
+  "note": "brand/service name, functional interop reference",
+  "reason_category": "product_name"
+ },
+ "auth.how_found_youtube": {
+  "en_value": "YouTube",
+  "note": "brand/service name, functional interop reference",
+  "reason_category": "product_name"
+ },
+ "bi.kpi": {
+  "en_value": "KPI",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "bim.converter_version_label": {
+  "en_value": "DDC v{{version}}",
+  "note": "template variable plus a fixed product-version prefix (DDC), nothing else to translate",
+  "reason_category": "template_placeholder"
+ },
+ "bim.groups_boq_label": {
+  "en_value": "BOQ",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "bim.landing_version_note": {
+  "en_value": "RVT 2015–2026 · IFC 2x3, 4.0, 4.1, 4.3",
+  "note": "software/format version and revit-year range, not prose",
+  "reason_category": "version_string"
+ },
+ "bim_rules.pick_boq": {
+  "en_value": "BOQ",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "bim_rules.sandbox_total": {
+  "en_value": "Σ {{total}} {{unit}}",
+  "note": "bare symbol/punctuation glyph, not a word",
+  "reason_category": "symbol"
+ },
+ "boq.autocomplete_tooltip_unit": {
+  "en_value": "/",
+  "note": "bare symbol/punctuation glyph, not a word",
+  "reason_category": "symbol"
+ },
+ "boq.export_format_bc3": {
+  "en_value": "FIEBDC-3 (.bc3)",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "boq.markup_percentage": {
+  "en_value": "%",
+  "note": "bare symbol/punctuation glyph, not a word",
+  "reason_category": "symbol"
+ },
+ "boq.provenance_cad_short": {
+  "en_value": "CAD",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "boq.provenance_gaeb_short": {
+  "en_value": "GAEB",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "boq.shortcut_f1": {
+  "en_value": "F1",
+  "note": "keyboard shortcut key label",
+  "reason_category": "shortcut"
+ },
+ "boq.total_tip_equals": {
+  "en_value": "= {{total}}",
+  "note": "entirely template variables/punctuation, no literal word to translate",
+  "reason_category": "template_placeholder"
+ },
+ "catalog.source_cwicr": {
+  "en_value": "CWICR",
+  "note": "brand/service name, functional interop reference",
+  "reason_category": "product_name"
+ },
+ "cde.created_msg": {
+  "en_value": "{{code}} - {{title}}",
+  "note": "entirely template variables/punctuation, no literal word to translate",
+  "reason_category": "template_placeholder"
+ },
+ "clash.bcf": {
+  "en_value": "BCF",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "clash.group_ifc_entity": {
+  "en_value": "IfcEntity",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "clash.group_property_option": {
+  "en_value": "{{key}} ({{count}})",
+  "note": "entirely template variables/punctuation, no literal word to translate",
+  "reason_category": "template_placeholder"
+ },
+ "clash.isolate_3d_short": {
+  "en_value": "3D",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "clash.status_more": {
+  "en_value": "…",
+  "note": "bare symbol/punctuation glyph, not a word",
+  "reason_category": "symbol"
+ },
+ "collab.lock_entity": {
+  "en_value": "{{type}}",
+  "note": "entirely template variables/punctuation, no literal word to translate",
+  "reason_category": "template_placeholder"
+ },
+ "common.number": {
+  "en_value": "#",
+  "note": "bare symbol/punctuation glyph, not a word",
+  "reason_category": "symbol"
+ },
+ "connectors.root_path_ph": {
+  "en_value": "/data/inbound/site-a",
+  "note": "placeholder filesystem path shown as an input example",
+  "reason_category": "file_path_example"
+ },
+ "contacts.how_mod_crm": {
+  "en_value": "CRM",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "contracts.mod_crm": {
+  "en_value": "CRM",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "contracts.step_crm": {
+  "en_value": "CRM",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "coordination.matrix_tooltip_empty": {
+  "en_value": "-",
+  "note": "bare symbol/punctuation glyph, not a word",
+  "reason_category": "symbol"
+ },
+ "costmodel.snapshot_cpi": {
+  "en_value": "CPI",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "costmodel.snapshot_spi": {
+  "en_value": "SPI",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "daily_diary.badge_360": {
+  "en_value": "360",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "dashboard.finance_worst_over": {
+  "en_value": "{{name}} +{{pct}}%",
+  "note": "entirely template variables plus a percent sign, no literal word",
+  "reason_category": "template_placeholder"
+ },
+ "documents.type_dwg": {
+  "en_value": "DWG",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "documents.type_ifc": {
+  "en_value": "IFC",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "documents.type_pdf": {
+  "en_value": "PDF",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "documents.type_rvt": {
+  "en_value": "RVT",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "dwg_compare.col_delta": {
+  "en_value": "Δ",
+  "note": "bare symbol/punctuation glyph, not a word",
+  "reason_category": "symbol"
+ },
+ "dwg_takeoff.discipline_mep": {
+  "en_value": "MEP",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "dwg_takeoff.download_pdf_short": {
+  "en_value": "PDF",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "dwg_takeoff.export_excel_short": {
+  "en_value": "Excel",
+  "note": "brand/service name, functional interop reference",
+  "reason_category": "product_name"
+ },
+ "dwg_takeoff.export_pdf_short": {
+  "en_value": "PDF",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "explorer.load_failed_desc_status": {
+  "en_value": "HTTP {{status}} - {{message}}",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "field_time.wbs": {
+  "en_value": "WBS",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "files.distribution.modal_edit_title": {
+  "en_value": "{{name}}",
+  "note": "entirely template variables/punctuation, no literal word to translate",
+  "reason_category": "template_placeholder"
+ },
+ "geoHub.scene2D": {
+  "en_value": "2D",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "geoHub.scene3D": {
+  "en_value": "3D",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "geo_hub.adjust.source_nominatim": {
+  "en_value": "OSM Nominatim",
+  "note": "brand/service name, functional interop reference",
+  "reason_category": "product_name"
+ },
+ "governance.mod_rfi": {
+  "en_value": "RFI",
+  "note": "bare short acronym/initialism",
+  "reason_category": "abbreviation"
+ },
+ "hse_advanced.method_swot": {
+  "en_value": "SWOT",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "integrations.discord": {
+  "en_value": "Discord",
+  "note": "brand/service name, functional interop reference",
+  "reason_category": "product_name"
+ },
+ "integrations.google_sheets": {
+  "en_value": "Google Sheets",
+  "note": "brand/service name, functional interop reference",
+  "reason_category": "product_name"
+ },
+ "integrations.make": {
+  "en_value": "Make (Integromat)",
+  "note": "brand/service name, functional interop reference",
+  "reason_category": "product_name"
+ },
+ "integrations.n8n": {
+  "en_value": "n8n",
+  "note": "brand/service name, functional interop reference",
+  "reason_category": "product_name"
+ },
+ "integrations.power_bi": {
+  "en_value": "Power BI / Tableau",
+  "note": "brand/service name, functional interop reference",
+  "reason_category": "product_name"
+ },
+ "integrations.rest_api": {
+  "en_value": "REST API",
+  "note": "REST API is a standard technical initialism",
+  "reason_category": "abbreviation"
+ },
+ "integrations.zapier": {
+  "en_value": "Zapier",
+  "note": "brand/service name, functional interop reference",
+  "reason_category": "product_name"
+ },
+ "login.github": {
+  "en_value": "GitHub",
+  "note": "brand/service name, functional interop reference",
+  "reason_category": "product_name"
+ },
+ "login.mod.bim": {
+  "en_value": "BIM",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "login.mod.cost5d": {
+  "en_value": "5D",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "markups.dash": {
+  "en_value": "-",
+  "note": "bare symbol/punctuation glyph, not a word",
+  "reason_category": "symbol"
+ },
+ "match_elements.pipeline.llm_badge": {
+  "en_value": "LLM",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "methodology.editor.export_excel": {
+  "en_value": "Excel",
+  "note": "brand/service name, functional interop reference",
+  "reason_category": "product_name"
+ },
+ "methodology.editor.export_pdf": {
+  "en_value": "PDF",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "modules.cat_bim": {
+  "en_value": "BIM",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "modules.dev_demo_step3": {
+  "en_value": "3. backend/app/modules/hello_world/manifest.py",
+  "note": "literal example source path shown verbatim in a code sample, not prose",
+  "reason_category": "file_path_example"
+ },
+ "modules.dev_demo_step4": {
+  "en_value": "4. backend/app/modules/hello_world/router.py",
+  "note": "literal example source path shown verbatim in a code sample, not prose",
+  "reason_category": "file_path_example"
+ },
+ "nav.bim": {
+  "en_value": "BIM",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "normExpansion.mod_boq": {
+  "en_value": "BOQ",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "notifications.file_comments.mention.body": {
+  "en_value": "'{{excerpt}}'",
+  "note": "entirely template variables/punctuation, no literal word to translate",
+  "reason_category": "template_placeholder"
+ },
+ "notifications.punchlist.auto_created.body": {
+  "en_value": "{{title}}",
+  "note": "entirely template variables/punctuation, no literal word to translate",
+  "reason_category": "template_placeholder"
+ },
+ "pointcloud.field_rgb": {
+  "en_value": "RGB",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "portfolio.col_ef": {
+  "en_value": "EF",
+  "note": "bare short acronym/initialism",
+  "reason_category": "abbreviation"
+ },
+ "portfolio.col_es": {
+  "en_value": "ES",
+  "note": "bare short acronym/initialism",
+  "reason_category": "abbreviation"
+ },
+ "project.settings.fx.no_label": {
+  "en_value": "-",
+  "note": "bare symbol/punctuation glyph, not a word",
+  "reason_category": "symbol"
+ },
+ "project.settings.fx.preview_forward": {
+  "en_value": "1 {{code}} = {{value}} {{base}}",
+  "note": "entirely template variables and an equals sign, no literal word",
+  "reason_category": "template_placeholder"
+ },
+ "project.settings.fx.preview_inverse": {
+  "en_value": "1 {{base}} = {{value}} {{code}}",
+  "note": "entirely template variables and an equals sign, no literal word",
+  "reason_category": "template_placeholder"
+ },
+ "project_intelligence.forecast.tcpi": {
+  "en_value": "TCPI",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "project_intelligence.insights.cpi": {
+  "en_value": "CPI",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "project_intelligence.insights.spi": {
+  "en_value": "SPI",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "projects.chip_bim": {
+  "en_value": "BIM",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "projects.chip_dwg": {
+  "en_value": "DWG",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "projects.chip_excel": {
+  "en_value": "Excel",
+  "note": "brand/service name, functional interop reference",
+  "reason_category": "product_name"
+ },
+ "projects.chip_pdf": {
+  "en_value": "PDF",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "propdev.broker.kyc": {
+  "en_value": "KYC",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "propdev.dashboards.bp.col_gmv": {
+  "en_value": "GMV",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "propdev.dashboards.lsa.col_cpa": {
+  "en_value": "CPA",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "propdev.escrow.iban": {
+  "en_value": "IBAN",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "propdev.escrow.swift": {
+  "en_value": "SWIFT/BIC",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "propdev.phase.sequence": {
+  "en_value": "#",
+  "note": "bare symbol/punctuation glyph, not a word",
+  "reason_category": "symbol"
+ },
+ "propdev.warranty.cat_mep": {
+  "en_value": "MEP",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "quantities.badge_cad": {
+  "en_value": "CAD",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "quantities.flow_cad": {
+  "en_value": "CAD / BIM",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "record_publishing.email_placeholder": {
+  "en_value": "name@company.com",
+  "note": "placeholder email address shown as an input example",
+  "reason_category": "file_path_example"
+ },
+ "reporting.col_cpi": {
+  "en_value": "CPI",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "reporting.col_spi": {
+  "en_value": "SPI",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "reporting.download_csv": {
+  "en_value": "CSV",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "reporting.download_excel": {
+  "en_value": "Excel",
+  "note": "brand/service name, functional interop reference",
+  "reason_category": "product_name"
+ },
+ "reporting.download_pdf": {
+  "en_value": "PDF",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "reports.csv_cpi": {
+  "en_value": "CPI",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "reports.csv_spi": {
+  "en_value": "SPI",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "reports.html_cpi": {
+  "en_value": "CPI",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "reports.html_eac": {
+  "en_value": "EAC",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "reports.html_spi": {
+  "en_value": "SPI",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "requirements.matrix.constraint_summary": {
+  "en_value": "{{type}} {{value}}",
+  "note": "entirely template variables/punctuation, no literal word to translate",
+  "reason_category": "template_placeholder"
+ },
+ "requirements.regex_placeholder": {
+  "en_value": "^F[0-9]+$",
+  "note": "regex pattern shown as an input example, not prose",
+  "reason_category": "regex_pattern"
+ },
+ "risk.dist_pert": {
+  "en_value": "PERT",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "safety.mod_ncr": {
+  "en_value": "NCR",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "schedule.interchange.export_csv": {
+  "en_value": "CSV",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "schedule_advanced.ppc": {
+  "en_value": "PPC",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "schedule_advanced.variance": {
+  "en_value": "Δ",
+  "note": "bare symbol/punctuation glyph, not a word",
+  "reason_category": "symbol"
+ },
+ "service.recurring.col_rrule": {
+  "en_value": "RRULE",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "service.sla_chip": {
+  "en_value": "SLA",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "service.sla_tier": {
+  "en_value": "SLA",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "settings.converter_view_source": {
+  "en_value": "GitHub",
+  "note": "brand/service name, functional interop reference",
+  "reason_category": "product_name"
+ },
+ "site_inventory.col_sku": {
+  "en_value": "SKU",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "site_inventory.field_sku": {
+  "en_value": "SKU",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "takeoff.file_limit": {
+  "en_value": "PDF",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "tendering.export_gaeb": {
+  "en_value": "GAEB X83",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "tendering.export_pdf": {
+  "en_value": "PDF",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "update.method_pip": {
+  "en_value": "pip / PyPI",
+  "note": "brand/service name, functional interop reference",
+  "reason_category": "product_name"
+ },
+ "validation.rs_label_din276": {
+  "en_value": "DIN 276",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "validation.rs_label_gaeb": {
+  "en_value": "GAEB",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "validation.rs_label_masterformat": {
+  "en_value": "MasterFormat",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "validation.rs_label_nrm": {
+  "en_value": "NRM",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ },
+ "webhook_targets.url": {
+  "en_value": "URL",
+  "note": "bare technical/business acronym or initialism",
+  "reason_category": "abbreviation"
+ },
+ "whatsnew.v820.din276.chip": {
+  "en_value": "DIN 276",
+  "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
+  "reason_category": "standard_code"
+ }
+}

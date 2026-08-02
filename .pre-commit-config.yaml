@@ -100,18 +100,25 @@ repos:
         pass_filenames: false
         files: ^frontend/src/app/locales/.*\.ts$
 
-      # Catch a locale value going byte-identical to its en.ts source outside
-      # the declared debt in scripts/i18n_leak_baseline.json. Five commits on
-      # 2026-07-26 shipped 295 keys this way across 27 of 28 non-en locales
-      # under a message claiming translation; every key existed and every
-      # coverage check passed, so nothing caught it until #181 found the
-      # first one by hand. This guard freezes that known set and fails only
-      # on a NEW key/locale pair going English, so it catches a recurrence
-      # without needing to know any of the 27 languages. CI runs the same
-      # script on every push.
+      # Scan the whole of en.ts for values byte-identical to their source in
+      # 24+ of 28 non-en locales, and require every hit to land in exactly
+      # one of two never-merged lists: i18n_leak_allowlist.json (identical on
+      # purpose - abbreviations, standards codes, product names) or
+      # i18n_leak_baseline.json (declared leak debt, an explicit key ->
+      # leaked-locale set that may only shrink). Six commits on 2026-07-26
+      # shipped 422 keys / 11360 cells this way - five under a message
+      # claiming translation, one an ordinary feature commit that happened to
+      # add keys along the way; every key existed and every coverage check
+      # passed, so nothing caught it until #181 found the first one by hand.
+      # This guard also rejects a "repair" that deletes a key instead of
+      # translating it (fallbackLng=en still shows English either way), and
+      # a small third list, i18n_leak_pending_review.json, holds the handful
+      # of keys that don't cleanly fit either tell (e.g. a founder's name,
+      # transliterated in two locales and left in Latin script everywhere
+      # else) - reported every run, never gating. CI runs the same script.
       - id: i18n-leak-baseline-check
-        name: Block new locale values byte-identical to en.ts
+        name: Gate untracked byte-identical-to-en.ts locale values
         entry: python scripts/check_i18n_leak_baseline.py
         language: system
         pass_filenames: false
-        files: ^frontend/src/app/locales/.*\.ts$
+        files: ^(frontend/src/app/locales/.*\.ts|scripts/i18n_leak_(allowlist|baseline|pending_review)\.json)$

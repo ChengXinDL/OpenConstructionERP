@@ -8,12 +8,16 @@
 #   * no locale value carries a doubled Unicode escape (`\\u2013` instead of
 #     `–`), which is syntactically valid so tsc and the build stay green while
 #     the string renders as literal garbage, and
-#   * no new locale value goes byte-identical to its en.ts source outside the
-#     declared i18n_leak_baseline.json debt list. Five commits on 2026-07-26
-#     shipped 295 keys this way across 27 of 28 non-en locales under a commit
-#     message claiming translation; every key existed and every coverage
-#     check passed, so nothing caught it until #181 found the first one by
-#     hand. See scripts/check_i18n_leak_baseline.py for the fingerprint.
+#   * no locale value in the whole of en.ts's keyspace goes byte-identical to
+#     its source in 24 or more of 28 non-en locales without landing in exactly
+#     one of two declared, never-merged lists (i18n_leak_allowlist.json for
+#     deliberately-identical terms, i18n_leak_baseline.json for the 422 keys /
+#     11360 cells six commits on 2026-07-26 shipped this way - five under a
+#     commit message claiming translation, one an ordinary feature commit
+#     that happened to add keys along the way). Every key existed and every
+#     coverage check passed, because the string was present - it was just the
+#     wrong string; nothing caught it until #181 found the first one by hand.
+#     See scripts/check_i18n_leak_baseline.py for the fingerprint.
 # The file, escape and leak-baseline guards also run as pre-commit hooks; the
 # trailer guard runs as a commit-msg pre-commit hook. So a violation is
 # caught at commit time and in CI, and the file guard is caught again at
@@ -66,7 +70,7 @@ jobs:
         run: python scripts/check_locale_escapes.py
 
   i18n-leak-baseline:
-    name: No new locale values byte-identical to en.ts
+    name: Every locale value byte-identical to en.ts is accounted for
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
