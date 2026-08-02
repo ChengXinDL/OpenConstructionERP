@@ -1,4 +1,14 @@
 {
+  "progress.record_period": {
+    "en_value": "Period",
+    "note": "sv.ts genuinely uses \"Period\" unchanged, matching sv's own progress.col_period and 15 other Period-labeled sibling keys across the app; a Germanic cognate, not leftover English (module 13 of #182)",
+    "reason_category": "cognate_loanword"
+  },
+  "progress.record_position": {
+    "en_value": "Position",
+    "note": "de.ts genuinely uses \"Position\" unchanged, matching de's own boq.position (the value this key was grounded on) and its wider BOQ vocabulary; a Germanic/Latinate cognate, not leftover English (module 13 of #182)",
+    "reason_category": "cognate_loanword"
+  },
   "accommodation.bim_link.label": {
     "en_value": "BIM",
     "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
