@@ -1138,15 +1138,15 @@ TEMPLATE = DemoTemplate(
     total_months=30,
     tender_name="土建及机电总承包 (Civil and MEP main contract)",
     tender_companies=[
-        ("中海建筑 (China Overseas Construction)", "tender@cohl.com.cn", 0.98),
-        ("深圳市建工集团 (Shenzhen Construction Group)", "bids@szjg.com.cn", 1.02),
-        ("中建二局 (China Construction Second Engineering Bureau)", "tender@cscec2b.com.cn", 1.01),
+        ("屹澜建筑 (Yilan Construction)", "tender@yilan.example", 0.98),
+        ("深圳市黎沐建工集团 (Shenzhen Limu Construction Group)", "bids@limu.example", 1.02),
+        ("桓岳建设集团 (Huanyue Construction Group)", "tender@huanyue.example", 1.01),
     ],
     project_metadata={
         "address": "深圳市南山区科苑南路 2888 号 (2888 Keyuan South Road, Nanshan, Shenzhen 518052)",
-        "client": "深圳人才安居集团有限公司 (Shenzhen Talent Housing Group Co., Ltd.)",
-        "architect": "深圳市建筑设计研究总院 (Shenzhen General Institute of Architectural Design & Research)",
-        "structural_consultant": "深圳市建筑设计研究总院结构院 (SADI Structural Division)",
+        "client": "深圳筑荟安居集团有限公司 (Shenzhen Zhuhui Housing Group Co., Ltd.)",
+        "architect": "深圳市棠序建筑设计研究总院 (Shenzhen Tangxu General Institute of Architectural Design & Research)",
+        "structural_consultant": "深圳市棠序建筑设计研究总院结构院 (TXGI Structural Division)",
         "gfa_m2": 168000,
         "dwelling_units": 1180,
         "parking_bays": 1050,
@@ -1176,9 +1176,9 @@ TEMPLATE = DemoTemplate(
             "钻孔灌注桩、预应力管桩、排桩支护、止水帷幕及锚索支护",
             "evaluating",
             [
-                ("中海建筑 (China Overseas Construction)", "tender@cohl.com.cn", 0.98),
-                ("深圳市建工集团 (Shenzhen Construction Group)", "bids@szjg.com.cn", 1.02),
-                ("中建二局 (China Construction Second Engineering Bureau)", "tender@cscec2b.com.cn", 1.01),
+                ("屹澜建筑 (Yilan Construction)", "tender@yilan.example", 0.98),
+                ("深圳市黎沐建工集团 (Shenzhen Limu Construction Group)", "bids@limu.example", 1.02),
+                ("桓岳建设集团 (Huanyue Construction Group)", "tender@huanyue.example", 1.01),
             ],
         ),
         (
@@ -1186,9 +1186,9 @@ TEMPLATE = DemoTemplate(
             "剪力墙、框架、楼板、楼梯及装配式叠合板、外墙挂板吊装",
             "evaluating",
             [
-                ("深圳市建工集团 (Shenzhen Construction Group)", "bids@szjg.com.cn", 0.99),
-                ("中建三局 (China Construction Third Engineering Bureau)", "tender@cscec3b.com.cn", 1.03),
-                ("龙信建设 (Longxin Construction Group)", "bids@longxin.com.cn", 1.02),
+                ("深圳市黎沐建工集团 (Shenzhen Limu Construction Group)", "bids@limu.example", 0.99),
+                ("祁川建设集团 (Qichuan Construction Group)", "tender@qichuan.example", 1.03),
+                ("砚溪建设 (Yanxi Construction Group)", "bids@yanxi.example", 1.02),
             ],
         ),
         (
@@ -1196,9 +1196,9 @@ TEMPLATE = DemoTemplate(
             "外墙真石漆、干挂石材、外保温系统及铝合金门窗安装",
             "evaluating",
             [
-                ("亚厦幕墙 (Yasha Facade)", "tender@yashagroup.com", 0.98),
-                ("中南幕墙 (Zhongnan Curtain Wall)", "bids@zhongnan.com.cn", 1.04),
-                ("方大幕墙 (Fangda Curtain Wall)", "tender@fangda.com.cn", 1.01),
+                ("宸砺幕墙 (Chenli Facade)", "tender@chenli.example", 0.98),
+                ("澜屿幕墙 (Lanyu Curtain Wall)", "bids@lanyu.example", 1.04),
+                ("樾泓幕墙 (Yuehong Curtain Wall)", "tender@yuehong.example", 1.01),
             ],
         ),
         (
@@ -1206,9 +1206,9 @@ TEMPLATE = DemoTemplate(
             "给排水、消防、通风、电气、智能化、电梯及充电设施安装",
             "evaluating",
             [
-                ("深圳市安装集团 (Shenzhen Installation Group)", "tender@szinstall.com", 0.99),
-                ("中建电子 (China Construction Electronic Engineering)", "bids@ccee.com.cn", 1.03),
-                ("华阳机电 (Huayang Electromechanical)", "tender@huayangjd.com", 1.02),
+                ("深圳市阙铭安装集团 (Shenzhen Queming Installation Group)", "tender@queming.example", 0.99),
+                ("骏枢智能电子 (Junshu Intelligent Electronics)", "bids@junshu.example", 1.03),
+                ("洵坤机电 (Xunkun Electromechanical)", "tender@xunkun.example", 1.02),
             ],
         ),
         (
@@ -1216,9 +1216,9 @@ TEMPLATE = DemoTemplate(
             "户内精装修、公共部位装修、园林绿化及室外配套工程",
             "evaluating",
             [
-                ("金螳螂建筑装饰 (Gold Mantis Construction Decoration)", "tender@goldmantis.com", 0.98),
-                ("广田装饰 (Grandland Decoration)", "bids@grandland.com.cn", 1.04),
-                ("深装总 (Shenzhen Decoration Group)", "tender@szzz.com.cn", 1.02),
+                ("青梧建筑装饰 (Qingwu Construction Decoration)", "tender@qingwu.example", 0.98),
+                ("黛屏装饰 (Daiping Decoration)", "bids@daiping.example", 1.04),
+                ("鹭汀装饰集团 (Luting Decoration Group)", "tender@luting.example", 1.02),
             ],
         ),
     ],
