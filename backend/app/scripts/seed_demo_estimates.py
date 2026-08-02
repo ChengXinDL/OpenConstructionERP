@@ -4,7 +4,7 @@
 
 Creates:
   1. "Wohnanlage Berlin-Mitte" - 48-unit residential complex (DACH, DIN 276, EUR)
-  2. "One Canary Square" - 12-storey office tower (UK, NRM 1, GBP)
+  2. "Halesworth Wharf Tower" - 12-storey office tower (UK, NRM 1, GBP)
 
 Each project contains a full BOQ with hierarchical sections, line-item positions,
 and markup lines (BGK/AGK/W&G for DACH; Preliminaries/OH&P/Reserves for UK).
@@ -347,7 +347,7 @@ def _build_berlin_markups(boq_id: uuid.UUID) -> list[BOQMarkup]:
 
 
 # ---------------------------------------------------------------------------
-# Demo 2 - One Canary Square (UK / NRM 1 / GBP)
+# Demo 2 - Halesworth Wharf Tower (UK / NRM 1 / GBP)
 # ---------------------------------------------------------------------------
 
 
@@ -613,7 +613,7 @@ async def main() -> None:
         ).scalar_one_or_none()
 
         existing_canary = (
-            await session.execute(select(Project).where(Project.name == "One Canary Square"))
+            await session.execute(select(Project).where(Project.name == "Halesworth Wharf Tower"))
         ).scalar_one_or_none()
 
         if existing_berlin and existing_canary:
@@ -745,18 +745,18 @@ async def main() -> None:
             grand_totals.append(("Wohnanlage Berlin-Mitte", "EUR", grand1))
 
         # ==================================================================
-        # DEMO 2: One Canary Square
+        # DEMO 2: Halesworth Wharf Tower
         # ==================================================================
         if existing_canary:
-            print("\n  [SKIP] 'One Canary Square' already exists.")
+            print("\n  [SKIP] 'Halesworth Wharf Tower' already exists.")
         else:
             print("\n" + "-" * 78)
-            print("  DEMO 2: One Canary Square \u2014 Office Tower")
+            print("  DEMO 2: Halesworth Wharf Tower \u2014 Office Tower")
             print("-" * 78)
 
             project2 = Project(
                 id=uuid.uuid4(),
-                name="One Canary Square",
+                name="Halesworth Wharf Tower",
                 description=(
                     "New-build 12-storey Grade A office tower with 2-level basement car park. "
                     "Steel frame, composite floors, unitised curtain walling. "
@@ -827,7 +827,7 @@ async def main() -> None:
             total_sections += sec_count
             total_positions += pos_count
             total_markups += len(markups2)
-            grand_totals.append(("One Canary Square", "GBP", grand2))
+            grand_totals.append(("Halesworth Wharf Tower", "GBP", grand2))
 
         # ------------------------------------------------------------------
         # Commit everything

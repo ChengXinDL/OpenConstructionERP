@@ -72,10 +72,10 @@ _ENTRY_TYPES: tuple[str, ...] = (
 )
 
 _DRONE_MODELS: tuple[str, ...] = (
-    "DJI Mavic 3 Enterprise",
-    "DJI Matrice 350 RTK",
-    "Parrot Anafi Ai",
-    "Autel Evo II Pro RTK",
+    "Compact survey quadcopter (RTK)",
+    "Heavy-lift survey drone (RTK)",
+    "Foldable inspection drone (4G)",
+    "Wide-sensor mapping drone (RTK)",
 )
 
 _CAPTURE_TYPES: tuple[str, ...] = ("laser_scan", "photogrammetry", "mobile_scan")

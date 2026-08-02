@@ -1300,9 +1300,9 @@ TEMPLATE = DemoTemplate(
     total_months=30,
     tender_name="Main Building Contract (Structure & Envelope)",
     tender_companies=[
-        ("WBHO Construction", "tenders@wbho.co.za", 0.98),
-        ("Murray & Roberts Buildings", "estimating@murrob.com", 1.04),
-        ("Stefanutti Stocks Building", "tenders@stefstocks.com", 1.01),
+        ("Halberd Construction", "tenders@halberd.example", 0.98),
+        ("Vanderlyn & Kroft Buildings", "estimating@vanderlynkroft.example", 1.04),
+        ("Vosterlan Brink Building", "tenders@vosterlan.example", 1.01),
     ],
     tender_packages=[
         (
@@ -1310,9 +1310,9 @@ TEMPLATE = DemoTemplate(
             "Substructure, piling, reinforced-concrete frame, post-tensioned slabs and facade.",
             "evaluating",
             [
-                ("WBHO Construction", "tenders@wbho.co.za", 0.98),
-                ("Murray & Roberts Buildings", "estimating@murrob.com", 1.04),
-                ("Stefanutti Stocks Building", "tenders@stefstocks.com", 1.01),
+                ("Halberd Construction", "tenders@halberd.example", 0.98),
+                ("Vanderlyn & Kroft Buildings", "estimating@vanderlynkroft.example", 1.04),
+                ("Vosterlan Brink Building", "tenders@vosterlan.example", 1.01),
             ],
         ),
         (
@@ -1320,9 +1320,9 @@ TEMPLATE = DemoTemplate(
             "HVAC, electrical reticulation, standby power, solar PV, plumbing and fire services.",
             "issued",
             [
-                ("Bosch Projects (M&E)", "tenders@boschprojects.co.za", 0.99),
-                ("Spoormaker & Partners", "bids@spoormaker.co.za", 1.05),
-                ("CKR Consulting Engineers", "estimating@ckr.co.za", 1.02),
+                ("Renbeck Projects (M&E)", "tenders@renbeck.example", 0.99),
+                ("Vreelander & Partners", "bids@vreelander.example", 1.05),
+                ("Halvardt Consulting Engineers", "estimating@halvardt.example", 1.02),
             ],
         ),
         (
@@ -1330,18 +1330,18 @@ TEMPLATE = DemoTemplate(
             "Internal finishes, joinery, ceilings, partitions and tenant fit-out works.",
             "draft",
             [
-                ("Tri-Star Construction", "tenders@tristar.co.za", 0.97),
-                ("Motheo Construction Group", "bids@motheo.com", 1.06),
-                ("Trencon Construction", "tenders@trencon.co.za", 1.03),
+                ("Tri-Vance Construction", "tenders@trivance.example", 0.97),
+                ("Molefane Construction Group", "bids@molefane.example", 1.06),
+                ("Grenvale Construction", "tenders@grenvale.example", 1.03),
             ],
         ),
     ],
     project_metadata={
         "address": "120 Rivonia Road, Sandton, Johannesburg 2196, South Africa",
-        "client": "Rivonia Quarter Property Developments (Pty) Ltd",
-        "architect": "Paragon Architects",
+        "client": "Cresslin Quarter Property Developments (Pty) Ltd",
+        "architect": "Larkspire Architects",
         "quantity_surveyor": "RLB Pentad Quantity Surveyors (ASAQS)",
-        "structural_engineer": "Sutherland Engineers",
+        "structural_engineer": "Kelbright Engineers",
         "gfa_m2": 24000,
         "site_area_m2": 3200,
         "storeys": 14,

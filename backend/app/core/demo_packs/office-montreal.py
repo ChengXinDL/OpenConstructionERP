@@ -313,15 +313,15 @@ TEMPLATE = DemoTemplate(
     total_months=26,
     tender_name="Charpente et structure (Structure)",
     tender_companies=[
-        ("Pomerleau inc.", "soumissions@pomerleau.ca", 0.98),
-        ("EBC inc.", "estimation@ebc-inc.com", 1.04),
-        ("Magil Construction", "bids@magil.ca", 1.02),
+        ("Marcheval inc.", "soumissions@marcheval.example", 0.98),
+        ("Tersac inc.", "estimation@tersac.example", 1.04),
+        ("Vandrel Construction", "bids@vandrel.example", 1.02),
     ],
     project_metadata={
         "address": "1200 rue Ottawa, Montréal (Québec) H3C 1S2",
-        "client": "BatimaTech Développement Immobilier inc.",
-        "architect": "Lemay + Provencher Roy",
-        "structural_engineer": "WSP Canada",
+        "client": "Ravelance Développement Immobilier inc.",
+        "architect": "Duhaime + Vasselin",
+        "structural_engineer": "Norvenor Canada",
         "general_contractor_form": "CCDC 2 (2020) - contrat à forfait",
         "gfa_above_grade_m2": 12400,
         "gfa_basement_m2": 3800,
@@ -355,9 +355,9 @@ TEMPLATE = DemoTemplate(
             "Terrassement, étançonnement, béton coulé en place, charpente d'acier",
             "evaluating",
             [
-                ("Pomerleau inc.", "soumissions@pomerleau.ca", 0.98),
-                ("EBC inc.", "estimation@ebc-inc.com", 1.04),
-                ("Magil Construction", "bids@magil.ca", 1.02),
+                ("Marcheval inc.", "soumissions@marcheval.example", 0.98),
+                ("Tersac inc.", "estimation@tersac.example", 1.04),
+                ("Vandrel Construction", "bids@vandrel.example", 1.02),
             ],
         ),
         (
@@ -365,9 +365,9 @@ TEMPLATE = DemoTemplate(
             "Mur-rideau, maçonnerie, isolation, étanchéité, toiture",
             "evaluating",
             [
-                ("Pomerleau Enveloppe", "enveloppe@pomerleau.ca", 0.97),
-                ("Groupe Vitrerie Laurin", "soumissions@vitrerie-laurin.qc.ca", 1.05),
-                ("Alumico Architectural", "estimation@alumico.qc.ca", 1.01),
+                ("Marcheval Enveloppe", "enveloppe@marcheval.example", 0.97),
+                ("Groupe Vitrerie Charbonneux", "soumissions@charbonneux.example", 1.05),
+                ("Alcanor Architectural", "estimation@alcanor.example", 1.01),
             ],
         ),
         (
@@ -375,9 +375,9 @@ TEMPLATE = DemoTemplate(
             "Chauffage, ventilation, climatisation, géothermie, plomberie, gicleurs",
             "evaluating",
             [
-                ("Régulvar / Plomberie Brébeuf", "soumissions@plomberie-brebeuf.qc.ca", 0.99),
-                ("Groupe LML inc.", "estimation@groupelml.qc.ca", 1.06),
-                ("Mécanique RH inc.", "bids@mecaniquerh.ca", 1.03),
+                ("Thermovar / Plomberie Sancerel", "soumissions@sancerel.example", 0.99),
+                ("Groupe Ardelin inc.", "estimation@ardelin.example", 1.06),
+                ("Mécanique Delvray inc.", "bids@delvray.example", 1.03),
             ],
         ),
         (
@@ -385,9 +385,9 @@ TEMPLATE = DemoTemplate(
             "Distribution, génératrice, éclairage DEL, recharge VÉ, télécom, sécurité",
             "evaluating",
             [
-                ("Pétrin & Associés Électrique", "soumissions@petrin-elec.qc.ca", 0.97),
-                ("Néolect inc.", "estimation@neolect.qc.ca", 1.05),
-                ("Britton Électrique", "bids@britton.ca", 1.02),
+                ("Chalonge & Associés Électrique", "soumissions@chalonge.example", 0.97),
+                ("Vivelect inc.", "estimation@vivelect.example", 1.05),
+                ("Marnault Électrique", "bids@marnault.example", 1.02),
             ],
         ),
         (
@@ -395,9 +395,9 @@ TEMPLATE = DemoTemplate(
             "Cloisons, gypse, plafonds, planchers, peinture, carrelage",
             "evaluating",
             [
-                ("Constructions Berka", "soumissions@berka.qc.ca", 0.96),
-                ("Décor Experts-Conseils", "estimation@decor-ec.qc.ca", 1.04),
-                ("Groupe Geyser", "bids@groupegeyser.ca", 1.01),
+                ("Constructions Velmy", "soumissions@velmy.example", 0.96),
+                ("Ornevial Experts-Conseils", "estimation@ornevial.example", 1.04),
+                ("Groupe Perrachon", "bids@perrachon.example", 1.01),
             ],
         ),
         (
@@ -405,8 +405,8 @@ TEMPLATE = DemoTemplate(
             "Pavage, pavés, plantation, mobilier urbain, gestion pluviale",
             "evaluating",
             [
-                ("Paysagiste Solico", "soumissions@solico.qc.ca", 0.99),
-                ("Aménagement Côté Jardin", "estimation@cotejardin.qc.ca", 1.06),
+                ("Paysagiste Vernoy", "soumissions@vernoy.example", 0.99),
+                ("Aménagement Clos Verdaine", "estimation@verdaine.example", 1.06),
             ],
         ),
     ],

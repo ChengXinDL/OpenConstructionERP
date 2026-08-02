@@ -301,18 +301,18 @@ TEMPLATE = DemoTemplate(
     total_months=32,
     tender_name="Lot Gros Oeuvre (Structural/Foundations)",
     tender_companies=[
-        ("Bouygues Batiment Sud-Est", "appels@bouygues.fr", 0.98),
-        ("Eiffage Construction Rhone-Alpes", "marches@eiffage.fr", 1.05),
-        ("Vinci Construction France", "offres@vinci-construction.fr", 1.01),
-        ("Spie Batignolles", "appels@spiebatignolles.fr", 1.03),
-        ("Leon Grosse", "marches@leongrosse.fr", 0.99),
+        ("Maurenne Batiment Sud-Est", "appels@maurenne.example", 0.98),
+        ("Ferlac Construction Rhone-Alpes", "marches@ferlac.example", 1.05),
+        ("Ardevin Construction France", "offres@ardevin.example", 1.01),
+        ("Doreval Constructions", "appels@doreval.example", 1.03),
+        ("Aurel Brissonde", "marches@brissonde.example", 0.99),
     ],
     project_metadata={
         "address": "50 Quai Rambaud, 69002 Lyon",
         "client": "Hospices Civils de Lyon (HCL)",
-        "architect": "Groupe-6 + AIA Life Designers",
-        "structural_engineer": "Egis Batiments",
-        "mep_engineer": "Artelia / Setec",
+        "architect": "Groupe Solane + Vaudris Life Designers",
+        "structural_engineer": "Nerval Batiments",
+        "mep_engineer": "Vergenis / Portec",
         "contract_form": "Marche public de travaux allotis (loi MOP, CCAG-Travaux 2021)",
         "sdp_m2": 38500,
         "beds": 320,
@@ -350,9 +350,9 @@ TEMPLATE = DemoTemplate(
             "Terrassement, fondations profondes, beton arme parasismique, maconnerie",
             "evaluating",
             [
-                ("Bouygues Batiment Sud-Est", "appels@bouygues.fr", 0.98),
-                ("Eiffage Construction Rhone-Alpes", "marches@eiffage.fr", 1.05),
-                ("Leon Grosse", "marches@leongrosse.fr", 0.99),
+                ("Maurenne Batiment Sud-Est", "appels@maurenne.example", 0.98),
+                ("Ferlac Construction Rhone-Alpes", "marches@ferlac.example", 1.05),
+                ("Aurel Brissonde", "marches@brissonde.example", 0.99),
             ],
         ),
         (
@@ -360,9 +360,9 @@ TEMPLATE = DemoTemplate(
             "Mur-rideau, ITE, bardage, menuiseries exterieures, etancheite, heliport",
             "evaluating",
             [
-                ("Goyer Facades", "appels@goyer.fr", 0.97),
-                ("Permasteelisa France", "marches@permasteelisa.com", 1.04),
-                ("Smac (Groupe Colas)", "offres@smac-sa.com", 1.02),
+                ("Trelanne Facades", "appels@trelanne.example", 0.97),
+                ("Clanmere Facades France", "marches@clanmere.example", 1.04),
+                ("Etanova (Groupe Tarvane)", "offres@etanova.example", 1.02),
             ],
         ),
         (
@@ -370,9 +370,9 @@ TEMPLATE = DemoTemplate(
             "Centrales de traitement d'air, salles propres, fluides medicaux EN ISO 7396-1, GTB",
             "evaluating",
             [
-                ("Engie Solutions", "appels@engie.fr", 0.99),
-                ("Air Liquide Medical Systems", "marches@airliquide.com", 1.06),
-                ("Dalkia (Groupe EDF)", "offres@dalkia.fr", 1.03),
+                ("Navelis Solutions", "appels@navelis.example", 0.99),
+                ("Oxyverne Medical Systems", "marches@oxyverne.example", 1.06),
+                ("Calorine (Groupe Enerlys)", "offres@calorine.example", 1.03),
             ],
         ),
         (
@@ -380,9 +380,9 @@ TEMPLATE = DemoTemplate(
             "Poste HTA, groupes electrogenes, IT medical, SSI, desenfumage, appel malade, VDI",
             "evaluating",
             [
-                ("Cegelec Sante (VINCI Energies)", "appels@cegelec.fr", 0.97),
-                ("Spie France", "marches@spie.fr", 1.05),
-                ("Eiffage Energie Systemes", "offres@eiffage-energie.fr", 1.02),
+                ("Belcaris Sante (Ardevin Energies)", "appels@belcaris.example", 0.97),
+                ("Roverval France", "marches@roverval-fr.example", 1.05),
+                ("Ferlac Energie Systemes", "offres@ferlac-energie.example", 1.02),
             ],
         ),
         (
@@ -390,9 +390,9 @@ TEMPLATE = DemoTemplate(
             "Blocs operatoires ISO 5, blindage imagerie, sterilisation, isolement",
             "evaluating",
             [
-                ("Getinge France", "appels@getinge.com", 0.98),
-                ("Maquet / Mediland", "marches@mediland.fr", 1.04),
-                ("Steris France", "offres@steris.com", 1.01),
+                ("Sterivane France", "appels@sterivane.example", 0.98),
+                ("Corvista / Medilane", "marches@medilane.example", 1.04),
+                ("Aseptane France", "offres@aseptane.example", 1.01),
             ],
         ),
         (
@@ -400,9 +400,9 @@ TEMPLATE = DemoTemplate(
             "Cloisons, doublages, revetements, faux plafonds, menuiseries, ascenseurs",
             "evaluating",
             [
-                ("Bateg (Groupe Vinci)", "appels@bateg.fr", 0.98),
-                ("Sogea Lyon (Groupe Vinci)", "marches@sogea-lyon.fr", 1.04),
-                ("Fontanel (Groupe Vinci)", "offres@fontanel.fr", 1.01),
+                ("Valmery (Groupe Ardevin)", "appels@valmery.example", 0.98),
+                ("Sorenne Lyon (Groupe Ardevin)", "marches@sorenne.example", 1.04),
+                ("Verthuis (Groupe Ardevin)", "offres@verthuis.example", 1.01),
             ],
         ),
         (
@@ -410,9 +410,9 @@ TEMPLATE = DemoTemplate(
             "Voirie, reseaux humides et secs, bassin de retention, espaces verts, helistation",
             "evaluating",
             [
-                ("Colas Rhone-Alpes Auvergne", "appels@colas.fr", 0.99),
-                ("Eurovia (Groupe Vinci)", "marches@eurovia.com", 1.06),
-                ("Roger Martin (Groupe Fayat)", "offres@roger-martin.fr", 1.02),
+                ("Tarvane Rhone-Alpes Auvergne", "appels@tarvane.example", 0.99),
+                ("Routavia (Groupe Ardevin)", "marches@routavia.example", 1.06),
+                ("Gaspard Reynol (Groupe Halvest)", "offres@reynol.example", 1.02),
             ],
         ),
     ],

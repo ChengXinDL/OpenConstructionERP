@@ -659,17 +659,17 @@ TEMPLATE = DemoTemplate(
     total_months=42,
     tender_name="Main Construction Package (Structure, Facade & MEP)",
     tender_companies=[
-        ("ALEC Engineering & Contracting", "tenders@alec.ae", 0.98),
-        ("Trojan General Contracting", "bids@trojan-holding.com", 1.05),
-        ("Six Construct (BESIX Group)", "tender@sixconstruct.ae", 1.02),
-        ("Arabtec Construction", "procurement@arabtec.com", 1.07),
+        ("AVEN Engineering & Contracting", "tenders@aven.example", 0.98),
+        ("Karnath General Contracting", "bids@karnath.example", 1.05),
+        ("Seven Construct (Bervax Group)", "tender@sevenconstruct.example", 1.02),
+        ("Zumratec Construction", "procurement@zumratec.example", 1.07),
     ],
     project_metadata={
         "address": "Al Maryah Island, Sowwah Square, Abu Dhabi, UAE",
-        "client": "Maryah Island Development PJSC",
-        "architect": "AECOM Middle East",
-        "structural_engineer": "WSP Middle East",
-        "mep_engineer": "Hilson Moran Gulf",
+        "client": "Nawaris Island Development PJSC",
+        "architect": "Trenholme Middle East",
+        "structural_engineer": "Norvenor Middle East",
+        "mep_engineer": "Hensford Vane Gulf",
         "general_contractor_form": "FIDIC Red Book (1999) - lump-sum contract",
         "gfa_above_grade_m2": 118000,
         "gfa_basement_m2": 46000,
@@ -711,9 +711,9 @@ TEMPLATE = DemoTemplate(
             "Excavation, shoring, bored piles, dewatering, raft and basement structure",
             "evaluating",
             [
-                ("ALEC Engineering & Contracting", "tenders@alec.ae", 0.98),
-                ("Trojan General Contracting", "bids@trojan-holding.com", 1.05),
-                ("Bauer International FZE", "tender@bauer.ae", 1.01),
+                ("AVEN Engineering & Contracting", "tenders@aven.example", 0.98),
+                ("Karnath General Contracting", "bids@karnath.example", 1.05),
+                ("Grundwerk International FZE", "tender@grundwerk.example", 1.01),
             ],
         ),
         (
@@ -721,9 +721,9 @@ TEMPLATE = DemoTemplate(
             "Jump-form RC core, post-tensioned flat slabs, columns and steel transfer works",
             "evaluating",
             [
-                ("Six Construct (BESIX Group)", "tender@sixconstruct.ae", 1.02),
-                ("ALEC Engineering & Contracting", "tenders@alec.ae", 0.99),
-                ("Arabtec Construction", "procurement@arabtec.com", 1.06),
+                ("Seven Construct (Bervax Group)", "tender@sevenconstruct.example", 1.02),
+                ("AVEN Engineering & Contracting", "tenders@aven.example", 0.99),
+                ("Zumratec Construction", "procurement@zumratec.example", 1.06),
             ],
         ),
         (
@@ -731,9 +731,9 @@ TEMPLATE = DemoTemplate(
             "Tower unitised curtain wall, podium shopfronts, spandrels and feature crown",
             "evaluating",
             [
-                ("Alumco LLC", "estimation@alumco.ae", 0.97),
-                ("Folcra Beach Industrial", "tenders@folcra.com", 1.04),
-                ("Metolam / Schmidlin Gulf", "bids@schmidlin.ae", 1.02),
+                ("Alumvest LLC", "estimation@alumvest.example", 0.97),
+                ("Sarwellan Glazing Industrial", "tenders@sarwellan.example", 1.04),
+                ("Vitrolam / Hallensen Gulf", "bids@vitrolam.example", 1.02),
             ],
         ),
         (
@@ -741,9 +741,9 @@ TEMPLATE = DemoTemplate(
             "HVAC, district cooling ETS, plumbing, fire suppression, BMS and commissioning",
             "evaluating",
             [
-                ("Voltas Limited (Gulf)", "tenders@voltas.ae", 0.99),
-                ("SKM Air Conditioning", "estimation@skmaircon.com", 1.05),
-                ("Drake & Scull International", "bids@drakescull.com", 1.03),
+                ("Thermoya Limited (Gulf)", "tenders@thermoya-gulf.example", 0.99),
+                ("Mirvane Air Conditioning", "estimation@mirvane.example", 1.05),
+                ("Nakhbara International", "bids@nakhbara.example", 1.03),
             ],
         ),
         (
@@ -751,9 +751,9 @@ TEMPLATE = DemoTemplate(
             "HV/LV distribution, generators, ELV/security, fire alarm and lifts/escalators",
             "evaluating",
             [
-                ("ETA Star / ETA M&E", "tenders@etastar.ae", 0.98),
-                ("Al-Futtaim Engineering", "estimation@alfuttaim-eng.ae", 1.05),
-                ("KONE Middle East (lifts)", "bids@kone.ae", 1.02),
+                ("ODA Crest / ODA M&E", "tenders@odacrest.example", 0.98),
+                ("Al-Nahzari Engineering", "estimation@alnahzari.example", 1.05),
+                ("Orvenda Middle East (lifts)", "bids@orvenda-me.example", 1.02),
             ],
         ),
         (
@@ -761,9 +761,9 @@ TEMPLATE = DemoTemplate(
             "Internal finishes, FF&E, landscaping, plaza decks and site infrastructure",
             "evaluating",
             [
-                ("Depa Interiors LLC", "tenders@depa.com", 0.99),
-                ("Summertown Interiors", "estimation@summertown.ae", 1.06),
-                ("Desert Landscape LLC", "bids@desertlandscape.ae", 1.01),
+                ("Rehan Interiors LLC", "tenders@rehan.example", 0.99),
+                ("Palmcourt Interiors", "estimation@palmcourt.example", 1.06),
+                ("Dunevale Landscape LLC", "bids@dunevale.example", 1.01),
             ],
         ),
     ],

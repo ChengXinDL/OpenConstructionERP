@@ -4,7 +4,7 @@
 
 Provides 5 complete demo projects with BOQ, Schedule, Budget, and Tendering data:
   1. residential-berlin  - Wohnanlage Berlin-Mitte (existing seed, re-created)
-  2. office-london       - One Canary Square (existing seed, re-created)
+  2. office-london       - Halesworth Wharf Tower (existing seed, re-created)
   3. medical-us          - Downtown Medical Center (new)
   4. warehouse-dubai     - Logistics Hub Jebel Ali (new)
   5. school-paris        - Ecole Primaire Belleville (new)
@@ -723,8 +723,8 @@ _BERLIN = DemoTemplate(
             "Pflasterung, Bepflanzung, Spielplatz, Zaun, Beleuchtung",
             "evaluating",
             [
-                ("Galabau Meier GmbH", "angebote@galabau-meier.de", 0.99),
-                ("GreenTech Landschaftsbau", "vergabe@greentech-gala.de", 1.06),
+                ("Galabau Meier GmbH", "angebote@galabau-meier.example", 0.99),
+                ("GreenTech Landschaftsbau", "vergabe@greentech-gala.example", 1.06),
             ],
         ),
     ],
@@ -736,7 +736,7 @@ _BERLIN = DemoTemplate(
 
 _LONDON = DemoTemplate(
     demo_id="office-london",
-    project_name="One Canary Square",
+    project_name="Halesworth Wharf Tower",
     project_description=(
         "New-build 12-storey Grade A office tower with 2-level basement car park. "
         "Steel frame, composite floors, unitised curtain walling. "
@@ -5602,7 +5602,7 @@ async def _seed_module_data(
                 "company_name": "IB Hartmann Tragwerksplanung",
                 "first_name": "Thomas",
                 "last_name": "Hartmann",
-                "primary_email": "t.hartmann@ib-hartmann.de",
+                "primary_email": "t.hartmann@ib-hartmann.example",
                 "primary_phone": "+49 30 44520",
                 "country_code": "DE",
                 "notes": "Structural engineer",
@@ -5696,7 +5696,7 @@ async def _seed_module_data(
                 "company_name": "Downtown Health System",
                 "first_name": "Patricia",
                 "last_name": "Martinez",
-                "primary_email": "p.martinez@downtownhealth.org",
+                "primary_email": "p.martinez@downtownhealth.example",
                 "primary_phone": "+1 555 234 5678",
                 "country_code": "US",
                 "notes": "VP of Facilities",
@@ -5758,7 +5758,7 @@ async def _seed_module_data(
                 "company_name": "Mairie du 20e Arrondissement",
                 "first_name": "Sophie",
                 "last_name": "Dupont",
-                "primary_email": "s.dupont@paris.fr",
+                "primary_email": "s.dupont@paris-20e.example",
                 "primary_phone": "+33 1 43 15 20 20",
                 "country_code": "FR",
                 "notes": "Direction de la construction",
@@ -5809,8 +5809,8 @@ async def _seed_module_data(
                 "contact_type": "client",
                 "company_name": "Zafeer Logistics Group",
                 "first_name": "Ahmed",
-                "last_name": "Al Maktoum",
-                "primary_email": "a.almaktoum@zafeer-logistics.example",
+                "last_name": "Al Nuraimi",
+                "primary_email": "a.alnuraimi@zafeer-logistics.example",
                 "primary_phone": "+971 4 222 7111",
                 "country_code": "AE",
                 "notes": "Project sponsor",
@@ -6885,7 +6885,7 @@ async def _seed_module_data(
                 "location": "Meridiem Gulf office, Dubai Design District",
                 "status": "completed",
                 "attendees": [
-                    {"name": "Ahmed Al Maktoum", "company": "Zafeer", "status": "present"},
+                    {"name": "Ahmed Al Nuraimi", "company": "Zafeer", "status": "present"},
                     {"name": "Ravi Sharma", "company": "MGC", "status": "present"},
                     {"name": "Khalid Al Marri", "company": "NKE", "status": "present"},
                     {"name": "George Palmer", "company": "HFG", "status": "present"},

@@ -297,9 +297,9 @@ TEMPLATE = DemoTemplate(
     total_months=20,
     tender_name="Structure & Facade Trade Package",
     tender_companies=[
-        ("Richard Crookes Constructions", "tenders@crookes.com.au", 0.98),
-        ("Built Pty Ltd", "estimating@built.com.au", 1.05),
-        ("Hutchinson Builders", "tenders@hutchinsonbuilders.com.au", 1.01),
+        ("Alwyn Perrick Constructions", "tenders@perrick.example", 0.98),
+        ("Formara Pty Ltd", "estimating@formara.example", 1.05),
+        ("Kenbarrow Builders", "tenders@kenbarrow.example", 1.01),
     ],
     tender_packages=[
         (
@@ -307,9 +307,9 @@ TEMPLATE = DemoTemplate(
             "Substructure, RC frame, post-tensioned slabs, precast & glazed facade",
             "evaluating",
             [
-                ("Richard Crookes Constructions", "tenders@crookes.com.au", 0.98),
-                ("Built Pty Ltd", "estimating@built.com.au", 1.05),
-                ("Hutchinson Builders", "tenders@hutchinsonbuilders.com.au", 1.01),
+                ("Alwyn Perrick Constructions", "tenders@perrick.example", 0.98),
+                ("Formara Pty Ltd", "estimating@formara.example", 1.05),
+                ("Kenbarrow Builders", "tenders@kenbarrow.example", 1.01),
             ],
         ),
         (
@@ -317,9 +317,9 @@ TEMPLATE = DemoTemplate(
             "Hydraulic, mechanical, electrical, fire and lift installations",
             "evaluating",
             [
-                ("A.G. Coombs Group", "tenders@agcoombs.com.au", 0.99),
-                ("Fredon Group", "estimating@fredon.com.au", 1.04),
-                ("Stowe Australia", "tenders@stowe.com.au", 1.02),
+                ("R.T. Halligan Group", "tenders@halligan.example", 0.99),
+                ("Wexlon Group", "estimating@wexlon.example", 1.04),
+                ("Kelverne Australia", "tenders@kelverne.example", 1.02),
             ],
         ),
         (
@@ -327,18 +327,18 @@ TEMPLATE = DemoTemplate(
             "Internal partitions, finishes, joinery, kitchens and bathrooms",
             "evaluating",
             [
-                ("FDC Construction & Fitout", "tenders@fdcbuilding.com.au", 0.97),
-                ("SHAPE Australia", "estimating@shape.com.au", 1.06),
-                ("Buildcorp Group", "tenders@buildcorp.com.au", 1.03),
+                ("Marrowvale Construction & Fitout", "tenders@marrowvale.example", 0.97),
+                ("SPANE Australia", "estimating@spane.example", 1.06),
+                ("Craftmoor Group", "tenders@craftmoor.example", 1.03),
             ],
         ),
     ],
     project_metadata={
         "address": "8 Joynton Avenue, Zetland (Green Square), Sydney NSW 2017",
-        "client": "Green Square Quarter Development Pty Ltd",
-        "architect": "Bates Smart",
-        "quantity_surveyor": "WT Partnership (AIQS)",
-        "structural_engineer": "Taylor Thomson Whitting",
+        "client": "Harbourmill Quarter Development Pty Ltd",
+        "architect": "Verrow Kelsey",
+        "quantity_surveyor": "Cranleigh Partnership (AIQS)",
+        "structural_engineer": "Kelso Brannagh Vint",
         "gfa_m2": 10500,
         "site_area_m2": 2650,
         "storeys": 9,

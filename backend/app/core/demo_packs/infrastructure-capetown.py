@@ -876,9 +876,9 @@ TEMPLATE = DemoTemplate(
     total_months=28,
     tender_name="Main Civil Engineering Works (GCC 2015)",
     tender_companies=[
-        ("Stefanutti Stocks Civils", "tenders@stefstocks.com", 0.99),
-        ("Raubex Construction", "estimating@raubex.com", 1.03),
-        ("Power Construction (Western Cape)", "tenders@powergroup.co.za", 1.00),
+        ("Vosterlan Brink Civils", "tenders@vosterlan.example", 0.99),
+        ("Draxen Construction", "estimating@draxen.example", 1.03),
+        ("Rondell Construction (Western Cape)", "tenders@rondell.example", 1.00),
     ],
     tender_packages=[
         (
@@ -886,9 +886,9 @@ TEMPLATE = DemoTemplate(
             "Earthworks, reservoir, pump station, bulk pipelines, sewers and road pavement.",
             "evaluating",
             [
-                ("Stefanutti Stocks Civils", "tenders@stefstocks.com", 0.99),
-                ("Raubex Construction", "estimating@raubex.com", 1.03),
-                ("Power Construction (Western Cape)", "tenders@powergroup.co.za", 1.00),
+                ("Vosterlan Brink Civils", "tenders@vosterlan.example", 0.99),
+                ("Draxen Construction", "estimating@draxen.example", 1.03),
+                ("Rondell Construction (Western Cape)", "tenders@rondell.example", 1.00),
             ],
         ),
         (
@@ -896,18 +896,18 @@ TEMPLATE = DemoTemplate(
             "Pumps, process plant, MCC, VSDs, SCADA and the wastewater works extension.",
             "issued",
             [
-                ("WEC Projects", "tenders@wecprojects.com", 1.01),
-                ("Quality Filtration Systems", "bids@qfs.co.za", 1.05),
-                ("Veolia Water Technologies SA", "estimating@veolia.co.za", 1.04),
+                ("Purolan Projects", "tenders@purolan.example", 1.01),
+                ("Filtravon Systems", "bids@filtravon.example", 1.05),
+                ("Aquatherne Water Technologies SA", "estimating@aquatherne.example", 1.04),
             ],
         ),
     ],
     project_metadata={
         "address": "Jakes Gerwel Drive, Bishop Lavis, Cape Town 7490, South Africa",
         "client": "City of Cape Town - Water & Sanitation Directorate",
-        "consulting_engineer": "Zutari (Pty) Ltd",
+        "consulting_engineer": "Kelbrand Consulting (Pty) Ltd",
         "quantity_surveyor": "MLC Quantity Surveyors (ASAQS)",
-        "resident_engineer": "GIBB Engineering & Architecture",
+        "resident_engineer": "Torbeck Engineering & Architecture",
         "reservoir_capacity_ml": 25,
         "pipeline_length_km": 12,
         "road_length_km": 6,

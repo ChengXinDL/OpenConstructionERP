@@ -279,9 +279,9 @@ TEMPLATE = DemoTemplate(
     total_months=24,
     tender_name="Base Build & Shell Trade Package",
     tender_companies=[
-        ("Lendlease Building", "tenders@lendlease.com.au", 0.99),
-        ("Multiplex Constructions", "estimating@multiplex.global", 1.04),
-        ("Built Pty Ltd", "tenders@built.com.au", 1.02),
+        ("Kandarra Building", "tenders@kandarra.example", 0.99),
+        ("Brenlake Constructions", "estimating@brenlake-au.example", 1.04),
+        ("Formara Pty Ltd", "tenders@formara.example", 1.02),
     ],
     tender_packages=[
         (
@@ -289,9 +289,9 @@ TEMPLATE = DemoTemplate(
             "Bulk earthworks, substructure, tilt-up/precast shell, structural steel roof",
             "evaluating",
             [
-                ("Lendlease Building", "tenders@lendlease.com.au", 0.99),
-                ("Multiplex Constructions", "estimating@multiplex.global", 1.04),
-                ("Built Pty Ltd", "tenders@built.com.au", 1.02),
+                ("Kandarra Building", "tenders@kandarra.example", 0.99),
+                ("Brenlake Constructions", "estimating@brenlake-au.example", 1.04),
+                ("Formara Pty Ltd", "tenders@formara.example", 1.02),
             ],
         ),
         (
@@ -299,9 +299,9 @@ TEMPLATE = DemoTemplate(
             "HV intake, transformers, switchgear, UPS, generators, busway & fuel",
             "evaluating",
             [
-                ("Fredon Group", "estimating@fredon.com.au", 0.98),
-                ("Heyday Group", "tenders@heydaygroup.com.au", 1.05),
-                ("Stowe Australia", "tenders@stowe.com.au", 1.02),
+                ("Wexlon Group", "estimating@wexlon.example", 0.98),
+                ("Talloway Group", "tenders@talloway.example", 1.05),
+                ("Kelverne Australia", "tenders@kelverne.example", 1.02),
             ],
         ),
         (
@@ -309,9 +309,9 @@ TEMPLATE = DemoTemplate(
             "Chillers, CHW reticulation, CRAC/CRAH, ventilation & thermal commissioning",
             "evaluating",
             [
-                ("A.G. Coombs Group", "tenders@agcoombs.com.au", 0.99),
-                ("Fredon Air", "estimating@fredon.com.au", 1.06),
-                ("D&E Air Conditioning", "tenders@deair.com.au", 1.03),
+                ("R.T. Halligan Group", "tenders@halligan.example", 0.99),
+                ("Wexlon Air", "estimating@wexlon.example", 1.06),
+                ("Corrindale Air Conditioning", "tenders@corrindale.example", 1.03),
             ],
         ),
         (
@@ -319,9 +319,9 @@ TEMPLATE = DemoTemplate(
             "Inert-gas suppression, VESDA, sprinklers, access control, CCTV & DCIM",
             "evaluating",
             [
-                ("FDC Construction & Fitout", "tenders@fdcbuilding.com.au", 0.97),
-                ("Chubb Fire & Security", "estimating@chubb.com.au", 1.04),
-                ("Honeywell Building Solutions", "tenders@honeywell.com.au", 1.03),
+                ("Marrowvale Construction & Fitout", "tenders@marrowvale.example", 0.97),
+                ("Sentigard Fire & Security", "estimating@sentigard.example", 1.04),
+                ("Aurenex Building Solutions", "tenders@aurenex.example", 1.03),
             ],
         ),
         (
@@ -329,19 +329,19 @@ TEMPLATE = DemoTemplate(
             "Raised floor, hot-aisle containment, cable management & data-hall finishes",
             "evaluating",
             [
-                ("Built Pty Ltd", "tenders@built.com.au", 0.98),
-                ("FDC Construction & Fitout", "tenders@fdcbuilding.com.au", 1.05),
-                ("Probuild Constructions", "estimating@probuild.com.au", 1.02),
+                ("Formara Pty Ltd", "tenders@formara.example", 0.98),
+                ("Marrowvale Construction & Fitout", "tenders@marrowvale.example", 1.05),
+                ("Craymont Constructions", "estimating@craymont.example", 1.02),
             ],
         ),
     ],
     project_metadata={
         "address": "120 Doherty's Road, Truganina (West Melbourne), VIC 3029",
-        "client": "Hyperscale Infrastructure Partners Pty Ltd",
-        "architect": "Hassell Studio",
-        "quantity_surveyor": "WT Partnership (AIQS)",
-        "structural_engineer": "Aurecon",
-        "mep_engineer": "AECOM (mission-critical)",
+        "client": "Kestrelink Infrastructure Partners Pty Ltd",
+        "architect": "Verrowmead Studio",
+        "quantity_surveyor": "Cranleigh Partnership (AIQS)",
+        "structural_engineer": "Calderyn Engineers",
+        "mep_engineer": "Trenholme Group (mission-critical)",
         "gba_m2": 18400,
         "site_area_ha": 4.2,
         "critical_it_load_mw": 30,

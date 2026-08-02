@@ -328,15 +328,15 @@ TEMPLATE = DemoTemplate(
     total_months=36,
     tender_name="Concrete Superstructure",
     tender_companies=[
-        ("EllisDon Corporation", "bids@ellisdon.com", 0.99),
-        ("PCL Constructors Canada Inc.", "estimating@pcl.com", 1.03),
-        ("Deltera Inc.", "tenders@deltera.ca", 0.97),
+        ("HarrowLane Corporation", "bids@harrowlane.example", 0.99),
+        ("Norvane Constructors Canada Inc.", "estimating@norvane.example", 1.03),
+        ("Velmara Inc.", "tenders@velmara.example", 0.97),
     ],
     project_metadata={
         "address": "85 Bathurst Street, Toronto, ON M5V 0L9",
-        "client": "Tridel Builders Inc.",
-        "architect": "BDP Quadrangle",
-        "structural_engineer": "Jablonsky, Ast and Partners",
+        "client": "Marnvale Builders Inc.",
+        "architect": "Lowry Fenn Architects",
+        "structural_engineer": "Ostrowik, Vance and Partners",
         "general_contractor_form": "CCDC 2 (2020) - stipulated price",
         "gfa_above_grade_m2": 38600,
         "gfa_below_grade_m2": 14200,
@@ -373,9 +373,9 @@ TEMPLATE = DemoTemplate(
             "Excavation, caisson shoring, cast-in-place concrete, post-tensioning",
             "evaluating",
             [
-                ("EllisDon Corporation", "bids@ellisdon.com", 0.99),
-                ("PCL Constructors Canada Inc.", "estimating@pcl.com", 1.03),
-                ("Deltera Inc.", "tenders@deltera.ca", 0.97),
+                ("HarrowLane Corporation", "bids@harrowlane.example", 0.99),
+                ("Norvane Constructors Canada Inc.", "estimating@norvane.example", 1.03),
+                ("Velmara Inc.", "tenders@velmara.example", 0.97),
             ],
         ),
         (
@@ -383,9 +383,9 @@ TEMPLATE = DemoTemplate(
             "Window-wall, curtain wall, storefront, masonry, roofing, waterproofing",
             "evaluating",
             [
-                ("Sota Glazing Inc.", "estimating@sotaglazing.com", 0.98),
-                ("Ferguson Neudorf Glass Inc.", "bids@fngci.com", 1.05),
-                ("Antamex / Inland Glazing", "tenders@antamex.com", 1.01),
+                ("Kessline Glazing Inc.", "estimating@kessline.example", 0.98),
+                ("Halstrom Neuvarr Glass Inc.", "bids@halstromglass.example", 1.05),
+                ("Corravex / Ridgefront Glazing", "tenders@corravex.example", 1.01),
             ],
         ),
         (
@@ -393,9 +393,9 @@ TEMPLATE = DemoTemplate(
             "Suite HVAC, MAU/ERV, hydronics, plumbing risers, sprinkler/standpipe",
             "evaluating",
             [
-                ("Modern Niagara Toronto Inc.", "estimating@modernniagara.com", 0.99),
-                ("Black & McDonald Limited", "bids@blackandmcdonald.com", 1.04),
-                ("The State Group Inc.", "tenders@stategroup.com", 1.02),
+                ("Cascara Mechanical Toronto Inc.", "estimating@cascara.example", 0.99),
+                ("Brant & Halloway Limited", "bids@branthalloway.example", 1.04),
+                ("The Kelmore Group Inc.", "tenders@kelmore.example", 1.02),
             ],
         ),
         (
@@ -403,9 +403,9 @@ TEMPLATE = DemoTemplate(
             "Service, generator, suite power, lighting, EV charging, fire alarm, ELV",
             "evaluating",
             [
-                ("Ozz Electric Inc.", "estimating@ozzelectric.com", 0.98),
-                ("Plan Group Inc.", "bids@plangroup.com", 1.05),
-                ("Guild Electric Limited", "tenders@guildelectric.com", 1.02),
+                ("Vyre Electric Inc.", "estimating@vyre.example", 0.98),
+                ("Axelon Group Inc.", "bids@axelon.example", 1.05),
+                ("Larkfield Electric Limited", "tenders@larkfield.example", 1.02),
             ],
         ),
         (
@@ -413,9 +413,9 @@ TEMPLATE = DemoTemplate(
             "Partitions, drywall, flooring, tile, paint, suite kitchens and casework",
             "evaluating",
             [
-                ("Tonda Construction", "estimating@tondaconstruction.ca", 0.97),
-                ("Maystar General Contractors", "bids@maystar.ca", 1.04),
-                ("Aquicon Construction Co. Ltd.", "tenders@aquicon.com", 1.01),
+                ("Tavella Construction", "estimating@tavella.example", 0.97),
+                ("Braystone General Contractors", "bids@braystone.example", 1.04),
+                ("Terravin Construction Co. Ltd.", "tenders@terravin.example", 1.01),
             ],
         ),
         (
@@ -423,8 +423,8 @@ TEMPLATE = DemoTemplate(
             "Parking ramp, paving, public realm, planting, stormwater, irrigation",
             "evaluating",
             [
-                ("Aecon Group Inc.", "bids@aecon.com", 0.99),
-                ("Gateman-Milloy Inc.", "estimating@gateman-milloy.com", 1.06),
+                ("Verdon Group Inc.", "bids@verdon.example", 0.99),
+                ("Halvorsen-Prine Inc.", "estimating@halvorsenprine.example", 1.06),
             ],
         ),
     ],

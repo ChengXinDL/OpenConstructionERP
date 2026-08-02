@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
 """Seed 4D Schedule, 5D Budget, and Tendering data for demo projects.
 
-Creates for Wohnanlage Berlin-Mitte and One Canary Square:
+Creates for Wohnanlage Berlin-Mitte and Halesworth Wharf Tower:
   - Schedule with activities per BOQ section (4D)
   - Budget lines per section (5D)
   - Cash flow periods (5D)
@@ -41,7 +41,7 @@ async def main() -> None:
 
     async with async_session_factory() as session:
         result = await session.execute(
-            select(Project).where(Project.name.in_(["Wohnanlage Berlin-Mitte", "One Canary Square"]))
+            select(Project).where(Project.name.in_(["Wohnanlage Berlin-Mitte", "Halesworth Wharf Tower"]))
         )
         projects = list(result.scalars().all())
 

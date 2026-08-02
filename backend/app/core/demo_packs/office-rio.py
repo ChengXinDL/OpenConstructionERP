@@ -293,15 +293,15 @@ TEMPLATE = DemoTemplate(
     total_months=32,
     tender_name="Estrutura e Fundacoes (Structure and foundations)",
     tender_companies=[
-        ("Construtora Norberto Odebrecht (Novonor)", "licitacao@novonor.com.br", 0.98),
-        ("Andrade Gutierrez Engenharia", "obras@andradegutierrez.com.br", 1.03),
-        ("Construtora Camargo Correa", "propostas@camargocorrea.com.br", 1.01),
+        ("Construtora Belmiro Varandes (Varonel)", "licitacao@varonel.example", 0.98),
+        ("Andravel Costeira Engenharia", "obras@andravel.example", 1.03),
+        ("Construtora Tavaredo", "propostas@tavaredo.example", 1.01),
     ],
     project_metadata={
         "address": "Avenida Rodrigues Alves 250, Porto Maravilha, Centro, Rio de Janeiro - RJ, 20220-360",
-        "client": "Porto Corporativo Empreendimentos Imobiliarios Ltda.",
-        "architect": "Aflalo/Gasperini Arquitetos",
-        "structural_engineer": "Franca e Associados Engenharia",
+        "client": "Vardanto Empreendimentos Imobiliarios Ltda.",
+        "architect": "Andrelli/Vasconde Arquitetos",
+        "structural_engineer": "Ferrandes e Associados Engenharia",
         "gfa_m2": 46500,
         "storeys": 22,
         "basements": 4,
@@ -353,9 +353,9 @@ TEMPLATE = DemoTemplate(
             "Movimento de terra, contencao, estacas, blocos, concreto armado, protensao e formas",
             "evaluating",
             [
-                ("Construtora Norberto Odebrecht (Novonor)", "licitacao@novonor.com.br", 0.98),
-                ("Andrade Gutierrez Engenharia", "obras@andradegutierrez.com.br", 1.03),
-                ("Construtora Camargo Correa", "propostas@camargocorrea.com.br", 1.01),
+                ("Construtora Belmiro Varandes (Varonel)", "licitacao@varonel.example", 0.98),
+                ("Andravel Costeira Engenharia", "obras@andravel.example", 1.03),
+                ("Construtora Tavaredo", "propostas@tavaredo.example", 1.01),
             ],
         ),
         (
@@ -363,9 +363,9 @@ TEMPLATE = DemoTemplate(
             "Fachada cortina unitizada, pele de vidro, brises, esquadrias e portas",
             "evaluating",
             [
-                ("Metodo Engenharia", "comercial@metodo.com.br", 0.99),
-                ("Racional Engenharia", "licitacao@racional.com.br", 1.04),
-                ("Permasteelisa Group Brasil", "propostas@permasteelisa.com.br", 1.02),
+                ("Marveto Engenharia", "comercial@marveto.example", 0.99),
+                ("Prumaz Engenharia", "licitacao@prumaz.example", 1.04),
+                ("Clanmere Group Brasil", "propostas@clanmere-br.example", 1.02),
             ],
         ),
         (
@@ -373,9 +373,9 @@ TEMPLATE = DemoTemplate(
             "Instalacoes hidrossanitarias, eletricas, SPDA, telecom, BMS e incendio",
             "evaluating",
             [
-                ("Engemix Instalacoes Prediais", "obras@engemix.com.br", 0.97),
-                ("Tecnogera Engenharia", "propostas@tecnogera.com.br", 1.05),
-                ("Andrade Gutierrez Engenharia", "instalacoes@andradegutierrez.com.br", 1.03),
+                ("Predivex Instalacoes Prediais", "obras@predivex.example", 0.97),
+                ("Geravolt Engenharia", "propostas@geravolt.example", 1.05),
+                ("Andravel Costeira Engenharia", "instalacoes@andravel.example", 1.03),
             ],
         ),
         (
@@ -383,9 +383,9 @@ TEMPLATE = DemoTemplate(
             "Central de agua gelada, chillers, torres, fan-coils, dutos e comissionamento",
             "evaluating",
             [
-                ("Trane do Brasil", "obra@trane.com.br", 0.98),
-                ("Carrier Brasil", "propostas@carrier.com.br", 1.04),
-                ("Hitachi Cooling & Heating Brasil", "comercial@hitachi.com.br", 1.02),
+                ("Klimavor do Brasil", "obra@klimavor.example", 0.98),
+                ("Frigenta Brasil", "propostas@frigenta.example", 1.04),
+                ("Toriwara Cooling & Heating Brasil", "comercial@toriwara.example", 1.02),
             ],
         ),
         (
@@ -393,9 +393,9 @@ TEMPLATE = DemoTemplate(
             "Fornecimento e montagem de elevadores de alta velocidade e despacho inteligente",
             "evaluating",
             [
-                ("Atlas Schindler", "obra@schindler.com.br", 0.98),
-                ("Otis Elevadores Brasil", "propostas@otis.com.br", 1.05),
-                ("ThyssenKrupp Elevadores", "comercial@tke.com.br", 1.02),
+                ("Belventa Elevadores", "obra@belventa.example", 0.98),
+                ("Elvantis Elevadores Brasil", "propostas@elvantis-br.example", 1.05),
+                ("Rhenwerk Elevadores", "comercial@rhenwerk.example", 1.02),
             ],
         ),
         (
@@ -403,9 +403,9 @@ TEMPLATE = DemoTemplate(
             "Revestimentos, pisos elevados, forros, pintura, paisagismo e areas externas",
             "evaluating",
             [
-                ("Construcap CCPS", "propostas@construcap.com.br", 0.98),
-                ("MPD Engenharia", "comercial@mpd.com.br", 1.04),
-                ("Metodo Engenharia", "licitacao@metodo.com.br", 1.01),
+                ("Construval CVPS", "propostas@construval.example", 0.98),
+                ("Vandelo Engenharia", "comercial@vandelo.example", 1.04),
+                ("Marveto Engenharia", "licitacao@marveto.example", 1.01),
             ],
         ),
     ],

@@ -251,9 +251,9 @@ TEMPLATE = DemoTemplate(
     total_months=20,
     tender_name="Contrato de Obra a Precios Unitarios (Estructura y Albanileria)",
     tender_companies=[
-        ("Constructora Regia del Norte", "concursos@regia-obra.mx", 0.98),
-        ("Grupo Constructor Sierra Madre", "licitaciones@sierramadre-obra.mx", 1.03),
-        ("Edificaciones San Pedro", "concursos@sanpedro-edif.mx", 1.01),
+        ("Constructora Duraval", "concursos@duraval.example", 0.98),
+        ("Grupo Constructor Alcarno", "licitaciones@alcarno.example", 1.03),
+        ("Edificaciones Trevanti", "concursos@trevanti.example", 1.01),
     ],
     tender_packages=[
         (
@@ -261,9 +261,9 @@ TEMPLATE = DemoTemplate(
             "Cimentacion, estructura de concreto reforzado, albanileria y fachadas de las torres.",
             "evaluating",
             [
-                ("Constructora Regia del Norte", "concursos@regia-obra.mx", 0.98),
-                ("Grupo Constructor Sierra Madre", "licitaciones@sierramadre-obra.mx", 1.03),
-                ("Edificaciones San Pedro", "concursos@sanpedro-edif.mx", 1.01),
+                ("Constructora Duraval", "concursos@duraval.example", 0.98),
+                ("Grupo Constructor Alcarno", "licitaciones@alcarno.example", 1.03),
+                ("Edificaciones Trevanti", "concursos@trevanti.example", 1.01),
             ],
         ),
         (
@@ -271,18 +271,18 @@ TEMPLATE = DemoTemplate(
             "Instalacion hidrosanitaria, electrica, aire acondicionado, casa club y alberca.",
             "issued",
             [
-                ("Instalaciones Integrales del Norte", "concursos@iin-mep.mx", 0.99),
-                ("Electromecanica de Monterrey", "licitaciones@emm-mep.mx", 1.04),
-                ("Servicios y Montajes Contry", "concursos@contry-mep.mx", 1.02),
+                ("Instalaciones Integrales Serranov", "concursos@serranov.example", 0.99),
+                ("Electromecanica Sandoveral", "licitaciones@sandoveral.example", 1.04),
+                ("Servicios y Montajes Verdalon", "concursos@verdalon.example", 1.02),
             ],
         ),
     ],
     project_metadata={
         "address": "Avenida Paseo de los Leones 2500, Cumbres, 64619 Monterrey, Nuevo Leon, Mexico",
-        "client": "Inmobiliaria Cumbres Residencial, S.A. de C.V.",
-        "architect": "Estudio de Arquitectura Monterrey",
+        "client": "Inmobiliaria Altavela Residencial, S.A. de C.V.",
+        "architect": "Estudio de Arquitectura Norvalle",
         "quantity_surveyor": "Costos y Presupuestos APU, S.C.",
-        "structural_engineer": "Ingenieria Estructural del Noreste, S.C.",
+        "structural_engineer": "Ingenieria Estructural Brandiz, S.C.",
         "gfa_m2": 22000,
         "site_area_m2": 9500,
         "storeys": 12,

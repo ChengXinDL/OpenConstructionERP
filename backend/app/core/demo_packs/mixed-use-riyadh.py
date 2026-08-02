@@ -241,7 +241,7 @@ TEMPLATE = DemoTemplate(
             "26 - الأعمال الكهربائية (Electrical)",
             {"masterformat": "26", "sbc": "SBC 401"},
             [
-                ("26.01", "غرفة محولات وتوصيلة الشركة السعودية للكهرباء (HV substation & SEC connection)", "lsum", 1, 3200000.00, {"masterformat": "26 11 00", "sbc": "SBC 401"}),
+                ("26.01", "غرفة محولات وتوصيلة شبكة الكهرباء المحلية (HV substation & utility connection)", "lsum", 1, 3200000.00, {"masterformat": "26 11 00", "sbc": "SBC 401"}),
                 ("26.02", "لوحة التوزيع الرئيسية للجهد المنخفض MDB (Main LV distribution board MDB)", "pcs", 3, 285000.00, {"masterformat": "26 24 13", "sbc": "SBC 401"}),
                 ("26.03", "لوحات توزيع فرعية للأدوار (Sub-distribution boards per floor)", "pcs", 64, 18500.00, {"masterformat": "26 24 16", "sbc": "SBC 401"}),
                 ("26.04", "مولد احتياطي ديزل 1500kVA (Standby diesel generator 1500kVA)", "pcs", 2, 1250000.00, {"masterformat": "26 32 13", "sbc": "SBC 401"}),
@@ -294,9 +294,9 @@ TEMPLATE = DemoTemplate(
     total_months=30,
     tender_name="حزمة الأعمال الإنشائية (Structural Works Package)",
     tender_companies=[
-        ("El Seif Engineering Contracting", "tenders@elseif.com.sa", 0.98),
-        ("Nesma & Partners Contracting", "bids@nesma.com.sa", 1.04),
-        ("Almabani General Contractors", "estimation@almabani.com.sa", 1.01),
+        ("Talveen Engineering Contracting", "tenders@talveen.example", 0.98),
+        ("Sarwaneh & Partners Contracting", "bids@sarwaneh.example", 1.04),
+        ("Wadhaan General Contractors", "estimation@wadhaan.example", 1.01),
     ],
     tender_packages=[
         (
@@ -304,9 +304,9 @@ TEMPLATE = DemoTemplate(
             "Foundations, basement parking, reinforced concrete frame and cores.",
             "evaluating",
             [
-                ("El Seif Engineering Contracting", "tenders@elseif.com.sa", 0.98),
-                ("Almabani General Contractors", "estimation@almabani.com.sa", 1.01),
-                ("Nesma & Partners Contracting", "bids@nesma.com.sa", 1.04),
+                ("Talveen Engineering Contracting", "tenders@talveen.example", 0.98),
+                ("Wadhaan General Contractors", "estimation@wadhaan.example", 1.01),
+                ("Sarwaneh & Partners Contracting", "bids@sarwaneh.example", 1.04),
             ],
         ),
         (
@@ -314,8 +314,8 @@ TEMPLATE = DemoTemplate(
             "Curtain walling, unitised facade, cladding and roofing to the mixed-use envelope.",
             "issued",
             [
-                ("Folcra Beach Industrial (KSA)", "tenders@folcra.com", 1.05),
-                ("Permasteelisa Gulf", "bids@permasteelisagroup.com", 1.08),
+                ("Sarwellan Glazing Industrial (KSA)", "tenders@sarwellan.example", 1.05),
+                ("Clanmere Facades Gulf", "bids@clanmere-gulf.example", 1.08),
             ],
         ),
         (
@@ -323,16 +323,16 @@ TEMPLATE = DemoTemplate(
             "HVAC, electrical, plumbing, vertical transportation and tenant fit-out works.",
             "draft",
             [
-                ("Drake & Scull International (KSA)", "bids@drakescull.com", 1.03),
-                ("Nesma & Partners Contracting", "bids@nesma.com.sa", 1.00),
+                ("Nakhbara International (KSA)", "bids@nakhbara.example", 1.03),
+                ("Sarwaneh & Partners Contracting", "bids@sarwaneh.example", 1.00),
             ],
         ),
     ],
     project_metadata={
         "address": "King Fahd Road, Al Olaya District, Riyadh 12214, Saudi Arabia",
-        "client": "Al Waha Real Estate Development Co.",
-        "architect": "Omrania & Associates",
-        "main_consultant": "Dar Al-Handasah (Shair & Partners)",
+        "client": "Sirhaan Real Estate Development Co.",
+        "architect": "Hadeeba & Associates",
+        "main_consultant": "Dar Al-Hadeeba (Marhoun & Partners)",
         "gfa_m2": 21500,
         "storeys": 12,
         "basement_levels": 2,

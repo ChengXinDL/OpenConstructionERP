@@ -1058,17 +1058,17 @@ TEMPLATE = DemoTemplate(
     total_months=32,
     tender_name="Main Civil & MEP Contract (GMP, Composite)",
     tender_companies=[
-        ("Larsen & Toubro Construction", "tenders@lntecc.com", 0.98),
-        ("Shapoorji Pallonji & Co. Ltd.", "bids@shapoorji.in", 1.05),
-        ("Tata Projects Ltd.", "tenders@tataprojects.com", 1.01),
-        ("Sobha Ltd.", "contracts@sobha.com", 1.03),
+        ("Vaidhan Infra Construction", "tenders@vaidhaninfra.example", 0.98),
+        ("Kesharji Balvani & Co. Ltd.", "bids@kesharji.example", 1.05),
+        ("Amrivan Projects Ltd.", "tenders@amrivan.example", 1.01),
+        ("Vareda Ltd.", "contracts@vareda.example", 1.03),
     ],
     project_metadata={
         "address": "EPIP Zone, Whitefield Main Road, Bengaluru 560066, Karnataka",
-        "client": "Brigade IT Park Developers LLP (private SPV)",
-        "architect": "RSP Design Consultants (India) Pvt. Ltd.",
-        "structural_consultant": "Sterling Engineering Consultancy Services",
-        "mep_consultant": "AECOM India Pvt. Ltd.",
+        "client": "Sunveda IT Park Developers LLP (private SPV)",
+        "architect": "MVK Design Consultants (India) Pvt. Ltd.",
+        "structural_consultant": "Ravdeep Engineering Consultancy Services",
+        "mep_consultant": "Trenholme India Pvt. Ltd.",
         "leasable_area_sqft": "approx. 13.5 lakh sq ft (warm-shell offices)",
         "gfa_m2": 125400,
         "basement_gfa_m2": 29700,
@@ -1094,9 +1094,9 @@ TEMPLATE = DemoTemplate(
             "Earthwork, shoring, RCC substructure & superstructure, PT slabs, masonry",
             "evaluating",
             [
-                ("Larsen & Toubro Construction", "tenders@lntecc.com", 0.98),
-                ("Shapoorji Pallonji & Co. Ltd.", "bids@shapoorji.in", 1.05),
-                ("Tata Projects Ltd.", "tenders@tataprojects.com", 1.01),
+                ("Vaidhan Infra Construction", "tenders@vaidhaninfra.example", 0.98),
+                ("Kesharji Balvani & Co. Ltd.", "bids@kesharji.example", 1.05),
+                ("Amrivan Projects Ltd.", "tenders@amrivan.example", 1.01),
             ],
         ),
         (
@@ -1104,9 +1104,9 @@ TEMPLATE = DemoTemplate(
             "Unitised curtain-wall, ACP & terracotta cladding, spider glazing, BMU",
             "evaluating",
             [
-                ("Glasstech Industries (India) Pvt. Ltd.", "estimation@glasstechindia.com", 0.99),
-                ("Alufit India Pvt. Ltd.", "bids@alufit.com", 1.04),
-                ("FG Glass Industries Pvt. Ltd.", "tenders@fgglass.com", 1.02),
+                ("Vitrasan Industries (India) Pvt. Ltd.", "estimation@vitrasan.example", 0.99),
+                ("Alucrest India Pvt. Ltd.", "bids@alucrest.example", 1.04),
+                ("Kavyan Glass Industries Pvt. Ltd.", "tenders@kavyanglass.example", 1.02),
             ],
         ),
         (
@@ -1114,9 +1114,9 @@ TEMPLATE = DemoTemplate(
             "Chiller plant, AHUs, ductwork, HT/LT, DG, ELV, plumbing, fire systems",
             "evaluating",
             [
-                ("Voltas Ltd.", "projects@voltas.com", 0.99),
-                ("Blue Star Engineering & Electronics Ltd.", "bids@bluestarindia.com", 1.05),
-                ("Sterling & Wilson Pvt. Ltd.", "tenders@sterlingwilson.com", 1.02),
+                ("Thermoya Ltd.", "projects@thermoya.example", 0.99),
+                ("Nilvara Engineering & Electronics Ltd.", "bids@nilvara.example", 1.05),
+                ("Sarveen Electric Pvt. Ltd.", "tenders@sarveen.example", 1.02),
             ],
         ),
         (
@@ -1124,9 +1124,9 @@ TEMPLATE = DemoTemplate(
             "High-speed passenger & service lifts, escalators, destination dispatch",
             "evaluating",
             [
-                ("Otis Elevator Company (India) Ltd.", "india.tenders@otis.com", 1.00),
-                ("KONE Elevator India Pvt. Ltd.", "bids@kone.com", 1.03),
-                ("Schindler India Pvt. Ltd.", "tenders@schindler.com", 1.02),
+                ("Elvantis Elevator Company (India) Ltd.", "india.tenders@elvantis.example", 1.00),
+                ("Orvenda Elevator India Pvt. Ltd.", "bids@orvenda.example", 1.03),
+                ("Belventa India Pvt. Ltd.", "tenders@belventa-in.example", 1.02),
             ],
         ),
         (
@@ -1134,9 +1134,9 @@ TEMPLATE = DemoTemplate(
             "Plaster, paint, flooring, false ceilings, doors, toilet & pantry fit-out",
             "evaluating",
             [
-                ("Sobha Ltd.", "contracts@sobha.com", 0.97),
-                ("Brigade Enterprises Ltd.", "tenders@brigadegroup.com", 1.03),
-                ("Ahluwalia Contracts (India) Ltd.", "bids@acil.in", 1.01),
+                ("Vareda Ltd.", "contracts@vareda.example", 0.97),
+                ("Sunveda Enterprises Ltd.", "tenders@sunveda.example", 1.03),
+                ("Bhandroy Contracts (India) Ltd.", "bids@bhandroy.example", 1.01),
             ],
         ),
         (
@@ -1144,8 +1144,8 @@ TEMPLATE = DemoTemplate(
             "Roads, paving, boundary, landscape, storm-water, solar PV, EV charging",
             "evaluating",
             [
-                ("Tata Projects Ltd.", "tenders@tataprojects.com", 0.99),
-                ("NCC Ltd.", "bids@nccltd.in", 1.04),
+                ("Amrivan Projects Ltd.", "tenders@amrivan.example", 0.99),
+                ("Nagaralay Ltd.", "bids@nagaralay.example", 1.04),
             ],
         ),
     ],

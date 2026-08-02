@@ -327,16 +327,16 @@ TEMPLATE = DemoTemplate(
     total_months=30,
     tender_name="Rohbau (Structural works)",
     tender_companies=[
-        ("Bickhardt Bau Hessen GmbH", "vergabe@bickhardt-bau.de", 0.98),
-        ("Wolff & Mueller GmbH & Co. KG", "ausschreibung@wolff-mueller.de", 1.03),
-        ("Adolf Lupp GmbH + Co KG", "angebote@lupp.de", 1.01),
+        ("Rahnstett Bau Hessen GmbH", "vergabe@rahnstett.example", 0.98),
+        ("Wehrsen & Talbrunn GmbH & Co. KG", "ausschreibung@wehrsen-talbrunn.example", 1.03),
+        ("Adalbert Nauklin GmbH + Co KG", "angebote@nauklin.example", 1.01),
     ],
     project_metadata={
         "address": "Europa-Allee 90, 60486 Frankfurt am Main",
-        "client": "Europaviertel Projekt GmbH & Co. KG",
-        "architect": "schneider+schumacher Architekten, Frankfurt",
-        "structural_engineer": "Bollinger+Grohmann Ingenieure",
-        "mep_engineer": "ZWP Ingenieur-AG",
+        "client": "Nordkranz Projekt GmbH & Co. KG",
+        "architect": "brandhoff+lenzen Architekten, Frankfurt",
+        "structural_engineer": "Trautvend+Kastner Ingenieure",
+        "mep_engineer": "VKT Ingenieur-AG",
         "gfa_m2": 14000,
         "rentable_area_m2": 9800,
         "bri_m3": 56000,
@@ -369,9 +369,9 @@ TEMPLATE = DemoTemplate(
             "Baugrube, Verbau, Gruendung, Stahlbeton-Skelettbau, Kerne, Decken",
             "evaluating",
             [
-                ("Bickhardt Bau Hessen GmbH", "vergabe@bickhardt-bau.de", 0.98),
-                ("Wolff & Mueller GmbH & Co. KG", "ausschreibung@wolff-mueller.de", 1.03),
-                ("Adolf Lupp GmbH + Co KG", "angebote@lupp.de", 1.01),
+                ("Rahnstett Bau Hessen GmbH", "vergabe@rahnstett.example", 0.98),
+                ("Wehrsen & Talbrunn GmbH & Co. KG", "ausschreibung@wehrsen-talbrunn.example", 1.03),
+                ("Adalbert Nauklin GmbH + Co KG", "angebote@nauklin.example", 1.01),
             ],
         ),
         (
@@ -379,9 +379,9 @@ TEMPLATE = DemoTemplate(
             "Elementfassade, Pfosten-Riegel, Sonnenschutz, Dachabdichtung",
             "evaluating",
             [
-                ("Lindner Fassaden GmbH", "vergabe@lindner-group.com", 0.97),
-                ("Gartner / Permasteelisa Group", "tender@josef-gartner.de", 1.05),
-                ("Metallbau Schmees GmbH", "angebote@schmees-metallbau.de", 1.02),
+                ("Falkried Fassaden GmbH", "vergabe@falkried.example", 0.97),
+                ("Tenneberg / Clanmere Group", "tender@tenneberg.example", 1.05),
+                ("Metallbau Drenthal GmbH", "angebote@drenthal.example", 1.02),
             ],
         ),
         (
@@ -389,9 +389,9 @@ TEMPLATE = DemoTemplate(
             "Fernwaerme, Waermepumpen, BKT, RLT-Anlagen, Sanitaer",
             "evaluating",
             [
-                ("Imtech Deutschland GmbH", "vergabe@imtech.de", 0.99),
-                ("Caverion Deutschland GmbH", "angebote@caverion.de", 1.06),
-                ("Rud. Otto Meyer Technik (ROM)", "tga@rom-technik.de", 1.02),
+                ("Merrowtech Deutschland GmbH", "vergabe@merrowtech.example", 0.99),
+                ("Havenion Deutschland GmbH", "angebote@havenion.example", 1.06),
+                ("Rud. Emil Brausthal Technik (REB)", "tga@brausthal.example", 1.02),
             ],
         ),
         (
@@ -399,9 +399,9 @@ TEMPLATE = DemoTemplate(
             "MS/NS-Verteilung, NEA/USV, Beleuchtung, Sicherheitstechnik, GLT",
             "evaluating",
             [
-                ("SPIE Deutschland & Zentraleuropa", "tender@spie.de", 0.98),
-                ("Cegelec / VINCI Energies", "angebote@cegelec.de", 1.04),
-                ("Bauer Elektroanlagen Hessen", "vergabe@bauer-elektro.de", 1.01),
+                ("Roverval Deutschland & Zentraleuropa", "tender@roverval-de.example", 0.98),
+                ("Belcaris / Ardevin Energies", "angebote@belcaris.example", 1.04),
+                ("Talbriet Elektroanlagen Hessen", "vergabe@talbriet.example", 1.01),
             ],
         ),
         (
@@ -409,9 +409,9 @@ TEMPLATE = DemoTemplate(
             "Trockenbau, Doppelboden, Akustikdecken, Bodenbelaege, Tueren",
             "draft",
             [
-                ("Lindner Group", "ausbau@lindner-group.com", 0.96),
-                ("Brochier Gebaeudetechnik", "angebote@brochier.de", 1.03),
-                ("Pohl Bauunternehmen Hessen", "vergabe@pohl-bau.de", 1.02),
+                ("Falkried Group", "ausbau@falkried.example", 0.96),
+                ("Selbrandt Gebaeudetechnik", "angebote@selbrandt.example", 1.03),
+                ("Grausbach Bauunternehmen Hessen", "vergabe@grausbach.example", 1.02),
             ],
         ),
         (
@@ -419,8 +419,8 @@ TEMPLATE = DemoTemplate(
             "Erdbau, Verkehrsflaechen, Begruenung, Aussenleuchten, Anschluesse",
             "draft",
             [
-                ("Sonntag Baugesellschaft Hessen", "angebote@sonntag-bau.de", 0.99),
-                ("GaLaBau Hessen Rhein-Main GmbH", "vergabe@galabau-rheinmain.de", 1.05),
+                ("Marnstett Baugesellschaft Hessen", "angebote@marnstett.example", 0.99),
+                ("GaLaBau Korndelt Rhein-Main GmbH", "vergabe@korndelt.example", 1.05),
             ],
         ),
     ],

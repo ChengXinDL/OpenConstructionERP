@@ -323,9 +323,9 @@ TEMPLATE = DemoTemplate(
     total_months=28,
     tender_name="Contrato de Obra a Precios Unitarios (Estructura y Envolvente)",
     tender_companies=[
-        ("Constructora del Valle de Mexico", "concursos@cvm-obra.mx", 0.98),
-        ("Grupo Constructor Anahuac", "licitaciones@anahuac-obra.mx", 1.04),
-        ("Edificaciones Coronado", "concursos@coronado-edif.mx", 1.01),
+        ("Constructora Terrandia", "concursos@terrandia.example", 0.98),
+        ("Grupo Constructor Velanda", "licitaciones@velanda.example", 1.04),
+        ("Edificaciones Zarvella", "concursos@zarvella.example", 1.01),
     ],
     tender_packages=[
         (
@@ -333,9 +333,9 @@ TEMPLATE = DemoTemplate(
             "Cimentacion profunda, estructura de concreto reforzado, fachada y muro cortina.",
             "evaluating",
             [
-                ("Constructora del Valle de Mexico", "concursos@cvm-obra.mx", 0.98),
-                ("Grupo Constructor Anahuac", "licitaciones@anahuac-obra.mx", 1.04),
-                ("Edificaciones Coronado", "concursos@coronado-edif.mx", 1.01),
+                ("Constructora Terrandia", "concursos@terrandia.example", 0.98),
+                ("Grupo Constructor Velanda", "licitaciones@velanda.example", 1.04),
+                ("Edificaciones Zarvella", "concursos@zarvella.example", 1.01),
             ],
         ),
         (
@@ -343,9 +343,9 @@ TEMPLATE = DemoTemplate(
             "Instalacion hidrosanitaria, electrica, voz-datos, mecanica, HVAC y energia solar.",
             "issued",
             [
-                ("Instalaciones Integrales del Norte", "concursos@iin-mep.mx", 0.99),
-                ("Ingenieria y Montajes Tepeyac", "licitaciones@tepeyac-ing.mx", 1.05),
-                ("Servicios Electromecanicos Polanco", "concursos@sep-mep.mx", 1.02),
+                ("Instalaciones Integrales Serranov", "concursos@serranov.example", 0.99),
+                ("Ingenieria y Montajes Calverte", "licitaciones@calverte.example", 1.05),
+                ("Servicios Electromecanicos Nordeva", "concursos@nordeva.example", 1.02),
             ],
         ),
         (
@@ -353,18 +353,18 @@ TEMPLATE = DemoTemplate(
             "Acabados de pisos, muros y plafones, carpinteria, canceleria interior y detalles.",
             "draft",
             [
-                ("Acabados y Remodelaciones Condesa", "concursos@arc-acabados.mx", 0.97),
-                ("Interiores y Acabados del Bajio", "licitaciones@iab-obra.mx", 1.06),
-                ("Constructora Santa Fe", "concursos@santafe-obra.mx", 1.03),
+                ("Acabados y Remodelaciones Verlanto", "concursos@verlanto.example", 0.97),
+                ("Interiores y Acabados Mirlanda", "licitaciones@mirlanda.example", 1.06),
+                ("Constructora Vallemar", "concursos@vallemar.example", 1.03),
             ],
         ),
     ],
     project_metadata={
         "address": "Paseo de la Reforma 350, Cuauhtemoc, 06600 Ciudad de Mexico, Mexico",
-        "client": "Desarrolladora Reforma 350, S.A. de C.V.",
-        "architect": "Taller de Arquitectura Reforma",
+        "client": "Desarrolladora Sarvento 350, S.A. de C.V.",
+        "architect": "Taller de Arquitectura Nublanto",
         "quantity_surveyor": "Costos y Presupuestos APU, S.C.",
-        "structural_engineer": "Ingenieria Estructural Sismica, S.C.",
+        "structural_engineer": "Ingenieria Estructural Aldrevi, S.C.",
         "gfa_m2": 38000,
         "site_area_m2": 2800,
         "storeys": 20,

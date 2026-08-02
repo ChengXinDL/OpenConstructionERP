@@ -279,14 +279,14 @@ TEMPLATE = DemoTemplate(
     total_months=18,
     tender_name="Balance of Plant (BoP) Civil & Electrical",
     tender_companies=[
-        ("Sterling and Wilson Renewable Energy", "tenders@sterlingwilson.com", 0.98),
-        ("BayWa r.e. Solar Projects", "epc-bids@baywa-re.com", 1.03),
-        ("Enerparc AG", "vergabe@enerparc.de", 1.01),
+        ("Sarveen Renewable Energy", "tenders@sarveen.example", 0.98),
+        ("Feldstern r.e. Solar Projects", "epc-bids@feldstern.example", 1.03),
+        ("Solvarc AG", "vergabe@solvarc.example", 1.01),
     ],
     project_metadata={
-        "client": "Solarpark Witznitz Renewables GmbH",
-        "epc_contractor": "BayWa r.e. / Sterling and Wilson JV (illustrative)",
-        "owner_engineer": "DNV Energy Systems",
+        "client": "Solarpark Ehrfeld Renewables GmbH",
+        "epc_contractor": "Feldstern r.e. / Sarveen JV (illustrative)",
+        "owner_engineer": "Verdicta Energy Systems",
         "dc_capacity_mwp": 50,
         "ac_capacity_mwac": 37,
         "dc_ac_ratio": 1.35,
@@ -325,9 +325,9 @@ TEMPLATE = DemoTemplate(
             "Earthworks, roads, fencing, foundations, trenching, MV cabling, earthing",
             "evaluating",
             [
-                ("Sterling and Wilson Renewable Energy", "tenders@sterlingwilson.com", 0.98),
-                ("BayWa r.e. Solar Projects", "epc-bids@baywa-re.com", 1.03),
-                ("Enerparc AG", "vergabe@enerparc.de", 1.01),
+                ("Sarveen Renewable Energy", "tenders@sarveen.example", 0.98),
+                ("Feldstern r.e. Solar Projects", "epc-bids@feldstern.example", 1.03),
+                ("Solvarc AG", "vergabe@solvarc.example", 1.01),
             ],
         ),
         (
@@ -335,9 +335,9 @@ TEMPLATE = DemoTemplate(
             "Module supply, single-axis trackers, string inverters, DC system",
             "evaluating",
             [
-                ("Trina Solar / TrinaTracker", "projects@trinasolar.com", 0.97),
-                ("Nextracker", "epc@nextracker.com", 1.04),
-                ("SMA Solar Technology AG", "vertrieb@sma.de", 1.02),
+                ("Renlux Solar / RenluxTracker", "projects@renlux.example", 0.97),
+                ("Axitrace", "epc@axitrace.example", 1.04),
+                ("Solmatik Technology AG", "vertrieb@solmatik.example", 1.02),
             ],
         ),
         (
@@ -345,9 +345,9 @@ TEMPLATE = DemoTemplate(
             "LFP battery containers, PCS, EMS, fire suppression, integration",
             "evaluating",
             [
-                ("Fluence Energy", "bids@fluenceenergy.com", 0.99),
-                ("Wartsila Energy Storage", "ess-tenders@wartsila.com", 1.05),
-                ("Tesla Megapack (Tesla Energy)", "energy.epc@tesla.com", 1.06),
+                ("Cellara Energy", "bids@cellara.example", 0.99),
+                ("Halvasten Energy Storage", "ess-tenders@halvasten.example", 1.05),
+                ("Voltbank Systems (Kestrove Energy)", "energy.epc@kestrove.example", 1.06),
             ],
         ),
         (
@@ -355,9 +355,9 @@ TEMPLATE = DemoTemplate(
             "33/110 kV substation, GIS, transformer, protection, POI line",
             "evaluating",
             [
-                ("Siemens Energy", "grid-tenders@siemens-energy.com", 0.98),
-                ("Hitachi Energy", "substation.bids@hitachienergy.com", 1.04),
-                ("SPIE Deutschland & Zentraleuropa", "netze@spie.com", 1.02),
+                ("Nordwerk Energy", "grid-tenders@nordwerk.example", 0.98),
+                ("Toriwara Energy", "substation.bids@toriwara-energy.example", 1.04),
+                ("Roverval Deutschland & Zentraleuropa", "netze@roverval-de.example", 1.02),
             ],
         ),
     ],

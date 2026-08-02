@@ -32,7 +32,7 @@ TEMPLATE = DemoTemplate(
         "fitout. GFA approx. 6,800 m2 on a 1.1 ha site. Structural steel "
         "portal and moment-resisting frame (NZS 3404) on reinforced-concrete "
         "pad and strip footings with a ground-bearing slab (NZS 3101); "
-        "precast tilt-up concrete perimeter panels; long-run Colorsteel roof. "
+        "precast tilt-up concrete perimeter panels; long-run pre-painted steel roof. "
         "Importance Level 2, seismic hazard Z=0.13 (Auckland), wind region "
         "A7, designed to NZS 1170 / NZS 1170.5. NZBC compliant, Green Star 5 "
         "Star target. Estimated construction cost circa NZD 26M (GST excl.)."
@@ -157,7 +157,7 @@ TEMPLATE = DemoTemplate(
                 ("6.1", "Precast tilt-up concrete panels 180mm (Tilt panels)", "m2", 3400, 295.00, {"nrm": "5.1"}),
                 ("6.2", "Panel craneage, propping and grout (Panel erection)", "m2", 3400, 78.00, {"nrm": "5.1"}),
                 ("6.3", "Insulated wall panel to showroom (Insulated panel)", "m2", 1100, 235.00, {"nrm": "5.1"}),
-                ("6.4", "Long-run Colorsteel roofing 0.55 BMT (Metal roofing)", "m2", 4400, 88.00, {"nrm": "4.1"}),
+                ("6.4", "Long-run pre-painted steel roofing 0.55 BMT (Metal roofing)", "m2", 4400, 88.00, {"nrm": "4.1"}),
                 ("6.5", "Roof insulation R3.6 blanket and safety mesh (Roof insulation)", "m2", 4400, 32.00, {"nrm": "4.2"}),
                 ("6.6", "Roof flashings, ridge and barge (Flashings)", "m", 720, 58.00, {"nrm": "4.1"}),
                 ("6.7", "Internal rainwater spouting and downpipes (Rainwater goods)", "m", 540, 72.00, {"nrm": "4.1"}),
@@ -300,16 +300,16 @@ TEMPLATE = DemoTemplate(
     total_months=16,
     tender_name="Main Contract - Design & Build",
     tender_companies=[
-        ("Naylor Love Construction", "tenders@naylorlove.co.nz", 0.98),
-        ("Hawkins (Downer)", "bids@hawkins.co.nz", 1.05),
-        ("LT McGuinness", "estimating@ltmcguinness.co.nz", 1.02),
+        ("Vantrell Construction", "tenders@vantrell.example", 0.98),
+        ("Sarraven (Northline Group)", "bids@sarraven.example", 1.05),
+        ("TR Kelverstone", "estimating@kelverstone.example", 1.02),
     ],
     project_metadata={
         "address": "12 Highbrook Drive, East Tamaki, Auckland 2013",
-        "client": "Highbrook Property Holdings Ltd",
-        "architect": "Jasmax",
+        "client": "Eastvane Property Holdings Ltd",
+        "architect": "Vellamore Architects",
         "quantity_surveyor": "Rider Levett Bucknall (RLB)",
-        "structural_engineer": "Holmes Consulting",
+        "structural_engineer": "Callensworth Consulting",
         "building_type": "commercial / light-industrial",
         "gfa_m2": 6800,
         "storeys": 2,
@@ -331,9 +331,9 @@ TEMPLATE = DemoTemplate(
             "Full design-and-build delivery under NZS 3910:2023",
             "evaluating",
             [
-                ("Naylor Love Construction", "tenders@naylorlove.co.nz", 0.98),
-                ("Hawkins (Downer)", "bids@hawkins.co.nz", 1.05),
-                ("LT McGuinness", "estimating@ltmcguinness.co.nz", 1.02),
+                ("Vantrell Construction", "tenders@vantrell.example", 0.98),
+                ("Sarraven (Northline Group)", "bids@sarraven.example", 1.05),
+                ("TR Kelverstone", "estimating@kelverstone.example", 1.02),
             ],
         ),
         (
@@ -341,9 +341,9 @@ TEMPLATE = DemoTemplate(
             "Fabrication and erection of portal / moment frame to NZS 3404",
             "evaluating",
             [
-                ("Grayson Engineering", "tenders@grayson.co.nz", 0.97),
-                ("D&H Steel Construction", "estimating@dhsteel.co.nz", 1.04),
-                ("John Jones Steel", "bids@johnjonessteel.co.nz", 1.01),
+                ("Redmarch Engineering", "tenders@redmarch.example", 0.97),
+                ("Draymont Steel Construction", "estimating@draymont.example", 1.04),
+                ("Alderay Steel", "bids@alderay.example", 1.01),
             ],
         ),
         (
@@ -351,9 +351,9 @@ TEMPLATE = DemoTemplate(
             "HVAC, hydraulic, fire and electrical building services",
             "evaluating",
             [
-                ("Aquaheat NZ", "tenders@aquaheat.co.nz", 0.99),
-                ("Cueskin Electrical", "estimating@cueskin.co.nz", 1.06),
-                ("Beca Building Services", "bids@beca.co.nz", 1.03),
+                ("Thermavox NZ", "tenders@thermavox.example", 0.99),
+                ("Voltrayne Electrical", "estimating@voltrayne.example", 1.06),
+                ("Fernholt Building Services", "bids@fernholt.example", 1.03),
             ],
         ),
         (
@@ -361,8 +361,8 @@ TEMPLATE = DemoTemplate(
             "Earthworks, pavements, drainage, utilities and landscaping",
             "evaluating",
             [
-                ("Fulton Hogan", "tenders@fultonhogan.co.nz", 0.98),
-                ("Higgins Contractors", "estimating@higgins.co.nz", 1.05),
+                ("Kalverton Civil", "tenders@kalverton.example", 0.98),
+                ("Trentmoor Contractors", "estimating@trentmoor.example", 1.05),
             ],
         ),
     ],

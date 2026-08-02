@@ -286,15 +286,15 @@ TEMPLATE = DemoTemplate(
     total_months=26,
     tender_name="Estrutura e Fundacoes (Structure and foundations)",
     tender_companies=[
-        ("Construtora Tenda S.A.", "licitacao@tenda.com.br", 0.99),
-        ("Cyrela Construtora", "obras@cyrela.com.br", 1.04),
-        ("Construtora Lock", "propostas@construtoralock.com.br", 1.01),
+        ("Construtora Vireda S.A.", "licitacao@vireda.example", 0.99),
+        ("Solmara Construtora", "obras@solmara.example", 1.04),
+        ("Construtora Kelvano", "propostas@kelvano.example", 1.01),
     ],
     project_metadata={
         "address": "Rua Oscar Freire 1200, Jardins, Sao Paulo - SP, 01426-001",
-        "client": "Jardins Empreendimentos Imobiliarios Ltda.",
-        "architect": "Konigsberger Vannucchi Arquitetos",
-        "structural_engineer": "Franca e Associados Engenharia",
+        "client": "Vilanchor Empreendimentos Imobiliarios Ltda.",
+        "architect": "Lindenmayer Vartaggio Arquitetos",
+        "structural_engineer": "Ferrandes e Associados Engenharia",
         "gfa_m2": 10800,
         "units": 144,
         "storeys": 18,
@@ -339,9 +339,9 @@ TEMPLATE = DemoTemplate(
             "Movimento de terra, contencao, estacas, blocos, concreto armado e formas",
             "evaluating",
             [
-                ("Construtora Tenda S.A.", "licitacao@tenda.com.br", 0.99),
-                ("Cyrela Construtora", "obras@cyrela.com.br", 1.04),
-                ("Construtora Lock", "propostas@construtoralock.com.br", 1.01),
+                ("Construtora Vireda S.A.", "licitacao@vireda.example", 0.99),
+                ("Solmara Construtora", "obras@solmara.example", 1.04),
+                ("Construtora Kelvano", "propostas@kelvano.example", 1.01),
             ],
         ),
         (
@@ -349,9 +349,9 @@ TEMPLATE = DemoTemplate(
             "Alvenaria, drywall, revestimentos, pisos, forros e pintura",
             "evaluating",
             [
-                ("MPD Engenharia", "comercial@mpd.com.br", 0.98),
-                ("Construcap CCPS", "propostas@construcap.com.br", 1.05),
-                ("Racional Engenharia", "licitacao@racional.com.br", 1.02),
+                ("Vandelo Engenharia", "comercial@vandelo.example", 0.98),
+                ("Construval CVPS", "propostas@construval.example", 1.05),
+                ("Prumaz Engenharia", "licitacao@prumaz.example", 1.02),
             ],
         ),
         (
@@ -359,9 +359,9 @@ TEMPLATE = DemoTemplate(
             "Instalacoes hidrossanitarias, eletricas, SPDA, telecom e incendio",
             "evaluating",
             [
-                ("Engemix Instalacoes", "obras@engemix.com.br", 0.97),
-                ("Lock Instalacoes Prediais", "instalacoes@construtoralock.com.br", 1.06),
-                ("Tecnogera Engenharia", "propostas@tecnogera.com.br", 1.03),
+                ("Predivex Instalacoes", "obras@predivex.example", 0.97),
+                ("Kelvano Instalacoes Prediais", "instalacoes@kelvano.example", 1.06),
+                ("Geravolt Engenharia", "propostas@geravolt.example", 1.03),
             ],
         ),
         (
@@ -369,9 +369,9 @@ TEMPLATE = DemoTemplate(
             "Esquadrias de aluminio, vidros, portas, guarda-corpos e box",
             "evaluating",
             [
-                ("Aluvidros Esquadrias", "vendas@aluvidros.com.br", 0.99),
-                ("Sasazaki Industria", "obra@sasazaki.com.br", 1.04),
-                ("Glasstech Vidros", "comercial@glasstech.com.br", 1.01),
+                ("Alumbravo Esquadrias", "vendas@alumbravo.example", 0.99),
+                ("Nakaira Industria", "obra@nakaira.example", 1.04),
+                ("Vitrasol Vidros", "comercial@vitrasol.example", 1.01),
             ],
         ),
         (
@@ -379,9 +379,9 @@ TEMPLATE = DemoTemplate(
             "Fornecimento e montagem de elevadores e plataforma de acessibilidade",
             "evaluating",
             [
-                ("Atlas Schindler", "obra@schindler.com.br", 0.98),
-                ("Otis Elevadores Brasil", "propostas@otis.com.br", 1.05),
-                ("ThyssenKrupp Elevadores", "comercial@tke.com.br", 1.02),
+                ("Belventa Elevadores", "obra@belventa.example", 0.98),
+                ("Elvantis Elevadores Brasil", "propostas@elvantis-br.example", 1.05),
+                ("Rhenwerk Elevadores", "comercial@rhenwerk.example", 1.02),
             ],
         ),
     ],

@@ -260,7 +260,7 @@ TEMPLATE = DemoTemplate(
             "26 - الأعمال الكهربائية والجهد المنخفض ونداء الممرضات (Electrical, ELV & Nurse-Call)",
             {"masterformat": "26", "sbc": "SBC 401"},
             [
-                ("26.01", "غرف محولات وتوصيلة الشركة السعودية للكهرباء (HV substations & SEC connection)", "lsum", 1, 6800000.00, {"masterformat": "26 11 00", "sbc": "SBC 401"}),
+                ("26.01", "غرف محولات وتوصيلة شبكة الكهرباء المحلية (HV substations & utility connection)", "lsum", 1, 6800000.00, {"masterformat": "26 11 00", "sbc": "SBC 401"}),
                 ("26.02", "لوحات التوزيع الرئيسية للجهد المنخفض MDB (Main LV distribution boards MDB)", "pcs", 6, 320000.00, {"masterformat": "26 24 13", "sbc": "SBC 401"}),
                 ("26.03", "لوحات توزيع فرعية للأدوار والأقسام (Sub-distribution boards per dept.)", "pcs", 145, 18500.00, {"masterformat": "26 24 16", "sbc": "SBC 401"}),
                 ("26.04", "مولدات احتياطية ديزل 2000kVA (Standby diesel generators 2000kVA)", "pcs", 4, 1650000.00, {"masterformat": "26 32 13", "sbc": "SBC 401"}),
@@ -340,11 +340,11 @@ TEMPLATE = DemoTemplate(
     total_months=38,
     tender_name="حزمة الأعمال الإنشائية والأساسات (Structure & Foundations Package)",
     tender_companies=[
-        ("El Seif Engineering Contracting", "tenders@elseif.com.sa", 0.98),
-        ("Saudi Binladin Group", "bids@sbg.com.sa", 1.05),
-        ("Nesma & Partners Contracting", "estimation@nesma.com.sa", 1.02),
-        ("Almabani General Contractors", "tenders@almabani.com.sa", 1.01),
-        ("Drake & Scull International (KSA)", "bids@drakescull.com", 1.06),
+        ("Talveen Engineering Contracting", "tenders@talveen.example", 0.98),
+        ("Rukhban Construction Group", "bids@rukhban.example", 1.05),
+        ("Sarwaneh & Partners Contracting", "estimation@sarwaneh.example", 1.02),
+        ("Wadhaan General Contractors", "tenders@wadhaan.example", 1.01),
+        ("Nakhbara International (KSA)", "bids@nakhbara.example", 1.06),
     ],
     tender_packages=[
         (
@@ -352,9 +352,9 @@ TEMPLATE = DemoTemplate(
             "Piled raft foundation, two-level basement, reinforced concrete superstructure frame.",
             "evaluating",
             [
-                ("El Seif Engineering Contracting", "tenders@elseif.com.sa", 0.98),
-                ("Saudi Binladin Group", "bids@sbg.com.sa", 1.05),
-                ("Almabani General Contractors", "tenders@almabani.com.sa", 1.01),
+                ("Talveen Engineering Contracting", "tenders@talveen.example", 0.98),
+                ("Rukhban Construction Group", "bids@rukhban.example", 1.05),
+                ("Wadhaan General Contractors", "tenders@wadhaan.example", 1.01),
             ],
         ),
         (
@@ -362,9 +362,9 @@ TEMPLATE = DemoTemplate(
             "HVAC, medical gases, electrical, plumbing, BMS and healthcare-specific services.",
             "issued",
             [
-                ("Drake & Scull International (KSA)", "bids@drakescull.com", 1.06),
-                ("Nesma & Partners Contracting", "estimation@nesma.com.sa", 1.02),
-                ("AMS Baeshen Contracting", "tenders@amscontracting.com.sa", 1.04),
+                ("Nakhbara International (KSA)", "bids@nakhbara.example", 1.06),
+                ("Sarwaneh & Partners Contracting", "estimation@sarwaneh.example", 1.02),
+                ("AMS Muraikh Contracting", "tenders@muraikh.example", 1.04),
             ],
         ),
         (
@@ -372,8 +372,8 @@ TEMPLATE = DemoTemplate(
             "Internal finishes, specialist clinical finishes, curtain walling and external envelope.",
             "draft",
             [
-                ("Saudi Binladin Group", "bids@sbg.com.sa", 1.03),
-                ("Nesma & Partners Contracting", "estimation@nesma.com.sa", 1.00),
+                ("Rukhban Construction Group", "bids@rukhban.example", 1.03),
+                ("Sarwaneh & Partners Contracting", "estimation@sarwaneh.example", 1.00),
             ],
         ),
     ],
@@ -381,9 +381,9 @@ TEMPLATE = DemoTemplate(
         "address": "Haramain Expressway, Ash Shati District, Jeddah 23612, Saudi Arabia",
         "client": "Ministry of Health (MOH) - Jeddah Health Cluster",
         "operator": "Jeddah Second Health Cluster",
-        "architect": "Zuhair Fayez Partnership (ZFP)",
-        "main_consultant": "Dar Al-Handasah (Shair & Partners)",
-        "healthcare_planner": "TAHPI (healthcare facility planning)",
+        "architect": "Sirhaan Amjadi Partnership (SAMP)",
+        "main_consultant": "Dar Al-Hadeeba (Marhoun & Partners)",
+        "healthcare_planner": "Medraplan (healthcare facility planning)",
         "facility_type": "Acute general hospital, 300 beds",
         "gfa_m2": 52000,
         "storeys": 8,
