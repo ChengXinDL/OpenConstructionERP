@@ -943,5 +943,20 @@
     "en_value": "Skid",
     "note": "da/id/it/no/pt/vi keep 'Skid' as an established prefab-industry loanword for a skid-mounted equipment frame - corroborated by prefab.intro_body's own untranslated use of 'skid(s)' in the same locales (non-baseline, already shipped).",
     "reason_category": "cognate_loanword"
+  },
+  "service.insights.f_status": {
+    "en_value": "Status",
+    "note": "da/de/hr/id/nl/no/pl/sv - the same 8-locale Status cognate documented across closeout/commissioning/files.approvals/review_authority/transmittals/prefab.",
+    "reason_category": "cognate_loanword"
+  },
+  "service.insights.f_ticket": {
+    "en_value": "Ticket",
+    "note": "da/de/es/es-MX/fr/it/nl/no/ro/vi keep 'Ticket' as an established IT-support-ticket loanword - deliberately kept distinct from the wrong-sense travel/event-ticket words found in service.ticket for ar/bg/cs/fi/hr/ky/mn/pl/sv/th/tr/zh (a pre-existing, non-baseline bug, flagged to team-lead separately, not fixed here) - this key's own 13 non-cognate locales were overridden away from that grounding source during this repair.",
+    "reason_category": "cognate_loanword"
+  },
+  "service.insights.k_open": {
+    "en_value": "Open tickets",
+    "note": "nl 'Open tickets' is genuine Dutch, not leaked English - both 'open' (identical Dutch/English adjective) and 'tickets' (established Dutch IT loanword, confirmed by service.tickets[nl]='Tickets') happen to be spelled identically in Dutch.",
+    "reason_category": "cognate_loanword"
   }
 }
