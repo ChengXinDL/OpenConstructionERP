@@ -33353,7 +33353,7 @@ const resource = {
     "schedule.delay.events_empty": "Aucun événement de retard pour l'instant. Ajoutez le premier événement causal ci-dessous.",
     "schedule.delay.concurrent_tag": "Concurrent",
     "schedule.delay.at_activity": "à",
-    "schedule.delay.has_fragnet": "Fragnet",
+    "schedule.delay.has_fragnet": "Fragment de réseau",
     "schedule.delay.auto_fragnet": "Fragnet automatique",
     "schedule.delay.add_event": "Ajouter un événement de retard",
     "schedule.delay.event_title": "Titre",

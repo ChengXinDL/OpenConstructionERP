@@ -30268,7 +30268,7 @@ const resource = {
     "schedule.delay.fragnet_added": "تم إرفاق Fragnet",
     "schedule.delay.fragnet_added_detail": "تم تجميع Fragnet افتراضي للحدث.",
     "schedule.delay.gross_slip": "انزلاق إجمالي",
-    "schedule.delay.has_fragnet": "Fragnet",
+    "schedule.delay.has_fragnet": "جزء من الشبكة",
     "schedule.delay.is_concurrent": "متزامن مع تأخير يمكن نسبه إلى المقاول",
     "schedule.delay.issue": "قضية (e-sign)",
     "schedule.delay.issued": "تم إصدار التحليل",

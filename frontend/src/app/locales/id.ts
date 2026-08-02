@@ -30195,7 +30195,7 @@ const resource = {
     "schedule.delay.fragnet_added": "Fragnet terlampir",
     "schedule.delay.fragnet_added_detail": "Fragnet default disintesis untuk acara.",
     "schedule.delay.gross_slip": "Slip kotor",
-    "schedule.delay.has_fragnet": "Fragnet",
+    "schedule.delay.has_fragnet": "Fragmen jaringan",
     "schedule.delay.is_concurrent": "Bersamaan dengan penundaan yang dapat disalahkan kontraktor",
     "schedule.delay.issue": "Masalah (e-sign)",
     "schedule.delay.issued": "Analisis dikeluarkan",

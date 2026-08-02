@@ -30197,7 +30197,7 @@ const resource = {
     "schedule.delay.fragnet_added": "Fragnet liitetty",
     "schedule.delay.fragnet_added_detail": "Tapahtumalle syntetisoitiin oletusarvoinen fragnet.",
     "schedule.delay.gross_slip": "Kokonaisliukuminen",
-    "schedule.delay.has_fragnet": "Fragnet",
+    "schedule.delay.has_fragnet": "Verkkofragmentti",
     "schedule.delay.is_concurrent": "Rinnakkainen urakoitsijalle syyllisen viiveen kanssa",
     "schedule.delay.issue": "Ongelma (e-merkintä)",
     "schedule.delay.issued": "Analyysi julkaistu",

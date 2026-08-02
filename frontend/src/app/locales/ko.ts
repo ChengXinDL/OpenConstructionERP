@@ -30199,7 +30199,7 @@ const resource = {
     "schedule.delay.fragnet_added": "Fragnet 첨부됨",
     "schedule.delay.fragnet_added_detail": "이벤트에 대해 기본 fragnet이 합성되었습니다.",
     "schedule.delay.gross_slip": "총 지연",
-    "schedule.delay.has_fragnet": "Fragnet",
+    "schedule.delay.has_fragnet": "네트워크 조각",
     "schedule.delay.is_concurrent": "계약자 과실 지연과 동시",
     "schedule.delay.issue": "발행 (전자 서명)",
     "schedule.delay.issued": "분석 발행됨",

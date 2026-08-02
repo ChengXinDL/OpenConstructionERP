@@ -30204,7 +30204,7 @@ const resource = {
     "schedule.delay.fragnet_added": "Fragnet được đính kèm",
     "schedule.delay.fragnet_added_detail": "Một fragnet mặc định được tổng hợp cho sự kiện.",
     "schedule.delay.gross_slip": "Trượt toàn bộ",
-    "schedule.delay.has_fragnet": "Fragnet",
+    "schedule.delay.has_fragnet": "Đoạn mạng",
     "schedule.delay.is_concurrent": "Đồng thời với sự trì hoãn do nhà thầu phải chịu trách nhiệm",
     "schedule.delay.issue": "Vấn đề (ký điện tử)",
     "schedule.delay.issued": "Phân tích được phát hành",

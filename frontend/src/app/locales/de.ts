@@ -30276,7 +30276,7 @@ const resource = {
     "schedule.delay.fragnet_added": "Fragnet angehängt",
     "schedule.delay.fragnet_added_detail": "Ein Standard-Fragnet wurde für das Ereignis synthetisiert.",
     "schedule.delay.gross_slip": "Bruttoversatz",
-    "schedule.delay.has_fragnet": "Fragnet",
+    "schedule.delay.has_fragnet": "Netzwerkfragment",
     "schedule.delay.is_concurrent": "Gleichzeitig mit einem unternehmerischer Verschuldung-Versatz",
     "schedule.delay.issue": "Problem (e-Unterschrift)",
     "schedule.delay.issued": "Analyse ausgegeben",

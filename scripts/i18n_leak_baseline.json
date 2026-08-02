@@ -243,35 +243,6 @@
    "zh"
   ]
  },
- "schedule.delay.has_fragnet": {
-  "en_value": "Fragnet",
-  "leaked_locales": [
-   "ar",
-   "bg",
-   "cs",
-   "da",
-   "de",
-   "es",
-   "es-MX",
-   "fi",
-   "fr",
-   "hi",
-   "hr",
-   "id",
-   "it",
-   "ko",
-   "mn",
-   "nl",
-   "no",
-   "pl",
-   "pt",
-   "ro",
-   "sv",
-   "th",
-   "tr",
-   "vi"
-  ]
- },
  "takeoff_viewer.width_unit_px": {
   "en_value": "px",
   "leaked_locales": [

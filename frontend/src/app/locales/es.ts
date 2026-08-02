@@ -30220,7 +30220,7 @@ const resource = {
     "schedule.delay.fragnet_added": "Fragnet adjunto",
     "schedule.delay.fragnet_added_detail": "Se sintetizó un fragnet predeterminado para el evento.",
     "schedule.delay.gross_slip": "Desliz bruto",
-    "schedule.delay.has_fragnet": "Fragnet",
+    "schedule.delay.has_fragnet": "Fragmento de red",
     "schedule.delay.is_concurrent": "Concurrente con un retraso atribuible al contratista",
     "schedule.delay.issue": "Emitir (firma electrónica)",
     "schedule.delay.issued": "Análisis emitido",

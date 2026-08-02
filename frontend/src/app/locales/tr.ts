@@ -30197,7 +30197,7 @@ const resource = {
     "schedule.delay.fragnet_added": "Fragnet eklendi",
     "schedule.delay.fragnet_added_detail": "Olay için varsayılan bir fragnet sentez edildi.",
     "schedule.delay.gross_slip": "Brüt kayma",
-    "schedule.delay.has_fragnet": "Fragnet",
+    "schedule.delay.has_fragnet": "Ağ parçası",
     "schedule.delay.is_concurrent": "Yükleniciye ait gecikme ile eşzamanlı",
     "schedule.delay.issue": "Sorun (e-sign)",
     "schedule.delay.issued": "Analiz verildi",

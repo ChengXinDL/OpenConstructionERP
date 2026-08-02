@@ -30226,7 +30226,7 @@ const resource = {
     "schedule.delay.fragnet_added": "Fragnet připojen",
     "schedule.delay.fragnet_added_detail": "Pro event byl syntetizován výchozí fragnet.",
     "schedule.delay.gross_slip": "Hrubý skluz",
-    "schedule.delay.has_fragnet": "Fragnet",
+    "schedule.delay.has_fragnet": "Fragment sítě",
     "schedule.delay.is_concurrent": "Souběžný se zpožděním za vinu dodavatele",
     "schedule.delay.issue": "Vydání (e-podpis)",
     "schedule.delay.issued": "Analýza vydána",

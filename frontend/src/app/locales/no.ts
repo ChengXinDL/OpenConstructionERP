@@ -30039,7 +30039,7 @@ const resource = {
     "schedule.delay.fragnet_added": "Fragnet vedlagt",
     "schedule.delay.fragnet_added_detail": "En standard fragnet ble syntetisert for hendelsen.",
     "schedule.delay.gross_slip": "Brutto glipp",
-    "schedule.delay.has_fragnet": "Fragnet",
+    "schedule.delay.has_fragnet": "Nettverksfragment",
     "schedule.delay.is_concurrent": "Samtidig med en kontraktør-skyldig forsinkelse",
     "schedule.delay.issue": "Utstede (e-signering)",
     "schedule.delay.issued": "Analyse utstedet",

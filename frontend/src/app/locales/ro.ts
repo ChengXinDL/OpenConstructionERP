@@ -30210,7 +30210,7 @@ const resource = {
     "schedule.delay.fragnet_added": "Fragnet atașat",
     "schedule.delay.fragnet_added_detail": "Un fragnet implicit a fost sintetizat pentru eveniment.",
     "schedule.delay.gross_slip": "Alunecarea brută",
-    "schedule.delay.has_fragnet": "Fragnet",
+    "schedule.delay.has_fragnet": "Fragment de rețea",
     "schedule.delay.is_concurrent": "Concurent cu o întârziere imputabilă contractorului",
     "schedule.delay.issue": "Problemă (e-sign)",
     "schedule.delay.issued": "Analiză emisă",

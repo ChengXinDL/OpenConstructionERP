@@ -30198,7 +30198,7 @@ const resource = {
     "schedule.delay.fragnet_added": "Fragnet bijgevoegd",
     "schedule.delay.fragnet_added_detail": "Een standaard fragnet is voor het event gesynthetiseerd.",
     "schedule.delay.gross_slip": "Bruto vertraging",
-    "schedule.delay.has_fragnet": "Fragnet",
+    "schedule.delay.has_fragnet": "Netwerkfragment",
     "schedule.delay.is_concurrent": "Gelijktijdig met een vertraging waarvan de aannemer schuldig is",
     "schedule.delay.issue": "Afgeven (e-ondertekening)",
     "schedule.delay.issued": "Analyse afgegeven",

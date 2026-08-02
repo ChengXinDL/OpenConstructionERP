@@ -29750,7 +29750,7 @@ const resource = {
     "schedule.delay.fragnet_added": "Fragnet холбоосон",
     "schedule.delay.fragnet_added_detail": "Үйл явдлын хувьд үндсэн fragnet синтезлэгдсэн.",
     "schedule.delay.gross_slip": "Нийт гулсалт",
-    "schedule.delay.has_fragnet": "Fragnet",
+    "schedule.delay.has_fragnet": "Сүлжээний хэсэг",
     "schedule.delay.is_concurrent": "Гэрээлэгч сөрөг сааруулалтын хамт ижил үеийн",
     "schedule.delay.issue": "Асуудал (e-sign)",
     "schedule.delay.issued": "Анализ гаргасан",

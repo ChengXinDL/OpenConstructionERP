@@ -30215,7 +30215,7 @@ const resource = {
     "schedule.delay.fragnet_added": "Fragnet allegato",
     "schedule.delay.fragnet_added_detail": "Un fragnet predefinito è stato sintetizzato per l'evento.",
     "schedule.delay.gross_slip": "Slittamento lordo",
-    "schedule.delay.has_fragnet": "Fragnet",
+    "schedule.delay.has_fragnet": "Frammento di rete",
     "schedule.delay.is_concurrent": "Concorrente con un ritardo imputabile all'appaltatore",
     "schedule.delay.issue": "Emissione (e-firma)",
     "schedule.delay.issued": "Analisi emessa",

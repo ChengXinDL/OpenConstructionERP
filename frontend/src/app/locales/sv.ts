@@ -30192,7 +30192,7 @@ const resource = {
     "schedule.delay.fragnet_added": "Fragnet bifogad",
     "schedule.delay.fragnet_added_detail": "Ett standardfragnet syntetiserades för händelsen.",
     "schedule.delay.gross_slip": "Bruttoglid",
-    "schedule.delay.has_fragnet": "Fragnet",
+    "schedule.delay.has_fragnet": "Nätverksfragment",
     "schedule.delay.is_concurrent": "Samtidig med en entreprenörskyldigt försenad",
     "schedule.delay.issue": "Utfärda (e-signering)",
     "schedule.delay.issued": "Analys utfärdad",

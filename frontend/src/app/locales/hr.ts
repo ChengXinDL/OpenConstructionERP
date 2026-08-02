@@ -30202,7 +30202,7 @@ const resource = {
     "schedule.delay.fragnet_added": "Fragnet priložen",
     "schedule.delay.fragnet_added_detail": "Zadani fragnet je sintetiziran za događaj.",
     "schedule.delay.gross_slip": "Bruto klizanje",
-    "schedule.delay.has_fragnet": "Fragnet",
+    "schedule.delay.has_fragnet": "Mrežni fragment",
     "schedule.delay.is_concurrent": "Istodobno sa zakašnjenjem za koje je odgovoran izvoditelj",
     "schedule.delay.issue": "Izdaj (e-sign)",
     "schedule.delay.issued": "Analiza izdana",
