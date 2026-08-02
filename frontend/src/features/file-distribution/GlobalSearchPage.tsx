@@ -416,7 +416,8 @@ export function GlobalSearchPage() {
                 })}{' '}
                 <strong className="text-content-primary">{projectCount}</strong>{' '}
                 {t('files.global_search.summary_projects', {
-                  defaultValue: projectCount === 1 ? 'project' : 'projects',
+                  defaultValue: 'project',
+                  defaultValue_other: 'projects',
                   count: projectCount,
                 })}
               </p>
