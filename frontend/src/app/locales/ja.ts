@@ -33143,7 +33143,7 @@ const resource = {
     "pointcloud.volume_cell": "セルサイズ (m)",
     "pointcloud.volume_compute": "体積を推定",
     "pointcloud.volume_net": "正味",
-    "review_authority.section_authority": "権限",
+    "review_authority.section_authority": "当局",
     "review_authority.field_authority_name": "権限名",
     "review_authority.authority_name_required": "管轄機関名は必須です",
     "review_authority.authority_name_placeholder": "例：地域建築規制局",
