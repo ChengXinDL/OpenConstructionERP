@@ -29027,7 +29027,7 @@ const resource = {
     "punch.pin_on_board": "Nastan kiinnitys piirustukseen",
     "punch.pin_placed": "Nasta kiinnitetty piirustukseen",
     "punch.pin_section": "Piirustuksen nasta",
-    "punch.pinned_at": "Sivu {{page}} kohdassa ({{x}}, {{y}})",
+    "punch.pinned_at": "Sivu {{page}}",
     "punch.pins_on_sheet": "Nastat tällä arkilla",
     "punch.place_a_pin": "Sijoita nasta",
     "punch.place_on_sheet": "Sijoita arkille",

@@ -29025,7 +29025,7 @@ const resource = {
     "punch.pin_on_board": "Pin di atas gambar",
     "punch.pin_placed": "Pin ditempatkan di gambar",
     "punch.pin_section": "Pin Gambar",
-    "punch.pinned_at": "Halaman {{page}} di ({{x}}, {{y}})",
+    "punch.pinned_at": "Halaman {{page}}",
     "punch.pins_on_sheet": "Pin di lembar ini",
     "punch.place_a_pin": "Tempatkan Pin",
     "punch.place_on_sheet": "Tempatkan di Lembar",

@@ -29049,7 +29049,7 @@ const resource = {
     "punch.pin_on_board": "Szpilka na rysunku",
     "punch.pin_placed": "Szpilka umieszczona na rysunku",
     "punch.pin_section": "Szpilka do rysunku",
-    "punch.pinned_at": "Strona {{page}} w ({{x}}, {{y}})",
+    "punch.pinned_at": "Strona {{page}}",
     "punch.pins_on_sheet": "Szpilki na tym arkuszu",
     "punch.place_a_pin": "Umieść szpilkę",
     "punch.place_on_sheet": "Umieść na arkuszu",

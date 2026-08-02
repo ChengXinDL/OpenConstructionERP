@@ -28995,7 +28995,7 @@ const resource = {
     "punch.pin_on_board": "Pasador en un dibujo",
     "punch.pin_placed": "Pasador colocado en el dibujo",
     "punch.pin_section": "Pasador de dibujo",
-    "punch.pinned_at": "Página {{page}} en ({{x}}, {{y}})",
+    "punch.pinned_at": "Página {{page}}",
     "punch.pins_on_sheet": "Pasadores en esta hoja",
     "punch.place_a_pin": "Colocar un pasador",
     "punch.place_on_sheet": "Colocar en hoja",

@@ -29030,7 +29030,7 @@ const resource = {
     "punch.pin_on_board": "Çizimde pim",
     "punch.pin_placed": "Pim çizime yerleştirildi",
     "punch.pin_section": "Çizim pimi",
-    "punch.pinned_at": "Sayfa {{page}} ({{x}}, {{y}}) konumunda",
+    "punch.pinned_at": "Sayfa {{page}}",
     "punch.pins_on_sheet": "Bu sayfadaki pimler",
     "punch.place_a_pin": "Pim yerleştir",
     "punch.place_on_sheet": "Sayfaya yerleştir",

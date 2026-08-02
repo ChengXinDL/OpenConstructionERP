@@ -29029,7 +29029,7 @@ const resource = {
     "punch.pin_on_board": "Speld op een tekening",
     "punch.pin_placed": "Speld op de tekening geplaatst",
     "punch.pin_section": "Tekenspeld",
-    "punch.pinned_at": "Pagina {{page}} op ({{x}}, {{y}})",
+    "punch.pinned_at": "Pagina {{page}}",
     "punch.pins_on_sheet": "Spelden op dit vel",
     "punch.place_a_pin": "Plaats een speld",
     "punch.place_on_sheet": "Op vel plaatsen",

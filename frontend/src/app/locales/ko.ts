@@ -29030,7 +29030,7 @@ const resource = {
     "punch.pin_on_board": "도면에 핀 배치",
     "punch.pin_placed": "핀이 도면에 배치되었습니다",
     "punch.pin_section": "드로잉 핀",
-    "punch.pinned_at": "페이지 {{page}}, {{x}}, {{y}}",
+    "punch.pinned_at": "페이지 {{page}}",
     "punch.pins_on_sheet": "이 시트의 핀",
     "punch.place_a_pin": "핀 배치",
     "punch.place_on_sheet": "시트에 배치",

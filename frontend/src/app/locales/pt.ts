@@ -29032,7 +29032,7 @@ const resource = {
     "punch.pin_on_board": "Pino em um desenho",
     "punch.pin_placed": "Pino colocado no desenho",
     "punch.pin_section": "Pino de desenho",
-    "punch.pinned_at": "Página {{page}} em ({{x}}, {{y}})",
+    "punch.pinned_at": "Página {{page}}",
     "punch.pins_on_sheet": "Pinos nesta folha",
     "punch.place_a_pin": "Colocar um pino",
     "punch.place_on_sheet": "Colocar na folha",

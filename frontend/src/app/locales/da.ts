@@ -29025,7 +29025,7 @@ const resource = {
     "punch.pin_on_board": "Stift på en tegning",
     "punch.pin_placed": "Stift placeret på tegningen",
     "punch.pin_section": "Tegnings stift",
-    "punch.pinned_at": "Side {{page}} på ({{x}}, {{y}})",
+    "punch.pinned_at": "Side {{page}}",
     "punch.pins_on_sheet": "Stifter på dette ark",
     "punch.place_a_pin": "Placer en stift",
     "punch.place_on_sheet": "Placer på ark",

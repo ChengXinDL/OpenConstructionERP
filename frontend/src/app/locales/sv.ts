@@ -29023,7 +29023,7 @@ const resource = {
     "punch.pin_on_board": "Nål på en ritning",
     "punch.pin_placed": "Nål placerad på ritningen",
     "punch.pin_section": "Rita-nål",
-    "punch.pinned_at": "Sida {{page}} vid ({{x}}, {{y}})",
+    "punch.pinned_at": "Sida {{page}}",
     "punch.pins_on_sheet": "Nålar på detta blad",
     "punch.place_a_pin": "Placera en nål",
     "punch.place_on_sheet": "Placera på blad",

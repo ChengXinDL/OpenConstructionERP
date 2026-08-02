@@ -238,10 +238,8 @@ export function PunchDetailDrawer({
               <span className="inline-flex items-center gap-1 text-sm text-content-secondary">
                 <MapPin size={14} className="text-oe-blue" />
                 {t('punch.pinned_at', {
-                  defaultValue: 'Page {{page}} at ({{x}}, {{y}})',
+                  defaultValue: 'Page {{page}}',
                   page: item.page ?? 1,
-                  x: (item.location_x ?? 0).toFixed(3),
-                  y: (item.location_y ?? 0).toFixed(3),
                 })}
               </span>
               {onOpenPinBoard && (

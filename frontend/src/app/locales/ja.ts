@@ -29028,7 +29028,7 @@ const resource = {
     "punch.pin_on_board": "ドローイングにピンを打つ",
     "punch.pin_placed": "ドローイングにピンが配置されました",
     "punch.pin_section": "ドローイングピン",
-    "punch.pinned_at": "ページ{{page}}（{{x}}、{{y}}）",
+    "punch.pinned_at": "ページ{{page}}",
     "punch.pins_on_sheet": "このシートのピン",
     "punch.place_a_pin": "ピンを配置",
     "punch.place_on_sheet": "シートに配置",

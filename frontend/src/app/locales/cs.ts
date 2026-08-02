@@ -29039,7 +29039,7 @@ const resource = {
     "punch.pin_on_board": "Kolík na výkresu",
     "punch.pin_placed": "Kolík umístěn na výkresu",
     "punch.pin_section": "Kolík výkresu",
-    "punch.pinned_at": "Stránka {{page}} v ({{x}}, {{y}})",
+    "punch.pinned_at": "Stránka {{page}}",
     "punch.pins_on_sheet": "Kolíky na tomto listě",
     "punch.place_a_pin": "Umístit kolík",
     "punch.place_on_sheet": "Umístit na list",

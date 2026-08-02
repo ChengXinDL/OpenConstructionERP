@@ -29031,7 +29031,7 @@ const resource = {
     "punch.pin_on_board": "Pin na crtežu",
     "punch.pin_placed": "Pin postavljen na crtež",
     "punch.pin_section": "Pin crtenja",
-    "punch.pinned_at": "Stranica {{page}} na ({{x}}, {{y}})",
+    "punch.pinned_at": "Stranica {{page}}",
     "punch.pins_on_sheet": "Pini na ovom listu",
     "punch.place_a_pin": "Postavi pin",
     "punch.place_on_sheet": "Postavi na list",

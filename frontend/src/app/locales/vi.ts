@@ -29037,7 +29037,7 @@ const resource = {
     "punch.pin_on_board": "Chân tiếp trên bản vẽ",
     "punch.pin_placed": "Chân tiếp được đặt trên bản vẽ",
     "punch.pin_section": "Chân tiếp bản vẽ",
-    "punch.pinned_at": "Trang {{page}} tại ({{x}}, {{y}})",
+    "punch.pinned_at": "Trang {{page}}",
     "punch.pins_on_sheet": "Chân tiếp trên tờ này",
     "punch.place_a_pin": "Đặt chân tiếp",
     "punch.place_on_sheet": "Đặt trên tờ",

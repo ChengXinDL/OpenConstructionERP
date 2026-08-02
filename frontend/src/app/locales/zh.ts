@@ -29032,7 +29032,7 @@ const resource = {
     "punch.pin_on_board": "在绘图上固定针脚",
     "punch.pin_placed": "针脚放在绘图上",
     "punch.pin_section": "绘图针脚",
-    "punch.pinned_at": "页{{page}}在（{{x}}，{{y}}）",
+    "punch.pinned_at": "页{{page}}",
     "punch.pins_on_sheet": "此工作表上的针脚",
     "punch.place_a_pin": "放置针脚",
     "punch.place_on_sheet": "放置在工作表上",

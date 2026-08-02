@@ -28870,7 +28870,7 @@ const resource = {
     "punch.pin_on_board": "Fest på en tegning",
     "punch.pin_placed": "Nål plassert på tegningen",
     "punch.pin_section": "Tegningsnål",
-    "punch.pinned_at": "Side {{page}} på ({{x}}, {{y}})",
+    "punch.pinned_at": "Side {{page}}",
     "punch.pins_on_sheet": "Nåler på dette arket",
     "punch.place_a_pin": "Plasser en nål",
     "punch.place_on_sheet": "Plasser på ark",

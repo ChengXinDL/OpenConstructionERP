@@ -29084,7 +29084,7 @@ const resource = {
     "punch.pin_on_board": "دبس على رسم",
     "punch.pin_placed": "تم وضع الدبوس على الرسم",
     "punch.pin_section": "دبوس الرسم",
-    "punch.pinned_at": "الصفحة {{page}} في ({{x}}، {{y}})",
+    "punch.pinned_at": "الصفحة {{page}}",
     "punch.pins_on_sheet": "الدبابيس على هذه الورقة",
     "punch.place_a_pin": "ضع دبوس",
     "punch.place_on_sheet": "ضع على الورقة",

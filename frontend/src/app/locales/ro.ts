@@ -29040,7 +29040,7 @@ const resource = {
     "punch.pin_on_board": "Știft pe un desen",
     "punch.pin_placed": "Știft plasat pe desen",
     "punch.pin_section": "Știft desen",
-    "punch.pinned_at": "Pagina {{page}} la ({{x}}, {{y}})",
+    "punch.pinned_at": "Pagina {{page}}",
     "punch.pins_on_sheet": "Știfturi pe această foaie",
     "punch.place_a_pin": "Plasare știft",
     "punch.place_on_sheet": "Plasare pe foaie",

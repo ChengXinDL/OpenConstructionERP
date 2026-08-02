@@ -26754,7 +26754,7 @@ const resource = {
     "punch.created": "Created",
     "punch.resolution_notes": "Resolution notes",
     "punch.pin_section": "Drawing pin",
-    "punch.pinned_at": "Page {{page}} at ({{x}}, {{y}})",
+    "punch.pinned_at": "Page {{page}}",
     "punch.open_pin_board": "Open on pin board",
     "punch.not_pinned": "Not pinned to a drawing yet.",
     "punch.pin_on_board": "Pin on a drawing",

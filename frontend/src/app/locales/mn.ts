@@ -28582,7 +28582,7 @@ const resource = {
     "punch.pin_on_board": "Зургаар суман",
     "punch.pin_placed": "Суман зургаар суулгасан",
     "punch.pin_section": "Зургийн суман",
-    "punch.pinned_at": "Page {{page}} at ({{x}}, {{y}})",
+    "punch.pinned_at": "Хуудас {{page}}",
     "punch.pins_on_sheet": "Энэ хуудсан сумас",
     "punch.place_a_pin": "Суман суулгана уу",
     "punch.place_on_sheet": "Хуудсаар суулгана уу",

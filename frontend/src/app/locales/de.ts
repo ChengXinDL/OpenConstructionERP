@@ -29107,7 +29107,7 @@ const resource = {
     "punch.pin_on_board": "Markierung auf einer Zeichnung",
     "punch.pin_placed": "Markierung auf der Zeichnung platziert",
     "punch.pin_section": "Zeichnungsmarkierung",
-    "punch.pinned_at": "Seite {{page}} bei ({{x}}, {{y}})",
+    "punch.pinned_at": "Seite {{page}}",
     "punch.pins_on_sheet": "Markierungen auf diesem Blatt",
     "punch.place_a_pin": "Eine Markierung platzieren",
     "punch.place_on_sheet": "Auf Blatt platzieren",
