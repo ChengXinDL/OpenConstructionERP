@@ -1820,7 +1820,10 @@ const MeetingRow = React.memo(function MeetingRow({
                       {item.duration_minutes > 0 && (
                         <span className="text-xs text-content-tertiary ml-2 flex items-center gap-0.5 inline-flex">
                           <Clock size={10} />
-                          {item.duration_minutes}m
+                          {t('meetings.agenda_item_duration', {
+                            defaultValue: '{{count}} min',
+                            count: item.duration_minutes,
+                          })}
                         </span>
                       )}
                     </div>
@@ -1874,7 +1877,9 @@ const MeetingRow = React.memo(function MeetingRow({
                 })}
               </p>
               <div className="flex flex-wrap gap-1.5">
-                {(meeting.document_ids ?? []).map((docId) => (
+                {/* The meeting carries document ids only, no filenames, so the
+                    chip is numbered rather than showing a chopped-up id. */}
+                {(meeting.document_ids ?? []).map((docId, idx) => (
                   <a
                     key={docId}
                     href={getMeetingDocumentDownloadUrl(docId)}
@@ -1883,9 +1888,15 @@ const MeetingRow = React.memo(function MeetingRow({
                     onClick={(e) => e.stopPropagation()}
                     className="inline-flex items-center gap-1 rounded-md border border-border-light bg-surface-primary px-2 py-1 text-xs text-content-primary hover:border-oe-blue hover:text-oe-blue transition-colors"
                     data-testid="meeting-row-attachment-chip"
+                    title={docId}
                   >
                     <FileText size={10} />
-                    <span className="font-mono truncate max-w-[140px]">{docId.slice(0, 8)}</span>
+                    <span className="truncate max-w-[140px]">
+                      {t('meetings.attachment_n', {
+                        defaultValue: 'Attachment {{n}}',
+                        n: idx + 1,
+                      })}
+                    </span>
                     <Download size={10} />
                   </a>
                 ))}

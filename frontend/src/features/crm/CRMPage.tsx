@@ -144,6 +144,32 @@ const OPP_STATUS_VARIANT: Record<
   abandoned: 'neutral',
 };
 
+// English fallbacks for the two status enums. The screen always shows the
+// translated label — the storage token (``qualifying``, ``won``) is never
+// rendered on its own.
+const LEAD_STATUS_EN: Record<LeadStatus, string> = {
+  new: 'New',
+  qualifying: 'Qualifying',
+  qualified: 'Qualified',
+  disqualified: 'Disqualified',
+  converted: 'Converted',
+};
+
+const OPP_STATUS_EN: Record<OpportunityStatus, string> = {
+  open: 'Open',
+  won: 'Won',
+  lost: 'Lost',
+  abandoned: 'Abandoned',
+};
+
+function leadStatusLabel(s: LeadStatus, t: TFn): string {
+  return t(`crm.lead_status_${s}`, { defaultValue: LEAD_STATUS_EN[s] });
+}
+
+function oppStatusLabel(s: OpportunityStatus, t: TFn): string {
+  return t(`crm.opp_status_${s}`, { defaultValue: OPP_STATUS_EN[s] });
+}
+
 const LEAD_SOURCES: LeadSource[] = [
   'web',
   'referral',
@@ -1062,7 +1088,7 @@ function DealsTable({
                 </td>
                 <td className="px-4 py-2">
                   <Badge variant={OPP_STATUS_VARIANT[r.status]} dot>
-                    {r.status}
+                    {oppStatusLabel(r.status, t)}
                   </Badge>
                 </td>
                 <td className="px-4 py-2 text-right">
@@ -1159,7 +1185,7 @@ function LeadsTable({
               </td>
               <td className="px-4 py-2">
                 <Badge variant={LEAD_STATUS_VARIANT[r.status]} dot>
-                  {r.status}
+                  {leadStatusLabel(r.status, t)}
                 </Badge>
               </td>
               <td className="px-4 py-2 text-xs text-content-secondary">
@@ -1416,7 +1442,7 @@ function DealDrawer({
             <h2 className="truncate text-base font-semibold">{opp.title}</h2>
             <div className="mt-1 flex items-center gap-2">
               <Badge variant={OPP_STATUS_VARIANT[opp.status]} dot>
-                {opp.status}
+                {oppStatusLabel(opp.status, t)}
               </Badge>
               <span className="truncate text-xs text-content-tertiary">
                 {accountsById[opp.account_id]?.name || ''}
@@ -2147,7 +2173,7 @@ function LeadDrawer({
           <div>
             <h2 className="text-base font-semibold">{lead.contact_name}</h2>
             <Badge variant={LEAD_STATUS_VARIANT[lead.status]} dot>
-              {lead.status}
+              {leadStatusLabel(lead.status, t)}
             </Badge>
           </div>
           <button

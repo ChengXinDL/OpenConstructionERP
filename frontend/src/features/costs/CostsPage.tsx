@@ -2164,7 +2164,7 @@ function AddToBOQModal({
                 >
                   <option value="">{t('boq.select_boq', { defaultValue: 'Select BOQ...' })}</option>
                   {boqs.map((b) => (
-                    <option key={b.id} value={b.id}>{b.name} ({b.status})</option>
+                    <option key={b.id} value={b.id}>{b.name} ({t(`boq.status_${b.status}`, { defaultValue: b.status })})</option>
                   ))}
                 </select>
               ) : (

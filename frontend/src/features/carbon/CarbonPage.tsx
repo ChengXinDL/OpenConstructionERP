@@ -135,6 +135,74 @@ function formatKg(kg: number): string {
   return `${kg.toFixed(0)} kg`;
 }
 
+type TFn = ReturnType<typeof useTranslation>['t'];
+
+/** The api module declares the scope union inline on the record. */
+type InventoryScope = CarbonInventory['scope'];
+type CarbonFramework = SustainabilityReport['framework'];
+
+/* ─── Enum labels ───
+ * Inventory scope/status and target status are storage tokens. They are
+ * translated before they reach the screen; the raw token is never rendered.
+ */
+
+const INVENTORY_SCOPE_EN: Record<InventoryScope, string> = {
+  cradle_to_gate: 'Cradle to gate',
+  cradle_to_grave: 'Cradle to grave',
+  operational: 'Operational',
+};
+
+const INVENTORY_STATUS_EN: Record<InventoryStatus, string> = {
+  draft: 'Draft',
+  baseline: 'Baseline',
+  current: 'Current',
+  archived: 'Archived',
+};
+
+const TARGET_STATUS_EN: Record<TargetStatus, string> = {
+  active: 'Active',
+  met: 'Met',
+  missed: 'Missed',
+  abandoned: 'Abandoned',
+};
+
+function scopeLabel(s: InventoryScope, t: TFn): string {
+  return t(`carbon.scope_${s}`, { defaultValue: INVENTORY_SCOPE_EN[s] });
+}
+
+function inventoryStatusLabel(s: InventoryStatus, t: TFn): string {
+  return t(`carbon.inventory_status_${s}`, { defaultValue: INVENTORY_STATUS_EN[s] });
+}
+
+function targetStatusLabel(s: TargetStatus, t: TFn): string {
+  return t(`carbon.target_status_${s}`, { defaultValue: TARGET_STATUS_EN[s] });
+}
+
+const FRAMEWORK_EN: Record<CarbonFramework, string> = {
+  ghg_protocol: 'GHG Protocol',
+  gri: 'GRI',
+  issb: 'ISSB',
+  custom: 'Custom',
+};
+
+function frameworkLabel(f: CarbonFramework, t: TFn): string {
+  return t(`carbon.framework_${f}`, { defaultValue: FRAMEWORK_EN[f] });
+}
+
+// Fuel type is a free string on the API, so the label falls back to the
+// stored value if the backend ever grows a kind the UI does not know.
+const FUEL_TYPE_EN: Record<string, string> = {
+  diesel: 'Diesel',
+  petrol: 'Petrol',
+  lpg: 'LPG',
+  natural_gas: 'Natural gas',
+  other: 'Other',
+};
+
+function fuelTypeLabel(f: string, t: TFn): string {
+  return t(`carbon.fuel_type_${f}`, { defaultValue: FUEL_TYPE_EN[f] ?? f });
+}
+
 function todayIso(offsetDays = 0): string {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
@@ -577,7 +645,9 @@ function InventoryTable({
                 className="border-t border-border-light hover:bg-surface-secondary cursor-pointer"
               >
                 <td className="px-4 py-2 font-medium text-content-primary">{r.name}</td>
-                <td className="px-4 py-2 text-xs text-content-secondary">{r.scope}</td>
+                <td className="px-4 py-2 text-xs text-content-secondary">
+                  {scopeLabel(r.scope, t)}
+                </td>
                 <td className="px-4 py-2">
                   <Badge
                     variant={
@@ -592,7 +662,7 @@ function InventoryTable({
                     dot
                     size="sm"
                   >
-                    {r.status}
+                    {inventoryStatusLabel(r.status, t)}
                   </Badge>
                 </td>
                 <td className="px-4 py-2 text-xs text-content-secondary">
@@ -932,7 +1002,7 @@ function TargetRow({
             dot
             size="sm"
           >
-            {target.status}
+            {targetStatusLabel(target.status, t)}
           </Badge>
           <RowActions onEdit={onEdit} onDelete={onDelete} />
         </div>
@@ -1102,7 +1172,7 @@ function ReportTable({
                 </td>
                 <td className="px-4 py-2">
                   <Badge variant="blue" size="sm">
-                    {r.framework}
+                    {frameworkLabel(r.framework, t)}
                   </Badge>
                 </td>
                 <td className="px-4 py-2 text-xs text-content-secondary">
@@ -1967,9 +2037,9 @@ function CreateInventoryModal({
             }
             className={inputCls}
           >
-            <option value="cradle_to_gate">cradle_to_gate</option>
-            <option value="cradle_to_grave">cradle_to_grave</option>
-            <option value="operational">operational</option>
+            <option value="cradle_to_gate">{scopeLabel('cradle_to_gate', t)}</option>
+            <option value="cradle_to_grave">{scopeLabel('cradle_to_grave', t)}</option>
+            <option value="operational">{scopeLabel('operational', t)}</option>
           </select>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -1984,10 +2054,10 @@ function CreateInventoryModal({
               }
               className={inputCls}
             >
-              <option value="draft">draft</option>
-              <option value="baseline">baseline</option>
-              <option value="current">current</option>
-              <option value="archived">archived</option>
+              <option value="draft">{inventoryStatusLabel('draft', t)}</option>
+              <option value="baseline">{inventoryStatusLabel('baseline', t)}</option>
+              <option value="current">{inventoryStatusLabel('current', t)}</option>
+              <option value="archived">{inventoryStatusLabel('archived', t)}</option>
             </select>
           </div>
           <div>
@@ -2225,10 +2295,10 @@ function CreateTargetModal({
               }
               className={inputCls}
             >
-              <option value="active">active</option>
-              <option value="met">met</option>
-              <option value="missed">missed</option>
-              <option value="abandoned">abandoned</option>
+              <option value="active">{targetStatusLabel('active', t)}</option>
+              <option value="met">{targetStatusLabel('met', t)}</option>
+              <option value="missed">{targetStatusLabel('missed', t)}</option>
+              <option value="abandoned">{targetStatusLabel('abandoned', t)}</option>
             </select>
           </div>
         )}
@@ -2339,10 +2409,10 @@ function GenerateReportModal({
             }
             className={inputCls}
           >
-            <option value="ghg_protocol">GHG Protocol</option>
-            <option value="gri">GRI</option>
-            <option value="issb">ISSB</option>
-            <option value="custom">custom</option>
+            <option value="ghg_protocol">{frameworkLabel('ghg_protocol', t)}</option>
+            <option value="gri">{frameworkLabel('gri', t)}</option>
+            <option value="issb">{frameworkLabel('issb', t)}</option>
+            <option value="custom">{frameworkLabel('custom', t)}</option>
           </select>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -3442,11 +3512,11 @@ function ScopeEntryModal({
                 }
                 className={inputCls}
               >
-                <option value="diesel">diesel</option>
-                <option value="petrol">petrol</option>
-                <option value="lpg">lpg</option>
-                <option value="natural_gas">natural_gas</option>
-                <option value="other">other</option>
+                <option value="diesel">{fuelTypeLabel('diesel', t)}</option>
+                <option value="petrol">{fuelTypeLabel('petrol', t)}</option>
+                <option value="lpg">{fuelTypeLabel('lpg', t)}</option>
+                <option value="natural_gas">{fuelTypeLabel('natural_gas', t)}</option>
+                <option value="other">{fuelTypeLabel('other', t)}</option>
               </select>
             </div>
             <div className="grid grid-cols-2 gap-3">

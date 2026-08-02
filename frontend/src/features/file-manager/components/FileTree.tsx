@@ -142,7 +142,6 @@ export function FileTree({ nodes, selectedId, onSelect, isLoading, projectId }: 
                     ? 'bg-oe-blue/10 text-oe-blue font-medium'
                     : 'text-content-secondary hover:bg-surface-secondary',
                 )}
-                title={node.physical_path ?? undefined}
               >
                 <Icon size={14} className="shrink-0" />
                 <span className="flex-1 truncate">

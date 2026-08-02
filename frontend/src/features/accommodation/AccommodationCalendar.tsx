@@ -1477,9 +1477,17 @@ function BookingDetailDrawer({
                 defaultValue: 'Booking details',
               })}
             </h2>
+            {/* The occupant names the booking. The id stays available for
+                support on the title, it is not something to read off a screen. */}
             {data && (
-              <p className="mt-0.5 text-xs text-content-tertiary font-mono break-all">
-                {data.id}
+              <p
+                className="mt-0.5 text-xs text-content-tertiary"
+                title={data.id}
+              >
+                {data.occupant_name ??
+                  t('accommodation.bookings.unnamed_occupant', {
+                    defaultValue: '(unnamed)',
+                  })}
               </p>
             )}
           </div>
