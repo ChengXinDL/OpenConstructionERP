@@ -320,7 +320,7 @@ TEMPLATE = DemoTemplate(
         "address": "120 Awatea Road, Wigram, Christchurch 8042",
         "client": "Ministry of Education - Te Tāhuhu o te Mātauranga",
         "architect": "Vellamore Architects",
-        "quantity_surveyor": "Rider Levett Bucknall (RLB)",
+        "quantity_surveyor": "Marnwick Draysholm Quillane (MDQ)",
         "structural_engineer": "Callensworth Consulting",
         "base_isolation_engineer": "Vanmoor Seismic (VMS)",
         "building_type": "education / secondary school",

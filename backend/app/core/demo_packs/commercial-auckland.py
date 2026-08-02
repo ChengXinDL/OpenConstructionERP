@@ -308,7 +308,7 @@ TEMPLATE = DemoTemplate(
         "address": "12 Highbrook Drive, East Tamaki, Auckland 2013",
         "client": "Eastvane Property Holdings Ltd",
         "architect": "Vellamore Architects",
-        "quantity_surveyor": "Rider Levett Bucknall (RLB)",
+        "quantity_surveyor": "Marnwick Draysholm Quillane (MDQ)",
         "structural_engineer": "Callensworth Consulting",
         "building_type": "commercial / light-industrial",
         "gfa_m2": 6800,

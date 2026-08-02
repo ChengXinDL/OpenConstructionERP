@@ -1340,7 +1340,7 @@ TEMPLATE = DemoTemplate(
         "address": "120 Rivonia Road, Sandton, Johannesburg 2196, South Africa",
         "client": "Cresslin Quarter Property Developments (Pty) Ltd",
         "architect": "Larkspire Architects",
-        "quantity_surveyor": "RLB Pentad Quantity Surveyors (ASAQS)",
+        "quantity_surveyor": "MDQ Brakenhof Quantity Surveyors (ASAQS)",
         "structural_engineer": "Kelbright Engineers",
         "gfa_m2": 24000,
         "site_area_m2": 3200,

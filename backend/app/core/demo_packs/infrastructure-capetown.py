@@ -906,7 +906,7 @@ TEMPLATE = DemoTemplate(
         "address": "Jakes Gerwel Drive, Bishop Lavis, Cape Town 7490, South Africa",
         "client": "City of Cape Town - Water & Sanitation Directorate",
         "consulting_engineer": "Kelbrand Consulting (Pty) Ltd",
-        "quantity_surveyor": "MLC Quantity Surveyors (ASAQS)",
+        "quantity_surveyor": "Steenkardt Quantity Surveyors (ASAQS)",
         "resident_engineer": "Torbeck Engineering & Architecture",
         "reservoir_capacity_ml": 25,
         "pipeline_length_km": 12,
