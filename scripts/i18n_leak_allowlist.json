@@ -189,6 +189,26 @@
   "note": "bare symbol/punctuation glyph, not a word",
   "reason_category": "symbol"
  },
+ "closeout.category.commissioning": {
+  "en_value": "Commissioning",
+  "note": "id.ts uses the literal English loanword \"Commissioning\" as its own construction-industry term; confirmed by 3 other Indonesian closeout/nav keys for the same concept (closeout.chip_commissioning, nav.commissioning) all independently agreeing on the same spelling, not an untranslated leak",
+  "reason_category": "cognate_loanword"
+ },
+ "closeout.insights.f_discipline": {
+  "en_value": "Discipline",
+  "note": "fr.ts and nl.ts genuinely use \"Discipline\" unchanged as their own word for this concept; corroborated by 10 (fr) and 19 (nl) other Discipline-labeled sibling keys across the product independently using the identical spelling",
+  "reason_category": "cognate_loanword"
+ },
+ "closeout.insights.f_status": {
+  "en_value": "Status",
+  "note": "da/de/hr/id/nl/no/pl/sv.ts all genuinely use \"Status\" unchanged as their own word for this concept, a common Germanic/Slavic cognate; corroborated by 128-142 other Status-labeled sibling keys per locale independently using the identical spelling",
+  "reason_category": "cognate_loanword"
+ },
+ "closeout.insights.optional": {
+  "en_value": "Optional",
+  "note": "de.ts genuinely uses \"Optional\" unchanged as its own word for this concept; corroborated by 5 other Optional-labeled sibling keys independently using the identical spelling",
+  "reason_category": "cognate_loanword"
+ },
  "collab.lock_entity": {
   "en_value": "{{type}}",
   "note": "entirely template variables/punctuation, no literal word to translate",
