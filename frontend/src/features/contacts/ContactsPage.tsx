@@ -22,6 +22,7 @@ import {
   FileDown,
   Users,
   HardHat,
+  Landmark,
   Truck,
   Briefcase,
   User,
@@ -87,9 +88,11 @@ const CONTACT_TYPES: ContactType[] = [
   'customer',
   'lead',
   'client',
+  'contractor',
   'subcontractor',
   'supplier',
   'consultant',
+  'authority',
   'internal',
 ];
 
@@ -109,7 +112,9 @@ const TAG_GROUP_CAP = 8;
 
 const TYPE_BADGE_VARIANT: Record<ContactType, 'blue' | 'warning' | 'success' | 'neutral'> = {
   client: 'blue',
+  contractor: 'blue',
   subcontractor: 'warning',
+  authority: 'neutral',
   supplier: 'success',
   consultant: 'neutral',
   internal: 'neutral',
@@ -154,7 +159,9 @@ const inputCls =
 
 const TYPE_CARD_CONFIG: Record<ContactType, { icon: React.ElementType; color: string }> = {
   client: { icon: Users, color: 'text-blue-600 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950/30 dark:border-blue-800' },
+  contractor: { icon: Building2, color: 'text-sky-600 bg-sky-50 border-sky-200 dark:text-sky-400 dark:bg-sky-950/30 dark:border-sky-800' },
   subcontractor: { icon: HardHat, color: 'text-amber-600 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-950/30 dark:border-amber-800' },
+  authority: { icon: Landmark, color: 'text-slate-600 bg-slate-50 border-slate-200 dark:text-slate-300 dark:bg-slate-800/50 dark:border-slate-700' },
   supplier: { icon: Truck, color: 'text-green-600 bg-green-50 border-green-200 dark:text-green-400 dark:bg-green-950/30 dark:border-green-800' },
   consultant: { icon: Briefcase, color: 'text-gray-600 bg-gray-50 border-gray-200 dark:text-gray-400 dark:bg-gray-800/50 dark:border-gray-700' },
   internal: { icon: Users, color: 'text-indigo-600 bg-indigo-50 border-indigo-200 dark:text-indigo-400 dark:bg-indigo-950/30 dark:border-indigo-800' },

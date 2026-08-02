@@ -37,6 +37,7 @@ from app.core.upload_guards import reject_if_xlsx_bomb
 from app.dependencies import CurrentUserId, RequirePermission, SessionDep, verify_project_access
 from app.modules.contacts.models import Contact
 from app.modules.contacts.schemas import (
+    CONTACT_TYPES,
     ContactCreate,
     ContactListResponse,
     ContactResponse,
@@ -390,15 +391,10 @@ _CONTACT_COLUMN_ALIASES: dict[str, list[str]] = {
     ],
 }
 
-_ALLOWED_CONTACT_TYPES = {
-    "client",
-    "subcontractor",
-    "supplier",
-    "consultant",
-    "internal",
-    "lead",
-    "customer",
-}
+# Same list the create and update schemas validate against. An import that
+# accepted a role the API then refused, or refused one the API accepts, would
+# be a difference nobody could see from either side.
+_ALLOWED_CONTACT_TYPES = set(CONTACT_TYPES)
 _ALLOWED_PREQUAL = {"pending", "approved", "rejected", "expired"}
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 

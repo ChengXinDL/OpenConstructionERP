@@ -8,6 +8,23 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+# The roles a contact may hold. Three places read this list: the create schema,
+# the update schema and the CSV import allowlist in router.py. They were three
+# separate copies that happened to agree, which is one condition written three
+# times and no way to notice when one of them stops matching.
+CONTACT_TYPES: tuple[str, ...] = (
+    "client",
+    "subcontractor",
+    "contractor",
+    "supplier",
+    "consultant",
+    "authority",
+    "internal",
+    "lead",
+    "customer",
+)
+_CONTACT_TYPE_PATTERN = f"^({'|'.join(CONTACT_TYPES)})$"
+
 # ── Create / Update ──────────────────────────────────────────────────────
 
 
@@ -18,8 +35,8 @@ class ContactCreate(BaseModel):
 
     contact_type: str = Field(
         ...,
-        pattern=r"^(client|subcontractor|supplier|consultant|internal|lead|customer)$",
-        description="Contact role. Must be one of: client, subcontractor, supplier, consultant, internal",
+        pattern=_CONTACT_TYPE_PATTERN,
+        description=f"Contact role. Must be one of: {', '.join(CONTACT_TYPES)}",
         examples=["subcontractor"],
     )
     is_platform_user: bool = False
@@ -96,7 +113,7 @@ class ContactUpdate(BaseModel):
 
     contact_type: str | None = Field(
         default=None,
-        pattern=r"^(client|subcontractor|supplier|consultant|internal|lead|customer)$",
+        pattern=_CONTACT_TYPE_PATTERN,
     )
     is_platform_user: bool | None = None
     user_id: UUID | None = None

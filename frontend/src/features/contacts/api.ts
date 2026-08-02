@@ -11,11 +11,14 @@ import { useAuthStore } from '@/stores/useAuthStore';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 
+/** Mirrors CONTACT_TYPES in the backend contacts schemas. */
 export type ContactType =
   | 'client'
   | 'subcontractor'
+  | 'contractor'
   | 'supplier'
   | 'consultant'
+  | 'authority'
   | 'internal'
   | 'lead'
   | 'customer';
