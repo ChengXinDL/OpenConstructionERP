@@ -4389,6 +4389,29 @@ def _generate_module_data(
             }
         )
 
+    # Every generated demo corresponds with a permitting body. The notice of
+    # commencement, its acknowledgement and the inspection report in the
+    # correspondence seed below are all to or from one, and without this row
+    # those three letters name a party that exists nowhere in the contact
+    # register, so nothing on the screen can link to it. The curated German
+    # demo has carried an authority contact for exactly this reason.
+    authority_city = (template.address or {}).get("city")
+    authority_slug = "".join(ch.lower() for ch in (authority_city or "") if ch.isalnum())[:24]
+    contacts.append(
+        {
+            "contact_type": "authority",
+            "company_name": (
+                f"{authority_city} Building Control Office" if authority_city else "Local Building Control Office"
+            ),
+            "first_name": "Building",
+            "last_name": "Inspector",
+            "primary_email": f"permits@{authority_slug or 'buildingcontrol'}.example",
+            "primary_phone": "",
+            "country_code": cc,
+            "notes": "Permitting and inspection authority",
+        }
+    )
+
     # ── Tasks (8-12 across the timeline) ─────────────────────────────────
     task_seeds = [
         ("task", "Mobilise site and establish welfare facilities", "open", "high", 7),
@@ -4743,21 +4766,28 @@ def _generate_module_data(
         )
 
     # ── Correspondence (6-10) ────────────────────────────────────────────
+    # The last element names the party the letter is with, as a contact role.
+    # It is a field on the seed rather than something read back out of the
+    # subject line. The subjects do name the party, and parsing them is the
+    # obvious shortcut, but they are English prose written to be read on a
+    # screen and they get reworded. A parser keyed on the word "Authority"
+    # would go on producing rows after a rewording, pointing at the wrong
+    # contact or at none, and there is no gate that would notice.
     corr_seeds = [
-        ("outgoing", "Notice of commencement to authority", "letter", 0),
-        ("incoming", "Authority acknowledgement of commencement", "letter", 7),
-        ("outgoing", "Submission of insurance and bonds", "letter", 12),
-        ("incoming", "Client instruction on scope clarification", "letter", 20),
-        ("outgoing", "Monthly progress report to client", "report", 30),
-        ("incoming", "Consultant design clarification", "email", 24),
-        ("outgoing", "Request for information log update", "email", 28),
-        ("incoming", "Subcontractor early-warning notice", "letter", 35),
-        ("outgoing", "Interim valuation cover letter", "letter", 31),
-        ("incoming", "Authority inspection report", "report", 45),
+        ("outgoing", "Notice of commencement to authority", "letter", 0, "authority"),
+        ("incoming", "Authority acknowledgement of commencement", "letter", 7, "authority"),
+        ("outgoing", "Submission of insurance and bonds", "letter", 12, "client"),
+        ("incoming", "Client instruction on scope clarification", "letter", 20, "client"),
+        ("outgoing", "Monthly progress report to client", "report", 30, "client"),
+        ("incoming", "Consultant design clarification", "email", 24, "consultant"),
+        ("outgoing", "Request for information log update", "email", 28, "consultant"),
+        ("incoming", "Subcontractor early-warning notice", "letter", 35, "subcontractor"),
+        ("outgoing", "Interim valuation cover letter", "letter", 31, "client"),
+        ("incoming", "Authority inspection report", "report", 45, "authority"),
     ]
     correspondence: list[dict] = []
     out_i = in_i = 0
-    for i, (direction, subject, ctype, day) in enumerate(corr_seeds):
+    for i, (direction, subject, ctype, day, party) in enumerate(corr_seeds):
         if direction == "outgoing":
             out_i += 1
             ref = f"OUT-{base.year}-{out_i:03d}"
@@ -4773,6 +4803,9 @@ def _generate_module_data(
                 "date_sent": _d(day) if direction == "outgoing" else None,
                 "date_received": _d(day) if direction == "incoming" else None,
                 "notes": f"{subject} - {proj}.",
+                # Resolved to a contact id by the writer, which is where the
+                # ids are minted. Not a column on the record.
+                "party": party,
             }
         )
 
@@ -5877,12 +5910,21 @@ async def _seed_module_data(
         ],
     }
 
+    # Ids of the contacts written below, grouped by role, so records seeded
+    # afterwards can point at the party they are about instead of only naming
+    # it in prose. Declared outside the try because the contacts block is
+    # fail-soft: when the module is not loaded this stays empty and the later
+    # writers simply seed no link, rather than failing on a missing name.
+    contact_ids_by_type: dict[str, list[str]] = {}
+
     try:
         contact_list = _CONTACTS.get(demo_id) or generated.get("contacts", [])
         for c in contact_list:
+            contact_id = _id()
+            contact_ids_by_type.setdefault(c["contact_type"], []).append(str(contact_id))
             session.add(
                 Contact(
-                    id=_id(),
+                    id=contact_id,
                     contact_type=c["contact_type"],
                     company_name=c.get("company_name"),
                     first_name=c.get("first_name"),
@@ -9354,6 +9396,16 @@ async def _seed_module_data(
     try:
         corr_list = _CORRESPONDENCE.get(demo_id) or generated.get("correspondence", [])
         for c in corr_list:
+            # Which contact this letter is with. The seed names a role and the
+            # id is resolved here, because the ids are minted a few blocks up
+            # and the generator that writes the letters runs before any row
+            # exists. Where a role has several contacts the first one is used,
+            # which keeps both ends of an exchange with the same party. The
+            # hand-curated demos carry no role, so they seed no link and are
+            # left exactly as they were.
+            party_ids = contact_ids_by_type.get(c.get("party") or "") or []
+            party_id = party_ids[0] if party_ids else None
+            outgoing = c["direction"] == "outgoing"
             session.add(
                 Correspondence(
                     id=_id(),
@@ -9364,6 +9416,8 @@ async def _seed_module_data(
                     correspondence_type=c["correspondence_type"],
                     date_sent=c.get("date_sent"),
                     date_received=c.get("date_received"),
+                    from_contact_id=None if outgoing else party_id,
+                    to_contact_ids=[party_id] if outgoing and party_id else [],
                     notes=c.get("notes"),
                     created_by=owner_str,
                     metadata_={"demo_id": demo_id},

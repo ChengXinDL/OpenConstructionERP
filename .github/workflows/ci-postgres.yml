@@ -58,6 +58,7 @@ jobs:
         run: >-
           pytest tests/unit/test_demo_contact_types.py
           tests/unit/test_demo_variations_vocabulary.py
+          tests/unit/test_demo_correspondence_parties.py
           -q -p no:cacheprovider
       # The cost base pipeline produces the parquet editions people download from us, so it
       # needs a blocking gate. It needs no database; it is attached here because this is the
