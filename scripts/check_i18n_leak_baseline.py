@@ -39,10 +39,16 @@ exactly one of two separate, never-merged lists:
 
 A flagged key in neither list is a NEW leak (or a previously-undiscovered
 one) and fails the build. A third file, i18n_leak_pending_review.json, holds
-keys that don't fit either tell cleanly - almost-universal matches where a
-handful of locales genuinely differ (e.g. a founder's name transliterated in
-ar/ky but left in Latin script everywhere else). These are informational
-only: reported every run, never failing, until a human reclassifies them.
+119 NAMED keys that don't fit either tell cleanly - almost-universal matches
+where 1-4 locales genuinely differ (e.g. a founder's name transliterated in
+ar/ky but left in Latin script everywhere else). Membership is checked by
+KEY NAME against this frozen list, never by recomputing the shape (ru
+identical, a handful of others not) - a shape-based exemption would silently
+wave through any future leak that happens to land in that band, which
+defeats the guard's whole purpose. A flagged key that looks pending-shaped
+but is not one of the 119 named keys is unclassified and fails, exactly like
+any other unrecognised hit. These 119 are informational only: reported every
+run, never failing on their own, until a human reclassifies them.
 
 Two failure modes beyond "new leak" this guard also catches:
 
@@ -56,14 +62,18 @@ Two failure modes beyond "new leak" this guard also catches:
     blind spot tsc's own TS1117 duplicate check has (single-quoted or
     multi-line entries are invisible to it). If a locale file ever picks up
     such an entry, its keys silently drop out of this scan and the lane goes
-    green on missing data. Locale files legitimately carry different key
-    counts from en.ts (a locale with richer CLDR plural categories than
-    English - Russian has one/few/many/other where English has one/other -
-    genuinely has thousands more keys), so cross-locale count comparison
-    cannot be the check. Instead, within EACH file, this guard also matches a
-    looser single-OR-double-quote pattern and fails if it finds more entries
-    than the strict double-quote parser did - that gap is quoting the strict
-    parser can't see, not a translation difference.
+    green on missing data - "found nothing" and "did not look" must not
+    produce the same output. Locale files legitimately carry different key
+    counts from en.ts (ru.ts alone parses ~3600 more keys than en.ts, because
+    Russian's four CLDR plural categories - one/few/many/other - outnumber
+    English's two - one/other - and every locale shows the same kind of
+    gap), so cross-locale count comparison cannot be the check: it cannot
+    tell "richer language" from "parser ate a third of the file." Instead,
+    within EACH file, this guard matches a looser single-OR-double-quote
+    pattern and fails on any KEY the strict double-quote parser missed,
+    unless that exact key is named in _KNOWN_SINGLE_QUOTE_KEYS - an
+    enumeration, not a count tolerance, because a count cannot tell a known
+    exception from a new one hiding behind it.
 
 This guard does not repair anything and does not scan for real text in the
 wrong sense (a byte comparison is structurally blind to e.g. mn's
@@ -102,12 +112,26 @@ import re
 
 _PAIR = re.compile(r'^\s*"([a-zA-Z0-9_.\-]+)":\s*"((?:[^"\\]|\\.)*)"', re.MULTILINE)
 # Same key position, but the opening/closing quote on either side may be
-# single OR double. Used only to detect entries the strict parser above
-# would miss (single-quoted keys/values, which are valid TypeScript and
-# invisible to _PAIR) - never to extract values, since it does not know how
-# to un-escape a single-quoted body.
-_LOOSE_PAIR = re.compile(r'''^\s*['"][a-zA-Z0-9_.\-]+['"]:\s*['"]''', re.MULTILINE)
+# single OR double, and the key is captured so a hit can be checked by name
+# against _KNOWN_SINGLE_QUOTE_KEYS below. Used only to detect entries the
+# strict parser above would miss (single-quoted keys/values, which are valid
+# TypeScript and invisible to _PAIR) - never to extract values, since it does
+# not know how to un-escape a single-quoted body.
+_LOOSE_PAIR = re.compile(r'''^\s*['"]([a-zA-Z0-9_.\-]+)['"]:\s*['"]''', re.MULTILINE)
 _ESCAPE = re.compile(r"\\(.)")
+
+# Two keys, in exactly these two locale files, are legitimately written with
+# a single-quoted value because the value itself contains a double-quoted
+# substring (e.g. 'No steps match "{{query}}"') - every other locale escapes
+# the inner quote instead and stays strict-parseable. This is the ONLY
+# tolerance the parity guard below grants; a hidden entry anywhere else, or
+# a third hidden key in these two files, fails outright. Enumerated by name
+# rather than by count, because a count cannot tell a known exception from a
+# new one hiding behind it.
+_KNOWN_SINGLE_QUOTE_KEYS = {
+    "en": {"pipeline.palette.no_match", "pipeline.inspector.summary_stub"},
+    "ky": {"pipeline.palette.no_match", "pipeline.inspector.summary_stub"},
+}
 
 
 def _unescape(raw: str) -> str:
@@ -148,49 +172,42 @@ def main() -> int:  # noqa: PLR0912, PLR0915 - one linear check, splitting it hi
 
     # --- parser parity guard: within each file, not across locales ------
     # Cross-locale count comparison would false-positive on legitimate CLDR
-    # plural richness (ru genuinely has thousands more keys than en). What
-    # this guard checks instead: does the loose, quote-agnostic pattern find
-    # more entries in a file than the strict double-quote parser does? If so,
-    # some lines use a quoting style _PAIR can't see, and this scan is
-    # silently blind to those keys - the same blind spot tsc's TS1117
-    # duplicate check has. A handful of single-quoted VALUES are legitimate
-    # and pre-existing (a value that itself contains a double-quoted
-    # substring, e.g. 'No steps match "{{query}}"', written with single
-    # quotes instead of escaping) - en.ts and ky.ts each carry exactly 2 of
-    # these today, unrelated to this guard's leak scan. What this guard must
-    # catch is a MATERIAL gap: a bad edit that silently desyncs dozens or
-    # hundreds of entries, not two known, stable exceptions.
-    HIDDEN_TOLERANCE = 5
-    parity_failures = []
-    parity_notes = []
+    # plural richness: ru.ts alone parses ~3600 more keys than en.ts because
+    # Russian has four plural categories (one/few/many/other) where English
+    # has two (one/other), and every other locale shows the same kind of
+    # gap. Comparing counts between locale files cannot distinguish "this
+    # locale is richer than English" from "this locale's parser silently ate
+    # a third of the file" - both produce a big number. What this guard
+    # checks instead: does the loose, quote-agnostic pattern find a KEY in a
+    # file that the strict double-quote parser does not? If so, that entry
+    # uses a quoting style _PAIR can't see, and this scan is silently blind
+    # to it - the same blind spot tsc's TS1117 duplicate check has. Every
+    # hidden key must be named in _KNOWN_SINGLE_QUOTE_KEYS above; nothing
+    # else is tolerated, at any count, in any file.
+    parity_failures: list[tuple[str, str]] = []
     for path in paths:
+        stem = _locale_stem(path)
         text = open(path, encoding="utf-8").read()
-        strict_count = len(_PAIR.findall(text))
-        loose_count = len(_LOOSE_PAIR.findall(text))
-        hidden = loose_count - strict_count
-        if hidden > HIDDEN_TOLERANCE:
-            parity_failures.append((_locale_stem(path), strict_count, loose_count))
-        elif hidden > 0:
-            parity_notes.append((_locale_stem(path), hidden))
-    if parity_notes:
-        print(f"{len(parity_notes)} locale(s) have a small number of entries this scan's strict "
-              "parser can't see (known, below the material-gap threshold, not gated):")
-        for stem, hidden in parity_notes:
-            print(f"  {stem}: {hidden} hidden")
-        print()
+        strict_keys = set(pairs_by_locale[stem])
+        loose_keys = set(_LOOSE_PAIR.findall(text))
+        hidden = loose_keys - strict_keys
+        unexpected = hidden - _KNOWN_SINGLE_QUOTE_KEYS.get(stem, set())
+        for key in sorted(unexpected):
+            parity_failures.append((stem, key))
     if parity_failures:
-        print(f"ERROR: some locale file entries are invisible to the strict double-quote "
-              f"scan this guard relies on, beyond the tolerance of {HIDDEN_TOLERANCE}:", file=sys.stderr)
-        for stem, strict_count, loose_count in parity_failures:
-            print(f"  {stem}: {strict_count} strict matches, {loose_count} quote-agnostic matches "
-                  f"({loose_count - strict_count} entries hidden)",
-                  file=sys.stderr)
+        print("ERROR: locale file entries are invisible to the strict double-quote "
+              "scan this guard relies on, and are not one of the named, known "
+              "exceptions:", file=sys.stderr)
+        for stem, key in parity_failures:
+            print(f"  {stem}: {key!r}", file=sys.stderr)
         print(
-            "\nThis usually means a bulk edit introduced single-quoted or "
-            "multi-line entries (valid TypeScript, invisible to this regex and "
-            "to tsc's TS1117 duplicate check alike). Fix the entries' quoting "
-            "before trusting this guard again - it cannot see what it did not "
-            "parse.",
+            "\nThis usually means a single-quoted or multi-line entry (valid "
+            "TypeScript, invisible to this regex and to tsc's TS1117 duplicate "
+            "check alike). Either fix the entry's quoting, or - if it is "
+            "deliberately single-quoted for the same reason as the two keys "
+            "already named above - add it to _KNOWN_SINGLE_QUOTE_KEYS by name, "
+            "not by raising a count. This guard cannot see what it did not "
+            "parse, so trust nothing it reports until this is resolved.",
             file=sys.stderr,
         )
         return 1
