@@ -1933,11 +1933,10 @@ const PunchTableRow = React.memo(function PunchTableRow({
             {item.title}
           </button>
         </div>
-        {(item.location_x != null || item.location_y != null) && (
-          <p className="text-xs text-content-tertiary mt-0.5 truncate max-w-[250px]">
-            {`(${item.location_x ?? '-'}, ${item.location_y ?? '-'})`}
-          </p>
-        )}
+        {/* The pin's normalised sheet coordinates used to print here as raw
+            floats. They are how the pin is stored, not something a foreman
+            standing at the defect can act on, and the button below already
+            offers the one useful thing: open the drawing at that pin. */}
         {/* Reopen the pinned drawing in the markups viewer (CONN-57). */}
         {drawingLink && (
           <button

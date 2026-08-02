@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.boq.models import BOQ, BOQMarkup, Position
@@ -9711,9 +9711,19 @@ async def _seed_module_data(
                 continue
     if _proj_value <= 0:
         _proj_value = 1_000_000.0
-    # Deterministic id/code seed so a re-seed (force_reinstall / qa-reset)
-    # overwrites the same rows instead of duplicating.
+    # Kept only to recognise rows written before the codes below carried the
+    # demo slug. Nothing new is named after the project UUID any more.
     _pkey = str(project_id)[:8]
+    # Codes on globally-unique registries (assemblies, equipment) still need a
+    # per-demo discriminator, but they are printed on cards and read out loud,
+    # so the discriminator is the demo's own slug rather than eight characters
+    # of its project UUID. Capped because Equipment.code is String(50) and a
+    # pack is free to register a long demo_id.
+    _demo_slug = demo_id.upper()[:30]
+    # The same codes used to carry ``_pkey``. Re-seeding an install that still
+    # holds those rows has to clear them too, or the old ones survive with a
+    # code the new run never writes and never deletes.
+    _legacy_code_prefix = f"DEMO-{_pkey}-"
 
     # ── Assemblies (project recipes so /assemblies is never empty) ─────
     try:
@@ -9754,8 +9764,15 @@ async def _seed_module_data(
                 ],
             ),
         ]
-        _asm_codes = [f"DEMO-{_pkey}-ASM{i + 1}" for i in range(len(_asm_specs))]
-        await session.execute(delete(Assembly).where(Assembly.code.in_(_asm_codes)))
+        _asm_codes = [f"DEMO-{_demo_slug}-ASM{i + 1}" for i in range(len(_asm_specs))]
+        await session.execute(
+            delete(Assembly).where(
+                or_(
+                    Assembly.code.in_(_asm_codes),
+                    Assembly.code.like(f"{_legacy_code_prefix}ASM%"),
+                ),
+            ),
+        )
         await session.flush()
         asm_count = 0
         for a_idx, (a_name, a_unit, comps) in enumerate(_asm_specs):
@@ -9816,10 +9833,19 @@ async def _seed_module_data(
             ("Tower crane", "crane", 980.0, 140.0),
             ("Mobile excavator", "excavator", 420.0, 60.0),
         ]
-        _eq_codes = [f"DEMO-{_pkey}-EQ{i + 1}" for i in range(len(_eq_specs))]
+        _eq_codes = [f"DEMO-{_demo_slug}-EQ{i + 1}" for i in range(len(_eq_specs))]
         # Equipment.code is globally unique; rentals cascade-delete with the
-        # equipment unit. Clear by code to keep the re-seed idempotent.
-        await session.execute(delete(Equipment).where(Equipment.code.in_(_eq_codes)))
+        # equipment unit. Clear by code to keep the re-seed idempotent, and
+        # clear the pre-slug codes too so an existing install does not keep a
+        # fleet unit this run will never write to again.
+        await session.execute(
+            delete(Equipment).where(
+                or_(
+                    Equipment.code.in_(_eq_codes),
+                    Equipment.code.like(f"{_legacy_code_prefix}EQ%"),
+                ),
+            ),
+        )
         await session.flush()
         rental_count = 0
         for e_idx, (e_name, e_type, day_rate, hour_rate) in enumerate(_eq_specs):
@@ -9870,13 +9896,24 @@ async def _seed_module_data(
         # Idempotent: drop any prior demo subcontractor for this project (the
         # agreement/work-package/payment rows cascade off the agreement, which
         # cascades off the project; the subcontractor itself is project-agnostic
-        # so we scope it by a deterministic metadata marker via legal_name).
-        _sub_marker = f"{sub_name} [demo {_pkey}]"
-        await session.execute(delete(Subcontractor).where(Subcontractor.legal_name == _sub_marker))
-        await session.flush()
+        # so we scope it by the demo_id already stamped into its metadata).
+        #
+        # That scope used to be a marker appended to legal_name, which put text
+        # like "[demo 1a2b3c4d]" into the column the subcontractor register
+        # prints as the company name. metadata_ is a JSON column whose
+        # nested-key query syntax differs between SQLite and PostgreSQL, so the
+        # tag is filtered in Python here, the same way
+        # purge_demo_tagged_global_rows reads it. Keying on demo_id rather than
+        # on the project id also cleans up after a force_reinstall, which mints
+        # a new project and used to leave the previous row behind.
+        _prior_subs = (await session.execute(select(Subcontractor))).scalars().all()
+        _stale_sub_ids = [s.id for s in _prior_subs if (s.metadata_ or {}).get("demo_id") == demo_id]
+        if _stale_sub_ids:
+            await session.execute(delete(Subcontractor).where(Subcontractor.id.in_(_stale_sub_ids)))
+            await session.flush()
         sub = Subcontractor(
             id=_id(),
-            legal_name=_sub_marker,
+            legal_name=sub_name,
             trade_name=sub_name,
             trade_categories=[sub_trade],
             prequalification_status="approved",
