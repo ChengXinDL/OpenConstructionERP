@@ -121,6 +121,29 @@ class AssemblyRepository:
 
         return assemblies, total
 
+    async def count_components(self, assembly_ids: list[uuid.UUID]) -> dict[str, int]:
+        """How many components each of ``assembly_ids`` has, keyed by id as a string.
+
+        The list query above deliberately does not load components, so the number
+        cannot come from the collection: an unloaded collection reads as empty and
+        the card printed "0 components" beside a hover panel listing three. One
+        grouped COUNT answers it for the whole page without pulling a single
+        component row across.
+
+        Assemblies with no components are absent from the result rather than
+        present with a zero, which is what ``.get(id, 0)`` at the call site is
+        for; a missing key and a real zero mean the same thing here.
+        """
+        if not assembly_ids:
+            return {}
+        stmt = (
+            select(Component.assembly_id, func.count(Component.id))
+            .where(Component.assembly_id.in_(assembly_ids))
+            .group_by(Component.assembly_id)
+        )
+        rows = (await self.session.execute(stmt)).all()
+        return {str(assembly_id): count for assembly_id, count in rows}
+
     async def create(self, assembly: Assembly) -> Assembly:
         """Insert a new assembly."""
         self.session.add(assembly)

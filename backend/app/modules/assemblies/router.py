@@ -146,10 +146,19 @@ async def _verify_target_boq_owner(
 
 def _assembly_to_response(
     assembly: object,
+    *,
+    component_count: int,
     usage_count: int = 0,
 ) -> AssemblyResponse:
-    """Convert an Assembly ORM model to an AssemblyResponse schema."""
-    components = getattr(assembly, "components", None) or []
+    """Convert an Assembly ORM model to an AssemblyResponse schema.
+
+    ``component_count`` is required and comes from a counted query, never from
+    ``len(assembly.components)``. Most of the queries that reach this function
+    load the assembly without its components, and an unloaded collection is
+    indistinguishable from an empty one, so reading the length here printed
+    "0 components" on cards whose own hover panel listed three. Passing the
+    number in leaves nowhere for that zero to come from silently.
+    """
     metadata = getattr(assembly, "metadata_", {}) or {}
     tags: list[str] = metadata.get("tags", []) if isinstance(metadata, dict) else []
     return AssemblyResponse(
@@ -169,13 +178,23 @@ def _assembly_to_response(
         project_id=assembly.project_id,  # type: ignore[attr-defined]
         owner_id=assembly.owner_id,  # type: ignore[attr-defined]
         is_active=assembly.is_active,  # type: ignore[attr-defined]
-        component_count=len(components),
+        component_count=component_count,
         usage_count=usage_count,
         tags=tags,
         metadata=metadata,
         created_at=assembly.created_at,  # type: ignore[attr-defined]
         updated_at=assembly.updated_at,  # type: ignore[attr-defined]
     )
+
+
+async def _component_count_of(service: AssemblyService, assembly: object) -> int:
+    """Count one assembly's components with a query rather than a collection.
+
+    The single-object endpoints fetch through ``get_by_id``, which does not load
+    components either, so they need the same counted answer the list does.
+    """
+    counts = await service.assembly_repo.count_components([assembly.id])  # type: ignore[attr-defined]
+    return counts.get(str(assembly.id), 0)  # type: ignore[attr-defined]
 
 
 def _component_to_response(comp: object) -> ComponentResponse:
@@ -218,7 +237,7 @@ async def create_assembly(
 ) -> AssemblyResponse:
     """Create a new assembly (composite cost item)."""
     assembly = await service.create_assembly(data, owner_id=user_id)
-    return _assembly_to_response(assembly)
+    return _assembly_to_response(assembly, component_count=await _component_count_of(service, assembly))
 
 
 @router.get(
@@ -267,8 +286,22 @@ async def search_assemblies(
     except Exception:
         logger.debug("Could not compute assembly usage counts")
 
+    # One grouped COUNT for the whole page. Not wrapped in a try the way the
+    # usage counts above are: a usage count is decoration and a component count
+    # is the card's own description of itself, so a failure here should surface
+    # rather than quietly print every recipe as empty, which is the bug this
+    # replaced.
+    component_counts = await service.assembly_repo.count_components([a.id for a in assemblies])
+
     return AssemblySearchResponse(
-        items=[_assembly_to_response(a, usage_count=usage_map.get(str(a.id), 0)) for a in assemblies],
+        items=[
+            _assembly_to_response(
+                a,
+                component_count=component_counts.get(str(a.id), 0),
+                usage_count=usage_map.get(str(a.id), 0),
+            )
+            for a in assemblies
+        ],
         total=total,
         limit=limit,
         offset=offset,
@@ -373,7 +406,7 @@ async def update_assembly(
         caller_user_id=user_id,
         caller_is_admin=is_admin,
     )
-    return _assembly_to_response(assembly)
+    return _assembly_to_response(assembly, component_count=await _component_count_of(service, assembly))
 
 
 @router.delete(
@@ -577,7 +610,7 @@ async def clone_assembly(
     """Clone an assembly, optionally into a different project."""
     await _verify_assembly_owner(session, assembly_id, user_id, payload)
     cloned = await service.clone_assembly(assembly_id, data, owner_id=user_id)
-    return _assembly_to_response(cloned)
+    return _assembly_to_response(cloned, component_count=await _component_count_of(service, cloned))
 
 
 # ── Reorder ──────────────────────────────────────────────────────────────────
@@ -642,7 +675,7 @@ async def import_assembly(
     If the code already exists, a suffix is appended to make it unique.
     """
     assembly = await service.import_assembly(data.assembly, owner_id=user_id)
-    return _assembly_to_response(assembly)
+    return _assembly_to_response(assembly, component_count=await _component_count_of(service, assembly))
 
 
 # ── Tags ─────────────────────────────────────────────────────────────────────
@@ -670,7 +703,7 @@ async def update_tags(
     """Update tags on an assembly. Tags are stored in metadata."""
     await _verify_assembly_owner(session, assembly_id, user_id, payload)
     assembly = await service.update_tags(assembly_id, data.tags)
-    return _assembly_to_response(assembly)
+    return _assembly_to_response(assembly, component_count=await _component_count_of(service, assembly))
 
 
 # ── Assembly Library templates (v3.13.0 - Slice 1) ───────────────────────────
