@@ -99,3 +99,19 @@ repos:
         language: system
         pass_filenames: false
         files: ^frontend/src/app/locales/.*\.ts$
+
+      # Catch a locale value going byte-identical to its en.ts source outside
+      # the declared debt in scripts/i18n_leak_baseline.json. Five commits on
+      # 2026-07-26 shipped 295 keys this way across 27 of 28 non-en locales
+      # under a message claiming translation; every key existed and every
+      # coverage check passed, so nothing caught it until #181 found the
+      # first one by hand. This guard freezes that known set and fails only
+      # on a NEW key/locale pair going English, so it catches a recurrence
+      # without needing to know any of the 27 languages. CI runs the same
+      # script on every push.
+      - id: i18n-leak-baseline-check
+        name: Block new locale values byte-identical to en.ts
+        entry: python scripts/check_i18n_leak_baseline.py
+        language: system
+        pass_filenames: false
+        files: ^frontend/src/app/locales/.*\.ts$

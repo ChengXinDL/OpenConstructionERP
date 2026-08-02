@@ -1,16 +1,23 @@
 # Repo hygiene gate.
 #
-# Three guards run on every push and pull request:
+# Four guards run on every push and pull request:
 #   * no internal-only files (planning, strategy, QA artifacts, audits,
 #     runbooks) reach the public repository or a release artifact,
 #   * no commit message records an AI assistant as a contributor (a
-#     "Co-authored-by:" trailer or "Generated with ..." footer naming one), and
+#     "Co-authored-by:" trailer or "Generated with ..." footer naming one),
 #   * no locale value carries a doubled Unicode escape (`\\u2013` instead of
 #     `–`), which is syntactically valid so tsc and the build stay green while
-#     the string renders as literal garbage.
-# The file and escape guards also run as pre-commit hooks; the trailer guard
-# runs as a commit-msg pre-commit hook. So a violation is caught at commit
-# time and in CI, and the file guard is caught again at build time.
+#     the string renders as literal garbage, and
+#   * no new locale value goes byte-identical to its en.ts source outside the
+#     declared i18n_leak_baseline.json debt list. Five commits on 2026-07-26
+#     shipped 295 keys this way across 27 of 28 non-en locales under a commit
+#     message claiming translation; every key existed and every coverage
+#     check passed, so nothing caught it until #181 found the first one by
+#     hand. See scripts/check_i18n_leak_baseline.py for the fingerprint.
+# The file, escape and leak-baseline guards also run as pre-commit hooks; the
+# trailer guard runs as a commit-msg pre-commit hook. So a violation is
+# caught at commit time and in CI, and the file guard is caught again at
+# build time.
 name: Repo hygiene
 
 on:
@@ -57,3 +64,14 @@ jobs:
           python-version: '3.12'
       - name: Check locale files for doubled escapes
         run: python scripts/check_locale_escapes.py
+
+  i18n-leak-baseline:
+    name: No new locale values byte-identical to en.ts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check for new i18n leaks against the declared baseline
+        run: python scripts/check_i18n_leak_baseline.py
