@@ -321,6 +321,25 @@
   "en_value": "RFI",
   "n": 27
  },
+ "costExplorer.title": {
+  "en_value": "Cost Explorer",
+  "n": 15,
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "es",
+   "es-MX",
+   "fr",
+   "hr",
+   "it",
+   "ky",
+   "pl",
+   "pt",
+   "ro",
+   "ru"
+  ]
+ },
  "costmodel.evm_cpi": {
   "differs_in": [
    "pt"
@@ -492,6 +511,24 @@
   "en_value": "LON",
   "n": 27
  },
+ "geo_hub.title": {
+  "en_value": "Geo Hub",
+  "n": 16,
+  "differs_in": [
+   "ar",
+   "cs",
+   "fi",
+   "hr",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "pl",
+   "ro",
+   "tr",
+   "zh"
+  ]
+ },
  "howto.crm.title": {
   "differs_in": [
    "ar",
@@ -608,6 +645,25 @@
   ],
   "en_value": "{{action}} {{name}}",
   "n": 25
+ },
+ "nav.cost_explorer": {
+  "en_value": "Cost Explorer",
+  "n": 15,
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "es",
+   "es-MX",
+   "fr",
+   "hr",
+   "it",
+   "ky",
+   "pl",
+   "pt",
+   "ro",
+   "ru"
+  ]
  },
  "nav.mode_pro_badge": {
   "differs_in": [
@@ -906,6 +962,42 @@
   "en_value": "RFI",
   "n": 25
  },
+ "tour.step.4.title": {
+  "en_value": "BIM Hub",
+  "n": 16,
+  "differs_in": [
+   "ar",
+   "cs",
+   "fi",
+   "hr",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "pl",
+   "ro",
+   "tr",
+   "zh"
+  ]
+ },
+ "tour.step.6.title": {
+  "en_value": "Geo Hub",
+  "n": 16,
+  "differs_in": [
+   "ar",
+   "cs",
+   "fi",
+   "hr",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "pl",
+   "ro",
+   "tr",
+   "zh"
+  ]
+ },
  "translation.iate.local_placeholder": {
   "differs_in": [
    "da"
@@ -922,6 +1014,24 @@
   ],
   "en_value": "CDE (ISO 19650)",
   "n": 24
+ },
+ "whatsnew.v450.geo.chip": {
+  "en_value": "Geo Hub",
+  "n": 16,
+  "differs_in": [
+   "ar",
+   "cs",
+   "fi",
+   "hr",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "pl",
+   "ro",
+   "tr",
+   "zh"
+  ]
  },
  "whatsnew.v450.propdev.chip": {
   "differs_in": [

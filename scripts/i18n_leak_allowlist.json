@@ -29,6 +29,11 @@
   "note": "entirely template variables/punctuation, no literal word to translate",
   "reason_category": "template_placeholder"
  },
+ "approvalRoutes.unit_days": {
+  "en_value": "{{n}} d",
+  "reason_category": "abbreviation",
+  "note": "unit abbreviation for \"day\"; coincides in several locales whose own word for day also abbreviates to d/similar (confirmed de/ja/ru hold real distinct translations)"
+ },
  "auth.how_found_github": {
   "en_value": "GitHub",
   "note": "brand/service name, functional interop reference",
@@ -119,15 +124,35 @@
   "note": "brand/service name, functional interop reference",
   "reason_category": "product_name"
  },
+ "catalogues.col_status": {
+  "en_value": "Status",
+  "reason_category": "abbreviation",
+  "note": "single common noun kept as-is by several unrelated languages (de/da/no/sv/nl/id/... all use \"Status\" unchanged); confirmed cs/ja/ru hold real distinct translations"
+ },
  "cde.created_msg": {
   "en_value": "{{code}} - {{title}}",
   "note": "entirely template variables/punctuation, no literal word to translate",
   "reason_category": "template_placeholder"
  },
+ "changeorders.impact_days_suffix": {
+  "en_value": "d",
+  "reason_category": "abbreviation",
+  "note": "unit abbreviation for \"day\"; coincides in several locales whose own word for day also abbreviates to d/similar (confirmed de/ja/ru hold real distinct translations)"
+ },
  "clash.bcf": {
   "en_value": "BCF",
   "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
   "reason_category": "standard_code"
+ },
+ "clash.bulk_status": {
+  "en_value": "Status",
+  "reason_category": "abbreviation",
+  "note": "single common noun kept as-is by several unrelated languages (de/da/no/sv/nl/id/... all use \"Status\" unchanged); confirmed cs/ja/ru hold real distinct translations"
+ },
+ "clash.facet_status": {
+  "en_value": "Status",
+  "reason_category": "abbreviation",
+  "note": "single common noun kept as-is by several unrelated languages (de/da/no/sv/nl/id/... all use \"Status\" unchanged); confirmed cs/ja/ru hold real distinct translations"
  },
  "clash.group_ifc_entity": {
   "en_value": "IfcEntity",
@@ -139,10 +164,20 @@
   "note": "entirely template variables/punctuation, no literal word to translate",
   "reason_category": "template_placeholder"
  },
+ "clash.grp_status": {
+  "en_value": "Status",
+  "reason_category": "abbreviation",
+  "note": "single common noun kept as-is by several unrelated languages (de/da/no/sv/nl/id/... all use \"Status\" unchanged); confirmed cs/ja/ru hold real distinct translations"
+ },
  "clash.isolate_3d_short": {
   "en_value": "3D",
   "note": "bare technical/business acronym or initialism",
   "reason_category": "abbreviation"
+ },
+ "clash.issues.col_status": {
+  "en_value": "Status",
+  "reason_category": "abbreviation",
+  "note": "single common noun kept as-is by several unrelated languages (de/da/no/sv/nl/id/... all use \"Status\" unchanged); confirmed cs/ja/ru hold real distinct translations"
  },
  "clash.status_more": {
   "en_value": "…",
@@ -359,6 +394,11 @@
   "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
   "reason_category": "standard_code"
  },
+ "moc.insights.f_status": {
+  "en_value": "Status",
+  "reason_category": "abbreviation",
+  "note": "single common noun kept as-is by several unrelated languages (de/da/no/sv/nl/id/... all use \"Status\" unchanged); confirmed cs/ja/ru hold real distinct translations"
+ },
  "modules.cat_bim": {
   "en_value": "BIM",
   "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
@@ -384,6 +424,16 @@
   "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
   "reason_category": "standard_code"
  },
+ "notification.rfi_assigned_body": {
+  "en_value": "RFI {{rfi_number}}, {{subject}}",
+  "reason_category": "template_placeholder",
+  "note": "code/title join punctuation is a locale convention (comma vs dash), not leaked text; confirmed cs/ja deliberately use \" - \" instead of \", \""
+ },
+ "notification.submittal_status_changed_body": {
+  "en_value": "{{submittal_number}} ({{title}}), {{new_status}}",
+  "reason_category": "template_placeholder",
+  "note": "code/title join punctuation is a locale convention (comma vs dash), not leaked text; confirmed cs/ja deliberately use \" - \" instead of \", \""
+ },
  "notifications.file_comments.mention.body": {
   "en_value": "'{{excerpt}}'",
   "note": "entirely template variables/punctuation, no literal word to translate",
@@ -393,6 +443,31 @@
   "en_value": "{{title}}",
   "note": "entirely template variables/punctuation, no literal word to translate",
   "reason_category": "template_placeholder"
+ },
+ "notifications.rfi.assigned.body": {
+  "en_value": "{{code}}, {{title}}",
+  "reason_category": "template_placeholder",
+  "note": "code/title join punctuation is a locale convention (comma vs dash), not leaked text; confirmed cs/ja deliberately use \" - \" instead of \", \""
+ },
+ "notifications.risk.assigned.body": {
+  "en_value": "{{code}}, {{title}}",
+  "reason_category": "template_placeholder",
+  "note": "code/title join punctuation is a locale convention (comma vs dash), not leaked text; confirmed cs/ja deliberately use \" - \" instead of \", \""
+ },
+ "notifications.submittal.approved.body": {
+  "en_value": "{{code}}, {{title}}",
+  "reason_category": "template_placeholder",
+  "note": "code/title join punctuation is a locale convention (comma vs dash), not leaked text; confirmed cs/ja deliberately use \" - \" instead of \", \""
+ },
+ "notifications.submittal.submitted.body": {
+  "en_value": "{{code}}, {{title}}",
+  "reason_category": "template_placeholder",
+  "note": "code/title join punctuation is a locale convention (comma vs dash), not leaked text; confirmed cs/ja deliberately use \" - \" instead of \", \""
+ },
+ "notifications.transmittal.issued.body": {
+  "en_value": "{{code}}, {{title}}",
+  "reason_category": "template_placeholder",
+  "note": "code/title join punctuation is a locale convention (comma vs dash), not leaked text; confirmed cs/ja deliberately use \" - \" instead of \", \""
  },
  "pointcloud.field_rgb": {
   "en_value": "RGB",
@@ -459,6 +534,11 @@
   "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
   "reason_category": "standard_code"
  },
+ "propdev.block.status": {
+  "en_value": "Status",
+  "reason_category": "abbreviation",
+  "note": "single common noun kept as-is by several unrelated languages (de/da/no/sv/nl/id/... all use \"Status\" unchanged); confirmed cs/ja/ru hold real distinct translations"
+ },
  "propdev.broker.kyc": {
   "en_value": "KYC",
   "note": "bare technical/business acronym or initialism",
@@ -474,6 +554,11 @@
   "note": "bare technical/business acronym or initialism",
   "reason_category": "abbreviation"
  },
+ "propdev.edit.status": {
+  "en_value": "Status",
+  "reason_category": "abbreviation",
+  "note": "single common noun kept as-is by several unrelated languages (de/da/no/sv/nl/id/... all use \"Status\" unchanged); confirmed cs/ja/ru hold real distinct translations"
+ },
  "propdev.escrow.iban": {
   "en_value": "IBAN",
   "note": "bare technical/business acronym or initialism",
@@ -483,6 +568,11 @@
   "en_value": "SWIFT/BIC",
   "note": "bare technical/business acronym or initialism",
   "reason_category": "abbreviation"
+ },
+ "propdev.matrix.status": {
+  "en_value": "Status",
+  "reason_category": "abbreviation",
+  "note": "single common noun kept as-is by several unrelated languages (de/da/no/sv/nl/id/... all use \"Status\" unchanged); confirmed cs/ja/ru hold real distinct translations"
  },
  "propdev.phase.sequence": {
   "en_value": "#",
@@ -579,10 +669,20 @@
   "note": "bare technical/business acronym or initialism",
   "reason_category": "abbreviation"
  },
+ "schedule.days_short": {
+  "en_value": "d",
+  "reason_category": "abbreviation",
+  "note": "unit abbreviation for \"day\"; coincides in several locales whose own word for day also abbreviates to d/similar (confirmed de/ja/ru hold real distinct translations)"
+ },
  "schedule.interchange.export_csv": {
   "en_value": "CSV",
   "note": "bare technical/business acronym or initialism",
   "reason_category": "abbreviation"
+ },
+ "schedule.risk.days_short": {
+  "en_value": "d",
+  "reason_category": "abbreviation",
+  "note": "unit abbreviation for \"day\"; coincides in several locales whose own word for day also abbreviates to d/similar (confirmed de/ja/ru hold real distinct translations)"
  },
  "schedule_advanced.ppc": {
   "en_value": "PPC",
@@ -628,6 +728,11 @@
   "en_value": "PDF",
   "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
   "reason_category": "standard_code"
+ },
+ "tasks.insights.f_status": {
+  "en_value": "Status",
+  "reason_category": "abbreviation",
+  "note": "single common noun kept as-is by several unrelated languages (de/da/no/sv/nl/id/... all use \"Status\" unchanged); confirmed cs/ja/ru hold real distinct translations"
  },
  "tendering.export_gaeb": {
   "en_value": "GAEB X83",
