@@ -75,18 +75,75 @@ Two failure modes beyond "new leak" this guard also catches:
     enumeration, not a count tolerance, because a count cannot tell a known
     exception from a new one hiding behind it.
 
+Second detector: locale-set coherence, forward-only. The count threshold
+above assumes a leak is still near-uniform; a leak whose repair stalled
+partway, or that never reached 24/28 to begin with, sits below it and is
+invisible to that scan. It was found anyway on 2026-08-02 by a different
+tell: independent coincidence does not reproduce the same SET of locales
+across multiple unrelated keys, a shared mechanism does. 9 costExplorer.*
+keys shared one identical 14-locale set (found in the 12-23/28 band); a
+follow-up pass restricted to prose values (>=5 words or a sentence
+terminator - the property that actually separates real leaked prose from
+short coincidental terms, not locale-set size) found a second cluster, 24
+pipeline.* keys sharing an identical 5-locale set {bg, da, fi, no, sv},
+traced to v3.12.1's own release notes ("Deferred to v3.12.2: Native i18n
+pass for 17 placeholder locales" - a self-documented, partially-completed
+deferral, the same honesty-in-the-commit-body-nobody-reads pattern as the
+six 2026-07-26 commits). Both are now baseline debt.
+
+Run without a floor, this rule is not a clean gate: across the whole
+keyspace it produces ~140 clusters and ~2600 keys, and checking the large
+ones by value showed most are not leaks - "Status" kept unchanged by
+several unrelated locales across five unrelated modules, a day abbreviation
+several locales coincidentally share, notification-template punctuation -
+genuine coincidence at scale, structurally the same as an allowlisted
+abbreviation, just clustered instead of solitary. Content, not set size,
+separates the two classes, and content is not mechanically checkable at
+scan time. So this detector does not re-triage the whole keyspace on every
+run: i18n_leak_cluster_snapshot.json freezes the *shape* of every
+locale-set that had >=3 non-listed member keys as of the seed date as
+accepted, already-reviewed state. Going forward, a NEW locale-set crossing
+the >=3-key threshold - one that was not part of the snapshot - fails,
+naming the set and its members, so a future incident like costExplorer or
+pipeline.* is caught in days, not weeks, at the moment 3 keys converge
+rather than after dozens do. Growth of an already-accepted set (more
+ordinary loanwords sharing an old, reviewed pattern) does not fail; that
+would just be re-litigating a decision already made. A key that graduates
+into allowlist/baseline/pending later drops out of both detectors
+automatically, the same as any other classified key.
+
 This guard does not repair anything and does not scan for real text in the
 wrong sense (a byte comparison is structurally blind to e.g. mn's
 field_jurisdiction, which holds real Mongolian text in the wrong sense - see
 MEMORY) - that is a separately scoped, unbounded problem.
 
+Not built here, design only, pending founder authorisation: a forward
+check scoped to a commit's own diff rather than either detector's whole-
+keyspace scan - any key a commit adds or changes must be present and
+non-identical (or explicitly listed) in all 27 non-en locales, failing the
+commit that introduces the gap instead of a later scan finding it. It
+would reuse this file's parsing and the same three lists, comparing staged
+en.ts against HEAD to find touched keys, with pending excluded from the
+pass-path (pending resolves existing ambiguity, it should not wave through
+a brand-new key). One trap already found: it must not require a literal
+key-name match. Locale files legitimately carry keys en.ts has no
+counterpart for - CLDR plural categories (e.g. an en `one`/`other` pair has
+no `few`/`many` sibling to be "identical to", because en does not have
+those categories at all) - so a name-for-name presence check would fail
+every plural key anyone ever adds. It must match the CLDR plural FAMILY
+(the shared base key stripped of its plural suffix), not the literal key
+string, the same enumeration-not-tolerance discipline as
+_KNOWN_SINGLE_QUOTE_KEYS below, or it will cry wolf on ordinary correct
+work within a week of shipping.
+
 Usage:
     python scripts/check_i18n_leak_baseline.py
     python scripts/check_i18n_leak_baseline.py --update-baseline
 
-Exit code 0 means every flagged key is accounted for and no baseline entry
-regressed. Exit code 1 means a new leak, a baseline regression, a false
-repair, or a parser-parity gap was found.
+Exit code 0 means every flagged key is accounted for, no baseline entry
+regressed, and no new locale-set cluster has formed. Exit code 1 means a new
+leak, a baseline regression, a false repair, a parser-parity gap, or a new
+coherence cluster was found.
 
 --update-baseline rewrites the baseline to the currently observed leaked set
 for keys already in it (shrink direction only - a key whose observed set grew
@@ -105,8 +162,10 @@ LOCALE_GLOB = "frontend/src/app/locales/*.ts"
 BASELINE_PATH = "scripts/i18n_leak_baseline.json"
 ALLOWLIST_PATH = "scripts/i18n_leak_allowlist.json"
 PENDING_PATH = "scripts/i18n_leak_pending_review.json"
+CLUSTER_SNAPSHOT_PATH = "scripts/i18n_leak_cluster_snapshot.json"
 
 THRESHOLD = 24  # of 28 non-en locales
+CLUSTER_MIN_KEYS = 3  # locale-set coherence detector: >=N keys sharing one exact set
 
 import re
 
@@ -153,6 +212,39 @@ def _load_json(path: str) -> dict:
             return json.load(fh)
     except FileNotFoundError:
         return {}
+
+
+def _load_json_list(path: str) -> list:
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except FileNotFoundError:
+        return []
+
+
+def _compute_clusters(
+    pairs_by_locale: dict[str, dict[str, str]],
+    en_pairs: dict[str, str],
+    non_en: list[str],
+    known_keys: set[str],
+) -> dict[frozenset[str], list[str]]:
+    """Group keys not already in one of the three named lists by the exact
+    frozenset of non-en locales whose value is byte-identical to en. Keep
+    only sets with >=CLUSTER_MIN_KEYS member keys - independent coincidence
+    does not reproduce the same set across several keys, a shared mechanism
+    does. Ignores set size entirely; content judgment happens once, at seed
+    time (see i18n_leak_cluster_snapshot.json and the module docstring),
+    not by recomputing a size or content rule on every run.
+    """
+    by_set: dict[frozenset[str], list[str]] = {}
+    for key, en_val in en_pairs.items():
+        if key in known_keys:
+            continue
+        identical = frozenset(s for s in non_en if pairs_by_locale[s].get(key) == en_val)
+        if not identical:
+            continue
+        by_set.setdefault(identical, []).append(key)
+    return {s: sorted(ks) for s, ks in by_set.items() if len(ks) >= CLUSTER_MIN_KEYS}
 
 
 def main() -> int:  # noqa: PLR0912, PLR0915 - one linear check, splitting it hides the sequencing
@@ -250,6 +342,13 @@ def main() -> int:  # noqa: PLR0912, PLR0915 - one linear check, splitting it hi
             continue  # informational only, reported below
         unclassified.append((key, identical))
 
+    # --- second detector: locale-set coherence, forward-only ------------
+    known_keys = set(allowlist) | set(baseline) | set(pending)
+    clusters = _compute_clusters(pairs_by_locale, en_pairs, non_en, known_keys)
+    cluster_snapshot = _load_json_list(CLUSTER_SNAPSHOT_PATH)
+    known_sets = {frozenset(entry["locale_set"]) for entry in cluster_snapshot}
+    new_clusters = {s: ks for s, ks in clusters.items() if s not in known_sets}
+
     if healed:
         print(f"{len(healed)} baseline cell(s) no longer byte-identical to en (repaired, not a failure):")
         for key, stem in healed[:20]:
@@ -304,6 +403,36 @@ def main() -> int:  # noqa: PLR0912, PLR0915 - one linear check, splitting it hi
             file=sys.stderr,
         )
 
+    if new_clusters:
+        failed = True
+        total_new_keys = sum(len(ks) for ks in new_clusters.values())
+        print(
+            f"ERROR: {len(new_clusters)} new locale-set cluster(s) ({total_new_keys} key(s)) "
+            f"not present in {CLUSTER_SNAPSHOT_PATH} - {CLUSTER_MIN_KEYS}+ keys now share an "
+            "identical-to-en locale set this repo has not seen before:",
+            file=sys.stderr,
+        )
+        for s, ks in sorted(new_clusters.items(), key=lambda x: -len(x[1])):
+            print(f"  set={sorted(s)}  n_keys={len(ks)}", file=sys.stderr)
+            for k in ks:
+                print(f"    {k} = {en_pairs[k]!r}", file=sys.stderr)
+        print(
+            "\nIndependent coincidence does not reproduce the same locale set across "
+            "several keys; a shared mechanism does (this is how the costExplorer and "
+            "pipeline.* leaks were found, both below the count threshold). Pull actual "
+            "values in a member locale and a non-member locale before deciding: "
+            "multi-sentence prose that matches byte-for-byte across unrelated scripts "
+            "cannot coincide and belongs in i18n_leak_baseline.json; a short term or "
+            "template convention several locales happen to share belongs in "
+            "i18n_leak_allowlist.json (with the evidence, not just the count) or, if "
+            "still ambiguous, i18n_leak_pending_review.json. Once classified, rerun "
+            "with the keys removed from the unclassified set - they drop out of this "
+            "detector automatically - or, if this cluster really is as harmless as most "
+            "of the ~140 in the full unfiltered scan, add its locale_set to "
+            f"{CLUSTER_SNAPSHOT_PATH} as accepted, reviewed state.",
+            file=sys.stderr,
+        )
+
     if failed:
         return 1
 
@@ -323,7 +452,8 @@ def main() -> int:  # noqa: PLR0912, PLR0915 - one linear check, splitting it hi
 
     print(
         f"i18n leak guard OK: {len(baseline)} baseline keys, {len(allowlist)} allowlist keys, "
-        f"{len(pending)} pending review, no new leaks, no regressions, no false repairs"
+        f"{len(pending)} pending review, {len(cluster_snapshot)} accepted clusters, "
+        "no new leaks, no regressions, no false repairs, no new clusters"
     )
     return 0
 

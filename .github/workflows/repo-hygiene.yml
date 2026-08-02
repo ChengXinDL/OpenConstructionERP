@@ -11,13 +11,18 @@
 #   * no locale value in the whole of en.ts's keyspace goes byte-identical to
 #     its source in 24 or more of 28 non-en locales without landing in exactly
 #     one of two declared, never-merged lists (i18n_leak_allowlist.json for
-#     deliberately-identical terms, i18n_leak_baseline.json for the 422 keys /
-#     11360 cells six commits on 2026-07-26 shipped this way - five under a
-#     commit message claiming translation, one an ordinary feature commit
-#     that happened to add keys along the way). Every key existed and every
-#     coverage check passed, because the string was present - it was just the
-#     wrong string; nothing caught it until #181 found the first one by hand.
-#     See scripts/check_i18n_leak_baseline.py for the fingerprint.
+#     deliberately-identical terms, i18n_leak_baseline.json for the 455 keys /
+#     11606 cells eight incidents shipped this way - six commits on
+#     2026-07-26 under a message claiming translation or an ordinary feature
+#     commit that happened to add keys along the way, plus two more found
+#     independently of that window, below the count threshold, by a second
+#     detector). Every key existed and every coverage check passed, because
+#     the string was present - it was just the wrong string; nothing caught
+#     it until #181 found the first one by hand. The second detector groups
+#     keys by the exact SET of locales matching en rather than by count, runs
+#     forward-only against a frozen snapshot of already-seen locale-set
+#     shapes, and fails only when a genuinely new cluster of 3+ keys forms.
+#     See scripts/check_i18n_leak_baseline.py for both fingerprints.
 # The file, escape and leak-baseline guards also run as pre-commit hooks; the
 # trailer guard runs as a commit-msg pre-commit hook. So a violation is
 # caught at commit time and in CI, and the file guard is caught again at

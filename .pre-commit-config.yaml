@@ -115,10 +115,18 @@ repos:
       # a small third list, i18n_leak_pending_review.json, holds the handful
       # of keys that don't cleanly fit either tell (e.g. a founder's name,
       # transliterated in two locales and left in Latin script everywhere
-      # else) - reported every run, never gating. CI runs the same script.
+      # else) - reported every run, never gating. A second, complementary
+      # detector catches what the count threshold structurally cannot: 3+
+      # keys sharing one exact identical-locale set at ANY band, which found
+      # two more incidents below the threshold (costExplorer, pipeline.*)
+      # via coherence rather than count. It runs forward-only against
+      # i18n_leak_cluster_snapshot.json, a frozen snapshot of already-seen
+      # locale-set shapes, so it only fails on a genuinely new cluster
+      # forming, not on retriaging ~2600 keys of ordinary per-locale
+      # loanword coincidence every run. CI runs the same script.
       - id: i18n-leak-baseline-check
         name: Gate untracked byte-identical-to-en.ts locale values
         entry: python scripts/check_i18n_leak_baseline.py
         language: system
         pass_filenames: false
-        files: ^(frontend/src/app/locales/.*\.ts|scripts/i18n_leak_(allowlist|baseline|pending_review)\.json)$
+        files: ^(frontend/src/app/locales/.*\.ts|scripts/i18n_leak_(allowlist|baseline|pending_review|cluster_snapshot)\.json)$

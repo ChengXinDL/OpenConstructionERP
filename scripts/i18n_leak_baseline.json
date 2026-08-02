@@ -7263,6 +7263,246 @@
    "zh"
   ]
  },
+ "pipeline.canvas.hint": {
+  "en_value": "Drag steps from the palette, connect their ports, then press Run.",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
+ "pipeline.connect.incompatible_body": {
+  "en_value": "This output is a {{from}}; that input expects a {{to}}.",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
+ "pipeline.dock.no_runs_desc": {
+  "en_value": "Press Run to see data flow through your pipeline.",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
+ "pipeline.dock.no_steps": {
+  "en_value": "Add steps and press Run to watch data flow through your pipeline.",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
+ "pipeline.dock.queued_hint": {
+  "en_value": "Waiting for a worker to pick up the run…",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
+ "pipeline.empty.description": {
+  "en_value": "Drag a trigger and a few steps from the palette on the left, connect them, then press Run.",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
+ "pipeline.explain.coming_soon_body": {
+  "en_value": "The plain-language story view arrives in the next release.",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
+ "pipeline.node.ai_confidence": {
+  "en_value": "AI suggestion, review the confidence score",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
+ "pipeline.node.help_generic": {
+  "en_value": "Configure this step in the Inspector. It receives data from the connected step before it and passes its result on.",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
+ "pipeline.nodehelp.action.export.excel": {
+  "en_value": "Writes the incoming rows to an Excel file and returns a download reference. It does not change any data.",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
+ "pipeline.nodehelp.gate.validation": {
+  "en_value": "Runs the validation engine over the rows. If there are blocking errors the run stops here, so write steps after it never act on bad data.",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
+ "pipeline.nodehelp.source.boq": {
+  "en_value": "Reads every BOQ position for the project. Only ids and a small preview travel between steps; the full data stays on the server.",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
+ "pipeline.nodehelp.source.project": {
+  "en_value": "Loads the project this pipeline is bound to. Leave the project id blank to use the one from the page URL.",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
+ "pipeline.nodehelp.transform.filter": {
+  "en_value": "Keeps only the rows that match the field / operator / value test you set in the Inspector. Leave the field blank to pass everything through.",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
+ "pipeline.nodehelp.trigger.manual": {
+  "en_value": "This is where the pipeline begins. It carries no settings, connect it to a data step next.",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
+ "pipeline.nodetype.gate.validation.desc": {
+  "en_value": "Run the validation engine over the rows; stop the run on blocking errors.",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
+ "pipeline.nodetype.source.boq.desc": {
+  "en_value": "Load every BOQ position for the project as rows (ids + a small sample).",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
+ "pipeline.nodetype.source.project.desc": {
+  "en_value": "Load the bound project's id + name.",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
+ "pipeline.nodetype.transform.filter.desc": {
+  "en_value": "Keep only rows matching a simple field/op/value test.",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
+ "pipeline.nodetype.trigger.manual.desc": {
+  "en_value": "Start the pipeline from a REST call. No inputs.",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
+ "pipeline.palette.writes_chip": {
+  "en_value": "This step writes data, needs a gate before it",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
+ "pipeline.tour.canvas_body": {
+  "en_value": "Drag from one step output dot to the next step input. Colours show the data type.",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
+ "pipeline.tour.palette_body": {
+  "en_value": "Drag a step from here onto the canvas, or just click it to drop it in the middle.",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
+ "pipeline.tour.run_body": {
+  "en_value": "Press Run to execute the pipeline and watch each step light up live.",
+  "leaked_locales": [
+   "bg",
+   "da",
+   "fi",
+   "no",
+   "sv"
+  ]
+ },
  "prefab.insights.c_by_stage": {
   "en_value": "Units by stage",
   "leaked_locales": [
