@@ -477,7 +477,7 @@ const resource = {
     "deadlines.insights.f_severity": "심각도",
     "deadlines.insights.f_classification": "분류",
     "deadlines.insights.f_due_month": "만기 월",
-    "deadlines.insights.f_overdue": "지연됨",
+    "deadlines.insights.f_overdue": "기한 초과",
     "deadlines.insights.f_approaching": "예정",
     "deadlines.insights.f_days_late": "지연 일수",
     "deadlines.insights.k_tracked": "추적 중인 기한 있는 항목",

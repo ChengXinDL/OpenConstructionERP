@@ -477,7 +477,7 @@ const resource = {
     "deadlines.insights.f_severity": "Ciddiyet",
     "deadlines.insights.f_classification": "Sınıflandırma",
     "deadlines.insights.f_due_month": "Vade ayı",
-    "deadlines.insights.f_overdue": "Gecikenler",
+    "deadlines.insights.f_overdue": "Gecikmiş",
     "deadlines.insights.f_approaching": "Yaklaşanlar",
     "deadlines.insights.f_days_late": "Gecikme günü",
     "deadlines.insights.k_tracked": "Takip edilen tarihli öğeler",

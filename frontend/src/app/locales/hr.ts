@@ -477,7 +477,7 @@ const resource = {
     "deadlines.insights.f_severity": "Ozbiljnost",
     "deadlines.insights.f_classification": "Klasifikacija",
     "deadlines.insights.f_due_month": "Mjesec dospijeća",
-    "deadlines.insights.f_overdue": "U prekoračenju",
+    "deadlines.insights.f_overdue": "U zastoju",
     "deadlines.insights.f_approaching": "Približava se",
     "deadlines.insights.f_days_late": "Dana kašnjenja",
     "deadlines.insights.k_tracked": "Praćene stavke s datumom",
