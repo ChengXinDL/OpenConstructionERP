@@ -289,6 +289,21 @@
   "note": "entirely template variables plus a percent sign, no literal word",
   "reason_category": "template_placeholder"
  },
+ "deadlines.insights.ds_deadlines": {
+  "en_value": "Deadline register",
+  "note": "nl.ts genuinely keeps 'Deadline register' unchanged as its own name for this register: 'Deadline' is a common Dutch business loanword and 'register' a native Dutch cognate. Corroborated by deadlines.register_title, the module's own pre-existing title key (not touched by this repair), which independently uses the identical phrase -- the only sibling with this exact string app-wide, but it is the module's own authoritative title, not an incidental match.",
+  "reason_category": "cognate_loanword"
+ },
+ "deadlines.insights.f_title": {
+  "en_value": "Item",
+  "note": "id/nl/pt.ts genuinely keep 'Item' unchanged as their own word for this concept; corroborated by deadlines.col.title (same module, same concept) and 15/13/8 of 15 other Item-labeled sibling keys app-wide in id/pt/nl respectively, independently using the identical spelling.",
+  "reason_category": "cognate_loanword"
+ },
+ "deadlines.insights.sev_info": {
+  "en_value": "Information",
+  "note": "da/de/fr/sv.ts genuinely keep 'Information' unchanged as their own word for this concept, a common Germanic/Romance cognate. No other app-wide sibling shares this exact string to corroborate against, unlike other Status/Item-family entries in this file -- the judgement rests on the word being an unremarkable, dictionary-attested cognate in all four languages, not on cross-key repetition.",
+  "reason_category": "cognate_loanword"
+ },
  "documents.type_dwg": {
   "en_value": "DWG",
   "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
