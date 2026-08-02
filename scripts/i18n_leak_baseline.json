@@ -1,31 +1,4 @@
 {
- "bim.converter_panel_size": {
-  "en_value": "{{size}} MB",
-  "leaked_locales": [
-   "cs",
-   "da",
-   "de",
-   "es",
-   "es-MX",
-   "fi",
-   "hi",
-   "hr",
-   "id",
-   "it",
-   "ja",
-   "ko",
-   "nl",
-   "no",
-   "pl",
-   "pt",
-   "ro",
-   "sv",
-   "th",
-   "tr",
-   "vi",
-   "zh"
-  ]
- },
  "bim.quick_boq": {
   "en_value": "BOQ",
   "leaked_locales": [
@@ -239,29 +212,6 @@
    "tr",
    "vi",
    "zh"
-  ]
- },
- "takeoff_viewer.width_unit_px": {
-  "en_value": "px",
-  "leaked_locales": [
-   "cs",
-   "da",
-   "de",
-   "es",
-   "es-MX",
-   "fi",
-   "fr",
-   "hr",
-   "id",
-   "it",
-   "nl",
-   "no",
-   "pl",
-   "pt",
-   "ro",
-   "sv",
-   "tr",
-   "vi"
   ]
  }
 }

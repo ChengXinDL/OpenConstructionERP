@@ -64,6 +64,18 @@
   "en_value": "CRM",
   "n": 27
  },
+ "bim.converter_panel_size": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "fr",
+   "ky",
+   "mn",
+   "ru"
+  ],
+  "en_value": "{{size}} MB",
+  "n": 22
+ },
  "bim.federation.tab_3d": {
   "differs_in": [
    "ar"
@@ -322,8 +334,6 @@
   "n": 27
  },
  "costExplorer.title": {
-  "en_value": "Cost Explorer",
-  "n": 15,
   "differs_in": [
    "ar",
    "bg",
@@ -338,7 +348,9 @@
    "pt",
    "ro",
    "ru"
-  ]
+  ],
+  "en_value": "Cost Explorer",
+  "n": 15
  },
  "costmodel.evm_cpi": {
   "differs_in": [
@@ -512,8 +524,6 @@
   "n": 27
  },
  "geo_hub.title": {
-  "en_value": "Geo Hub",
-  "n": 16,
   "differs_in": [
    "ar",
    "cs",
@@ -527,7 +537,9 @@
    "ro",
    "tr",
    "zh"
-  ]
+  ],
+  "en_value": "Geo Hub",
+  "n": 16
  },
  "howto.crm.title": {
   "differs_in": [
@@ -647,8 +659,6 @@
   "n": 25
  },
  "nav.cost_explorer": {
-  "en_value": "Cost Explorer",
-  "n": 15,
   "differs_in": [
    "ar",
    "bg",
@@ -663,7 +673,9 @@
    "pt",
    "ro",
    "ru"
-  ]
+  ],
+  "en_value": "Cost Explorer",
+  "n": 15
  },
  "nav.mode_pro_badge": {
   "differs_in": [
@@ -946,6 +958,22 @@
   "en_value": "- BOQ -",
   "n": 26
  },
+ "takeoff_viewer.width_unit_px": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "hi",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "ru",
+   "th",
+   "zh"
+  ],
+  "en_value": "px",
+  "n": 18
+ },
  "tasks.from_rfi": {
   "differs_in": [
    "zh"
@@ -963,8 +991,6 @@
   "n": 25
  },
  "tour.step.4.title": {
-  "en_value": "BIM Hub",
-  "n": 16,
   "differs_in": [
    "ar",
    "cs",
@@ -978,11 +1004,11 @@
    "ro",
    "tr",
    "zh"
-  ]
+  ],
+  "en_value": "BIM Hub",
+  "n": 16
  },
  "tour.step.6.title": {
-  "en_value": "Geo Hub",
-  "n": 16,
   "differs_in": [
    "ar",
    "cs",
@@ -996,7 +1022,9 @@
    "ro",
    "tr",
    "zh"
-  ]
+  ],
+  "en_value": "Geo Hub",
+  "n": 16
  },
  "translation.iate.local_placeholder": {
   "differs_in": [
@@ -1016,8 +1044,6 @@
   "n": 24
  },
  "whatsnew.v450.geo.chip": {
-  "en_value": "Geo Hub",
-  "n": 16,
   "differs_in": [
    "ar",
    "cs",
@@ -1031,7 +1057,9 @@
    "ro",
    "tr",
    "zh"
-  ]
+  ],
+  "en_value": "Geo Hub",
+  "n": 16
  },
  "whatsnew.v450.propdev.chip": {
   "differs_in": [
