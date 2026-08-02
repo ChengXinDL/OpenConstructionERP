@@ -417,7 +417,7 @@ async def seed_hse_advanced_demo(
             issued_by=None,
             ppe_type=_PPE_TYPES[idx % len(_PPE_TYPES)],
             size=rng.choice(["S", "M", "L", "XL", "XXL", None]),
-            brand=rng.choice(["3M", "MSA", "Honeywell", "Uvex", "Bollé", None]),
+            brand=rng.choice(["Wendlow", "Hulvert", "Kvindal", "Zerbholt", "Vaucrey", None]),
             serial=f"SN-{idx + 1000:05d}",
             valid_until=today + timedelta(days=rng.randint(30, 720)),
             status=status_choice,

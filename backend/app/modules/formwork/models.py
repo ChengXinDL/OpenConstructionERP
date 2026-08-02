@@ -3,7 +3,7 @@
 """Formwork ORM models.
 
 Tables:
-    oe_formwork_system            - catalogue row (Doka, PERI, generic plywood, ...)
+    oe_formwork_system            - catalogue row (framed wall panel, slab deck, ...)
     oe_formwork_assignment        - links a project / BOQ position to a system
     oe_formwork_schedule_line     - optional pour-by-pour cycle under an assignment
 

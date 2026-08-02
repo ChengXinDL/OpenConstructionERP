@@ -47,7 +47,7 @@ _TYPE_CATALOG: tuple[tuple[str, str, str, int, int, int], ...] = (
     ("compactor", "Compactor", "compaction", 250, 0, 365),
 )
 
-_MANUFACTURERS = ("Caterpillar", "Komatsu", "Volvo", "Liebherr", "JCB", "Hitachi")
+_MANUFACTURERS = ("Redlark", "Tsurada", "Nordvall", "Grellinger", "Trawitz", "Kenzawa")
 
 
 async def seed_equipment_demo(session: AsyncSession) -> dict[str, int]:
@@ -287,7 +287,7 @@ async def seed_equipment_demo(session: AsyncSession) -> dict[str, int]:
             odometer_km_at_fill=Decimal(int(e.odometer_km) - rng.randint(0, 1000)),
             cost=liters * Decimal("1.85"),
             currency="EUR",
-            supplier=rng.choice(("Shell", "BP", "OMV", "Aral", "Local Depot")),
+            supplier=rng.choice(("Osvik", "Melgro", "Rethvitz", "Weskau", "Local Depot")),
             fuel_type=rng.choice(("diesel", "petrol")),
         )
         session.add(fl)

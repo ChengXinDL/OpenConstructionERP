@@ -207,9 +207,9 @@ class FormworkAssignmentResponse(BaseModel):
 class FormworkAssignmentDetail(FormworkAssignmentResponse):
     """An assignment plus the catalogue facts needed to read its rate.
 
-    Returned by the list and detail endpoints so the client can show "PERI
-    MAXIMO, steel, 100 reuses max, EUR" next to the computed rate without a
-    second round trip per row. Populated from an eagerly loaded ``system``
+    Returned by the list and detail endpoints so the client can show "Steel
+    wall panel, steel, 100 reuses max, EUR" next to the computed rate without
+    a second round trip per row. Populated from an eagerly loaded ``system``
     relationship, never from a lazy walk.
     """
 
@@ -506,9 +506,9 @@ def default_seed_systems() -> list[dict[str, Any]]:
     """
     return [
         {
-            "name": "Doka Framax Xlife",
+            "name": "Steel framed wall panel",
             "system_type": "wall",
-            "supplier": "Doka",
+            "supplier": None,
             "material": "steel",
             "reuses_max": 100,
             "unit_rate": Decimal("65.00"),
@@ -516,9 +516,9 @@ def default_seed_systems() -> list[dict[str, Any]]:
             "strip_time_days": 1,
         },
         {
-            "name": "Doka Dokadek 30",
+            "name": "Aluminium slab deck panel",
             "system_type": "slab",
-            "supplier": "Doka",
+            "supplier": None,
             "material": "aluminium",
             "reuses_max": 80,
             "unit_rate": Decimal("48.00"),
@@ -526,9 +526,9 @@ def default_seed_systems() -> list[dict[str, Any]]:
             "strip_time_days": 7,
         },
         {
-            "name": "PERI MAXIMO",
+            "name": "Steel wall panel, single-side tie",
             "system_type": "wall",
-            "supplier": "PERI",
+            "supplier": None,
             "material": "steel",
             "reuses_max": 100,
             "unit_rate": Decimal("70.00"),
@@ -536,9 +536,9 @@ def default_seed_systems() -> list[dict[str, Any]]:
             "strip_time_days": 1,
         },
         {
-            "name": "PERI SKYDECK",
+            "name": "Aluminium drophead slab panel",
             "system_type": "slab",
-            "supplier": "PERI",
+            "supplier": None,
             "material": "aluminium",
             "reuses_max": 80,
             "unit_rate": Decimal("52.00"),
@@ -546,9 +546,9 @@ def default_seed_systems() -> list[dict[str, Any]]:
             "strip_time_days": 7,
         },
         {
-            "name": "MEVA Mammut 350",
+            "name": "Heavy-duty steel wall panel",
             "system_type": "wall",
-            "supplier": "MEVA",
+            "supplier": None,
             "material": "steel",
             "reuses_max": 100,
             "unit_rate": Decimal("68.00"),
@@ -556,9 +556,9 @@ def default_seed_systems() -> list[dict[str, Any]]:
             "strip_time_days": 1,
         },
         {
-            "name": "Hünnebeck MANTO",
+            "name": "Crane-set steel wall panel",
             "system_type": "wall",
-            "supplier": "Hünnebeck",
+            "supplier": None,
             "material": "steel",
             "reuses_max": 100,
             "unit_rate": Decimal("60.00"),
@@ -566,9 +566,9 @@ def default_seed_systems() -> list[dict[str, Any]]:
             "strip_time_days": 1,
         },
         {
-            "name": "Ulma ENKOFORM V-100",
+            "name": "Girder wall formwork",
             "system_type": "wall",
-            "supplier": "Ulma",
+            "supplier": None,
             "material": "steel",
             "reuses_max": 100,
             "unit_rate": Decimal("58.00"),
@@ -576,9 +576,9 @@ def default_seed_systems() -> list[dict[str, Any]]:
             "strip_time_days": 1,
         },
         {
-            "name": "PERI ACS climbing",
+            "name": "Self-climbing core system",
             "system_type": "climbing",
-            "supplier": "PERI",
+            "supplier": None,
             "material": "steel",
             "reuses_max": 50,
             "unit_rate": Decimal("120.00"),

@@ -77,8 +77,8 @@ class TestPackTypeInference:
 
     def test_industry_metadata_infers_industry(self) -> None:
         m = PartnerPackManifest(
-            slug="doker-formwork",
-            partner_name="Doka Formwork",
+            slug="hollrich-formwork",
+            partner_name="Hollrich Formwork",
             metadata={"industry": "formwork"},
         )
         assert m.type == "industry"

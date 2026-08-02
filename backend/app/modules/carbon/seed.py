@@ -163,16 +163,16 @@ def _build_epd_records(rng: random.Random) -> list[EPDRecord]:
             epd_id = f"EPD-{material_class.upper()}-{counter:03d}"
             manufacturer = rng.choice(
                 [
-                    "HeidelbergMaterials",
-                    "Holcim",
-                    "ArcelorMittal",
-                    "Rockwool",
-                    "Kingspan",
-                    "Saint-Gobain",
-                    "Lafarge",
-                    "BASF",
-                    "Owens Corning",
-                    "Sika",
+                    "Brandstein Materials",
+                    "Marnholt Cement",
+                    "Ferrolane Steel",
+                    "Petrafibre Insulation",
+                    "Aldbourne Panels",
+                    "Verrachaux Glass",
+                    "Cavannes Cement",
+                    "Rennstadt Chemie",
+                    "Brenfield Composites",
+                    "Auvernik Chemie",
                 ],
             )
             region = rng.choice(["EU", "DE", "FR", "UK", "US", "CA", "AU", ""])

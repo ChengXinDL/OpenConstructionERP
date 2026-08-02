@@ -286,7 +286,7 @@ class TestRFICreatesVariation:
         resp = await client.post(
             f"/api/v1/rfi/{rfi_id}/respond/",
             json={
-                "official_response": "Approved: Use Sika 1K membrane system for all basement walls.",
+                "official_response": "Approved: Use Auvernik 1K membrane for all basement walls.",
             },
             headers=auth,
         )

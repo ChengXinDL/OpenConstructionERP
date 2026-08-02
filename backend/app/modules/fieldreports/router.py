@@ -300,7 +300,7 @@ async def download_field_reports_template(
         cell = ws_equipment.cell(row=1, column=i, value=h)
         cell.font = Font(bold=True)
 
-    equipment_example = ["Liebherr LTM 1100", "crane", "6.0", "1.5", "0.5", "Hans Mueller"]
+    equipment_example = ["Grellinger GT 110", "crane", "6.0", "1.5", "0.5", "J. Baumann"]
     for i, val in enumerate(equipment_example, 1):
         ws_equipment.cell(row=2, column=i, value=val)
 

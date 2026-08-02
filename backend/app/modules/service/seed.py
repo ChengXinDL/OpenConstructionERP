@@ -75,7 +75,7 @@ _FAULTS: tuple[str, ...] = (
 # Localised customer names - small, neutral list spanning EN/DE/RU markets.
 _CUSTOMER_NAMES: list[str] = [
     "ACME Facilities Ltd",
-    "Bauhaus Wartung GmbH",
+    "Zellbrandt Wartung GmbH",
     "ООО Тепло-Сервис",
     "Northwind Property Group",
     "Aurora Tower Management",
@@ -241,7 +241,15 @@ async def seed_service_demo(session: AsyncSession) -> dict[str, int]:
             asset_type=at,
             name=f"{at.title()} unit #{i + 1}",
             location=f"Building {chr(65 + (i % 5))} / Level {1 + (i % 4)}",
-            manufacturer=rng.choice(["Siemens", "Carrier", "ABB", "Daikin", "Bosch"]),
+            manufacturer=rng.choice(
+                [
+                    "Wendhorst Controls",
+                    "Alderkyn Climate",
+                    "Vehlmar Electric",
+                    "Nishibe Air",
+                    "Reidenau Systems",
+                ],
+            ),
             model=f"M-{rng.randint(100, 9999)}",
             serial=f"SN-{i:06d}-{rng.randint(0, 9999):04d}",
             install_date=(today - timedelta(days=rng.randint(365, 3650))).isoformat(),
