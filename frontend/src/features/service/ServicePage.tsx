@@ -158,7 +158,19 @@ type SLAChipState = {
   minutes: number;
 } | null;
 
-function computeSlaChip(t: ServiceTicket, nowMs: number): SLAChipState {
+/**
+ * A span in the largest whole unit it reaches: minutes under an hour, then
+ * hours, then days. Both SLA branches read it, which is the point: the late
+ * branch used to print raw minutes, so a ticket a little over three weeks
+ * overdue announced itself as "34610m late".
+ */
+function slaSpan(minutes: number): string {
+  if (minutes >= 1440) return `${Math.round(minutes / 60 / 24)}d`;
+  if (minutes >= 60) return `${Math.round(minutes / 60)}h`;
+  return `${minutes}m`;
+}
+
+export function computeSlaChip(t: ServiceTicket, nowMs: number): SLAChipState {
   if (t.sla_breached_at) {
     return { variant: 'error', label: 'Breached', minutes: 0 };
   }
@@ -171,16 +183,10 @@ function computeSlaChip(t: ServiceTicket, nowMs: number): SLAChipState {
   }
   const minutes = Math.round((dueMs - nowMs) / 60000);
   if (minutes <= 0) {
-    return { variant: 'error', label: `${Math.abs(minutes)}m late`, minutes };
+    return { variant: 'error', label: `${slaSpan(Math.abs(minutes))} late`, minutes };
   }
   const variant: 'success' | 'warning' = minutes < 60 ? 'warning' : 'success';
-  const label =
-    minutes >= 1440
-      ? `${Math.round(minutes / 60 / 24)}d`
-      : minutes >= 60
-        ? `${Math.round(minutes / 60)}h`
-        : `${minutes}m`;
-  return { variant, label, minutes };
+  return { variant, label: slaSpan(minutes), minutes };
 }
 
 function todayIso(offsetDays = 0): string {
