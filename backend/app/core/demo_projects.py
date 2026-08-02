@@ -5378,6 +5378,83 @@ def _generate_module_data(
 # ---------------------------------------------------------------------------
 
 
+# ── RFI dates ────────────────────────────────────────────────────────────────
+# An RFI carries three dates the register does arithmetic on, and the seeder
+# used to put two of them on the project's story clock (``base``, a fixed
+# calendar date) while ``created_at`` fell back to the column default, which is
+# the moment the demo was installed. The screen measures both against today, so
+# every row asserted two things that could not both be true: raised 22 days ago,
+# and 113 days past a deadline. The answered half reported a response time of
+# zero, because ``responded_at`` sat months before the row existed and the
+# router clamps a negative span to zero.
+#
+# All three now hang off the day the RFI was raised, and the RFIs are placed
+# along the axis between the project start and today instead of all on one date.
+
+# How long after it was raised the reply is due, and the day the site needs the
+# answer by. Kept at the spacing the seeder already used between the two.
+_RFI_RESPONSE_DUE_DAYS = 10
+_RFI_DATE_REQUIRED_DAYS = 14
+
+# Days ago the nth still-open RFI was raised. The first is far enough back to
+# have passed its deadline, so the overdue pill has one honest row to sit on,
+# and the others are still inside theirs. Every one of them used to be overdue.
+_RFI_OPEN_RAISED_DAYS_AGO = (16, 9, 5, 2)
+
+# Where the nth answered RFI sits in the project so far, as a fraction of the
+# time elapsed, and how many days it took to answer. Both spread, so the
+# register reports a range of response times rather than one number.
+_RFI_ANSWERED_POSITION = (0.08, 0.24, 0.41, 0.57, 0.12, 0.33, 0.49, 0.66)
+_RFI_ANSWERED_TURNAROUND_DAYS = (6, 11, 4, 9, 7, 13, 5, 8)
+
+# A demo installed within days of its project start still needs room for the
+# story its rows tell, so the fractions above are taken against at least this.
+_RFI_MIN_PROJECT_DAYS = 30
+
+
+def _rfi_schedule(
+    *, answered: bool, ordinal: int, base: datetime, now: datetime
+) -> tuple[datetime, str, str, str | None]:
+    """Date one RFI: when it was raised, when a reply is due, when one came.
+
+    ``ordinal`` counts within the status, so the open rows and the answered
+    rows each spread across their own offsets instead of sharing a day.
+
+    Two things hold whatever the clock says, because they are what the screen
+    reads as a contradiction otherwise: the deadline falls after the day the
+    RFI was raised, and an answered one was answered some days after it was
+    raised rather than at the same instant.
+
+    ``base`` and ``now`` are naive, as the seeder's project start is. The
+    returned ``created_at`` is UTC-aware to match the timestamptz column.
+    Returns ``(created_at, response_due_date, date_required, responded_at)``,
+    the last three formatted as the date strings those columns store.
+    """
+    elapsed = max((now - base).days, _RFI_MIN_PROJECT_DAYS)
+    if answered:
+        position = _RFI_ANSWERED_POSITION[ordinal % len(_RFI_ANSWERED_POSITION)]
+        turnaround = _RFI_ANSWERED_TURNAROUND_DAYS[ordinal % len(_RFI_ANSWERED_TURNAROUND_DAYS)]
+        raised = base + timedelta(days=round(elapsed * position))
+        # Pull it back rather than let the answer land in the future, which is
+        # what the fractions above would do on a demo installed near the start.
+        latest = now - timedelta(days=turnaround)
+        if raised > latest:
+            raised = max(latest, base)
+        responded: datetime | None = raised + timedelta(days=turnaround)
+    else:
+        days_ago = _RFI_OPEN_RAISED_DAYS_AGO[ordinal % len(_RFI_OPEN_RAISED_DAYS_AGO)]
+        # Against the real span, not the floored one, so nothing is raised
+        # before the project it belongs to started.
+        raised = now - timedelta(days=min(days_ago, max((now - base).days, 0)))
+        responded = None
+    return (
+        raised.replace(tzinfo=UTC),
+        (raised + timedelta(days=_RFI_RESPONSE_DUE_DAYS)).strftime("%Y-%m-%d"),
+        (raised + timedelta(days=_RFI_DATE_REQUIRED_DAYS)).strftime("%Y-%m-%d"),
+        responded.strftime("%Y-%m-%d") if responded else None,
+    )
+
+
 async def _seed_module_data(
     session: AsyncSession,
     project_id: uuid.UUID,
@@ -6442,7 +6519,23 @@ async def _seed_module_data(
 
     try:
         rfi_list = _RFIS.get(demo_id) or generated.get("rfis", [])
+        rfi_now = datetime.now(UTC).replace(tzinfo=None)
+        answered_seen = 0
+        open_seen = 0
         for r in rfi_list:
+            # "closed" counts as open here for the same reason it did before:
+            # only an "answered" row is given a response, so only it can be
+            # dated by one.
+            answered = r["status"] == "answered"
+            if answered:
+                ordinal = answered_seen
+                answered_seen += 1
+            else:
+                ordinal = open_seen
+                open_seen += 1
+            raised_at, due_date, required_date, responded_at = _rfi_schedule(
+                answered=answered, ordinal=ordinal, base=base, now=rfi_now
+            )
             session.add(
                 RFI(
                     id=_id(),
@@ -6455,15 +6548,14 @@ async def _seed_module_data(
                     status=r["status"],
                     official_response=r.get("official_response"),
                     responded_by=owner_id if r["status"] == "answered" else None,
-                    responded_at=(
-                        (base + timedelta(days=5)).strftime("%Y-%m-%d") if r["status"] == "answered" else None
-                    ),
+                    responded_at=responded_at,
                     cost_impact=r.get("cost_impact", False),
                     cost_impact_value=r.get("cost_impact_value"),
                     schedule_impact=r.get("schedule_impact", False),
                     schedule_impact_days=r.get("schedule_impact_days"),
-                    date_required=(base + timedelta(days=14)).strftime("%Y-%m-%d"),
-                    response_due_date=(base + timedelta(days=10)).strftime("%Y-%m-%d"),
+                    date_required=required_date,
+                    response_due_date=due_date,
+                    created_at=raised_at,
                     created_by=owner_str,
                     metadata_={"demo_id": demo_id},
                 )
