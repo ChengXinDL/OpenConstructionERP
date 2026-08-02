@@ -344,6 +344,36 @@
   "note": "bare technical/business acronym or initialism",
   "reason_category": "abbreviation"
  },
+ "files.approvals.col_kind": {
+  "en_value": "Type",
+  "note": "da/fr/nl/no genuinely keep 'Type' unchanged as their own word for this concept, a common Germanic/Romance cognate; corroborated by 96-97 other Type-labeled sibling keys per locale (files.col.kind itself among them) independently using the identical spelling.",
+  "reason_category": "cognate_loanword"
+ },
+ "files.approvals.insights.f_file": {
+  "en_value": "File",
+  "note": "it genuinely keeps 'File' unchanged as its own word for this concept; corroborated by 5 of 6 File-labeled sibling keys (including files.approvals.col_file itself) independently using the identical spelling.",
+  "reason_category": "cognate_loanword"
+ },
+ "files.approvals.insights.f_status": {
+  "en_value": "Status",
+  "note": "Same established loanword and identical 8-locale set (da/de/hr/id/nl/no/pl/sv) already recorded for closeout.insights.f_status and commissioning.insights.f_status (#182 modules 2 and 3). Corroborated by 130-144 other Status-labeled keys per locale.",
+  "reason_category": "cognate_loanword"
+ },
+ "files.approvals.kind_bim_model": {
+  "en_value": "BIM model",
+  "note": "cs/hr genuinely keep 'BIM model' unchanged, the 'model' half being a Slavic cognate of the English word; corroborated by 10-12 other BIM-model-labeled sibling keys per locale (including files.category.bim_model itself) independently using the identical spelling.",
+  "reason_category": "cognate_loanword"
+ },
+ "files.approvals.kind_document": {
+  "en_value": "Document",
+  "note": "fr/nl/ro genuinely keep 'Document' unchanged as their own word for this concept, a common Romance/Germanic cognate; corroborated by all 14 other Document-labeled sibling keys per locale (including files.category.document itself) independently using the identical spelling.",
+  "reason_category": "cognate_loanword"
+ },
+ "files.approvals.kind_photo": {
+  "en_value": "Photo",
+  "note": "fr genuinely keeps 'Photo' unchanged as its own word for this concept; corroborated by all 6 other Photo-labeled sibling keys (including files.category.photo itself) independently using the identical spelling.",
+  "reason_category": "cognate_loanword"
+ },
  "files.distribution.modal_edit_title": {
   "en_value": "{{name}}",
   "note": "entirely template variables/punctuation, no literal word to translate",
