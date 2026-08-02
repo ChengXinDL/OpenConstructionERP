@@ -214,6 +214,26 @@
   "note": "entirely template variables/punctuation, no literal word to translate",
   "reason_category": "template_placeholder"
  },
+ "commissioning.insights.f_name": {
+  "en_value": "System",
+  "note": "da/de/no/pl/sv genuinely keep 'System' unchanged as their own word for this concept (corroborated by theme.system/settings.theme_system in da/de/no/sv, and reporting.scope_system in pl). Not universal across all 27 locales -- the module's own field_name/stat_systems siblings translate fully elsewhere; this specific column-header sense stays as the established loanword only in these five.",
+  "reason_category": "cognate_loanword"
+ },
+ "commissioning.insights.f_status": {
+  "en_value": "Status",
+  "note": "Same established loanword and identical 8-locale set (da/de/hr/id/nl/no/pl/sv) already recorded for closeout.insights.f_status (module 2 of #182). Corroborated by 135-153 other Status-labeled keys per locale.",
+  "reason_category": "cognate_loanword"
+ },
+ "commissioning.type_elevator": {
+  "en_value": "Elevator",
+  "note": "Danish genuinely uses 'elevator' as its own word; kept only in da (single locale, no other locale coincides). Corroborated same-file by equipment.inspection.tooltip ('elevatorattestater'), service.recurring.empty_desc ('elevatorinspektioner') and service.asset_type_lift ('Elevatorer', da for 'Lift / elevator'). No same-string sibling exists for this exact key -- hence direct translation rather than a resolved collision -- but the word is attested three times over in da.ts under unrelated keys.",
+  "reason_category": "cognate_loanword"
+ },
+ "commissioning.type_hvac": {
+  "en_value": "HVAC",
+  "note": "HVAC kept as the international acronym in hr/id/it/nl/ro/th/vi: both punch.category_hvac and service.asset_type_hvac independently agree on bare 'HVAC' in exactly these seven locales (elsewhere punch.category_hvac has a fully localized term and that term was used for this key instead). service.asset_type_hvac is bare 'HVAC' in 26 of 27 locales product-wide (see i18n_leak_pending_review.json), a pre-existing, pervasive convention, not a leftover from this pass.",
+  "reason_category": "cognate_loanword"
+ },
  "common.number": {
   "en_value": "#",
   "note": "bare symbol/punctuation glyph, not a word",
