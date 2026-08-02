@@ -2,7 +2,6 @@
  "bim.converter_panel_size": {
   "en_value": "{{size}} MB",
   "leaked_locales": [
-   "bg",
    "cs",
    "da",
    "de",
@@ -15,7 +14,6 @@
    "it",
    "ja",
    "ko",
-   "ky",
    "nl",
    "no",
    "pl",
@@ -246,8 +244,6 @@
  "takeoff_viewer.width_unit_px": {
   "en_value": "px",
   "leaked_locales": [
-   "ar",
-   "bg",
    "cs",
    "da",
    "de",
@@ -255,19 +251,15 @@
    "es-MX",
    "fi",
    "fr",
-   "hi",
    "hr",
    "id",
    "it",
-   "ja",
-   "ko",
    "nl",
    "no",
    "pl",
    "pt",
    "ro",
    "sv",
-   "th",
    "tr",
    "vi"
   ]

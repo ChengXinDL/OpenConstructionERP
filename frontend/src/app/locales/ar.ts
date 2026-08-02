@@ -31654,7 +31654,7 @@ const resource = {
     "takeoff_viewer.width_unit_ft": "ft",
     "takeoff_viewer.width_unit_ftin": "ft + in",
     "takeoff_viewer.width_unit_in": "in",
-    "takeoff_viewer.width_unit_px": "px",
+    "takeoff_viewer.width_unit_px": "بكسل",
     "takt.activities": "الأنشطة",
     "takt.activity": "النشاط",
     "takt.activity_deleted": "تم إزالة النشاط",

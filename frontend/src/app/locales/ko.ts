@@ -31585,7 +31585,7 @@ const resource = {
     "takeoff_viewer.width_unit_ft": "ft",
     "takeoff_viewer.width_unit_ftin": "ft + in",
     "takeoff_viewer.width_unit_in": "in",
-    "takeoff_viewer.width_unit_px": "px",
+    "takeoff_viewer.width_unit_px": "픽셀",
     "takt.activities": "활동",
     "takt.activity": "활동",
     "takt.activity_deleted": "활동이 제거되었습니다",

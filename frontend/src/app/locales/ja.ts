@@ -31582,7 +31582,7 @@ const resource = {
     "takeoff_viewer.width_unit_ft": "フィート",
     "takeoff_viewer.width_unit_ftin": "フィート + インチ",
     "takeoff_viewer.width_unit_in": "インチ",
-    "takeoff_viewer.width_unit_px": "px",
+    "takeoff_viewer.width_unit_px": "ピクセル",
     "takt.activities": "活動",
     "takt.activity": "活動",
     "takt.activity_deleted": "活動を削除しました",
