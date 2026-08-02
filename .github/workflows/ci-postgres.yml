@@ -48,21 +48,25 @@ jobs:
         # thread method because signal based timeouts are Unix-only and this
         # suite is expected to stay runnable on Windows developer machines.
         run: pytest tests/pg -q -p no:cacheprovider --timeout=300 --timeout-method=thread
-      # Vocabulary checks: the places where one list of allowed values is written
-      # down in a second place that can drift from it. The demo seeder builds ORM
-      # rows directly, so nothing it writes ever meets the Pydantic layer that owns
-      # the vocabulary, and it has twice ended up storing values the API itself
-      # would refuse; the contacts importer had the same gap from the other side
-      # and rewrote what it did not recognise without saying so. All four need no
-      # database and finish in about a second. They are attached here for the same
-      # reason as the cost base suite below, which is that tests/unit runs in no
-      # lane that blocks a merge.
-      - name: Run seed and import vocabulary tests
+      # Checks on what the demo seeder writes. Two families so far. Vocabulary:
+      # the places where one list of allowed values is written down in a second
+      # place that can drift from it. The seeder builds ORM rows directly, so
+      # nothing it writes ever meets the Pydantic layer that owns the vocabulary,
+      # and it has twice stored values the API itself would refuse; the contacts
+      # importer had the same gap from the other side and rewrote what it did not
+      # recognise without saying so. Dates: rows whose timestamps have to agree
+      # with the arithmetic a screen does on them, after the RFI register spent
+      # months asserting a deadline that fell before the request. All five need
+      # no database and finish in about a second. They are attached here for the
+      # same reason as the cost base suite below, which is that tests/unit runs
+      # in no lane that blocks a merge.
+      - name: Run demo seed and import consistency tests
         run: >-
           pytest tests/unit/test_demo_contact_types.py
           tests/unit/test_demo_variations_vocabulary.py
           tests/unit/test_demo_correspondence_parties.py
           tests/unit/test_contacts_import_vocabulary.py
+          tests/unit/test_demo_rfi_dates.py
           -q -p no:cacheprovider
       # The cost base pipeline produces the parquet editions people download from us, so it
       # needs a blocking gate. It needs no database; it is attached here because this is the
