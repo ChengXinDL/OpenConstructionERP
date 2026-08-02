@@ -20943,7 +20943,7 @@ const resource = {
     "bid_management.company": "Bedrijf",
     "bid_management.confidentiality": "Vertrouwelijkheid",
     "bid_management.create_contract": "Formaliseer als contract",
-    "bid_management.currency_hint": "ISO-4217 3-letter code.",
+    "bid_management.currency_hint": "ISO-4217 3-lettercode.",
     "bid_management.deadline": "Deadline",
     "bid_management.decision_due": "Besluit verschuldigd",
     "bid_management.description": "Beschrijving",
