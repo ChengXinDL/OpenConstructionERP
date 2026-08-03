@@ -101,6 +101,17 @@ jobs:
       # No database, about two seconds.
       - name: Run erp_chat no-tool provider tests
         run: pytest tests/unit/test_erp_chat_fallback_provider.py -q -p no:cacheprovider
+      # A cross-tenant read, so it is attached here rather than left to the
+      # sharded Backend CI job. The rating provenance record carries a raw
+      # COUNT(*) over the NCR, safety-incident and schedule tables filtered
+      # only by subcontractor and month, and it was reaching the wire through
+      # an endpoint that asks for the viewer role. This pins the redaction on
+      # the response schema, which is the single point all three rating routes
+      # pass through. It does not close the whole exposure: the counters beside
+      # it are max(accumulated, direct), and narrowing those needs a decision
+      # on whether a rating is per project, per tenant or deliberately shared.
+      - name: Run subcontractor rating disclosure tests
+        run: pytest tests/unit/test_subcontractor_rating_basis_privacy.py -q -p no:cacheprovider
       # The cost base pipeline produces the parquet editions people download from us, so it
       # needs a blocking gate. It needs no database; it is attached here because this is the
       # only merge-blocking lane that runs pytest, and an ungated test is the situation this

@@ -704,6 +704,17 @@ class RatingCreate(BaseModel):
     basis: dict[str, Any] = Field(default_factory=dict)
 
 
+# Keys inside ``basis`` that record where a number came from rather than what
+# it is. ``sources`` holds a per-metric {"event": n, "direct": n} pair, and the
+# ``direct`` half is a raw COUNT(*) over the NCR, safety-incident and schedule
+# tables filtered only by subcontractor and month. Those tables are gated by
+# verify_project_access when read through their own modules; this count is not
+# gated at all, so publishing the pair hands any reader an exact tally of
+# another installation tenant's non-conformances and safety incidents through
+# an endpoint that asks only for subcontractors.read.
+_RATING_BASIS_INTERNAL_KEYS = frozenset({"sources"})
+
+
 class RatingResponse(BaseModel):
     """SubcontractorRating returned by the API."""
 
@@ -720,6 +731,27 @@ class RatingResponse(BaseModel):
     basis: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime
+
+    @field_validator("basis", mode="after")
+    @classmethod
+    def _drop_internal_basis_keys(cls, value: dict[str, Any]) -> dict[str, Any]:
+        """Keep the provenance record on the row and off the wire.
+
+        The stored column is left alone, because the audit trail is the reason
+        it is written. This only decides what leaves the process, and it sits
+        on the response schema rather than in a router so that all three
+        routes returning a rating are covered by one rule.
+
+        This narrows the exposure, it does not close it. The headline counters
+        beside it are ``max(accumulated, direct)``, so a subcontractor busier
+        outside the reader's projects than inside them still shows a number the
+        reader could not otherwise obtain, and the score is computed from those
+        same counters. Closing that needs a decision on whether a rating is per
+        project, per tenant or deliberately shared, which changes both what the
+        query may count and what a stored rating row means. Recorded rather
+        than guessed at.
+        """
+        return {k: v for k, v in value.items() if k not in _RATING_BASIS_INTERNAL_KEYS}
 
 
 # ── Helpers / dashboards ────────────────────────────────────────────────
