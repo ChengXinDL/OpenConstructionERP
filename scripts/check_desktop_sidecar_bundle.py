@@ -9,11 +9,11 @@ database".
 
 That is what happened in issue #419. The hook that collects the embedded
 PostgreSQL tree used PyInstaller's ``collect_data_files``, which excludes every
-suffix in ``importlib.machinery.all_suffixes()``. On Linux and macOS that list
-contains ``.so``, the exact suffix PostgreSQL gives its own loadable modules, so
+suffix in ``importlib.machinery.all_suffixes()``. On Linux that list contains
+``.so``, the exact suffix PostgreSQL gives its own loadable modules there, so
 dict_snowball, plpgsql and the encoding converters were dropped from the bundle.
-On Windows those same modules are named ``.dll`` and came through, so the
-Windows installer worked and the break looked like a Linux-only mystery.
+Windows and macOS name those same modules ``.dll`` and ``.dylib`` and came
+through intact, so the break looked like a Linux-only mystery.
 
 The hook now walks the tree itself and refuses to build without those modules.
 This script is the second half: it reads the archive of the executable that was
@@ -35,8 +35,8 @@ from pathlib import Path
 # it can serve a single query. initdb loads dict_snowball while running
 # snowball_create.sql and creates the plpgsql extension during bootstrap; the
 # server loads pgoutput and libpqwalreceiver on any replication path. Names are
-# suffix-free because the same module is dict_snowball.so on Linux and macOS and
-# dict_snowball.dll on Windows.
+# suffix-free because the same module is dict_snowball.so on Linux,
+# dict_snowball.dll on Windows and dict_snowball.dylib on macOS.
 REQUIRED_PG_MODULES = ("dict_snowball", "plpgsql")
 
 # The executables the sidecar spawns. Present on every platform, and their

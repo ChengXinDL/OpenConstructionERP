@@ -42,7 +42,7 @@ const CHANGELOG: ChangelogEntry[] = [
     date: '2026-08-03',
     tag: 'FIX',
     summary:
-      'The desktop app starts its own database on Linux again. PostgreSQL names its loadable modules the same way Python names an extension, so the tool that freezes the backend threw all of them away on the way into the Linux and macOS installers and the app stopped at "Starting the local database". The build now reads that directory itself and refuses to produce an installer without them.',
+      'The desktop app starts its own database on Linux again. On Linux, PostgreSQL names its loadable modules the same way Python names an extension, so the tool that freezes the backend threw all of them away on the way into the Linux installer and the app stopped at "Starting the local database". The build now reads that directory itself and refuses to produce an installer without them.',
   },
   {
     version: '14.2.0',

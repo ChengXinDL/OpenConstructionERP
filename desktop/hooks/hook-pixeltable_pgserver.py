@@ -14,16 +14,19 @@
 # ``collect_data_files``. That helper is documented to return "all files that
 # are not shared libraries / binary python extensions", and it decides what a
 # shared library is purely from the file suffix: it excludes every suffix in
-# ``importlib.machinery.all_suffixes()``. On Linux and macOS that list contains
-# ``.so``, so the helper silently dropped every one of PostgreSQL's own loadable
-# modules, which are named exactly that way - dict_snowball.so, plpgsql.so,
-# vector.so, the encoding conversion modules. On Windows the same modules are
-# named ``.dll``, which is not a Python extension suffix, so they came through
-# and the Windows build worked. That asymmetry is issue #419: on Ubuntu based
+# ``importlib.machinery.all_suffixes()``. On Linux that list contains ``.so``,
+# and that is exactly how PostgreSQL names its own loadable modules there, so
+# the helper silently dropped every one of them - dict_snowball.so, plpgsql.so,
+# vector.so, the encoding conversion modules. Windows and macOS name the same
+# modules ``.dll`` and ``.dylib``, neither of which is a Python extension
+# suffix, so both of those builds came through intact. Checked against the real
+# wheels: 33 of 1659 pginstall files are dropped from the manylinux one and 0 of
+# 1655 from the macOS one. That asymmetry is issue #419: on Ubuntu based
 # distributions the desktop app failed at "Starting the local database" because
 # initdb runs snowball_create.sql during bootstrap and could not load
 # $libdir/dict_snowball. The versioned support libraries (libpq.so.5) were never
-# affected, because a name ending in ".so.5" does not match the ".so" suffix.
+# affected either, because a name ending in ".so.5" does not match the ".so"
+# suffix, which is why the cluster got as far as running initdb.
 #
 # The guard at the bottom fails the build rather than shipping an installer
 # whose database cannot initialise. A missing module here does not surface until

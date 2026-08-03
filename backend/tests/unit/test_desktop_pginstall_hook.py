@@ -6,11 +6,12 @@ The hook collected the ``pginstall/`` tree with PyInstaller's
 ``collect_data_files``, which is documented to return only files that are "not
 shared libraries / binary python extensions" and decides that from the suffix
 alone: it excludes every entry in ``importlib.machinery.all_suffixes()``. On
-Linux and macOS that list contains ``.so``, which is exactly how PostgreSQL
-names its own loadable modules, so dict_snowball, plpgsql, pgoutput and the
-encoding converters were dropped. On Windows the same modules are ``.dll``,
-which is not a Python extension suffix, so the Windows installer worked and the
-break looked platform specific rather than suffix specific.
+Linux that list contains ``.so``, which is exactly how PostgreSQL names its own
+loadable modules there, so dict_snowball, plpgsql, pgoutput and the encoding
+converters were dropped. Windows and macOS name the same modules ``.dll`` and
+``.dylib``, neither of which is a Python extension suffix, so both of those
+installers were intact and the break looked platform specific rather than
+suffix specific.
 
 These tests exec the real hook file against a synthetic package tree, with a
 stub ``collect_data_files`` that reproduces the exclusion. That is the point: if
@@ -39,10 +40,11 @@ import pytest
 
 HOOK_PATH = Path(__file__).resolve().parents[3] / "desktop" / "hooks" / "hook-pixeltable_pgserver.py"
 
-# What PyInstaller's collect_data_files excludes on a Linux or macOS build. The
-# real value is importlib.machinery.all_suffixes(), which is platform dependent;
+# What PyInstaller's collect_data_files excludes on a Linux build. The real
+# value is importlib.machinery.all_suffixes(), which is platform dependent;
 # pinning the Linux set here is what makes this test reproduce #419 when it runs
-# on a Windows or macOS developer machine.
+# on a Windows or macOS developer machine. macOS shares the .so entry but names
+# its PostgreSQL modules .dylib, so only Linux was ever hit.
 POSIX_PY_SUFFIXES = (".py", ".pyc", ".so")
 
 # Names taken from a real pixeltable-pgserver wheel. dict_snowball is the one
