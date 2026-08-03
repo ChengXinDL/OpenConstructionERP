@@ -60,6 +60,14 @@ jobs:
       # no database and finish in about a second. They are attached here for the
       # same reason as the cost base suite below, which is that tests/unit runs
       # in no lane that blocks a merge.
+      # Two more families joined the list. Scaffolding text: the seed writers
+      # outnumber the twelve seeders the PG suite executes, so most of them have
+      # no runtime coverage at all and a source scan is the only thing that
+      # reads them; it caught rows whose own description said they were seeded.
+      # Insight dimensions: a chart that draws one category called "Not
+      # recorded" is usually the writer and the reader spelling the same field
+      # differently, which no amount of seeded data will fix and no existing
+      # test noticed.
       - name: Run demo seed and import consistency tests
         run: >-
           pytest tests/unit/test_demo_contact_types.py
@@ -68,7 +76,24 @@ jobs:
           tests/unit/test_contacts_import_vocabulary.py
           tests/unit/test_demo_rfi_dates.py
           tests/unit/test_demo_party_lookup.py
+          tests/unit/test_demo_seed_text_has_no_scaffolding_words.py
+          tests/unit/test_demo_insight_dimensions.py
           -q -p no:cacheprovider
+      # The region to currency table. Attached for the same reason as the suites
+      # around it, which is that tests/unit runs in no lane that blocks a merge.
+      # A CWICR parquet carries no currency column, so the region tag on the row is
+      # the only statement of which money the rate is in, and the importer stamps a
+      # whole file from one lookup in that table. The set of bases the importer
+      # accepts and the table it looks the currency up in were built from two
+      # different registries, and twelve of the thirty-eight loadable regions were
+      # missing from the table: importing one of those resolved to the empty string
+      # and wrote a catalogue of prices with no unit of money on them. That is how
+      # 55 718 rows came to carry no currency. The suite parametrises over every
+      # loadable base so a region that drops out of the table fails by its own
+      # name, and it asserts the read and write paths share one table object rather
+      # than two copies kept in step by a comment. No database, about eight seconds.
+      - name: Run cost region currency table tests
+        run: pytest tests/unit/costs/test_region_currency_fallback.py -q -p no:cacheprovider
       # The DWG parser. Attached for the same reason as the two suites either side
       # of it: tests/unit is in no lane that blocks a merge, and this is the parser
       # whose vertex re-scan shipped quadratic in every release from 3.0.2 to 14.1.0
