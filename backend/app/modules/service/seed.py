@@ -10,6 +10,10 @@ Function ``seed_service_demo(session)`` populates:
     - 200 historical work orders in ``billed`` state with line items
     - 20 active PPM schedules
 
+Ticket timing is drawn against each contract's own SLA tier rather than a
+fixed window, so the estate reports a believable spread of met, near-miss and
+breached rather than a uniform 100% breach. See :data:`_SLA_OUTCOME_MIX`.
+
 Idempotent only at the *no-existing-rows* level: if any contract already
 exists for the seeded customer ids the function returns early.
 
@@ -73,13 +77,19 @@ _FAULTS: tuple[str, ...] = (
 )
 
 # Localised customer names - small, neutral list spanning EN/DE/RU markets.
-_CUSTOMER_NAMES: list[str] = [
-    "ACME Facilities Ltd",
-    "Zellbrandt Wartung GmbH",
-    "ООО Тепло-Сервис",
-    "Northwind Property Group",
-    "Aurora Tower Management",
-]
+# Each maintenance customer with the address its Contact record carries. One
+# mapping rather than two parallel lists, so a name cannot end up without an
+# address. ``.example`` is reserved by RFC 2606 and is what the rest of the
+# seeded estate uses, which keeps these off a real company's domain.
+_CUSTOMER_CONTACT_EMAILS: dict[str, str] = {
+    "ACME Facilities Ltd": "helpdesk@acme-facilities.example",
+    "Zellbrandt Wartung GmbH": "service@zellbrandt-wartung.example",
+    "ООО Тепло-Сервис": "dispatch@teplo-servis.example",
+    "Northwind Property Group": "estates@northwind-property.example",
+    "Aurora Tower Management": "building@aurora-tower.example",
+}
+
+_CUSTOMER_NAMES: list[str] = list(_CUSTOMER_CONTACT_EMAILS)
 
 _ASSET_TYPES: list[str] = [
     "boiler",
@@ -102,6 +112,60 @@ _ROOT_CAUSE_CATEGORIES: list[str] = [
     "consumable_depleted",
 ]
 
+# How a maintenance desk actually performs against its own SLA, expressed as
+# a fraction of the target window. The seeder used a fixed four-hour due date
+# against a one-to-twenty-four-hour resolution, so every historical ticket
+# breached and the register reported 100% failure - which reads as a broken
+# feature rather than a struggling contractor.
+#
+# Each entry is (weight, low, high): the elapsed time is drawn as
+# ``target * uniform(low, high)``. Anything below 1.0 met the target, the
+# 0.82-0.99 band is the "approaching" state the dashboard highlights, and only
+# the last band is a genuine breach.
+_SLA_OUTCOME_MIX: tuple[tuple[int, float, float], ...] = (
+    (72, 0.10, 0.75),  # comfortably inside the window
+    (18, 0.82, 0.99),  # ran close to the wire
+    (10, 1.05, 2.20),  # breached
+)
+
+
+def _sla_elapsed_fraction(rng: random.Random) -> float:
+    """Draw how much of an SLA window a ticket consumed.
+
+    Returns a multiplier to apply to the target window. Values below ``1.0``
+    met the SLA; at or above ``1.0`` the ticket breached. The mix is
+    :data:`_SLA_OUTCOME_MIX`, so a seeded estate reports mostly-green with a
+    minority of breaches rather than a uniform wall of red.
+    """
+    weights = [w for w, _, _ in _SLA_OUTCOME_MIX]
+    low, high = rng.choices(
+        [(lo, hi) for _, lo, hi in _SLA_OUTCOME_MIX],
+        weights=weights,
+        k=1,
+    )[0]
+    return rng.uniform(low, high)
+
+
+def _sla_offsets(sla: SLADefinition, priority: str) -> tuple[timedelta, timedelta]:
+    """Return the ``(response, resolution)`` windows this tier promises.
+
+    Delegates to the module's own
+    :func:`app.modules.service.service.compute_sla_response_and_resolution`
+    rather than re-reading ``severity_levels`` here, so the target the seeder
+    measures a ticket against is the same target the running product computes
+    for it. Reading the override dict a second way is how the seeded estate
+    ends up disagreeing with the screen that reports on it.
+    """
+    from app.modules.service.service import compute_sla_response_and_resolution
+
+    base = datetime(2000, 1, 1, tzinfo=UTC)
+    response_due, resolution_due = compute_sla_response_and_resolution(base, sla, priority=priority)
+    # ``sla`` is never None here, so neither return value can be.
+    return (
+        (response_due or base) - base,
+        (resolution_due or base) - base,
+    )
+
 
 async def _customer_id_for(session: AsyncSession, idx: int) -> uuid.UUID:
     """Resolve the i-th demo customer's ``Contact`` id, creating it on demand.
@@ -122,7 +186,7 @@ async def _customer_id_for(session: AsyncSession, idx: int) -> uuid.UUID:
         contact = Contact(
             contact_type="customer",
             company_name=name,
-            primary_email=f"demo-{idx}@service.openconstructionerp.local",
+            primary_email=_CUSTOMER_CONTACT_EMAILS[name],
             is_active=True,
         )
         session.add(contact)
@@ -141,8 +205,11 @@ async def seed_service_demo(session: AsyncSession) -> dict[str, int]:
     Returns a dict with row counts of each entity created.
     """
     rng = random.Random(42)
-    today = datetime.now(UTC).date()
+    # One clock, read once. Taking ``today`` from a second ``now()`` call lets
+    # a seed run that straddles midnight date rows one day apart from the
+    # timestamps they belong to.
     now = datetime.now(UTC)
+    today = now.date()
 
     counters: dict[str, int] = {
         "sla_definitions": 0,
@@ -261,20 +328,42 @@ async def seed_service_demo(session: AsyncSession) -> dict[str, int]:
         counters["assets"] += 1
     await session.flush()
 
+    # Every contract points at one of the three tiers, so the tier a ticket is
+    # measured against has to be looked up by id. Picking gold-or-else-silver
+    # measured every bronze contract against silver's four-hour promise, which
+    # is a different (and much harsher) target than the one the customer bought.
+    sla_by_id = {sla.id: sla for sla in slas}
+
     # ── Open tickets (30) ────────────────────────────────────────────────
     priorities = ["low", "med", "high", "critical"]
-    statuses_open = ["new", "assigned", "in_progress"]
     for i in range(30):
         contract = contracts[rng.randrange(len(contracts))]
         asset = rng.choice([a for a in assets if a.contract_id == contract.id])
         priority = priorities[rng.randrange(len(priorities))]
-        reported_at = now - timedelta(hours=rng.randint(0, 72))
-        sla = slas[0] if contract.sla_definition_id == slas[0].id else slas[1]
-        sla_minutes = sla.severity_levels.get(priority, {}).get(
-            "response_time_minutes",
-            sla.response_time_minutes,
-        )
-        sla_due = reported_at + timedelta(minutes=sla_minutes)
+        sla = sla_by_id.get(contract.sla_definition_id) or slas[0]
+
+        # Age the ticket against its OWN response window rather than against a
+        # flat 0-72h. An open ticket breaches when ``sla_due_at`` passes
+        # (``ServiceService.scan_sla_breaches``), so drawing the age as a
+        # fraction of the target is what decides the outcome, and drawing it
+        # in absolute hours is what made the whole queue overdue.
+        response_due_offset, resolution_due_offset = _sla_offsets(sla, priority)
+        elapsed = _sla_elapsed_fraction(rng)
+        reported_at = now - response_due_offset * elapsed
+        response_due = reported_at + response_due_offset
+        resolution_due = reported_at + resolution_due_offset
+
+        # Status follows the age: nobody has picked up a ticket raised two
+        # minutes ago, and a ticket sitting at 90% of its window has been
+        # looked at. An assigned ticket always names the engineer it went to.
+        if elapsed < 0.35:
+            status = "new"
+        elif elapsed < 0.85:
+            status = "assigned"
+        else:
+            status = "in_progress"
+        assigned_to = None if status == "new" else f"tech-{rng.randint(1, 6):02d}"
+
         ticket = ServiceTicket(
             contract_id=contract.id,
             asset_id=asset.id,
@@ -286,9 +375,16 @@ async def seed_service_demo(session: AsyncSession) -> dict[str, int]:
             description=f"Reported on {asset.name} by the site team.",
             priority=priority,
             reported_at=reported_at.isoformat(),
-            sla_due_at=sla_due.isoformat(),
-            status=statuses_open[rng.randrange(len(statuses_open))],
-            assigned_to=f"tech-{rng.randint(1, 6):02d}" if rng.random() > 0.3 else None,
+            sla_due_at=response_due.isoformat(),
+            # Both clocks were left NULL, so the two-clock SLA view the module
+            # gained in R7 had nothing to read on any seeded ticket.
+            response_due_at=response_due.isoformat(),
+            resolution_due_at=resolution_due.isoformat(),
+            # Ground truth the dashboard reads, stamped only when the response
+            # window has actually run out.
+            sla_breached_at=response_due.isoformat() if elapsed >= 1.0 else None,
+            status=status,
+            assigned_to=assigned_to,
         )
         session.add(ticket)
         counters["tickets"] += 1
@@ -303,18 +399,40 @@ async def seed_service_demo(session: AsyncSession) -> dict[str, int]:
         asset = rng.choice(contract_assets)
         days_ago = rng.randint(1, 365)
         reported_at = now - timedelta(days=days_ago, hours=rng.randint(0, 8))
+        priority = priorities[rng.randrange(len(priorities))]
+        sla = sla_by_id.get(contract.sla_definition_id) or slas[0]
+        response_due_offset, resolution_due_offset = _sla_offsets(sla, priority)
+
+        # A closed ticket is judged on the RESOLUTION clock. The seeder stamped
+        # a flat four hours due against a one-to-twenty-four-hour resolution, so
+        # roughly five in six historical tickets breached by construction and
+        # the register read as a total SLA failure. Drawing the time taken as a
+        # fraction of the tier's own resolution window fixes both the
+        # distribution and the ordering: reported <= resolved <= closed holds
+        # for every row because each is built from the one before it.
+        elapsed = _sla_elapsed_fraction(rng)
+        resolved_at = reported_at + resolution_due_offset * elapsed
+        # First response landed inside its own window on everything that met
+        # the resolution target; a breached job was the one nobody got to.
+        responded_late = elapsed >= 1.0
+        # Administrative close follows the fix by a few hours to a day - never
+        # before it.
+        closed_at = resolved_at + timedelta(hours=rng.randint(2, 26))
         ticket = ServiceTicket(
             contract_id=contract.id,
             asset_id=asset.id,
             ticket_number=f"SR-{1000 + i + 1:05d}",
             title=_FAULTS[i % len(_FAULTS)],
             description=f"Reported on {asset.name} and attended on the same visit.",
-            priority=priorities[rng.randrange(len(priorities))],
+            priority=priority,
             reported_at=reported_at.isoformat(),
-            sla_due_at=(reported_at + timedelta(hours=4)).isoformat(),
+            sla_due_at=(reported_at + response_due_offset).isoformat(),
+            response_due_at=(reported_at + response_due_offset).isoformat(),
+            resolution_due_at=(reported_at + resolution_due_offset).isoformat(),
+            sla_breached_at=((reported_at + resolution_due_offset).isoformat() if responded_late else None),
             status="closed",
-            resolved_at=(reported_at + timedelta(hours=rng.randint(1, 24))).isoformat(),
-            closed_at=(reported_at + timedelta(days=1)).isoformat(),
+            resolved_at=resolved_at.isoformat(),
+            closed_at=closed_at.isoformat(),
             assigned_to=f"tech-{rng.randint(1, 6):02d}",
         )
         session.add(ticket)
@@ -324,7 +442,11 @@ async def seed_service_demo(session: AsyncSession) -> dict[str, int]:
         wo = ServiceWorkOrder(
             ticket_id=ticket.id,
             work_order_number=f"WO-{i + 1:06d}",
-            scheduled_for=(reported_at + timedelta(hours=2)).isoformat(),
+            # The visit is booked shortly before the engineer fixes it, not a
+            # flat two hours after the call: on a job that took three days to
+            # resolve, a visit scheduled on day one and completed on day three
+            # describes an attendance that never happened.
+            scheduled_for=(resolved_at - timedelta(hours=rng.randint(1, 3))).isoformat(),
             technician_id=ticket.assigned_to,
             status="billed",
             debrief_summary="Replaced consumable and verified operation.",
