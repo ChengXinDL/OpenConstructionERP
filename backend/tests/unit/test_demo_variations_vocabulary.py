@@ -49,10 +49,7 @@ def test_every_generated_variation_order_carries_a_status_the_module_accepts(
     assert rows, f"{demo_id} generated no variation orders, the check would be vacuous"
 
     offenders = [r["status"] for r in rows if not _ALLOWED.match(r["status"])]
-    assert not offenders, (
-        f"{demo_id} seeds variation orders with statuses outside _VO_STATUS: "
-        f"{sorted(set(offenders))}"
-    )
+    assert not offenders, f"{demo_id} seeds variation orders with statuses outside _VO_STATUS: {sorted(set(offenders))}"
 
 
 def test_the_check_rejects_the_status_that_was_actually_wrong() -> None:
