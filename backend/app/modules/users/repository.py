@@ -48,8 +48,24 @@ class UserRepository:
         limit: int = 50,
         is_active: bool | None = None,
     ) -> tuple[list[User], int]:
-        """List users with pagination. Returns (users, total_count)."""
-        base = select(User)
+        """List users with pagination. Returns (users, total_count).
+
+        Erased accounts (``deleted_at`` set) are never returned. Deleting a user
+        anonymises the row in place instead of removing it, because projects
+        point at it through ``owner_id`` and activity / audit rows through
+        ``actor_id``, and the projects foreign key cascades - a hard delete would
+        take the user's projects, BOQs and documents with it. The row therefore
+        has to survive, but it is no longer an account: it carries no personal
+        data, it cannot authenticate, and there is no administrator action left
+        to take on it. Listing it put a blank-named
+        ``deleted+<hash>@deleted.invalid`` row back on the management page, which
+        read as a deletion that had failed, and deleting it a second time
+        answered 404 because the erasure path refuses an already-erased row.
+
+        The predicate goes on ``base`` so the total and the page agree; putting
+        it only on the fetch would keep counting rows the caller never sees.
+        """
+        base = select(User).where(User.deleted_at.is_(None))
         if is_active is not None:
             base = base.where(User.is_active == is_active)
 
