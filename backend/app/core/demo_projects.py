@@ -2282,7 +2282,7 @@ async def _get_or_create_owner(session: AsyncSession) -> uuid.UUID:
             id=_id(),
             email="demo@openconstructionerp.com",
             hashed_password="$2b$12$DEMO_HASH_NOT_FOR_PRODUCTION_USE_ONLY",
-            full_name="Demo User",
+            full_name="Elena Marchetti",
             role="admin",
             locale="en",
             is_active=True,
@@ -4879,7 +4879,13 @@ def _generate_module_data(
                 "equipment_count": equip,
                 "status": "closed" if i % 2 == 0 else "open",
                 "notes": notes,
-                "weather_summary": {"condition": cond, "temp_c": 12 + (i % 12)},
+                # The reader selects ``conditions``, plural
+                # (frontend/src/features/daily-diary/dailyDiaryInsights.ts). This
+                # wrote the singular, so every diary fell into the insights
+                # panel's "Not recorded" bucket and the weather breakdown drew
+                # one category over a register that was never actually missing
+                # the data.
+                "weather_summary": {"conditions": cond, "temp_c": 12 + (i % 12)},
             }
         )
 
@@ -8693,7 +8699,27 @@ async def _seed_module_data(
         # a column of em-dashes instead of money. The template currency is
         # the same value that went into Project.currency.
         budget_currency = (template.currency or "").strip()[:3].upper()
+        # Skip categories this project already carries. Without this the insert
+        # was unguarded, and the guards above it do not cover it: the callers of
+        # ``_seed_module_data`` gate on a *representative* module (an RFI row),
+        # so any run that reaches this block a second time - a first run that
+        # failed after the budgets were written, or a re-enrichment - wrote the
+        # category again. ``ProjectBudget`` is unique on
+        # (project_id, wbs_id, category) but ``wbs_id`` is NULL here, and
+        # PostgreSQL treats NULLs as distinct, so the constraint does not catch
+        # it: the estate silently grew a second "KG 300 Bauwerk" line and the
+        # finance rollup double-counted it. Checking explicitly is the only
+        # thing that actually holds.
+        existing_categories = set(
+            (await session.execute(select(ProjectBudget.category).where(ProjectBudget.project_id == project_id)))
+            .scalars()
+            .all()
+        )
+        added_budgets = 0
         for bl in budget_list:
+            if bl["category"][:100] in existing_categories:
+                continue
+            added_budgets += 1
             session.add(
                 ProjectBudget(
                     id=_id(),
@@ -8711,7 +8737,9 @@ async def _seed_module_data(
                     metadata_={"demo_id": demo_id},
                 )
             )
-        results["finance_budgets"] = len(budget_list)
+        # Report what was written, not what was offered. Reporting the input
+        # length made a fully skipped re-run look like a fully successful one.
+        results["finance_budgets"] = added_budgets
     except Exception:
         logger.debug("Finance budget not loaded, skipping")
 
@@ -9976,6 +10004,11 @@ async def _seed_module_data(
     # holds those rows has to clear them too, or the old ones survive with a
     # code the new run never writes and never deletes.
     _legacy_code_prefix = f"DEMO-{_pkey}-"
+    # These codes also used to open with ``DEMO-``. That prefix is the part the
+    # estimator actually read off the card, so it is gone from what we write.
+    # An install seeded before the rename still holds it, and the re-seed has
+    # to clear both shapes or those rows outlive the run that owns them.
+    _legacy_slug_prefix = f"DEMO-{_demo_slug}-"
 
     # ── Assemblies (project recipes so /assemblies is never empty) ─────
     try:
@@ -10016,12 +10049,13 @@ async def _seed_module_data(
                 ],
             ),
         ]
-        _asm_codes = [f"DEMO-{_demo_slug}-ASM{i + 1}" for i in range(len(_asm_specs))]
+        _asm_codes = [f"{_demo_slug}-ASM{i + 1}" for i in range(len(_asm_specs))]
         await session.execute(
             delete(Assembly).where(
                 or_(
                     Assembly.code.in_(_asm_codes),
                     Assembly.code.like(f"{_legacy_code_prefix}ASM%"),
+                    Assembly.code.like(f"{_legacy_slug_prefix}ASM%"),
                 ),
             ),
         )
@@ -10054,7 +10088,7 @@ async def _seed_module_data(
                 id=_id(),
                 code=_asm_codes[a_idx],
                 name=a_name,
-                description=f"Demo project assembly for {template.project_name}",
+                description=f"Assembly used on {template.project_name}",
                 unit=a_unit,
                 category="structure",
                 classification={},
@@ -10085,7 +10119,7 @@ async def _seed_module_data(
             ("Tower crane", "crane", 980.0, 140.0),
             ("Mobile excavator", "excavator", 420.0, 60.0),
         ]
-        _eq_codes = [f"DEMO-{_demo_slug}-EQ{i + 1}" for i in range(len(_eq_specs))]
+        _eq_codes = [f"{_demo_slug}-EQ{i + 1}" for i in range(len(_eq_specs))]
         # Equipment.code is globally unique; rentals cascade-delete with the
         # equipment unit. Clear by code to keep the re-seed idempotent, and
         # clear the pre-slug codes too so an existing install does not keep a
@@ -10095,6 +10129,7 @@ async def _seed_module_data(
                 or_(
                     Equipment.code.in_(_eq_codes),
                     Equipment.code.like(f"{_legacy_code_prefix}EQ%"),
+                    Equipment.code.like(f"{_legacy_slug_prefix}EQ%"),
                 ),
             ),
         )
@@ -10278,7 +10313,7 @@ async def _seed_module_data(
                     forecast_method="cpi",
                     confidence_range_low=str((eac * Decimal("0.97")).quantize(Decimal("0.01"))),
                     confidence_range_high=str((eac * Decimal("1.05")).quantize(Decimal("0.01"))),
-                    notes="Demo baseline forecast",
+                    notes="Baseline forecast at award",
                     metadata_={"demo_id": demo_id, "is_demo": True},
                 )
             )
@@ -11219,6 +11254,13 @@ async def install_demo_project(
             status=r_status,
             mitigation_strategy=r_mitig,
             contingency_plan="",
+            # Known defect, left in place deliberately rather than papered
+            # over. Every seeded risk carries this one string, which reads as
+            # accountable when nobody has been named. Varying it needs people,
+            # and there are none in scope here: the roster is ``_CONTACTS``,
+            # local to ``_seed_module_data``, which this function does not call
+            # until well after these rows are written. Fixing it properly means
+            # moving the roster or the risk block, not editing this line.
             owner_name="Project Manager",
             response_cost="0",
             currency=template.currency,
