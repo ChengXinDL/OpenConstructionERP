@@ -21,7 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.erp_chat.models import ChatMessage, ChatSession, ChatTurnFeedback
-from app.modules.erp_chat.prompts import SYSTEM_PROMPT
+from app.modules.erp_chat.prompts import SYSTEM_PROMPT, SYSTEM_PROMPT_NO_TOOLS
 from app.modules.erp_chat.schemas import StreamChatRequest
 from app.modules.erp_chat.tools import (
     TOOL_DEFINITIONS,
@@ -296,11 +296,16 @@ class ERPChatService:
                     elif provider == "openai":
                         result, tokens = await self._call_openai(api_key, messages, preferred_model)
                     else:
-                        # Fallback: no tool support - plain text
-                        async for chunk in self._call_fallback(provider, api_key, request.message, preferred_model):
-                            yield chunk
-                        yield _sse("done", {})
-                        return
+                        # Fallback: no tool support - a single plain-text call.
+                        # Break into the shared tail below instead of streaming
+                        # and returning here, so this provider class gets the
+                        # same persistence, token accounting and ``done``
+                        # payload as the tool-capable ones (issue #417).
+                        assistant_text, fallback_tokens = await self._call_fallback(
+                            provider, api_key, request.message, preferred_model
+                        )
+                        total_tokens += fallback_tokens
+                        break
                 except ValueError as exc:
                     # Expected user-facing errors from ai_client (bad API key,
                     # rate limit, malformed image). One line at WARNING is
@@ -310,8 +315,14 @@ class ERPChatService:
                     yield _sse("done", {})
                     return
                 except Exception as exc:
-                    logger.exception("AI API call failed (round %d)", _round)
-                    yield _sse("error", {"message": f"AI API error: {exc}"})
+                    # Name the provider. Transport-level failures (an httpx
+                    # HTTPStatusError from raise_for_status: 401 bad key, 429,
+                    # 400 dead model slug) are NOT ValueError and land here, and
+                    # the no-tool branch below serves 17 different providers -
+                    # an unattributed "AI API error" leaves the user with no
+                    # idea which of their configured providers refused.
+                    logger.exception("AI API call failed (provider=%s round=%d)", provider, _round)
+                    yield _sse("error", {"message": f"AI API error ({provider}): {exc}"})
                     yield _sse("done", {})
                     return
 
@@ -721,28 +732,38 @@ class ERPChatService:
         api_key: str,
         message: str,
         model: str | None = None,
-    ) -> AsyncGenerator[str, None]:
-        """Call a provider without tool support - yield SSE text events.
+    ) -> tuple[str, int]:
+        """Call a provider without tool support - return (text, tokens).
 
         ``model`` is the user's per-provider model id override (issue #138):
         without it, providers like OpenRouter silently used the hardcoded
         default model regardless of what the user picked in Settings > AI.
+
+        Issue #417: this used to be an SSE generator that emitted its own
+        ``text``/``error`` frames, which forced the caller to return early and
+        so skipped persistence and token accounting. Returning the pair lets
+        the caller reuse the one shared tail that every provider goes through.
+        Exceptions propagate for the same reason - the caller already turns
+        them into ``error`` + ``done`` frames exactly as it does for the
+        Anthropic and OpenAI branches.
+
+        ``SYSTEM_PROMPT_NO_TOOLS`` is deliberate: no tool schema goes on the
+        wire here, so the model must not be told it has tools.
         """
         from app.modules.ai.ai_client import call_ai
 
-        try:
-            text, tokens = await call_ai(
-                provider=provider,
-                api_key=api_key,
-                system=SYSTEM_PROMPT,
-                prompt=message,
-                model=model,
-            )
-            chunk_size = 50
-            for i in range(0, len(text), chunk_size):
-                yield _sse("text", {"content": text[i : i + chunk_size]})
-        except Exception as exc:
-            yield _sse("error", {"message": f"AI error ({provider}): {exc}"})
+        text, tokens = await call_ai(
+            provider=provider,
+            api_key=api_key,
+            system=SYSTEM_PROMPT_NO_TOOLS,
+            prompt=message,
+            model=model,
+        )
+        # No ``_record_turn_metrics`` call: ``call_ai`` reports only a total,
+        # so the input/output split and the cache flag are genuinely unknown
+        # here. ``_persist_messages`` maps the zeros to NULL rather than
+        # recording a split we did not measure.
+        return text, int(tokens or 0)
 
     # ── Response parsing ─────────────────────────────────────────────────
 

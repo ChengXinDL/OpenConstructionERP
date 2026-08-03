@@ -88,6 +88,19 @@ jobs:
           tests/unit/test_ddc_dwg_parser_fidelity.py
           tests/unit/test_cad_converter_loader_failures.py
           -q -p no:cacheprovider
+      # The chat path for providers we call without a tool schema. Attached for
+      # the same reason as the suites above: tests/unit is in no lane that blocks
+      # a merge. Only Anthropic and OpenAI get tool definitions on the wire, so
+      # every other provider was being handed a system prompt advertising twenty
+      # tools it had no way to call, and models answered with their own call
+      # syntax as literal text in the user's chat bubble. The same branch returned
+      # before the shared persistence tail, so the turn was never stored and the
+      # thumbs feedback POST 404'd. One test asserts that a reply which merely
+      # LOOKS like a tool call still arrives byte for byte, because the tempting
+      # repair here is an output scrubber and a scrubber can eat a real answer.
+      # No database, about two seconds.
+      - name: Run erp_chat no-tool provider tests
+        run: pytest tests/unit/test_erp_chat_fallback_provider.py -q -p no:cacheprovider
       # The cost base pipeline produces the parquet editions people download from us, so it
       # needs a blocking gate. It needs no database; it is attached here because this is the
       # only merge-blocking lane that runs pytest, and an ungated test is the situation this
