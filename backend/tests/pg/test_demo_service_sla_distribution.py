@@ -13,8 +13,9 @@ rather than as a struggling contractor. Two independent causes:
   already overdue the moment they were written.
 
 The distribution is a property of rows in a database, not of the generator's
-return value, so it is checked here rather than beside the seeder. The bands
-are deliberately wide: this pins "plausible estate", not one draw of one seed.
+return value, so it is checked here rather than beside the seeder. A unit test
+over the draw function would pass even after the seeder stopped calling it.
+See :data:`_BREACH_FLOOR` for why the bands are tight rather than generous.
 """
 
 from __future__ import annotations
@@ -30,6 +31,23 @@ from app.modules.service.service import compute_sla_response_and_resolution
 
 # Statuses ``ServiceService.scan_sla_breaches`` treats as still running.
 _OPEN_STATUSES = ("new", "assigned", "in_progress")
+
+# Breach rate both queues have to land in. ``_SLA_OUTCOME_MIX`` in the seeder
+# declares a 10% breach weight; the seeded estate realises 6.7% on the open
+# queue (2 of 30) and 9.5% on the history (19 of 200).
+#
+# The margin is deliberately narrow. The seeder runs on ``random.Random(42)``,
+# so these rates are not a sample, they are a fixed property of the code, and a
+# wide band would buy no robustness at all - it would only leave room for a
+# regression to hide in. The first version of this test allowed up to 35% and
+# 30%, which caught the original all-red estate but would have passed a silent
+# tripling of the breach rate.
+#
+# The intended consequence: changing ``_SLA_OUTCOME_MIX`` fails here. That is
+# not friction to route around, it is the point. Anyone retuning the mix has to
+# say what the demo estate should now look like, in this file, on purpose.
+_BREACH_FLOOR = 0.03
+_BREACH_CEILING = 0.17
 
 
 def _iso(value: str | None) -> datetime | None:
@@ -55,8 +73,10 @@ async def test_the_open_queue_is_not_entirely_overdue(seeded) -> None:
 
     breached = [t for t in open_tickets if (_iso(t.sla_due_at) or now) < now]
     rate = len(breached) / len(open_tickets)
-    assert rate < 0.35, f"{rate:.0%} of the open queue is overdue - the register reads as all-red"
-    assert rate > 0.0, "no open ticket is overdue at all - the breach state is unreachable"
+    assert _BREACH_FLOOR <= rate <= _BREACH_CEILING, (
+        f"{rate:.1%} of the open queue is overdue, outside "
+        f"{_BREACH_FLOOR:.0%}-{_BREACH_CEILING:.0%} (seeds at 6.7%, 2 of 30)"
+    )
 
 
 async def test_the_history_shows_mostly_met_slas(seeded) -> None:
@@ -66,7 +86,10 @@ async def test_the_history_shows_mostly_met_slas(seeded) -> None:
 
     late = [t for t in closed if (due := _iso(t.resolution_due_at)) is not None and _iso(t.resolved_at) > due]
     rate = len(late) / len(closed)
-    assert 0.0 < rate < 0.30, f"{rate:.0%} of closed tickets missed resolution - not a plausible estate"
+    assert _BREACH_FLOOR <= rate <= _BREACH_CEILING, (
+        f"{rate:.1%} of closed tickets missed resolution, outside "
+        f"{_BREACH_FLOOR:.0%}-{_BREACH_CEILING:.0%} (seeds at 9.5%, 19 of 200)"
+    )
 
 
 async def test_no_ticket_is_resolved_before_it_was_raised(seeded) -> None:
