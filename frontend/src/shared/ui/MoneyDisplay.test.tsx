@@ -22,6 +22,29 @@ import { render, screen } from '@testing-library/react';
 import { MoneyDisplay } from './MoneyDisplay';
 import { usePreferencesStore } from '@/stores/usePreferencesStore';
 
+// Overrides the global `react-i18next` mock in src/test/setup.ts for this file
+// only. That mock returns the `defaultValue`, which is character-identical to
+// the hardcoded literal this component used to carry — so an assertion on the
+// English words passes whether or not the string ever reaches i18next. Marker
+// mode returns the key instead, which only a real `t()` call can produce.
+const i18nMock = vi.hoisted(() => ({ marker: false }));
+
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: Record<string, unknown>) => {
+      if (i18nMock.marker) return `«${key}»`;
+      if (typeof opts === 'object' && opts !== null && 'defaultValue' in opts) {
+        return String(opts.defaultValue);
+      }
+      return key;
+    },
+    i18n: { language: 'en', changeLanguage: vi.fn() },
+  }),
+  Trans: ({ children }: { children?: unknown }) => children,
+  initReactI18next: { type: '3rdParty', init: () => {} },
+  I18nextProvider: ({ children }: { children?: unknown }) => children,
+}));
+
 // Helper — set the locale on the store before render. The component
 // reads numberLocale via a selector, so updates take effect on the
 // next render.
@@ -33,6 +56,7 @@ beforeEach(() => {
   // Default to en-US so most tests have a predictable comma/period
   // formatting that doesn't depend on the host's locale.
   setLocale('en-US');
+  i18nMock.marker = false;
 });
 
 afterEach(() => {
@@ -81,6 +105,14 @@ describe('MoneyDisplay - em-dash placeholders', () => {
     render(<MoneyDisplay amount={100} currency="" />);
     const span = screen.getByTitle('Currency not set');
     expect(span).toBeInTheDocument();
+  });
+
+  it('attaches the same tooltip on the invalid-code branch', () => {
+    // The component has two em-dash branches and each carries its own
+    // tooltip. Only the missing-currency one was asserted, so a change that
+    // touched one and not the other read as fully covered.
+    render(<MoneyDisplay amount={100} currency="us" />);
+    expect(screen.getByTitle('Currency not set')).toBeInTheDocument();
   });
 });
 
@@ -159,6 +191,49 @@ describe('MoneyDisplay - valid currency formatting', () => {
   it('trims whitespace inside the currency prop', () => {
     render(<MoneyDisplay amount={100} currency="  USD  " />);
     expect(screen.getByText(/\$100\.00/)).toBeInTheDocument();
+  });
+});
+
+/**
+ * #205 — the tooltip was hardcoded English inside the money primitive, which
+ * every register on the platform renders.
+ *
+ * The key is `projects.currency_not_set` rather than a new one. It already
+ * exists in all 29 locales, and its other call site (ProjectDetailPage, the
+ * project header badge) renders it as `{currency ?? t(...)}` — the slot a
+ * currency *value* occupies, which is the same thing this tooltip says about
+ * the em-dash it sits on. The neighbouring `costs_catalogs.currency_not_set`
+ * is "Not set": right inside a labelled `<option>`, wrong as a standalone
+ * tooltip with no subject.
+ *
+ * Asserted against a marker rather than English words: a literal and a
+ * resolved `defaultValue` are the same characters, so the English assertions
+ * above pass either way and gate nothing on their own.
+ */
+describe('MoneyDisplay tooltip is translatable (#205)', () => {
+  function titleOf(currency: string): string | null {
+    const { container } = render(<MoneyDisplay amount={100} currency={currency} />);
+    return container.querySelector('span')?.getAttribute('title') ?? null;
+  }
+
+  it('takes the missing-currency tooltip from a key', () => {
+    i18nMock.marker = true;
+    expect(titleOf('')).toBe('«projects.currency_not_set»');
+  });
+
+  it('takes the invalid-currency tooltip from the same key', () => {
+    i18nMock.marker = true;
+    expect(titleOf('us')).toBe('«projects.currency_not_set»');
+  });
+
+  it('leaves no English fragment beside the key in either branch', () => {
+    i18nMock.marker = true;
+    for (const currency of ['', 'us']) {
+      const title = titleOf(currency);
+      expect(title).toBeTruthy();
+      // Strip the marker; anything left came from a literal.
+      expect(title!.replace(/«[a-z_.]+»/g, ''), `currency=${JSON.stringify(currency)}`).toBe('');
+    }
   });
 });
 

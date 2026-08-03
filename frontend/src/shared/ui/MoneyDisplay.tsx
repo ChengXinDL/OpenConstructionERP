@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
 import clsx from 'clsx';
 import { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { usePreferencesStore } from '../../stores/usePreferencesStore';
 import { currencyMinorUnits } from './currencyMinorUnits';
 
@@ -55,6 +56,11 @@ export function MoneyDisplay({
   // on every money cell. Caller must supply a `currency` prop.
   const numberLocale = usePreferencesStore((s) => s.numberLocale);
 
+  // Above the early returns below: a hook after them renders a different
+  // number of hooks on the null-amount branch alone, which React only
+  // reports at runtime on that branch.
+  const { t } = useTranslation();
+
   // Dev-only one-shot warning when no currency is supplied by the caller.
   // Tracked per-instance so we don't spam the console on every re-render.
   const warnedMissingCurrencyRef = useRef(false);
@@ -84,7 +90,7 @@ export function MoneyDisplay({
     return (
       <span
         className={clsx('text-content-tertiary', className)}
-        title="Currency not set"
+        title={t('projects.currency_not_set', { defaultValue: 'Currency not set' })}
       >
         &mdash;
       </span>
@@ -103,7 +109,7 @@ export function MoneyDisplay({
     return (
       <span
         className={clsx('text-content-tertiary', className)}
-        title="Currency not set"
+        title={t('projects.currency_not_set', { defaultValue: 'Currency not set' })}
       >
         &mdash;
       </span>
