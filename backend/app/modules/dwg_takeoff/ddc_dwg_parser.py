@@ -446,6 +446,10 @@ def parse_ddc_dwg_excel(excel_path: str | Path) -> dict[str, Any]:
     # are reconstructed as the next vertex's Start. Closed polylines
     # are handled by ``polyline_meta[eid].closed`` downstream.
     polyline_vertices: dict[str, list[tuple[float, float]]] = {}
+    # Each polyline's terminal End Point, taken on the way past. The post-pass
+    # below used to recover this by re-reading the whole export once per
+    # polyline, which is the whole of the "conversion never finishes" defect.
+    polyline_terminal_ends: dict[str, tuple[float, float]] = {}
     for row in all_rows[1:]:
         desc = str(get(row, "Description") or "")
         if desc != "<AcDbVertex>":
@@ -462,29 +466,31 @@ def parse_ddc_dwg_excel(excel_path: str | Path) -> dict[str, Any]:
         coord = sp or pt or ep
         if coord is None:
             continue
+        # Last vertex row of this polyline that carries an End Point wins,
+        # which is what the re-scan below used to compute. A row carrying an
+        # End Point always reaches this line: ``coord`` falls back to that
+        # same value, so the guard above can never skip it.
+        if ep is not None:
+            polyline_terminal_ends[parent_id] = ep
         bucket = polyline_vertices.setdefault(parent_id, [])
         # Skip immediate duplicates here too - defence in depth for
         # exporters that occasionally emit zero-length segments.
         if not bucket or bucket[-1] != coord:
             bucket.append(coord)
-    # Post-pass: if a polyline's last vertex carried a distinct End
-    # Point AND the polyline is NOT closed, append the End Point of the
-    # last vertex row so the open-polyline tail isn't lost. We re-scan
-    # to find each polyline's terminal vertex row and consult its End
-    # Point column. This preserves the previous code's "also add end
-    # point" behaviour for the tail vertex of an open polyline without
-    # duplicating every interior vertex.
+    # Post-pass: if a polyline's last vertex carried a distinct End Point,
+    # append it so the open-polyline tail isn't lost. Note this also appends
+    # to closed polylines; the tail is not conditioned on
+    # ``polyline_meta[eid]["closed"]`` and never has been.
+    #
+    # This used to re-scan every row of the export once per polyline to find
+    # that value, which is O(polylines x rows). Measured on this shape of
+    # data, doubling the export roughly quadrupled the time this loop spent,
+    # and on a real 22 MB architectural drawing it runs for over an hour, in
+    # the one phase of the DWG pipeline that has no timeout on it, behind a
+    # progress card that cannot say which phase it is in. The value was
+    # already in hand during the collection pass above, so take it there.
     for parent_id, verts in polyline_vertices.items():
-        terminal_end: tuple[float, float] | None = None
-        for row in all_rows[1:]:
-            desc = str(get(row, "Description") or "")
-            if desc != "<AcDbVertex>":
-                continue
-            if str(get(row, "ParentID") or "") != parent_id:
-                continue
-            ep = _parse_coord(get(row, "End Point"))
-            if ep is not None:
-                terminal_end = ep
+        terminal_end = polyline_terminal_ends.get(parent_id)
         if terminal_end and (not verts or verts[-1] != terminal_end):
             verts.append(terminal_end)
 
