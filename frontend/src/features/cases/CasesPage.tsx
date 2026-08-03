@@ -47,6 +47,8 @@ import {
 } from "lucide-react";
 import { Badge, EmptyState } from "@/shared/ui";
 import { useNearViewport } from "@/shared/hooks/useNearViewport";
+import { useActiveProjectId } from "@/shared/hooks/useActiveProjectId";
+import { useProjectContextStore } from "@/stores/useProjectContextStore";
 import { projectsApi } from "@/features/projects/api";
 import { PLAYBOOKS, getPlaybook } from "./playbooks";
 import { PlaybookRunner } from "./PlaybookRunner";
@@ -131,8 +133,15 @@ function CasesList() {
   const setCompanyType = useCasesStore((s) => s.setCompanyType);
   const role = useCasesStore((s) => s.role);
   const setRole = useCasesStore((s) => s.setRole);
-  const pinProjectId = useCasesStore((s) => s.pinProjectId);
-  const setPinProjectId = useCasesStore((s) => s.setPinProjectId);
+  // The project this hub pins cases to is the app-wide active project - the
+  // one the top-bar switcher writes. The hub used to keep its own copy in
+  // `useCasesStore.pinProjectId` (localStorage `oe_cases_pin_project`), which
+  // nothing else ever wrote, so picking a project in the top bar left this
+  // picker reading "No project selected" (issue #413). Reading the shared
+  // context here removes the second source of truth rather than syncing it.
+  const pinProjectId = useActiveProjectId();
+  const setActiveProject = useProjectContextStore((s) => s.setActiveProject);
+  const clearActiveProject = useProjectContextStore((s) => s.clearProject);
   const pins = useCasesStore((s) => s.pins);
   const togglePin = useCasesStore((s) => s.togglePin);
   const [query, setQuery] = useState("");
@@ -703,8 +712,14 @@ function CasesList() {
               id="cases-pin-project"
               value={pinProjectId}
               onChange={(e) => {
-                setPinProjectId(e.target.value);
-                if (!e.target.value) setShowOnlyPinned(false);
+                const nextId = e.target.value;
+                const next = sortedProjects.find((p) => p.id === nextId);
+                // Same control, same store as the top-bar switcher: picking a
+                // project here moves the whole app onto it instead of holding
+                // a second, silently diverging selection.
+                if (nextId && next) setActiveProject(nextId, next.name);
+                else clearActiveProject();
+                if (!nextId) setShowOnlyPinned(false);
               }}
               className="h-8 rounded-lg border border-border-light bg-surface-primary px-2.5 text-xs text-content-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40"
             >
@@ -745,6 +760,20 @@ function CasesList() {
               <span className="text-2xs text-content-tertiary">
                 {t("cases.project_pin.pick_project_first", {
                   defaultValue: "Pick a project above to pin cases to it.",
+                })}
+              </span>
+            )}
+            {/* A project is chosen but nothing is pinned to it yet. The count
+                on the button is the user's own pin list, not a case count the
+                project could ever have on its own, and "Cases for this project
+                0" beside a project name reads as "this project has no cases"
+                (issue #414). The same sentence the empty result already uses
+                is shown here, before the click rather than after it. */}
+            {pinProjectId && pinnedIds.length === 0 && (
+              <span className="text-2xs text-content-tertiary">
+                {t("cases.project_pin.empty_body", {
+                  defaultValue:
+                    "Pin a case to this project from its card, and it will show up here.",
                 })}
               </span>
             )}

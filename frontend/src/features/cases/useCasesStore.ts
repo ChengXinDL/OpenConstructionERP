@@ -28,8 +28,13 @@ const RUNS_KEY = 'oe_cases_progress';
 const SELECTED_KEY = 'oe_cases_selected';
 const COMPANY_TYPE_KEY = 'oe_cases_company_type';
 const ROLE_KEY = 'oe_cases_role';
-const PIN_PROJECT_KEY = 'oe_cases_pin_project';
 const PINS_KEY = 'oe_cases_pins';
+
+// There was a sixth key here, `oe_cases_pin_project`, holding "which real
+// project is the Cases hub pinning to". Nothing outside this store ever wrote
+// it, so the hub read "No project selected" while the top-bar switcher held a
+// project (issue #413). The hub now reads the app-wide active project from
+// `useProjectContextStore`; the pin map below stays keyed by project id.
 
 /** Stable, frozen fallback used by selectors for a run that has no progress
  *  yet. Frozen so an accidental mutation throws instead of corrupting shared
@@ -157,23 +162,6 @@ function persistRole(value: ProfessionalRole | null) {
   }
 }
 
-function readPinProject(): string {
-  try {
-    return localStorage.getItem(PIN_PROJECT_KEY) ?? '';
-  } catch {
-    return '';
-  }
-}
-
-function persistPinProject(projectId: string) {
-  try {
-    if (projectId) localStorage.setItem(PIN_PROJECT_KEY, projectId);
-    else localStorage.removeItem(PIN_PROJECT_KEY);
-  } catch {
-    /* non-fatal */
-  }
-}
-
 /** Case ids pinned per real project id (NOT a sample-project scope like
  *  `selected` above - this is the user's own "cases I use on this job" list). */
 type PinsMap = Record<string, string[]>;
@@ -216,11 +204,9 @@ interface CasesState {
    *  filter applied). Independent of `companyType`; both narrow the list.
    *  Persists across visits. */
   role: ProfessionalRole | null;
-  /** The real project the user is pinning cases to on the Cases hub ('' =
-   *  none picked). Independent of the per-case sample-project `selected`
-   *  above - this is "which job am I building a case list for". */
-  pinProjectId: string;
-  /** Case ids pinned per real project id. */
+  /** Case ids pinned per real project id. The project the hub is pinning TO
+   *  is not held here - it is the app-wide active project from
+   *  `useProjectContextStore`. */
   pins: PinsMap;
   /** Toggle a step's done flag for a run. */
   toggleStepDone: (playbookId: string, projectId: string | null, stepId: string) => void;
@@ -239,8 +225,6 @@ interface CasesState {
   setCompanyType: (companyType: CompanyType | null) => void;
   /** Set (or clear, with null) the "Your role" professional role filter. */
   setRole: (role: ProfessionalRole | null) => void;
-  /** Set (or clear, with '') the project the pin picker is scoped to. */
-  setPinProjectId: (projectId: string) => void;
   /** Pin or unpin a case for a project (no-op with an empty projectId). */
   togglePin: (projectId: string, playbookId: string) => void;
   /** True when the case is pinned to the given project. */
@@ -252,7 +236,6 @@ export const useCasesStore = create<CasesState>((set, get) => ({
   selected: readSelected(),
   companyType: readCompanyType(),
   role: readRole(),
-  pinProjectId: readPinProject(),
   pins: readPins(),
 
   toggleStepDone: (playbookId, projectId, stepId) => {
@@ -299,11 +282,6 @@ export const useCasesStore = create<CasesState>((set, get) => ({
   setRole: (role) => {
     persistRole(role);
     set({ role });
-  },
-
-  setPinProjectId: (projectId) => {
-    persistPinProject(projectId);
-    set({ pinProjectId: projectId });
   },
 
   togglePin: (projectId, playbookId) => {
