@@ -27133,6 +27133,7 @@ const resource = {
     "meetings.import_failed": "Fallo al importar transcripción de reunión",
     "meetings.import_success": "Reunión importada exitosamente desde transcripción",
     "meetings.issue_minutes": "Emitir acta",
+    "meetings.attachment_n": "Adjunto {{n}}",
     "meetings.label_attachments": "Adjuntos ({{count}})",
     "meetings.label_decisions": "Decisiones",
     "meetings.label_minutes": "Acta",

@@ -27126,6 +27126,7 @@ const resource = {
     "meetings.import_failed": "Det gick inte att importera mötesutskrift",
     "meetings.import_success": "Möte importerat framgångsrikt från utskrift",
     "meetings.issue_minutes": "Utfärda protokoll",
+    "meetings.attachment_n": "Bifogad fil {{n}}",
     "meetings.label_attachments": "Bifogade filer ({{count}})",
     "meetings.label_decisions": "Beslut",
     "meetings.label_minutes": "Protokoll",

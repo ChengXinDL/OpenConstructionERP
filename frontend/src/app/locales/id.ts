@@ -27122,6 +27122,7 @@ const resource = {
     "meetings.import_failed": "Gagal mengimpor transkrip pertemuan",
     "meetings.import_success": "Pertemuan berhasil diimpor dari transkrip",
     "meetings.issue_minutes": "Keluarkan notulen",
+    "meetings.attachment_n": "Lampiran {{n}}",
     "meetings.label_attachments": "Lampiran ({{count}})",
     "meetings.label_decisions": "Keputusan",
     "meetings.label_minutes": "Notulen",

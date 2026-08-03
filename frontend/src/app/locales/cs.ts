@@ -27154,6 +27154,7 @@ const resource = {
     "meetings.import_failed": "Nepodařilo se importovat přepis schůze",
     "meetings.import_success": "Schůze úspěšně importována z přepisu",
     "meetings.issue_minutes": "Vydejte zápis",
+    "meetings.attachment_n": "Příloha {{n}}",
     "meetings.label_attachments": "Přílohy ({{count}})",
     "meetings.label_decisions": "Rozhodnutí",
     "meetings.label_minutes": "Zápis",

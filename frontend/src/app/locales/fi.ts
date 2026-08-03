@@ -27124,6 +27124,7 @@ const resource = {
     "meetings.import_failed": "Kokouspöytäkirjan tuominen epäonnistui",
     "meetings.import_success": "Kokous tuotu onnistuneesti litteraatista",
     "meetings.issue_minutes": "Julkaise pöytäkirja",
+    "meetings.attachment_n": "Liite {{n}}",
     "meetings.label_attachments": "Liitteet ({{count}})",
     "meetings.label_decisions": "Päätökset",
     "meetings.label_minutes": "Pöytäkirja",

@@ -27165,6 +27165,7 @@ const resource = {
     "meetings.import_failed": "Nie powiodło się zaimportowanie transkrypcji spotkania",
     "meetings.import_success": "Spotkanie zostało pomyślnie zaimportowane z transkrypcji",
     "meetings.issue_minutes": "Wydaj protokół",
+    "meetings.attachment_n": "Załącznik {{n}}",
     "meetings.label_attachments": "Załączniki ({{count}})",
     "meetings.label_decisions": "Decyzje",
     "meetings.label_minutes": "Protokół",

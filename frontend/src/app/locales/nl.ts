@@ -27128,6 +27128,7 @@ const resource = {
     "meetings.import_failed": "Vergaderingstranscriptie kon niet worden geïmporteerd",
     "meetings.import_success": "Vergadering succesvol geïmporteerd van transcript",
     "meetings.issue_minutes": "Uitgiftenotules",
+    "meetings.attachment_n": "Bijlage {{n}}",
     "meetings.label_attachments": "Bijlagen ({{count}})",
     "meetings.label_decisions": "Beslissingen",
     "meetings.label_minutes": "Notules",

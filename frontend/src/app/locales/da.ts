@@ -27127,6 +27127,7 @@ const resource = {
     "meetings.import_failed": "Kunne ikke importere møde-transkrip",
     "meetings.import_success": "Møde importeret med succes fra transkrip",
     "meetings.issue_minutes": "Udsteder referater",
+    "meetings.attachment_n": "Vedhæftelse {{n}}",
     "meetings.label_attachments": "Vedhæftelser ({{count}})",
     "meetings.label_decisions": "Beslutninger",
     "meetings.label_minutes": "Referater",

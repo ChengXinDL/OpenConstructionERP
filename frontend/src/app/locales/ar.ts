@@ -27213,6 +27213,7 @@ const resource = {
     "meetings.import_failed": "فشل في استيراد نسخة اجتماع",
     "meetings.import_success": "تم استيراد الاجتماع بنجاح من النسخة",
     "meetings.issue_minutes": "إصدار الدقائق",
+    "meetings.attachment_n": "المرفق {{n}}",
     "meetings.label_attachments": "المرفقات ({{count}})",
     "meetings.label_decisions": "القرارات",
     "meetings.label_minutes": "الدقائق",

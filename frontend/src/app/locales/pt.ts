@@ -27141,6 +27141,7 @@ const resource = {
     "meetings.import_failed": "Falha ao importar transcrição de reunião",
     "meetings.import_success": "Reunião importada com sucesso a partir de transcrição",
     "meetings.issue_minutes": "Emitir atas",
+    "meetings.attachment_n": "Anexo {{n}}",
     "meetings.label_attachments": "Anexos ({{count}})",
     "meetings.label_decisions": "Decisões",
     "meetings.label_minutes": "Atas",

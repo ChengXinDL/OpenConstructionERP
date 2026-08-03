@@ -27123,6 +27123,7 @@ const resource = {
     "meetings.import_failed": "Toplantı transkripti içeri aktarılamadı",
     "meetings.import_success": "Toplantı transkriptinden başarıyla içeri aktarıldı",
     "meetings.issue_minutes": "Tutanakları ver",
+    "meetings.attachment_n": "Ek {{n}}",
     "meetings.label_attachments": "Ekler ({{count}})",
     "meetings.label_decisions": "Kararlar",
     "meetings.label_minutes": "Tutanaklar",

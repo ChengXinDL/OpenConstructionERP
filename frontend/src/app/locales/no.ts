@@ -26976,6 +26976,7 @@ const resource = {
     "meetings.import_failed": "Klarte ikke å importere møtetranskript",
     "meetings.import_success": "Møte importert vellykket fra transkript",
     "meetings.issue_minutes": "Utgavinutter",
+    "meetings.attachment_n": "Vedlegg {{n}}",
     "meetings.label_attachments": "Vedlegg ({{count}})",
     "meetings.label_decisions": "Beslutninger",
     "meetings.label_minutes": "Minutter",

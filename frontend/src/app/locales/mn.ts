@@ -26688,6 +26688,7 @@ const resource = {
     "meetings.import_failed": "Уулзалтын шугамыг импорт хийхэд бүтэлгүүтэй",
     "meetings.import_success": "Уулзалтыг шугамаас амжилттай импорт хийлээ",
     "meetings.issue_minutes": "Асуудлын үг сойзал",
+    "meetings.attachment_n": "Хавсралт {{n}}",
     "meetings.label_attachments": "Хавсарга ({{count}})",
     "meetings.label_decisions": "Шийдвэр",
     "meetings.label_minutes": "Үг сойзал",

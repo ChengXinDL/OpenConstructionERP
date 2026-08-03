@@ -27191,6 +27191,7 @@ const resource = {
     "meetings.import_failed": "Échec de l'importation de la transcription de réunion",
     "meetings.import_success": "Réunion importée avec succès à partir de la transcription",
     "meetings.issue_minutes": "Publier les minutes",
+    "meetings.attachment_n": "Pièce jointe {{n}}",
     "meetings.label_attachments": "Pièces jointes ({{count}})",
     "meetings.label_decisions": "Décisions",
     "meetings.label_minutes": "Minutes",

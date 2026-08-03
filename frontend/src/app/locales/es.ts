@@ -27185,6 +27185,7 @@ const resource = {
     "meetings.import_failed": "Falló la importación de transcripción de reunión",
     "meetings.import_success": "Reunión importada con éxito desde la transcripción",
     "meetings.issue_minutes": "Emitir acta",
+    "meetings.attachment_n": "Archivo adjunto {{n}}",
     "meetings.label_attachments": "Archivos adjuntos ({{count}})",
     "meetings.label_decisions": "Decisiones",
     "meetings.label_minutes": "Acta",

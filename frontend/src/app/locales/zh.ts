@@ -27127,6 +27127,7 @@ const resource = {
     "meetings.import_failed": "无法导入会议记录",
     "meetings.import_success": "从记录成功导入会议",
     "meetings.issue_minutes": "发布记录",
+    "meetings.attachment_n": "附件 {{n}}",
     "meetings.label_attachments": "附件({{count}})",
     "meetings.label_decisions": "决定",
     "meetings.label_minutes": "记录",

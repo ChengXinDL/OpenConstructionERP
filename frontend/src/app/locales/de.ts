@@ -27243,6 +27243,7 @@ const resource = {
     "meetings.import_failed": "Besprechungstranskript konnte nicht importiert werden",
     "meetings.import_success": "Besprechung erfolgreich aus Transkript importiert",
     "meetings.issue_minutes": "Protokoll ausgeben",
+    "meetings.attachment_n": "Anhang {{n}}",
     "meetings.label_attachments": "Anhänge ({{count}})",
     "meetings.label_decisions": "Entscheidungen",
     "meetings.label_minutes": "Protokoll",

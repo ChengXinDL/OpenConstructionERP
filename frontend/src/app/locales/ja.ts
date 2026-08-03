@@ -27127,6 +27127,7 @@ const resource = {
     "meetings.import_failed": "会議トランスクリプト インポート失敗",
     "meetings.import_success": "会議をトランスクリプトからインポート",
     "meetings.issue_minutes": "議事録を発行",
+    "meetings.attachment_n": "添付ファイル {{n}}",
     "meetings.label_attachments": "添付ファイル({{count}})",
     "meetings.label_decisions": "決定",
     "meetings.label_minutes": "議事録",

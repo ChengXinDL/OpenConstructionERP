@@ -27147,6 +27147,7 @@ const resource = {
     "meetings.import_failed": "Eșec la importarea transcrierii ședinței",
     "meetings.import_success": "Ședință importată cu succes din transcriere",
     "meetings.issue_minutes": "Problemă procesul-verbal",
+    "meetings.attachment_n": "Atașament {{n}}",
     "meetings.label_attachments": "Atașamente ({{count}})",
     "meetings.label_decisions": "Decizii",
     "meetings.label_minutes": "Procesul-verbal",

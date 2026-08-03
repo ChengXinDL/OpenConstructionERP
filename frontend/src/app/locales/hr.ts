@@ -27137,6 +27137,7 @@ const resource = {
     "meetings.import_failed": "Nije uspjelo uvesti transkript sastanka",
     "meetings.import_success": "Sastanak je uspješno uvezen iz transkripta",
     "meetings.issue_minutes": "Izdaj zapisnik",
+    "meetings.attachment_n": "Prilog {{n}}",
     "meetings.label_attachments": "Prilozi ({{count}})",
     "meetings.label_decisions": "Odluke",
     "meetings.label_minutes": "Zapisnik",

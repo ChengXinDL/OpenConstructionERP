@@ -203,39 +203,6 @@
    "zh"
   ]
  },
- "meetings.attachment_n": {
-  "english": "'Attachment {{n}}'",
-  "missing_locales": [
-   "ar",
-   "bg",
-   "cs",
-   "da",
-   "de",
-   "es",
-   "es-MX",
-   "fi",
-   "fr",
-   "hi",
-   "hr",
-   "id",
-   "it",
-   "ja",
-   "ko",
-   "ky",
-   "mn",
-   "nl",
-   "no",
-   "pl",
-   "pt",
-   "ro",
-   "ru",
-   "sv",
-   "th",
-   "tr",
-   "vi",
-   "zh"
-  ]
- },
  "portfolio.xl_actions": {
   "english": "' '",
   "missing_locales": [

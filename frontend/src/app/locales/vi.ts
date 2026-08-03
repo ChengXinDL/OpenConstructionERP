@@ -27143,6 +27143,7 @@ const resource = {
     "meetings.import_failed": "Không thể nhập bản ghi cuộc họp",
     "meetings.import_success": "Cuộc họp được nhập thành công từ bản ghi",
     "meetings.issue_minutes": "Phát hành biên bản",
+    "meetings.attachment_n": "Tệp đính kèm {{n}}",
     "meetings.label_attachments": "Tệp đính kèm ({{count}})",
     "meetings.label_decisions": "Quyết định",
     "meetings.label_minutes": "Biên bản",

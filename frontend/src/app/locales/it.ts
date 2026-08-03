@@ -27144,6 +27144,7 @@ const resource = {
     "meetings.import_failed": "Impossibile importare trascritto della riunione",
     "meetings.import_success": "Riunione importata con successo dal trascritto",
     "meetings.issue_minutes": "Emetti verbali",
+    "meetings.attachment_n": "Allegato {{n}}",
     "meetings.label_attachments": "Allegati ({{count}})",
     "meetings.label_decisions": "Decisioni",
     "meetings.label_minutes": "Verbali",

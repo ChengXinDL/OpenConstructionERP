@@ -27125,6 +27125,7 @@ const resource = {
     "meetings.import_failed": "회의 트랜스크립트를 가져오지 못했습니다",
     "meetings.import_success": "회의가 트랜스크립트에서 성공적으로 가져왔습니다",
     "meetings.issue_minutes": "기록 발행",
+    "meetings.attachment_n": "첨부 파일 {{n}}",
     "meetings.label_attachments": "첨부 파일({{count}})",
     "meetings.label_decisions": "결정",
     "meetings.label_minutes": "기록",
