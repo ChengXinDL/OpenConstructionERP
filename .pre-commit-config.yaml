@@ -130,3 +130,21 @@ repos:
         language: system
         pass_filenames: false
         files: ^(frontend/src/app/locales/.*\.ts|scripts/i18n_leak_(allowlist|baseline|pending_review|cluster_snapshot)\.json)$
+
+      # Both guards above start from a key that exists. Neither can see a key
+      # that is in no locale file at all: there is no value to read and none
+      # to compare against, so `t(key, {defaultValue})` falls back and ships
+      # the English default to all 29 languages with every gate green. #175
+      # went out exactly that way - service.sla_breached and service.sla_late
+      # became keys, no locale file ever got them, and the SLA chip read in
+      # English everywhere through a full release. This resolves every such
+      # call site against all 29 bundles (counting CLDR plural forms, without
+      # which it reports 23 gaps where there are 13) and gates the rest
+      # against i18n_orphan_baseline.json, a key -> missing-locale set that
+      # may only shrink. CI runs the same script.
+      - id: i18n-orphan-key-check
+        name: Gate t() keys no locale file can answer
+        entry: python scripts/check_i18n_orphan_keys.py
+        language: system
+        pass_filenames: false
+        files: ^(frontend/src/.*\.tsx?|scripts/i18n_orphan_baseline\.json)$
