@@ -3575,10 +3575,9 @@ exports[`Visual Regression - DashboardPage > renders loading/skeleton state 1`] 
               </div>
             </div>
           </div>
-          <button
-            class="group flex w-full items-center gap-3 rounded-xl border border-border-light bg-surface-elevated/90 p-4 text-left shadow-xs transition-shadow duration-normal ease-oe hover:shadow-sm animate-stagger-in cursor-pointer focus:outline-none focus:ring-2 focus:ring-oe-blue/30"
+          <div
+            class="group flex w-full items-center gap-3 rounded-xl border border-border-light bg-surface-elevated/90 p-4 text-left shadow-xs transition-shadow duration-normal ease-oe hover:shadow-sm animate-stagger-in "
             style="animation-delay: 230ms;"
-            type="button"
           >
             <div
               class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-secondary text-content-tertiary transition-transform duration-normal ease-oe group-hover:scale-105"
@@ -3612,48 +3611,9 @@ exports[`Visual Regression - DashboardPage > renders loading/skeleton state 1`] 
                 <span
                   class="text-lg font-bold tabular-nums text-content-primary leading-tight truncate"
                 >
-                  <svg
-                    class="lucide lucide-circle-dashed text-content-quaternary opacity-70"
-                    fill="none"
-                    height="18"
-                    stroke="currentColor"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="1.75"
-                    viewBox="0 0 24 24"
-                    width="18"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      d="M10.1 2.182a10 10 0 0 1 3.8 0"
-                    />
-                    <path
-                      d="M13.9 21.818a10 10 0 0 1-3.8 0"
-                    />
-                    <path
-                      d="M17.609 3.721a10 10 0 0 1 2.69 2.7"
-                    />
-                    <path
-                      d="M2.182 13.9a10 10 0 0 1 0-3.8"
-                    />
-                    <path
-                      d="M20.279 17.609a10 10 0 0 1-2.7 2.69"
-                    />
-                    <path
-                      d="M21.818 10.1a10 10 0 0 1 0 3.8"
-                    />
-                    <path
-                      d="M3.721 6.391a10 10 0 0 1 2.7-2.69"
-                    />
-                    <path
-                      d="M6.391 20.279a10 10 0 0 1-2.69-2.7"
-                    />
-                  </svg>
-                </span>
-                <span
-                  class="text-xs text-content-tertiary"
-                >
-                  run validation
+                  <span
+                    class="inline-block h-5 w-14 animate-pulse rounded bg-surface-tertiary"
+                  />
                 </span>
               </div>
               <div
@@ -3662,7 +3622,7 @@ exports[`Visual Regression - DashboardPage > renders loading/skeleton state 1`] 
                 Priced positions
               </div>
             </div>
-          </button>
+          </div>
         </div>
       </div>
       <div
