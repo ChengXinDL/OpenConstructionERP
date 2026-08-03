@@ -23,22 +23,37 @@ export interface PositionCounts {
   positions_zero_price: number;
 }
 
-/** A measurable priced-positions reading. ``pct`` is 0-100, rounded. */
+/**
+ * Below this many positions the tile shows the counts and no percentage.
+ *
+ * A percentage over a handful of positions is arithmetically true and
+ * useless: one priced line out of two is "50 percent" and reads like a
+ * project half-costed. The counts say the same thing without the false
+ * precision, and they say it at every size, which is why they are always
+ * shown and the percentage is not.
+ */
+export const MIN_POSITIONS_FOR_PCT = 10;
+
+/**
+ * A priced-positions reading.
+ *
+ * ``pct`` is 0-100 rounded, or ``null`` when ``total`` is below
+ * {@link MIN_POSITIONS_FOR_PCT} - including a total of 0, which is not a
+ * special case here. "0 of 0 priced" is the truth and needs no branch.
+ */
 export interface PricedPositions {
   priced: number;
   total: number;
-  pct: number;
+  pct: number | null;
 }
 
 /**
- * Share of positions that carry a price, or ``null`` when there is nothing
- * to measure.
+ * Priced-position counts, and a percentage only when one is meaningful.
  *
- * ``null`` is the honest answer for an empty denominator and is deliberately
- * not 0 percent: a project with no positions has not failed to price them,
- * it has not written them yet, and a red 0 percent would read as a problem
- * the user does not have. The caller renders ``null`` as an empty state
- * pointing at the BOQ editor.
+ * Returns ``null`` only when the rollup has not loaded - "we do not know
+ * yet", which the caller renders as a loading tile. That is distinct from
+ * knowing the counts are zero, which returns ``{priced: 0, total: 0, pct:
+ * null}`` and renders as "0 of 0 priced".
  *
  * Counts are clamped rather than trusted: a backend that reported more
  * unpriced positions than positions would otherwise produce a negative
@@ -48,10 +63,12 @@ export function pricedPositions(counts: PositionCounts | null | undefined): Pric
   if (!counts) return null;
 
   const total = Math.max(0, Math.trunc(counts.position_count) || 0);
-  if (total === 0) return null;
-
   const unpriced = Math.min(total, Math.max(0, Math.trunc(counts.positions_zero_price) || 0));
   const priced = total - unpriced;
 
-  return { priced, total, pct: Math.round((priced / total) * 100) };
+  return {
+    priced,
+    total,
+    pct: total >= MIN_POSITIONS_FOR_PCT ? Math.round((priced / total) * 100) : null,
+  };
 }

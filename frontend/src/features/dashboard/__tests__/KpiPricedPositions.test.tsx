@@ -214,18 +214,43 @@ describe('Priced positions KPI tile (#187)', () => {
     expect(ribbon.getByText('100 of 100 priced')).toBeInTheDocument();
   }, 60000);
 
-  it('shows an empty state, not a percentage, over a zero denominator', async () => {
+  it('states the counts, not a percentage, over a zero denominator', async () => {
     // A BOQ exists but carries no positions yet - nothing to take a
-    // percentage of. Neither 0% (an accusation) nor 100% (a lie).
+    // percentage of. Neither 0% (an accusation) nor 100% (a lie). "0 of 0
+    // priced" is the truth and needs no special case: it is the same
+    // sentence every other size of BOQ gets.
     harness.boqSummary = summary(0, 0);
     const ribbon = await renderRibbon();
 
-    expect(ribbon.getByText('no positions yet')).toBeInTheDocument();
+    expect(ribbon.getByText('0 of 0 priced')).toBeInTheDocument();
     expect(ribbon.queryByText('100%')).not.toBeInTheDocument();
     expect(ribbon.queryByText('0%')).not.toBeInTheDocument();
     // The empty tile is actionable and points at the BOQ editor, which is
     // where positions get written.
     const tile = ribbon.getByText('Priced positions').closest('button');
     expect(tile).not.toBeNull();
+  }, 60000);
+
+  it('withholds the percentage on a BOQ too small to support one', async () => {
+    // Three of four positions priced is "75%", which looks like a progress
+    // reading on a project and is a sample of four. The counts are shown at
+    // every size; the percentage is what waits for enough behind it.
+    harness.boqSummary = summary(4, 1);
+    const ribbon = await renderRibbon();
+
+    expect(ribbon.getByText('3 of 4 priced')).toBeInTheDocument();
+    expect(ribbon.queryByText('75%')).not.toBeInTheDocument();
+    // No colour verdict either - a green tile over four positions would be
+    // the same overclaim wearing a different hat. Scoped to this tile
+    // rather than the ribbon, because a sibling tile may legitimately be
+    // green and would answer a ribbon-wide query for it.
+    //
+    // `.group` and not `button`: the ribbon renders a tile as a <button>
+    // only when it has an onClick, and this one has none, so `closest
+    // ('button')` returned undefined and the assertion passed against
+    // nothing. `.group` is on the tile root either way.
+    const tile = ribbon.getByText('Priced positions').closest('.group');
+    expect(tile).not.toBeNull();
+    expect(tile!.querySelector('.text-semantic-success')).toBeNull();
   }, 60000);
 });

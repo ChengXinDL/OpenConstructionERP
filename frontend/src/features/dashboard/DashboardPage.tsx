@@ -64,6 +64,7 @@ import {
   DashboardRollupProvider,
   useDashboardRollupContext,
 } from './context/DashboardRollupContext';
+import { useDashboardRollup } from './hooks/useDashboardRollup';
 
 // Static Tailwind class strings (dynamic `lg:col-span-${n}` would be purged).
 const DASH_SPAN_CLASS: Record<number, string> = {
@@ -827,15 +828,27 @@ interface ScheduleSummary {
 }
 
 function KpiRibbon({
-  boqs,
-  schedules,
+  loaded,
+  activeEstimates,
+  scheduleCount,
   projects,
   byCurrency,
   multiCurrency,
   positionCounts,
 }: {
-  boqs?: BOQWithTotal[];
-  schedules?: ScheduleSummary[];
+  /** False while the rollup behind these tiles is still in flight; every
+   *  tile renders its skeleton rather than a zero. */
+  loaded: boolean;
+  /**
+   * Non-archived BOQs in scope, straight from ``boq_summary.active_boqs``.
+   * This used to be counted off the synthesized ``allBoqs`` stubs, which hold
+   * ONE entry per project rather than one per BOQ - so the tile reported the
+   * number of projects, and scoping it to a single project would have read
+   * "1 estimate" no matter how many that project has.
+   */
+  activeEstimates: number;
+  /** Schedules in scope, from ``schedule_critical.total_schedules``. */
+  scheduleCount: number;
   projects?: ProjectSummary[];
   /** Per-currency BOQ value subtotals from the rollup. */
   byCurrency?: CurrencyTotal[];
@@ -859,17 +872,6 @@ function KpiRibbon({
     if (byCurrency && byCurrency.length > 0) return byCurrency;
     return [];
   }, [byCurrency]);
-
-  const activeEstimates = useMemo(() => {
-    if (!boqs) return 0;
-    // "Active" = anything not archived/closed/cancelled. Previously this
-    // counted only `draft` and silently dropped tendered/in-review BOQs,
-    // which made the tile misleading for late-stage projects.
-    const INACTIVE = new Set(['archived', 'closed', 'cancelled', 'rejected']);
-    return boqs.filter((b) => !INACTIVE.has((b.status ?? '').toLowerCase())).length;
-  }, [boqs]);
-
-  const scheduleCount = schedules?.length ?? 0;
 
   // Share of positions carrying a price, from the rollup's own position
   // counts. It used to be derived from the synthesized ``positions`` stub,
@@ -912,13 +914,13 @@ function KpiRibbon({
   // ``null`` means "still loading" (skeleton); an empty bucket list shows a
   // labelled zero.
   const totalValueDisplay = useMemo<string | null>(() => {
-    if (!boqs) return null;
+    if (!loaded) return null;
     if (currencyTotals.length === 0) return formatMoney(0, fallbackCurrency);
     return currencyTotals
       .map((ct) => formatMoney(ct.total_value, ct.currency))
       .join(' \u00b7 ');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [boqs, currencyTotals, fallbackCurrency]);
+  }, [loaded, currencyTotals, fallbackCurrency]);
 
   const cards = [
     {
@@ -933,8 +935,8 @@ function KpiRibbon({
     },
     {
       icon: <FileText size={20} strokeWidth={1.75} />,
-      value: boqs ? `${activeEstimates}` : null,
-      sublabel: boqs
+      value: loaded ? `${activeEstimates}` : null,
+      sublabel: loaded
         ? t('dashboard.kpi_estimates_unit', {
             defaultValue: 'estimate{{s}}',
             s: activeEstimates === 1 ? '' : 's',
@@ -946,8 +948,8 @@ function KpiRibbon({
     },
     {
       icon: <Calendar size={20} strokeWidth={1.75} />,
-      value: schedules ? `${scheduleCount}` : null,
-      sublabel: schedules
+      value: loaded ? `${scheduleCount}` : null,
+      sublabel: loaded
         ? scheduleCount > 0
           ? t('dashboard.kpi_schedule_active', { defaultValue: 'active' })
           : t('dashboard.kpi_no_schedules', { defaultValue: 'No schedules' })
@@ -958,39 +960,40 @@ function KpiRibbon({
     },
     {
       icon: <ShieldCheck size={20} strokeWidth={1.75} />,
-      // With no positions to price we swap the percentage for a dashed-circle
-      // icon - reads as "not measured" and doesn't compete with the figure on
-      // tiles that have one. An empty denominator must not render as a number:
-      // 0% would accuse the user of not pricing positions they have not
-      // written, and the proxy this tile used to read rendered it as 100%.
-      value: positionCounts === undefined
+      // The percentage appears only when there are enough positions behind it
+      // to mean something; below that the dashed circle reads as "not
+      // measured". It covers an empty BOQ and a two-line BOQ alike, which is
+      // the point - "50%" over two positions is arithmetically true and
+      // useless, and the proxy this tile used to read rendered 1 of 1 as
+      // 100%, in green.
+      value: positionCounts === undefined || priced === null
         ? null
-        : priced !== null
+        : priced.pct !== null
           ? `${priced.pct}%`
           : (<CircleDashed size={18} strokeWidth={1.75} className="text-content-quaternary opacity-70" />),
-      sublabel: positionCounts === undefined
+      // The counts are shown at every size, including "0 of 0 priced". They
+      // say what the percentage would have said, without the false
+      // precision, so zero needs no special case of its own.
+      sublabel: positionCounts === undefined || priced === null
         ? ''
-        : priced !== null
-        // "3 of 120" says what the percentage is a percentage of, so a small
-        // BOQ cannot show a confident-looking figure over two positions.
-        ? t('dashboard.kpi_priced_of', {
+        : t('dashboard.kpi_priced_of', {
             defaultValue: '{{priced}} of {{total}} priced',
             priced: priced.priced,
             total: priced.total,
-          })
-        : t('dashboard.kpi_no_positions', { defaultValue: 'no positions yet' }),
+          }),
       // Renamed 2026-05-11 from "Quality Score" → "Priced positions".
       // Previously the label implied DIN/NRM validation but the math was
       // just `positions_with_unit_rate / total_positions`. The renamed tile
       // is accurate to what it measures.
       label: t('dashboard.kpi_priced_positions', { defaultValue: 'Priced positions' }),
-      color: priced !== null && priced.pct >= 80 ? 'text-semantic-success' : priced !== null && priced.pct >= 50 ? 'text-[#b45309]' : 'text-content-tertiary',
-      bg: priced !== null && priced.pct >= 80 ? 'bg-semantic-success-bg' : priced !== null && priced.pct >= 50 ? 'bg-semantic-warning-bg' : 'bg-surface-secondary',
-      // Nothing priced yet sends the user to the BOQ editor, which is where
+      // No percentage, no colour verdict. A green tile over four positions
+      // would be the same overclaim in a different form.
+      color: priced?.pct != null && priced.pct >= 80 ? 'text-semantic-success' : priced?.pct != null && priced.pct >= 50 ? 'text-[#b45309]' : 'text-content-tertiary',
+      bg: priced?.pct != null && priced.pct >= 80 ? 'bg-semantic-success-bg' : priced?.pct != null && priced.pct >= 50 ? 'bg-semantic-warning-bg' : 'bg-surface-secondary',
+      // An empty BOQ sends the user to the BOQ editor, which is where
       // positions and rates are written. It used to send them to /validation,
       // left over from when this tile was called "Quality Score".
-      onClick:
-        positionCounts !== undefined && priced === null ? () => navigate('/boq') : undefined,
+      onClick: priced !== null && priced.total === 0 ? () => navigate('/boq') : undefined,
     },
   ];
 
@@ -2031,6 +2034,35 @@ function DashboardPageInner() {
   const boqSummary = rollup.byWidget('boq_summary');
   const scheduleCritical = rollup.byWidget('schedule_critical');
 
+  /* ── Project scope for the project-facing surfaces ──────────────────────
+     The top-bar switcher writes `useProjectContextStore.activeProjectId`.
+     Until now the rollup above was fetched with no `project_ids`, so picking
+     a project updated the Today strip (which scopes itself, see the note on
+     `TodaySnapshot`) while every rollup-fed figure - Total Value, Active
+     Estimates, Schedule Status, Priced positions, Finance summary, the
+     operations tiles - kept reporting the whole workspace. That is issue
+     #412: one project selected, most of the page still answering for eleven.
+
+     The page has two audiences and they need different scopes, so we keep
+     two reads rather than one:
+       · `rollup` (unscoped)      - the onboarding checklist, System status
+                                    and the portfolio "Project Overview"
+                                    panel, all of which ask workspace-level
+                                    questions ("do you have a BOQ yet?").
+       · `scopedRollup` (below)   - everything that claims to describe the
+                                    project the user just picked.
+     With no active project `scopeProjectIds` is undefined, which produces
+     the same query key as the unscoped read, so portfolio mode still costs
+     exactly one request. */
+  const activeProjectId = useProjectContextStore((s) => s.activeProjectId);
+  const scopeProjectIds = useMemo(
+    () => (activeProjectId ? [activeProjectId] : undefined),
+    [activeProjectId],
+  );
+  const scopedRollup = useDashboardRollup({ projectIds: scopeProjectIds });
+  const scopedBoqSummary = scopedRollup.byWidget('boq_summary');
+  const scopedScheduleCritical = scopedRollup.byWidget('schedule_critical');
+
   // The rollup feeds the KPI ribbon and most wave-2 widgets in one request.
   // Its `error` was previously never read, so a failed rollup silently
   // rendered every dependent widget as empty/zero - indistinguishable from a
@@ -2212,14 +2244,17 @@ function DashboardPageInner() {
     }));
   }, [scheduleCritical]);
 
-  // Per-currency BOQ value subtotals for the KPI ribbon + Analytics. We
-  // prefer the backend's ``by_currency`` / ``multi_currency`` fields; if an
-  // older backend omits them we reconstruct the buckets from the per-project
-  // rows (each carries its own currency). Either way we never sum across
-  // currencies into one scalar.
+  // Per-currency BOQ value subtotals for the KPI ribbon. We prefer the
+  // backend's ``by_currency`` / ``multi_currency`` fields; if an older backend
+  // omits them we reconstruct the buckets from the per-project rows (each
+  // carries its own currency). Either way we never sum across currencies into
+  // one scalar. Sourced from the SCOPED rollup: with a project picked the
+  // Total Value tile must show that project's money, and a single project has
+  // a single currency - the "multi-currency" chip beside a project name was
+  // the most visible symptom of #412.
   const boqCurrency = useMemo<{ byCurrency: CurrencyTotal[]; multiCurrency: boolean }>(() => {
-    if (!boqSummary) return { byCurrency: [], multiCurrency: false };
-    const extra = boqSummary as unknown as BoqCurrencyBreakdown;
+    if (!scopedBoqSummary) return { byCurrency: [], multiCurrency: false };
+    const extra = scopedBoqSummary as unknown as BoqCurrencyBreakdown;
     if (extra.by_currency && extra.by_currency.length > 0) {
       return {
         byCurrency: extra.by_currency,
@@ -2228,7 +2263,7 @@ function DashboardPageInner() {
     }
     // Fallback: group the per-project rows by their own currency.
     const sums = new Map<string, number>();
-    for (const row of boqSummary.by_project) {
+    for (const row of scopedBoqSummary.by_project) {
       const cur = row.currency || 'EUR';
       sums.set(cur, (sums.get(cur) ?? 0) + (Number(row.total_value) || 0));
     }
@@ -2236,7 +2271,7 @@ function DashboardPageInner() {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([currency, total]) => ({ currency, total_value: total.toFixed(2) }));
     return { byCurrency, multiCurrency: byCurrency.length > 1 };
-  }, [boqSummary]);
+  }, [scopedBoqSummary]);
 
   // Fetch contacts count for NextSteps suggestions
   const { data: contactsList } = useQuery({
@@ -2333,18 +2368,23 @@ function DashboardPageInner() {
 
     inbox: <InboxPanel limit={8} />,
 
+    // Every tile in the ribbon answers for the project the top bar has
+    // selected, so all four read the SCOPED rollup (#412). With no project
+    // selected the scoped read resolves to the workspace figures it always
+    // showed.
     kpi: (
       <KpiRibbon
-        boqs={allBoqs}
-        schedules={allSchedules}
+        loaded={Boolean(scopedBoqSummary)}
+        activeEstimates={scopedBoqSummary?.active_boqs ?? 0}
+        scheduleCount={scopedScheduleCritical?.total_schedules ?? 0}
         projects={projects}
         byCurrency={boqCurrency.byCurrency}
         multiCurrency={boqCurrency.multiCurrency}
         positionCounts={
-          boqSummary
+          scopedBoqSummary
             ? {
-                position_count: boqSummary.position_count,
-                positions_zero_price: boqSummary.positions_zero_price,
+                position_count: scopedBoqSummary.position_count,
+                positions_zero_price: scopedBoqSummary.positions_zero_price,
               }
             : undefined
         }
@@ -2494,7 +2534,11 @@ function DashboardPageInner() {
   };
 
   return (
-    <DashboardRollupProvider>
+    // Scoped provider: every widget rendered in the grid below - Finance
+    // summary, the operations tiles - describes the project the top bar has
+    // selected (#412). `AnalyticsSection` is the deliberate exception and
+    // takes its own unscoped read, because it is the portfolio panel.
+    <DashboardRollupProvider projectIds={scopeProjectIds}>
     <div className="space-y-5 animate-fade-in">
       {/* Partner co-brand strip - only renders when a partner pack is
           active (env OE_PARTNER_PACK or first installed). Dismissable
@@ -2847,10 +2891,17 @@ function ProjectsList({ projects }: { projects?: ProjectSummary[] }) {
 function AnalyticsSection({ projects }: { projects: ProjectSummary[] }) {
   const { t } = useTranslation();
 
-  // Source aggregates from the dashboard rollup the parent provider already
-  // fetched - eliminates the per-project ``/v1/boq/boqs/?project_id=…`` fan
-  // -out this component used to do (v4.6.2 N+1 nuke 2026-05-24).
-  const { byWidget } = useDashboardRollupContext();
+  // Source aggregates from the dashboard rollup - eliminates the per-project
+  // ``/v1/boq/boqs/?project_id=…`` fan-out this component used to do (v4.6.2
+  // N+1 nuke 2026-05-24).
+  //
+  // Deliberately NOT the surrounding context: this panel is titled "Project
+  // Overview" and counts Total Projects / Total BOQs / per-project bars, so
+  // it is a portfolio reading by definition. The enclosing provider is now
+  // scoped to the active project (#412) and would have collapsed this panel
+  // to a single row. An unscoped read here shares its query key with the
+  // page-level unscoped rollup, so it costs no extra request.
+  const { byWidget } = useDashboardRollup();
   const boqSummary = byWidget('boq_summary');
 
   const stats = useMemo(() => {
