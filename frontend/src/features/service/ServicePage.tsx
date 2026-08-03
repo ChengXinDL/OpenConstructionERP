@@ -158,35 +158,73 @@ type SLAChipState = {
   minutes: number;
 } | null;
 
+/** Same shape the badge label helpers above take, so the fakes match too. */
+type Translate = (k: string, o?: Record<string, unknown>) => string;
+
 /**
  * A span in the largest whole unit it reaches: minutes under an hour, then
  * hours, then days. Both SLA branches read it, which is the point: the late
  * branch used to print raw minutes, so a ticket a little over three weeks
  * overdue announced itself as "34610m late".
+ *
+ * #175: the unit suffixes now come from the shared ``duration.*`` keys instead
+ * of literals, so the chip reads in the user's language. Those keys already
+ * exist in en.ts and every locale, so this inherits the translations that
+ * shipped with #174 rather than asking for new ones.
+ *
+ * The arithmetic is deliberately untouched. ``formatDuration`` floors where
+ * this rounds and carries units this ladder does not, so adopting it would
+ * restate three values ServicePage.test.ts pins on purpose - 1439 minutes
+ * reads "24h" here and would read "23h" there. That swap is a decision worth
+ * making on its own, not a side effect of a translation fix.
  */
-function slaSpan(minutes: number): string {
-  if (minutes >= 1440) return `${Math.round(minutes / 60 / 24)}d`;
-  if (minutes >= 60) return `${Math.round(minutes / 60)}h`;
-  return `${minutes}m`;
+function slaSpan(minutes: number, t: Translate): string {
+  if (minutes >= 1440) {
+    return t('duration.days', {
+      defaultValue: '{{value}}d',
+      value: Math.round(minutes / 60 / 24),
+    });
+  }
+  if (minutes >= 60) {
+    return t('duration.hours', { defaultValue: '{{value}}h', value: Math.round(minutes / 60) });
+  }
+  return t('duration.mins', { defaultValue: '{{value}}m', value: minutes });
 }
 
-export function computeSlaChip(t: ServiceTicket, nowMs: number): SLAChipState {
-  if (t.sla_breached_at) {
-    return { variant: 'error', label: 'Breached', minutes: 0 };
+export function computeSlaChip(
+  ticket: ServiceTicket,
+  nowMs: number,
+  t: Translate,
+): SLAChipState {
+  if (ticket.sla_breached_at) {
+    return {
+      variant: 'error',
+      label: t('service.sla_breached', { defaultValue: 'Breached' }),
+      minutes: 0,
+    };
   }
-  if (!t.sla_due_at) return null;
-  const dueMs = Date.parse(t.sla_due_at);
+  if (!ticket.sla_due_at) return null;
+  const dueMs = Date.parse(ticket.sla_due_at);
   if (Number.isNaN(dueMs)) return null;
   // Tickets in terminal states should not flash as overdue forever.
-  if (t.status === 'resolved' || t.status === 'closed' || t.status === 'cancelled') {
+  if (ticket.status === 'resolved' || ticket.status === 'closed' || ticket.status === 'cancelled') {
     return null;
   }
   const minutes = Math.round((dueMs - nowMs) / 60000);
   if (minutes <= 0) {
-    return { variant: 'error', label: `${slaSpan(Math.abs(minutes))} late`, minutes };
+    // The word around the span is a literal too, and it is the one that hides:
+    // translating only the span would leave "2h late" half-English.
+    return {
+      variant: 'error',
+      label: t('service.sla_late', {
+        defaultValue: '{{span}} late',
+        span: slaSpan(Math.abs(minutes), t),
+      }),
+      minutes,
+    };
   }
   const variant: 'success' | 'warning' = minutes < 60 ? 'warning' : 'success';
-  return { variant, label: slaSpan(minutes), minutes };
+  return { variant, label: slaSpan(minutes, t), minutes };
 }
 
 function todayIso(offsetDays = 0): string {
@@ -706,7 +744,7 @@ function TicketTable({
         </thead>
         <tbody>
           {rows.map((r) => {
-            const chip = computeSlaChip(r, nowMs);
+            const chip = computeSlaChip(r, nowMs, t);
             return (
             <tr
               key={r.id}

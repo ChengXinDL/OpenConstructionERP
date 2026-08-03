@@ -25,9 +25,29 @@ function ticket(over: Partial<ServiceTicket> = {}): ServiceTicket {
 }
 
 /** Positive minutes are headroom, negative are how far past due the ticket is. */
+/** i18next's `defaultValue` + `{{param}}` interpolation, which is all we use. */
+function interpolate(s: string, o?: Record<string, unknown>): string {
+  return s.replace(/\{\{(\w+)\}\}/g, (_, k: string) => String(o?.[k] ?? ''));
+}
+
+/**
+ * Stands in for a locale that has no override, so every label below is the
+ * English the chip shipped with before #175. That is the point: the strings
+ * moved behind keys and not one of them changed.
+ */
+const enT = (k: string, o?: Record<string, unknown>): string =>
+  interpolate(String(o?.defaultValue ?? k), o);
+
+/**
+ * Returns a marker instead of any translation, so a label that still carries
+ * hardcoded English shows it. An English-only fake cannot catch that: it
+ * returns the same words whether they came from a key or from a literal.
+ */
+const markedT = (k: string): string => `«${k}»`;
+
 function chip(minutes: number, over: Partial<ServiceTicket> = {}) {
   const due = new Date(NOW + minutes * 60000).toISOString();
-  return computeSlaChip(ticket({ sla_due_at: due, ...over }), NOW);
+  return computeSlaChip(ticket({ sla_due_at: due, ...over }), NOW, enT);
 }
 
 // The value that started this: a ticket this far past due announced itself on a
@@ -93,11 +113,11 @@ describe('computeSlaChip', () => {
   });
 
   it('draws no chip for a ticket that was never given an SLA', () => {
-    expect(computeSlaChip(ticket(), NOW)).toBeNull();
+    expect(computeSlaChip(ticket(), NOW, enT)).toBeNull();
   });
 
   it('draws no chip when the stored due date cannot be parsed', () => {
-    expect(computeSlaChip(ticket({ sla_due_at: 'not a date' }), NOW)).toBeNull();
+    expect(computeSlaChip(ticket({ sla_due_at: 'not a date' }), NOW, enT)).toBeNull();
   });
 
   for (const status of ['resolved', 'closed', 'cancelled'] as const) {
@@ -105,4 +125,67 @@ describe('computeSlaChip', () => {
       expect(chip(LONG_BREACH, { status })).toBeNull();
     });
   }
+});
+
+/**
+ * #175 — the chip was hardcoded English on a screen that ships in 29 locales.
+ *
+ * Every label the chip can produce is asserted to be exactly a marker, which
+ * only holds if the whole string came through a key. Asserting "no English
+ * words" instead would pass on a label that is half key and half literal, and
+ * asserting against the English fake proves nothing at all, since a literal
+ * and a resolved default are the same characters.
+ *
+ * The unit suffixes reuse the `duration.*` family rather than minting
+ * `service.sla_*` copies of it: those keys already exist in en.ts and in all
+ * 29 locale files, so the chip inherits translations that shipped with #174.
+ * The two genuinely new keys follow this module's flat underscore style
+ * (`service.sla_chip`, `service.sla_due`), not a dotted sub-namespace.
+ */
+describe('computeSlaChip is fully translatable (#175)', () => {
+  function marked(minutes: number, over: Partial<ServiceTicket> = {}) {
+    const due = new Date(NOW + minutes * 60000).toISOString();
+    return computeSlaChip(ticket({ sla_due_at: due, ...over }), NOW, markedT);
+  }
+
+  it('takes the breached label from a key', () => {
+    const c = computeSlaChip(
+      ticket({ sla_breached_at: '2026-02-27T09:00:00.000Z' }),
+      NOW,
+      markedT,
+    );
+    expect(c?.label).toBe('«service.sla_breached»');
+  });
+
+  it('takes the overdue wrapper from a key, not just the span inside it', () => {
+    // The literal that hid here was the word "late" around an already-formatted
+    // span, so a test that only checked the span would have stayed green.
+    expect(marked(-90)?.label).toBe('«service.sla_late»');
+  });
+
+  for (const [minutes, key] of [
+    [30, 'duration.mins'],
+    [90, 'duration.hours'],
+    [2880, 'duration.days'],
+  ] as const) {
+    it(`takes the ${key} suffix from a key at ${minutes} minutes of headroom`, () => {
+      expect(marked(minutes)?.label).toBe(`«${key}»`);
+    });
+  }
+
+  it('leaves no Latin letters in any label a locale could reach', () => {
+    const labels = [
+      computeSlaChip(ticket({ sla_breached_at: '2026-02-27T09:00:00.000Z' }), NOW, markedT)
+        ?.label,
+      marked(-90)?.label,
+      marked(30)?.label,
+      marked(90)?.label,
+      marked(2880)?.label,
+    ];
+    for (const label of labels) {
+      expect(label).toBeTruthy();
+      // Strip the marker itself; anything left is a hardcoded fragment.
+      expect(label!.replace(/«[a-z_.]+»/g, ''), label).toBe('');
+    }
+  });
 });

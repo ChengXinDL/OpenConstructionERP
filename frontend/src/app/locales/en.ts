@@ -28965,6 +28965,8 @@ const resource = {
     "service.priority": "Priority",
     "service.status": "Status",
     "service.sla_chip": "SLA",
+    "service.sla_late": "{{span}} late",
+    "service.sla_breached": "Breached",
     "service.reported_at": "Reported",
     "service.empty_work_orders": "No work orders yet",
     "service.empty_work_orders_desc": "Work orders are created from dispatched tickets to track on-site work.",
