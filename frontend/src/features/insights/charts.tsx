@@ -28,7 +28,9 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { useTranslation } from 'react-i18next';
 import { getIntlLocale } from '@/shared/lib/formatters';
+import { hasEnoughPoints } from '@/shared/lib/chartDataFloor';
 import type { SeriesPoint } from './aggregate';
 import type { ChartKind, ValueFormat } from './types';
 
@@ -128,6 +130,10 @@ export interface SeriesChartProps {
 
 export function SeriesChart({ points, kind, color = 0, format = 'number', currency }: SeriesChartProps) {
   if (!points.length) return <ChartEmpty />;
+  // Between "no data" and a real chart there used to be nothing, so one row
+  // drew a donut with a single segment and one month drew a line with one
+  // point. Saying "not enough data yet" is honest; drawing it anyway is not.
+  if (!hasEnoughPoints(kind, points.length)) return <ChartEmpty reason="insufficient" />;
   const stroke = paletteColor(color);
   const tip = <VizTooltip format={format} currency={currency} />;
 
@@ -229,13 +235,25 @@ export function SeriesChart({ points, kind, color = 0, format = 'number', curren
   );
 }
 
-function ChartEmpty() {
+/**
+ * The two non-chart states.
+ *
+ * `empty` keeps the em-dash it has always had - there is nothing to say
+ * about no rows. `insufficient` says so in words, because a user looking at
+ * a panel that refuses to draw deserves to know the panel is working and the
+ * data is thin, rather than reading a dash as a bug.
+ */
+function ChartEmpty({ reason = 'empty' }: { reason?: 'empty' | 'insufficient' }) {
+  const { t } = useTranslation();
   return (
     <div
-      className="flex items-center justify-center text-xs text-content-tertiary"
+      className="flex items-center justify-center px-3 text-center text-xs text-content-tertiary"
       style={{ height: CHART_HEIGHT }}
+      data-testid={reason === 'insufficient' ? 'chart-not-enough-data' : 'chart-empty'}
     >
-      &mdash;
+      {reason === 'insufficient'
+        ? t('insights.not_enough_data', { defaultValue: 'Not enough data' })
+        : '—'}
     </div>
   );
 }

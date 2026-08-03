@@ -36,6 +36,7 @@ import {
 import { RefreshCw, Pin, BarChart3, LineChart as LineIcon, ScatterChart as ScatterIcon, PieChart as PieIcon } from 'lucide-react';
 
 import { Button, Card, EmptyState, Skeleton } from '@/shared/ui';
+import { hasEnoughPoints } from '@/shared/lib/chartDataFloor';
 import { useToastStore } from '@/stores/useToastStore';
 
 import {
@@ -292,6 +293,11 @@ function ChartBody({ chart }: { chart: QuickInsightChart }) {
   if (data.length === 0) {
     return <EmptyChart />;
   }
+  // The same floor SeriesChart applies, from the same table, so the two
+  // analytics surfaces stop disagreeing about what counts as enough data.
+  if (!hasEnoughPoints(chart.chart_type, data.length)) {
+    return <EmptyChart reason="insufficient" />;
+  }
 
   switch (chart.chart_type) {
     case 'histogram':
@@ -368,10 +374,21 @@ function ChartBody({ chart }: { chart: QuickInsightChart }) {
   }
 }
 
-function EmptyChart() {
+/**
+ * The two non-chart states. `empty` keeps the em-dash - there is nothing to
+ * say about no rows. `insufficient` says so in words, so a panel that refuses
+ * to draw reads as working rather than broken.
+ */
+function EmptyChart({ reason = 'empty' }: { reason?: 'empty' | 'insufficient' }) {
+  const { t } = useTranslation();
   return (
-    <div className="flex h-full items-center justify-center text-xs text-content-tertiary">
-      —
+    <div
+      className="flex h-full items-center justify-center px-3 text-center text-xs text-content-tertiary"
+      data-testid={reason === 'insufficient' ? 'chart-not-enough-data' : 'chart-empty'}
+    >
+      {reason === 'insufficient'
+        ? t('insights.not_enough_data', { defaultValue: 'Not enough data' })
+        : '—'}
     </div>
   );
 }
