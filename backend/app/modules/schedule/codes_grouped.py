@@ -44,6 +44,7 @@ from app.modules.schedule.codes_models import (
 from app.modules.schedule.codes_schemas import LayoutSpec, UdfFilter, parse_layout_key
 from app.modules.schedule.codes_valuecoerce import udf_value_readback
 from app.modules.schedule.models import Activity
+from app.modules.schedule.ordering import activity_order_terms
 
 __all__ = ["build_band_tree", "resolve_grouped_layout"]
 
@@ -214,7 +215,7 @@ async def resolve_grouped_layout(
     for ca, on in joins:
         page_stmt = page_stmt.outerjoin(ca, on)
     page_stmt = page_stmt.where(*where_terms)
-    order_terms = [*[expr for expr in level_exprs], Activity.sort_order, Activity.wbs_code]
+    order_terms = [*level_exprs, *activity_order_terms()]
     page_stmt = page_stmt.order_by(*order_terms).offset((page - 1) * page_size).limit(page_size)
     page_result = (await session.execute(page_stmt)).all()
 

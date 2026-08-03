@@ -16,6 +16,7 @@ Tables:
 import uuid
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import (
     JSON,
@@ -34,6 +35,28 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import GUID, Base
+
+
+def _activity_order() -> list[Any]:
+    """Sort terms for :attr:`Schedule.activities`.
+
+    The same order every activity list query uses, so a schedule loaded whole
+    and a schedule listed page by page agree. Ordering by ``sort_order`` alone
+    - which is what this relationship used to do - leaves the rows in an
+    arbitrary order whenever they share a value, and they all share the
+    column's default of 0 unless a writer set it.
+
+    Returns:
+        Sort terms, from :func:`app.modules.schedule.ordering.activity_order_terms`.
+
+    Note:
+        Deferred behind a callable, which SQLAlchemy evaluates at mapper
+        configuration time, because ``ordering`` imports :class:`Activity`
+        from this module; importing it at module level would be circular.
+    """
+    from app.modules.schedule.ordering import activity_order_terms
+
+    return activity_order_terms()
 
 
 class Schedule(Base):
@@ -70,7 +93,7 @@ class Schedule(Base):
         back_populates="schedule",
         cascade="all, delete-orphan",
         lazy="selectin",
-        order_by="Activity.sort_order",
+        order_by=_activity_order,
     )
 
     def __repr__(self) -> str:

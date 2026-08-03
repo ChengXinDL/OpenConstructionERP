@@ -56,6 +56,7 @@ def _normalize_deps(deps: list | None) -> list[dict]:
 
 
 from app.modules.schedule.models import Activity, Schedule, ScheduleRelationship, WorkOrder
+from app.modules.schedule.ordering import activity_order_terms
 from app.modules.schedule.repository import (
     ActivityRepository,
     RelationshipRepository,
@@ -1496,7 +1497,7 @@ class ScheduleService:
                 noload(Activity.children),
                 noload(Activity.work_orders),
             )
-            .order_by(Activity.sort_order, Activity.wbs_code)
+            .order_by(*activity_order_terms())
         )
         result = await self.session.execute(stmt)
         candidates = list(result.scalars().all())

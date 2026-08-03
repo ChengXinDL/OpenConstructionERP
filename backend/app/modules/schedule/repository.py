@@ -16,6 +16,7 @@ from sqlalchemy.orm.util import identity_key
 from sqlalchemy.sql.elements import ClauseElement
 
 from app.modules.schedule.models import Activity, Schedule, ScheduleRelationship, WorkOrder
+from app.modules.schedule.ordering import activity_order_terms
 
 
 class ScheduleRepository:
@@ -99,9 +100,13 @@ class ActivityRepository:
         offset: int = 0,
         limit: int = 1000,
     ) -> tuple[list[Activity], int]:
-        """List activities for a schedule ordered by sort_order. Returns (activities, total).
+        """List activities for a schedule in display order. Returns (activities, total).
 
         Children and work_orders are NOT loaded to avoid N+1 on list queries.
+
+        The order is decided here rather than by the caller because this read
+        is paginated: a client that re-sorts the rows it was handed only
+        rearranges one page. See :func:`~app.modules.schedule.ordering.activity_order_terms`.
         """
         base = select(Activity).where(Activity.schedule_id == schedule_id)
 
@@ -109,13 +114,13 @@ class ActivityRepository:
         count_stmt = select(func.count()).select_from(base.subquery())
         total = (await self.session.execute(count_stmt)).scalar_one()
 
-        # Fetch ordered by sort_order, then wbs_code - skip heavy relationships
+        # Fetch in canonical display order - skip heavy relationships
         stmt = (
             base.options(
                 noload(Activity.children),
                 noload(Activity.work_orders),
             )
-            .order_by(Activity.sort_order, Activity.wbs_code)
+            .order_by(*activity_order_terms())
             .offset(offset)
             .limit(limit)
         )

@@ -38,13 +38,21 @@ from typing import Any
 
 # ── Vocabulary ──────────────────────────────────────────────────────────────
 
-#: Clash lifecycle states that still carry an interference risk. Covers both
-#: the per-row ``ClashResult`` open set (``new``/``active``/``reviewed``) and
-#: the smart-issue lifecycle open set (``new``/``persisted``); a resolved,
-#: approved, ignored or archived clash no longer warns anyone. Passed as a
-#: default so callers may narrow it, but never has to be imported from the DB
-#: layer - keeping this module standalone and DB-free.
-OPEN_STATUSES: frozenset[str] = frozenset({"new", "active", "reviewed", "persisted"})
+#: Clash lifecycle states that still carry an interference risk, across BOTH
+#: clash vocabularies: the per-row ``ClashResult`` open set
+#: (``new``/``active``/``reviewed``, named ``OPEN_STATUSES`` in
+#: ``clash.schemas``) and the smart-issue lifecycle open set
+#: (``new``/``persisted``, drawn from ``CLASH_ISSUE_STATUSES``). A resolved,
+#: approved, ignored or archived clash no longer warns anyone either way.
+#:
+#: Deliberately a union rather than a copy of either one, because this module
+#: is pure and DB-free: it is handed :class:`ClashScheduleFacts` and cannot
+#: tell which table the ``status`` on them came from. The name says
+#: ``RESULT_OR_ISSUE`` rather than plain ``OPEN_STATUSES`` precisely so it
+#: cannot be mistaken for ``clash.schemas.OPEN_STATUSES``, which is the
+#: narrower ``ClashResult``-only set and the right thing to filter a
+#: ``ClashResult`` query by. Passed as a default so callers may narrow it.
+OPEN_RESULT_OR_ISSUE_STATUSES: frozenset[str] = frozenset({"new", "active", "reviewed", "persisted"})
 
 #: Severity to numeric weight, worst carries the most weight. Matches the
 #: clash module's ``CLASH_SEVERITIES`` ordering (critical is worst) but is
@@ -283,7 +291,7 @@ def _pluralise(count: int, noun: str) -> str:
 # ── Core ────────────────────────────────────────────────────────────────────
 
 
-def is_open_status(status: str | None, open_statuses: Iterable[str] = OPEN_STATUSES) -> bool:
+def is_open_status(status: str | None, open_statuses: Iterable[str] = OPEN_RESULT_OR_ISSUE_STATUSES) -> bool:
     """True when ``status`` is one of the open (still-warning) states."""
     return (status or "").strip().lower() in {s.lower() for s in open_statuses}
 
@@ -377,7 +385,7 @@ def build_interference_risk_matrix(
     *,
     today: date,
     imminent_within_days: int = DEFAULT_IMMINENT_WITHIN_DAYS,
-    open_statuses: Iterable[str] = OPEN_STATUSES,
+    open_statuses: Iterable[str] = OPEN_RESULT_OR_ISSUE_STATUSES,
 ) -> list[ClashRiskRecord]:
     """Rank every *open* clash by interference risk, highest first.
 
