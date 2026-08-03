@@ -38,6 +38,13 @@ interface ChangelogEntry {
 // date, title and meaning intact; trim the prose, not the facts.
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '14.2.2',
+    date: '2026-08-03',
+    tag: 'FIX',
+    summary:
+      'Counted labels now carry every plural form the language they appear in actually uses, instead of dropping to English when one form is missing, and three of them no longer assemble their own English sentence in code before a translator can see it. Demo records that named companies trading in the real world have been rewritten with invented names, the seeded catalogue no longer ships codes with a DEMO prefix, and the money field tooltips are translated.',
+  },
+  {
     version: '14.2.1',
     date: '2026-08-03',
     tag: 'FIX',

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [14.2.2] - 2026-08-03
+
+Counted labels now carry every plural form the language they appear in actually uses. When a count key is missing one of its forms, the translation layer does not quietly reach for the other form of the same language, it leaves the language altogether and prints the English text, so "1 selected" was showing up in English in Turkish, Kyrgyz and Mongolian, and Spanish, French, Italian and Portuguese were missing the form those languages use once a number gets large. Which forms a language needs is now read from the language itself rather than assumed from English, and there is a test that asks the same question per locale, so the next counted string cannot ship with a hole in it.
+
+Three of those labels were also gluing their own English sentence together in code before the translation layer ever saw it. A translator was being handed a finished phrase with nothing left to move, which is a problem in any language that puts the number somewhere else. Those now pass their numbers through as values.
+
+Some demo records named companies that trade in the real world. They appeared as bidders in tender lists, as the architect or engineer on a project, as a client, and in one project address that was a real building. Those have been replaced with invented names. They had gone unnoticed because a made up two word name is unique by construction, so searching it whole comes back empty and reads as a clean result, while each half on its own can still be a live firm. Names are checked one word at a time now, because that is how these were missed. This pass is not finished. What has been checked is fixed, the rest of the demo estate is still being worked through, and public bodies named as the procuring authority on a public project are a separate question we have not settled.
+
+The seeded catalogue no longer ships codes carrying a DEMO prefix, so a catalogue that started as demo data can be kept and built on rather than looking like something to throw away. The two currency tooltips in the money field are translated. On the desktop build, the check that confirms the database modules made it into the installer now finds them by where they sit rather than by what the file is called.
+
 ## [14.2.1] - 2026-08-03
 
 The desktop app starts its own database on Linux again. On Ubuntu based distributions it stopped at "Starting the local database" and the log said PostgreSQL could not load dict_snowball, a module it needs while it builds the text search dictionaries during first setup. The module was in the package we bundle from, and it was being thrown away on the way into the installer.
