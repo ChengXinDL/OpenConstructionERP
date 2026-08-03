@@ -8412,6 +8412,7 @@ const resource = {
     "pointcloud.empty_title": "Dự án này chưa có bản quét nào",
     "pointcloud.empty_desc": "Tải lên đám mây điểm thu thập thực tế ở trên để đăng ký bản quét đầu tiên. Các định dạng được hỗ trợ:",
     "pointcloud.scans_title": "Bản quét",
+    "pointcloud.cap_section_title": "Quét mang lại gì cho dự toán của bạn",
     "pointcloud.cap_0_title": "Kiểm chứng khối lượng đã thi công",
     "pointcloud.cap_0_body": "So sánh đám mây điểm hoàn công với mô hình để xác nhận khối lượng bạn đang định giá.",
     "pointcloud.cap_1_title": "Đào đắp vào dự toán",

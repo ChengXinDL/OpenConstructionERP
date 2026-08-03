@@ -101,18 +101,6 @@
    "zh"
   ]
  },
- "assemblies.not_found": {
-  "english": "'Assembly not found'",
-  "missing_locales": [
-   "hi"
-  ]
- },
- "bim.group_saved_msg": {
-  "english": "'\"{{name}}\" - {{count}} elements'",
-  "missing_locales": [
-   "mn"
-  ]
- },
  "gaeb.export_btn": {
   "english": "`Export as GAEB ${exportFormat}`",
   "missing_locales": [
@@ -246,15 +234,6 @@
    "tr",
    "vi",
    "zh"
-  ]
- },
- "pointcloud.cap_section_title": {
-  "english": "'What a scan does for your estimate'",
-  "missing_locales": [
-   "hi",
-   "mn",
-   "th",
-   "vi"
   ]
  },
  "portfolio.xl_actions": {
