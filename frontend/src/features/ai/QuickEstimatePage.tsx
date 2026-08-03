@@ -2629,7 +2629,8 @@ export function QuickEstimatePage() {
             defaultValue: 'Pull quantities straight from the model',
           })}
           links={[
-            { label: t('cad_takeoff.intro_link_explorer', { defaultValue: 'Data Explorer' }), onClick: () => navigate('/data-explorer') },
+            // #149 - the sidebar's key, so this link and the page agree.
+            { label: t('nav.cad_bim_explorer', { defaultValue: 'CAD-BIM BI Explorer' }), onClick: () => navigate('/data-explorer') },
             { label: t('cad_takeoff.intro_link_boq', { defaultValue: 'Open BOQ' }), onClick: () => navigate('/boq') },
           ]}
         >
@@ -3487,7 +3488,7 @@ export function QuickEstimatePage() {
                               }
                             }}
                           >
-                            {t('ai.open_explorer', { defaultValue: 'Data Explorer' })}
+                            {t('nav.cad_bim_explorer', { defaultValue: 'CAD-BIM BI Explorer' })}
                           </Button>
                         </div>
                       ) : (
@@ -3599,7 +3600,7 @@ export function QuickEstimatePage() {
                 className="shrink-0 whitespace-nowrap"
               >
                 <Database size={13} className="mr-1" />
-                <span>{t('ai.open_data_explorer', { defaultValue: 'Data Explorer' })}</span>
+                <span>{t('nav.cad_bim_explorer', { defaultValue: 'CAD-BIM BI Explorer' })}</span>
               </Button>
             </div>
           </div>

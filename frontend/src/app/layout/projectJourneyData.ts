@@ -139,7 +139,7 @@ export const JOURNEY_PHASES: readonly JourneyPhase[] = [
     desc: 'Bring drawings, BIM models and reality scans into one place, and coordinate them.',
     modules: [
       { to: '/bim', labelKey: 'nav.bim_viewer', label: 'BIM Viewer' },
-      { to: '/data-explorer', labelKey: 'nav.cad_bim_explorer', label: 'Data Explorer' },
+      { to: '/data-explorer', labelKey: 'nav.cad_bim_explorer', label: 'CAD-BIM BI Explorer' },
       { to: '/pointcloud', labelKey: 'nav.point_cloud', label: 'Point Cloud' },
       { to: '/cde', labelKey: 'cde.title', label: 'CDE' },
       { to: '/coordination', labelKey: 'nav.coordination_hub', label: 'Coordination Hub' },

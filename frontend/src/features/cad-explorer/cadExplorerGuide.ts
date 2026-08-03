@@ -13,10 +13,10 @@ import type { ModuleGuideContent } from '@/shared/ui';
 
 export const cadExplorerGuide: ModuleGuideContent = {
   titleKey: 'guide.cad_explorer.title',
-  titleDefault: 'CAD/BIM Data Explorer',
+  titleDefault: 'CAD-BIM BI Explorer',
   introKey: 'guide.cad_explorer.intro',
   introDefault:
-    'The Data Explorer turns the elements extracted from a converted CAD or BIM model into a live spreadsheet you can interrogate. Use it to filter, pivot, chart and describe quantities and parameters without opening the 3D model.',
+    'The CAD-BIM BI Explorer turns the elements extracted from a converted CAD or BIM model into a live spreadsheet you can interrogate. Use it to filter, pivot, chart and describe quantities and parameters without opening the 3D model.',
   sections: [
     {
       icon: 'Database',

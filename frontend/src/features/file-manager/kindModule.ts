@@ -295,8 +295,8 @@ export const KIND_MODULES: Record<FileKind, ModuleTarget[]> = {
       route: (_p, f) => withParam('/dwg-takeoff', 'drawingId', f),
     },
     {
-      label: 'Data Explorer',
-      i18nKey: 'files.module.data_explorer',
+      label: 'CAD-BIM BI Explorer',
+      i18nKey: 'nav.cad_bim_explorer',
       description: 'Inspect parsed entities, layers & blocks',
       descriptionI18nKey: 'files.module.data_explorer_desc',
       icon: Package,

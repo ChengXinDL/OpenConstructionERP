@@ -250,7 +250,10 @@ export function SnapshotsPage() {
         }
         links={[
           {
-            label: t('nav.data_explorer', { defaultValue: 'Data Explorer' }),
+            // #149 - one key names this page, the one the sidebar entry uses.
+            // A link that reads "Data Explorer" landing on a page headed
+            // "CAD-BIM BI Explorer" makes the user check they clicked right.
+            label: t('nav.cad_bim_explorer', { defaultValue: 'CAD-BIM BI Explorer' }),
             onClick: () => navigate('/data-explorer'),
           },
           {

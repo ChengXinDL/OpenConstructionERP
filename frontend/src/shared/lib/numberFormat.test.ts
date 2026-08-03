@@ -1,7 +1,7 @@
 // DDC-CWICR-OE: DataDrivenConstruction · OpenConstructionERP
 // Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
 /**
- * Fraction-digit safety for the Data Explorer / chart value formatter.
+ * Fraction-digit safety for the CAD-BIM BI Explorer / chart value formatter.
  *
  * `numberFormat.ts` passed *both* fraction-digit ends to `Intl` explicitly
  * (`minimumFractionDigits ?? 0`, `maximumFractionDigits ?? 2`) with no

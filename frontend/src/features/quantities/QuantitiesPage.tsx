@@ -989,7 +989,8 @@ export function QuantitiesPage() {
         links={[
           { label: t('nav.ai_estimate', { defaultValue: 'Quick Estimate (AI)' }), onClick: () => navigate('/ai-estimate') },
           { label: t('nav.takeoff', { defaultValue: 'PDF Takeoff' }), onClick: () => navigate('/takeoff') },
-          { label: t('nav.data_explorer', { defaultValue: 'Data Explorer' }), onClick: () => navigate('/data-explorer') },
+          // #149 - the sidebar's key, so the link and the page it opens agree.
+          { label: t('nav.cad_bim_explorer', { defaultValue: 'CAD-BIM BI Explorer' }), onClick: () => navigate('/data-explorer') },
         ]}
       >
         {t('quantities.intro_body', {

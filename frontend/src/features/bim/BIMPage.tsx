@@ -3919,7 +3919,8 @@ export function BIMPage() {
         }
         links={[
           { label: t('bim.intro_link_boq', { defaultValue: 'Open BOQ' }), onClick: () => navigate('/boq') },
-          { label: t('bim.intro_link_explorer', { defaultValue: 'Data Explorer' }), onClick: () => navigate('/data-explorer') },
+          // #149 - name the destination the way the destination names itself.
+          { label: t('nav.cad_bim_explorer', { defaultValue: 'CAD-BIM BI Explorer' }), onClick: () => navigate('/data-explorer') },
           { label: t('bim.intro_link_rules', { defaultValue: 'Quantity rules' }), onClick: () => navigate('/bim/rules') },
         ]}
       >

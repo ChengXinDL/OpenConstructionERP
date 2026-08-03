@@ -104,8 +104,11 @@ export const takeoffRealityModules: ModuleExplanation[] = [
     icon: 'Database',
     category: 'takeoff',
     keywords: 'cad bim dataframe table elements properties export',
-    titleKey: 'howto.data-explorer.title',
-    titleDefault: 'Data Explorer',
+    // #149: this entry deliberately reads the nav key rather than its own
+    // howto.data-explorer.title, so the article is headed the same name the
+    // sidebar and the page itself use. The howto.* key held a second name.
+    titleKey: 'nav.cad_bim_explorer',
+    titleDefault: 'CAD-BIM BI Explorer',
     summaryKey: 'howto.data-explorer.summary',
     summaryDefault: 'See a model as a filterable table of elements, properties and quantities.',
     whatKey: 'howto.data-explorer.what',

@@ -1061,7 +1061,12 @@ export default function App() {
         <Route path="/chat/admin" element={<P title="Chat Observability"><ERPChatAdminStatsPage /></P>} />
         <Route path="/cad-takeoff" element={<Navigate to="/data-explorer" replace />} />
         <Route path="/cad-explorer" element={<Navigate to="/data-explorer" replace />} />
-        <Route path="/data-explorer" element={<P title="Data Explorer"><CadDataExplorerPage /></P>} />
+        {/* #149: this literal is both the browser-tab title and the lookup key
+            into Header's TITLE_I18N_MAP. Renaming it here without renaming the
+            map entry drops the lookup to `t(title, { defaultValue: title })`,
+            which ships the English string to all 28 other locales and throws
+            nothing. The two move together. */}
+        <Route path="/data-explorer" element={<P title="CAD-BIM BI Explorer"><CadDataExplorerPage /></P>} />
         <Route path="/match-elements" element={<P title="Match Elements"><MatchElementsPage /></P>} />
         <Route path="/pointcloud" element={<P title="Point Cloud"><PointCloudPage /></P>} />
         <Route path="/bim" element={<P title="BIM Viewer"><BIMPage /></P>} />

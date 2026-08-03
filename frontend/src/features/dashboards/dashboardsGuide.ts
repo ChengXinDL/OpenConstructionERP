@@ -15,7 +15,7 @@ export const dashboardsGuide: ModuleGuideContent = {
   titleDefault: 'Data Snapshots',
   introKey: 'guide.dashboards.intro',
   introDefault:
-    'A snapshot freezes the uploaded CAD and BIM files of a project into a dated parquet dataset of every element and category. Use it to prove what changed between model revisions and to feed the charts, Data Explorer and cost flows that read from it.',
+    'A snapshot freezes the uploaded CAD and BIM files of a project into a dated parquet dataset of every element and category. Use it to prove what changed between model revisions and to feed the charts, CAD-BIM BI Explorer and cost flows that read from it.',
   sections: [
     {
       icon: 'BookOpen',
@@ -67,7 +67,7 @@ export const dashboardsGuide: ModuleGuideContent = {
       titleDefault: 'Put a snapshot to work',
       bodyKey: 'guide.dashboards.downstream.body',
       bodyDefault:
-        'A snapshot is not a dead end. From any card, jump to CAD-BIM Match to price its elements against cost, or to PDF Takeoff to measure quantities. The frozen dataset is also what the Data Explorer queries.',
+        'A snapshot is not a dead end. From any card, jump to CAD-BIM Match to price its elements against cost, or to PDF Takeoff to measure quantities. The frozen dataset is also what the CAD-BIM BI Explorer queries.',
     },
   ],
   ctaKey: 'guide.dashboards.cta',
