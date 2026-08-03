@@ -50,9 +50,7 @@ def _user(*, email: str, role: str = "editor", is_active: bool = True) -> User:
 async def _seed_workspace(session) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID]:
     """An admin, a member about to be deleted, a live member and a suspended one.
 
-    Returns their ids in that order. The deletion runs through the real
-    administrator path (``DELETE /api/v1/users/{id}``) rather than a hand-written
-    anonymised row, so the test breaks if the erasure model itself changes.
+    Returns their ids in that order, all four still live.
     """
     suffix = uuid.uuid4().hex[:8]
     admin = _user(email=f"admin-{suffix}@example.com", role="admin")
@@ -61,17 +59,30 @@ async def _seed_workspace(session) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID, uui
     suspended = _user(email=f"suspended-{suffix}@example.com", is_active=False)
     session.add_all([admin, doomed, live, suspended])
     await session.flush()
-    admin_id, doomed_id, live_id, suspended_id = admin.id, doomed.id, live.id, suspended.id
+    return admin.id, doomed.id, live.id, suspended.id
 
-    await UserService(session, get_settings()).admin_erase_account(admin_id, doomed_id)
+
+async def _erase(session, actor_id: uuid.UUID, target_id: uuid.UUID) -> None:
+    """Delete an account through the real administrator path.
+
+    Not a hand-written anonymised row: if the erasure model itself changes, these
+    tests have to see it.
+    """
+    await UserService(session, get_settings()).admin_erase_account(actor_id, target_id)
     await session.flush()
+
+
+async def _seed_and_erase(session) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID]:
+    """The workspace above with the doomed member already deleted."""
+    admin_id, doomed_id, live_id, suspended_id = await _seed_workspace(session)
+    await _erase(session, admin_id, doomed_id)
     return admin_id, doomed_id, live_id, suspended_id
 
 
 @pytest.mark.asyncio
 async def test_erased_account_is_absent_from_the_management_list(pg_session) -> None:
     """The deleted colleague is gone from the page the administrator is looking at."""
-    admin_id, erased_id, live_id, suspended_id = await _seed_workspace(pg_session)
+    admin_id, erased_id, live_id, suspended_id = await _seed_and_erase(pg_session)
 
     rows, _total = await UserService(pg_session, get_settings()).list_users(limit=500)
 
@@ -86,7 +97,7 @@ async def test_erased_account_is_absent_from_the_management_list(pg_session) -> 
 @pytest.mark.asyncio
 async def test_erased_account_is_absent_from_the_inactive_filter(pg_session) -> None:
     """Erasure deactivates the row, so the inactive view is where it would surface."""
-    _admin_id, erased_id, _live_id, _suspended_id = await _seed_workspace(pg_session)
+    _admin_id, erased_id, _live_id, _suspended_id = await _seed_and_erase(pg_session)
 
     rows, _total = await UserService(pg_session, get_settings()).list_users(limit=500, is_active=False)
 
@@ -102,7 +113,7 @@ async def test_suspended_account_is_still_listed_under_the_inactive_filter(pg_se
     on ``is_active``: it holds before and after the fix, and the second of those
     two implementations would break it.
     """
-    _admin_id, _erased_id, _live_id, suspended_id = await _seed_workspace(pg_session)
+    _admin_id, _erased_id, _live_id, suspended_id = await _seed_and_erase(pg_session)
 
     rows, _total = await UserService(pg_session, get_settings()).list_users(limit=500, is_active=False)
 
@@ -110,22 +121,27 @@ async def test_suspended_account_is_still_listed_under_the_inactive_filter(pg_se
 
 
 @pytest.mark.asyncio
-async def test_reported_total_excludes_the_erased_account(pg_session) -> None:
+async def test_reported_total_drops_when_an_account_is_deleted(pg_session) -> None:
     """The count and the page apply the same predicate.
 
     ``list_users`` returns ``(rows, total)`` and the total feeds the pager. A
-    filter applied to the fetch alone leaves a total that counts a row nobody can
-    reach, so the last page of the directory comes back short.
+    filter applied to the fetch alone would leave a total that counts a row
+    nobody can reach, so the last page of the directory comes back short.
 
-    The session starts empty and the fixture creates exactly four accounts, one
-    of which is then deleted, so the number is stated outright rather than
-    derived from the rows the same query returned.
+    Measured as the difference across the deletion rather than against an
+    absolute number: this lane shares one cluster with every other file in it,
+    and an account another test committed is none of this test's business.
     """
-    admin_id, erased_id, live_id, suspended_id = await _seed_workspace(pg_session)
+    svc = UserService(pg_session, get_settings())
+    admin_id, doomed_id, live_id, suspended_id = await _seed_workspace(pg_session)
+    rows_before, total_before = await svc.list_users(limit=500)
+    assert doomed_id in {u.id for u in rows_before}, "the account is listed while it is live"
+    assert total_before == len(rows_before), "guard: the page has to hold every counted row"
 
-    rows, total = await UserService(pg_session, get_settings()).list_users(limit=500)
+    await _erase(pg_session, admin_id, doomed_id)
 
-    assert total == 3, "four accounts were created and one was deleted"
-    assert total == len(rows), "the count query counted rows the page does not return"
-    assert {u.id for u in rows} == {admin_id, live_id, suspended_id}
-    assert erased_id not in {u.id for u in rows}
+    rows_after, total_after = await svc.list_users(limit=500)
+    assert total_after == total_before - 1, "deleting one account must lower the total by one"
+    assert total_after == len(rows_after), "the count query counted a row the page does not return"
+    assert doomed_id not in {u.id for u in rows_after}
+    assert {admin_id, live_id, suspended_id} <= {u.id for u in rows_after}
