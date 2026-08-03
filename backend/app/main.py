@@ -661,7 +661,7 @@ async def _seed_demo_account() -> None:
         {
             "email": "demo@openconstructionerp.com",
             "env_var": "DEMO_USER_PASSWORD",
-            "full_name": "Demo User",
+            "full_name": "Elena Marchetti",
             "role": "admin",
         },
         {
