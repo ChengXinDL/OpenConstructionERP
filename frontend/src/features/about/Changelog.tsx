@@ -38,6 +38,13 @@ interface ChangelogEntry {
 // date, title and meaning intact; trim the prose, not the facts.
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '14.2.0',
+    date: '2026-08-03',
+    tag: 'FIX',
+    summary:
+      'Choosing a project now moves the whole dashboard onto it, cost items imported without a currency have been given the one their region implies, and analytics panels say there is not enough data instead of drawing a chart of one row. The demo estate reads like a project rather than a fixture, and several hundred strings that were reaching every language as English are translated.',
+  },
+  {
     version: '14.1.0',
     date: '2026-08-01',
     tag: 'NEW',
