@@ -88,6 +88,24 @@ def _test_trees() -> set[str]:
     return trees
 
 
+# The directory a step's ``pytest tests`` is relative to. Anything else is a
+# different suite that happens to use the same word: tools/costbase_pipeline
+# has its own tests/ directory and its own conftest, and reading its step as a
+# bare run of backend/tests marks every backend tree as fully gated by a job
+# that never collects a single file from them.
+BACKEND_DIR = "backend"
+
+
+def _working_directory(doc: dict, job: dict, step: dict) -> str:
+    """Resolve the directory a step runs in, innermost declaration winning."""
+    for scope in (step, job.get("defaults", {}).get("run", {}), doc.get("defaults", {}).get("run", {})):
+        if isinstance(scope, dict):
+            declared = scope.get("working-directory")
+            if isinstance(declared, str) and declared:
+                return declared.strip("./")
+    return ""
+
+
 class Invocation:
     """One ``pytest`` command found in one workflow step."""
 
@@ -132,6 +150,8 @@ def _invocations() -> list[Invocation]:
                     continue
                 run = step.get("run")
                 if not isinstance(run, str):
+                    continue
+                if _working_directory(doc, job, step) != BACKEND_DIR:
                     continue
                 blocking = job_blocking and step.get("continue-on-error") is not True
                 for line in run.splitlines():
@@ -237,3 +257,51 @@ def test_tree_is_gated_as_recorded(tree: str, invocations: list[Invocation]) -> 
         "Either the workflow change was not intended, or it was and this line "
         "should change with it. Weakening a gate is a decision, not a detail."
     )
+
+
+def test_a_pytest_run_in_another_directory_is_not_counted() -> None:
+    """``pytest tests`` means a different tests/ in every directory.
+
+    The cost base pipeline has its own suite under tools/costbase_pipeline and
+    is attached to the PostgreSQL lane with its own working-directory. Read
+    without that directory, its bare path argument matched every backend tree
+    by prefix and reported all of them as fully gated by a job that collects
+    nothing from them. The trees it wrongly promoted were the four that are
+    genuinely filtered or on demand, which is to say exactly the ones this
+    file exists to keep honest.
+    """
+    doc = yaml.safe_load((WORKFLOWS / "ci-postgres.yml").read_text(encoding="utf-8"))
+    steps = [
+        (job, step)
+        for job in (doc.get("jobs") or {}).values()
+        for step in (job.get("steps") or [])
+        if isinstance(step, dict) and "costbase_pipeline" in str(step.get("working-directory", ""))
+    ]
+    assert steps, "the cost base step moved; this test no longer covers what it names"
+
+    job, step = steps[0]
+    assert _working_directory(doc, job, step) != BACKEND_DIR
+    assert _PYTEST_CALL.search(step["run"]) is not None, "the step no longer calls pytest"
+
+    # The assertion that matters is about the collected set, not about the
+    # helper. Checking only that the helper answers correctly would stay green
+    # if the filter it feeds were removed, which is the state this test is here
+    # to prevent. A bare "tests" path from that step is the fingerprint.
+    leaked = [c for c in _invocations() if c.paths == ["tests"]]
+    assert not leaked, (
+        "a pytest run from outside backend/ is being counted as a run of the "
+        f"backend tree: {[(c.workflow, c.job) for c in leaked]}"
+    )
+
+
+def test_the_backend_steps_are_still_counted() -> None:
+    """Control. Excluding by directory must not exclude the lane itself.
+
+    Without this, the fix above passes just as well by dropping every
+    invocation, which would leave every tree classified as unnamed and the
+    recorded map asserting nothing at all.
+    """
+    from_backend = [c for c in _invocations() if c.workflow == "ci-postgres.yml"]
+
+    assert from_backend, "no pytest invocation survived the working-directory filter"
+    assert any(c.paths == ["tests/pg"] for c in from_backend), "the PostgreSQL suite step was filtered out"
