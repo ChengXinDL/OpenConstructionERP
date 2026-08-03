@@ -149,7 +149,7 @@ async def seed_daily_diary_demo(
                 labour_count=rng.randint(8, 80),
                 equipment_count=rng.randint(2, 25),
                 status=status,
-                notes=f"Auto-seeded diary for {diary_date}",
+                notes=f"Day shift record for {diary_date}.",
                 closed_at=day if status != "open" else None,
                 metadata_={"seed": True, "seed_revision": 1},
             )
@@ -186,7 +186,7 @@ async def seed_daily_diary_demo(
                         entry_type=entry_type,
                         entry_time=day + timedelta(hours=8 + e),
                         title=f"{entry_type.replace('_', ' ').title()} #{e + 1}",
-                        description=f"Seeded {entry_type} entry on {diary_date}",
+                        description=f"{entry_type.replace('_', ' ').capitalize()} recorded on {diary_date}.",
                         source_module=rng.choice([None, "hse", "procurement", "quality", "schedule"]),
                         source_ref=None,
                         author_id=None,

@@ -79,6 +79,25 @@ _NOTIFICATION_KINDS = (
 )
 
 
+# What each notification kind actually announces. A portal user reads the
+# title and body, so they have to say something, not restate the row number.
+_NOTIFICATION_TITLES = {
+    "document_ready": "A document is ready for you",
+    "ticket_update": "Your support ticket was updated",
+    "payment_status": "Payment application status changed",
+    "award_notification": "Tender award decision published",
+    "general": "Notice from the project team",
+}
+
+_NOTIFICATION_BODIES = {
+    "document_ready": "A new revision has been published to your document area.",
+    "ticket_update": "An engineer has responded to your ticket.",
+    "payment_status": "Your latest payment application has moved to the next stage.",
+    "award_notification": "The award decision for your tender package is now available.",
+    "general": "Please review the latest update from the project team.",
+}
+
+
 def _det_uuid(label: str) -> uuid.UUID:
     return uuid.uuid5(_NS, label)
 
@@ -161,8 +180,8 @@ async def seed_portal_demo(
             id=_det_uuid(f"notif-{n_idx}"),
             portal_user_id=user.id,
             kind=kind,
-            title=f"Demo notification #{n_idx + 1}",
-            body=f"Body for demo notification {n_idx + 1} ({kind})",
+            title=_NOTIFICATION_TITLES[kind],
+            body=_NOTIFICATION_BODIES[kind],
             link_path=f"/portal/items/{n_idx}",
             payload={"seq": n_idx, "kind": kind},
             read_at=read_at,

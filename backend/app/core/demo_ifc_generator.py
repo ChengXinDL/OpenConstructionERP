@@ -444,7 +444,7 @@ def generate_demo_ifc(
     site_id = _next_id()
     building_id = _next_id()
 
-    lines.append(f"#{person_id}= IFCPERSON($,'Demo','User',$,$,$,$,$);")
+    lines.append(f"#{person_id}= IFCPERSON($,'Elena','Marchetti',$,$,$,$,$);")
     lines.append(f"#{org_id}= IFCORGANIZATION($,'OpenConstructionERP',$,$,$);")
     lines.append(f"#{po_id}= IFCPERSONANDORGANIZATION(#{person_id},#{org_id},$);")
     lines.append(f"#{app_id}= IFCAPPLICATION(#{org_id},'1.5.0','OpenConstructionERP','OE');")

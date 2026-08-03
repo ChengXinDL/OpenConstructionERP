@@ -147,7 +147,7 @@ async def seed_clash(
         run = ClashRun(
             project_id=project_id,
             name="Coordination clash run",
-            description="Federated MEP vs structural coordination pass (demo data).",
+            description="Federated MEP against structural coordination pass.",
             model_ids=model_ids_json,
             clash_type="both",
             ignore_same_model=False,

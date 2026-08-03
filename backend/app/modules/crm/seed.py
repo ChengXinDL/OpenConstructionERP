@@ -76,6 +76,18 @@ _INDUSTRIES = (
 _SIZE_CATS = ("sme", "mid", "enterprise")
 
 
+# An account name is composed from the sector, size band and country already
+# drawn for that row, rather than from a list of coined trading names. Two
+# reasons. A made-up company name collides with a real firm surprisingly often,
+# and a descriptive name still tells the reader what the account is, so the
+# register stops looking like a hundred copies of one row.
+_SIZE_ROLE = {
+    "sme": "Contracting",
+    "mid": "Construction Group",
+    "enterprise": "Development Holding",
+}
+
+
 _COUNTRIES = (
     "DE",
     "AT",
@@ -101,6 +113,34 @@ _LEAD_STATUSES = ("new", "qualifying", "qualified", "disqualified", "converted")
 _OPP_SOURCES = _LEAD_SOURCES
 _ACTIVITY_KINDS = ("call", "meeting", "email", "task", "note")
 _ACTIVITY_OUTCOMES = (None, "no_answer", "voicemail", "positive", "negative", "neutral")
+
+
+# What the pursuit is actually for. Combined with the account's sector this
+# gives a pipeline a salesperson can read, instead of 200 rows of one string
+# with the counter moved along.
+_OPP_SCOPES = (
+    "design and build tender",
+    "fit-out package",
+    "framework renewal",
+    "shell and core package",
+    "refurbishment programme",
+    "MEP subpackage",
+    "early contractor involvement",
+    "phase 2 extension",
+    "cost plan and estimate",
+    "term maintenance contract",
+)
+
+
+# One subject line per activity kind. The register shows what was done, which
+# is the only thing the subject column is for.
+_ACTIVITY_SUBJECTS = {
+    "call": "Follow-up call on {scope}",
+    "meeting": "Site meeting - {scope}",
+    "email": "Sent revised pricing for {scope}",
+    "task": "Prepare submission pack for {scope}",
+    "note": "Handover note on {scope}",
+}
 
 
 async def seed_crm_demo(session: AsyncSession) -> dict[str, int]:
@@ -180,13 +220,16 @@ async def seed_crm_demo(session: AsyncSession) -> dict[str, int]:
     # ── Accounts ─────────────────────────────────────────────────────────
     account_objs: list[Account] = []
     for i in range(100):
+        industry = rng.choice(_INDUSTRIES)
+        size_category = rng.choice(_SIZE_CATS)
+        country = rng.choice(_COUNTRIES)
         account = Account(
-            name=f"Demo Account {i + 1:03d}",
-            industry=rng.choice(_INDUSTRIES),
-            size_category=rng.choice(_SIZE_CATS),
-            country=rng.choice(_COUNTRIES),
+            name=f"{industry} {_SIZE_ROLE[size_category]} {country}-{i + 1:03d}",
+            industry=industry,
+            size_category=size_category,
+            country=country,
             website=f"https://example-{i + 1:03d}.test",
-            description=f"Auto-seeded demo account #{i + 1}",
+            description=f"{industry.lower()} client account, {country}",
             status="active",
             tags=[],
         )
@@ -223,10 +266,12 @@ async def seed_crm_demo(session: AsyncSession) -> dict[str, int]:
         value = Decimal(rng.randint(10_000, 5_000_000))
         prob = stage.default_probability_percent
         close_date = (now.date() + timedelta(days=rng.randint(-180, 180))).isoformat()
+        account = rng.choice(account_objs)
+        scope = rng.choice(_OPP_SCOPES)
         opp = Opportunity(
-            account_id=rng.choice(account_objs).id,
-            title=f"Demo Opportunity {idx + 1:04d}",
-            description=f"Seeded {status} opportunity",
+            account_id=account.id,
+            title=f"{account.industry} {scope} {idx + 1:04d}",
+            description=f"{account.industry} {scope} for {account.name} ({account.country}).",
             estimated_value=value,
             currency=rng.choice(("EUR", "USD", "GBP", "")),
             expected_close_date=close_date,
@@ -285,17 +330,27 @@ async def seed_crm_demo(session: AsyncSession) -> dict[str, int]:
     # ── Activities ───────────────────────────────────────────────────────
     for i in range(300):
         attach_to = rng.choice(("account", "opportunity", "lead", "none"))
-        target_account = rng.choice(account_objs).id if attach_to == "account" else None
-        target_opp = rng.choice(opp_objs).id if attach_to == "opportunity" else None
+        linked_account = rng.choice(account_objs) if attach_to == "account" else None
+        linked_opp = rng.choice(opp_objs) if attach_to == "opportunity" else None
         target_lead = None  # leads list not retained, skip lead-linked
         completed = rng.random() < 0.6
+        kind = rng.choice(_ACTIVITY_KINDS)
+        # Say what the activity was about. An activity hanging off an
+        # opportunity borrows that pursuit's own wording so the two registers
+        # agree with each other; the rest fall back to a generic scope.
+        if linked_opp is not None:
+            scope = linked_opp.title
+        elif linked_account is not None:
+            scope = linked_account.name
+        else:
+            scope = rng.choice(_OPP_SCOPES)
         activity = CrmActivity(
-            account_id=target_account,
-            opportunity_id=target_opp,
+            account_id=linked_account.id if linked_account is not None else None,
+            opportunity_id=linked_opp.id if linked_opp is not None else None,
             lead_id=target_lead,
-            kind=rng.choice(_ACTIVITY_KINDS),
-            subject=f"Demo activity {i + 1:04d}",
-            body="Seeded activity body",
+            kind=kind,
+            subject=_ACTIVITY_SUBJECTS[kind].format(scope=scope),
+            body=f"{kind.capitalize()} logged against {scope}.",
             due_at=(now + timedelta(days=rng.randint(-30, 30))).isoformat() if rng.random() < 0.7 else None,
             completed_at=now.isoformat() if completed else None,
             outcome=rng.choice(_ACTIVITY_OUTCOMES),

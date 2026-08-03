@@ -26,7 +26,7 @@ from app.modules.price_index.models import (
     LocationFactor,
 )
 
-_DEMO_SERIES_NAME = "Demo Construction Cost Index"
+_DEMO_SERIES_NAME = "General Construction Cost Index"
 
 # A gently rising generic index normalised to 1.0 at the base period, standing
 # in for real construction cost inflation across recent years.
@@ -65,7 +65,7 @@ async def seed_price_index_demo(session: AsyncSession) -> dict[str, int]:
     if existing_series is None:
         series = CostIndexSeries(
             name=_DEMO_SERIES_NAME,
-            description="Sample index series for trying out period-to-period cost escalation.",
+            description="Construction cost index used for period-to-period escalation.",
         )
         session.add(series)
         await session.flush()

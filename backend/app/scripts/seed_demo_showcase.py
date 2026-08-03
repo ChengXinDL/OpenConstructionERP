@@ -68,7 +68,7 @@ DEMO_PROJECTS = [
             "description": (
                 "Neubau: 2 Wohneinheiten + Erweiterung eines Bestandsgebäudes. "
                 "BGF ca. 480 m². Kostenrahmen ca. 1,8 Mio EUR netto. "
-                "Demo-Projekt aus IFC-Quellmodellen (Duplex + Building-Architecture)."
+                "Modellgrundlage: IFC-Quellmodelle (Duplex und Building-Architecture)."
             ),
             "region": "DACH",
             "classification_standard": "DIN276",
@@ -119,8 +119,8 @@ DEMO_PROJECTS = [
             "name": "Advanced Commercial Complex - Boston",
             "description": (
                 "New-build commercial office + structural steel frame, "
-                "~1,200 m² gross floor area. Demo project reuses public "
-                "Revit sample models (structural + architectural). "
+                "~1,200 m² gross floor area. Built from federated "
+                "structural and architectural models. "
                 "Estimate target budget USD 4.2M."
             ),
             "region": "US",
@@ -171,7 +171,7 @@ DEMO_PROJECTS = [
             "name": "Proyecto Mixto Civil-Arquitectónico - Madrid",
             "description": (
                 "Urbanización mixta: vial de acceso + edificio de servicios. "
-                "Proyecto demo construido a partir de dos DWG de referencia "
+                "Proyecto construido a partir de dos DWG de referencia "
                 "(arquitectónico + civil). Presupuesto objetivo 850.000 EUR."
             ),
             "region": "ES",
@@ -235,7 +235,7 @@ async def login_or_register(client: httpx.AsyncClient) -> dict[str, str]:
             json={
                 "email": ADMIN_EMAIL,
                 "password": ADMIN_PASSWORD,
-                "full_name": "Demo Admin",
+                "full_name": "Elena Marchetti",
             },
         )
         r = await client.post(

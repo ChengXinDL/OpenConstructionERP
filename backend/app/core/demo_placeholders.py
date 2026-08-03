@@ -61,11 +61,11 @@ def write_pdf_placeholder(target: Path, title: str, note: str | None = None) -> 
         c.setFont(BOLD_FONT, 18)
         c.drawString(72, height - 90, title[:90])
         c.setFont(BODY_FONT, 11)
-        c.drawString(72, height - 130, "Demo placeholder document")
+        c.drawString(72, height - 130, "Sample document")
         if note:
             c.drawString(72, height - 150, note[:90])
         c.setFont(BODY_FONT, 10)
-        c.drawString(72, height - 200, "This file is auto-generated for the demo project.")
+        c.drawString(72, height - 200, "This file is auto-generated for the example project.")
         c.drawString(72, height - 215, "Upload your own document to replace it.")
         c.setFont(BODY_FONT, 9)
         c.drawString(72, 60, "OpenConstructionERP - open-source construction cost platform")
@@ -91,11 +91,11 @@ def write_dxf_placeholder(target: Path, title: str) -> None:
         doc = ezdxf.new(dxfversion="R2010")
         msp = doc.modelspace()
         msp.add_text(
-            title[:80] or "Demo drawing",
+            title[:80] or "Sample drawing",
             dxfattribs={"height": 2.5, "insert": (0, 0)},
         )
         msp.add_text(
-            "Auto-generated demo placeholder",
+            "Auto-generated sample drawing",
             dxfattribs={"height": 1.5, "insert": (0, -4)},
         )
         doc.saveas(str(target))
@@ -112,16 +112,19 @@ def write_ifc_placeholder(target: Path, title: str) -> None:
     what an IFC file is on disk.
     """
     target.parent.mkdir(parents=True, exist_ok=True)
-    safe_title = (title or "Demo model").replace("'", "")[:80]
+    safe_title = (title or "Sample model").replace("'", "")[:80]
     body = (
         "ISO-10303-21;\n"
         "HEADER;\n"
-        "FILE_DESCRIPTION(('OpenConstructionERP demo placeholder'),'2;1');\n"
+        "FILE_DESCRIPTION(('OpenConstructionERP sample model'),'2;1');\n"
         f"FILE_NAME('{safe_title}','',(''),(''),'OpenConstructionERP','OpenConstructionERP','');\n"
         "FILE_SCHEMA(('IFC4'));\n"
         "ENDSEC;\n"
         "DATA;\n"
-        "#1=IFCPROJECT('0demoplaceholder000000',$,'Demo placeholder',$,$,$,$,$,$);\n"
+        # The GUID keeps the "demoplaceholder" marker on purpose: it is an
+        # internal identifier the demo tooling matches on, and no viewer shows
+        # it. Only the entity name beside it is read by a person.
+        "#1=IFCPROJECT('0demoplaceholder000000',$,'Sample project',$,$,$,$,$,$);\n"
         "ENDSEC;\n"
         "END-ISO-10303-21;\n"
     )
@@ -131,7 +134,7 @@ def write_ifc_placeholder(target: Path, title: str) -> None:
 def write_text_placeholder(target: Path, title: str, note: str | None = None) -> None:
     """Write a tiny UTF-8 text note to ``target`` as a last-resort fallback."""
     target.parent.mkdir(parents=True, exist_ok=True)
-    lines = [title, "", "Demo placeholder file - auto-generated for the demo project."]
+    lines = [title, "", "Sample file - auto-generated for the example project."]
     if note:
         lines.append(note)
     lines.append("Upload your own file to replace it.")

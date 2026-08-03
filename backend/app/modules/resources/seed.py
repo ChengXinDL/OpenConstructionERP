@@ -275,7 +275,7 @@ def _make_requests(
             ResourceRequest(
                 project_id=proj,
                 title=titles[i % len(titles)],
-                description="Auto-generated demo request",
+                description=f"Cover required on site for {duration} days from {start:%d %b %Y}.",
                 required_skills=[str(s) for s in req_skills],
                 start_at=start,
                 end_at=end,

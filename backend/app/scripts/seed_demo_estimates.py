@@ -641,7 +641,7 @@ async def main() -> None:
                 id=uuid.uuid4(),
                 email="demo@openconstructionerp.com",
                 hashed_password="$2b$12$DEMO_HASH_NOT_FOR_PRODUCTION_USE_ONLY",
-                full_name="Demo User",
+                full_name="Elena Marchetti",
                 role="viewer",
                 locale="en",
                 is_active=True,

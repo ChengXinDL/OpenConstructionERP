@@ -77,7 +77,7 @@ async def _seed_one_project(
             kind=kind,
             address=address,
             capacity_total=room_count,
-            notes=f"Seeded demo {kind.replace('_', ' ')} block.",
+            notes=f"{kind.replace('_', ' ').capitalize()} block, {room_count} rooms.",
             metadata_={"seed": True, "demo": True},
         )
         session.add(accommodation)

@@ -22,6 +22,7 @@ import random
 import uuid
 from decimal import Decimal
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.contracts.models import (
@@ -91,6 +92,18 @@ _TYPE_CONFIG_CATALOG: list[dict[str, object]] = [
 ]
 
 
+# How each procurement route is named on a contract cover sheet. The stored
+# value stays the machine code; this is only what the register shows.
+_TYPE_LABELS: dict[str, str] = {
+    "lump_sum": "Lump sum",
+    "gmp": "Guaranteed maximum price",
+    "cost_plus": "Cost plus fee",
+    "tm": "Time and materials",
+    "unit_price": "Unit price",
+    "design_build": "Design and build",
+}
+
+
 _TYPE_DISTRIBUTION: list[str] = [
     "lump_sum",
     "lump_sum",
@@ -158,6 +171,12 @@ async def seed_contracts_demo(
     rng = random.Random(42)
     type_configs = await seed_type_configurations(session)
 
+    # Contract codes are deterministic and the column is unique, so a second
+    # run used to abort on the first duplicate rather than skip it. Re-seeding
+    # is how the demo estate is refreshed, so it has to be a no-op here. The
+    # existing codes are read once instead of probed per contract.
+    existing_codes = set((await session.execute(select(Contract.code))).scalars().all())
+
     contracts_count = 0
     lines_count = 0
     claims_count = 0
@@ -168,6 +187,8 @@ async def seed_contracts_demo(
     for idx, c_type in enumerate(_TYPE_DISTRIBUTION):
         project_id = project_ids[idx % len(project_ids)]
         code = f"CT-{idx + 1:03d}-{c_type.upper()[:3]}"
+        if code in existing_codes:
+            continue
         terms: dict[str, object] = {}
         if c_type == "gmp":
             terms = {
@@ -183,7 +204,7 @@ async def seed_contracts_demo(
         total_value = Decimal("100000") * (idx + 5)
         contract = Contract(
             code=code,
-            title=f"Demo {c_type} contract #{idx + 1}",
+            title=f"{_TYPE_LABELS.get(c_type, c_type)} agreement {code}",
             contract_type=c_type,
             counterparty_type="subcontractor" if idx % 2 else "client",
             counterparty_id=uuid.uuid4(),
@@ -208,7 +229,7 @@ async def seed_contracts_demo(
                 ContractLine(
                     contract_id=contract.id,
                     code=f"{idx + 1:02d}.{li + 1:03d}",
-                    description=f"Demo line {li + 1} for {c_type}",
+                    description=f"{_TYPE_LABELS.get(c_type, c_type)} works, item {li + 1}",
                     line_type=rng.choice(
                         ("work", "material", "labor", "fee", "contingency"),
                     ),
@@ -305,7 +326,7 @@ async def seed_contracts_demo(
                     final_balance=total_value - paid_amount,
                     sign_off_date="2026-12-31",
                     status="closed",
-                    notes="Closed via demo seed",
+                    notes="Final account agreed, 5% retention held to defects liability expiry.",
                 )
             )
             final_account_count += 1

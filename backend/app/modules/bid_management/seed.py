@@ -61,6 +61,17 @@ _BIDDER_NAMES = [
     "Epsilon Works S.A.",
 ]
 
+# What a buyer would actually have written against a bidder on the list. One
+# note per bidder rather than one note repeated, so the column carries
+# information instead of restating that the row was seeded.
+_BIDDER_NOTES = (
+    "Prequalified on the framework, insurance verified.",
+    "Delivered the phase 1 package on programme.",
+    "New to the framework, references requested.",
+    "Capacity confirmed for the proposed start date.",
+    "Priced competitively last round but declined the award.",
+)
+
 _QA_QUESTIONS = [
     ("What is the expected start date?", "We expect a kickoff within 2 weeks of award."),
     ("Are alternates allowed for items 3.2 and 3.4?", "Yes - please submit clearly labelled."),
@@ -111,7 +122,7 @@ async def _seed_one_project(session: AsyncSession, project_id: uuid.UUID, projec
             tender_id=None,
             code=code,
             title=title,
-            scope_description=f"Demo scope for {title}",
+            scope_description=f"Supply, installation and commissioning for {title}.",
             instructions_to_bidders="Standard ITB applies. Submit envelope by deadline.",
             submission_deadline=_iso(deadline),
             decision_due_by=_iso(deadline + timedelta(days=7)),
@@ -157,7 +168,7 @@ async def _seed_one_project(session: AsyncSession, project_id: uuid.UUID, projec
                 contact_phone=f"+49 30 555 {1000 + bi}",
                 country="DE" if bi % 2 == 0 else "AT",
                 status="active",
-                notes="Seeded demo bidder",
+                notes=_BIDDER_NOTES[bi % len(_BIDDER_NOTES)],
             )
             session.add(bidder)
             bidders.append(bidder)

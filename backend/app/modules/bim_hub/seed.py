@@ -110,7 +110,7 @@ async def _seed_one_project(session: AsyncSession, project_id: uuid.UUID) -> dic
         project_id=project_id,
         name=federation_name,
         description=(
-            "Demo coordination federation grouping every imported discipline "
+            "Coordination federation grouping every imported discipline "
             "model into a single coordinated set for the coordination hub."
         ),
         origin_offset={"x": 0.0, "y": 0.0, "z": 0.0},

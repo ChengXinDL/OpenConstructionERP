@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import logging
 import random
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -27,6 +28,8 @@ from app.modules.variations.models import (
     VariationRequest,
     VariationScheduleImpact,
 )
+
+logger = logging.getLogger(__name__)
 
 _SEED = 42
 
@@ -61,6 +64,23 @@ _COST_CATEGORIES = (
     "profit",
 )
 _LINE_TYPES = ("labor", "material", "equipment")
+
+# A daywork line is signed off on site, so it names the resource it is for and
+# the operative who booked it.
+_DAYWORK_DESCRIPTIONS = {
+    "labor": "Site operative hours on instructed additional works",
+    "material": "Materials drawn from stores for instructed works",
+    "equipment": "Plant standing and operating time",
+}
+
+_WORKER_NAMES = (
+    "P. Vogel",
+    "M. Halvorsen",
+    "S. Dubois",
+    "T. Farkas",
+    "A. Serrano",
+    "J. Keller",
+)
 _DW_STATUSES = ("draft", "signed", "disputed", "billed")
 _DISRUPTION_STATUSES = ("draft", "submitted", "under_review", "agreed", "rejected")
 _EOT_CAUSES = ("employer_caused", "neutral", "contractor_caused", "concurrent")
@@ -105,6 +125,30 @@ async def seed_variations_demo(
     if not projects:
         return {"projects": 0}
 
+    # Guarded as a whole rather than row by row. This seeder writes one
+    # connected estate - notices, then the requests and orders that reference
+    # them - so skipping individual duplicates would leave the later rows
+    # pointing at nothing. Notice codes are unique per project, so a second
+    # pass used to abort on ``NOT-0001`` instead of doing nothing. Callers
+    # carried this check externally; holding it here means a direct call is
+    # safe too, which is what a re-seed of the demo box actually does.
+    already_seeded = (await session.execute(select(Notice.id).where(Notice.project_id.in_(projects)).limit(1))).first()
+    if already_seeded is not None:
+        logger.info("seed_variations_demo: variations already present, skipping")
+        return {
+            "notices": 0,
+            "variation_requests": 0,
+            "variation_orders": 0,
+            "cost_impact_lines": 0,
+            "schedule_impact_lines": 0,
+            "site_measurements": 0,
+            "daywork_sheets": 0,
+            "daywork_lines": 0,
+            "disruption_claims": 0,
+            "eot_claims": 0,
+            "final_accounts": 0,
+        }
+
     rng = random.Random(_SEED)
     currencies = await _project_currencies(session, projects)
 
@@ -117,7 +161,7 @@ async def seed_variations_demo(
             project_id=pid,
             code=f"NOT-{i + 1:04d}",
             title=f"Notice of variation {i + 1}",
-            description=f"Demo notice #{i + 1} -- automated seed",
+            description=f"Notice served on the {recipient} regarding a change to the works.",
             raised_at=_date_offset(rng),
             raised_by=None,
             recipient_type=recipient,
@@ -254,15 +298,16 @@ async def seed_variations_demo(
             qty = Decimal(str(rng.randint(1, 12)))
             rate = Decimal(str(rng.randint(20, 200)))
             total = qty * rate
+            line_type = rng.choice(_LINE_TYPES)
             line = DayworkSheetLine(
                 sheet_id=sheet.id,
-                line_type=rng.choice(_LINE_TYPES),
-                description="Seed line",
+                line_type=line_type,
+                description=_DAYWORK_DESCRIPTIONS.get(line_type, "Additional works"),
                 quantity=qty,
                 unit=rng.choice(["h", "m2", "pcs"]),
                 unit_rate=rate,
                 total=total,
-                worker_name="Demo Worker",
+                worker_name=rng.choice(_WORKER_NAMES),
             )
             session.add(line)
             sheet_total += total

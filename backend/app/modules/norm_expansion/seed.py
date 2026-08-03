@@ -98,7 +98,7 @@ async def seed_norm_expansion(session: AsyncSession) -> dict[str, int]:
             category=spec["category"],
             labor_hours_per_unit=spec["labor_hours_per_unit"],
             machine_hours_per_unit=spec["machine_hours_per_unit"],
-            notes="Demo placeholder coefficients.",
+            notes="Indicative coefficients - replace with your own measured norms.",
             is_active=True,
         )
         for order, (mat_name, mat_unit, qty) in enumerate(materials):  # type: ignore[arg-type]

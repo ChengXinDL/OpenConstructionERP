@@ -63,6 +63,18 @@ _TRADES = [
     "joinery",
 ]
 
+# Cities and the VAT registration prefix that actually belong to each country,
+# so a subcontractor's address, tax id and country code tell one story.
+_COUNTRY_PROFILES: dict[str, tuple[tuple[str, ...], str]] = {
+    "DE": (("Berlin", "Munich", "Hamburg", "Köln"), "DE"),
+    "CH": (("Zurich", "Basel", "Geneva", "Bern"), "CHE"),
+    "AT": (("Vienna", "Graz", "Linz", "Salzburg"), "ATU"),
+    "GB": (("London", "Manchester", "Leeds", "Bristol"), "GB"),
+    "FR": (("Paris", "Lyon", "Marseille", "Lille"), "FR"),
+    "ES": (("Madrid", "Barcelona", "Valencia", "Seville"), "ES"),
+    "IT": (("Milan", "Rome", "Turin", "Bologna"), "IT"),
+}
+
 _CERT_TYPES = ("insurance", "license", "iso", "safety", "bond")
 _STATUSES = ("pending", "approved", "suspended", "rejected")
 _PAYMENT_STATUSES = (
@@ -127,16 +139,23 @@ async def seed_subcontractors_demo(
             weights=[3, 5, 1, 1],
             k=1,
         )[0]
+        # Country is drawn first because the city, the VAT prefix and the name
+        # all have to agree with it. They did not before: every row carried a
+        # German tax id and a German city whatever country it claimed, so a
+        # Spanish subcontractor was registered in Berlin.
+        country = rng.choice(list(_COUNTRY_PROFILES))
+        cities, vat_prefix = _COUNTRY_PROFILES[country]
+        lead_trade = trades[0].replace("_", " ").title()
         sub = Subcontractor(
-            legal_name=f"Demo Subcontractor {i + 1:02d} GmbH",
-            trade_name=f"DS-{i + 1:02d}",
-            tax_id=f"DE{100000000 + i:09d}",
+            legal_name=f"{lead_trade} Contractors {country}-{i + 1:02d}",
+            trade_name=f"{trades[0][:3].upper()}{i + 1:02d}",
+            tax_id=f"{vat_prefix}{100000000 + i:09d}",
             trade_categories=trades,
             prequalification_status=prequal_status,
             rating_score=Decimal(str(rng.randint(50, 95))),
-            country=rng.choice(["DE", "CH", "AT", "GB", "FR", "ES", "IT"]),
-            address={"city": rng.choice(["Berlin", "Munich", "Hamburg", "Köln"])},
-            website=f"https://demo-sub-{i + 1:02d}.example.com",
+            country=country,
+            address={"city": rng.choice(cities)},
+            website=f"https://contractor-{i + 1:02d}.example.com",
             is_active=True,
         )
         session.add(sub)

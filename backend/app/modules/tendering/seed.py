@@ -67,7 +67,7 @@ async def _seed_one_project(
             boq_id=None,
             name=name,
             description=(
-                f"Tender package for {trade.lower()} on demo project "
+                f"Tender package for {trade.lower()} works, lot "
                 f"{project_index + 1}. Includes scope, drawings, and "
                 f"instructions to bidders."
             ),

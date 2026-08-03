@@ -36,6 +36,54 @@ from app.modules.property_dev.models import (
 
 _SEED = 42
 
+# Buyers are private individuals, so they need person names rather than the
+# composed descriptive names the company registers use. The two pools are
+# combined with co-prime strides so all 32 buyers come out distinct.
+_BUYER_GIVEN_NAMES: Sequence[str] = (
+    "Lena",
+    "Jonas",
+    "Marta",
+    "Felix",
+    "Sofia",
+    "Tomas",
+    "Elif",
+    "Nils",
+    "Clara",
+    "Piotr",
+    "Ines",
+    "Ravi",
+    "Hanna",
+    "Luca",
+    "Mira",
+    "Anton",
+)
+_BUYER_SURNAMES: Sequence[str] = (
+    "Weiss",
+    "Keller",
+    "Novak",
+    "Lindqvist",
+    "Moreau",
+    "Baumann",
+    "Farkas",
+    "Dubois",
+    "Hoffmann",
+    "Kowalski",
+    "Serrano",
+    "Berger",
+    "Vogel",
+    "Marchetti",
+    "Halvorsen",
+    "Brandt",
+)
+
+
+def _buyer_name(index: int) -> tuple[str, str]:
+    """Return the given name and surname for buyer ``index``."""
+    given = _BUYER_GIVEN_NAMES[index % len(_BUYER_GIVEN_NAMES)]
+    surname_index = (index // len(_BUYER_SURNAMES) + index * 7) % len(_BUYER_SURNAMES)
+    return given, _BUYER_SURNAMES[surname_index]
+
+
 _HOUSE_TYPE_BASE: Sequence[dict[str, object]] = (
     {
         "code": "HT-A",
@@ -183,9 +231,15 @@ async def seed_property_dev_demo(session: AsyncSession, project_ids: Iterable[uu
         return None
     project_id = ids[0]
 
-    code = "DEV-DEMO-01"
-    existing = await session.execute(select(Development).where(Development.code == code))
-    dev = existing.scalar_one_or_none()
+    # The development code is shown to users, so it names the scheme rather
+    # than the fact that it was seeded. ``DEV-DEMO-01`` is what this row was
+    # called before that change; an estate seeded earlier still carries it, and
+    # this guard has to recognise it. Keying only on the new code would find
+    # nothing on an existing install and create a second development.
+    code = "DEV-RG-01"
+    legacy_codes = ("DEV-DEMO-01",)
+    existing = await session.execute(select(Development).where(Development.code.in_((code, *legacy_codes))))
+    dev = existing.scalars().first()
     if dev is not None:
         return dev
 
@@ -196,7 +250,7 @@ async def seed_property_dev_demo(session: AsyncSession, project_ids: Iterable[uu
         project_id=project_id,
         code=code,
         name="Riverside Gardens",
-        location_address="Riverside Drive, Sample Town",
+        location_address="Riverside Drive, Ashbourne",
         total_plots=48,
         sales_phase="sales",
         launch_date="2025-09-01",
@@ -319,11 +373,12 @@ async def seed_property_dev_demo(session: AsyncSession, project_ids: Iterable[uu
     sold_plots = [p for p in plots if p.status in {"reserved", "sold", "handed_over"}]
     for i, b_status in enumerate(buyer_statuses):
         plot = sold_plots[i] if (b_status != "lead" and i < len(sold_plots)) else None
+        given, surname = _buyer_name(i)
         buyer = Buyer(
             development_id=dev.id,
             plot_id=plot.id if plot is not None else None,
-            full_name=f"Demo Buyer {i + 1:02d}",
-            email=f"buyer{i + 1:02d}@example.org",
+            full_name=f"{given} {surname}",
+            email=f"{given.lower()}.{surname.lower()}@example.org",
             phone=f"+10000000{i:02d}",
             language="en",
             status=b_status,

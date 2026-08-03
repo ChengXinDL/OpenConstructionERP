@@ -115,7 +115,7 @@ async def seed_supplier_catalogs(
         item = CatalogItem(
             sku=f"SKU-{i + 1:05d}",
             name=f"Item {i + 1}",
-            description=f"Demo construction material item {i + 1}",
+            description=f"Construction material, catalogue reference SKU-{i + 1:05d}",
             category_id=cat_l3.id if i < 30 else cat_l2.id,
             unit_of_measure=units[i % len(units)],
             reorder_point=Decimal("10") if i % 5 == 0 else Decimal("0"),
