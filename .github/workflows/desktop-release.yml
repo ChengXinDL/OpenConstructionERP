@@ -83,6 +83,18 @@ jobs:
           pip install "pyinstaller>=6.0.0"
           pyinstaller desktop/pyinstaller.spec --distpath desktop/dist --workpath desktop/build --noconfirm
 
+      - name: Check the sidecar carries a usable embedded database
+        shell: bash
+        # Issue #419: the Linux and macOS installers shipped without PostgreSQL's
+        # own loadable modules, so the app stopped at "Starting the local
+        # database" on the user's machine and nothing in this workflow noticed.
+        # The hook now refuses to build without them; this reads the archive of
+        # the executable that was actually produced, which is the artifact users
+        # download.
+        run: |
+          python scripts/check_desktop_sidecar_bundle.py \
+            "desktop/dist/openconstructionerp-server${{ matrix.ext }}"
+
       - name: Copy sidecar binary
         shell: bash
         run: |
