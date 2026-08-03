@@ -855,7 +855,7 @@ MARKETPLACE_MODULES += [
     MarketplaceModule(
         id="demo-office-london",
         name="Demo: Office Tower London",
-        description="12-storey Grade A office, steel frame, NRM 1 classification, Canary Wharf. Full BOQ with 10 sections, 41 positions, 4D schedule (24 months), 5D budget, and 3 UK contractor bids. Total: ~45M GBP.",
+        description="12-storey Grade A office, steel frame, NRM 1 classification, London. Full BOQ with 10 sections, 41 positions, 4D schedule (24 months), 5D budget, and 3 UK contractor bids. Total: ~45M GBP.",
         category="demo_project",
         icon="Building2",
         version="1.0.0",

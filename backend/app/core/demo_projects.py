@@ -705,7 +705,7 @@ _BERLIN = DemoTemplate(
             [
                 ("Elvenau / Vercelin Energies", "angebote@elvenau.example", 0.97),
                 ("Alvenor Elektrotechnik GmbH", "tender@alvenor.example", 1.05),
-                ("Ostwald Elektrotechnik", "vergabe@ostwald-elektro.example", 1.02),
+                ("Vellingrat Elektrotechnik", "vergabe@vellingrat-elektro.example", 1.02),
             ],
         ),
         (
@@ -723,7 +723,7 @@ _BERLIN = DemoTemplate(
             "Pflasterung, Bepflanzung, Spielplatz, Zaun, Beleuchtung",
             "evaluating",
             [
-                ("Galabau Meier GmbH", "angebote@galabau-meier.example", 0.99),
+                ("Wandelrieth Landschaftsbau GmbH", "angebote@wandelrieth-galabau.example", 0.99),
                 ("Kranzhofen Landschaftsbau", "vergabe@kranzhofen-gala.example", 1.06),
             ],
         ),
@@ -5761,10 +5761,10 @@ async def _seed_module_data(
         "school-paris": [
             {
                 "contact_type": "client",
-                "company_name": "Mairie du 20e Arrondissement",
+                "company_name": "Collectivité territoriale (maîtrise d'ouvrage publique)",
                 "first_name": "Sophie",
                 "last_name": "Dupont",
-                "primary_email": "s.dupont@paris-20e.example",
+                "primary_email": "s.dupont@collectivite-territoriale.example",
                 "primary_phone": "+33 1 43 15 20 20",
                 "country_code": "FR",
                 "notes": "Direction de la construction",

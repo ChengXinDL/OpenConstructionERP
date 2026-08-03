@@ -277,7 +277,7 @@ def _flagship_template(spec: dict) -> Any:
     # A couple of plausible bidders so the tendering module and the firm-derived
     # records (subcontract RFIs, NCRs, submittals) have companies to cite.
     tender_companies = [
-        ("Summit Residential Builders", "estimating@summitresidential.example", 1.00),
+        ("Ovendell Residential Builders", "estimating@ovendellresidential.example", 1.00),
         ("Wardenholt Construction", "bids@wardenholtconstruction.example", 1.04),
         ("Quarrowdale General Contractors", "tenders@quarrowdalegc.example", 0.97),
     ]
@@ -303,7 +303,7 @@ def _flagship_template(spec: dict) -> Any:
             "client": "Riverside Drive Holdings",
             "architect": "Denver Design Studio",
             "structural_engineer": "Rocky Mountain Structures",
-            "main_contractor": "Summit Residential Builders",
+            "main_contractor": "Ovendell Residential Builders",
         },
         address=template_addr,
     )

@@ -106,6 +106,10 @@ _DENY_TOKENS: frozenset[str] = frozenset(
         # so reads it as a single longer token.
         "07f15cde5b181425db8524becd96263d600c9652c7de5b89fe1a644f8fd0724b",
         "620380dbf70857c10410a5aa1a6ac0c343ad530e43080b2a1a83f96d0241b458",
+        # A common German surname that is also a Nobel laureate, trading in two
+        # live German electrical firms. Ordinary as a word, so it belongs here
+        # and not in the repo-wide gate. Zero occurrences as text before hashing.
+        "f287584e344fdf74b2f2a6c62fdc5e23fe7a4bbc40f61bf1ada6c7b5667ee39b",
     }
 )
 
@@ -119,6 +123,15 @@ _DENY_PHRASES: frozenset[str] = frozenset(
         "d1f9da0816d42c1c8a7d06f4985fef19ef93f9e79fe864157c80537aca5099c3",
         "0085aae38d1d88ead679bc7fedd28c1c2d3f9eccde2c7977579773aef6fe2756",
         "08f91c27a450f7e3eb316c94c85622de10b70e96f2fd10ae1cc7443997b275a2",
+        # A German trade word followed by one of the commonest German surnames.
+        # Three live landscaping firms answer to it at once, on three separate
+        # domains. Neither half is usable alone: the trade word appears in any
+        # German landscaping scope text, and the surname is a surname.
+        "f5ef7f65c238d5fe6a243a1cb1be422660c3a91796cbabdd89508a1ce7bf7267",
+        # An aspirational noun plus a sector word. Not one firm but a naming
+        # habit: at least seven live US builders use the noun, in Idaho, Arizona,
+        # Florida and elsewhere. Same shape as the two city nicknames above.
+        "9165db8ddc7ca57acd827ab786923008a2fc9621f8ba168c6165ebd23cd825bc",
     }
 )
 

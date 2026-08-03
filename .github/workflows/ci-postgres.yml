@@ -68,6 +68,13 @@ jobs:
       # recorded" is usually the writer and the reader spelling the same field
       # differently, which no amount of seeded data will fix and no existing
       # test noticed.
+      # Real firm names: the repo-wide brand gate cannot express a name shorter
+      # than five characters, a name that is also an ordinary English word, or a
+      # name that is two words. Live contractors reached users through all three
+      # holes. The narrow file below can express them because it reads only demo
+      # seed sources, and it is attached here for the reason stated above: a test
+      # that blocks no merge is the same as a test that does not exist, which is
+      # exactly how a name rejected once already shipped in every wheel since.
       - name: Run demo seed and import consistency tests
         run: >-
           pytest tests/unit/test_demo_contact_types.py
@@ -78,6 +85,7 @@ jobs:
           tests/unit/test_demo_party_lookup.py
           tests/unit/test_demo_seed_text_has_no_scaffolding_words.py
           tests/unit/test_demo_insight_dimensions.py
+          tests/unit/test_demo_seed_has_no_real_firm_names.py
           -q -p no:cacheprovider
       # The region to currency table. Attached for the same reason as the suites
       # around it, which is that tests/unit runs in no lane that blocks a merge.
