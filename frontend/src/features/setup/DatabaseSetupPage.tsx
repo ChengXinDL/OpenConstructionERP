@@ -382,9 +382,11 @@ export function DatabaseSetupPage() {
         addToast(
           {
             type: status === 'already_loaded' ? 'info' : 'success',
+            // The database name is a variable, not a prefix: several languages
+            // do not open the sentence with it.
             title: status === 'already_loaded'
-              ? t('setup.db_already_loaded', { defaultValue: `${db.name} already loaded` })
-              : t('setup.db_loaded', { defaultValue: `Loaded ${db.name}` }),
+              ? t('setup.db_already_loaded', { name: db.name, defaultValue: '{{name}} already loaded' })
+              : t('setup.db_loaded', { name: db.name, defaultValue: 'Loaded {{name}}' }),
             message: lines.join(' - '),
           },
           { duration: 8000 },

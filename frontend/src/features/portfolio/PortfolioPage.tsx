@@ -845,7 +845,11 @@ function CrossLinkList({ scheduleId, onError }: { scheduleId: string; onError: (
             <th className="px-3 py-2 text-right">
               {t('portfolio.xl_lag', { defaultValue: 'Lag (d)' })}
             </th>
-            <th className="px-3 py-2 text-right">{t('portfolio.xl_actions', { defaultValue: ' ' })}</th>
+            {/* Named for assistive tech and hidden visually: a column of controls
+                still needs a heading, and a single space is not one. */}
+            <th className="px-3 py-2 text-right">
+              <span className="sr-only">{t('portfolio.col_actions', { defaultValue: 'Actions' })}</span>
+            </th>
           </tr>
         </thead>
         <tbody>

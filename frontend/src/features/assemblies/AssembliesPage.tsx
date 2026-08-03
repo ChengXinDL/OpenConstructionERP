@@ -285,7 +285,16 @@ export function AssembliesPage() {
     queryClient.invalidateQueries({ queryKey: ['assemblies-all-for-banner'] });
     addToast({
       type: fail === 0 ? 'success' : 'error',
-      title: t('assemblies.bulk_deleted', { defaultValue: `${ok} deleted${fail ? `, ${fail} failed` : ''}` }),
+      // Two keys rather than one with a conditional tail. A glued-on ", n failed"
+      // cannot be moved, and languages that inflect the count or put the failure
+      // first would have to break the opening half to place it.
+      title: fail
+        ? t('assemblies.bulk_deleted_partial', {
+            ok,
+            failed: fail,
+            defaultValue: '{{ok}} deleted, {{failed}} failed',
+          })
+        : t('assemblies.bulk_deleted', { count: ok, defaultValue: '{{count}} deleted' }),
     });
   }, [selected, addToast, queryClient, clearSelection, t]);
 
@@ -315,7 +324,7 @@ export function AssembliesPage() {
         `assemblies_bulk_${new Date().toISOString().slice(0, 10)}.json`,
         'application/json',
       );
-      addToast({ type: 'success', title: t('assemblies.bulk_exported', { defaultValue: `${exports.length} exported` }) });
+      addToast({ type: 'success', title: t('assemblies.bulk_exported', { count: exports.length, defaultValue: '{{count}} exported' }) });
     } catch {
       addToast({ type: 'error', title: t('common.export_failed', { defaultValue: 'Export failed' }) });
     }
@@ -339,7 +348,13 @@ export function AssembliesPage() {
     queryClient.invalidateQueries({ queryKey: ['assemblies-all-for-banner'] });
     addToast({
       type: fail === 0 ? 'success' : 'error',
-      title: t('assemblies.bulk_tagged', { defaultValue: `${ok} tagged${fail ? `, ${fail} failed` : ''}` }),
+      title: fail
+        ? t('assemblies.bulk_tagged_partial', {
+            ok,
+            failed: fail,
+            defaultValue: '{{ok}} tagged, {{failed}} failed',
+          })
+        : t('assemblies.bulk_tagged', { count: ok, defaultValue: '{{count}} tagged' }),
     });
   }, [selected, addToast, queryClient, data, allForBanner, t]);
 
@@ -806,7 +821,7 @@ export function AssembliesPage() {
       {selected.size > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-oe-blue/30 bg-oe-blue-subtle px-3 py-2">
           <span className="text-sm font-medium text-oe-blue">
-            {t('assemblies.selected_count', { defaultValue: `${selected.size} selected`, count: selected.size })}
+            {t('assemblies.selected_count', { count: selected.size, defaultValue: '{{count}} selected' })}
           </span>
           <button
             type="button"

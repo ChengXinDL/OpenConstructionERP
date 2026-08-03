@@ -79,7 +79,7 @@ function ImportPreview({
             onClick={() => setShowAll((v) => !v)}
             className="text-2xs text-oe-blue hover:underline"
           >
-            {showAll ? t('gaeb.show_less', { defaultValue: 'Show less' }) : t('gaeb.show_all', { defaultValue: `Show all ${positions.length}` })}
+            {showAll ? t('gaeb.show_less', { defaultValue: 'Show less' }) : t('gaeb.show_all', { count: positions.length, defaultValue: 'Show all {{count}}' })}
           </button>
         )}
       </div>
@@ -543,7 +543,11 @@ export default function GAEBExchangeModule() {
                   >
                     {isImporting
                       ? t('gaeb.importing', { defaultValue: 'Importing...' })
-                      : t('gaeb.import_btn', { defaultValue: `Import ${parsedPositions.length} positions` })
+                      : t('gaeb.import_btn', {
+                          count: parsedPositions.length,
+                          defaultValue: 'Import {{count}} position',
+                          defaultValue_other: 'Import {{count}} positions',
+                        })
                     }
                   </Button>
                 </div>
@@ -720,7 +724,8 @@ export default function GAEBExchangeModule() {
                 onClick={handleExport}
                 disabled={isExporting}
               >
-                {t('gaeb.export_btn', { defaultValue: `Export as GAEB ${exportFormat}` })}
+                {/* format is a GAEB exchange-phase token (X83, X84), not a word to translate. */}
+                {t('gaeb.export_btn', { format: exportFormat, defaultValue: 'Export as GAEB {{format}}' })}
               </Button>
             </div>
           )}
