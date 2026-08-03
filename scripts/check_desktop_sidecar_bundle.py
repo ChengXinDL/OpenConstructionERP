@@ -52,13 +52,36 @@ def _archive_names(executable: Path) -> set[str]:
     return set(CArchiveReader(str(executable)).toc)
 
 
-def _basename_stems(names: set[str]) -> set[str]:
-    """Map every archive entry to its suffix-free basename."""
-    stems = set()
-    for name in names:
-        base = name.replace("\\", "/").rsplit("/", 1)[-1]
-        stems.add(base.split(".")[0])
-    return stems
+def _split(name: str) -> tuple[str, str]:
+    """Return (parent directory, suffix-free basename) for an archive entry.
+
+    PyInstaller writes forward slashes on Linux and macOS and backslashes on
+    Windows, so the separator is normalised before splitting. The basename is
+    cut at the first dot because the same module is dict_snowball.so on Linux
+    and macOS and dict_snowball.dll on Windows.
+    """
+    normalised = name.replace("\\", "/")
+    parent, _, base = normalised.rpartition("/")
+    return parent, base.split(".")[0]
+
+
+def _is_module_dir(parent: str) -> bool:
+    """True for PostgreSQL's pkglibdir, which is lib/postgresql in this tree.
+
+    Anchoring on the directory is not fussiness. Matching a bare basename lets
+    share/postgresql/plpgsql.control stand in for the plpgsql module and
+    share/postgresql/postgres.bki stand in for the postgres executable, so a
+    bundle that had lost every loadable module would still have passed on two
+    of the five names it is supposed to be checking.
+    """
+    parts = parent.split("/")
+    return parts[-1] == "lib" or (
+        len(parts) >= 2 and parts[-2] == "lib" and parts[-1] == "postgresql"
+    )
+
+
+def _is_bin_dir(parent: str) -> bool:
+    return parent.split("/")[-1] == "bin"
 
 
 def main() -> int:
@@ -75,9 +98,12 @@ def main() -> int:
         print(f"sidecar bundle check FAILED: {args.executable} has an empty archive")
         return 1
 
-    stems = _basename_stems(names)
-    missing_modules = [m for m in REQUIRED_PG_MODULES if m not in stems]
-    missing_binaries = [b for b in REQUIRED_PG_BINARIES if b not in stems]
+    entries = [_split(name) for name in names]
+    module_stems = {stem for parent, stem in entries if _is_module_dir(parent)}
+    binary_stems = {stem for parent, stem in entries if _is_bin_dir(parent)}
+
+    missing_modules = [m for m in REQUIRED_PG_MODULES if m not in module_stems]
+    missing_binaries = [b for b in REQUIRED_PG_BINARIES if b not in binary_stems]
 
     if missing_modules or missing_binaries:
         print(f"sidecar bundle check FAILED: {args.executable}")
@@ -86,6 +112,17 @@ def main() -> int:
             print("  The embedded cluster cannot run initdb without them (issue #419).")
         if missing_binaries:
             print(f"  PostgreSQL executables absent: {', '.join(missing_binaries)}")
+        # A name that is in the archive but in the wrong place fails the same
+        # way as one that is missing, and the two need different fixes, so say
+        # which of the two this is.
+        elsewhere = sorted(
+            name
+            for name in names
+            for stem in missing_modules + missing_binaries
+            if _split(name)[1] == stem
+        )
+        if elsewhere:
+            print(f"  found under another path: {', '.join(elsewhere[:5])}")
         print(f"  {len(names)} entries were found in the archive.")
         return 1
 
@@ -93,7 +130,7 @@ def main() -> int:
     # even when the check passes. PostgreSQL resolves $libdir relative to its own
     # executable, so the modules being present is necessary but not sufficient:
     # they also have to sit under lib/ next to bin/.
-    snowball = sorted(n for n in names if "dict_snowball" in n)
+    snowball = sorted(name for name in names if _split(name)[1] == "dict_snowball")
     print(f"sidecar bundle OK: {args.executable}")
     print(f"  {len(names)} archive entries")
     print(f"  dict_snowball at {snowball[0] if snowball else '?'}")
