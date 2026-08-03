@@ -978,5 +978,55 @@
     "en_value": "Item",
     "note": "id/nl/pt keep 'Item' as an identical loanword (Indonesian, Dutch and Portuguese all use the same spelling for a single list/line entry) - corroborated by the 14-sibling app-wide pool this key was grounded from.",
     "reason_category": "cognate_loanword"
+  },
+  "assemblies.std_din276": {
+    "en_value": "DIN 276",
+    "note": "cost classification standard, cited by its published designation in all 29 locales including ru (CLAUDE.md: standards are not translated)",
+    "reason_category": "standard_code"
+  },
+  "assemblies.std_masterformat": {
+    "en_value": "MasterFormat",
+    "note": "cost classification standard, cited by its published designation in all 29 locales including ru",
+    "reason_category": "standard_code"
+  },
+  "assemblies.std_nrm": {
+    "en_value": "NRM",
+    "note": "cost classification standard (New Rules of Measurement), cited by its published designation in all 29 locales including ru",
+    "reason_category": "standard_code"
+  },
+  "assemblies.std_uniclass": {
+    "en_value": "Uniclass",
+    "note": "cost classification standard, cited by its published designation in all 29 locales including ru",
+    "reason_category": "standard_code"
+  },
+  "assemblies.std_uniformat": {
+    "en_value": "UniFormat",
+    "note": "cost classification standard, cited by its published designation in all 29 locales including ru",
+    "reason_category": "standard_code"
+  },
+  "issues.source_bcf": {
+    "en_value": "BCF",
+    "note": "open interchange format code, identical in all 29 locales including ru",
+    "reason_category": "standard_code"
+  },
+  "rulePacks.format_ifc": {
+    "en_value": "IFC",
+    "note": "open interchange format code, identical in all 29 locales including ru; sibling of rulePacks.format_hint_ifc, which is translated prose",
+    "reason_category": "standard_code"
+  },
+  "rulePacks.format_revit": {
+    "en_value": "Revit",
+    "note": "proper noun naming the third-party authoring tool whose parameter model the rule pack targets; untranslated in all 29 locales including ru. The label exists because a rule pack selects by that tool's own category and parameter names and cannot be described generically without becoming unusable. Open for a ruling on whether the screen should name a file extension instead",
+    "reason_category": "product_name"
+  },
+  "duration.pair": {
+    "en_value": "{{major}} {{minor}}",
+    "note": "two placeholders and one space, no translatable word; the units themselves come from the interpolated values",
+    "reason_category": "template_placeholder"
+  },
+  "takeoff_viewer.col_ordinal": {
+    "en_value": "#",
+    "note": "row-number column header, a single symbol with no word to translate",
+    "reason_category": "symbol"
   }
 }
