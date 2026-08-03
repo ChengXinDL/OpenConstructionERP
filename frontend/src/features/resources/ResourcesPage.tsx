@@ -51,6 +51,8 @@ import {
   WideModalField,
   ConfirmDialog,
   ModuleGuideButton,
+  SearchableSelect,
+  type SearchableSelectOption,
 } from '@/shared/ui';
 import { DateDisplay } from '@/shared/ui/DateDisplay';
 import { MoneyDisplay } from '@/shared/ui/MoneyDisplay';
@@ -133,6 +135,32 @@ function resourceTypeLabel(t: TFn, v: ResourceType | string): string {
     subcontractor: t('resources.type_subcontractor', { defaultValue: 'Subcontractor' }),
   };
   return map[v] ?? v;
+}
+
+/**
+ * Resource rows for a SearchableSelect, grouped by kind and carrying the code.
+ *
+ * A flat "CODE - Name" list in a native <select> gives the user scrolling as
+ * their only tool, and an installation with a real resource register outgrows
+ * that quickly. The code moves to its own monospace column instead of being
+ * glued to the front of the name: it stays the thing that separates two
+ * resources sharing a name, but it stops pushing the names out of alignment.
+ */
+function resourceSelectOptions(t: TFn, list: Resource[]): SearchableSelectOption[] {
+  const order: Record<string, number> = { crew: 0, person: 1, equipment: 2, subcontractor: 3 };
+  return [...list]
+    .sort((a, b) => {
+      const byKind = (order[a.resource_type] ?? 9) - (order[b.resource_type] ?? 9);
+      return byKind !== 0 ? byKind : a.name.localeCompare(b.name);
+    })
+    .map((r) => ({
+      value: r.id,
+      label: r.name,
+      hint: r.code || undefined,
+      group: resourceTypeLabel(t, r.resource_type),
+      keywords: r.resource_type,
+      meta: r.status && r.status !== 'active' ? resourceStatusLabel(t, r.status) : undefined,
+    }));
 }
 
 function resourceStatusLabel(t: TFn, v: ResourceStatus | string): string {
@@ -2812,21 +2840,18 @@ function FulfillRequestModal({
           required
           span={2}
         >
-          <select
+          <SearchableSelect
             value={form.resource_id}
-            onChange={(e) => setForm({ ...form, resource_id: e.target.value })}
-            className={inputCls}
+            onChange={(next) => setForm({ ...form, resource_id: next })}
+            options={resourceSelectOptions(t, resources)}
+            allowEmpty
+            emptyLabel={`— ${t('common.select', { defaultValue: 'Select' })} —`}
+            placeholder={t('resources.pick_resource', { defaultValue: 'Pick a resource' })}
+            searchPlaceholder={t('resources.search_resource', {
+              defaultValue: 'Search by name, code or kind…',
+            })}
             data-testid="fulfill-resource-select"
-          >
-            <option value="">
-              — {t('common.select', { defaultValue: 'Select' })} —
-            </option>
-            {resources.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.code} — {r.name} ({resourceTypeLabel(t, r.resource_type)})
-              </option>
-            ))}
-          </select>
+          />
         </WideModalField>
         <WideModalField
           label={t('resources.allocation', { defaultValue: 'Allocation %' })}
@@ -4473,20 +4498,18 @@ function ProposeAssignmentModal({
           required
           span={2}
         >
-          <select
+          <SearchableSelect
             value={form.resource_id}
-            onChange={(e) => setForm({ ...form, resource_id: e.target.value })}
-            className={inputCls}
-          >
-            <option value="">
-              — {t('common.select', { defaultValue: 'Select' })} —
-            </option>
-            {resources.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.code} — {r.name}
-              </option>
-            ))}
-          </select>
+            onChange={(next) => setForm({ ...form, resource_id: next })}
+            options={resourceSelectOptions(t, resources)}
+            allowEmpty
+            emptyLabel={`— ${t('common.select', { defaultValue: 'Select' })} —`}
+            placeholder={t('resources.pick_resource', { defaultValue: 'Pick a resource' })}
+            searchPlaceholder={t('resources.search_resource', {
+              defaultValue: 'Search by name, code or kind…',
+            })}
+            data-testid="propose-resource-select"
+          />
         </WideModalField>
         <WideModalField label={t('resources.start', { defaultValue: 'Start' })}>
           <input

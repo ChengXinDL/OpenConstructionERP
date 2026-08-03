@@ -34930,6 +34930,16 @@ const resource = {
     "onboarding.mod_portfolio_desc": "跨项目的计划树,含跨进度计划链接和汇总关键路径法(CPM)分析",
     "onboarding.mod_prefab_desc": "通过质量门追踪从设计到安装的预制构件",
     "onboarding.mod_site_logistics_desc": "出入口闸门、堆场区域与送货预约",
+    "searchable_select.placeholder": "选择一个选项",
+    "searchable_select.search_placeholder": "输入以筛选…",
+    "searchable_select.clear": "清除筛选",
+    "searchable_select.no_match": "没有匹配 \"{{query}}\" 的结果",
+    "searchable_select.none": "无",
+    "searchable_select.footer": "{{shown}} / {{total}} · ↑↓ 移动 · ↵ 选择",
+    "schedule.resources.pick_resource": "选择资源",
+    "schedule.resources.search_resource": "按名称、代码或类型搜索…",
+    "schedule.resources.none_defined": "尚未定义任何资源。请在资源页面添加。",
+    "resources.search_resource": "按名称、代码或类型搜索…",
   }
 } as { translation: Record<string, string> };
 

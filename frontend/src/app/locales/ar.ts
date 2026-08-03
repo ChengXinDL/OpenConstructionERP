@@ -35006,6 +35006,16 @@ const resource = {
     "onboarding.mod_portfolio_desc": "شجرة برنامج عبر المشاريع مع روابط بين الجداول الزمنية وتحليل المسار الحرج التجميعي",
     "onboarding.mod_prefab_desc": "تتبّع الوحدات المُصنّعة من التصميم إلى التركيب مع بوابة جودة",
     "onboarding.mod_site_logistics_desc": "بوابات الدخول ومناطق التخزين المؤقت وحجز التوصيل",
+    "searchable_select.placeholder": "اختر خيارًا",
+    "searchable_select.search_placeholder": "اكتب للتصفية…",
+    "searchable_select.clear": "مسح التصفية",
+    "searchable_select.no_match": "لا يوجد ما يطابق \"{{query}}\"",
+    "searchable_select.none": "لا شيء",
+    "searchable_select.footer": "{{shown}} من {{total}} · ↑↓ للتنقل · ↵ للاختيار",
+    "schedule.resources.pick_resource": "اختر مورداً",
+    "schedule.resources.search_resource": "ابحث بالاسم أو الرمز أو النوع…",
+    "schedule.resources.none_defined": "لا توجد موارد معرّفة بعد. أضفها من صفحة الموارد.",
+    "resources.search_resource": "ابحث بالاسم أو الرمز أو النوع…",
   }
 } as { translation: Record<string, string> };
 

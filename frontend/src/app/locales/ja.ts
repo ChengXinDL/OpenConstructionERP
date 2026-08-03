@@ -34930,6 +34930,16 @@ const resource = {
     "onboarding.mod_portfolio_desc": "プロジェクト横断のプログラムツリー、クロススケジュールリンクと集約CPM分析付き",
     "onboarding.mod_prefab_desc": "設計から設置まで、品質ゲートを備えた製造ユニットの追跡",
     "onboarding.mod_site_logistics_desc": "アクセスゲート、仮置きゾーン、配送予約",
+    "searchable_select.placeholder": "オプションを選択",
+    "searchable_select.search_placeholder": "入力して絞り込む…",
+    "searchable_select.clear": "フィルターをクリア",
+    "searchable_select.no_match": "「{{query}}」に一致する項目はありません",
+    "searchable_select.none": "なし",
+    "searchable_select.footer": "{{total}} 件中 {{shown}} 件 · ↑↓ で移動 · ↵ で選択",
+    "schedule.resources.pick_resource": "リソースを選択",
+    "schedule.resources.search_resource": "名前、コード、種別で検索…",
+    "schedule.resources.none_defined": "リソースがまだ定義されていません。リソースページで追加してください。",
+    "resources.search_resource": "名前、コード、種別で検索…",
   }
 } as { translation: Record<string, string> };
 

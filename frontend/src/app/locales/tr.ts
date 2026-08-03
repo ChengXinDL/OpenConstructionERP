@@ -34927,6 +34927,16 @@ const resource = {
     "onboarding.mod_portfolio_desc": "Projeler arası program ağacı, çapraz program bağlantıları ve toplu CPM ile",
     "onboarding.mod_prefab_desc": "Tasarımdan montaja kadar üretilen üniteleri bir kalite kapısıyla izleyin",
     "onboarding.mod_site_logistics_desc": "Giriş kapıları, stoklama alanları ve teslimat rezervasyonu",
+    "searchable_select.placeholder": "Bir seçenek seçin",
+    "searchable_select.search_placeholder": "Filtrelemek için yazın…",
+    "searchable_select.clear": "Filtreyi temizle",
+    "searchable_select.no_match": "\"{{query}}\" ile eşleşen bir şey yok",
+    "searchable_select.none": "Yok",
+    "searchable_select.footer": "{{total}} içinden {{shown}} · ↑↓ taşımak için · ↵ seçmek için",
+    "schedule.resources.pick_resource": "Bir kaynak seçin",
+    "schedule.resources.search_resource": "Ada, koda veya türe göre arayın…",
+    "schedule.resources.none_defined": "Henüz tanımlı kaynak yok. Kaynaklar sayfasından ekleyin.",
+    "resources.search_resource": "Ada, koda veya türe göre arayın…",
   }
 } as { translation: Record<string, string> };
 

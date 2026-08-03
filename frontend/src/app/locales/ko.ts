@@ -34930,6 +34930,16 @@ const resource = {
     "onboarding.mod_portfolio_desc": "프로젝트 전반의 프로그램 트리, 교차 일정 연결과 롤업 CPM 포함",
     "onboarding.mod_prefab_desc": "설계부터 설치까지 품질 게이트를 갖춘 제작 유닛 추적",
     "onboarding.mod_site_logistics_desc": "출입 게이트, 자재 적치 구역, 배송 예약",
+    "searchable_select.placeholder": "옵션 선택",
+    "searchable_select.search_placeholder": "입력하여 필터링…",
+    "searchable_select.clear": "필터 지우기",
+    "searchable_select.no_match": "\"{{query}}\"와 일치하는 항목이 없습니다",
+    "searchable_select.none": "없음",
+    "searchable_select.footer": "{{total}} 중 {{shown}} · ↑↓ 이동 · ↵ 선택",
+    "schedule.resources.pick_resource": "리소스 선택",
+    "schedule.resources.search_resource": "이름, 코드 또는 종류로 검색…",
+    "schedule.resources.none_defined": "아직 정의된 리소스가 없습니다. 리소스 페이지에서 추가하세요.",
+    "resources.search_resource": "이름, 코드 또는 종류로 검색…",
   }
 } as { translation: Record<string, string> };
 

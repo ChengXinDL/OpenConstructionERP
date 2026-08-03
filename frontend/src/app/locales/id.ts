@@ -34926,6 +34926,16 @@ const resource = {
     "onboarding.mod_portfolio_desc": "Pohon program lintas proyek dengan tautan lintas jadwal dan CPM ringkasan",
     "onboarding.mod_prefab_desc": "Lacak unit yang diproduksi dari desain hingga pemasangan dengan gerbang kualitas",
     "onboarding.mod_site_logistics_desc": "Gerbang akses, zona penumpukan material, dan pemesanan pengiriman",
+    "searchable_select.placeholder": "Pilih opsi",
+    "searchable_select.search_placeholder": "Ketik untuk memfilter…",
+    "searchable_select.clear": "Bersihkan filter",
+    "searchable_select.no_match": "Tidak ada yang cocok dengan \"{{query}}\"",
+    "searchable_select.none": "Tidak ada",
+    "searchable_select.footer": "{{shown}} dari {{total}} · ↑↓ untuk memindahkan · ↵ untuk memilih",
+    "schedule.resources.pick_resource": "Pilih sumber daya",
+    "schedule.resources.search_resource": "Cari berdasarkan nama, kode, atau jenis…",
+    "schedule.resources.none_defined": "Belum ada sumber daya yang ditentukan. Tambahkan di halaman Sumber Daya.",
+    "resources.search_resource": "Cari berdasarkan nama, kode, atau jenis…",
   }
 } as { translation: Record<string, string> };
 

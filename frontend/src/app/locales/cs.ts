@@ -34960,6 +34960,16 @@ const resource = {
     "onboarding.mod_portfolio_desc": "Strom programu napříč projekty s propojením harmonogramů a souhrnnou CPM analýzou",
     "onboarding.mod_prefab_desc": "Sledování vyrobených jednotek od návrhu po montáž s kontrolní bránou kvality",
     "onboarding.mod_site_logistics_desc": "Vjezdové brány, skladovací zóny a rezervace dodávek",
+    "searchable_select.placeholder": "Vyberte možnost",
+    "searchable_select.search_placeholder": "Psaním filtrujte…",
+    "searchable_select.clear": "Vymazat filtr",
+    "searchable_select.no_match": "Nic neodpovídá \"{{query}}\"",
+    "searchable_select.none": "Žádný",
+    "searchable_select.footer": "{{shown}} z {{total}} · ↑↓ pro pohyb · ↵ pro výběr",
+    "schedule.resources.pick_resource": "Vyberte zdroj",
+    "schedule.resources.search_resource": "Hledat podle názvu, kódu nebo typu…",
+    "schedule.resources.none_defined": "Zatím nejsou definovány žádné zdroje. Přidejte je na stránce Zdroje.",
+    "resources.search_resource": "Hledat podle názvu, kódu nebo typu…",
   }
 } as { translation: Record<string, string> };
 

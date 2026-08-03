@@ -34947,6 +34947,16 @@ const resource = {
     "onboarding.mod_portfolio_desc": "Stablo programa preko projekata s poveznicama među terminskim planovima i zbirnom CPM analizom",
     "onboarding.mod_prefab_desc": "Pratite proizvedene jedinice od dizajna do ugradnje uz kontrolnu točku kvalitete",
     "onboarding.mod_site_logistics_desc": "Ulazne kapije, zone odlaganja i rezervacija dostave",
+    "searchable_select.placeholder": "Odaberite opciju",
+    "searchable_select.search_placeholder": "Upišite za filtriranje…",
+    "searchable_select.clear": "Očisti filtar",
+    "searchable_select.no_match": "Ništa se ne podudara s \"{{query}}\"",
+    "searchable_select.none": "Nijedan",
+    "searchable_select.footer": "{{shown}} od {{total}} · ↑↓ za pomicanje · ↵ za odabir",
+    "schedule.resources.pick_resource": "Odaberite resurs",
+    "schedule.resources.search_resource": "Pretraži po nazivu, kodu ili vrsti…",
+    "schedule.resources.none_defined": "Još nema definiranih resursa. Dodajte ih na stranici Resursi.",
+    "resources.search_resource": "Pretraži po nazivu, kodu ili vrsti…",
   }
 } as { translation: Record<string, string> };
 

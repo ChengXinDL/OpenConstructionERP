@@ -34928,6 +34928,16 @@ const resource = {
     "onboarding.mod_portfolio_desc": "Programmastructuur over projecten heen met kruisverbanden tussen planningen en samengevoegde CPM",
     "onboarding.mod_prefab_desc": "Volg geprefabriceerde eenheden van ontwerp tot installatie met een kwaliteitspoort",
     "onboarding.mod_site_logistics_desc": "Toegangspoorten, opslagzones en leveringsboekingen",
+    "searchable_select.placeholder": "Selecteer een optie",
+    "searchable_select.search_placeholder": "Typ om te filteren…",
+    "searchable_select.clear": "Filter wissen",
+    "searchable_select.no_match": "Niets komt overeen met \"{{query}}\"",
+    "searchable_select.none": "Geen",
+    "searchable_select.footer": "{{shown}} van {{total}} · ↑↓ om te verplaatsen · ↵ om te kiezen",
+    "schedule.resources.pick_resource": "Kies een hulpbron",
+    "schedule.resources.search_resource": "Zoek op naam, code of type…",
+    "schedule.resources.none_defined": "Er zijn nog geen hulpbronnen gedefinieerd. Voeg ze toe op de pagina Hulpbronnen.",
+    "resources.search_resource": "Zoek op naam, code of type…",
   }
 } as { translation: Record<string, string> };
 

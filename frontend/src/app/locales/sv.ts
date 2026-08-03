@@ -34923,6 +34923,16 @@ const resource = {
     "onboarding.mod_portfolio_desc": "Programträd över projekt med schemaöverskridande länkar och samlad CPM-analys",
     "onboarding.mod_prefab_desc": "Spåra fabrikstillverkade enheter från design till installation med en kvalitetsgrind",
     "onboarding.mod_site_logistics_desc": "Åtkomstgrindar, upplagszoner och leveransbokning",
+    "searchable_select.placeholder": "Välj ett alternativ",
+    "searchable_select.search_placeholder": "Skriv för att filtrera…",
+    "searchable_select.clear": "Rensa filtret",
+    "searchable_select.no_match": "Inget matchar \"{{query}}\"",
+    "searchable_select.none": "Ingen",
+    "searchable_select.footer": "{{shown}} av {{total}} · ↑↓ för att flytta · ↵ för att välja",
+    "schedule.resources.pick_resource": "Välj en resurs",
+    "schedule.resources.search_resource": "Sök efter namn, kod eller typ…",
+    "schedule.resources.none_defined": "Inga resurser är definierade än. Lägg till dem på sidan Resurser.",
+    "resources.search_resource": "Sök efter namn, kod eller typ…",
   }
 } as { translation: Record<string, string> };
 

@@ -34900,6 +34900,16 @@ const resource = {
     "onboarding.mod_portfolio_desc": "Árbol de programa entre proyectos con vínculos entre cronogramas y CPM consolidado",
     "onboarding.mod_prefab_desc": "Rastrea unidades fabricadas desde el diseño hasta la instalación con una puerta de calidad",
     "onboarding.mod_site_logistics_desc": "Puertas de acceso, zonas de acopio y reserva de entregas",
+    "searchable_select.placeholder": "Selecciona una opción",
+    "searchable_select.search_placeholder": "Escribe para filtrar…",
+    "searchable_select.clear": "Limpiar el filtro",
+    "searchable_select.no_match": "Nada coincide con \"{{query}}\"",
+    "searchable_select.none": "Ninguno",
+    "searchable_select.footer": "{{shown}} de {{total}} · ↑↓ para mover · ↵ para elegir",
+    "schedule.resources.pick_resource": "Elige un recurso",
+    "schedule.resources.search_resource": "Busca por nombre, código o tipo…",
+    "schedule.resources.none_defined": "Aún no hay recursos definidos. Agrégalos en la página Recursos.",
+    "resources.search_resource": "Busca por nombre, código o tipo…",
   }
 } as { translation: Record<string, string> };
 

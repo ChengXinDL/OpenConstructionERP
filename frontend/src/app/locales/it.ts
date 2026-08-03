@@ -34946,6 +34946,16 @@ const resource = {
     "onboarding.mod_portfolio_desc": "Albero di programma tra progetti con collegamenti incrociati tra pianificazioni e CPM aggregato",
     "onboarding.mod_prefab_desc": "Tieni traccia delle unità prefabbricate dalla progettazione all'installazione con un gate di qualità",
     "onboarding.mod_site_logistics_desc": "Cancelli di accesso, aree di stoccaggio e prenotazione consegne",
+    "searchable_select.placeholder": "Seleziona un'opzione",
+    "searchable_select.search_placeholder": "Digita per filtrare…",
+    "searchable_select.clear": "Cancella il filtro",
+    "searchable_select.no_match": "Nessun risultato per \"{{query}}\"",
+    "searchable_select.none": "Nessuno",
+    "searchable_select.footer": "{{shown}} di {{total}} · ↑↓ per spostarti · ↵ per scegliere",
+    "schedule.resources.pick_resource": "Scegli una risorsa",
+    "schedule.resources.search_resource": "Cerca per nome, codice o tipo…",
+    "schedule.resources.none_defined": "Non ci sono ancora risorse definite. Aggiungile nella pagina Risorse.",
+    "resources.search_resource": "Cerca per nome, codice o tipo…",
   }
 } as { translation: Record<string, string> };
 

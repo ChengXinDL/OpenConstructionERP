@@ -34926,6 +34926,16 @@ const resource = {
     "onboarding.mod_portfolio_desc": "Хуваарь хоорондын холбоос, нэгтгэсэн CPM бүхий төслүүд дэх хөтөлбөрийн мод",
     "onboarding.mod_prefab_desc": "Загвараас суурилуулалт хүртэлх үйлдвэрлэсэн нэгжийг чанарын хаалттай хянах",
     "onboarding.mod_site_logistics_desc": "Нэвтрэх хаалга, түр хадгалах бүс, хүргэлтийн захиалга",
+    "searchable_select.placeholder": "Сонголт хийнэ үү",
+    "searchable_select.search_placeholder": "Шүүхийн тулд бичнэ үү…",
+    "searchable_select.clear": "Шүүлтүүрийг цэвэрлэх",
+    "searchable_select.no_match": "«{{query}}»-д тохирох зүйл алга",
+    "searchable_select.none": "Байхгүй",
+    "searchable_select.footer": "{{total}}-с {{shown}} · ↑↓ шилжих · ↵ сонгох",
+    "schedule.resources.pick_resource": "Нөөц сонгох",
+    "schedule.resources.search_resource": "Нэр, код эсвэл төрлөөр хайх…",
+    "schedule.resources.none_defined": "Одоогоор нөөц тодорхойлогдоогүй байна. Нөөцийн хуудаснаас нэмнэ үү.",
+    "resources.search_resource": "Нэр, код эсвэл төрлөөр хайх…",
   }
 } as { translation: Record<string, string> };
 

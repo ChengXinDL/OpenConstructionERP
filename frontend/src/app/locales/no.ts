@@ -34923,6 +34923,16 @@ const resource = {
     "onboarding.mod_portfolio_desc": "Programtre på tvers av prosjekter med kryssende tidsplankoblinger og samlet CPM",
     "onboarding.mod_prefab_desc": "Spor fabrikkerte enheter fra design til installasjon med en kvalitetsport",
     "onboarding.mod_site_logistics_desc": "Adgangsporter, opplagssoner og leveringsbestilling",
+    "searchable_select.placeholder": "Velg et alternativ",
+    "searchable_select.search_placeholder": "Skriv for å filtrere…",
+    "searchable_select.clear": "Nullstill filteret",
+    "searchable_select.no_match": "Ingenting samsvarer med \"{{query}}\"",
+    "searchable_select.none": "Ingen",
+    "searchable_select.footer": "{{shown}} av {{total}} · ↑↓ for å flytte · ↵ for å velge",
+    "schedule.resources.pick_resource": "Velg en ressurs",
+    "schedule.resources.search_resource": "Søk etter navn, kode eller type…",
+    "schedule.resources.none_defined": "Ingen ressurser er definert ennå. Legg dem til på siden Ressurser.",
+    "resources.search_resource": "Søk etter navn, kode eller type…",
   }
 } as { translation: Record<string, string> };
 

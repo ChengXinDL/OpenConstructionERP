@@ -41,7 +41,16 @@ import {
   TrendingUp,
 } from 'lucide-react';
 
-import { Button, Card, Badge, EmptyState, RecoveryCard, SkeletonTable } from '@/shared/ui';
+import {
+  Button,
+  Card,
+  Badge,
+  EmptyState,
+  RecoveryCard,
+  SkeletonTable,
+  SearchableSelect,
+  type SearchableSelectOption,
+} from '@/shared/ui';
 import { useToastStore } from '@/stores/useToastStore';
 import { getErrorMessage } from '@/shared/lib/api';
 import {
@@ -210,6 +219,45 @@ function HistogramTab() {
     return m > 0 ? m : 1;
   }, [histo]);
 
+  // Grouped by kind and carrying the code, because the flat "Name (kind)" list
+  // this replaces could not answer either half of the report behind it: there
+  // was no way to type what you were after, and two resources with the same
+  // name were two identical rows. The code is what tells those two apart, so it
+  // is on the row and it is searchable.
+  const resourceTypeLabel = (v: string): string =>
+    ({
+      person: t('resources.type_person', { defaultValue: 'Person' }),
+      crew: t('resources.type_crew', { defaultValue: 'Crew' }),
+      equipment: t('resources.type_equipment', { defaultValue: 'Equipment' }),
+      subcontractor: t('resources.type_subcontractor', { defaultValue: 'Subcontractor' }),
+    })[v] ?? v;
+
+  const resourceOptions = useMemo<SearchableSelectOption[]>(() => {
+    const list = resourcesQ.data ?? [];
+    const order: Record<string, number> = { crew: 0, person: 1, equipment: 2, subcontractor: 3 };
+    return [...list]
+      .sort((a, b) => {
+        const byKind = (order[a.resource_type] ?? 9) - (order[b.resource_type] ?? 9);
+        if (byKind !== 0) return byKind;
+        return a.name.localeCompare(b.name);
+      })
+      .map((r) => ({
+        value: r.id,
+        label: r.name,
+        hint: r.code || undefined,
+        group: resourceTypeLabel(r.resource_type),
+        // Searchable but not drawn: someone who knows the raw kind can still
+        // type "equipment" even though the row shows the translated heading.
+        keywords: r.resource_type,
+        meta:
+          r.status && r.status !== 'active'
+            ? t('resources.status_' + r.status, { defaultValue: r.status })
+            : undefined,
+      }));
+    // resourceTypeLabel closes over t, which is stable per language change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resourcesQ.data, t]);
+
   const bucketLabel = (b: HistogramBucket): string =>
     ({
       week: t('schedule.resources.bucket_week', { defaultValue: 'Weekly' }),
@@ -232,22 +280,25 @@ function HistogramTab() {
             <label htmlFor="res-histo-resource" className={labelCls}>
               {t('schedule.resources.resource', { defaultValue: 'Resource' })}
             </label>
-            {resourcesQ.isLoading ? (
-              <div className="h-9 animate-pulse rounded-lg bg-surface-secondary" />
-            ) : (
-              <select
-                id="res-histo-resource"
-                value={resolvedResourceId}
-                onChange={(e) => setResourceId(e.target.value)}
-                disabled={(resourcesQ.data?.length ?? 0) === 0}
-                className={inputCls}
-              >
-                {(resourcesQ.data ?? []).map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name} ({r.resource_type})
-                  </option>
-                ))}
-              </select>
+            <SearchableSelect
+              id="res-histo-resource"
+              value={resolvedResourceId}
+              onChange={setResourceId}
+              options={resourceOptions}
+              loading={resourcesQ.isLoading}
+              placeholder={t('schedule.resources.pick_resource', {
+                defaultValue: 'Pick a resource',
+              })}
+              searchPlaceholder={t('schedule.resources.search_resource', {
+                defaultValue: 'Search by name, code or kind…',
+              })}
+            />
+            {resourceOptions.length === 0 && !resourcesQ.isLoading && (
+              <p className="mt-1 text-2xs text-content-tertiary">
+                {t('schedule.resources.none_defined', {
+                  defaultValue: 'No resources are defined yet. Add them on the Resources page.',
+                })}
+              </p>
             )}
           </div>
           <div>

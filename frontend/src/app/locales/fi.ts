@@ -34927,6 +34927,16 @@ const resource = {
     "onboarding.mod_portfolio_desc": "Ohjelmapuu projektien välillä ristikkäisillä aikatauluyhteyksillä ja koontikriittisen polun analyysillä",
     "onboarding.mod_prefab_desc": "Seuraa valmistettuja yksiköitä suunnittelusta asennukseen laatuportin kanssa",
     "onboarding.mod_site_logistics_desc": "Kulkuportit, varastointialueet ja toimitusten varaus",
+    "searchable_select.placeholder": "Valitse vaihtoehto",
+    "searchable_select.search_placeholder": "Suodata kirjoittamalla…",
+    "searchable_select.clear": "Tyhjennä suodatin",
+    "searchable_select.no_match": "Ei osumia haulle \"{{query}}\"",
+    "searchable_select.none": "Ei mitään",
+    "searchable_select.footer": "{{shown}}/{{total}} · ↑↓ siirry · ↵ valitse",
+    "schedule.resources.pick_resource": "Valitse resurssi",
+    "schedule.resources.search_resource": "Hae nimen, koodin tai tyypin mukaan…",
+    "schedule.resources.none_defined": "Resursseja ei ole vielä määritetty. Lisää ne Resurssit-sivulla.",
+    "resources.search_resource": "Hae nimen, koodin tai tyypin mukaan…",
   }
 } as { translation: Record<string, string> };
 

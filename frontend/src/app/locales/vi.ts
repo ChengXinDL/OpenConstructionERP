@@ -34935,6 +34935,16 @@ const resource = {
     "onboarding.mod_portfolio_desc": "Cây chương trình xuyên suốt các dự án với liên kết tiến độ chéo và phân tích CPM tổng hợp",
     "onboarding.mod_prefab_desc": "Theo dõi các cấu kiện chế tạo sẵn từ thiết kế đến lắp đặt qua một cổng kiểm soát chất lượng",
     "onboarding.mod_site_logistics_desc": "Cổng ra vào, khu vực tập kết vật liệu và đặt lịch giao hàng",
+    "searchable_select.placeholder": "Chọn một tùy chọn",
+    "searchable_select.search_placeholder": "Nhập để lọc…",
+    "searchable_select.clear": "Xóa bộ lọc",
+    "searchable_select.no_match": "Không có gì khớp với \"{{query}}\"",
+    "searchable_select.none": "Không có",
+    "searchable_select.footer": "{{shown}} trên {{total}} · ↑↓ để di chuyển · ↵ để chọn",
+    "schedule.resources.pick_resource": "Chọn một tài nguyên",
+    "schedule.resources.search_resource": "Tìm theo tên, mã hoặc loại…",
+    "schedule.resources.none_defined": "Chưa có tài nguyên nào được xác định. Thêm chúng tại trang Tài nguyên.",
+    "resources.search_resource": "Tìm theo tên, mã hoặc loại…",
   }
 } as { translation: Record<string, string> };
 

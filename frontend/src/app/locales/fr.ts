@@ -34949,6 +34949,16 @@ const resource = {
     "onboarding.mod_portfolio_desc": "Arborescence de programme entre projets avec liens inter-plannings et CPM consolidé",
     "onboarding.mod_prefab_desc": "Suivez les unités fabriquées de la conception à l'installation avec un jalon qualité",
     "onboarding.mod_site_logistics_desc": "Portails d'accès, zones de stockage et réservation de livraisons",
+    "searchable_select.placeholder": "Sélectionner une option",
+    "searchable_select.search_placeholder": "Tapez pour filtrer…",
+    "searchable_select.clear": "Effacer le filtre",
+    "searchable_select.no_match": "Rien ne correspond à « {{query}} »",
+    "searchable_select.none": "Aucun",
+    "searchable_select.footer": "{{shown}} sur {{total}} · ↑↓ pour déplacer · ↵ pour choisir",
+    "schedule.resources.pick_resource": "Choisir une ressource",
+    "schedule.resources.search_resource": "Rechercher par nom, code ou type…",
+    "schedule.resources.none_defined": "Aucune ressource n'est encore définie. Ajoutez-en depuis la page Ressources.",
+    "resources.search_resource": "Rechercher par nom, code ou type…",
   }
 } as { translation: Record<string, string> };
 

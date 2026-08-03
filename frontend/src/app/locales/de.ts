@@ -34997,6 +34997,16 @@ const resource = {
     "onboarding.mod_portfolio_desc": "Programmbaum über Projekte hinweg mit terminübergreifenden Verknüpfungen und aggregierter CPM-Analyse",
     "onboarding.mod_prefab_desc": "Verfolgen Sie gefertigte Einheiten vom Entwurf bis zum Einbau mit einem Qualitäts-Gate",
     "onboarding.mod_site_logistics_desc": "Zufahrtstore, Lagerflächen und Anlieferungsbuchung",
+    "searchable_select.placeholder": "Option auswählen",
+    "searchable_select.search_placeholder": "Zum Filtern tippen…",
+    "searchable_select.clear": "Filter löschen",
+    "searchable_select.no_match": "Nichts entspricht \"{{query}}\"",
+    "searchable_select.none": "Keine",
+    "searchable_select.footer": "{{shown}} von {{total}} · ↑↓ zum Bewegen · ↵ zum Auswählen",
+    "schedule.resources.pick_resource": "Ressource auswählen",
+    "schedule.resources.search_resource": "Nach Name, Code oder Typ suchen…",
+    "schedule.resources.none_defined": "Es sind noch keine Ressourcen definiert. Fügen Sie sie auf der Seite Ressourcen hinzu.",
+    "resources.search_resource": "Nach Name, Code oder Typ suchen…",
   }
 } as { translation: Record<string, string> };
 

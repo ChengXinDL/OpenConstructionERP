@@ -31513,6 +31513,16 @@ const resource = {
     "onboarding.mod_portfolio_desc": "Programme tree across projects with cross-schedule links and rollup CPM",
     "onboarding.mod_prefab_desc": "Track manufactured units from design through installation with a quality gate",
     "onboarding.mod_site_logistics_desc": "Access gates, laydown zones, and delivery booking",
+    "searchable_select.placeholder": "Select an option",
+    "searchable_select.search_placeholder": "Type to filter…",
+    "searchable_select.clear": "Clear the filter",
+    "searchable_select.no_match": "Nothing matches \"{{query}}\"",
+    "searchable_select.none": "None",
+    "searchable_select.footer": "{{shown}} of {{total}} · ↑↓ to move · ↵ to pick",
+    "schedule.resources.pick_resource": "Pick a resource",
+    "schedule.resources.search_resource": "Search by name, code or kind…",
+    "schedule.resources.none_defined": "No resources are defined yet. Add them on the Resources page.",
+    "resources.search_resource": "Search by name, code or kind…",
   }
 } as { translation: Record<string, string> };
 

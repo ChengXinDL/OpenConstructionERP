@@ -34964,6 +34964,16 @@ const resource = {
     "onboarding.mod_portfolio_desc": "Drzewo programu obejmujące projekty z powiązaniami między harmonogramami i zbiorczą analizą CPM",
     "onboarding.mod_prefab_desc": "Śledź jednostki prefabrykowane od projektu po montaż z bramką jakości",
     "onboarding.mod_site_logistics_desc": "Bramy dostępowe, strefy składowania i rezerwacja dostaw",
+    "searchable_select.placeholder": "Wybierz opcję",
+    "searchable_select.search_placeholder": "Wpisz, aby filtrować…",
+    "searchable_select.clear": "Wyczyść filtr",
+    "searchable_select.no_match": "Nic nie pasuje do \"{{query}}\"",
+    "searchable_select.none": "Brak",
+    "searchable_select.footer": "{{shown}} z {{total}} · ↑↓ aby przenieść · ↵ aby wybrać",
+    "schedule.resources.pick_resource": "Wybierz zasób",
+    "schedule.resources.search_resource": "Szukaj według nazwy, kodu lub typu…",
+    "schedule.resources.none_defined": "Nie zdefiniowano jeszcze żadnych zasobów. Dodaj je na stronie Zasoby.",
+    "resources.search_resource": "Szukaj według nazwy, kodu lub typu…",
   }
 } as { translation: Record<string, string> };
 

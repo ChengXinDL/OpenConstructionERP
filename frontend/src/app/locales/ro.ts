@@ -34945,6 +34945,16 @@ const resource = {
     "onboarding.mod_portfolio_desc": "Arbore de program între proiecte cu legături între planificări și CPM consolidat",
     "onboarding.mod_prefab_desc": "Urmăriți unitățile fabricate de la proiectare până la instalare printr-un punct de control al calității",
     "onboarding.mod_site_logistics_desc": "Porți de acces, zone de depozitare temporară și rezervare livrări",
+    "searchable_select.placeholder": "Selectați o opțiune",
+    "searchable_select.search_placeholder": "Tastați pentru a filtra…",
+    "searchable_select.clear": "Șterge filtrul",
+    "searchable_select.no_match": "Nimic nu se potrivește cu \"{{query}}\"",
+    "searchable_select.none": "Niciunul",
+    "searchable_select.footer": "{{shown}} din {{total}} · ↑↓ pentru a muta · ↵ pentru a alege",
+    "schedule.resources.pick_resource": "Selectați o resursă",
+    "schedule.resources.search_resource": "Căutați după nume, cod sau tip…",
+    "schedule.resources.none_defined": "Nu există încă resurse definite. Adăugați-le pe pagina Resurse.",
+    "resources.search_resource": "Căutați după nume, cod sau tip…",
   }
 } as { translation: Record<string, string> };
 
