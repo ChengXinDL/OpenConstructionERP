@@ -71,6 +71,7 @@ import {
 } from 'lucide-react';
 import { Badge, ConfirmDialog, DismissibleInfo, ElementInfoPopover, ModuleGuideButton, ProjectFilePicker, projectDocumentToFile, type DWGElementPayload } from '@/shared/ui';
 import { DWG_TAKEOFF_FORMATS } from '@/shared/lib/projectFileFormats';
+import { formatDuration } from '@/shared/lib/duration';
 import type { DocumentItem } from '@/features/documents/api';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { useToastStore } from '@/stores/useToastStore';
@@ -6405,10 +6406,12 @@ function ConversionProgressCard({
   }, []);
 
   const elapsedSec = Math.max(0, Math.round((Date.now() - startedAt) / 1000));
-  const elapsedLabel =
-    elapsedSec < 60
-      ? `${elapsedSec}s`
-      : `${Math.floor(elapsedSec / 60)}m ${elapsedSec % 60}s`;
+  // #174: this used to floor at minutes, so a conversion that ran for over an
+  // hour reported "94m 12s". The shared formatter climbs to hours. Zero is
+  // rendered as "0s" rather than blank so the pill has content from the first
+  // tick - the counter refreshes every second and an empty pill for the first
+  // second reads as a broken control.
+  const elapsedLabel = formatDuration(t, elapsedSec, 's', { parts: 2, empty: '0s' });
 
   // Step machine - drives the highlighted "current step".
   //

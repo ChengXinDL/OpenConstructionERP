@@ -387,7 +387,14 @@ interface FinanceDashboardData {
   missing_fx_rates?: string[];
 }
 
-function FinanceSummaryCards({
+/**
+ * The six money cards above the Finance tabs.
+ *
+ * Exported so the currency-gap notice (#169) can be tested against the
+ * rendered cards rather than through a source scan. It is not re-exported
+ * from the feature's ``index.ts``; the page remains the public surface.
+ */
+export function FinanceSummaryCards({
   projectId,
   onGoToBudgets,
   onGoToInvoices,
@@ -542,6 +549,31 @@ function FinanceSummaryCards({
           </div>
         ))}
       </div>
+
+      {/* No currency resolved (#169). MoneyDisplay refuses to print an amount
+          without its unit - rightly, since a bare number invites being read
+          as the wrong currency - so every card above is an em-dash and the
+          only explanation is a tooltip on each one. A configuration gap that
+          blanks six figures and a total row is indistinguishable from a
+          broken screen until someone hovers. Say it once, in words, and
+          offer the place to fix it. The per-cell guard is unchanged. */}
+      {!currency && (
+        <div
+          className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300"
+          data-testid="finance-no-currency-notice"
+        >
+          {t('finance.no_currency_notice', {
+            defaultValue:
+              'This project has not been given a currency, so amounts cannot be shown with their unit and are left blank rather than guessed.',
+          })}{' '}
+          <Link
+            to={`/projects/${projectId}`}
+            className="font-medium underline underline-offset-2 hover:no-underline"
+          >
+            {t('finance.no_currency_action', { defaultValue: 'Set the project currency' })}
+          </Link>
+        </div>
+      )}
 
       {/* Mixed-currency honesty hint. When records span several currencies
           the totals above are FX-converted into the project currency; if a

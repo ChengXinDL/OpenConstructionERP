@@ -3913,8 +3913,15 @@ export function CadDataExplorerPage() {
       <div className="flex flex-col -mx-4 sm:-mx-7 -mt-6 -mb-6 border-s border-border-light animate-fade-in" style={{ height: 'calc(100vh - 56px)' }}>
         <div className="space-y-3 px-6 pt-4 pb-3 border-b border-border-light">
           <div className="flex items-center justify-between gap-3">
+            {/* #149: the page names itself from the same key the Sidebar
+                entry that leads here uses, so the name cannot change under
+                the user between the click and the screen. The defaultValue
+                here used to read "CAD-BIM Explorer", a spelling that exists
+                nowhere else - invisible while the key resolves, and a
+                seventh name for this one destination the moment it does
+                not. */}
             <Breadcrumb items={[
-              { label: t('nav.cad_bim_explorer', { defaultValue: 'CAD-BIM Explorer' }) },
+              { label: t('nav.cad_bim_explorer', { defaultValue: 'CAD-BIM BI Explorer' }) },
             ]} />
             <ModuleGuideButton content={cadExplorerGuide} />
           </div>
@@ -4023,8 +4030,13 @@ export function CadDataExplorerPage() {
                   background carries the visual weight. */}
               <div className="flex flex-col justify-center gap-4">
                 <div>
+                  {/* #149: was `explorer.hero_title` ("CAD/BIM Data
+                      Explorer"), a third spelling on the same screen. The
+                      first thing a user sees on this route should be the
+                      name they clicked. The subtitle below carries the
+                      description; the heading only has to name the place. */}
                   <h1 className="text-2xl font-bold text-content-primary tracking-tight leading-tight">
-                    {t('explorer.hero_title', { defaultValue: 'CAD/BIM Data Explorer' })}
+                    {t('nav.cad_bim_explorer', { defaultValue: 'CAD-BIM BI Explorer' })}
                   </h1>
                   <p className="text-base text-content-secondary mt-3 leading-relaxed">
                     {t('explorer.hero_subtitle', { defaultValue: 'Analyze building element data in a powerful spreadsheet interface. Filter, pivot, chart, and export quantities from your IFC and Revit models.' })}
@@ -4170,7 +4182,12 @@ export function CadDataExplorerPage() {
             </div>
             <div>
               <h1 className="text-sm font-bold text-content-primary">
-                {describe ? describe.filename : t('explorer.title', { defaultValue: 'CAD-BIM BI Explorer' })}
+                {/* #149: was `explorer.title`, a second key holding the same
+                    English words as `nav.cad_bim_explorer`. A second copy of
+                    a translated name is what lets it drift - the shortcuts
+                    dialog had drifted in up to 21 of 29 locales the same way
+                    (#133). One key, one name. */}
+                {describe ? describe.filename : t('nav.cad_bim_explorer', { defaultValue: 'CAD-BIM BI Explorer' })}
               </h1>
               {describe?.format && (
                 <p className="text-[10px] text-content-tertiary truncate max-w-[160px]">{describe.format.toUpperCase()} {t('explorer.data_session', { defaultValue: 'Data Session' })}</p>

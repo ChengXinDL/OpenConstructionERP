@@ -15,7 +15,9 @@
  * so the widget never competes with the main viewport for raycasts or
  * render time.
  */
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Box } from 'lucide-react';
 import * as THREE from 'three';
 import type { SceneManager, ViewPreset } from './SceneManager';
 
@@ -77,8 +79,16 @@ export function BIMViewCube({
   className,
   size = 80,
 }: BIMViewCubeProps) {
+  const { t } = useTranslation();
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  /**
+   * True once this widget knows it cannot paint - either the renderer never
+   * constructed, or the GL context went away underneath it. Either way the
+   * canvas must come out of the DOM: an undrawn 112x112 canvas pinned over
+   * the viewer is not invisible, it is a blank card sitting on the model.
+   */
+  const [glUnavailable, setGlUnavailable] = useState(false);
   /** Track the latest scene manager so click handlers don't capture stale refs. */
   const sceneManagerRef = useRef<SceneManager | null>(sceneManager);
   sceneManagerRef.current = sceneManager;
@@ -93,9 +103,15 @@ export function BIMViewCube({
     // and other 3-D widgets. When it fails, three.js throws from deep inside the
     // constructor - getShaderPrecisionFormat can return null, so reading
     // `.precision` on it raises a TypeError. The View Cube is a non-essential
-    // navigation gizmo, so swallow that and leave the cube blank rather than let
-    // the error escape the effect and tear down the whole page (e.g. Model
-    // Review) through the error boundary.
+    // navigation gizmo, so swallow that rather than let the error escape the
+    // effect and tear down the whole page (e.g. Model Review) through the
+    // error boundary.
+    //
+    // Swallowing it is not enough on its own. This used to `return` here and
+    // leave the <canvas> mounted, 112x112 and never drawn into, pinned over
+    // the model - which the browser paints as an empty card with a broken
+    // graphic on it. Flag it instead, so the render below puts a real
+    // placeholder in the canvas's place.
     let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({
@@ -105,8 +121,19 @@ export function BIMViewCube({
       });
     } catch (err) {
       console.warn('[BIMViewCube] WebGL unavailable, hiding the view cube', err);
+      setGlUnavailable(true);
       return;
     }
+    setGlUnavailable(false);
+
+    // A context that constructed fine can still be taken away later - the
+    // ordinary causes are a laptop switching GPUs and waking from sleep, not
+    // anything the user did. Same treatment: stop claiming to be a cube.
+    function onContextLost() {
+      console.warn('[BIMViewCube] WebGL context lost, showing the placeholder');
+      setGlUnavailable(true);
+    }
+    canvas.addEventListener('webglcontextlost', onContextLost);
     renderer.setPixelRatio(window.devicePixelRatio || 1);
     renderer.setSize(size, size, false);
     renderer.setClearColor(0x000000, 0);
@@ -227,6 +254,7 @@ export function BIMViewCube({
 
     return () => {
       canvas.removeEventListener('click', onClick);
+      canvas.removeEventListener('webglcontextlost', onContextLost);
       unsubscribe?.();
       geometry.dispose();
       materials.forEach((m) => m.dispose());
@@ -264,13 +292,38 @@ export function BIMViewCube({
         .join(' ')}
       style={{ width: size, height: size }}
     >
-      <canvas
-        ref={canvasRef}
-        width={size}
-        height={size}
-        style={{ width: size, height: size, display: 'block' }}
-        aria-label="View Cube"
-      />
+      {glUnavailable ? (
+        // Replaces the canvas rather than covering it - the defect was an
+        // element that stayed in the layout with nothing painted in it, so
+        // drawing beside it would only add a caption to the blank card. The
+        // orientation buttons below survive either way: they call
+        // setViewPreset directly and need no GL of their own.
+        <div
+          data-testid="bim-view-cube-unavailable"
+          title={t('bim.view_cube_unavailable', {
+            defaultValue:
+              'The view cube needs its own 3D graphics context and could not get one. Model navigation is unaffected.',
+          })}
+          className="w-full h-full flex flex-col items-center justify-center gap-0.5 rounded-lg border border-dashed border-border-medium bg-surface-primary/80 text-content-quaternary px-1.5 text-center"
+          style={{ width: size, height: size }}
+        >
+          <Box size={18} strokeWidth={1.5} aria-hidden="true" />
+          <span className="text-[9px] font-semibold leading-tight">
+            {t('bim.view_cube_label', { defaultValue: 'View cube' })}
+          </span>
+          <span className="text-[8px] leading-tight">
+            {t('bim.view_cube_no_context', { defaultValue: 'no 3D context' })}
+          </span>
+        </div>
+      ) : (
+        <canvas
+          ref={canvasRef}
+          width={size}
+          height={size}
+          style={{ width: size, height: size, display: 'block' }}
+          aria-label={t('bim.view_cube_label', { defaultValue: 'View cube' })}
+        />
+      )}
       {/* Hidden but accessible buttons for testing + keyboard users.
           They overlay the canvas and call setViewPreset directly. The
           canvas raycast above is the primary interaction; these are a

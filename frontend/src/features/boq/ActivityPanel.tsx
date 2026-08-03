@@ -103,7 +103,9 @@ export function ActivityPanel({
   activities: ActivityEntry[];
   isOpen: boolean;
   onToggle: () => void;
-  t: (key: string, options?: Record<string, string>) => string;
+  // Numbers as well as strings: the relative-time label interpolates a count
+  // through the shared duration formatter.
+  t: (key: string, options?: Record<string, string | number>) => string;
 }) {
   const visibleActivities = isOpen ? activities : activities.slice(0, 5);
 
@@ -180,7 +182,7 @@ export function ActivityPanel({
 
                   {/* Relative time */}
                   <span className="shrink-0 text-xs text-content-tertiary tabular-nums">
-                    {formatRelativeTime(entry.created_at)}
+                    {formatRelativeTime(t, entry.created_at)}
                   </span>
                 </li>
               );

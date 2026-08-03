@@ -37,7 +37,7 @@ export function buildPhoneLogCsv(logs: PhoneLog[], t: TFn): string {
       cell(log.parties.join('; ')),
       // duration_seconds is an integer count, not a Decimal string, so plain
       // formatting is safe here.
-      cell(formatDuration(log.duration_seconds)),
+      cell(formatDuration(t, log.duration_seconds)),
       cell(log.summary),
       cell(log.instructions.join(' | ')),
       cell(log.word_count),

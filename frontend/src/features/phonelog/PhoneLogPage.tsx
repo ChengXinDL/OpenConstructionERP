@@ -121,7 +121,7 @@ function PhoneLogCard({
         )}
         <span className="ms-auto inline-flex items-center gap-1 text-xs text-content-tertiary">
           <Clock className="h-3.5 w-3.5" />
-          {formatDuration(log.duration_seconds)}
+          {formatDuration(t, log.duration_seconds)}
         </span>
       </div>
 

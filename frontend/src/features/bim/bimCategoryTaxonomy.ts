@@ -279,6 +279,32 @@ const KNOWN_CATEGORIES: Record<string, string> = {
 };
 
 /**
+ * Insert a space before each interior capital that follows a non-capital,
+ * so runs of capitals like acronyms stay intact (matching the backend).
+ *
+ *   "WallStandardCase" → "Wall Standard Case"
+ *   "StructuralBeam"   → "Structural Beam"
+ *   "HVACZone"         → "HVACZone"  (no lowercase→capital boundary)
+ *
+ * The caller is responsible for rejecting inputs that already contain
+ * whitespace - splitting "Hvac Load Schedules" would double every space.
+ */
+function splitCamelCase(body: string): string {
+  let out = '';
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i]!;
+    if (i > 0 && ch >= 'A' && ch <= 'Z' && !(body[i - 1]! >= 'A' && body[i - 1]! <= 'Z')) {
+      out += ' ';
+    }
+    out += ch;
+  }
+  return out;
+}
+
+/** An interior capital following a non-capital - a word boundary to split on. */
+const CAMEL_BOUNDARY = /[^A-Z][A-Z]/;
+
+/**
  * Humanise a raw IFC entity name for display: strip the `Ifc` prefix and
  * split CamelCase into words, mirroring the backend `_humanise_ifc_class`.
  *
@@ -295,17 +321,7 @@ function humaniseIfcEntity(raw: string): string | null {
   if (!/^Ifc[A-Z]/.test(raw)) return null;
   const body = raw.slice(3); // drop "Ifc"
   if (!body) return raw;
-  // Insert a space before each interior capital that follows a non-capital
-  // (so runs of capitals like acronyms stay intact, matching the backend).
-  let out = '';
-  for (let i = 0; i < body.length; i++) {
-    const ch = body[i]!;
-    if (i > 0 && ch >= 'A' && ch <= 'Z' && !(body[i - 1]! >= 'A' && body[i - 1]! <= 'Z')) {
-      out += ' ';
-    }
-    out += ch;
-  }
-  return out;
+  return splitCamelCase(body);
 }
 
 /**
@@ -315,14 +331,19 @@ function humaniseIfcEntity(raw: string): string | null {
  * - "None" / empty → "Uncategorised".
  * - IFC entities ("IfcWallStandardCase") are humanised to "Wall Standard
  *   Case" (display only — the raw key is still used for filtering).
- * - Already-spaced strings ("Hvac Load Schedules") pass through unchanged.
- * - Anything else gets first-letter capitalised but is otherwise
- *   un-touched — never algorithmically guessing word boundaries.
+ * - Already-spaced strings ("Temporary Works Props") pass through unchanged.
+ * - Any other interior-capitalised name is split on those capitals
+ *   ("StructuralBeam" → "Structural Beam"). A capital in the middle of a
+ *   word is a boundary the exporter wrote down, not one we inferred.
+ * - Anything left gets first-letter capitalised but is otherwise
+ *   un-touched. An all-lowercase run ("newcategory") carries no boundary
+ *   to read, and guessing one is how you get "New Cat Egory".
  *
  * Examples:
  *   prettifyCategoryName("Walls")               → "Walls"
  *   prettifyCategoryName("Curtainwallmullions") → "Curtain Wall Mullions"
  *   prettifyCategoryName("Structuralcolumns")   → "Structural Columns"
+ *   prettifyCategoryName("StructuralBeam")      → "Structural Beam"
  *   prettifyCategoryName("Newcategory")         → "Newcategory"
  *   prettifyCategoryName("None")                → "Uncategorised"
  *   prettifyCategoryName("IfcWall")             → "Wall"
@@ -337,8 +358,11 @@ export function prettifyCategoryName(raw: string | undefined | null): string {
   // IFC entity → humanise (strip "Ifc", CamelCase-split) for display.
   const ifc = humaniseIfcEntity(trimmed);
   if (ifc !== null) return ifc;
-  // Already has spaces → pass through
+  // Already has spaces → pass through. Must come before the split below,
+  // which would otherwise put a second space in front of every word.
   if (/\s/.test(trimmed)) return trimmed;
+  // CamelCase from an RVT/converter export → split on the authored capitals.
+  if (CAMEL_BOUNDARY.test(trimmed)) return splitCamelCase(trimmed);
   // Otherwise: just capitalise the first letter, leave the rest
   return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
 }

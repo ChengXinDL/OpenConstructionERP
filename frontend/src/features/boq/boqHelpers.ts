@@ -11,6 +11,7 @@
 import type { Position, Markup } from './api';
 import { getIntlLocale } from '@/shared/lib/formatters';
 import { apiGet, apiPatch } from '@/shared/lib/api';
+import { formatElapsed, type Translate as DurationTranslate } from '@/shared/lib/duration';
 
 /* ── Constants ───────────────────────────────────────────────────────── */
 
@@ -645,28 +646,17 @@ export function formatTimeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString(getIntlLocale());
 }
 
-/** Format a timestamp as a relative time string (e.g. "2m ago", "3h ago"). */
-export function formatRelativeTime(isoString: string): string {
-  const now = Date.now();
-  const then = new Date(isoString).getTime();
-  const diffMs = now - then;
-
-  if (diffMs < 0) return 'just now';
-
-  const seconds = Math.floor(diffMs / 1000);
-  if (seconds < 60) return 'just now';
-
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d`;
-
-  const months = Math.floor(days / 30);
-  return `${months}mo`;
+/**
+ * Format a timestamp as a compact age ("2m", "3h", "4d", "5mo").
+ *
+ * Now a thin wrapper over the shared formatter (#174). The unit ladder is
+ * unchanged - this was one of the two copies that already climbed it - but
+ * the suffixes now come from i18n rather than being English literals, so the
+ * activity panel stops printing "2m" to a reader of any of the 29 locales.
+ * The caller supplies ``t``.
+ */
+export function formatRelativeTime(t: DurationTranslate, isoString: string): string {
+  return formatElapsed(t, isoString);
 }
 
 /* ── Undo Entry Type ─────────────────────────────────────────────────── */

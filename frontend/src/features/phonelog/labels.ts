@@ -6,6 +6,7 @@
 // duration formatter. Kept in one place so the page, the filter bar, and the
 // edit dialog render a call the same way instead of each redefining them.
 
+import { formatDuration as formatSharedDuration } from '@/shared/lib/duration';
 import type { PhoneChannel, PhoneDirection } from './types';
 
 export type BadgeVariant = 'neutral' | 'blue' | 'success' | 'warning' | 'error';
@@ -31,6 +32,9 @@ export const CHANNELS: PhoneChannel[] = ['phone', 'voice_note', 'chat'];
 
 type TFn = (k: string, o: { defaultValue: string }) => string;
 
+/** `t` as the shared duration formatter needs it: it interpolates numbers too. */
+type DurationTFn = Parameters<typeof formatSharedDuration>[0];
+
 export function directionLabel(t: TFn, d: PhoneDirection): string {
   return t(`phonelog.direction_${d}`, {
     defaultValue: { inbound: 'Inbound', outbound: 'Outbound', internal: 'Internal', unknown: 'Unknown' }[d],
@@ -43,10 +47,15 @@ export function channelLabel(t: TFn, c: PhoneChannel): string {
   });
 }
 
-export function formatDuration(seconds: number | null): string {
-  if (seconds == null || seconds <= 0) return '-';
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  if (mins === 0) return `${secs}s`;
-  return secs === 0 ? `${mins}m` : `${mins}m ${secs}s`;
+/**
+ * A call length, at the scale of the call (#174).
+ *
+ * This used to floor at minutes, so a two-hour call read "120m". It now runs
+ * through the shared formatter and reads "2h". Short calls are unchanged:
+ * 45s stays "45s", 90s stays "1m 30s". The em-dash-free "-" is kept for a
+ * call with no recorded length, because a blank cell in the table reads as a
+ * rendering fault rather than as missing data.
+ */
+export function formatDuration(t: DurationTFn, seconds: number | null): string {
+  return formatSharedDuration(t, seconds, 's', { parts: 2, empty: '-' });
 }

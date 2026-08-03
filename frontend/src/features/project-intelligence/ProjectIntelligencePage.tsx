@@ -21,6 +21,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { apiGet, apiPost } from '@/shared/lib/api';
 import { isModuleLoaded, _resetModuleProbeCache } from '@/shared/lib/moduleProbe';
+import { formatElapsed } from '@/shared/lib/duration';
 import { Breadcrumb, DismissibleInfo, ModuleGuideButton } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { project_intelligenceGuide } from './project_intelligenceGuide';
@@ -571,7 +572,12 @@ export function ProjectIntelligencePage() {
               })}
             >
               <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-              {lastRefresh && <span>{formatAgo(lastRefresh)}</span>}
+              {/* #174: this used to stop at hours, so an analysis left open
+                  overnight reported "18h ago" and one from last week "172h
+                  ago". The shared formatter climbs to days and months. */}
+              {lastRefresh && (
+                <span>{formatElapsed(t, lastRefresh, { suffix: true })}</span>
+              )}
             </button>
           </>
         }
@@ -815,12 +821,3 @@ export function ProjectIntelligencePage() {
   );
 }
 
-/** Format relative time, e.g. "2m ago". */
-function formatAgo(date: Date): string {
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (seconds < 60) return 'just now';
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  return `${hours}h ago`;
-}

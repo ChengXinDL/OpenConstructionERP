@@ -46,6 +46,7 @@ import {
 } from 'lucide-react';
 import { Card, CardHeader, CardContent, Button, Badge, Skeleton, ActivityFeed as CrossModuleActivityFeed, EmptyState, ModuleHelpButton, ModuleGuideButton, PartnerLogoBadge } from '@/shared/ui';
 import { dashboardGuide } from './dashboardGuide';
+import { pricedPositions, type PositionCounts } from './pricedPositions';
 import { MultiCurrencyTotal } from '@/shared/ui/MultiCurrencyTotal';
 import { WhatsNewCard } from '@/shared/ui/WhatsNewCard';
 import { DashboardCasesCard } from './DashboardCasesCard';
@@ -254,7 +255,19 @@ interface BOQWithTotal {
   name: string;
   status: string;
   grand_total: number;
-  positions: { total: number }[];
+  /**
+   * Whether this project has any BOQ positions at all, and whether any of
+   * them carry a price.
+   *
+   * These used to be a synthesized ``positions: { total: number }[]`` of
+   * length one, which read fine as a boolean but was also *counted* by the
+   * Priced positions tile as though it were the position list - one project
+   * with 1 priced and 99 unpriced positions counted as 1 of 1. Two booleans
+   * cannot be mistaken for a population. The real counts live on the
+   * ``boq_summary`` rollup and are passed to the tile directly.
+   */
+  hasPositions: boolean;
+  hasPricedPositions: boolean;
 }
 
 /** Per-currency BOQ value subtotal from ``boq_summary.by_currency``. */
@@ -537,9 +550,7 @@ function OnboardingSteps({
   const hasProjects = Boolean(projects && projects.length > 0);
   const hasBoqs = Boolean(boqs && boqs.length > 0);
   const hasVectors = Boolean(vectorCount && vectorCount > 0);
-  const hasQuantities = Boolean(
-    boqs && boqs.some((b) => b.positions && b.positions.some((p) => p.total > 0)),
-  );
+  const hasQuantities = Boolean(boqs && boqs.some((b) => b.hasPricedPositions));
 
   const aiConfigured = (() => {
     try {
@@ -821,6 +832,7 @@ function KpiRibbon({
   projects,
   byCurrency,
   multiCurrency,
+  positionCounts,
 }: {
   boqs?: BOQWithTotal[];
   schedules?: ScheduleSummary[];
@@ -829,6 +841,11 @@ function KpiRibbon({
   byCurrency?: CurrencyTotal[];
   /** True when projects span more than one currency. */
   multiCurrency?: boolean;
+  /**
+   * Real position totals from the ``boq_summary`` rollup, for the Priced
+   * positions tile. ``undefined`` while the rollup is in flight.
+   */
+  positionCounts?: PositionCounts;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -854,19 +871,12 @@ function KpiRibbon({
 
   const scheduleCount = schedules?.length ?? 0;
 
-  const qualityScore = useMemo(() => {
-    if (!boqs || boqs.length === 0) return null;
-    // Compute average validation "completeness" from positions that have totals > 0
-    const withPositions = boqs.filter((b) => b.positions && b.positions.length > 0);
-    if (withPositions.length === 0) return null;
-    const totalPositions = withPositions.reduce((s, b) => s + b.positions.length, 0);
-    const positionsWithPrice = withPositions.reduce(
-      (s, b) => s + b.positions.filter((p) => p.total > 0).length,
-      0,
-    );
-    if (totalPositions === 0) return null;
-    return Math.round((positionsWithPrice / totalPositions) * 100);
-  }, [boqs]);
+  // Share of positions carrying a price, from the rollup's own position
+  // counts. It used to be derived from the synthesized ``positions`` stub,
+  // which holds one flag per project rather than one entry per position, so
+  // a project with 1 priced and 99 unpriced positions computed 1/1 = 100%.
+  // ``null`` = nothing to measure yet, rendered as an empty state below.
+  const priced = useMemo(() => pricedPositions(positionCounts), [positionCounts]);
 
   // Fallback currency for the rare case the rollup has no per-currency
   // buckets yet (no priced BOQs) \u2014 only used to label a zero figure.
@@ -948,23 +958,39 @@ function KpiRibbon({
     },
     {
       icon: <ShieldCheck size={20} strokeWidth={1.75} />,
-      // When no validation report exists yet we swap the "N/A" string for a
-      // dashed-circle icon - reads as "not measured" and doesn't compete
-      // with the percentage on validated tiles. The sublabel keeps the CTA.
-      value: qualityScore !== null
-        ? `${qualityScore}%`
-        : (<CircleDashed size={18} strokeWidth={1.75} className="text-content-quaternary opacity-70" />),
-      sublabel: qualityScore !== null
-        ? t('dashboard.kpi_priced_label', { defaultValue: 'priced' })
-        : t('dashboard.kpi_run_validation', { defaultValue: 'run validation' }),
+      // With no positions to price we swap the percentage for a dashed-circle
+      // icon - reads as "not measured" and doesn't compete with the figure on
+      // tiles that have one. An empty denominator must not render as a number:
+      // 0% would accuse the user of not pricing positions they have not
+      // written, and the proxy this tile used to read rendered it as 100%.
+      value: positionCounts === undefined
+        ? null
+        : priced !== null
+          ? `${priced.pct}%`
+          : (<CircleDashed size={18} strokeWidth={1.75} className="text-content-quaternary opacity-70" />),
+      sublabel: positionCounts === undefined
+        ? ''
+        : priced !== null
+        // "3 of 120" says what the percentage is a percentage of, so a small
+        // BOQ cannot show a confident-looking figure over two positions.
+        ? t('dashboard.kpi_priced_of', {
+            defaultValue: '{{priced}} of {{total}} priced',
+            priced: priced.priced,
+            total: priced.total,
+          })
+        : t('dashboard.kpi_no_positions', { defaultValue: 'no positions yet' }),
       // Renamed 2026-05-11 from "Quality Score" → "Priced positions".
       // Previously the label implied DIN/NRM validation but the math was
       // just `positions_with_unit_rate / total_positions`. The renamed tile
       // is accurate to what it measures.
       label: t('dashboard.kpi_priced_positions', { defaultValue: 'Priced positions' }),
-      color: qualityScore !== null && qualityScore >= 80 ? 'text-semantic-success' : qualityScore !== null && qualityScore >= 50 ? 'text-[#b45309]' : 'text-content-tertiary',
-      bg: qualityScore !== null && qualityScore >= 80 ? 'bg-semantic-success-bg' : qualityScore !== null && qualityScore >= 50 ? 'bg-semantic-warning-bg' : 'bg-surface-secondary',
-      onClick: qualityScore === null ? () => navigate('/validation') : undefined,
+      color: priced !== null && priced.pct >= 80 ? 'text-semantic-success' : priced !== null && priced.pct >= 50 ? 'text-[#b45309]' : 'text-content-tertiary',
+      bg: priced !== null && priced.pct >= 80 ? 'bg-semantic-success-bg' : priced !== null && priced.pct >= 50 ? 'bg-semantic-warning-bg' : 'bg-surface-secondary',
+      // Nothing priced yet sends the user to the BOQ editor, which is where
+      // positions and rates are written. It used to send them to /validation,
+      // left over from when this tile was called "Quality Score".
+      onClick:
+        positionCounts !== undefined && priced === null ? () => navigate('/boq') : undefined,
     },
   ];
 
@@ -1346,12 +1372,8 @@ function NextSteps({
 
     const hasProjects = Boolean(projects && projects.length > 0);
     const hasBoqs = Boolean(boqs && boqs.length > 0);
-    const hasPositions = Boolean(
-      boqs && boqs.some((b) => b.positions && b.positions.length > 0),
-    );
-    const hasRates = Boolean(
-      boqs && boqs.some((b) => b.positions && b.positions.some((p) => p.total > 0)),
-    );
+    const hasPositions = Boolean(boqs && boqs.some((b) => b.hasPositions));
+    const hasRates = Boolean(boqs && boqs.some((b) => b.hasPricedPositions));
     const hasSchedules = Boolean(schedules && schedules.length > 0);
     const hasContacts = Boolean(allContacts && allContacts > 0);
 
@@ -1369,7 +1391,7 @@ function NextSteps({
 
     // If BOQ has no positions -- suggest adding them
     if (hasBoqs && !hasPositions) {
-      const firstBoq = boqs!.find((b) => !b.positions || b.positions.length === 0) ?? boqs![0];
+      const firstBoq = boqs!.find((b) => !b.hasPositions) ?? boqs![0];
       items.push({
         id: 'add-positions',
         icon: <FileText size={18} strokeWidth={1.75} />,
@@ -2154,14 +2176,12 @@ function DashboardPageInner() {
       // Per-project total in project currency, as Number - KpiRibbon and
       // AnalyticsSection sum these.
       grand_total: Number(row.total_value) || 0,
-      // Synthetic position list - one entry per ``position_count`` would
-      // bloat memory, so we mark a single representative position carrying
-      // the rolled-up total. OnboardingSteps + SystemStatusSummary only
-      // check ``positions.length > 0`` + ``positions.some(p => p.total > 0)``.
-      positions:
-        row.position_count > 0
-          ? [{ total: row.position_count - row.positions_zero_price > 0 ? 1 : 0 }]
-          : [],
+      // Two booleans, not a synthetic position list. OnboardingSteps and
+      // NextStepsPanel only ever ask "are there any positions" and "is
+      // anything priced", and answering with a one-element array invited
+      // the KPI tile to count it as the population (#187).
+      hasPositions: row.position_count > 0,
+      hasPricedPositions: row.position_count - row.positions_zero_price > 0,
     }));
     // If the user has at least one real BOQ but no per-project rollup row
     // covered it (defensive - should be impossible), insert a single fall-
@@ -2173,7 +2193,9 @@ function DashboardPageInner() {
         name: '',
         status: 'active',
         grand_total: Number(boqSummary.total_value_eur) || 0,
-        positions: boqSummary.position_count > 0 ? [{ total: 1 }] : [],
+        hasPositions: boqSummary.position_count > 0,
+        hasPricedPositions:
+          boqSummary.position_count - boqSummary.positions_zero_price > 0,
       });
     }
     return stubs;
@@ -2318,6 +2340,14 @@ function DashboardPageInner() {
         projects={projects}
         byCurrency={boqCurrency.byCurrency}
         multiCurrency={boqCurrency.multiCurrency}
+        positionCounts={
+          boqSummary
+            ? {
+                position_count: boqSummary.position_count,
+                positions_zero_price: boqSummary.positions_zero_price,
+              }
+            : undefined
+        }
       />
     ),
 

@@ -58,6 +58,7 @@ import { useConfirm } from '@/shared/hooks/useConfirm';
 import { useCreateShortcut } from '@/shared/hooks/useCreateShortcut';
 import { DateDisplay } from '@/shared/ui/DateDisplay';
 import { apiGet, extractErrorMessageFromBody, triggerDownload } from '@/shared/lib/api';
+import { formatDuration } from '@/shared/lib/duration';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -1820,10 +1821,11 @@ const MeetingRow = React.memo(function MeetingRow({
                       {item.duration_minutes > 0 && (
                         <span className="text-xs text-content-tertiary ml-2 flex items-center gap-0.5 inline-flex">
                           <Clock size={10} />
-                          {t('meetings.agenda_item_duration', {
-                            defaultValue: '{{count}} min',
-                            count: item.duration_minutes,
-                          })}
+                          {/* #174: this printed the stored minutes with a fixed
+                              "min" suffix at any size, so a half-day workshop
+                              read "240 min". The shared formatter picks the
+                              unit: "4h", "1h 30m", "45m". */}
+                          {formatDuration(t, item.duration_minutes, 'min', { parts: 2 })}
                         </span>
                       )}
                     </div>

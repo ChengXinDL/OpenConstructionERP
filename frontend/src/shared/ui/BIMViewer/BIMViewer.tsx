@@ -54,6 +54,7 @@ import {
   LocateFixed,
 } from 'lucide-react';
 import { fetchBIMElementContext, fetchBIMElementProperties } from '@/features/bim/api';
+import { prettifyCategoryName } from '@/features/bim/bimCategoryTaxonomy';
 import { SceneManager } from './SceneManager';
 import { ElementManager } from './ElementManager';
 import { DeferredTeardown } from './deferredTeardown';
@@ -1292,7 +1293,7 @@ export function BIMViewer({
           const parts = [...counts.entries()]
             .sort((a, b) => b[1] - a[1])
             .slice(0, 3)
-            .map(([cat, n]) => `${n} ${cat}`);
+            .map(([cat, n]) => `${n} ${prettifyCategoryName(cat)}`);
           setSelectionSummary(parts.join(', '));
         } else {
           setSelectionSummary('');
@@ -4937,7 +4938,16 @@ export function BIMViewer({
                         className="absolute inset-y-0 left-0 bg-oe-blue/10 rounded-md pointer-events-none"
                         style={{ width: `${pct}%` }}
                       />
-                      <span className="relative text-xs text-content-secondary truncate mr-2 font-medium">{cat}</span>
+                      {/* Same label the Filter & Group panel prints for this
+                          key - the two sit side by side with the same count,
+                          so a raw "StructuralFoundation" here against
+                          "Structural Foundation" there reads as two things. */}
+                      <span
+                        className="relative text-xs text-content-secondary truncate mr-2 font-medium"
+                        title={cat}
+                      >
+                        {prettifyCategoryName(cat)}
+                      </span>
                       <span className="relative text-[11px] font-semibold text-content-primary tabular-nums shrink-0">
                         {count.toLocaleString()}
                       </span>
