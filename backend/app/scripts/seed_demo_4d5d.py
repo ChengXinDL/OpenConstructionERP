@@ -237,15 +237,15 @@ async def main() -> None:
 
             companies = (
                 [
-                    ("Hochtief AG", "tender@hochtief.de", 0.98),
-                    ("Strabag SE", "bids@strabag.com", 1.05),
-                    ("Zublin GmbH", "vergabe@zueblin.de", 1.02),
+                    ("Kestenbruck Hochbau AG", "tender@kestenbruck-hochbau.de", 0.98),
+                    ("Malvenstett Bau SE", "bids@malvenstett-bau.de", 1.05),
+                    ("Verdenau Rohbau GmbH", "vergabe@verdenau-rohbau.de", 1.02),
                 ]
                 if is_berlin
                 else [
-                    ("Laing O'Rourke", "tenders@lor.com", 0.96),
-                    ("Balfour Beatty", "bids@bb.com", 1.08),
-                    ("Mace Group", "proc@mace.com", 1.01),
+                    ("Thornbeck Construction", "tenders@thornbeck-construction.co.uk", 0.96),
+                    ("Ellerdyne Contracting", "bids@ellerdyne-contracting.co.uk", 1.08),
+                    ("Merrivane Group", "proc@merrivane.co.uk", 1.01),
                 ]
             )
 

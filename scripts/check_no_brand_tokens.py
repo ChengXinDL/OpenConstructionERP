@@ -116,6 +116,34 @@ _DENY_HASHES: frozenset[str] = frozenset(
         "5696c9f4a0e58aa85c12d312e051162363c3f29a1fcdf0da152f43bf9a7a604b",
         "0aab8b5450e4846d17896c6115b1620d6b5b6ad130666845845c02554546c746",
         "5971b0dc06256600737ca8ba133808b5d8122016a777948e998535036594a95b",
+        # 2026-08: real contractors and design practices that reached users as
+        # demo tender bidders and project metadata. They were named in
+        # app/scripts/seed_demo_4d5d.py and seed_demo_estimates.py, which the
+        # earlier demo sweep did not reach, and shipped in every wheel up to
+        # 14.2.1. Surnames are hashed one token at a time because the scanner
+        # sees maximal [a-z0-9]+ runs, never a two-word company name.
+        "b4d969421ab34a7895fc58810b7f1ffc93520b10c9cc6c403ca607b9f29f8c04",
+        "f38f6d7164bf334b3282eda983dcb8d5b69e2e14ffa7b4a83532d61aa7ee03be",
+        "65266ec0e12375d08a468a83da9d63a57eaaa9a24c3e5cd055ad706598310752",
+        "e3c7e82d53a1ce84c284f43915a66bf147c75b2a8baf3f2d476bd2ecd754590c",
+        "4e44ac61bc0519ecccc8ae9c2dae453f13ca786a647087c7a2266a6ec5232c94",
+        "09c7945dc8a40843b498d79e60716cf57772480d518db5afbbd2d6ab880826fa",
+        "20920c3de23ff769ee1c1113c409113c10f7c9d752b55660c3e6b8137589e66a",
+        "5fda8083a1784f7ebb246f2d52001eaaf75e1ce06437f297e12b5e5843659f81",
+        "fda1bdcc3e8d94633b84d1ec2277cb3400d298a431259af0d46479732d98c15d",
+        "ad05969625c093458a9e1df667770ccf71a19b58159126854bd4bda44f0fdaba",
+        # Coined replacements that turned out to collide with live construction
+        # firms and were withdrawn before release. Hashed so they cannot be
+        # invented a second time: the collision rate on plausible-sounding names
+        # is roughly one in two, and a name that reads clean is not evidence.
+        "467813f7cf203871621e08b72ee4c210215b1f6a4af0e27da53a3cb490fe8bdf",
+        "e186dc4cc7fad46dc412de303e24ee681bfe746267c6488d4af0267122f9f6d7",
+        # Two more of the same kind, both found in shipped demo data rather than
+        # in a candidate list. One was rejected during an earlier sweep for a
+        # reason recorded at the time and shipped anyway, which is why rejection
+        # has to be written down as a hash and not as a note.
+        "f560bc02f626b8160149369482ae0a5827ba6c8bf1da3a53e1a0426afb0a4e02",
+        "3baeea126007538168b11698b963e28e40635c3708ae610b17c382bac9dce1fa",
     }
 )
 
@@ -127,13 +155,44 @@ _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
 # Only scan source and content file types; skip binaries and vendored trees.
 _TEXT_SUFFIXES = {
-    ".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".md", ".mdx",
-    ".html", ".css", ".scss", ".yml", ".yaml", ".toml", ".txt", ".sql", ".sh",
-    ".env", ".cfg", ".ini", ".rs", ".vue", ".svelte",
+    ".py",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".json",
+    ".md",
+    ".mdx",
+    ".html",
+    ".css",
+    ".scss",
+    ".yml",
+    ".yaml",
+    ".toml",
+    ".txt",
+    ".sql",
+    ".sh",
+    ".env",
+    ".cfg",
+    ".ini",
+    ".rs",
+    ".vue",
+    ".svelte",
 }
 _SKIP_PARTS = {
-    ".git", "node_modules", "dist", "build", "__pycache__", ".venv", "venv",
-    ".mypy_cache", ".ruff_cache", "target", "_frontend_dist",
+    ".git",
+    "node_modules",
+    "dist",
+    "build",
+    "__pycache__",
+    ".venv",
+    "venv",
+    ".mypy_cache",
+    ".ruff_cache",
+    "target",
+    "_frontend_dist",
 }
 # This gate stores hashes, never literals, so it never matches itself, but skip
 # it anyway to keep the report clean.
@@ -205,7 +264,10 @@ def _changed_text_files(ref: str) -> list[Path]:
     # Files changed vs the ref (committed diff) plus anything staged/unstaged,
     # so the CI guard catches a leak whether it is committed or in flight.
     seen: dict[str, Path] = {}
-    for spec in (["diff", "--name-only", f"{ref}...HEAD"], ["diff", "--name-only", "HEAD"]):
+    for spec in (
+        ["diff", "--name-only", f"{ref}...HEAD"],
+        ["diff", "--name-only", "HEAD"],
+    ):
         try:
             for p in _git_files(spec):
                 seen[str(p)] = p
@@ -273,7 +335,9 @@ def main(argv: list[str]) -> int:
             failures.append(f"{shown}:{lineno}: brand token {masked}")
 
     if failures:
-        print("[FAIL] competitor/vendor brand token(s) found - remove and use a neutral name:")
+        print(
+            "[FAIL] competitor/vendor brand token(s) found - remove and use a neutral name:"
+        )
         for f in failures:
             print(f"  {f}")
         print(

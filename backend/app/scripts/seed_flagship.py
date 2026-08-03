@@ -278,8 +278,8 @@ def _flagship_template(spec: dict) -> Any:
     # records (subcontract RFIs, NCRs, submittals) have companies to cite.
     tender_companies = [
         ("Summit Residential Builders", "estimating@summitresidential.example", 1.00),
-        ("Front Range Construction", "bids@frontrangeconstruction.example", 1.04),
-        ("Mile High General Contractors", "tenders@milehighgc.example", 0.97),
+        ("Wardenholt Construction", "bids@wardenholtconstruction.example", 1.04),
+        ("Quarrowdale General Contractors", "tenders@quarrowdalegc.example", 0.97),
     ]
 
     return DemoTemplate(

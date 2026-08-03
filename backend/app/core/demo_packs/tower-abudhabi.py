@@ -669,7 +669,7 @@ TEMPLATE = DemoTemplate(
         "client": "Nawaris Island Development PJSC",
         "architect": "Trenholme Middle East",
         "structural_engineer": "Norvenor Middle East",
-        "mep_engineer": "Hensford Vane Gulf",
+        "mep_engineer": "Hensford Gulf Engineering",
         "general_contractor_form": "FIDIC Red Book (1999) - lump-sum contract",
         "gfa_above_grade_m2": 118000,
         "gfa_basement_m2": 46000,

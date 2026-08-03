@@ -331,12 +331,18 @@ TEMPLATE = DemoTemplate(
             [
                 ("Formara Pty Ltd", "tenders@formara.example", 0.98),
                 ("Marrowvale Construction & Fitout", "tenders@marrowvale.example", 1.05),
-                ("Craymont Constructions", "estimating@craymont.example", 1.02),
+                ("Draskell Constructions", "estimating@draskell.example", 1.02),
             ],
         ),
     ],
     project_metadata={
         "address": "120 Doherty's Road, Truganina (West Melbourne), VIC 3029",
+        # Kept deliberately. The bird this name opens with is a denied token in
+        # tests/unit/test_demo_seed_has_no_real_firm_names.py, and this name
+        # passes only because that rule hashes maximal runs and so reads
+        # "kestrelink" as one token - narrow the rule and this goes red on its
+        # own. It stays because a fresh coinage is likelier to hit a live firm
+        # than a reviewed name is. Still owed: the token itself is unsearched.
         "client": "Kestrelink Infrastructure Partners Pty Ltd",
         "architect": "Verrowmead Studio",
         "quantity_surveyor": "Cranleigh Partnership (AIQS)",

@@ -351,8 +351,8 @@ def _build_berlin_markups(boq_id: uuid.UUID) -> list[BOQMarkup]:
 # ---------------------------------------------------------------------------
 
 
-def _build_canary_positions(boq_id: uuid.UUID) -> list[Position]:
-    """Return all sections + positions for the Canary Wharf office tower."""
+def _build_halesworth_positions(boq_id: uuid.UUID) -> list[Position]:
+    """Return all sections + positions for the Halesworth Wharf office tower."""
     positions: list[Position] = []
     sort = 0
 
@@ -510,7 +510,7 @@ def _build_canary_positions(boq_id: uuid.UUID) -> list[Position]:
     return positions
 
 
-def _build_canary_markups(boq_id: uuid.UUID) -> list[BOQMarkup]:
+def _build_halesworth_markups(boq_id: uuid.UUID) -> list[BOQMarkup]:
     return [
         _make_markup(
             boq_id=boq_id,
@@ -612,11 +612,11 @@ async def main() -> None:
             await session.execute(select(Project).where(Project.name == "Wohnanlage Berlin-Mitte"))
         ).scalar_one_or_none()
 
-        existing_canary = (
+        existing_halesworth = (
             await session.execute(select(Project).where(Project.name == "Halesworth Wharf Tower"))
         ).scalar_one_or_none()
 
-        if existing_berlin and existing_canary:
+        if existing_berlin and existing_halesworth:
             print("Both demo projects already exist. Nothing to do.")
             await engine.dispose()
             return
@@ -690,7 +690,7 @@ async def main() -> None:
                 metadata_={
                     "address": "Chausseestra\u00dfe 45, 10115 Berlin",
                     "client": "Berliner Wohnungsbaugesellschaft mbH",
-                    "architect": "Sauerbruch Hutton",
+                    "architect": "Kirchsteg Architekten",
                     "gfa_m2": 7800,
                     "units": 48,
                     "storeys": 6,
@@ -747,7 +747,7 @@ async def main() -> None:
         # ==================================================================
         # DEMO 2: Halesworth Wharf Tower
         # ==================================================================
-        if existing_canary:
+        if existing_halesworth:
             print("\n  [SKIP] 'Halesworth Wharf Tower' already exists.")
         else:
             print("\n" + "-" * 78)
@@ -771,9 +771,9 @@ async def main() -> None:
                 status="active",
                 owner_id=owner_id,
                 metadata_={
-                    "address": "Canary Wharf, London E14",
-                    "client": "Canary Wharf Group plc",
-                    "architect": "Foster + Partners",
+                    "address": "Halesworth Quay, London E14",
+                    "client": "Halesworth Wharf Estates plc",
+                    "architect": "Wrenfield + Partners",
                     "gia_m2": 16400,
                     "nia_m2": 12800,
                     "storeys": 12,
@@ -805,12 +805,12 @@ async def main() -> None:
             await session.flush()
             print(f"  BOQ: {boq2.name}")
 
-            positions2 = _build_canary_positions(boq2_id)
+            positions2 = _build_halesworth_positions(boq2_id)
             for p in positions2:
                 session.add(p)
             await session.flush()
 
-            markups2 = _build_canary_markups(boq2_id)
+            markups2 = _build_halesworth_markups(boq2_id)
             for m in markups2:
                 session.add(m)
             await session.flush()
@@ -840,7 +840,7 @@ async def main() -> None:
         print("\n" + "=" * 78)
         print("  SEED COMPLETE")
         print("=" * 78)
-        projects_created = sum(1 for x in [existing_berlin, existing_canary] if x is None)
+        projects_created = sum(1 for x in [existing_berlin, existing_halesworth] if x is None)
         print(f"  Projects created : {projects_created}")
         print(f"  Sections         : {total_sections}")
         print(f"  Positions        : {total_positions}")

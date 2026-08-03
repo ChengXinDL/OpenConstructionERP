@@ -404,7 +404,7 @@ TEMPLATE = DemoTemplate(
             "evaluating",
             [
                 ("Vyre Electric Inc.", "estimating@vyre.example", 0.98),
-                ("Axelon Group Inc.", "bids@axelon.example", 1.05),
+                ("Vurnstead Group Inc.", "bids@vurnstead.example", 1.05),
                 ("Larkfield Electric Limited", "tenders@larkfield.example", 1.02),
             ],
         ),
@@ -424,7 +424,7 @@ TEMPLATE = DemoTemplate(
             "evaluating",
             [
                 ("Verdon Group Inc.", "bids@verdon.example", 0.99),
-                ("Halvorsen-Prine Inc.", "estimating@halvorsenprine.example", 1.06),
+                ("Brantmere Grounds Inc.", "estimating@brantmere.example", 1.06),
             ],
         ),
     ],

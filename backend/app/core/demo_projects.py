@@ -724,7 +724,7 @@ _BERLIN = DemoTemplate(
             "evaluating",
             [
                 ("Galabau Meier GmbH", "angebote@galabau-meier.example", 0.99),
-                ("GreenTech Landschaftsbau", "vergabe@greentech-gala.example", 1.06),
+                ("Kranzhofen Landschaftsbau", "vergabe@kranzhofen-gala.example", 1.06),
             ],
         ),
     ],
@@ -748,7 +748,7 @@ _LONDON = DemoTemplate(
     currency="GBP",
     locale="en",
     address={
-        "street": "1 Canada Square, Canary Wharf",
+        "street": "8 Thorne Quay, Eastferry Reach",
         "city": "London",
         "postcode": "E14 5AB",
         "country": "United Kingdom",
@@ -894,7 +894,7 @@ _LONDON = DemoTemplate(
         ("Marlwen Group", "proc@marlwen.example", 1.01),
     ],
     project_metadata={
-        "address": "Canary Wharf, London E14",
+        "address": "Eastferry Reach, London E14",
         "client": "Vittram Estates plc",
         "architect": "Calmoor + Partners",
         "gia_m2": 16400,
@@ -1106,7 +1106,7 @@ _US_MEDICAL = DemoTemplate(
             "evaluating",
             [
                 ("RM Falgren Construction", "bids@rmfalgren.example", 0.98),
-                ("Kestrel Vaughn Builders", "tenders@kestrelvaughn.example", 1.05),
+                ("Skelverne Builders", "tenders@skelverne.example", 1.05),
                 ("Rowan & Merrick", "procurement@rowanmerrick.example", 1.02),
             ],
         ),
@@ -1891,7 +1891,7 @@ _PARIS = DemoTemplate(
     ],
     project_metadata={
         "address": "Rue de Belleville 120, 75020 Paris",
-        "client": "Mairie de Paris - DASCO",
+        "client": "Collectivité territoriale (maîtrise d'ouvrage publique)",
         "architect": "Atelier Tremoy",
         "sdp_m2": 4200,
         "classrooms": 15,
@@ -1972,8 +1972,8 @@ DEMO_TEMPLATES: dict[str, DemoTemplate] = {t.demo_id: t for t in [_BERLIN, _LOND
 
 # Fresh-install seed: four demo projects covering the broadest spread of
 # archetypes (residential, industrial, healthcare/intl, education/fit-out)
-# without leaning on a single very large UK example. The London/One Canary
-# Square template stays available in DEMO_TEMPLATES for ad-hoc install via
+# without leaning on a single very large UK example. The London office-tower
+# template stays available in DEMO_TEMPLATES for ad-hoc install via
 # POST /api/demo/install/office-london, but it isn't auto-seeded because
 # operators consistently asked us to drop it from the default workspace.
 DEFAULT_DEMO_IDS: tuple[str, ...] = (
