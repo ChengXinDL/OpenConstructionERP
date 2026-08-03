@@ -41,6 +41,7 @@ async def _safe_publish(name: str, data: dict, source_module: str = "") -> None:
 
 
 from app.modules.costs.models import CostCatalog, CostItem
+from app.modules.costs.region_currency import REGION_CURRENCY
 from app.modules.costs.repository import CostItemRepository
 from app.modules.costs.schemas import (
     CostCatalogCreate,
@@ -52,6 +53,44 @@ from app.modules.costs.schemas import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _currency_for_region(currency: str | None, region: str | None) -> str:
+    """Return the currency a cost item should be stored with.
+
+    A price without a currency is not a price, so no write path may leave the
+    column empty while the row itself says which money it is in. The region tag
+    is that statement: a CWICR catalogue is imported per region and every rate
+    in it is denominated in that region's local currency, which is why
+    :data:`REGION_CURRENCY` is keyed by region and why the importer resolves it
+    once per import.
+
+    The service layer did not, and rows created through ``POST /v1/costs/`` and
+    the bulk import carried whatever the caller sent - an empty string by
+    schema default. An item inside a catalog inherited the catalog currency and
+    an item outside one inherited nothing.
+
+    Precedence, and why:
+
+    * A currency the caller supplied always wins. It is the most specific
+      statement about the row and may legitimately differ from the region's
+      (a Swiss firm quoting a German catalogue in CHF).
+    * Then the owning catalog's currency, applied by the caller before this
+      helper runs. A catalog is a container with a REQUIRED currency, so it is
+      a stronger signal than the region of a single row inside it.
+    * Then the region.
+    * Then empty, unchanged. An unrecognised region is left blank on purpose -
+      see :mod:`app.modules.costs.region_currency`. Stamping a default here
+      would turn "we do not know" into a wrong answer that reads exactly like a
+      right one.
+    """
+    if isinstance(currency, str) and currency.strip():
+        # Returned verbatim rather than normalised: filling a blank is this
+        # helper's job, rewriting a value the caller chose is not.
+        return currency
+    if isinstance(region, str) and region.strip():
+        return REGION_CURRENCY.get(region.strip().upper(), "")
+    return ""
 
 
 # ── Keyset cursor codec ────────────────────────────────────────────────────
@@ -527,6 +566,7 @@ class CostItemService:
                 )
             if not currency.strip():
                 currency = catalog.currency
+        currency = _currency_for_region(currency, data.region)
 
         item = CostItem(
             code=data.code,
@@ -937,6 +977,7 @@ class CostItemService:
             currency = data.currency
             if data.catalog_id is not None and not currency.strip():
                 currency = catalog_currencies.get(data.catalog_id, currency)
+            currency = _currency_for_region(currency, data.region)
 
             item = CostItem(
                 code=data.code,

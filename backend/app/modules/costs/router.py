@@ -57,7 +57,6 @@ from app.dependencies import (
     verify_project_access,
 )
 from app.modules.costs import base_registry
-from app.modules.costs.cwicr_v3_catalogue import CWICR_V3_CATALOGUES
 from app.modules.costs.intelligence import (
     CostCertaintyService,
     CostUsageRecorder,
@@ -69,6 +68,7 @@ from app.modules.costs.matcher import (
     match_cwicr_items,
 )
 from app.modules.costs.models import CostItem
+from app.modules.costs.region_currency import REGION_CURRENCY
 from app.modules.costs.repository import synonym_text_predicate  # noqa: F401
 from app.modules.costs.resource_pricing import ResourcePriceService
 from app.modules.costs.schemas import (
@@ -172,57 +172,12 @@ class UsageCountsRequest(BaseModel):
 # time (so rates persist with their true currency) AND lazily on read for
 # legacy rows that landed with ``currency = ''`` before this map existed.
 #
-# Single source of truth: the v3 catalogue registry
-# (:data:`CWICR_V3_CATALOGUES`) already declares the ISO currency of every
-# region DDC ships. Deriving the map from it means new catalogue rows are
-# covered automatically and the two can never drift - the old hand-kept
-# literal omitted ~18 live regions (KES/GHS/KRW/THB/VND/…) and silently
-# mislabeled their rates as EUR.
-#
-# Legacy / alias keys that are NOT in the v3 registry (older parquet
-# ``db_id`` tags the importer still accepts) are merged on top so they keep
-# resolving. Keys follow the parquet ``db_id`` / ``region`` convention
-# (UPPERCASE, country prefix).
-_REGION_CURRENCY_LEGACY: dict[str, str] = {
-    "DE_HAMBURG": "EUR",
-    "BE_BRUSSELS": "EUR",
-    "IE_DUBLIN": "EUR",
-    "USA_NEWYORK": "USD",
-    "SA_RIYADH": "SAR",
-    # China authentic base (Beijing 2012 + Bortala 2022, prefixed rate_codes).
-    # Loaded from our own work-items parquet, not a DDC v3 snapshot, so it lives
-    # in the legacy overlay rather than the v3 registry.
-    "ZH_CHINA": "CNY",
-    # Turkey authentic national base (CSB analyses), separate from the legacy
-    # metro id used by DDC snapshots.
-    "TR_NATIONAL": "TRY",
-    # Authentic national / regional bases loaded from our own work-items
-    # parquet (official government sources), not DDC v3 snapshots, so they sit
-    # in the legacy overlay. The parquet also carries a per-row currency column
-    # that _resolve_currency prefers; these entries are the read-path fallback.
-    "BR_NATIONAL": "BRL",
-    "ES_ANDALUCIA": "EUR",
-    "IT_TOSCANA": "EUR",
-    "VN_NATIONAL": "VND",
-    "ID_NATIONAL": "IDR",
-    "GR_NATIONAL": "EUR",
-    # NOTE: ``PT_SAOPAULO`` is intentionally NOT registered - it was a
-    # mislabeled tag (São Paulo is Brazil; canonical key is ``BR_SAOPAULO``,
-    # supplied by the v3 registry). A stray ``PT_SAOPAULO`` row should hit
-    # the unknown-region path, not silently resolve.
-}
-
-
-def _build_region_currency_map() -> dict[str, str]:
-    """Derive ``{region: ISO currency}`` from the v3 catalogue + legacy aliases."""
-    out: dict[str, str] = {cat.region: cat.currency for cat in CWICR_V3_CATALOGUES if cat.currency}
-    # Legacy/alias keys only fill gaps - never override a canonical v3 entry.
-    for region, currency in _REGION_CURRENCY_LEGACY.items():
-        out.setdefault(region, currency)
-    return out
-
-
-_REGION_CURRENCY: dict[str, str] = _build_region_currency_map()
+# The table lives in :mod:`app.modules.costs.region_currency` and is built
+# from the base registry the importer itself reads, so every base that can
+# be loaded can be priced. See that module for why: a currency table that
+# covered fewer regions than the loader accepted is what let one import
+# write 55 718 rows with no currency on them.
+_REGION_CURRENCY: dict[str, str] = REGION_CURRENCY
 
 
 # CWICR region tags follow the convention ``<2-letter country>_<UPPERCASE city>``

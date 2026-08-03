@@ -13,6 +13,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, field_validator, model_validator
 
+from app.modules.costs.region_currency import REGION_CURRENCY
+
 # Round-7 audit (2026-05-24): money / rate / factor fields are exchanged as
 # strings on the wire so JSON's float bridge never silently rounds a
 # precision-critical value (see the architecture guide "Money is Decimal not Float
@@ -37,55 +39,13 @@ _REGION_FORMAT_RE = re.compile(r"^[A-Z]{2,3}_[A-Z0-9]+$")
 # code from the region at response time so legacy rows behave correctly
 # without forcing a re-import.
 #
-# Single source of truth: the v3 catalogue registry (CWICR_V3_CATALOGUES)
-# already declares the ISO currency of every region DDC ships, so we derive
-# the map from it exactly the way the router's search/autocomplete/match
-# paths do. The old hand-kept literal here only had 33 keys and omitted ~20
-# live regions (NGN/KES/GHS/KRW/THB/VND/...), so the single-item read path
-# returned an empty currency for rows the list/match paths labelled
-# correctly. Deriving from the catalogue keeps both paths in lockstep and new
-# catalogue rows are covered automatically.
-#
-# Legacy / alias keys that are NOT in the v3 registry (older parquet ``db_id``
-# tags) are merged on top so they keep resolving. This list is kept identical
-# to ``_REGION_CURRENCY_LEGACY`` in the router so the two maps cover the same
-# region keys.
-_REGION_CURRENCY_LEGACY: dict[str, str] = {
-    "DE_HAMBURG": "EUR",
-    "BE_BRUSSELS": "EUR",
-    "IE_DUBLIN": "EUR",
-    "USA_NEWYORK": "USD",
-    "SA_RIYADH": "SAR",
-    # China authentic base - kept in lockstep with the router's legacy overlay.
-    "ZH_CHINA": "CNY",
-    # Turkey authentic national base - kept in lockstep with the router overlay.
-    "TR_NATIONAL": "TRY",
-    # National / regional official bases - kept in lockstep with the router overlay.
-    "BR_NATIONAL": "BRL",
-    "ES_ANDALUCIA": "EUR",
-    "IT_TOSCANA": "EUR",
-    "VN_NATIONAL": "VND",
-    "ID_NATIONAL": "IDR",
-    "GR_NATIONAL": "EUR",
-    # NOTE: ``PT_SAOPAULO`` is intentionally NOT registered - it was a
-    # mislabeled tag (São Paulo is Brazil; canonical key is ``BR_SAOPAULO``,
-    # supplied by the v3 registry). A stray ``PT_SAOPAULO`` row should hit the
-    # unknown-region path, not silently resolve.
-}
-
-
-def _build_region_currency_fallback() -> dict[str, str]:
-    """Derive ``{region: ISO currency}`` from the v3 catalogue + legacy aliases."""
-    from app.modules.costs.cwicr_v3_catalogue import CWICR_V3_CATALOGUES
-
-    out: dict[str, str] = {cat.region: cat.currency for cat in CWICR_V3_CATALOGUES if cat.currency}
-    # Legacy/alias keys only fill gaps - never override a canonical v3 entry.
-    for region, currency in _REGION_CURRENCY_LEGACY.items():
-        out.setdefault(region, currency)
-    return out
-
-
-_REGION_CURRENCY_FALLBACK: dict[str, str] = _build_region_currency_fallback()
+# This binds the SAME object the write path uses (see
+# :mod:`app.modules.costs.region_currency`), not a second copy of the same
+# construction. The two were previously built independently and kept in step by
+# a comment, which is a promise, not a mechanism: a region added to one was a
+# region the other still answered "unknown" for, and the single-item read path
+# then contradicted the list path on the same row.
+_REGION_CURRENCY_FALLBACK: dict[str, str] = REGION_CURRENCY
 
 
 # ── Mass-based pricing helpers ─────────────────────────────────────────────
