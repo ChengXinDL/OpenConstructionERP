@@ -34933,6 +34933,19 @@ const resource = {
     "schedule.resources.search_resource": "Søk etter navn, kode eller type…",
     "schedule.resources.none_defined": "Ingen ressurser er definert ennå. Legg dem til på siden Ressurser.",
     "resources.search_resource": "Søk etter navn, kode eller type…",
+    "resources.activity": "Aktivitet i tidsplanen",
+    "resources.no_activity": "Ingen aktivitet",
+    "resources.pick_activity": "Velg en aktivitet",
+    "resources.search_activity": "Søk etter navn eller WBS-kode…",
+    "resources.activity_needs_project": "Velg et prosjekt først - aktiviteter hører til prosjektets tidsplan.",
+    "resources.activity_none": "Dette prosjektet har ingen aktiviteter i tidsplanen ennå.",
+    "resources.pick_project": "Velg et prosjekt",
+    "resources.search_project": "Søk etter prosjekter…",
+    "resources.open_task_list": "Åpne oppgavelisten",
+    "resources.open_activity": "Åpne i tidsplanen",
+    "resources.linked_activity": "Tilknyttet aktivitet",
+    "schedule.assigned_resources": "Ressurser",
+    "schedule.assigned_unknown_resource": "Ressurs uten navn",
   }
 } as { translation: Record<string, string> };
 

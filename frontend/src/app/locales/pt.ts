@@ -34952,6 +34952,19 @@ const resource = {
     "schedule.resources.search_resource": "Pesquise por nome, código ou tipo…",
     "schedule.resources.none_defined": "Ainda não há recursos definidos. Adicione-os na página Recursos.",
     "resources.search_resource": "Pesquise por nome, código ou tipo…",
+    "resources.activity": "Atividade do cronograma",
+    "resources.no_activity": "Sem atividade",
+    "resources.pick_activity": "Escolha uma atividade",
+    "resources.search_activity": "Pesquise por nome ou código WBS…",
+    "resources.activity_needs_project": "Escolha primeiro um projeto - as atividades pertencem ao seu cronograma.",
+    "resources.activity_none": "Este projeto ainda não tem atividades no cronograma.",
+    "resources.pick_project": "Escolha um projeto",
+    "resources.search_project": "Pesquise projetos…",
+    "resources.open_task_list": "Abrir a lista de tarefas",
+    "resources.open_activity": "Abrir no cronograma",
+    "resources.linked_activity": "Atividade associada",
+    "schedule.assigned_resources": "Recursos",
+    "schedule.assigned_unknown_resource": "Recurso sem nome",
   }
 } as { translation: Record<string, string> };
 

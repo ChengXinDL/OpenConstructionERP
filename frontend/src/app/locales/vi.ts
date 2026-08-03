@@ -34945,6 +34945,19 @@ const resource = {
     "schedule.resources.search_resource": "Tìm theo tên, mã hoặc loại…",
     "schedule.resources.none_defined": "Chưa có tài nguyên nào được xác định. Thêm chúng tại trang Tài nguyên.",
     "resources.search_resource": "Tìm theo tên, mã hoặc loại…",
+    "resources.activity": "Hoạt động trong lịch",
+    "resources.no_activity": "Không có hoạt động",
+    "resources.pick_activity": "Chọn một hoạt động",
+    "resources.search_activity": "Tìm theo tên hoặc mã WBS…",
+    "resources.activity_needs_project": "Hãy chọn dự án trước - hoạt động thuộc về lịch của dự án đó.",
+    "resources.activity_none": "Dự án này chưa có hoạt động nào trong lịch.",
+    "resources.pick_project": "Chọn một dự án",
+    "resources.search_project": "Tìm dự án…",
+    "resources.open_task_list": "Mở danh sách công việc",
+    "resources.open_activity": "Mở trong lịch",
+    "resources.linked_activity": "Hoạt động đã liên kết",
+    "schedule.assigned_resources": "Tài nguyên",
+    "schedule.assigned_unknown_resource": "Tài nguyên chưa đặt tên",
   }
 } as { translation: Record<string, string> };
 

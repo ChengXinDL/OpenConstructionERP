@@ -34940,6 +34940,19 @@ const resource = {
     "schedule.resources.search_resource": "按名称、代码或类型搜索…",
     "schedule.resources.none_defined": "尚未定义任何资源。请在资源页面添加。",
     "resources.search_resource": "按名称、代码或类型搜索…",
+    "resources.activity": "进度活动",
+    "resources.no_activity": "无活动",
+    "resources.pick_activity": "选择活动",
+    "resources.search_activity": "按名称或 WBS 代码搜索…",
+    "resources.activity_needs_project": "请先选择项目 - 活动属于该项目的进度计划。",
+    "resources.activity_none": "该项目尚无进度活动。",
+    "resources.pick_project": "选择项目",
+    "resources.search_project": "搜索项目…",
+    "resources.open_task_list": "打开任务列表",
+    "resources.open_activity": "在进度中打开",
+    "resources.linked_activity": "关联的活动",
+    "schedule.assigned_resources": "资源",
+    "schedule.assigned_unknown_resource": "未命名资源",
   }
 } as { translation: Record<string, string> };
 

@@ -34970,6 +34970,19 @@ const resource = {
     "schedule.resources.search_resource": "Hledat podle názvu, kódu nebo typu…",
     "schedule.resources.none_defined": "Zatím nejsou definovány žádné zdroje. Přidejte je na stránce Zdroje.",
     "resources.search_resource": "Hledat podle názvu, kódu nebo typu…",
+    "resources.activity": "Činnost harmonogramu",
+    "resources.no_activity": "Bez činnosti",
+    "resources.pick_activity": "Vyberte činnost",
+    "resources.search_activity": "Hledat podle názvu nebo kódu WBS…",
+    "resources.activity_needs_project": "Nejprve vyberte projekt - činnosti patří k jeho harmonogramu.",
+    "resources.activity_none": "Tento projekt zatím nemá žádné činnosti v harmonogramu.",
+    "resources.pick_project": "Vyberte projekt",
+    "resources.search_project": "Hledat projekty…",
+    "resources.open_task_list": "Otevřít seznam úkolů",
+    "resources.open_activity": "Otevřít v harmonogramu",
+    "resources.linked_activity": "Propojená činnost",
+    "schedule.assigned_resources": "Zdroje",
+    "schedule.assigned_unknown_resource": "Nepojmenovaný zdroj",
   }
 } as { translation: Record<string, string> };
 

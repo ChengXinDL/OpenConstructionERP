@@ -34955,6 +34955,19 @@ const resource = {
     "schedule.resources.search_resource": "Căutați după nume, cod sau tip…",
     "schedule.resources.none_defined": "Nu există încă resurse definite. Adăugați-le pe pagina Resurse.",
     "resources.search_resource": "Căutați după nume, cod sau tip…",
+    "resources.activity": "Activitate din program",
+    "resources.no_activity": "Fără activitate",
+    "resources.pick_activity": "Selectați o activitate",
+    "resources.search_activity": "Căutați după nume sau cod WBS…",
+    "resources.activity_needs_project": "Selectați mai întâi un proiect - activitățile aparțin programului acestuia.",
+    "resources.activity_none": "Acest proiect nu are încă activități în program.",
+    "resources.pick_project": "Selectați un proiect",
+    "resources.search_project": "Căutați proiecte…",
+    "resources.open_task_list": "Deschideți lista de sarcini",
+    "resources.open_activity": "Deschideți în program",
+    "resources.linked_activity": "Activitate asociată",
+    "schedule.assigned_resources": "Resurse",
+    "schedule.assigned_unknown_resource": "Resursă fără nume",
   }
 } as { translation: Record<string, string> };
 

@@ -34936,6 +34936,19 @@ const resource = {
     "schedule.resources.search_resource": "Cari berdasarkan nama, kode, atau jenis…",
     "schedule.resources.none_defined": "Belum ada sumber daya yang ditentukan. Tambahkan di halaman Sumber Daya.",
     "resources.search_resource": "Cari berdasarkan nama, kode, atau jenis…",
+    "resources.activity": "Aktivitas jadwal",
+    "resources.no_activity": "Tanpa aktivitas",
+    "resources.pick_activity": "Pilih aktivitas",
+    "resources.search_activity": "Cari berdasarkan nama atau kode WBS…",
+    "resources.activity_needs_project": "Pilih proyek dulu - aktivitas milik jadwal proyek tersebut.",
+    "resources.activity_none": "Proyek ini belum memiliki aktivitas jadwal.",
+    "resources.pick_project": "Pilih proyek",
+    "resources.search_project": "Cari proyek…",
+    "resources.open_task_list": "Buka daftar tugas",
+    "resources.open_activity": "Buka di jadwal",
+    "resources.linked_activity": "Aktivitas tertaut",
+    "schedule.assigned_resources": "Sumber Daya",
+    "schedule.assigned_unknown_resource": "Sumber daya tanpa nama",
   }
 } as { translation: Record<string, string> };
 

@@ -34936,6 +34936,19 @@ const resource = {
     "schedule.resources.search_resource": "Нэр, код эсвэл төрлөөр хайх…",
     "schedule.resources.none_defined": "Одоогоор нөөц тодорхойлогдоогүй байна. Нөөцийн хуудаснаас нэмнэ үү.",
     "resources.search_resource": "Нэр, код эсвэл төрлөөр хайх…",
+    "resources.activity": "Хуваарийн үйл ажиллагаа",
+    "resources.no_activity": "Үйл ажиллагаа алга",
+    "resources.pick_activity": "Үйл ажиллагаа сонгох",
+    "resources.search_activity": "Нэр эсвэл WBS кодоор хайх…",
+    "resources.activity_needs_project": "Эхлээд төслөө сонгоно уу - үйл ажиллагаа нь тухайн төслийн хуваарьт харьяалагдана.",
+    "resources.activity_none": "Энэ төсөлд хуваарийн үйл ажиллагаа хараахан алга.",
+    "resources.pick_project": "Төсөл сонгох",
+    "resources.search_project": "Төсөл хайх…",
+    "resources.open_task_list": "Даалгаврын жагсаалтыг нээх",
+    "resources.open_activity": "Хуваариас нээх",
+    "resources.linked_activity": "Холбогдсон үйл ажиллагаа",
+    "schedule.assigned_resources": "Нөөц",
+    "schedule.assigned_unknown_resource": "Нэргүй нөөц",
   }
 } as { translation: Record<string, string> };
 

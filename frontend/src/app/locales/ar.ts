@@ -35016,6 +35016,19 @@ const resource = {
     "schedule.resources.search_resource": "ابحث بالاسم أو الرمز أو النوع…",
     "schedule.resources.none_defined": "لا توجد موارد معرّفة بعد. أضفها من صفحة الموارد.",
     "resources.search_resource": "ابحث بالاسم أو الرمز أو النوع…",
+    "resources.activity": "نشاط الجدول الزمني",
+    "resources.no_activity": "بدون نشاط",
+    "resources.pick_activity": "اختر نشاطاً",
+    "resources.search_activity": "ابحث بالاسم أو رمز WBS…",
+    "resources.activity_needs_project": "اختر مشروعاً أولاً - الأنشطة تتبع جدوله الزمني.",
+    "resources.activity_none": "لا توجد أنشطة في الجدول الزمني لهذا المشروع بعد.",
+    "resources.pick_project": "اختر مشروعاً",
+    "resources.search_project": "ابحث في المشاريع…",
+    "resources.open_task_list": "فتح قائمة المهام",
+    "resources.open_activity": "فتح في الجدول الزمني",
+    "resources.linked_activity": "نشاط مرتبط",
+    "schedule.assigned_resources": "الموارد",
+    "schedule.assigned_unknown_resource": "مورد بلا اسم",
   }
 } as { translation: Record<string, string> };
 

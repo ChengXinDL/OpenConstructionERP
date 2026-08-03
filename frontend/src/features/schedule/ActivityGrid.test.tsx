@@ -27,7 +27,21 @@ vi.mock('./api', async () => {
   };
 });
 
+// The Resources column reads the resources module, and the calendar picker
+// reads schedule-advanced. Both are gated on ``projectId``, which most of these
+// cases do not pass, but the modules are imported either way.
+vi.mock('@/features/resources/api', () => ({
+  listAssignmentsForActivity: vi.fn(),
+  listResources: vi.fn(),
+}));
+
+vi.mock('@/features/schedule-advanced/api', () => ({
+  listCalendars: vi.fn(),
+}));
+
 import { scheduleApi } from './api';
+import { listAssignmentsForActivity, listResources } from '@/features/resources/api';
+import { listCalendars } from '@/features/schedule-advanced/api';
 import { ActivityGrid } from './ActivityGrid';
 
 const A = {
@@ -78,6 +92,12 @@ describe('ActivityGrid', () => {
     vi.clearAllMocks();
     (scheduleApi.updateActivity as any).mockResolvedValue({ id: 'a1' });
     (scheduleApi.reschedule as any).mockResolvedValue([]);
+    (listCalendars as any).mockResolvedValue([]);
+    (listResources as any).mockResolvedValue([
+      { id: 'r1', code: 'CREW-A', name: 'Crew A' },
+      { id: 'r2', code: 'EXC-1', name: 'Excavator 1' },
+    ]);
+    (listAssignmentsForActivity as any).mockResolvedValue([]);
   });
 
   it('renders one row per activity', () => {
@@ -152,5 +172,62 @@ describe('ActivityGrid', () => {
     const { props } = renderGrid();
     fireEvent.click(screen.getByTestId('grid-add-activity'));
     expect(props.onAddActivity).toHaveBeenCalled();
+  });
+
+  // ── Resources column (#191) ─────────────────────────────────────────────
+
+  it('asks who is booked on each row, scoped to the project', async () => {
+    renderGrid({ projectId: 'p1' });
+    await waitFor(() => expect(listAssignmentsForActivity).toHaveBeenCalledTimes(2));
+    expect(listAssignmentsForActivity).toHaveBeenCalledWith('a1', { project_id: 'p1' });
+    expect(listAssignmentsForActivity).toHaveBeenCalledWith('a2', { project_id: 'p1' });
+  });
+
+  it('names the resources booked on an activity', async () => {
+    (listAssignmentsForActivity as any).mockImplementation(async (id: string) =>
+      id === 'a1'
+        ? [
+            { id: 'as1', resource_id: 'r1', status: 'confirmed' },
+            { id: 'as2', resource_id: 'r2', status: 'proposed' },
+          ]
+        : [],
+    );
+    renderGrid({ projectId: 'p1' });
+    await waitFor(() =>
+      expect(screen.getByTestId('grid-resources-a1').textContent).toContain('Crew A'),
+    );
+    expect(screen.getByTestId('grid-resources-a1').textContent).toContain('Excavator 1');
+    // The row nobody is booked on says so rather than borrowing a name.
+    await waitFor(() =>
+      expect(screen.getByTestId('grid-resources-a2').textContent).toBe('-'),
+    );
+  });
+
+  it('leaves a cancelled booking out of the column', async () => {
+    (listAssignmentsForActivity as any).mockImplementation(async (id: string) =>
+      id === 'a1' ? [{ id: 'as1', resource_id: 'r1', status: 'cancelled' }] : [],
+    );
+    renderGrid({ projectId: 'p1' });
+    await waitFor(() =>
+      expect(screen.getByTestId('grid-resources-a1').textContent).toBe('-'),
+    );
+  });
+
+  it('admits a booking whose resource the register did not return', async () => {
+    (listAssignmentsForActivity as any).mockImplementation(async (id: string) =>
+      id === 'a1' ? [{ id: 'as1', resource_id: 'r-gone', status: 'confirmed' }] : [],
+    );
+    renderGrid({ projectId: 'p1' });
+    await waitFor(() =>
+      expect(screen.getByTestId('grid-resources-a1').textContent).toContain(
+        'Unnamed resource',
+      ),
+    );
+  });
+
+  it('claims nothing about bookings when there is no project to scope them', () => {
+    renderGrid();
+    expect(listAssignmentsForActivity).not.toHaveBeenCalled();
+    expect(screen.getByTestId('grid-resources-a1').textContent).toBe('');
   });
 });

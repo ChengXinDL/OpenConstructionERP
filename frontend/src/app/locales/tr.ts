@@ -34937,6 +34937,19 @@ const resource = {
     "schedule.resources.search_resource": "Ada, koda veya türe göre arayın…",
     "schedule.resources.none_defined": "Henüz tanımlı kaynak yok. Kaynaklar sayfasından ekleyin.",
     "resources.search_resource": "Ada, koda veya türe göre arayın…",
+    "resources.activity": "Takvim faaliyeti",
+    "resources.no_activity": "Faaliyet yok",
+    "resources.pick_activity": "Bir faaliyet seçin",
+    "resources.search_activity": "Ada veya WBS koduna göre arayın…",
+    "resources.activity_needs_project": "Önce bir proje seçin - faaliyetler projenin takvimine aittir.",
+    "resources.activity_none": "Bu projede henüz takvim faaliyeti yok.",
+    "resources.pick_project": "Bir proje seçin",
+    "resources.search_project": "Proje arayın…",
+    "resources.open_task_list": "Görev listesini aç",
+    "resources.open_activity": "Takvimde aç",
+    "resources.linked_activity": "Bağlı faaliyet",
+    "schedule.assigned_resources": "Kaynaklar",
+    "schedule.assigned_unknown_resource": "Adsız kaynak",
   }
 } as { translation: Record<string, string> };
 

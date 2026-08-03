@@ -34937,6 +34937,19 @@ const resource = {
     "schedule.resources.search_resource": "Hae nimen, koodin tai tyypin mukaan…",
     "schedule.resources.none_defined": "Resursseja ei ole vielä määritetty. Lisää ne Resurssit-sivulla.",
     "resources.search_resource": "Hae nimen, koodin tai tyypin mukaan…",
+    "resources.activity": "Aikataulun tehtävä",
+    "resources.no_activity": "Ei tehtävää",
+    "resources.pick_activity": "Valitse tehtävä",
+    "resources.search_activity": "Hae nimen tai WBS-koodin mukaan…",
+    "resources.activity_needs_project": "Valitse ensin projekti - tehtävät kuuluvat sen aikatauluun.",
+    "resources.activity_none": "Tällä projektilla ei ole vielä aikataulun tehtäviä.",
+    "resources.pick_project": "Valitse projekti",
+    "resources.search_project": "Hae projekteja…",
+    "resources.open_task_list": "Avaa tehtävälista",
+    "resources.open_activity": "Avaa aikataulussa",
+    "resources.linked_activity": "Linkitetty aikataulutehtävä",
+    "schedule.assigned_resources": "Resurssit",
+    "schedule.assigned_unknown_resource": "Nimetön resurssi",
   }
 } as { translation: Record<string, string> };
 

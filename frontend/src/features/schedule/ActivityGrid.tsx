@@ -2,11 +2,12 @@
 // Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, RotateCcw, GitBranch, Diamond, Minus } from 'lucide-react';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Plus, RotateCcw, GitBranch, Diamond, Minus, Users } from 'lucide-react';
 import { Button, Badge, Card } from '@/shared/ui';
 import { useToastStore } from '@/stores/useToastStore';
 import { listCalendars } from '@/features/schedule-advanced/api';
+import { listAssignmentsForActivity, listResources } from '@/features/resources/api';
 import { scheduleApi, type Activity } from './api';
 
 const TYPES = ['task', 'milestone', 'summary'] as const;
@@ -81,6 +82,48 @@ export function ActivityGrid({
     queryFn: () => listCalendars(projectId),
     enabled: !!projectId,
   });
+
+  // Who is booked on each activity, fanned out through ``useQueries``.
+  //
+  // One request per activity in the list this grid was handed, which is the
+  // whole filtered schedule and not a page of it: a six-hundred-activity
+  // schedule issues six hundred requests, six at a time through the browser's
+  // per-host cap. That is the cost, stated plainly rather than hidden behind
+  // the word "visible".
+  //
+  // It is still the honest read. The only project-wide assignment list the API
+  // offers is the dispatcher board, and the board is keyed by resource: it
+  // lists resources whose home project is this one or none, capped at 500, so
+  // a crew homed on another project but booked here vanishes from it entirely,
+  // and it is bounded by a date window an assignment can legitimately fall
+  // outside of (the backend ships a validation rule for exactly that case). A
+  // column that silently omits the rows it exists to show is worse than N
+  // requests. The shared React Query cache dedupes in-flight duplicates and
+  // keeps a revisit warm; the change that would collapse this to one call is a
+  // project-scoped by-activity list on the backend, which does not exist yet.
+  const assignmentQueries = useQueries({
+    queries: projectId
+      ? activities.map((a) => ({
+          queryKey: ['resources', 'by-activity', a.id, projectId],
+          queryFn: () => listAssignmentsForActivity(a.id, { project_id: projectId }),
+          staleTime: 60_000,
+        }))
+      : [],
+  });
+
+  // An assignment carries a resource_id and no resource name - no endpoint
+  // resolves one - so the register is read once and indexed here.
+  const { data: resourceList = [] } = useQuery({
+    queryKey: ['resources', 'list', 'all'],
+    queryFn: () => listResources({ limit: 500 }),
+    enabled: !!projectId && activities.length > 0,
+    staleTime: 300_000,
+  });
+  const resourceNameById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const r of resourceList) map[r.id] = r.name;
+    return map;
+  }, [resourceList]);
 
   // Optimistic value for the per-row calendar picker while its change is in
   // flight, keyed by activity id (value is the calendar id, or null for the
@@ -222,6 +265,7 @@ export function ActivityGrid({
       { key: 'duration', label: t('schedule.duration', { defaultValue: 'Duration' }), align: 'right' as const },
       { key: 'progress', label: t('schedule.progress', { defaultValue: 'Progress' }), align: 'right' as const },
       { key: 'calendar', label: t('schedule.calendar.column', { defaultValue: 'Calendar' }), align: 'left' as const },
+      { key: 'resources', label: t('schedule.assigned_resources', { defaultValue: 'Resources' }), align: 'left' as const },
       { key: 'deps', label: t('schedule.predecessors', { defaultValue: 'Predecessors' }), align: 'left' as const },
     ],
     [t],
@@ -269,7 +313,7 @@ export function ActivityGrid({
       <div className="overflow-x-auto">
         <table
           data-testid="activity-grid"
-          className="w-full min-w-[900px] border-collapse text-sm"
+          className="w-full min-w-[1000px] border-collapse text-sm"
         >
           <thead>
             <tr className="border-b border-border-light bg-surface-secondary/30 text-2xs font-semibold uppercase tracking-wider text-content-tertiary">
@@ -296,11 +340,24 @@ export function ActivityGrid({
                 </td>
               </tr>
             ) : (
-              activities.map((a) => {
+              activities.map((a, rowIdx) => {
                 const isCritical = criticalActivityIds?.has(a.id) ?? false;
                 const depCount = a.dependencies?.length ?? 0;
                 const isMilestone = a.activity_type === 'milestone';
                 const isSummary = a.activity_type === 'summary';
+                const assignQuery = assignmentQueries[rowIdx];
+                // Cancelled bookings staff nothing, so they are not shown. An
+                // id the register did not return still counts: dropping it
+                // would under-report the row rather than admit the gap.
+                const assignedNames = (assignQuery?.data ?? [])
+                  .filter((as) => as.status !== 'cancelled')
+                  .map(
+                    (as) =>
+                      resourceNameById[as.resource_id] ??
+                      t('schedule.assigned_unknown_resource', {
+                        defaultValue: 'Unnamed resource',
+                      }),
+                  );
                 return (
                   <tr
                     key={a.id}
@@ -407,6 +464,26 @@ export function ActivityGrid({
                           </option>
                         ))}
                       </select>
+                    </td>
+                    <td
+                      className="px-3 py-1.5 align-middle"
+                      data-testid={`grid-resources-${a.id}`}
+                    >
+                      {/* No project scope means nothing was asked, so the cell
+                          claims nothing rather than reading as "none". */}
+                      {!assignQuery ? null : assignQuery.isPending ? (
+                        <span className="inline-block h-3 w-16 animate-pulse rounded bg-surface-secondary" />
+                      ) : assignedNames.length === 0 ? (
+                        <span className="text-content-tertiary">-</span>
+                      ) : (
+                        <span
+                          className="inline-flex max-w-[180px] items-center gap-1 text-xs text-content-secondary"
+                          title={assignedNames.join(', ')}
+                        >
+                          <Users size={12} className="shrink-0 text-content-tertiary" />
+                          <span className="truncate">{assignedNames.join(', ')}</span>
+                        </span>
+                      )}
                     </td>
                     <td className="px-2 py-1.5 align-middle">
                       <button

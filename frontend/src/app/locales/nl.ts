@@ -34938,6 +34938,19 @@ const resource = {
     "schedule.resources.search_resource": "Zoek op naam, code of type…",
     "schedule.resources.none_defined": "Er zijn nog geen hulpbronnen gedefinieerd. Voeg ze toe op de pagina Hulpbronnen.",
     "resources.search_resource": "Zoek op naam, code of type…",
+    "resources.activity": "Planningsactiviteit",
+    "resources.no_activity": "Geen activiteit",
+    "resources.pick_activity": "Kies een activiteit",
+    "resources.search_activity": "Zoek op naam of WBS-code…",
+    "resources.activity_needs_project": "Kies eerst een project - activiteiten horen bij de planning van dat project.",
+    "resources.activity_none": "Dit project heeft nog geen activiteiten in de planning.",
+    "resources.pick_project": "Kies een project",
+    "resources.search_project": "Zoek projecten…",
+    "resources.open_task_list": "Takenlijst openen",
+    "resources.open_activity": "Openen in de planning",
+    "resources.linked_activity": "Gekoppelde activiteit",
+    "schedule.assigned_resources": "Hulpbronnen",
+    "schedule.assigned_unknown_resource": "Naamloze hulpbron",
   }
 } as { translation: Record<string, string> };
 

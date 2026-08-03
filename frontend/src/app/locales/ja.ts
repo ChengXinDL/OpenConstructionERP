@@ -34940,6 +34940,19 @@ const resource = {
     "schedule.resources.search_resource": "名前、コード、種別で検索…",
     "schedule.resources.none_defined": "リソースがまだ定義されていません。リソースページで追加してください。",
     "resources.search_resource": "名前、コード、種別で検索…",
+    "resources.activity": "スケジュールのアクティビティ",
+    "resources.no_activity": "アクティビティなし",
+    "resources.pick_activity": "アクティビティを選択",
+    "resources.search_activity": "名前またはWBSコードで検索…",
+    "resources.activity_needs_project": "先にプロジェクトを選択してください。アクティビティはそのスケジュールに属します。",
+    "resources.activity_none": "このプロジェクトにはまだスケジュールのアクティビティがありません。",
+    "resources.pick_project": "プロジェクトを選択",
+    "resources.search_project": "プロジェクトを検索…",
+    "resources.open_task_list": "タスク一覧を開く",
+    "resources.open_activity": "スケジュールで開く",
+    "resources.linked_activity": "リンクされたアクティビティ",
+    "schedule.assigned_resources": "リソース",
+    "schedule.assigned_unknown_resource": "名称未設定のリソース",
   }
 } as { translation: Record<string, string> };
 

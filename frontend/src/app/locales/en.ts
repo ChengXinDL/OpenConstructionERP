@@ -31523,6 +31523,19 @@ const resource = {
     "schedule.resources.search_resource": "Search by name, code or kind…",
     "schedule.resources.none_defined": "No resources are defined yet. Add them on the Resources page.",
     "resources.search_resource": "Search by name, code or kind…",
+    "resources.activity": "Schedule activity",
+    "resources.no_activity": "No activity",
+    "resources.pick_activity": "Pick an activity",
+    "resources.search_activity": "Search by name or WBS code…",
+    "resources.activity_needs_project": "Pick a project first - activities belong to its schedule.",
+    "resources.activity_none": "This project has no schedule activities yet.",
+    "resources.pick_project": "Pick a project",
+    "resources.search_project": "Search projects…",
+    "resources.open_task_list": "Open the task list",
+    "resources.open_activity": "Open in the schedule",
+    "resources.linked_activity": "Linked activity",
+    "schedule.assigned_resources": "Resources",
+    "schedule.assigned_unknown_resource": "Unnamed resource",
   }
 } as { translation: Record<string, string> };
 

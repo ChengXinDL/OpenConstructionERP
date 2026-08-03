@@ -34974,6 +34974,19 @@ const resource = {
     "schedule.resources.search_resource": "Szukaj według nazwy, kodu lub typu…",
     "schedule.resources.none_defined": "Nie zdefiniowano jeszcze żadnych zasobów. Dodaj je na stronie Zasoby.",
     "resources.search_resource": "Szukaj według nazwy, kodu lub typu…",
+    "resources.activity": "Działanie harmonogramu",
+    "resources.no_activity": "Brak działania",
+    "resources.pick_activity": "Wybierz działanie",
+    "resources.search_activity": "Szukaj według nazwy lub kodu WBS…",
+    "resources.activity_needs_project": "Najpierw wybierz projekt - działania należą do jego harmonogramu.",
+    "resources.activity_none": "Ten projekt nie ma jeszcze działań w harmonogramie.",
+    "resources.pick_project": "Wybierz projekt",
+    "resources.search_project": "Szukaj projektów…",
+    "resources.open_task_list": "Otwórz listę zadań",
+    "resources.open_activity": "Otwórz w harmonogramie",
+    "resources.linked_activity": "Powiązane działanie",
+    "schedule.assigned_resources": "Zasoby",
+    "schedule.assigned_unknown_resource": "Zasób bez nazwy",
   }
 } as { translation: Record<string, string> };
 

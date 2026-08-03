@@ -34940,6 +34940,19 @@ const resource = {
     "schedule.resources.search_resource": "이름, 코드 또는 종류로 검색…",
     "schedule.resources.none_defined": "아직 정의된 리소스가 없습니다. 리소스 페이지에서 추가하세요.",
     "resources.search_resource": "이름, 코드 또는 종류로 검색…",
+    "resources.activity": "일정 활동",
+    "resources.no_activity": "활동 없음",
+    "resources.pick_activity": "활동 선택",
+    "resources.search_activity": "이름 또는 WBS 코드로 검색…",
+    "resources.activity_needs_project": "프로젝트를 먼저 선택하세요. 활동은 해당 프로젝트의 일정에 속합니다.",
+    "resources.activity_none": "이 프로젝트에는 아직 일정 활동이 없습니다.",
+    "resources.pick_project": "프로젝트 선택",
+    "resources.search_project": "프로젝트 검색…",
+    "resources.open_task_list": "작업 목록 열기",
+    "resources.open_activity": "일정에서 열기",
+    "resources.linked_activity": "연결된 활동",
+    "schedule.assigned_resources": "리소스",
+    "schedule.assigned_unknown_resource": "이름 없는 리소스",
   }
 } as { translation: Record<string, string> };
 

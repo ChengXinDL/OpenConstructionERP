@@ -34933,6 +34933,19 @@ const resource = {
     "schedule.resources.search_resource": "Sök efter namn, kod eller typ…",
     "schedule.resources.none_defined": "Inga resurser är definierade än. Lägg till dem på sidan Resurser.",
     "resources.search_resource": "Sök efter namn, kod eller typ…",
+    "resources.activity": "Aktivitet i tidplanen",
+    "resources.no_activity": "Ingen aktivitet",
+    "resources.pick_activity": "Välj en aktivitet",
+    "resources.search_activity": "Sök efter namn eller WBS-kod…",
+    "resources.activity_needs_project": "Välj ett projekt först - aktiviteter hör till projektets tidplan.",
+    "resources.activity_none": "Det här projektet har inga aktiviteter i tidplanen ännu.",
+    "resources.pick_project": "Välj ett projekt",
+    "resources.search_project": "Sök projekt…",
+    "resources.open_task_list": "Öppna uppgiftslistan",
+    "resources.open_activity": "Öppna i tidplanen",
+    "resources.linked_activity": "Kopplad aktivitet",
+    "schedule.assigned_resources": "Resurser",
+    "schedule.assigned_unknown_resource": "Namnlös resurs",
   }
 } as { translation: Record<string, string> };
 

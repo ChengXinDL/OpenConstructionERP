@@ -34957,6 +34957,19 @@ const resource = {
     "schedule.resources.search_resource": "Pretraži po nazivu, kodu ili vrsti…",
     "schedule.resources.none_defined": "Još nema definiranih resursa. Dodajte ih na stranici Resursi.",
     "resources.search_resource": "Pretraži po nazivu, kodu ili vrsti…",
+    "resources.activity": "Aktivnost rasporeda",
+    "resources.no_activity": "Bez aktivnosti",
+    "resources.pick_activity": "Odaberite aktivnost",
+    "resources.search_activity": "Pretraži po nazivu ili WBS kodu…",
+    "resources.activity_needs_project": "Prvo odaberite projekt - aktivnosti pripadaju njegovom rasporedu.",
+    "resources.activity_none": "Ovaj projekt još nema aktivnosti u rasporedu.",
+    "resources.pick_project": "Odaberite projekt",
+    "resources.search_project": "Pretraži projekte…",
+    "resources.open_task_list": "Otvori popis zadataka",
+    "resources.open_activity": "Otvori u rasporedu",
+    "resources.linked_activity": "Povezana aktivnost",
+    "schedule.assigned_resources": "Resursi",
+    "schedule.assigned_unknown_resource": "Neimenovani resurs",
   }
 } as { translation: Record<string, string> };
 
