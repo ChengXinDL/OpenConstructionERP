@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [14.2.1] - 2026-08-03
+
+The desktop app starts its own database on Linux again. On Ubuntu based distributions it stopped at "Starting the local database" and the log said PostgreSQL could not load dict_snowball, a module it needs while it builds the text search dictionaries during first setup. The module was in the package we bundle from, and it was being thrown away on the way into the installer.
+
+The tool that freezes the backend into a single executable was asked for the database files, and it returns everything that is not a shared library, deciding what counts as one from the file name. On Linux and macOS a Python extension ends in .so, and that is exactly how PostgreSQL names its own loadable modules, so every one of them was dropped: the snowball dictionary, the procedural language, the vector extension and all twenty six character set converters. On Windows the same modules end in .dll, which that rule does not cover, so the Windows installer was never affected and the fault looked like a Linux problem rather than a naming one.
+
+The build now reads the database directory itself and decides what each file is from where it sits, so nothing is judged by its name. It refuses to build at all if the modules are missing, and a second check opens the executable that came out and confirms they are inside it. A missing file used to surface on somebody's machine after they had downloaded and installed the app; now it stops the build that would have produced it.
+
+If you are on Linux and installed 14.2.0 or earlier, download this build. Nothing needs to be uninstalled first, and no data is affected, because the app never got as far as creating any.
+
 ## [14.2.0] - 2026-08-03
 
 Fifty five thousand cost items were stored with no currency at all. A catalogue is imported one region at a time and the source file carries no currency column, so the region tag is the only statement of which money its rates are in. The table that turned a region into a currency was built from a different list than the one deciding which catalogues can be loaded, and twelve of the thirty eight loadable regions were missing from it, so importing one of those wrote a whole price list with no unit of money on it. Both sides now read the same table, the rows already stored are filled from their region, and a row whose region cannot be resolved is left blank on purpose rather than being given a plausible default. A blank is visibly unknown; a guessed currency is indistinguishable from one somebody chose.
