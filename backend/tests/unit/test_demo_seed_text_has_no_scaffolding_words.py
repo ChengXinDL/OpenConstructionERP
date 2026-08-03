@@ -18,16 +18,22 @@ WHAT THIS CHECK CANNOT SEE. Worth stating plainly, because a scanner's silence
 is easy to mistake for a clean result:
 
 * It reads literal text only. A name assembled at runtime - ``" ".join(parts)``,
-  ``template.format(word)``, ``prefix + suffix`` where either side is a
-  variable, or a value read from a JSON fixture - is invisible here. The
-  f-string case IS covered (see ``_literal_text``) and is proven by
+  ``template.format(word)`` or ``prefix + suffix`` where either side is a
+  variable - is invisible here. The f-string case IS covered (see
+  ``_literal_text``) and is proven by
   :func:`test_the_scanner_can_see_inside_an_f_string`, because that was the
   shape the original leak took.
 * Rule one only reaches values tagged by a field name, as ``title=...`` or
   ``{"title": ...}``. Data carried positionally, such as a tuple of
   ``(code, label, unit)`` unpacked later, is not tagged and is not seen. Rule
   two exists precisely because that blind spot is real: ``catalog/seed.py``
-  holds thirty-three user-visible codes in positional tuples.
+  held thirty-three user-visible codes in positional tuples.
+* Rule one reads Python only. Rule two also reads the JSON seed payloads,
+  because scanning Python alone was not enough: fifty-three of the catalogue
+  codes lived in ``app/scripts/starter_seed_data.json``, from where
+  ``seed_starter.py`` copies them verbatim into ``CostItem.components`` and the
+  BOQ resource editor prints them in its Code field. A source scan that stops at
+  the file extension the defect was first found in will keep reporting clean.
 * It says nothing about whether a value is *correct*, only whether it admits to
   being scaffolding.
 
@@ -49,6 +55,7 @@ listed so the next person does not read them as misses and start "fixing" them:
 from __future__ import annotations
 
 import ast
+import json
 import re
 from pathlib import Path
 
@@ -118,16 +125,8 @@ _LOG_CALLERS = frozenset({"log", "logger", "logging", "print", "warnings"})
 # paths by not being tagged with a user-facing field name, and legacy prefixes
 # by the code shape in ``_DEMO_CODE``. A named list of blessed strings is the
 # part of a checker that rots first, because it keeps passing after the string
-# it described has moved on. The one exception below is a whole file, and it
-# has its own test to stop it outliving its reason.
-
-# The catalogue ships thirty-three user-visible codes shaped DEMO-LAB-001. They
-# are the same defect as the assembly and equipment codes already renamed, and
-# they are NOT approved as an exception: renaming them needs the legacy-prefix
-# delete predicate that the assembly rename got, or an existing install grows a
-# duplicate catalogue on the next re-seed. Held here so the lane stays honest
-# about being green, and listed in the handover as outstanding work.
-_OUTSTANDING_CATALOGUE_CODES = "app/modules/catalog/seed.py"
+# it described has moved on. There are now no file-level exceptions either: the
+# catalogue seeder was the last one, and it was renamed rather than blessed.
 
 
 def _sources() -> list[Path]:
@@ -142,6 +141,24 @@ def _sources() -> list[Path]:
     found += sorted((_BACKEND / "app" / "scripts").glob("seed_demo_*.py"))
     assert found, f"no seed writers found under {_BACKEND} - the globs have gone stale"
     return found
+
+
+def _json_sources() -> list[Path]:
+    """Seed payloads that ship as data rather than as code."""
+    found = sorted((_BACKEND / "app" / "scripts").glob("*seed*.json"))
+    assert found, f"no seed payloads found under {_BACKEND} - the glob has gone stale"
+    return found
+
+
+def _json_strings(node: object, trail: str = "") -> list[tuple[str, str]]:
+    """Every string in a decoded payload, paired with the path that reaches it."""
+    if isinstance(node, str):
+        return [(trail, node)]
+    if isinstance(node, dict):
+        return [pair for key, value in node.items() for pair in _json_strings(value, f"{trail}.{key}")]
+    if isinstance(node, list):
+        return [pair for i, value in enumerate(node) for pair in _json_strings(value, f"{trail}[{i}]")]
+    return []
 
 
 def _literal_text(node: ast.AST) -> list[str]:
@@ -238,25 +255,26 @@ def test_no_user_visible_code_opens_with_a_demo_prefix() -> None:
     leaks: list[str] = []
     for path in _sources():
         rel = path.relative_to(_BACKEND).as_posix()
-        if rel == _OUTSTANDING_CATALOGUE_CODES:
-            continue
         tree = ast.parse(path.read_text(encoding="utf-8"))
         leaks += [f"{rel}:{line} {text!r}" for line, text in _demo_code_hits(tree)]
 
     assert not leaks, "codes that open with DEMO- and are shown to users:\n" + "\n".join(leaks)
 
 
-def test_the_catalogue_codes_are_still_the_only_outstanding_exception() -> None:
-    """The one skipped file has to keep earning its skip.
+def test_no_seeded_json_payload_carries_a_demo_prefixed_code() -> None:
+    """Rule two again, over the payloads that ship as data.
 
-    Green here means the catalogue rename is still pending. It is a count, not
-    an approval: if the codes are renamed this fails and the skip above should
-    be deleted along with it.
+    ``seed_starter.py`` copies these dicts straight into ``CostItem.components``
+    and the BOQ resource editor renders their ``code`` in its Code field, so a
+    code here is exactly as visible as one written in Python.
     """
-    path = _BACKEND / _OUTSTANDING_CATALOGUE_CODES
-    assert path.is_file(), f"{_OUTSTANDING_CATALOGUE_CODES} has moved - re-point the skip in this file"
-    hits = _demo_code_hits(ast.parse(path.read_text(encoding="utf-8")))
-    assert hits, "the catalogue codes are clean now - drop the skip and this test"
+    leaks: list[str] = []
+    for path in _json_sources():
+        rel = path.relative_to(_BACKEND).as_posix()
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        leaks += [f"{rel}{trail} {text!r}" for trail, text in _json_strings(payload) if _DEMO_CODE.match(text)]
+
+    assert not leaks, "codes that open with DEMO- and are shown to users:\n" + "\n".join(leaks)
 
 
 def test_the_scanner_can_see_inside_an_f_string() -> None:
