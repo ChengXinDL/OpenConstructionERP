@@ -14,9 +14,11 @@ Workflow:
 """
 
 import asyncio
+import contextlib
 import logging
 import os
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -694,14 +696,74 @@ _HEALTH_TTL_SEC = 300
 # the binary up". The values appear as both signed (Python's negative-int
 # representation of an unsigned u32) and unsigned in the wild, so we
 # match both.
+#
+# Anything not listed here falls through to the healthy branch, so a code
+# missing from this set is not a worse message - it is the banner reporting
+# a converter as working while Windows refuses to start it. That is exactly
+# what happened with 0xC000007B, which a user hit on the DGN converter while
+# the status card showed no problem at all.
+#
+# The four codes are one family: the image is unusable before its first
+# instruction runs. 0xC000007B is the odd one out in cause - it is a bitness
+# mismatch, not an absent file - so it carries its own wording below.
+_WINDOWS_STATUS_DLL_NOT_FOUND = 0xC0000135
+_WINDOWS_STATUS_DLL_INIT_FAILED = 0xC0000142
+_WINDOWS_STATUS_INVALID_IMAGE_FORMAT = 0xC000007B
+_WINDOWS_STATUS_ENTRYPOINT_NOT_FOUND = 0xC0000139
+
+
+def _both_signs(code: int) -> tuple[int, int]:
+    """Return an NTSTATUS as the unsigned and signed ints subprocess may report."""
+    return code, code - 0x1_0000_0000
+
+
 _WINDOWS_DLL_LOAD_FAILURES: frozenset[int] = frozenset(
-    {
-        -1073741515,  # 0xC0000135 STATUS_DLL_NOT_FOUND
-        -1073741502,  # 0xC0000142 STATUS_DLL_INIT_FAILED
-        3221225781,  # 0xC0000135 unsigned
-        3221225794,  # 0xC0000142 unsigned
-    }
+    code
+    for status in (
+        _WINDOWS_STATUS_DLL_NOT_FOUND,
+        _WINDOWS_STATUS_DLL_INIT_FAILED,
+        _WINDOWS_STATUS_INVALID_IMAGE_FORMAT,
+        _WINDOWS_STATUS_ENTRYPOINT_NOT_FOUND,
+    )
+    for code in _both_signs(status)
 )
+
+
+@contextlib.contextmanager
+def _windows_loader_errors_stay_quiet() -> Iterator[None]:
+    """Stop Windows putting its own modal dialog in front of the application.
+
+    When the loader cannot start an image it shows a "Bad Image" message box
+    and blocks until somebody clicks OK. The box belongs to the operating
+    system, so the application never learns it exists: our own health message
+    is written to a card the user cannot see behind it, and the reporter of
+    this defect saw a system dialog naming a DLL rather than anything we wrote.
+
+    A child process inherits the error mode of its parent, and
+    SEM_FAILCRITICALERRORS is documented as the setting a service should hold,
+    so setting it here is what makes the failure come back as an exit code we
+    can explain. The previous mode is restored, because the flag is
+    process-wide and this module does not own the process.
+
+    No-op off Windows, where a loader failure already arrives as an exit code
+    and a line on stderr.
+    """
+    if not sys.platform.startswith("win"):
+        yield
+        return
+    import ctypes
+
+    sem_failcriticalerrors = 0x0001
+    kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+    previous = kernel32.SetErrorMode(sem_failcriticalerrors)
+    try:
+        # SetErrorMode replaces rather than merges, so put back whatever the
+        # host process had once we are done.
+        kernel32.SetErrorMode(previous | sem_failcriticalerrors)
+        yield
+    finally:
+        kernel32.SetErrorMode(previous)
+
 
 # Linux ld.so failure markers. When a shared dependency (`libQt6Core.so.6`
 # or one of the `ddc-deps-*` packages) is missing, glibc's `ld.so` writes
@@ -756,27 +818,41 @@ def smoke_test_converter(extension: str, force: bool = False) -> ConverterHealth
         # native CAD format and leave the model stuck at
         # ``ddc_smoke_failed`` even when the binary was correctly
         # installed.  Drop the explicit ``stdin=PIPE``.
-        proc = subprocess.run(
-            [str(exe_path)],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            cwd=str(exe_path.parent),
-            env=_converter_subprocess_env(exe_path),
-            input=b"\n",
-            timeout=8,
-        )
+        with _windows_loader_errors_stay_quiet():
+            proc = subprocess.run(
+                [str(exe_path)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                cwd=str(exe_path.parent),
+                env=_converter_subprocess_env(exe_path),
+                input=b"\n",
+                timeout=8,
+            )
         rc = proc.returncode
 
         if rc in _WINDOWS_DLL_LOAD_FAILURES:
+            unsigned = rc & 0xFFFFFFFF
+            if unsigned == _WINDOWS_STATUS_INVALID_IMAGE_FORMAT:
+                # Not a missing file. Every DLL the converter needs is present
+                # and one of them is built for the other word size, so the
+                # loader refuses the image. Telling somebody to reinstall the
+                # Qt plugins here sends them to re-download the files they
+                # already have.
+                diagnosis = (
+                    f"{exe_path.name} cannot start because one of the libraries beside it is built for a "
+                    f"different processor architecture - a 32-bit DLL next to a 64-bit program or the reverse "
+                    f"(Windows error 0x{unsigned:08x}). Re-download the converter and let the installer place "
+                    f"the whole folder, rather than copying individual files into it."
+                )
+            else:
+                diagnosis = (
+                    f"{exe_path.name} exists on disk but cannot load - a required Qt6 / Visual C++ DLL is "
+                    f"missing or the wrong version (Windows error 0x{unsigned:08x}). The Qt6 plugins probably "
+                    f"did not download cleanly during install."
+                )
             result = {
                 "status": "failed",
-                "message": (
-                    f"{exe_path.name} exists on disk but cannot load - a "
-                    f"required Qt6 / Visual C++ DLL is missing "
-                    f"(Windows error 0x{rc & 0xFFFFFFFF:08x}). The Qt6 "
-                    f"plugins probably did not download cleanly during "
-                    f"install."
-                ),
+                "message": diagnosis,
                 "suggested_actions": [
                     "reinstall_converter",
                     "install_vc_redist",

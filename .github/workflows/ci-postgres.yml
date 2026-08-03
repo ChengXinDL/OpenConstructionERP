@@ -77,10 +77,16 @@ jobs:
       # lookups lazy and adding the second pass back. Fidelity covers what the
       # converted geometry has to preserve. Neither needs a database; together they
       # take about fifteen seconds.
-      - name: Run DWG parser scaling and fidelity tests
+      # Converter health belongs here too. The check classifies the exit code a
+      # converter binary leaves behind, and every code it does not recognise is
+      # reported as a working install, so a gap in that set is not a worse
+      # message but a false all-clear. One reached a user: Windows refused to
+      # start the binary and the status card showed no problem.
+      - name: Run DWG parser and CAD converter health tests
         run: >-
           pytest tests/unit/test_ddc_dwg_parser_scaling.py
           tests/unit/test_ddc_dwg_parser_fidelity.py
+          tests/unit/test_cad_converter_loader_failures.py
           -q -p no:cacheprovider
       # The cost base pipeline produces the parquet editions people download from us, so it
       # needs a blocking gate. It needs no database; it is attached here because this is the
