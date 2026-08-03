@@ -1891,7 +1891,7 @@ _PARIS = DemoTemplate(
     ],
     project_metadata={
         "address": "Rue de Belleville 120, 75020 Paris",
-        "client": "Collectivité territoriale (maîtrise d'ouvrage publique)",
+        "client": "Mairie de Paris - DASCO",
         "architect": "Atelier Tremoy",
         "sdp_m2": 4200,
         "classrooms": 15,
@@ -5761,10 +5761,10 @@ async def _seed_module_data(
         "school-paris": [
             {
                 "contact_type": "client",
-                "company_name": "Collectivité territoriale (maîtrise d'ouvrage publique)",
+                "company_name": "Mairie du 20e Arrondissement",
                 "first_name": "Sophie",
                 "last_name": "Dupont",
-                "primary_email": "s.dupont@collectivite-territoriale.example",
+                "primary_email": "s.dupont@paris-20e.example",
                 "primary_phone": "+33 1 43 15 20 20",
                 "country_code": "FR",
                 "notes": "Direction de la construction",
