@@ -72,6 +72,7 @@ ALEMBIC_INI = BACKEND_DIR / "alembic.ini"
 # Recent revisions we want to exercise (the v250+ wave).
 # Listed newest-first so the most recent failures surface first.
 RECENT_REVISIONS: list[str] = [
+    "v3272_assignment_activity_link",
     "v3151_cost_spine",
     "v290_dashboards_presets",
     "v280_4d_schedule_eac",
@@ -690,3 +691,111 @@ def test_v3271_lands_an_upgraded_install_on_the_shipped_catalogue(pg_throwaway: 
 
     suppliers = {supplier for _name, supplier in after.values()}
     assert suppliers == {None}, f"brand suppliers still in the catalogue: {suppliers - {None}}"
+
+
+# ─────────────────────────────────────────────────────────────────────
+#  v3272 - the assignment -> schedule activity link
+# ─────────────────────────────────────────────────────────────────────
+
+_ASSIGNMENT_TABLE = "oe_resources_assignment"
+_ACTIVITY_FK = "fk_oe_resources_assignment_activity_id_oe_schedule_activity"
+
+
+def _activity_fk(sync_url: str) -> dict[str, object] | None:
+    """Reflect the assignment -> activity foreign key back, or None."""
+    engine = create_engine(sync_url)
+    try:
+        for fk in inspect(engine).get_foreign_keys(_ASSIGNMENT_TABLE):
+            if fk.get("name") == _ACTIVITY_FK:
+                return fk
+        return None
+    finally:
+        engine.dispose()
+
+
+def test_v3272_creates_the_activity_foreign_key(pg_throwaway: str) -> None:
+    """The FK is the migration's whole payload, and only this asserts it.
+
+    ``create_all`` already lays down ``activity_id`` and its index, because
+    the column is on the model. What it cannot lay down is the constraint:
+    the ORM deliberately carries no ``ForeignKey`` for it, so the resources
+    module still imports on an install where the schedule module is absent.
+    That leaves the migration as the only thing that ever creates it.
+
+    A migration that ran without raising is not a migration that created a
+    constraint. ``upgrade()`` returns early when the target table is missing
+    and swallows a refused ``create_foreign_key``, and both of those silent
+    paths look exactly like success from outside. Reflecting the constraint
+    back is what tells them apart.
+    """
+    cfg = _make_alembic_config(pg_throwaway)
+    _create_all_then_stamp(pg_throwaway, cfg)
+
+    # Negative control. Without it this test cannot tell the migration's work
+    # from what the model had already produced.
+    assert _activity_fk(pg_throwaway) is None, "create_all already made the FK - this test would prove nothing"
+
+    _run_revision_upgrade(pg_throwaway, "v3272_assignment_activity_link")
+
+    fk = _activity_fk(pg_throwaway)
+    assert fk is not None, f"{_ACTIVITY_FK} absent after the revision ran"
+    assert fk["referred_table"] == "oe_schedule_activity"
+    assert fk["constrained_columns"] == ["activity_id"]
+    assert fk["referred_columns"] == ["id"]
+
+    # Deleting a Gantt bar must not take the booking history with it.
+    options = fk.get("options") or {}
+    assert isinstance(options, dict)
+    assert options.get("ondelete") == "SET NULL", f"expected SET NULL, reflected {options!r}"
+
+
+def test_v3272_upgrade_is_idempotent(pg_throwaway: str) -> None:
+    """Running it twice must not raise, and must leave one constraint.
+
+    Every guard in the body is an ``if not present`` check, so a second run
+    is the cheapest test of all of them at once.
+    """
+    cfg = _make_alembic_config(pg_throwaway)
+    _create_all_then_stamp(pg_throwaway, cfg)
+
+    _run_revision_upgrade(pg_throwaway, "v3272_assignment_activity_link")
+    _run_revision_upgrade(pg_throwaway, "v3272_assignment_activity_link")
+
+    engine = create_engine(pg_throwaway)
+    try:
+        fks = inspect(engine).get_foreign_keys(_ASSIGNMENT_TABLE)
+    finally:
+        engine.dispose()
+
+    assert [fk["name"] for fk in fks].count(_ACTIVITY_FK) == 1
+
+
+def test_v3272_rebuilds_a_column_the_constraint_still_fits(pg_throwaway: str) -> None:
+    """After a downgrade, the re-upgrade must rebuild the column at its own type.
+
+    The parametrized round-trip above compares column *names*, so a column
+    that comes back at the wrong type reads as unchanged. This revision was
+    first written declaring ``activity_id`` as native ``uuid``, copying the
+    idiom of the neighbouring v3014 columns; PostgreSQL then refused the
+    constraint against ``oe_schedule_activity.id``, which ``GUID`` makes
+    ``varchar(36)`` on every dialect. What proves the type is right is the
+    constraint standing after the cycle, not the column existing.
+    """
+    cfg = _make_alembic_config(pg_throwaway)
+    _create_all_then_stamp(pg_throwaway, cfg)
+
+    command.stamp(cfg, "v3272_assignment_activity_link")
+    command.downgrade(cfg, "v3271_formwork_debrand")
+    command.upgrade(cfg, "v3272_assignment_activity_link")
+
+    engine = create_engine(pg_throwaway)
+    try:
+        insp = inspect(engine)
+        column = next(c for c in insp.get_columns(_ASSIGNMENT_TABLE) if c["name"] == "activity_id")
+    finally:
+        engine.dispose()
+
+    assert "CHAR" in str(column["type"]).upper(), f"activity_id came back as {column['type']!r}"
+    fk = _activity_fk(pg_throwaway)
+    assert fk is not None, "the constraint did not survive a downgrade and re-upgrade"
+    assert (fk.get("options") or {}).get("ondelete") == "SET NULL"

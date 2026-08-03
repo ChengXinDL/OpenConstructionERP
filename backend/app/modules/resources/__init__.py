@@ -9,7 +9,19 @@ conflict detection, skill-based matching, and resource requests.
 
 
 async def on_startup() -> None:
-    """Module startup hook - register permissions."""
+    """Module startup hook (called by the module loader after mount).
+
+    Registers the module's permissions and its validation rules. Both are
+    idempotent - the registries key on code and on rule id - so a hot reload
+    re-registers cleanly.
+
+    The rules have to be registered here and not only where they are used: a
+    rule set that resolves to no rules comes back from the engine as
+    unsupported, which in the payload is indistinguishable from "the rules ran
+    and found nothing wrong".
+    """
     from app.modules.resources.permissions import register_resources_permissions
+    from app.modules.resources.validators import register_resources_rules
 
     register_resources_permissions()
+    register_resources_rules()

@@ -8,7 +8,7 @@ Tables:
     oe_resources_resource_skill       - resource ↔ skill assignment with level
     oe_resources_certification        - certifications/licenses with expiry tracking
     oe_resources_availability_window  - availability / unavailability windows (RRULE-capable)
-    oe_resources_assignment           - assignment to project/task/work order with allocation
+    oe_resources_assignment           - assignment to project/task/schedule activity/work order
     oe_resources_resource_request     - open request for a resource with required skills
     oe_resources_resource_link        - link between resources (operator <-> equipment, etc.)
 
@@ -234,7 +234,7 @@ class AvailabilityWindow(Base):
 
 
 class Assignment(Base):
-    """Assignment of a Resource to a project/task/work order over a time window."""
+    """Assignment of a Resource to a project/task/activity/work order over a time window."""
 
     __tablename__ = "oe_resources_assignment"
     __table_args__ = (
@@ -255,6 +255,17 @@ class Assignment(Base):
     # FK to oe_tasks_task declared only in alembic migration; ORM-level
     # ForeignKey omitted to keep test fixtures lean (tasks model not always loaded).
     task_id: Mapped[uuid.UUID | None] = mapped_column(
+        GUID(),
+        nullable=True,
+        index=True,
+    )
+    # Schedule activity (the Gantt row) this assignment hangs off. FK to
+    # oe_schedule_activity declared only in the alembic migration; ORM-level
+    # ForeignKey omitted for the same reason as task_id above (the schedule
+    # model is not always loaded by test fixtures). Independent of task_id:
+    # an assignment may attach to a schedule activity, to a to-do task, to
+    # neither, but naming both is flagged by the resources rule set.
+    activity_id: Mapped[uuid.UUID | None] = mapped_column(
         GUID(),
         nullable=True,
         index=True,

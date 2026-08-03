@@ -25,6 +25,7 @@ from app.modules.resources.schemas import (
     AssignmentProposeRequest,
     AssignmentResponse,
     AssignmentUpdate,
+    AssignmentValidationReport,
     AvailabilityWindowCreate,
     AvailabilityWindowResponse,
     AvailabilityWindowUpdate,
@@ -375,11 +376,42 @@ async def list_assignments_for_resource(
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=200, ge=1, le=500),
     status_filter: str | None = Query(default=None, alias="status"),
+    activity_id: uuid.UUID | None = Query(default=None),
     _perm: None = Depends(RequirePermission("resources.read")),
     service: ResourcesService = Depends(_get_service),
 ) -> list[AssignmentResponse]:
     items, _ = await service.list_assignments_for_resource(
         resource_id,
+        offset=offset,
+        limit=limit,
+        assignment_status=status_filter,
+        activity_id=activity_id,
+    )
+    return [AssignmentResponse.model_validate(i) for i in items]
+
+
+@router.get("/assignments/by-activity/{activity_id}", response_model=list[AssignmentResponse])
+async def list_assignments_for_activity(
+    activity_id: uuid.UUID,
+    user_id: CurrentUserId,
+    session: SessionDep,
+    project_id: uuid.UUID = Query(...),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=500, ge=1, le=500),
+    status_filter: str | None = Query(default=None, alias="status"),
+    _perm: None = Depends(RequirePermission("resources.read")),
+    service: ResourcesService = Depends(_get_service),
+) -> list[AssignmentResponse]:
+    """Who is booked on one schedule activity.
+
+    ``project_id`` is required, not optional: it is the scope the caller's
+    access is verified against, and without it an activity id alone would let
+    any holder of ``resources.read`` read another tenant's bookings.
+    """
+    await verify_project_access(project_id, user_id, session)
+    items, _ = await service.list_assignments_for_activity(
+        activity_id,
+        project_id=project_id,
         offset=offset,
         limit=limit,
         assignment_status=status_filter,
@@ -496,6 +528,21 @@ async def delete_assignment(
     if assignment.project_id is not None:
         await verify_project_access(assignment.project_id, user_id, session)
     await service.delete_assignment(assignment_id)
+
+
+@router.get("/assignments/{assignment_id}/validate", response_model=AssignmentValidationReport)
+async def validate_assignment(
+    assignment_id: uuid.UUID,
+    user_id: CurrentUserId,
+    session: SessionDep,
+    _perm: None = Depends(RequirePermission("resources.read")),
+    service: ResourcesService = Depends(_get_service),
+) -> AssignmentValidationReport:
+    """Run the ``resources`` rule set over one assignment and report findings."""
+    assignment = await service.get_assignment(assignment_id)
+    if assignment.project_id is not None:
+        await verify_project_access(assignment.project_id, user_id, session)
+    return await service.validate_assignment(assignment_id)
 
 
 @router.post("/assignments/{assignment_id}/confirm", response_model=AssignmentResponse)

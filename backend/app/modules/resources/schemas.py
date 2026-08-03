@@ -283,6 +283,7 @@ class AssignmentCreate(BaseModel):
     resource_id: UUID
     project_id: UUID | None = None
     task_id: UUID | None = None
+    activity_id: UUID | None = None
     work_order_id: str | None = Field(default=None, max_length=36)
     start_at: datetime
     end_at: datetime
@@ -304,6 +305,7 @@ class AssignmentUpdate(BaseModel):
 
     project_id: UUID | None = None
     task_id: UUID | None = None
+    activity_id: UUID | None = None
     work_order_id: str | None = Field(default=None, max_length=36)
     start_at: datetime | None = None
     end_at: datetime | None = None
@@ -332,6 +334,8 @@ class AssignmentResponse(BaseModel):
     project_name: str = ""
     task_id: UUID | None = None
     task_name: str = ""
+    # Schedule activity (Gantt row) this booking staffs, when it names one.
+    activity_id: UUID | None = None
     work_order_id: str | None = None
     start_at: datetime
     end_at: datetime
@@ -354,6 +358,7 @@ class AssignmentProposeRequest(BaseModel):
     resource_id: UUID
     project_id: UUID | None = None
     task_id: UUID | None = None
+    activity_id: UUID | None = None
     work_order_id: str | None = Field(default=None, max_length=36)
     start_at: datetime
     end_at: datetime
@@ -690,3 +695,29 @@ class BoardConflict(BaseModel):
     resource_id: UUID
     resource_name: str
     conflicts: list[ConflictDetail] = Field(default_factory=list)
+
+
+# ── Assignment validation ───────────────────────────────────────────────
+
+
+class AssignmentValidationFinding(BaseModel):
+    """One finding from the ``resources`` rule set."""
+
+    rule_id: str
+    severity: str
+    message: str
+    key: str = Field(..., description="i18n key for the message, namespaced per rule.")
+    context: dict[str, Any] = Field(default_factory=dict)
+
+
+class AssignmentValidationReport(BaseModel):
+    """Report returned by ``GET /v1/resources/assignments/{id}/validate``."""
+
+    assignment_id: UUID
+    status: str
+    # None when nothing was checked, so a run that never happened does not read
+    # as a perfect score.
+    score: float | None = None
+    error_count: int = 0
+    warning_count: int = 0
+    findings: list[AssignmentValidationFinding] = Field(default_factory=list)

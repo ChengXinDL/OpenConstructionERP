@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.events import event_bus
 from app.core.i18n import get_locale
 from app.core.json_merge import merge_metadata
+from app.core.validation.engine import validation_engine
 from app.core.validation.messages import translate
 from app.modules.resources.models import (
     Assignment,
@@ -42,6 +43,8 @@ from app.modules.resources.schemas import (
     AssignmentCreate,
     AssignmentProposeRequest,
     AssignmentUpdate,
+    AssignmentValidationFinding,
+    AssignmentValidationReport,
     AvailabilityWindowCreate,
     AvailabilityWindowUpdate,
     CertificationCreate,
@@ -59,6 +62,7 @@ from app.modules.resources.schemas import (
     SkillUpdate,
     UtilizationResponse,
 )
+from app.modules.resources.validators import RESOURCES_RULE_SET
 
 logger = logging.getLogger(__name__)
 
@@ -780,6 +784,7 @@ class ResourcesService:
             resource_id=data.resource_id,
             project_id=data.project_id,
             task_id=data.task_id,
+            activity_id=data.activity_id,
             work_order_id=data.work_order_id,
             start_at=data.start_at,
             end_at=data.end_at,
@@ -807,12 +812,132 @@ class ResourcesService:
         offset: int = 0,
         limit: int = 200,
         assignment_status: str | None = None,
+        activity_id: uuid.UUID | None = None,
     ) -> tuple[list[Assignment], int]:
         return await self.assignment_repo.list_for_resource(
             resource_id,
             offset=offset,
             limit=limit,
             status=assignment_status,
+            activity_id=activity_id,
+        )
+
+    async def list_assignments_for_activity(
+        self,
+        activity_id: uuid.UUID,
+        *,
+        project_id: uuid.UUID,
+        offset: int = 0,
+        limit: int = 500,
+        assignment_status: str | None = None,
+    ) -> tuple[list[Assignment], int]:
+        """List the bookings on one schedule activity, inside one project.
+
+        ``project_id`` is required rather than derived: it is what the caller's
+        access has been verified against, and an activity id on its own would
+        let any holder of ``resources.read`` enumerate another tenant's
+        bookings by guessing ids. The repository puts it in the WHERE clause,
+        so paging and the total both describe the scoped set.
+
+        Args:
+            activity_id: The schedule activity the assignments hang off.
+            project_id: Project the caller has already been granted access to.
+            offset: Rows to skip.
+            limit: Maximum rows to return.
+            assignment_status: Optional assignment status filter.
+
+        Returns:
+            The page of assignments and the total row count before paging.
+        """
+        return await self.assignment_repo.list_for_activity(
+            activity_id,
+            project_id=project_id,
+            offset=offset,
+            limit=limit,
+            status=assignment_status,
+        )
+
+    async def _resolve_activity(self, activity_id: uuid.UUID | None) -> tuple[Any | None, bool]:
+        """Load the schedule activity an assignment names.
+
+        Imported here rather than at module scope for the same reason the
+        column carries no ORM ForeignKey: the resources module must load on an
+        install where the schedule module is absent.
+
+        Args:
+            activity_id: The activity to load, or None when none is named.
+
+        Returns:
+            The activity and whether the lookup could run at all. Without the
+            schedule module there is nothing to look in, and a rule told only
+            that the activity is None would read that as "deleted" and accuse
+            every linked assignment on the install. The flag is what keeps
+            "not found" and "could not look" apart.
+        """
+        if activity_id is None:
+            return None, True
+        try:
+            from app.modules.schedule.models import Activity  # noqa: PLC0415
+        except ImportError:  # pragma: no cover - schedule module not installed
+            return None, False
+        result = await self.session.execute(select(Activity).where(Activity.id == activity_id))
+        return result.scalar_one_or_none(), True
+
+    async def validate_assignment(self, assignment_id: uuid.UUID) -> AssignmentValidationReport:
+        """Run the ``resources`` rule set over one assignment.
+
+        A rule holds no session, so the activity the assignment names is
+        resolved here and handed over. It resolves to None both when the
+        assignment names no activity and when the one it names is gone; the
+        rules read ``activity_id`` to tell those two apart rather than reading
+        the absence alone, and ``activity_lookup_available`` to tell both apart
+        from an install that has no schedule register to search.
+
+        Args:
+            assignment_id: The assignment to check.
+
+        Returns:
+            The findings, with counts and the engine's score.
+
+        Raises:
+            HTTPException: 404 when the assignment does not exist.
+        """
+        assignment = await self.get_assignment(assignment_id)
+        activity, lookup_available = await self._resolve_activity(assignment.activity_id)
+
+        report = await validation_engine.validate(
+            data={
+                "assignment": assignment,
+                "activity": activity,
+                "activity_lookup_available": lookup_available,
+            },
+            rule_sets=[RESOURCES_RULE_SET],
+            target_type="resource_assignment",
+            target_id=str(assignment_id),
+            project_id=str(assignment.project_id) if assignment.project_id else None,
+        )
+
+        findings = [
+            AssignmentValidationFinding(
+                rule_id=result.rule_id,
+                severity=str(result.severity),
+                message=result.message,
+                # Rule ids already carry the module segment, so the raw id
+                # would render "resources.validation.resources.<rule>".
+                key=f"resources.validation.{result.rule_id.removeprefix('resources.')}",
+                context=result.details,
+            )
+            for result in report.results
+            if not result.passed and not result.is_engine_error
+        ]
+
+        return AssignmentValidationReport(
+            assignment_id=assignment_id,
+            status=str(report.status),
+            score=report.score,
+            error_count=len(report.errors),
+            warning_count=len(report.warnings),
+            findings=findings,
         )
 
     async def update_assignment(self, assignment_id: uuid.UUID, data: AssignmentUpdate) -> Assignment:
@@ -966,6 +1091,7 @@ class ResourcesService:
             resource_id=data.resource_id,
             project_id=data.project_id,
             task_id=data.task_id,
+            activity_id=data.activity_id,
             work_order_id=data.work_order_id,
             start_at=data.start_at,
             end_at=data.end_at,
