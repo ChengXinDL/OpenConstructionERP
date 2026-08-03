@@ -27,5 +27,11 @@ def register_contracts_permissions() -> None:
             # action, while deciding (grant / reject) is reserved to managers.
             "contracts.submit_eot": Role.EDITOR,
             "contracts.decide_eot": Role.MANAGER,
+            # Clause templates. Authoring a draft is an editor action: a draft
+            # binds nobody and is the part that wants many hands. Publishing is
+            # not, because a published version is what a contract records
+            # itself as drawn from, and it is frozen from that moment.
+            "contracts.author_template": Role.EDITOR,
+            "contracts.publish_template": Role.MANAGER,
         },
     )

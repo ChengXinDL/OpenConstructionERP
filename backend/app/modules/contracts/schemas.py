@@ -44,6 +44,13 @@ class ContractCreate(BaseModel):
     signed_at: str | None = None
     terms: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
+    # The clause template this contract is drawn from, if any. Only the code is
+    # accepted; the version is resolved server-side at create time and stored
+    # alongside it, so the contract keeps naming the version its author saw
+    # rather than whichever one is current when someone next opens it. An
+    # authored template must already be published; a built-in resolves to
+    # version 0.
+    template_code: str | None = Field(default=None, max_length=80)
 
 
 class ContractUpdate(BaseModel):
@@ -93,6 +100,12 @@ class ContractResponse(BaseModel):
     status: str
     signed_at: str | None = None
     terms: dict[str, Any] = Field(default_factory=dict)
+    # Both null or both set. A code with no version would mean the contract was
+    # drawn from whatever is current, which is what pinning the version exists
+    # to prevent. Version 0 means a built-in standard form, which has no
+    # versions of its own.
+    template_code: str | None = None
+    template_version: int | None = None
     created_by: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict, validation_alias="metadata_")
     created_at: datetime
@@ -1051,3 +1064,153 @@ class FinalAccountChecklistResponse(BaseModel):
     applicable_count: int
     total_count: int
     items: list[FinalAccountCheckItemResponse] = Field(default_factory=list)
+
+
+# Authored clause templates ================================================
+#
+# The built-in standard forms are module constants that nobody can edit, so
+# nothing here describes them: they enter the API through the same read
+# endpoints, normalised by ``ContractTemplateRepository.list_all``. These
+# schemas cover the authoring side only.
+
+TEMPLATE_STATUS_PATTERN = "draft|published|archived"
+CLAUSE_RISK_PATTERN = "none|low|medium|high"
+
+
+class TemplateClauseInput(BaseModel):
+    """One clause as the author typed it.
+
+    ``number`` is a string because clause numbering is not arithmetic: "14.3",
+    "X7" and "2.32" all have to survive a round trip unchanged.
+    """
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    number: str = Field(..., min_length=1, max_length=40)
+    title: str = Field(default="", max_length=500)
+    body: str = Field(default="")
+    sort_order: int | None = Field(default=None, ge=0)
+    risk_level: str = Field(default="none", pattern=rf"^({CLAUSE_RISK_PATTERN})$")
+    risk_note: str = Field(default="")
+    is_optional: bool = False
+
+
+class TemplateClauseResponse(BaseModel):
+    """One clause of an authored template version."""
+
+    id: UUID | None = None
+    number: str
+    title: str
+    body: str
+    sort_order: int
+    risk_level: str
+    risk_note: str
+    is_optional: bool
+
+
+class ContractTemplateCreate(BaseModel):
+    """Author a new template. It starts at version 1, in draft.
+
+    ``code`` may not name a built-in standard form. Shadowing one would make
+    the catalogue ambiguous, and the service refuses it rather than deciding
+    which of the two a later lookup meant.
+    """
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    code: str = Field(..., min_length=1, max_length=80)
+    name: str = Field(..., min_length=1, max_length=500)
+    # Free text, not a whitelist: a national standard form we have never heard
+    # of must not need a migration to be grouped.
+    family: str = Field(default="", max_length=40)
+    description: str = Field(default="")
+    retention_release_event: str = Field(
+        default="practical_completion",
+        pattern=rf"^({RETENTION_RELEASE_EVENTS})$",
+    )
+    clauses: list[TemplateClauseInput] = Field(default_factory=list)
+
+
+class ContractTemplateUpdate(BaseModel):
+    """Edit the header of a draft version.
+
+    Neither ``code`` nor ``version`` is here. Together they are the identity of
+    the row and the thing a contract stores, so renaming either would break
+    the reference the contract holds.
+    """
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    name: str | None = Field(default=None, min_length=1, max_length=500)
+    family: str | None = Field(default=None, max_length=40)
+    description: str | None = None
+    retention_release_event: str | None = Field(
+        default=None,
+        pattern=rf"^({RETENTION_RELEASE_EVENTS})$",
+    )
+
+
+class ContractTemplateForkRequest(BaseModel):
+    """Copy a built-in standard form into an authored draft under a new code."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    new_code: str = Field(..., min_length=1, max_length=80)
+    new_name: str | None = Field(default=None, max_length=500)
+
+
+class TemplateClauseSetRequest(BaseModel):
+    """Replace the whole clause set of a draft version.
+
+    Whole-set rather than per-clause because clause order and numbering are one
+    document: renumbering 14.3 to 14.4 while 14.4 exists is a legal edit of the
+    document and an illegal sequence of row updates.
+    """
+
+    clauses: list[TemplateClauseInput] = Field(default_factory=list)
+
+
+class ContractTemplateResponse(BaseModel):
+    """One authored template version, with its clauses when they were loaded."""
+
+    id: UUID
+    code: str
+    version: int
+    lineage_id: UUID
+    name: str
+    family: str
+    description: str
+    retention_release_event: str
+    status: str
+    published_at: str | None = None
+    published_by: str | None = None
+    derived_from_builtin: str | None = None
+    source: str = "authored"
+    editable: bool = False
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    clauses: list[TemplateClauseResponse] | None = None
+    clause_count: int | None = None
+
+
+class TemplateCatalogueEntry(BaseModel):
+    """One row of the catalogue a user picks from.
+
+    Both halves of the namespace arrive in this shape. ``source`` says which
+    half, and ``editable`` says whether the pencil should be drawn: a built-in
+    is a constant and a published version is frozen, so both are false.
+    ``version`` is 0 for a built-in rather than null, so the field never
+    changes type and a caller can sort on it without branching.
+    """
+
+    code: str
+    name: str
+    family: str
+    description: str = ""
+    retention_release_event: str
+    clause_count: int
+    source: str
+    editable: bool
+    version: int
+    status: str
+    derived_from_builtin: str | None = None
+    template_id: UUID | None = None

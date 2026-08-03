@@ -92,6 +92,9 @@ from app.modules.contracts.schemas import (
     ContractSecurityCreate,
     ContractSecurityResponse,
     ContractSecurityUpdate,
+    ContractTemplateCreate,
+    ContractTemplateForkRequest,
+    ContractTemplateUpdate,
     ContractTypeConfigurationResponse,
     ContractUpdate,
     EOTClaimCreate,
@@ -123,6 +126,7 @@ from app.modules.contracts.schemas import (
     RetentionScheduleCreate,
     RetentionScheduleResponse,
     RetentionScheduleUpdate,
+    TemplateClauseSetRequest,
 )
 from app.modules.contracts.service import ContractsService
 
@@ -1600,27 +1604,184 @@ async def list_lien_waivers(
 
 @router.get("/contract-templates/")
 async def list_clause_templates(
+    session: SessionDep,
     _perm: None = Depends(RequirePermission("contracts.read")),
 ) -> list[dict]:
-    from app.modules.contracts.service import list_contract_templates
+    """The catalogue a user picks from: built-in standard forms and authored paper.
 
-    return list_contract_templates()
+    One entry per code. Built-ins are the eleven constants we ship, which
+    nobody can edit; authored entries are the tenant's own, shown at their
+    current version, which is the latest published one or the latest draft when
+    the lineage has never been published. ``source`` and ``editable`` on each
+    entry say which is which, so the caller never has to infer it.
+    """
+    service = ContractsService(session)
+    return await service.list_templates()
 
 
 @router.get("/contract-templates/{template_code}")
 async def get_clause_template(
     template_code: str,
+    session: SessionDep,
+    version: int | None = Query(default=None, ge=0),
     _perm: None = Depends(RequirePermission("contracts.read")),
 ) -> dict:
-    from app.modules.contracts.service import get_contract_template
+    """One template, from whichever half of the namespace holds it.
 
-    try:
-        return get_contract_template(template_code)
-    except KeyError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
+    Without ``version`` this resolves the current version. With it, that exact
+    authored version, which is how a contract shows the paper it was actually
+    drawn from after a later version has been published.
+    """
+    service = ContractsService(session)
+    return await service.get_template(template_code, version)
+
+
+@router.get("/contract-templates/{template_code}/versions")
+async def list_clause_template_versions(
+    template_code: str,
+    session: SessionDep,
+    _perm: None = Depends(RequirePermission("contracts.read")),
+) -> list[dict]:
+    """Every version under one code, oldest first.
+
+    A built-in answers with its single frozen entry rather than a 404, so one
+    version-history screen serves both halves of the catalogue.
+    """
+    service = ContractsService(session)
+    return await service.list_template_versions(template_code)
+
+
+@router.post(
+    "/contract-templates/",
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_clause_template(
+    data: ContractTemplateCreate,
+    session: SessionDep,
+    user_id: CurrentUserId,
+    _perm: None = Depends(RequirePermission("contracts.author_template")),
+) -> dict:
+    """Author a new template. It starts at version 1, in draft."""
+    service = ContractsService(session)
+    body = await service.create_template(data, user_id)
+    await session.commit()
+    return body
+
+
+@router.post(
+    "/contract-templates/{template_code}/fork",
+    status_code=status.HTTP_201_CREATED,
+)
+async def fork_clause_template(
+    template_code: str,
+    data: ContractTemplateForkRequest,
+    session: SessionDep,
+    user_id: CurrentUserId,
+    _perm: None = Depends(RequirePermission("contracts.author_template")),
+) -> dict:
+    """Copy a built-in standard form into an editable draft under a new code.
+
+    This is the only way to change a built-in. The clause map we ship carries
+    numbers and titles and no body text, so the fork starts with the headings
+    and an empty body for each, rather than inventing contract language.
+    """
+    service = ContractsService(session)
+    body = await service.fork_builtin_template(
+        template_code,
+        data.new_code,
+        user_id,
+        data.new_name,
+    )
+    await session.commit()
+    return body
+
+
+@router.patch("/contract-templates/{template_code}/versions/{version}")
+async def update_clause_template(
+    template_code: str,
+    version: int,
+    data: ContractTemplateUpdate,
+    session: SessionDep,
+    _perm: None = Depends(RequirePermission("contracts.author_template")),
+) -> dict:
+    """Edit the header of a draft version. A published version is frozen."""
+    service = ContractsService(session)
+    body = await service.update_template(
+        template_code,
+        version,
+        data.model_dump(exclude_unset=True),
+    )
+    await session.commit()
+    return body
+
+
+@router.put("/contract-templates/{template_code}/versions/{version}/clauses")
+async def set_clause_template_clauses(
+    template_code: str,
+    version: int,
+    data: TemplateClauseSetRequest,
+    session: SessionDep,
+    _perm: None = Depends(RequirePermission("contracts.author_template")),
+) -> dict:
+    """Replace the whole clause set of a draft version."""
+    service = ContractsService(session)
+    body = await service.replace_template_clauses(template_code, version, data.clauses)
+    await session.commit()
+    return body
+
+
+@router.post("/contract-templates/{template_code}/versions/{version}/publish")
+async def publish_clause_template(
+    template_code: str,
+    version: int,
+    session: SessionDep,
+    user_id: CurrentUserId,
+    _perm: None = Depends(RequirePermission("contracts.publish_template")),
+) -> dict:
+    """Freeze a draft version so contracts can be drawn from it."""
+    service = ContractsService(session)
+    body = await service.publish_template(template_code, version, user_id)
+    await session.commit()
+    return body
+
+
+@router.post(
+    "/contract-templates/{template_code}/versions",
+    status_code=status.HTTP_201_CREATED,
+)
+async def open_next_clause_template_version(
+    template_code: str,
+    session: SessionDep,
+    user_id: CurrentUserId,
+    _perm: None = Depends(RequirePermission("contracts.author_template")),
+) -> dict:
+    """Open version N+1 as a draft, copying the current version's clauses.
+
+    This is what "edit a published template" means here. The published version
+    keeps saying what it said, because a contract may already name it.
+    """
+    service = ContractsService(session)
+    body = await service.open_next_template_version(template_code, user_id)
+    await session.commit()
+    return body
+
+
+@router.post("/contract-templates/{template_code}/versions/{version}/archive")
+async def archive_clause_template_version(
+    template_code: str,
+    version: int,
+    session: SessionDep,
+    _perm: None = Depends(RequirePermission("contracts.publish_template")),
+) -> dict:
+    """Retire one version so it stops being offered.
+
+    Not a delete. A contract drawn from this version keeps naming it, and the
+    record of what it said has to survive for that reference to mean anything.
+    """
+    service = ContractsService(session)
+    body = await service.archive_template_version(template_code, version)
+    await session.commit()
+    return body
 
 
 # ── Counterparty resolution ──────────────────────────────────────────────

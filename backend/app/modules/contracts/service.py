@@ -45,6 +45,8 @@ from app.modules.contracts.models import (
     ContractMilestone,
     ContractParty,
     ContractSecurity,
+    ContractTemplate,
+    ContractTemplateClause,
     EOTClaim,
     FeeStructure,
     FinalAccount,
@@ -61,6 +63,8 @@ from app.modules.contracts.repository import (
     ContractPartyRepository,
     ContractRepository,
     ContractSecurityRepository,
+    ContractTemplateClauseRepository,
+    ContractTemplateRepository,
     ContractTypeConfigurationRepository,
     EOTClaimRepository,
     FeeStructureRepository,
@@ -716,6 +720,8 @@ class ContractsService:
         self.eot_repo = EOTClaimRepository(session)
         self.document_repo = ContractDocumentRepository(session)
         self.milestone_repo = ContractMilestoneRepository(session)
+        self.template_repo = ContractTemplateRepository(session)
+        self.template_clause_repo = ContractTemplateClauseRepository(session)
 
     # ── Contracts ────────────────────────────────────────────────────────
 
@@ -734,6 +740,14 @@ class ContractsService:
                     "details": errors,
                 },
             )
+
+        # Resolve the clause template now, not at read time. Storing the code
+        # alone would mean "whatever version is current whenever someone looks",
+        # so publishing version 3 would quietly restate what an already-signed
+        # contract was drawn from. Resolving here pins the version the author
+        # actually saw. A built-in resolves to version 0, which reads as "not a
+        # versioned template" and keeps the pair populated either way.
+        template_code, template_version = await self.resolve_template_for_contract(getattr(data, "template_code", None))
 
         # Contracts always start in 'draft'. The FSM (draft → active →
         # suspended / completed / terminated) is enforced by dedicated
@@ -758,6 +772,8 @@ class ContractsService:
             status="draft",
             signed_at=None,
             terms=data.terms,
+            template_code=template_code,
+            template_version=template_version,
             created_by=user_id,
             metadata_=data.metadata,
         )
@@ -969,6 +985,12 @@ class ContractsService:
             status="draft",  # cloned instrument starts as draft
             signed_at=None,  # must be re-signed
             terms=cloned_terms,
+            # The clone is the same paper as the source, so it carries the same
+            # template version rather than re-resolving to whatever is current.
+            # Re-resolving would silently upgrade a clone of a 2024 contract to
+            # this year's clauses, which is not what "clone" means to anyone.
+            template_code=getattr(source, "template_code", None),
+            template_version=getattr(source, "template_version", None),
             created_by=user_id,
             metadata_=cloned_meta,
         )
@@ -2999,6 +3021,11 @@ class ContractsService:
                 "status": contract.status,
                 "contract_type": contract.contract_type,
                 "terms": contract.terms or {},
+                # Both of these, not just the code: the rule that reads them
+                # asks whether the pair is complete, and a rule handed half a
+                # pair can only ever pass.
+                "template_code": contract.template_code,
+                "template_version": contract.template_version,
             },
             "parties": [{"party_role": p.party_role, "party_type": p.party_type} for p in parties],
             "securities": [{"security_type": s.security_type, "status": s.status} for s in securities],
@@ -3041,9 +3068,460 @@ class ContractsService:
             "warnings": [_serialise(r) for r in report.warnings],
         }
 
+    # ── Authored clause templates ────────────────────────────────────────
+
+    async def _assert_code_free(self, code: str) -> None:
+        """Refuse a template code that is already taken.
+
+        This is the only place either half of the namespace is checked, and
+        every write path that mints a new lineage calls it. It has to be a
+        function rather than a database constraint because half the namespace
+        is not in the database: the built-in codes are module constants, so no
+        unique index can see them. That also means two concurrent creates can
+        both pass it. The pair (code, version) *is* a real constraint, so the
+        race loses a row to an IntegrityError rather than producing two
+        lineages under one code.
+        """
+        if is_builtin_template_code(code):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "error": "template_code_is_builtin",
+                    "code": code,
+                    "message": (
+                        "That code names a built-in standard form. Fork it to a new code instead of shadowing it."
+                    ),
+                },
+            )
+        if await self.template_repo.max_version(code) > 0:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"error": "template_code_taken", "code": code},
+            )
+
+    async def _require_draft(self, code: str, version: int) -> ContractTemplate:
+        """Load one version and refuse to mutate it unless it is a draft.
+
+        A published version is what some contract says it was drawn from, so
+        editing it in place would silently restate a signed agreement. The
+        caller is told to open the next version instead, which is a real
+        action rather than advice.
+        """
+        template = await self.template_repo.get_version(code, version)
+        if template is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": "template_version_not_found", "code": code, "version": version},
+            )
+        if template.status != "draft":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "error": "template_version_frozen",
+                    "code": code,
+                    "version": version,
+                    "status": template.status,
+                    "message": (
+                        "A published or archived version cannot be edited. Open the next version from it and edit that."
+                    ),
+                },
+            )
+        return template
+
+    async def list_templates(self) -> list[dict[str, Any]]:
+        """Every template a user may pick from, built-in and authored."""
+        return await self.template_repo.list_all()
+
+    async def get_template(self, code: str, version: int | None = None) -> dict[str, Any]:
+        """Resolve one template, whichever half of the namespace it lives in.
+
+        ``version`` names an exact authored version. Without it the caller gets
+        the current version, which is the latest published one, or the latest
+        draft when the lineage has never been published.
+        """
+        if version is None and is_builtin_template_code(code):
+            builtin = get_contract_template(code)
+            return {
+                "code": code,
+                "name": builtin["name"],
+                "family": builtin["family"],
+                "description": "",
+                "retention_release_event": builtin["retention_release_event"],
+                "source": "builtin",
+                "editable": False,
+                "version": 0,
+                "status": "published",
+                "clauses": [
+                    {
+                        "number": number,
+                        "title": title,
+                        "body": "",
+                        "sort_order": index,
+                        "risk_level": "none",
+                        "risk_note": "",
+                        "is_optional": False,
+                    }
+                    for index, (number, title) in enumerate(builtin["key_clauses"].items())
+                ],
+                "clause_count": len(builtin["key_clauses"]),
+            }
+
+        template = (
+            await self.template_repo.get_version(code, version)
+            if version is not None
+            else await self.template_repo.current_version(code)
+        )
+        if template is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": "template_not_found", "code": code, "version": version},
+            )
+        clauses = await self.template_clause_repo.list_for_template(template.id)
+        return _template_to_dict(template, clauses)
+
+    async def list_template_versions(self, code: str) -> list[dict[str, Any]]:
+        """Every version under ``code``, oldest first.
+
+        A built-in has no versions and is not an error here: it answers with the
+        single frozen entry the catalogue holds, so a caller can render one
+        version history screen for both halves.
+        """
+        rows = await self.template_repo.list_versions(code)
+        if not rows and is_builtin_template_code(code):
+            builtin = get_contract_template(code)
+            return [
+                {
+                    "code": code,
+                    "version": 0,
+                    "status": "published",
+                    "name": builtin["name"],
+                    "source": "builtin",
+                    "editable": False,
+                    "published_at": None,
+                    "published_by": None,
+                }
+            ]
+        return [_template_to_dict(row) for row in rows]
+
+    async def create_template(
+        self,
+        data: Any,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Author a new template as version 1, in draft."""
+        code = data.code.strip()
+        await self._assert_code_free(code)
+
+        template = ContractTemplate(
+            code=code,
+            version=1,
+            # Version 1 anchors its own lineage, so a template is addressable
+            # by lineage from the moment it exists rather than from its second
+            # version. The id is minted here instead of leaning on the column
+            # default, because lineage_id has to equal it.
+            id=(new_id := uuid.uuid4()),
+            lineage_id=new_id,
+            name=data.name,
+            family=(data.family or "").strip(),
+            description=data.description or "",
+            retention_release_event=data.retention_release_event,
+            status="draft",
+            derived_from_builtin=None,
+            created_by=user_id,
+        )
+        await self.template_repo.create(template)
+        clauses = await self._write_clauses(template.id, getattr(data, "clauses", None) or [])
+        return _template_to_dict(template, clauses)
+
+    async def fork_builtin_template(
+        self,
+        builtin_code: str,
+        new_code: str,
+        user_id: str | None = None,
+        new_name: str | None = None,
+    ) -> dict[str, Any]:
+        """Copy a built-in standard form into an authored, editable draft.
+
+        This is how a built-in gets edited: not in place, since it is a
+        constant, but by taking its clause map as the starting point for the
+        tenant's own paper. The built-in clause map carries numbers and titles
+        and no body text, so the fork starts with the headings and an empty
+        body for each, which is an honest statement of what we shipped rather
+        than invented contract language.
+        """
+        if not is_builtin_template_code(builtin_code):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": "builtin_template_not_found", "code": builtin_code},
+            )
+        code = new_code.strip()
+        await self._assert_code_free(code)
+
+        builtin = get_contract_template(builtin_code)
+        template = ContractTemplate(
+            code=code,
+            version=1,
+            id=(new_id := uuid.uuid4()),
+            lineage_id=new_id,
+            name=new_name or f"{builtin['name']} (adapted)",
+            family=builtin["family"],
+            description="",
+            retention_release_event=builtin["retention_release_event"],
+            status="draft",
+            derived_from_builtin=builtin_code,
+            created_by=user_id,
+        )
+        await self.template_repo.create(template)
+        clauses = await self._write_clauses(
+            template.id,
+            [
+                {"number": number, "title": title, "sort_order": index}
+                for index, (number, title) in enumerate(builtin["key_clauses"].items())
+            ],
+        )
+        return _template_to_dict(template, clauses)
+
+    async def update_template(
+        self,
+        code: str,
+        version: int,
+        fields: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Edit the header of a draft version. Never its code or its number."""
+        template = await self._require_draft(code, version)
+        allowed = {"name", "family", "description", "retention_release_event", "metadata_"}
+        writes = {key: value for key, value in fields.items() if key in allowed and value is not None}
+        if writes:
+            await self.template_repo.update_fields(template.id, **writes)
+        clauses = await self.template_clause_repo.list_for_template(template.id)
+        refreshed = await self.template_repo.get_version(code, version)
+        return _template_to_dict(refreshed or template, clauses)
+
+    async def replace_template_clauses(
+        self,
+        code: str,
+        version: int,
+        clauses: list[Any],
+    ) -> dict[str, Any]:
+        """Replace the whole clause set of a draft version.
+
+        Whole-set replacement rather than per-clause edits because clause order
+        and numbering are one document, not a bag of rows: renumbering 14.3 to
+        14.4 while 14.4 exists is a legal edit of the document and an illegal
+        sequence of row updates.
+        """
+        template = await self._require_draft(code, version)
+        await self.template_clause_repo.delete_for_template(template.id)
+        written = await self._write_clauses(template.id, clauses)
+        return _template_to_dict(template, written)
+
+    async def _write_clauses(self, template_id: uuid.UUID, clauses: list[Any]) -> list[ContractTemplateClause]:
+        """Insert a clause set for one template version, rejecting a repeated number."""
+        seen: set[str] = set()
+        rows: list[ContractTemplateClause] = []
+        for index, clause in enumerate(clauses):
+            data = clause if isinstance(clause, dict) else clause.model_dump()
+            number = str(data.get("number") or "").strip()
+            if not number:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={"error": "clause_number_required", "position": index},
+                )
+            if number in seen:
+                # The unique constraint would catch this too, but as an
+                # IntegrityError from the flush, naming a constraint rather
+                # than the clause the user typed twice.
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={"error": "duplicate_clause_number", "number": number},
+                )
+            seen.add(number)
+            risk = str(data.get("risk_level") or "none")
+            if risk not in CLAUSE_RISK_LEVELS:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail={
+                        "error": "unknown_risk_level",
+                        "number": number,
+                        "risk_level": risk,
+                        "allowed": sorted(CLAUSE_RISK_LEVELS),
+                    },
+                )
+            row = ContractTemplateClause(
+                template_id=template_id,
+                number=number,
+                title=str(data.get("title") or ""),
+                body=str(data.get("body") or ""),
+                sort_order=int(data.get("sort_order") if data.get("sort_order") is not None else index),
+                risk_level=risk,
+                risk_note=str(data.get("risk_note") or ""),
+                is_optional=bool(data.get("is_optional") or False),
+            )
+            self.session.add(row)
+            rows.append(row)
+        await self.session.flush()
+        rows.sort(key=lambda row: (row.sort_order, row.number))
+        return rows
+
+    async def publish_template(
+        self,
+        code: str,
+        version: int,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Freeze a draft version so contracts can name it.
+
+        An empty template is not publishable. A template with no clauses would
+        let a contract record that it was drawn from a document that says
+        nothing, which is worse than having no template link at all.
+        """
+        from datetime import UTC, datetime  # noqa: PLC0415
+
+        template = await self._require_draft(code, version)
+        clauses = await self.template_clause_repo.list_for_template(template.id)
+        if not clauses:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": "template_has_no_clauses",
+                    "code": code,
+                    "version": version,
+                },
+            )
+        await self.template_repo.update_fields(
+            template.id,
+            status="published",
+            published_at=datetime.now(UTC).isoformat(),
+            published_by=user_id,
+        )
+        refreshed = await self.template_repo.get_version(code, version)
+        return _template_to_dict(refreshed or template, clauses)
+
+    async def open_next_template_version(
+        self,
+        code: str,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Start version N+1 as a draft, copying the current version's clauses.
+
+        Clauses are copied by value. Sharing rows between versions would make
+        an edit to the new draft silently rewrite what the published version
+        says, which is the exact failure versioning exists to prevent.
+        """
+        versions = await self.template_repo.list_versions(code)
+        if not versions:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": "template_not_found", "code": code},
+            )
+        # Ask the whole lineage, not the current version. ``current_version``
+        # answers with the latest *published* row, so once v2 is open as a
+        # draft it still returns v1, and a guard reading it would never fire:
+        # a second call would branch v3 off v1 and leave two open drafts under
+        # one code, which makes "the next version" meaningless.
+        open_draft = next((row for row in versions if row.status == "draft"), None)
+        if open_draft is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "error": "template_draft_already_open",
+                    "code": code,
+                    "version": open_draft.version,
+                    "message": "That template already has an open draft. Edit it instead.",
+                },
+            )
+
+        # Branch from the published version when there is one. When every
+        # version has been archived there is nothing current, and the newest
+        # row is the only sensible starting point.
+        source = await self.template_repo.current_version(code) or max(versions, key=lambda row: row.version)
+        next_version = await self.template_repo.max_version(code) + 1
+        draft = ContractTemplate(
+            code=code,
+            version=next_version,
+            lineage_id=source.lineage_id,
+            name=source.name,
+            family=source.family,
+            description=source.description,
+            retention_release_event=source.retention_release_event,
+            status="draft",
+            derived_from_builtin=source.derived_from_builtin,
+            created_by=user_id,
+        )
+        await self.template_repo.create(draft)
+        source_clauses = await self.template_clause_repo.list_for_template(source.id)
+        clauses = await self._write_clauses(
+            draft.id,
+            [
+                {
+                    "number": clause.number,
+                    "title": clause.title,
+                    "body": clause.body,
+                    "sort_order": clause.sort_order,
+                    "risk_level": clause.risk_level,
+                    "risk_note": clause.risk_note,
+                    "is_optional": clause.is_optional,
+                }
+                for clause in source_clauses
+            ],
+        )
+        return _template_to_dict(draft, clauses)
+
+    async def archive_template_version(self, code: str, version: int) -> dict[str, Any]:
+        """Retire one version so it stops being offered.
+
+        Archiving does not delete it. A contract drawn from version 2 keeps
+        naming version 2 after it is retired, and the record of what that
+        version said has to survive for the contract to mean anything.
+        """
+        template = await self.template_repo.get_version(code, version)
+        if template is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": "template_version_not_found", "code": code, "version": version},
+            )
+        await self.template_repo.update_fields(template.id, status="archived")
+        refreshed = await self.template_repo.get_version(code, version)
+        clauses = await self.template_clause_repo.list_for_template(template.id)
+        return _template_to_dict(refreshed or template, clauses)
+
+    async def resolve_template_for_contract(self, code: str | None) -> tuple[str | None, int | None]:
+        """Turn a template code on a contract create into the pair we store.
+
+        Returns ``(code, version)`` or ``(None, None)``. The pair is
+        both-or-neither on purpose: a code stored without a version would mean
+        "whatever is current at read time", so publishing version 3 would
+        change what an already-signed contract claims to be drawn from. A
+        built-in resolves to version 0, which reads as "not a versioned
+        template" and keeps the pair populated.
+        """
+        if not code:
+            return None, None
+        if is_builtin_template_code(code):
+            return code, 0
+        current = await self.template_repo.current_version(code)
+        if current is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": "template_not_found", "code": code},
+            )
+        if current.status != "published":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "error": "template_not_published",
+                    "code": code,
+                    "version": current.version,
+                    "message": "A contract can only be drawn from a published template version.",
+                },
+            )
+        return current.code, current.version
+
 
 __all__ = [
     "BOQ_POSITION_META_KEY",
+    "CLAUSE_RISK_LEVELS",
+    "TEMPLATE_STATUSES",
     "ContractsService",
     "InvalidTransitionError",
     "NTECapExceededError",
@@ -3070,6 +3548,7 @@ __all__ = [
     "generate_lump_sum_claim",
     "generate_tm_claim",
     "generate_unit_price_claim",
+    "is_builtin_template_code",
     "validate_contract_terms",
 ]
 
@@ -3436,3 +3915,64 @@ def get_contract_template(template_code: str) -> dict[str, Any]:
         raise KeyError(f"Unknown contract clause template: {template_code}")
     body = CONTRACT_CLAUSE_TEMPLATES[template_code]
     return {"code": template_code, **body}
+
+
+# ── Authored clause templates ────────────────────────────────────────────
+#
+# The built-in catalogue above is a constant nobody can edit. What follows is
+# the authoring side: a tenant's own paper, versioned, with the rule that a
+# published version is frozen. The two halves meet in exactly one place,
+# ``ContractTemplateRepository.list_all``; see its docstring for why the
+# built-ins are not rows.
+
+#: Statuses an authored template version can hold.
+TEMPLATE_STATUSES: frozenset[str] = frozenset({"draft", "published", "archived"})
+
+#: Risk grades a clause can carry. Advisory: this says what a reviewer should
+#: read first, not what a lawyer concluded.
+CLAUSE_RISK_LEVELS: frozenset[str] = frozenset({"none", "low", "medium", "high"})
+
+
+def is_builtin_template_code(code: str) -> bool:
+    """Whether ``code`` names one of the built-in standard forms."""
+    return code in CONTRACT_CLAUSE_TEMPLATES
+
+
+def _template_to_dict(
+    template: ContractTemplate,
+    clauses: list[ContractTemplateClause] | None = None,
+) -> dict[str, Any]:
+    """Serialise one authored version, with its clauses when they were loaded."""
+    body: dict[str, Any] = {
+        "id": str(template.id),
+        "code": template.code,
+        "version": template.version,
+        "lineage_id": str(template.lineage_id),
+        "name": template.name,
+        "family": template.family,
+        "description": template.description,
+        "retention_release_event": template.retention_release_event,
+        "status": template.status,
+        "published_at": template.published_at,
+        "published_by": template.published_by,
+        "derived_from_builtin": template.derived_from_builtin,
+        "source": "authored",
+        "editable": template.status == "draft",
+        "metadata": dict(template.metadata_ or {}),
+    }
+    if clauses is not None:
+        body["clauses"] = [
+            {
+                "id": str(clause.id),
+                "number": clause.number,
+                "title": clause.title,
+                "body": clause.body,
+                "sort_order": clause.sort_order,
+                "risk_level": clause.risk_level,
+                "risk_note": clause.risk_note,
+                "is_optional": clause.is_optional,
+            }
+            for clause in clauses
+        ]
+        body["clause_count"] = len(clauses)
+    return body

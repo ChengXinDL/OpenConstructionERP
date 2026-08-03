@@ -192,9 +192,95 @@ class EOTDaysRule(ValidationRule):
         return results
 
 
+class ContractTemplatePinnedRule(ValidationRule):
+    """A contract that names a clause template must pin the version it used."""
+
+    rule_id = "contracts.template_version_pinned"
+    name = "Clause template reference pins a version"
+    standard = CONTRACTS_RULE_SET
+    severity = Severity.ERROR
+    category = RuleCategory.CONSISTENCY
+    description = "A contract drawn from a clause template must record which version of it"
+
+    async def validate(self, context: ValidationContext) -> list[RuleResult]:
+        contract = _contract(context)
+        code = contract.get("template_code")
+        version = contract.get("template_version")
+        # No template at all is a legitimate state: most contracts predate the
+        # feature and plenty are written from scratch. The rule is about the
+        # pair being half filled, not about having one.
+        if not code and version is None:
+            return []
+        # Version 0 is the built-in standard forms, which carry no versions of
+        # their own, so zero is a complete answer and not a missing one.
+        passed = bool(code) and version is not None
+        if passed:
+            message = "OK"
+            suggestion = None
+        elif code:
+            message = f"Contract names clause template '{code}' without a version"
+            suggestion = "Re-resolve the template so the version it was drawn from is stored"
+        else:
+            message = f"Contract carries clause template version {version} with no template code"
+            suggestion = "Clear the version, or record the template code it belongs to"
+        return [
+            RuleResult(
+                rule_id=self.rule_id,
+                rule_name=self.name,
+                severity=self.severity,
+                category=self.category,
+                passed=passed,
+                message=message,
+                element_ref=str(contract.get("id", "")),
+                suggestion=suggestion,
+            )
+        ]
+
+
+class ContractTemplateClausesRule(ValidationRule):
+    """A published clause template version must actually hold clauses."""
+
+    rule_id = "contracts.template_has_clauses"
+    name = "Published clause template is not empty"
+    standard = CONTRACTS_RULE_SET
+    severity = Severity.ERROR
+    category = RuleCategory.COMPLETENESS
+    description = "A published clause template version must hold at least one clause"
+
+    async def validate(self, context: ValidationContext) -> list[RuleResult]:
+        results: list[RuleResult] = []
+        for template in _rows(context, "templates"):
+            # A draft is allowed to be empty; that is what drafting is. Only a
+            # published version makes a promise, because that is the one a
+            # contract can name.
+            if str(template.get("status", "")) != "published":
+                continue
+            try:
+                count = int(template.get("clause_count", 0) or 0)
+            except (TypeError, ValueError):
+                count = 0
+            passed = count > 0
+            label = f"{template.get('code', 'template')} v{template.get('version', '?')}"
+            results.append(
+                RuleResult(
+                    rule_id=self.rule_id,
+                    rule_name=self.name,
+                    severity=self.severity,
+                    category=self.category,
+                    passed=passed,
+                    message=("OK" if passed else f"Published clause template {label} holds no clauses"),
+                    element_ref=str(template.get("id", "")),
+                    suggestion=(None if passed else "Add clauses to the template, or archive the version"),
+                )
+            )
+        return results
+
+
 def register_contracts_validation_rules() -> None:
     """Register the contracts rules with the platform rule registry."""
     rule_registry.register(ContractPartyRolesRule(), [CONTRACTS_RULE_SET])
     rule_registry.register(ContractPerformanceBondRule(), [CONTRACTS_RULE_SET])
     rule_registry.register(EOTDaysRule(), [CONTRACTS_RULE_SET])
+    rule_registry.register(ContractTemplatePinnedRule(), [CONTRACTS_RULE_SET])
+    rule_registry.register(ContractTemplateClausesRule(), [CONTRACTS_RULE_SET])
     logger.debug("contracts: registered 3 validation rules")

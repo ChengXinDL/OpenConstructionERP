@@ -18,6 +18,8 @@ Tables:
     oe_contracts_eot_claim                 - extension-of-time claims
     oe_contracts_document                  - contract documents register
     oe_contracts_milestone                 - milestones / payment schedule
+    oe_contracts_template                  - authored, versioned clause templates
+    oe_contracts_template_clause           - the clauses one template version holds
 
 Notes:
     * counterparty_id is a plain UUID column (no SQLAlchemy ForeignKey) since
@@ -113,6 +115,15 @@ class Contract(Base):
         default=dict,
         server_default="{}",
     )
+    # ── Which clause template this contract was drawn from ─────────────
+    # Both-or-neither. A code without a version would mean "drawn from
+    # whatever is current", which is the single thing versioning exists to
+    # prevent: publishing version 3 would silently restate what version 2
+    # said. Built-in templates carry no versions, so a contract drawn from
+    # one stores version 0, which reads as "not a versioned template" and
+    # keeps the pair populated instead of carving out a null case.
+    template_code: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
+    template_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
     metadata_: Mapped[dict] = mapped_column(  # type: ignore[assignment]
         "metadata",
@@ -800,3 +811,126 @@ class ContractMilestone(Base):
 
     def __repr__(self) -> str:
         return f"<ContractMilestone {self.code} {self.status}>"
+
+
+class ContractTemplate(Base):
+    """One version of an authored clause template.
+
+    The built-in standard-form catalogue (``CONTRACT_CLAUSE_TEMPLATES`` in
+    ``service.py``) is *not* stored here and never will be. Those eleven entries
+    are constants a user cannot edit, and the two ways to get them into a table -
+    a data migration, or a write at boot - both fail on this codebase: the
+    documented deploy path is ``create_all`` plus ``alembic stamp head`` and never
+    walks the revision chain, and ``on_startup()`` receives no session and is not
+    ordered against table creation. So this table holds authored templates only,
+    and the union of the two lives in exactly one place,
+    ``ContractTemplateRepository.list_all``.
+
+    Versions of one template share a ``code`` and are told apart by ``version``,
+    which is why uniqueness is on the pair. A template is editable while
+    ``status`` is ``draft``; publishing freezes it, and the next edit opens
+    version N+1 as a fresh draft row rather than mutating a version some contract
+    may already name. ``lineage_id`` ties those versions together and is set to
+    the id of version 1, so a lineage is addressable before version 2 exists.
+    """
+
+    __tablename__ = "oe_contracts_template"
+    __table_args__ = (UniqueConstraint("code", "version", name="uq_oe_contracts_template_code_version"),)
+
+    code: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
+    # The id of version 1 of this template. Self-assigned on create so a lineage
+    # has a stable handle from the first version, not from the second.
+    lineage_id: Mapped[uuid.UUID] = mapped_column(GUID(), nullable=False, index=True)
+
+    name: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    # Free-form grouping the UI renders as a chip: fidic, jct, nec, aia,
+    # consensusdocs for forks of a built-in, or whatever a tenant coins for its
+    # own paper. Deliberately not a whitelist - a national standard form we have
+    # never heard of must not need a migration.
+    family: Mapped[str] = mapped_column(String(40), nullable=False, default="", index=True)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    retention_release_event: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="practical_completion",
+    )
+    # draft | published | archived.
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="draft",
+        server_default="draft",
+        index=True,
+    )
+    published_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    published_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    # Set when this version was forked from a built-in, so the UI can say what
+    # the tenant's paper started life as. Never a foreign key: built-ins are
+    # constants, not rows.
+    derived_from_builtin: Mapped[str | None] = mapped_column(String(80), nullable=True)
+
+    created_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    metadata_: Mapped[dict] = mapped_column(  # type: ignore[assignment]
+        "metadata",
+        JSON,
+        nullable=False,
+        default=dict,
+        server_default="{}",
+    )
+
+    def __repr__(self) -> str:
+        return f"<ContractTemplate {self.code} v{self.version} ({self.status})>"
+
+
+class ContractTemplateClause(Base):
+    """A single clause belonging to one version of an authored template.
+
+    Clauses are copied by value when a version is opened, never shared between
+    versions: a published version has to keep saying what it said, and a row
+    shared with its successor would silently restate it.
+    """
+
+    __tablename__ = "oe_contracts_template_clause"
+    __table_args__ = (
+        UniqueConstraint(
+            "template_id",
+            "number",
+            name="uq_oe_contracts_template_clause_number",
+        ),
+    )
+
+    template_id: Mapped[uuid.UUID] = mapped_column(
+        GUID(),
+        ForeignKey("oe_contracts_template.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    # The clause number as the standard form writes it: "14.3", "X7", "2.32".
+    # A string, not a number, because clause numbering is not arithmetic.
+    number: Mapped[str] = mapped_column(String(40), nullable=False)
+    title: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    body: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    # none | low | medium | high. What a reviewer should look at first, not a
+    # legal opinion. Open-ended string for the same reason every other code
+    # field in this package is.
+    risk_level: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="none",
+        server_default="none",
+        index=True,
+    )
+    risk_note: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
+    # An optional clause can be dropped when a contract is drawn from the
+    # template; a mandatory one cannot.
+    is_optional: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="0",
+    )
+
+    def __repr__(self) -> str:
+        return f"<ContractTemplateClause {self.number} {self.title[:40]!r}>"

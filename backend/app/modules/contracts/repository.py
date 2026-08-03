@@ -22,6 +22,8 @@ from app.modules.contracts.models import (
     ContractMilestone,
     ContractParty,
     ContractSecurity,
+    ContractTemplate,
+    ContractTemplateClause,
     ContractTypeConfiguration,
     EOTClaim,
     FeeStructure,
@@ -511,3 +513,175 @@ class ContractMilestoneRepository(_CRUDBase):
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+
+class ContractTemplateClauseRepository(_CRUDBase):
+    model = ContractTemplateClause
+
+    async def list_for_template(self, template_id: uuid.UUID) -> list[ContractTemplateClause]:
+        stmt = (
+            select(ContractTemplateClause)
+            .where(ContractTemplateClause.template_id == template_id)
+            .order_by(ContractTemplateClause.sort_order, ContractTemplateClause.number)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def delete_for_template(self, template_id: uuid.UUID) -> int:
+        result = await self.session.execute(
+            sa_delete(ContractTemplateClause).where(ContractTemplateClause.template_id == template_id)
+        )
+        return int(result.rowcount or 0)
+
+
+class ContractTemplateRepository(_CRUDBase):
+    """Authored clause templates, and the one place they are unioned with the built-ins.
+
+    Nothing else in the codebase may compose the two halves. The built-in
+    catalogue is a module constant that cannot be edited or versioned; this
+    table holds what a tenant authored. Keeping the union here means the shape
+    a caller sees is decided once, and the invariant that no code appears twice
+    is testable rather than a convention.
+    """
+
+    model = ContractTemplate
+
+    async def get_version(self, code: str, version: int) -> ContractTemplate | None:
+        result = await self.session.execute(
+            select(ContractTemplate).where(ContractTemplate.code == code, ContractTemplate.version == version).limit(1)
+        )
+        return result.scalar_one_or_none()
+
+    async def list_versions(self, code: str) -> list[ContractTemplate]:
+        result = await self.session.execute(
+            select(ContractTemplate).where(ContractTemplate.code == code).order_by(ContractTemplate.version)
+        )
+        return list(result.scalars().all())
+
+    async def max_version(self, code: str) -> int:
+        """Highest version number under ``code``, or 0 when the code is unused."""
+        result = await self.session.execute(
+            select(func.max(ContractTemplate.version)).where(ContractTemplate.code == code)
+        )
+        return int(result.scalar() or 0)
+
+    async def current_version(self, code: str) -> ContractTemplate | None:
+        """The version a caller means when it names a code and no number.
+
+        The latest published version, or the latest draft when the template has
+        never been published. An archived version is never current: archiving is
+        how a tenant retires paper it no longer signs, and resolving to it would
+        make the retirement invisible.
+        """
+        published = await self.session.execute(
+            select(ContractTemplate)
+            .where(ContractTemplate.code == code, ContractTemplate.status == "published")
+            .order_by(ContractTemplate.version.desc())
+            .limit(1)
+        )
+        row = published.scalar_one_or_none()
+        if row is not None:
+            return row
+        draft = await self.session.execute(
+            select(ContractTemplate)
+            .where(ContractTemplate.code == code, ContractTemplate.status == "draft")
+            .order_by(ContractTemplate.version.desc())
+            .limit(1)
+        )
+        return draft.scalar_one_or_none()
+
+    async def list_current(self) -> list[ContractTemplate]:
+        """One row per authored lineage: its current version, as defined above.
+
+        Written as a Python fold over one ordered SELECT rather than a window
+        function, because the authored catalogue is tenant-sized (tens of rows,
+        not thousands) and a correlated subquery here would have to be written
+        twice for the published-else-draft rule.
+        """
+        result = await self.session.execute(
+            select(ContractTemplate).order_by(ContractTemplate.code, ContractTemplate.version)
+        )
+        best: dict[str, ContractTemplate] = {}
+        for row in result.scalars().all():
+            if row.status == "archived":
+                continue
+            held = best.get(row.code)
+            if held is None:
+                best[row.code] = row
+                continue
+            # Published outranks draft regardless of number, so publishing v2
+            # stays current while v3 is still being drafted. Within one status
+            # the higher version wins, and the ORDER BY already delivers those
+            # in ascending order.
+            if held.status == "published" and row.status != "published":
+                continue
+            best[row.code] = row
+        return [best[code] for code in sorted(best)]
+
+    async def list_all(self) -> list[dict[str, Any]]:
+        """Every template a user may choose from: built-in first, then authored.
+
+        This is the union point named in the class docstring. Every entry has
+        the same keys whichever half it came from, and two of them say which
+        half that was:
+
+            source    "builtin" | "authored"
+            editable  False for a built-in, True for an authored draft
+
+        A built-in reports ``version`` 0 rather than null, so a caller never has
+        to branch on the type of the field to sort or compare it. Zero reads as
+        "not a versioned template", which is exactly what a constant is.
+        """
+        from app.modules.contracts.service import list_contract_templates
+
+        entries: list[dict[str, Any]] = []
+        for builtin in list_contract_templates():
+            entries.append(
+                {
+                    "code": builtin["code"],
+                    "name": builtin["name"],
+                    "family": builtin["family"],
+                    "description": "",
+                    "retention_release_event": builtin["retention_release_event"],
+                    "clause_count": builtin["clause_count"],
+                    "source": "builtin",
+                    "editable": False,
+                    "version": 0,
+                    "status": "published",
+                    "derived_from_builtin": None,
+                    "template_id": None,
+                }
+            )
+
+        rows = await self.list_current()
+        if rows:
+            counts = await self.session.execute(
+                select(
+                    ContractTemplateClause.template_id,
+                    func.count(ContractTemplateClause.id),
+                )
+                .where(ContractTemplateClause.template_id.in_([row.id for row in rows]))
+                .group_by(ContractTemplateClause.template_id)
+            )
+            clause_counts = {template_id: count for template_id, count in counts.all()}
+        else:
+            clause_counts = {}
+
+        for row in rows:
+            entries.append(
+                {
+                    "code": row.code,
+                    "name": row.name,
+                    "family": row.family,
+                    "description": row.description,
+                    "retention_release_event": row.retention_release_event,
+                    "clause_count": int(clause_counts.get(row.id, 0)),
+                    "source": "authored",
+                    "editable": row.status == "draft",
+                    "version": row.version,
+                    "status": row.status,
+                    "derived_from_builtin": row.derived_from_builtin,
+                    "template_id": str(row.id),
+                }
+            )
+        return entries
