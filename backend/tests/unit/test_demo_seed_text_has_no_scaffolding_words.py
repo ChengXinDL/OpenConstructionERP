@@ -44,8 +44,10 @@ listed so the next person does not read them as misses and start "fixing" them:
 2. ``/api/demo/*`` route paths and storage prefixes, which are API surface;
 3. log, print and exception strings, which are read by operators, not users -
    excluded structurally by :func:`_logging_argument_nodes`;
-4. legacy ``DEMO-`` prefixes kept only so a re-seed can recognise and delete
-   rows an older seeder wrote, excluded by the shape of :data:`_DEMO_CODE`;
+4. legacy ``DEMO-`` prefixes kept so a re-seed can recognise rows an older
+   seeder wrote, whether to delete them or, in ``catalog/seed.py``, to rename
+   them forward. Excluded by the shape of :data:`_DEMO_CODE`, which requires a
+   character after the separator and so never matches a bare prefix constant;
 5. the input to a ``uuid5`` derivation, where the text is an id ingredient and
    never displayed;
 6. ``Document.file_path``, whose row marks itself demo through
