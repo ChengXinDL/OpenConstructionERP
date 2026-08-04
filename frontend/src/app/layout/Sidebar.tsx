@@ -239,12 +239,41 @@ const navGroups: NavGroup[] = [
       // Overview so the "learn by example" entry is discoverable from the top,
       // and above Project files so the "learn by example" entry is seen first.
       { labelKey: 'nav.cases', to: '/cases', icon: Route },
+    ],
+  },
+  // ── 1b. DRAWINGS & FILES ───────────────────────────────────────────
+  // Where a drawing lives and how you get to it: the project file store,
+  // the sheet index built out of it, the plan room that opens a sheet with
+  // its overlays, and the markups drawn on top. Founder-requested home for
+  // the sheet register, which used to sit in Overview under Project files.
+  //
+  // Named for its contents rather than "Documents", because `grp_documents`
+  // below already carries that label: two headers starting with the same
+  // word would be a coin toss for the reader. That group keeps the outbound
+  // paperwork (submittals, transmittals, signing), the formal binder (CDE,
+  // source data) and the site photos - none of which are drawings.
+  //
+  // No `hideInSimple` and no `advancedOnly` on any row: Project files was
+  // reachable in Simple mode from Overview, and moving it must not take it
+  // away from the users least able to find it again.
+  {
+    id: 'grp_drawings',
+    labelKey: 'sidebar.group.drawings',
+    defaultLabel: 'Drawings & Files',
+    defaultOpen: true,
+    items: [
       { labelKey: 'nav.project_files', to: '/files', icon: HardDrive },
-      // Drawing sheets indexed out of those files. Directly under Project
-      // files because that is where someone goes looking for a drawing.
       // Reuses the page's own title key, which is already translated in all
       // 29 locales, so the sidebar entry and the page heading cannot drift.
       { labelKey: 'sheets.page_title', to: '/sheets', icon: FileText },
+      // These two arrive from Documents, which hides itself in Simple mode, so
+      // they carry the row-level form of that flag to keep the audience they
+      // already had. Moving a row between groups must not change who can see
+      // it, or a reorganisation becomes indistinguishable from a launch, and
+      // Plan room is still BETA: landing it in front of the users who chose the
+      // simplest view is a decision somebody should make on purpose.
+      { labelKey: 'nav.plan_room', to: '/plan-room', icon: Layers, badge: 'BETA', advancedOnly: true },
+      { labelKey: 'nav.markups', to: '/markups', icon: PenTool, advancedOnly: true },
     ],
   },
   // ── 2. TAKEOFF ─────────────────────────────────────────────────────
@@ -666,7 +695,10 @@ const navGroups: NavGroup[] = [
     ],
   },
   // ── 16. DOCUMENTS ──────────────────────────────────────────────────
-  // Outbound paperwork + the CDE binder, project photos, drawing markups.
+  // Outbound paperwork (submittals, transmittals, signing), the CDE binder
+  // and imported source data, plus site photos. The drawing surfaces that
+  // used to sit here - plan room and markups - moved up to Drawings & Files
+  // (group 1b) alongside the sheet register they belong with.
   {
     id: 'grp_documents',
     labelKey: 'sidebar.group.documents',
@@ -680,8 +712,6 @@ const navGroups: NavGroup[] = [
       { labelKey: 'source_data.title', to: '/source-data', icon: Database, advancedOnly: true },
       { labelKey: 'signing.title', to: '/signing', icon: PenTool, advancedOnly: true },
       { labelKey: 'nav.photos', to: '/photos', icon: Camera },
-      { labelKey: 'nav.markups', to: '/markups', icon: PenTool },
-      { labelKey: 'nav.plan_room', to: '/plan-room', icon: Layers, badge: 'BETA' },
     ],
   },
   // ── 17. REAL ESTATE ────────────────────────────────────────────────

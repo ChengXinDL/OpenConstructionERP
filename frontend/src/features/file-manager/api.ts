@@ -22,6 +22,7 @@ import type {
   ShareLinkCreatePayload,
   ShareLinkPublicInfo,
   ShareLinkResponse,
+  SheetRow,
   StorageLocations,
 } from './types';
 
@@ -444,6 +445,42 @@ export async function renameDocument(
     `${DOCUMENTS_BASE}/${documentId}`,
     { name },
   );
+}
+
+/* ── Drawing sheets ──────────────────────────────────────────────────── */
+
+/**
+ * Split a multi-page drawing set into one sheet row per page.
+ *
+ * Backed by ``POST /v1/documents/sheets/split-pdf/``, which stores the PDF as
+ * a project document and then walks it page by page: the sheet number, title,
+ * revision and scale are read out of the page text, the discipline comes from
+ * the number prefix, and a thumbnail is rendered per page. Returns the rows it
+ * created, which is what the register lists.
+ *
+ * Sent as raw multipart rather than through ``apiPost`` for two reasons: the
+ * browser has to own the multipart boundary, and a full drawing set takes far
+ * longer to split than the JSON client's 45s abort allows.
+ */
+export async function splitPdfIntoSheets(
+  projectId: string,
+  file: File,
+): Promise<SheetRow[]> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(
+    `/api${DOCUMENTS_BASE}/sheets/split-pdf/?project_id=${encodeURIComponent(projectId)}`,
+    {
+      method: 'POST',
+      headers: buildAuthHeaders(),
+      body: form,
+    },
+  );
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(extractErrorMessageFromBody(body) ?? `Split failed (${res.status})`);
+  }
+  return (await res.json()) as SheetRow[];
 }
 
 /* ── Per-kind delete helpers (bulk-delete dispatcher) ────────────────── */

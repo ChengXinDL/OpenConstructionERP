@@ -230,3 +230,34 @@ export interface FileFavorite {
 export function favoriteKey(kind: FileKind, fileId: string): string {
   return `${kind}:${fileId}`;
 }
+
+/* ── Drawing sheets ──────────────────────────────────────────────────── */
+
+/** One indexed drawing sheet — a single page lifted out of a multi-page PDF
+ * drawing set. Mirrors ``SheetResponse`` in
+ * backend/app/modules/documents/schemas.py.
+ *
+ * ``document_id`` points at the parent document in the documents module (the
+ * same table ``/v1/documents/`` lists), so it can be handed straight to the
+ * plan room and takeoff deep-links without translation. ``thumbnail_path`` is a
+ * server-side filesystem path, NOT a URL: no route currently serves it to an
+ * authenticated client, so nothing renders it yet. */
+export interface SheetRow {
+  id: string;
+  project_id: string;
+  document_id: string;
+  page_number: number;
+  sheet_number: string | null;
+  sheet_title: string | null;
+  discipline: string | null;
+  revision: string | null;
+  revision_date: string | null;
+  scale: string | null;
+  is_current: boolean;
+  previous_version_id: string | null;
+  thumbnail_path: string | null;
+  metadata: Record<string, unknown>;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}

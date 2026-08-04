@@ -1240,7 +1240,9 @@ export function TakeoffPage() {
    *  by document id and remounts on document switch, so an unscoped
    *  `initialPage` would leak onto the next document opened in the same
    *  session. Captured once via a ref (mirrors `deepLinkConsumedRef` in the
-   *  viewer), never updated after mount. */
+   *  viewer). The only later write is the `?source=document` branch below,
+   *  which swaps in the takeoff id that find-or-create resolved the deep-link
+   *  to - still the same deep link, just under the id the viewer is keyed by. */
   const deepLinkedDocIdRef = useRef<string | null>(
     searchParams.get('doc') || searchParams.get('docId') || null,
   );
@@ -1401,6 +1403,14 @@ export function TakeoffPage() {
         // Use the takeoff_document id everywhere from here on so scale-detect,
         // page-scales and measurements all resolve against takeoff_documents.
         setActiveDocId(takeoff.id);
+        // Re-point the deep-link ref at the id the viewer will actually be
+        // keyed by. `initialPage` is gated on `viewerDoc.id === ref`, and the
+        // ref was captured at mount from `?doc=`, which on this path is the
+        // documents-module id, not the takeoff id we just resolved. Without
+        // this the two never match and a `?page=` alongside `?source=document`
+        // is silently dropped, landing the user on page 1 of the right set -
+        // which is what the sheet register's "measure this sheet" link needs.
+        deepLinkedDocIdRef.current = takeoff.id;
         setViewerDoc({
           url: `/api/v1/takeoff/documents/${encodeURIComponent(takeoff.id)}/download/`,
           name: displayName,
