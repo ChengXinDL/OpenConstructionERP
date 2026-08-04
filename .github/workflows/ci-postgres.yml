@@ -115,11 +115,29 @@ jobs:
       # reported as a working install, so a gap in that set is not a worse
       # message but a false all-clear. One reached a user: Windows refused to
       # start the binary and the status card showed no problem.
+      # The two extents files joined them. The parser stores a bounding box and
+      # the service recomputes one from the same entities, and for years the two
+      # disagreed about the same drawing because the parser read a field no
+      # writer emits. Nothing compared them, so both were green. The DXF file
+      # asserts they agree; the units file guards the recompute itself and had
+      # never run in a lane that blocks a merge.
+      # The converter installer joined them for the same reason the health
+      # check did. The install gate read four bytes of one file out of the 251
+      # it downloads and never looked at the machine field, so the one thing it
+      # was accused of shipping - a binary for the wrong word size - would have
+      # passed it. The installer also mirrored in one direction only: a real
+      # install still held a binary upstream had deleted three days before that
+      # install last ran, in the folder our own message told people to fix by
+      # downloading again. Synthetic PE headers and a stubbed transport, no
+      # network and no database, about two seconds.
       - name: Run DWG parser and CAD converter health tests
         run: >-
           pytest tests/unit/test_ddc_dwg_parser_scaling.py
           tests/unit/test_ddc_dwg_parser_fidelity.py
+          tests/unit/test_dxf_extents_and_blocks.py
+          tests/unit/test_dwg_units_inference.py
           tests/unit/test_cad_converter_loader_failures.py
+          tests/unit/test_converter_install_integrity.py
           -q -p no:cacheprovider
       # The chat path for providers we call without a tool schema. Attached for
       # the same reason as the suites above: tests/unit is in no lane that blocks
@@ -145,6 +163,81 @@ jobs:
       # on whether a rating is per project, per tenant or deliberately shared.
       - name: Run subcontractor rating disclosure tests
         run: pytest tests/unit/test_subcontractor_rating_basis_privacy.py -q -p no:cacheprovider
+      # Identifier length across every revision. Attached here for the usual
+      # reason, and this is the suite that would have caught the worst release
+      # bug of the cycle: a 65-character foreign key name in v3280 that
+      # PostgreSQL cannot accept. SQLAlchemy refuses to emit a name it knows
+      # will be truncated, so the revision raised before sending any DDL, and
+      # because PostgreSQL runs DDL in a transaction the whole upgrade rolled
+      # back. A site coming from 14.0.0 therefore received none of the eighteen
+      # pending revisions rather than stopping at the offending one. Every test
+      # we had passed, because they run on SQLite, which has no such limit.
+      # Deliberately a string scan and not a database round trip, so it costs
+      # nothing and does not need the service container beside it. It carries
+      # its own red proof: one case feeds it the exact name that broke the
+      # release and asserts it is flagged, so this is not a guard that has only
+      # ever been observed passing.
+      - name: Run migration identifier length tests
+        run: pytest tests/unit/test_migration_identifier_length.py -q -p no:cacheprovider
+      # The rule that decides whether a contract has anybody who can sign it.
+      # Attached here for the same reason as everything around it, which is that
+      # tests/unit runs in no lane that blocks a merge. The rule used to apply
+      # only to a contract that was already active or completed, while the only
+      # moment its answer matters is the press of "put up for signature", which
+      # happens on a draft: the two conditions were mutually exclusive, so the
+      # rule could not fire at the moment it was written for and what stopped
+      # the press was a refusal hardcoded in the service. Every existing test
+      # around signing built a contract with parties, so nothing ever asked the
+      # rule about a draft.
+      # It also asked for a named employer and a named contractor, which is one
+      # contract's shape. A subcontract is executed by the main contractor and
+      # the firm selling the work, with no employer on it at all, so wiring that
+      # wording to the press would have refused every subcontract in the product
+      # including the draft the demo seeds to make signing demonstrable. The
+      # rule now asks for two distinct signing roles, and the roles come from
+      # the signing bridge rather than a second copy: the suite pins that, and
+      # pins that the rule passing implies the signature block has two names,
+      # which is what allows the hardcoded refusal to stay deleted. No database,
+      # under two seconds.
+      - name: Run contract party rule tests
+        run: pytest tests/unit/test_contracts_party_rule.py -q -p no:cacheprovider
+      # Money that must never hold two currencies at once. Attached here for the
+      # same reason as everything around it, which is that tests/unit runs in no
+      # lane that blocks a merge - and no assemblies test was in this list at
+      # all, so the whole feature's suite blocked nothing. The apply-template
+      # preview converted each component into a target currency and, when no
+      # rate could be found, added the UNCONVERTED amount into that same total:
+      # 100 EUR plus 1000 of an unpriceable currency was reported as 1100 EUR
+      # under a warning. The file's own comment said "NEVER blend currencies"
+      # eight lines above the code that did. The direction assertions matter as
+      # much as the blending ones: a project rate is quoted as base-per-foreign
+      # and a register rate as target-per-source, both applied by
+      # multiplication, so an inverted rate returns a plausible number and
+      # raises nothing - a round-trip assertion would pass on it. The two named
+      # cases from the assemblies suite are the apply-to-BOQ half of the same
+      # contract, taken by node id rather than by file so this step does not
+      # adopt 195 unrelated tests. No database for the first file, about twelve
+      # seconds.
+      - name: Run assemblies currency blending tests
+        run: >-
+          pytest tests/unit/test_assemblies_currency_blending.py
+          "tests/unit/test_assemblies.py::test_apply_to_boq_uses_the_fx_register_when_the_project_has_no_rate"
+          "tests/unit/test_assemblies.py::test_apply_to_boq_currency_mismatch_no_rate_flags_not_blocks"
+          -q -p no:cacheprovider
+      # The readers behind the release version check. Attached here for the same
+      # reason as everything around it, which is that tests/unit runs in no lane
+      # that blocks a merge. The check itself runs whole-tree in Repo hygiene, so
+      # this file deliberately does not repeat that; what it covers is how the
+      # two Cargo files are parsed. Both readers are regexes anchored on a table
+      # rather than a real TOML parse, and the lockfile they read carries 538
+      # package entries with a version literal each, so an unanchored reader
+      # there does not merely risk the wrong answer, it reports a dependency's
+      # version as the release forever and stays green doing it. The cases use
+      # manifest and lockfile shapes that are valid TOML but do not occur in the
+      # tree today, which is exactly what a run against the tree cannot cover.
+      # No database, under a second.
+      - name: Run release version literal reader tests
+        run: pytest tests/unit/test_version_sync_check.py -q -p no:cacheprovider
       # The cost base pipeline produces the parquet editions people download from us, so it
       # needs a blocking gate. It needs no database; it is attached here because this is the
       # only merge-blocking lane that runs pytest, and an ungated test is the situation this
@@ -156,3 +249,79 @@ jobs:
       - name: Run cost base pipeline suite
         working-directory: tools/costbase_pipeline
         run: pytest tests -q -p no:cacheprovider
+
+  frontend-tests:
+    name: Frontend tests that block a merge
+    runs-on: ubuntu-latest
+    # This job needs nothing from PostgreSQL and sits in this workflow anyway,
+    # because this workflow is the gate. The frontend suite does run elsewhere,
+    # in the CI workflow, which has been red for a long time on a type check
+    # that exhausts the heap, so a failure there stops nothing and nobody reads
+    # it. Until that is fixed, a frontend test outside this file gates nothing,
+    # and there are 519 of them.
+    #
+    # Named files rather than the whole suite, and that is a measurement rather
+    # than a preference. Eleven files take 118 seconds here against 12 logical
+    # cores; the same work over all 519 comes to somewhere between 55 and 95
+    # minutes depending on how the workers saturate. That does not belong in
+    # front of every merge. This mirrors how the backend half of this file
+    # already works: tests/unit is not collected wholesale either, it is named.
+    #
+    # The list is the frontend half of the work this release carries, and it is
+    # deliberately short. Adding to it should be a decision each time, not a
+    # habit, because every entry is paid on every merge.
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      # Six of the eleven files below are jsdom component tests, which are the
+      # expensive kind, and this runner has four cores rather than the twelve
+      # the local measurement was taken on. The whole-program type check and the
+      # build in the other workflow already need this ceiling and are skipped on
+      # macOS because a 9 GB heap does not fit that runner at all. Running the
+      # tests under the default heap would be betting the gate on jsdom staying
+      # below a limit nothing else in this repository stays below.
+      NODE_OPTIONS: --max-old-space-size=9216
+      # One list, read by both steps below. Splitting it would let the guard and
+      # the run disagree about what is covered, which is the failure this guard
+      # exists to prevent in the first place.
+      FRONTEND_TEST_FILES: >-
+        src/features/assemblies/__tests__/preview-totals-no-blended-scalar.test.tsx
+        src/features/bim/BIMConverterVerifyGate.test.tsx
+        src/features/cases/casesProjectContext.test.tsx
+        src/features/contracts/ContractAnalyticsPanels.test.tsx
+        src/features/contracts/findingKeys.test.ts
+        src/features/dashboard/__tests__/DashboardWidgetScope.test.tsx
+        src/features/dwg-takeoff/lib/__tests__/blocks.test.ts
+        src/features/dwg-takeoff/lib/__tests__/dxf-renderer.test.ts
+        src/features/dwg-takeoff/lib/__tests__/viewport.test.ts
+        src/features/file-manager/SheetsIndexPage.test.tsx
+        src/features/file-manager/sheetsInsights.test.ts
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Confirm every named test file still exists
+        # A positional argument to vitest is a filter, not a path. A filter that
+        # matches no file runs zero tests and exits zero, so a rename anywhere in
+        # the list would turn this job green and silent rather than red. pytest
+        # errors on an unresolvable node id; vitest does not, so the check has to
+        # be written by hand. Without this step the job would keep passing while
+        # covering nothing, which is worse than not having it.
+        run: |
+          missing=0
+          for f in $FRONTEND_TEST_FILES; do
+            if [ ! -f "$f" ]; then
+              echo "::error::named test file not found: $f"
+              missing=1
+            fi
+          done
+          exit $missing
+      - name: Run the named frontend tests
+        run: npx vitest run $FRONTEND_TEST_FILES
