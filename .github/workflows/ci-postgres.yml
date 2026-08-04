@@ -215,14 +215,18 @@ jobs:
       # multiplication, so an inverted rate returns a plausible number and
       # raises nothing - a round-trip assertion would pass on it. The two named
       # cases from the assemblies suite are the apply-to-BOQ half of the same
-      # contract, taken by node id rather than by file so this step does not
-      # adopt 195 unrelated tests. No database for the first file, about twelve
-      # seconds.
+      # contract.
+      #
+      # They used to be taken by node id rather than by file, on the stated
+      # grounds that naming the file would adopt 195 unrelated tests. Measured
+      # 2026-08-04, that file holds 50 tests and runs in 56 seconds, so the
+      # reason no longer holds and it may never have. Two node ids also left the
+      # worst possible shape: the filename appeared in the gate while 48 of its
+      # tests, in a money feature, were covered by nothing. Whole file now.
       - name: Run assemblies currency blending tests
         run: >-
           pytest tests/unit/test_assemblies_currency_blending.py
-          "tests/unit/test_assemblies.py::test_apply_to_boq_uses_the_fx_register_when_the_project_has_no_rate"
-          "tests/unit/test_assemblies.py::test_apply_to_boq_currency_mismatch_no_rate_flags_not_blocks"
+          tests/unit/test_assemblies.py
           -q -p no:cacheprovider
       # The readers behind the release version check. Attached here for the same
       # reason as everything around it, which is that tests/unit runs in no lane
@@ -279,6 +283,22 @@ jobs:
       # Needs the database, about four minutes for the two together, which is
       # most of the cost of adding them and is worth it for an access control
       # file that ran in no lane before this.
+      # Money and permissions, the two subjects where an ungated test costs the
+      # most. A census on 2026-08-04 found 1298 of the 1370 files under
+      # backend/tests in no blocking lane, about 125 of them money and about 96
+      # permissions, against three money files and one permissions file gated.
+      # Closing that gap wholesale is not a release-day change; these four are
+      # the ones that are both high risk and cheap, measured at 203 tests in 40
+      # seconds together. The rest of the census is written up separately.
+      # Nothing here was failing when it was added, so a failure means a
+      # regression rather than a pre-existing debt being surfaced.
+      - name: Run ungated money and permission tests
+        run: >-
+          pytest tests/unit/test_money_iso4217_minor_units.py
+          tests/unit/test_money_decimal_global.py
+          tests/unit/test_vat_lookup.py
+          tests/unit/test_permissions.py
+          -q -p no:cacheprovider
       - name: Run sheet access control and photo scope tests
         run: >-
           pytest tests/unit/test_sheets_access_control.py
