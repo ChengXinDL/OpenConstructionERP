@@ -129,9 +129,15 @@ async def _seed_sheet(
 async def test_split_creates_one_row_per_page_in_page_order(session: AsyncSession) -> None:
     """Three pages become three rows, numbered 1..3 in the order they appear.
 
-    The order is asserted for a single split of a single file, which is the
-    only case the query decides deterministically: ``list_for_project`` sorts
-    on ``page_number`` alone, so two documents in one project interleave.
+    The order is asserted for a single split of a single file, which is all
+    this test is about. It used to say that was the only case the query
+    decides, because ``list_for_project`` sorted on ``page_number`` alone and
+    a second document in the same project starts at page 1 again. That clause
+    is stale: the query now orders on page number, then the created instant,
+    then the id, so two documents no longer interleave by chance. Widening
+    this test to two documents is a fair thing to want and belongs beside the
+    ordering change rather than here, where a scope of one file keeps the
+    subject the split rather than the register.
     """
     project_id, user_id = await _seed_project(session)
     pdf = _pdf_with_pages(

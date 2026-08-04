@@ -1158,6 +1158,11 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["GET", "HEAD", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "Authorization", "Accept", "Accept-Language"],
+        # A list route that pages returns the number of matches behind the page
+        # in X-Total-Count. A browser hides every response header a server does
+        # not name here, so without this the count reaches a frontend served
+        # from another origin and cannot be read there.
+        expose_headers=["X-Total-Count"],
     )
 
     # ── API Version header ──────────────────────────────────────────────

@@ -267,7 +267,7 @@ jobs:
       - name: Run sheet register split tests
         run: |
           set -o pipefail
-          pytest tests/unit/test_sheets_split_and_register.py -q -p no:cacheprovider | tee sheets.log
+          pytest tests/unit/test_sheets_split_and_register.py tests/unit/test_sheets_read_path.py -q -p no:cacheprovider | tee sheets.log
           if grep -qE '[0-9]+ skipped' sheets.log; then
             echo "::error::A sheet register test skipped instead of running. reportlab or pdfplumber is missing from this lane, so this step proved nothing." >&2
             exit 1

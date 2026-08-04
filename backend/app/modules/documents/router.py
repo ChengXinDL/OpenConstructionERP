@@ -27,7 +27,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import FileResponse
 
 from app.core.bulk_ops import BulkDeleteRequest
@@ -904,6 +904,7 @@ def _sheet_to_response(sheet: object) -> SheetResponse:
 @router.get("/sheets/", response_model=list[SheetResponse])
 async def list_sheets(
     session: SessionDep,
+    response: Response,
     project_id: uuid.UUID = Query(...),
     discipline: str | None = Query(default=None),
     revision: str | None = Query(default=None),
@@ -914,9 +915,15 @@ async def list_sheets(
     user_id: CurrentUserId = None,  # type: ignore[assignment]
     service: SheetService = Depends(_get_sheet_service),
 ) -> list[SheetResponse]:
-    """List sheets for a project with optional filters."""
+    """List sheets for a project with optional filters.
+
+    The body stays a bare array, matching every other list in this module, and
+    the number of sheets the filters matched is returned in ``X-Total-Count``.
+    ``limit`` caps at 500 and the register asks for exactly that, so without the
+    count a truncated page and a whole one are the same response.
+    """
     await verify_project_access(project_id, user_id, session)
-    sheets, _ = await service.list_sheets(
+    sheets, total = await service.list_sheets(
         project_id,
         offset=offset,
         limit=limit,
@@ -925,6 +932,7 @@ async def list_sheets(
         document_id=document_id,
         current_only=current_only,
     )
+    response.headers["X-Total-Count"] = str(total)
     return [_sheet_to_response(s) for s in sheets]
 
 

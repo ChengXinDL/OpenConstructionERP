@@ -344,7 +344,16 @@ class SheetRepository:
         count_stmt = select(func.count()).select_from(base.subquery())
         total = (await self.session.execute(count_stmt)).scalar_one()
 
-        stmt = base.order_by(Sheet.page_number.asc()).offset(offset).limit(limit)
+        # A page number is not unique: a set uploaded again starts at page 1
+        # again, and one import can register two revisions in a single instant.
+        # Ordering on the page number alone leaves those ties to the storage,
+        # which is not an order the same query has to repeat, and the route
+        # pages this with offset and limit - two pages that resolve one tie
+        # differently show a row twice and skip the one it displaced. The
+        # instant puts the older revision first and the id, being unique, is
+        # what makes the order total.
+        ordered = base.order_by(Sheet.page_number.asc(), Sheet.created_at.asc(), Sheet.id.asc())
+        stmt = ordered.offset(offset).limit(limit)
         result = await self.session.execute(stmt)
         items = list(result.scalars().all())
 
