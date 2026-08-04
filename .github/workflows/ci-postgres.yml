@@ -343,15 +343,20 @@ jobs:
     # because this workflow is the gate. The frontend suite does run elsewhere,
     # in the CI workflow, which has been red for a long time on a type check
     # that exhausts the heap, so a failure there stops nothing and nobody reads
-    # it. Until that is fixed, a frontend test outside this file gates nothing,
-    # and there are 519 of them.
+    # it. Until that is fixed, a frontend test outside this file gates nothing.
+    # Counted 2026-08-04: 518 test files exist, 13 are named below, so 505 of
+    # them gate nothing. Recount rather than trust that sentence, because the
+    # list grows and the disk grows faster.
     #
     # Named files rather than the whole suite, and that is a measurement rather
-    # than a preference. Eleven files take 118 seconds here against 12 logical
-    # cores; the same work over all 519 comes to somewhere between 55 and 95
-    # minutes depending on how the workers saturate. That does not belong in
-    # front of every merge. This mirrors how the backend half of this file
-    # already works: tests/unit is not collected wholesale either, it is named.
+    # than a preference. The timing was taken when the list held eleven files:
+    # 118 seconds against 12 logical cores, where the same work over the whole
+    # suite comes to somewhere between 55 and 95 minutes depending on how the
+    # workers saturate. That does not belong in front of every merge. The list
+    # has grown by two since that measurement and has not been re-timed, so
+    # treat 118 seconds as a floor. This mirrors how the backend half of this
+    # file already works: tests/unit is not collected wholesale either, it is
+    # named.
     #
     # The list is the frontend half of the work this release carries, and it is
     # deliberately short. Adding to it should be a decision each time, not a
@@ -361,13 +366,13 @@ jobs:
       run:
         working-directory: frontend
     env:
-      # Six of the eleven files below are jsdom component tests, which are the
-      # expensive kind, and this runner has four cores rather than the twelve
-      # the local measurement was taken on. The whole-program type check and the
-      # build in the other workflow already need this ceiling and are skipped on
-      # macOS because a 9 GB heap does not fit that runner at all. Running the
-      # tests under the default heap would be betting the gate on jsdom staying
-      # below a limit nothing else in this repository stays below.
+      # Seven of the thirteen files below are jsdom component tests, which are
+      # the expensive kind, and this runner has four cores rather than the
+      # twelve the local measurement was taken on. The whole-program type check
+      # and the build in the other workflow already need this ceiling and are
+      # skipped on macOS because a 9 GB heap does not fit that runner at all.
+      # Running the tests under the default heap would be betting the gate on
+      # jsdom staying below a limit nothing else in this repository stays below.
       NODE_OPTIONS: --max-old-space-size=9216
       # One list, read by both steps below. Splitting it would let the guard and
       # the run disagree about what is covered, which is the failure this guard
