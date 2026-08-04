@@ -268,6 +268,22 @@ jobs:
             echo "::error::A sheet register test skipped instead of running. reportlab or pdfplumber is missing from this lane, so this step proved nothing." >&2
             exit 1
           fi
+      # Who may read a sheet, and whose photos the dashboard card asks for. Both
+      # are scope questions, which is the class of bug that looks correct in a
+      # screenshot: a card showing the wrong project's data and a card showing
+      # the right project's data are the same picture until you know which
+      # project was selected. The photos file covers the pair that has to agree,
+      # the request and the cache key, because a key that does not carry the
+      # project serves the previous one's photos without asking the server at
+      # all, which is indistinguishable from a server ignoring the filter.
+      # Needs the database, about four minutes for the two together, which is
+      # most of the cost of adding them and is worth it for an access control
+      # file that ran in no lane before this.
+      - name: Run sheet access control and photo scope tests
+        run: >-
+          pytest tests/unit/test_sheets_access_control.py
+          tests/unit/test_photos_recent_project_scope.py
+          -q -p no:cacheprovider
       # The cost base pipeline produces the parquet editions people download from us, so it
       # needs a blocking gate. It needs no database; it is attached here because this is the
       # only merge-blocking lane that runs pytest, and an ungated test is the situation this

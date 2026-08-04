@@ -477,6 +477,80 @@ async def test_one_upload_claiming_a_number_twice_keeps_both_pages_current(sessi
     assert by_page[2].previous_version_id is None
 
 
+# ── The consequence downstream of the register ────────────────────────────
+
+
+async def test_completeness_compares_the_index_against_the_newest_revision(session: AsyncSession) -> None:
+    """A re-issued sheet is reconciled against the revision that replaced it.
+
+    ``check_completeness`` loads the project's sheets with ``current_only=True``
+    and its own comment beside that call said this was so superseded revisions
+    do not read as extra. Nothing ever marked a revision superseded, so the
+    comment described an intention rather than the code.
+
+    The consequence was NOT a pile of extras, which is worth stating because it
+    is the obvious guess and it is wrong. ``reconcile`` keys both sides on the
+    normalised sheet number and builds a dict, so two rows carrying A-201
+    collapse into one entry and the later one in the list simply overwrites the
+    earlier. Nothing is reported. What decided which of the two revisions got
+    compared against the index was the order ``list_sheets`` happened to return,
+    and that order sorts on page number, which both rows share. So the revision
+    check could answer for the superseded sheet, and the same call could answer
+    differently twice.
+
+    Here the index asks for revision B, the first upload is revision A and the
+    second is revision B. With one current row the answer is decided rather than
+    raced.
+    """
+    project_id, user_id = await _seed_project(session)
+    rev_a = _pdf_with_pages([["SHEET NO: A-201", "SHEET TITLE: Floor Plan Level 2", "REV A"]])
+    rev_b = _pdf_with_pages([["SHEET NO: A-201", "SHEET TITLE: Floor Plan Level 2", "REV B"]])
+
+    service = SheetService(session)
+    first = await service.split_pdf_to_sheets(project_id, _upload(rev_a), user_id)
+    second = await service.split_pdf_to_sheets(project_id, _upload(rev_b), user_id)
+    assert first[0].revision == "A"
+    assert second[0].revision == "B"
+
+    report = await service.check_completeness(project_id, pasted_index="A-201 Floor Plan Level 2 Rev B")
+    completeness = report["completeness"]
+
+    assert completeness["matched"] == ["A-201"]
+    assert completeness["missing"] == []
+    assert completeness["extra"] == []
+    # The revision compared is B, the one that replaced A, so nothing mismatches.
+    assert completeness["rev_mismatch"] == []
+
+    # Both rows are still in the table, so what changed is which sheet the
+    # reconciliation reads and not whether the history survives.
+    rows = list((await session.execute(select(Sheet).where(Sheet.project_id == project_id))).scalars().all())
+    assert len(rows) == 2
+
+
+async def test_completeness_counts_sheet_numbers_and_not_sheet_rows(session: AsyncSession) -> None:
+    """``actual_count`` is a count of distinct numbers, which is easy to misread.
+
+    Asking for every revision returns two rows for A-201, and the reconciliation
+    still reports one, because it is a set difference over sheet numbers rather
+    than a tally of rows. Pinned so that nobody reads ``actual_count`` as "how
+    many sheets are in the project", including whoever writes the next release
+    note about this feature.
+    """
+    project_id, user_id = await _seed_project(session)
+    pdf = _pdf_with_pages([["SHEET NO: A-201", "SHEET TITLE: Floor Plan Level 2"]])
+
+    service = SheetService(session)
+    await service.split_pdf_to_sheets(project_id, _upload(pdf), user_id)
+    await service.split_pdf_to_sheets(project_id, _upload(pdf), user_id)
+
+    report = await service.check_completeness(project_id, pasted_index="A-201", current_only=False)
+
+    assert report["completeness"]["actual_count"] == 1
+    # Two rows went in, so the collapse is real and not an empty second upload.
+    _listed, total = await service.list_sheets(project_id, current_only=False)
+    assert total == 2
+
+
 # ── Aggregation over the register ─────────────────────────────────────────
 
 
