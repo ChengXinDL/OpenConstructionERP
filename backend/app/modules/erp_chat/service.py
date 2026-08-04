@@ -41,6 +41,29 @@ logger = logging.getLogger(__name__)
 # Maximum tool-calling rounds to prevent infinite loops
 MAX_AGENT_ROUNDS = 5
 
+# Providers beyond OpenAI itself that we call with a tool schema over the
+# OpenAI chat-completions protocol.
+#
+# Issue #424: tool access used to be a two-literal branch on the provider name,
+# so OpenRouter - which speaks that identical protocol - was routed to a
+# plain-text call and the model dutifully told the user that live data was
+# unavailable "with the current AI provider". That statement was true of the
+# implementation and false about the transport.
+#
+# Widening this set is per provider and on evidence, not by category. Response
+# shapes already diverge INSIDE the OpenAI-compatible group - ai_client keeps a
+# provider-keyed text extractor for exactly that reason - Cohere is a different
+# contract outright, and ollama/vllm must keep the SSRF-guarded transport they
+# have today.
+TOOL_CAPABLE_OPENAI_COMPAT = frozenset({"openrouter"})
+
+# Every provider whose response is shaped like an OpenAI chat completion. The
+# three response parsers below key off this set rather than a single literal:
+# widening the dispatch alone is the half-applied fix, and it fails silently -
+# tool calls read as absent, appended results are dropped, and the user gets a
+# blank bubble instead of an answer.
+OPENAI_WIRE_PROVIDERS = frozenset({"openai"}) | TOOL_CAPABLE_OPENAI_COMPAT
+
 # Timeout for AI API calls
 AI_TIMEOUT = 120.0
 
@@ -102,6 +125,27 @@ def _truncate_tool_result(result: Any) -> Any:
 def _sse(event_type: str, data: dict[str, Any]) -> str:
     """Format a Server-Sent Event string."""
     return f"event: {event_type}\ndata: {json.dumps(data)}\n\n"
+
+
+def _openai_tool_schema() -> list[dict[str, Any]]:
+    """Convert ``TOOL_DEFINITIONS`` from the Anthropic shape to OpenAI's.
+
+    Returns:
+        The tool schema as OpenAI ``function`` entries. One builder shared by
+        every provider on that wire protocol, so admitting a provider cannot
+        quietly hand it a different set of tools.
+    """
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": t["name"],
+                "description": t["description"],
+                "parameters": t["input_schema"],
+            },
+        }
+        for t in TOOL_DEFINITIONS
+    ]
 
 
 class ERPChatService:
@@ -295,6 +339,10 @@ class ERPChatService:
                         result, tokens = await self._call_anthropic(api_key, messages, preferred_model)
                     elif provider == "openai":
                         result, tokens = await self._call_openai(api_key, messages, preferred_model)
+                    elif provider in TOOL_CAPABLE_OPENAI_COMPAT:
+                        result, tokens = await self._call_openai_compat_tools(
+                            provider, api_key, messages, preferred_model
+                        )
                     else:
                         # Fallback: no tool support - a single plain-text call.
                         # Break into the shared tail below instead of streaming
@@ -332,8 +380,28 @@ class ERPChatService:
                 tool_calls = self._extract_tool_calls(provider, result)
 
                 if not tool_calls:
-                    # No tool calls - extract text and finish
-                    assistant_text = self._extract_text(provider, result)
+                    # No tool calls - extract text and finish.
+                    try:
+                        assistant_text = self._extract_text(provider, result)
+                    except ValueError as exc:
+                        # The hardened reader refused a response that carries
+                        # no usable text (issue #138 - a billed completion the
+                        # user would otherwise see as an empty bubble). Its
+                        # message names the provider and the finish reason.
+                        logger.warning("AI response carried no usable text (provider=%s): %s", provider, exc)
+                        if all_tool_calls:
+                            # Tools already ran this turn and their results are
+                            # on screen. Erroring out here would skip the shared
+                            # persistence tail, so the turn would not be stored
+                            # and ``done`` would carry no message_id - the exact
+                            # shape issue #417 fixed. Keep the turn instead.
+                            assistant_text = "I've gathered the data above. Let me know if you need further analysis."
+                            break
+                        # Nothing ran, so there is no turn worth keeping and the
+                        # reader's message is the most useful thing we have.
+                        yield _sse("error", {"message": str(exc)})
+                        yield _sse("done", {})
+                        return
                     break
 
                 # Execute tools and yield events
@@ -448,8 +516,16 @@ class ERPChatService:
                 # Add tool results to messages for next round
                 messages = self._append_tool_results(provider, messages, result, tool_results_for_round)
             else:
-                # Hit max rounds - extract whatever text we have
-                assistant_text = self._extract_text(provider, result) if result else ""  # type: ignore[possibly-undefined]
+                # Hit max rounds - extract whatever text we have. A refusal
+                # from the hardened reader is not fatal here: the tool results
+                # are already on screen, so fall through to the summary line
+                # rather than erroring out a turn that produced data.
+                assistant_text = ""
+                if result:  # type: ignore[possibly-undefined]
+                    try:
+                        assistant_text = self._extract_text(provider, result)
+                    except ValueError as exc:
+                        logger.warning("No text in the final round (provider=%s): %s", provider, exc)
                 if not assistant_text:
                     assistant_text = "I've gathered the data above. Let me know if you need further analysis."
 
@@ -676,17 +752,7 @@ class ERPChatService:
         model = preferred_model.strip() if preferred_model and preferred_model.strip() else OPENAI_MODEL
 
         # Convert Anthropic tool format to OpenAI format
-        openai_tools = [
-            {
-                "type": "function",
-                "function": {
-                    "name": t["name"],
-                    "description": t["description"],
-                    "parameters": t["input_schema"],
-                },
-            }
-            for t in TOOL_DEFINITIONS
-        ]
+        openai_tools = _openai_tool_schema()
 
         openai_messages = [{"role": "system", "content": SYSTEM_PROMPT}] + messages
 
@@ -723,6 +789,72 @@ class ERPChatService:
             latency_ms=latency_ms,
         )
         return data, total
+
+    # ── OpenAI-compatible providers, with tools ──────────────────────────
+
+    async def _call_openai_compat_tools(
+        self,
+        provider: str,
+        api_key: str,
+        messages: list[dict[str, Any]],
+        preferred_model: str | None,
+    ) -> tuple[dict[str, Any], int]:
+        """Call an OpenAI-compatible provider with a tool schema (issue #424).
+
+        Routed through ``ai_client.call_ai_tools`` instead of posting here, so
+        this path keeps the two protections that live on the plain-text one and
+        would otherwise be silently lost by moving a provider off it: the
+        dead-slug self-heal (issue #148, which matters acutely for OpenRouter's
+        dated slugs) and the hardened response reader (issue #138).
+
+        ``SYSTEM_PROMPT_NO_TOOLS`` travels with the request as the prompt for
+        the degraded retry: a provider that refuses the schema must not be left
+        holding a prompt that advertises tools (issue #417).
+
+        Args:
+            provider: Provider id, one of :data:`TOOL_CAPABLE_OPENAI_COMPAT`.
+            api_key: Provider API key.
+            messages: Chat messages without the system turn.
+            preferred_model: The user's per-provider model id override.
+
+        Returns:
+            Tuple of (raw response body, tokens_used).
+
+        Side effect (T8 observability) - see :meth:`_call_anthropic`.
+        """
+        from app.modules.ai.ai_client import call_ai_tools, default_model_for
+
+        # Honor the user's per-provider model id override verbatim (issue
+        # #138); fall back to the provider's built-in default only when unset.
+        model = preferred_model.strip() if preferred_model and preferred_model.strip() else default_model_for(provider)
+
+        t0 = time.perf_counter()
+        data, total = await call_ai_tools(
+            provider=provider,
+            api_key=api_key,
+            system=SYSTEM_PROMPT,
+            system_without_tools=SYSTEM_PROMPT_NO_TOOLS,
+            messages=messages,
+            tools=_openai_tool_schema(),
+            model=model,
+            max_tokens=4096,
+        )
+        latency_ms = int((time.perf_counter() - t0) * 1000)
+
+        usage = data.get("usage") or {}
+        tokens_in = int(usage.get("prompt_tokens", 0) or 0)
+        tokens_out = int(usage.get("completion_tokens", 0) or 0)
+        # OpenAI surfaces cache reads inside ``prompt_tokens_details``; the
+        # compatible providers that report it use the same key.
+        details = usage.get("prompt_tokens_details") or {}
+        cached = int(details.get("cached_tokens", 0) or 0)
+        self._record_turn_metrics(
+            tokens_in=tokens_in,
+            tokens_out=tokens_out,
+            cache_hit=cached > 0,
+            latency_ms=latency_ms,
+        )
+        return data, int(total or tokens_in + tokens_out)
 
     # ── Fallback (non-tool providers) ────────────────────────────────────
 
@@ -782,8 +914,14 @@ class ERPChatService:
                         }
                     )
 
-        elif provider == "openai":
-            msg = result.get("choices", [{}])[0].get("message", {})
+        elif provider in OPENAI_WIRE_PROVIDERS:
+            # ``or [{}]`` rather than a dict default: an HTTP-200 carrying an
+            # EMPTY choices array is one of the shapes issue #138 documents,
+            # and a default only applies when the key is absent - indexing []
+            # would raise IndexError before the reader below could name what
+            # actually went wrong.
+            choices = result.get("choices") or [{}]
+            msg = choices[0].get("message") or {}
             for tc in msg.get("tool_calls", []) or []:
                 func = tc.get("function", {})
                 try:
@@ -801,7 +939,24 @@ class ERPChatService:
         return calls
 
     def _extract_text(self, provider: str, result: dict[str, Any]) -> str:
-        """Extract text content from AI response."""
+        """Extract text content from an AI response.
+
+        Args:
+            provider: The provider that produced ``result``.
+            result: The raw response body.
+
+        Returns:
+            The assistant text, or an empty string for a provider that does
+            not reach this path.
+
+        Raises:
+            ValueError: When an OpenAI-shaped response carries no usable text.
+                Deliberate: the naive read this replaced returned "" for an
+                in-body error, an empty ``choices`` array, a list-typed
+                ``content`` and a reasoning-only reply alike, which is issue
+                #138's "billed tokens, no response" symptom. Callers decide
+                whether that is fatal for the turn.
+        """
         if provider == "anthropic":
             parts = []
             for block in result.get("content", []):
@@ -809,9 +964,13 @@ class ERPChatService:
                     parts.append(block.get("text", ""))
             return "\n".join(parts)
 
-        elif provider == "openai":
-            msg = result.get("choices", [{}])[0].get("message", {})
-            return msg.get("content", "") or ""
+        elif provider in OPENAI_WIRE_PROVIDERS:
+            # Reuse ai_client's hardened reader rather than re-implementing
+            # it. It is the one that survived issue #138, and the tool path is
+            # where a list-typed ``content`` shows up most.
+            from app.modules.ai.ai_client import _extract_openai_message_text
+
+            return _extract_openai_message_text(provider, result)
 
         return ""
 
@@ -839,9 +998,11 @@ class ERPChatService:
                 )
             messages.append({"role": "user", "content": tool_result_blocks})
 
-        elif provider == "openai":
-            # Add assistant message (with tool_calls)
-            msg = ai_result.get("choices", [{}])[0].get("message", {})
+        elif provider in OPENAI_WIRE_PROVIDERS:
+            # Add assistant message (with tool_calls). Same empty-choices
+            # guard as _extract_tool_calls above.
+            choices = ai_result.get("choices") or [{}]
+            msg = choices[0].get("message") or {}
             messages.append(msg)
 
             # Add tool result messages (truncated so large payloads do not blow the context window)

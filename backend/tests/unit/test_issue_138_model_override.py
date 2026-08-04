@@ -487,6 +487,11 @@ _HANDLER_FILES = [
 def _iter_call_ai_invocations(src: str) -> list[str]:
     """Return the full argument text of every real ``call_ai(...)`` call.
 
+    ``call_ai_tools(...)`` counts too. It is the tool-carrying sibling added
+    for issue #424 and it takes the same ``model=`` argument, so forgetting it
+    there is the identical #138 regression - and a pattern anchored on
+    ``call_ai(`` alone would not see it.
+
     Brackets are balanced so nested parentheses inside arguments are
     captured whole. Non-invocations are skipped:
 
@@ -497,7 +502,7 @@ def _iter_call_ai_invocations(src: str) -> list[str]:
       passes provider/api_key/etc., so a zero-arg span is documentation.
     """
     invocations: list[str] = []
-    for m in re.finditer(r"\bcall_ai\s*\(", src):
+    for m in re.finditer(r"\bcall_ai(?:_tools)?\s*\(", src):
         # Exclude the symbol appearing in an import statement.
         line_start = src.rfind("\n", 0, m.start()) + 1
         line = src[line_start : src.find("\n", m.start())]

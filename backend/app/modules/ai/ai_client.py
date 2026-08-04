@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import re
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 import httpx
@@ -224,6 +225,23 @@ async def call_anthropic(
 
 
 # ── OpenAI-shaped response extraction (shared) ───────────────────────────────
+
+
+def _http_error_detail(response: httpx.Response) -> str:
+    """Best-effort human-readable detail out of a provider error response.
+
+    Args:
+        response: The non-2xx response carried by an ``httpx.HTTPStatusError``.
+
+    Returns:
+        The provider's error message, or the raw body prefix when the body is
+        not the usual ``{"error": {"message": ...}}`` envelope.
+    """
+    try:
+        body = response.json()
+        return body.get("error", {}).get("message", "") or str(body)
+    except Exception:
+        return response.text[:200]
 
 
 def _extract_openai_message_text(provider: str, data: Any) -> str:
@@ -520,6 +538,89 @@ def update_provider_config(saved_meta: dict | None = None) -> None:
         _OPENAI_COMPAT_CONFIG[provider]["url"] = endpoint
 
 
+async def _post_openai_compat(
+    provider: str,
+    api_key: str,
+    messages: list[dict[str, Any]],
+    *,
+    model: str | None = None,
+    max_tokens: int = 4096,
+    tools: list[dict[str, Any]] | None = None,
+    base_url: str | None = None,
+    timeout: float | None = None,
+) -> dict[str, Any]:
+    """POST one OpenAI-shaped chat completion and return the parsed body.
+
+    The single transport choke point for every OpenAI-compatible provider.
+    Header assembly, the per-provider ``extra_headers`` (OpenRouter's
+    ``HTTP-Referer``), endpoint resolution and the self-hosted SSRF guard all
+    live here, so a new caller cannot acquire the transport without them.
+
+    Args:
+        provider: Provider id present in :data:`_OPENAI_COMPAT_CONFIG`.
+        api_key: Provider API key; the header is omitted when blank.
+        messages: Full chat messages array, system turn included.
+        model: Model id override. When falsy the provider default is used.
+        max_tokens: Maximum response tokens.
+        tools: OpenAI-format tool schema. Omitted from the payload entirely
+            when falsy, which keeps the plain-text request byte-identical.
+        base_url: Endpoint override for self-hosted runtimes.
+        timeout: Request timeout in seconds.
+
+    Returns:
+        The parsed JSON response body.
+
+    Raises:
+        ValueError: If the provider is unknown.
+        httpx.HTTPStatusError: On a non-2xx response.
+    """
+    config = _OPENAI_COMPAT_CONFIG.get(provider)
+    if not config:
+        msg = f"Unknown OpenAI-compatible provider: {provider}"
+        raise ValueError(msg)
+
+    headers: dict[str, str] = {
+        "Content-Type": "application/json",
+    }
+    # Keyless self-hosted runtimes (Ollama, vLLM without auth) resolve to an
+    # empty api_key; an "Authorization: Bearer " header with an empty token is
+    # an illegal header value for httpx and gets rejected by some servers, so
+    # only send the header when there is an actual credential.
+    if api_key and api_key.strip():
+        headers["Authorization"] = f"Bearer {api_key}"
+    if "extra_headers" in config:
+        headers.update(config["extra_headers"])
+
+    payload: dict[str, Any] = {
+        "model": model or config["model"],
+        "max_tokens": max_tokens,
+        "messages": messages,
+    }
+    if tools:
+        payload["tools"] = tools
+
+    # Prefer the caller-supplied endpoint, otherwise fall back to the config.
+    endpoint = base_url or config["url"]
+    # SSRF guard for self-hosted runtimes: their endpoint is user-supplied, so
+    # re-resolve and re-check it at this single dispatch choke point (every
+    # Ollama / vLLM call funnels through here). Loopback / private stay allowed;
+    # link-local and cloud-metadata are blocked, plus any configured allowlist.
+    if provider in ("ollama", "vllm"):
+        from app.config import get_settings
+        from app.core.url_safety import resolve_and_validate_ai_provider_url
+
+        await resolve_and_validate_ai_provider_url(endpoint, get_settings().ai_provider_allowlist_hosts)
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            endpoint,
+            headers=headers,
+            json=payload,
+            timeout=timeout if timeout is not None else AI_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json()
+
+
 async def call_openai_compatible(
     provider: str,
     api_key: str,
@@ -542,23 +643,6 @@ async def call_openai_compatible(
         base_url: Optional endpoint override for self-hosted backends
             (Ollama/vLLM); takes precedence over the configured URL.
     """
-    config = _OPENAI_COMPAT_CONFIG.get(provider)
-    if not config:
-        msg = f"Unknown OpenAI-compatible provider: {provider}"
-        raise ValueError(msg)
-
-    headers: dict[str, str] = {
-        "Content-Type": "application/json",
-    }
-    # Keyless self-hosted runtimes (Ollama, vLLM without auth) resolve to an
-    # empty api_key; an "Authorization: Bearer " header with an empty token is
-    # an illegal header value for httpx and gets rejected by some servers, so
-    # only send the header when there is an actual credential.
-    if api_key and api_key.strip():
-        headers["Authorization"] = f"Bearer {api_key}"
-    if "extra_headers" in config:
-        headers.update(config["extra_headers"])
-
     user_content: list[dict[str, Any]] = []
     if image_base64:
         data_url = f"data:{image_media_type};base64,{image_base64}"
@@ -570,39 +654,139 @@ async def call_openai_compatible(
         )
     user_content.append({"type": "text", "text": prompt})
 
-    payload = {
-        "model": model or config["model"],
-        "max_tokens": max_tokens,
-        "messages": [
+    data = await _post_openai_compat(
+        provider,
+        api_key,
+        [
             {"role": "system", "content": system},
             {"role": "user", "content": user_content},
         ],
-    }
-
-    # Prefer the caller-supplied endpoint, otherwise fall back to the config.
-    endpoint = base_url or config["url"]
-    # SSRF guard for self-hosted runtimes: their endpoint is user-supplied, so
-    # re-resolve and re-check it at this single dispatch choke point (every
-    # Ollama / vLLM call funnels through here). Loopback / private stay allowed;
-    # link-local and cloud-metadata are blocked, plus any configured allowlist.
-    if provider in ("ollama", "vllm"):
-        from app.config import get_settings
-        from app.core.url_safety import resolve_and_validate_ai_provider_url
-
-        await resolve_and_validate_ai_provider_url(endpoint, get_settings().ai_provider_allowlist_hosts)
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            endpoint,
-            headers=headers,
-            json=payload,
-            timeout=timeout if timeout is not None else AI_TIMEOUT,
-        )
-        response.raise_for_status()
-        data = response.json()
+        model=model,
+        max_tokens=max_tokens,
+        base_url=base_url,
+        timeout=timeout,
+    )
 
     text = _extract_openai_message_text(provider, data)
     tokens = data.get("usage", {}).get("total_tokens", 0)
     return text, tokens
+
+
+# ── Tool-carrying calls over the OpenAI protocol ─────────────────────────────
+
+# Keyword fragments that identify a provider refusing the ``tools`` FIELD, as
+# opposed to refusing the model id (``model_keywords`` in :func:`call_ai`).
+# Every entry names a tool/function noun on purpose: a bare "unsupported" or
+# "not supported" also matches a model rejection, and overlapping the two sets
+# would fire a redundant request before the issue #148 recovery could run.
+_TOOLS_REJECTED_KEYWORDS = (
+    "does not support tools",
+    "does not support tool",
+    "no endpoints found that support tool use",
+    "tool use is not supported",
+    "tool calling is not supported",
+    "tools are not supported",
+    "tools is not supported",
+    "function calling is not supported",
+    "functions are not supported",
+    "unsupported parameter: 'tools'",
+    "unsupported parameter: 'tool_choice'",
+    "unknown parameter: 'tools'",
+    "invalid parameter: 'tools'",
+    "tool_choice",
+)
+
+
+def _is_tools_rejection(status_code: int, detail: str) -> bool:
+    """Return True when a provider refused the request BECAUSE of ``tools``.
+
+    Args:
+        status_code: HTTP status the provider returned.
+        detail: Provider error message, already pulled out of the body.
+
+    Returns:
+        True when the request is worth retrying without a tool schema.
+    """
+    if status_code not in (400, 404, 422):
+        return False
+    low = (detail or "").lower()
+    return any(k in low for k in _TOOLS_REJECTED_KEYWORDS)
+
+
+async def call_openai_compatible_tools(
+    provider: str,
+    api_key: str,
+    system: str,
+    system_without_tools: str,
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+    *,
+    model: str | None = None,
+    max_tokens: int = 4096,
+    timeout: float | None = None,
+) -> tuple[dict[str, Any], int]:
+    """Call an OpenAI-compatible provider WITH a tool schema on the wire.
+
+    Issue #424: tool access used to be an allowlist of two provider names, so
+    a provider speaking this exact protocol was called as plain text and told
+    the user it had no way to read their data. The default is inverted here -
+    assume an OpenAI-compatible endpoint takes tools, and degrade when it says
+    otherwise: a provider that refuses the ``tools`` field is retried ONCE
+    without it, and that retry also swaps ``system`` for
+    ``system_without_tools``. The two always move together, because a
+    tool-advertising prompt with no schema on the wire is issue #417.
+
+    Args:
+        provider: Provider id present in :data:`_OPENAI_COMPAT_CONFIG`.
+        api_key: Provider API key.
+        system: System prompt used while the tool schema is on the wire.
+        system_without_tools: System prompt for the degraded retry.
+        messages: Chat messages WITHOUT the system turn - it is prepended here
+            so the retry can swap it.
+        tools: OpenAI-format tool schema.
+        model: Model id override. When falsy the provider default is used.
+        max_tokens: Maximum response tokens.
+        timeout: Request timeout in seconds.
+
+    Returns:
+        Tuple of (raw response body, tokens_used). The body is returned
+        unparsed because the caller reads tool calls out of it.
+
+    Raises:
+        httpx.HTTPStatusError: On a non-2xx response that is not a tools
+            rejection, and on a failed retry.
+    """
+    try:
+        data = await _post_openai_compat(
+            provider,
+            api_key,
+            [{"role": "system", "content": system}, *messages],
+            model=model,
+            max_tokens=max_tokens,
+            tools=tools,
+            timeout=timeout,
+        )
+    except httpx.HTTPStatusError as exc:
+        detail = _http_error_detail(exc.response)
+        if not _is_tools_rejection(exc.response.status_code, detail):
+            raise
+        logger.warning(
+            "call_openai_compatible_tools: %s refused the tool schema (HTTP %s: %s); retrying once without tools",
+            provider,
+            exc.response.status_code,
+            detail[:200],
+        )
+        data = await _post_openai_compat(
+            provider,
+            api_key,
+            [{"role": "system", "content": system_without_tools}, *messages],
+            model=model,
+            max_tokens=max_tokens,
+            timeout=timeout,
+        )
+
+    tokens = int((data.get("usage") or {}).get("total_tokens", 0) or 0)
+    return data, tokens
 
 
 # ── Unified dispatcher ───────────────────────────────────────────────────────
@@ -692,6 +876,39 @@ async def call_ai(
         msg = f"Unknown AI provider: {provider}"
         raise ValueError(msg)
 
+    return await _call_with_model_recovery(provider, _make_call, model, image_base64=image_base64)
+
+
+async def _call_with_model_recovery[T](
+    provider: str,
+    make_call: Callable[[str | None], Callable[[], Awaitable[T]]],
+    model: str | None,
+    *,
+    image_base64: str | None = None,
+) -> T:
+    """Run a provider call, self-healing a rejected model id, then map errors.
+
+    Shared by :func:`call_ai` and :func:`call_ai_tools` so both the plain-text
+    and the tool-carrying paths get the issue #148 dead-slug retry and the same
+    user-facing error wording. Generic over the call's return type: the text
+    path returns ``(text, tokens)`` and the tool path returns
+    ``(raw_body, tokens)``.
+
+    Args:
+        provider: Provider id, used in every user-facing message.
+        make_call: Builds the awaitable for a given model id. Parameterising
+            the model (rather than closing over one) is what lets the error
+            path retry with a fallback slug.
+        model: The configured/overridden model id, or None for the default.
+        image_base64: Present only so a 400 on an image request keeps its
+            specific message.
+
+    Returns:
+        Whatever ``make_call`` returns.
+
+    Raises:
+        ValueError: With an actionable message for every mapped provider error.
+    """
     # The actual model id this call will use (override or built-in default) -
     # surfaced in "model not found" errors so the user knows exactly what to
     # change in Settings > AI.
@@ -699,15 +916,11 @@ async def call_ai(
 
     # Unified error handling for all providers
     try:
-        return await _make_call(model)()
+        return await make_call(model)()
     except httpx.HTTPStatusError as exc:
         status_code = exc.response.status_code
         # Try to extract error detail from response body
-        try:
-            body = exc.response.json()
-            detail = body.get("error", {}).get("message", "") or str(body)
-        except Exception:
-            detail = exc.response.text[:200]
+        detail = _http_error_detail(exc.response)
 
         # Detect "unknown / deprecated / unsupported model" responses. Every
         # provider phrases this differently and returns it under 400/404 (and
@@ -742,7 +955,7 @@ async def call_ai(
             # integration is decoupled from any specific model naming.
             for fb_model in fallback_models_for(provider, effective_model):
                 try:
-                    result = await _make_call(fb_model)()
+                    result = await make_call(fb_model)()
                 except httpx.HTTPStatusError:
                     continue
                 except (ValueError, KeyError, httpx.HTTPError):
@@ -783,6 +996,72 @@ async def call_ai(
 
         msg = f"AI provider error ({provider}, HTTP {status_code}): {detail[:200]}"
         raise ValueError(msg) from exc
+
+
+async def call_ai_tools(
+    provider: str,
+    api_key: str,
+    system: str,
+    system_without_tools: str,
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+    *,
+    model: str | None = None,
+    max_tokens: int = 4096,
+    timeout: float | None = None,
+) -> tuple[dict[str, Any], int]:
+    """Route a tool-carrying call to an OpenAI-compatible provider (issue #424).
+
+    The tool-schema sibling of :func:`call_ai`, deliberately a separate entry
+    point rather than a flag: :func:`call_ai` returns text, and an agent loop
+    needs the raw body to read tool calls out of. Both go through
+    :func:`_call_with_model_recovery`, so a retired model slug self-heals onto
+    a provider-stable fallback here exactly as it does on the plain-text path
+    (issue #148). That matters most on aggregators like OpenRouter, whose
+    dated slugs are retired continuously - the very slug class in the #424
+    report. The tools-rejection retry lives one layer down, in
+    :func:`call_openai_compatible_tools`, so it also applies to the fallback
+    slug the recovery lands on.
+
+    Args:
+        provider: Provider id that speaks the OpenAI chat-completions protocol.
+        api_key: Provider API key.
+        system: System prompt used while the tool schema is on the wire.
+        system_without_tools: System prompt for the degraded retry.
+        messages: Chat messages without the system turn.
+        tools: OpenAI-format tool schema.
+        model: Model id override. When falsy the provider default is used.
+        max_tokens: Maximum response tokens.
+        timeout: Request timeout in seconds.
+
+    Returns:
+        Tuple of (raw response body, tokens_used).
+
+    Raises:
+        ValueError: If the provider does not speak this protocol, or for any
+            mapped provider error.
+    """
+    if provider not in _OPENAI_COMPAT_CONFIG:
+        msg = f"Provider does not speak the OpenAI tool protocol: {provider}"
+        raise ValueError(msg)
+
+    def _make_call(model_id: str | None):
+        async def _call() -> tuple[dict[str, Any], int]:
+            return await call_openai_compatible_tools(
+                provider,
+                api_key,
+                system,
+                system_without_tools,
+                messages,
+                tools,
+                model=model_id,
+                max_tokens=max_tokens,
+                timeout=timeout,
+            )
+
+        return _call
+
+    return await _call_with_model_recovery(provider, _make_call, model)
 
 
 # ── JSON extraction ──────────────────────────────────────────────────────────
