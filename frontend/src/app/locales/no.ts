@@ -7158,7 +7158,7 @@ const resource = {
     "ai.new_estimate": "Ny kalkyle",
     "ai.parse_import": "Analyser og importer",
     "ai.paste_info": "Oppdager automatisk tabulatorseparerte, semikolonseparerte eller kommaseparerte data. AI vil analysere og strukturere dataene dine til kalkylposter.",
-    "ai.paste_placeholder": "Lim inn mengdefortegnelsesdata her (fra Excel, Word eller en hvilken som helst tabell)...\n\nEksempel:\nPos\\tBeskrivelse\\tEnhet\\tMengde\\tPris\n01.01\\tUtgraving\\tm3\\t250\\t18,50\n01.02\\tBetong C30/37\\tm3\\t120\\t145,00\n01.03\\tArmering BSt 500\\tkg\\t12000\\t1,85",
+    "ai.paste_placeholder": "Lim inn mengdefortegnelsesdata her (fra Excel, Word eller en hvilken som helst tabell)...\n\nEksempel:\nPos\tBeskrivelse\tEnhet\tMengde\tPris\n01.01\tUtgraving\tm3\t250\t18,50\n01.02\tBetong C30/37\tm3\t120\t145,00\n01.03\tArmering BSt 500\tkg\t12000\t1,85",
     "ai.pdf_hint": "Last opp mengdefortegnelsesdokumenter, spesifikasjoner eller tegninger i PDF-format.",
     "ai.powered_by": "Drevet av {{model}}",
     "ai.results": "Kalkuleringsresultater",

@@ -31254,7 +31254,7 @@ const resource = {
     "sheets.insights.title": "Arkkien näkymät",
     "sheets.insights.unset": "Ei asetettu",
     "sheets.is_current_no": "Korvattu",
-    "sheets.is_current_yes": "Nykyinen tarkistus",
+    "sheets.is_current_yes": "Nykyinen versio",
     "sheets.no_results": "Ei vastaavia arkkeja",
     "sheets.no_results_hint": "Yritä säätää hakukenttää tai valitse eri ala.",
     "sheets.no_sheets": "Yhtään arkkia ei ole indeksoitu vielä",

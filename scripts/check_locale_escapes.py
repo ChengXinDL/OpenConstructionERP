@@ -22,15 +22,21 @@ cells across 26 locales (fixed in 09ae5c27d and a22535fbf); the regex now
 covers all four escape bodies so the next occurrence fails the commit instead
 of waiting for another sweep.
 
-`ai.paste_placeholder` carries a doubled `\\t` in en.ts itself, not as
-per-locale drift, and is the one entry in `_KEY_EXCEPTIONS` below. It is
-named there, not tolerated by a count or a threshold: every file that still
-carries the doubled form for that exact key is listed in the OK output on a
-clean run, so the open question stays visible instead of hiding behind a
-green check. Any other key with a doubled escape still fails the build.
-`_KEY_EXCEPTIONS` exists for keys with a written, dated reason they cannot
-be resolved by this guard alone - it must never be used to silence an
-unexplained or merely-inconvenient hit.
+`ai.paste_placeholder` was the one entry in `_KEY_EXCEPTIONS`, held open on
+the question of whether its doubled `\\t` was a defect or a deliberate way of
+showing an escape sequence as documentation. Settled 2026-08-04 from evidence
+inside the string rather than by a ruling: the same value carries a *single*
+backslash on `\n`. Doubling only the escape that draws the columns, and only
+in 19 of 29 files, is not a documentation choice, and the inline
+`defaultValue` the key falls back to (`QuickEstimatePage.tsx`) writes single
+backslashes throughout. The textarea renders in a monospace font, which is
+worth nothing unless the tabs are real. All 19 were collapsed to one
+backslash and the exception was removed.
+
+`_KEY_EXCEPTIONS` is kept, empty, for keys with a written, dated reason they
+cannot be resolved by this guard alone. It must never be used to silence an
+unexplained or merely-inconvenient hit, and an entry that has sat there long
+enough to feel permanent is a question nobody answered, not a rule.
 
 Usage:
     python scripts/check_locale_escapes.py
@@ -64,19 +70,7 @@ LOCALE_GLOB = "frontend/src/app/locales/*.ts"
 # not a numeric tolerance - a count-based allowance would hide how many and
 # which keys it covers; naming the key here means the exception is exactly
 # as wide as the sentence explaining it, no wider.
-_KEY_EXCEPTIONS: dict[str, str] = {
-    "ai.paste_placeholder": (
-        "doubled \\t baked into en.ts itself (2026-08-02), not per-locale "
-        "drift: 19 of 29 files (en plus 18 locales) carry the identical "
-        "doubled form, while 10 locales (ar, bg, cs, es, es-MX, fi, fr, pl, "
-        "ru, tr) already carry correct single-backslash escaping for the "
-        "same key. Open pending a ruling on what the string should render "
-        "into on screen - a literal backslash-t deliberately shown as text "
-        "in a paste-format example, or a genuine source defect some "
-        "translations quietly corrected. Do not repair either direction "
-        "without that ruling; do not widen this exception to any other key."
-    ),
-}
+_KEY_EXCEPTIONS: dict[str, str] = {}
 
 
 def _scan(paths: list[str]) -> tuple[list[tuple[str, int, str]], list[tuple[str, int, str]]]:

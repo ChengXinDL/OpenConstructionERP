@@ -6116,7 +6116,7 @@ const resource = {
     "ai.new_estimate": "Nieuwe raming",
     "ai.parse_import": "Verwerken & Importeren",
     "ai.paste_info": "Detecteert automatisch tab-gescheiden, puntkomma- of kommagescheiden gegevens. AI zal uw gegevens verwerken en structureren tot ramingsitems.",
-    "ai.paste_placeholder": "Plak hier uw ramingsgegevens (vanuit Excel, Word of een tabel)...\n\nVoorbeeld:\nPos\\tOmschrijving\\tEenheid\\tHvh\\tTarief\n01.01\\tGrondwerk\\tm3\\t250\\t18,50\n01.02\\tBeton C30/37\\tm3\\t120\\t145,00\n01.03\\tWapening BSt 500\\tkg\\t12000\\t1,85",
+    "ai.paste_placeholder": "Plak hier uw ramingsgegevens (vanuit Excel, Word of een tabel)...\n\nVoorbeeld:\nPos\tOmschrijving\tEenheid\tHvh\tTarief\n01.01\tGrondwerk\tm3\t250\t18,50\n01.02\tBeton C30/37\tm3\t120\t145,00\n01.03\tWapening BSt 500\tkg\t12000\t1,85",
     "ai.pdf_hint": "Upload bestekdocumenten, specificaties of tekeningen in PDF-formaat.",
     "ai.powered_by": "Aangedreven door {{model}}",
     "ai.results": "Ramingsresultaten",

@@ -11461,7 +11461,7 @@ const resource = {
     "boq.paste_import_failed": "Error en la importación",
     "boq.paste_import_success": "Importación correcta",
     "boq.paste_no_data": "No se detectaron filas válidas. Asegúrese de que los datos están separados por tabulaciones.",
-    "boq.paste_placeholder": "Pegue aquí datos separados por tabulaciones...nnEjemplo:nDescripcióntUnidadtCantidadtPreciotHormigón de cimentacióntm3t120t185,00nAcero B500Stkg t2400t1,45",
+    "boq.paste_placeholder": "Pegue aquí datos separados por tabulaciones...\n\nEjemplo:\nDescripción\tUnidad\tCantidad\tPrecio\nConcreto de cimentación\tm3\t120\t185,00\nAcero B500S\tkg\t2400\t1,45",
     "boq.paste_showing": "Mostrando las primeras 50 de {{total}} filas",
     "boq.pdf_link_tooltip_v2": "Medición PDF - haga clic para detalles y navegación",
     "boq.per_unit": "por {{unit}}",

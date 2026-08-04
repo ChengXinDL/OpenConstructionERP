@@ -31096,7 +31096,7 @@ const resource = {
     "sheets.insights.page_label": "Page {{page}}",
     "sheets.insights.title": "Aperçus des feuilles",
     "sheets.insights.unset": "Non défini",
-    "sheets.is_current_no": "Remplacé",
+    "sheets.is_current_no": "Remplacée",
     "sheets.is_current_yes": "Révision actuelle",
     "sheets.no_results": "Aucune feuille correspondante",
     "sheets.no_results_hint": "Essayez d'ajuster la boîte de recherche ou choisissez une discipline différente.",

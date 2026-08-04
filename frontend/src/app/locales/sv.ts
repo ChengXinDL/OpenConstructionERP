@@ -7190,7 +7190,7 @@ const resource = {
     "ai.new_estimate": "Ny kalkyl",
     "ai.parse_import": "Tolka och importera",
     "ai.paste_info": "Upptäcker automatiskt tabbseparerad, semikolon- eller kommaavgränsad data. AI tolkar och strukturerar dina data till kalkylposter.",
-    "ai.paste_placeholder": "Klistra in dina kalkyldata här (från Excel, Word eller valfri tabell)...\n\nExempel:\nPos\\tBeskrivning\\tEnhet\\tMängd\\tÀ-pris\n01.01\\tSchaktning\\tm3\\t250\\t18,50\n01.02\\tBetong C30/37\\tm3\\t120\\t145,00\n01.03\\tArmering BSt 500\\tkg\\t12000\\t1,85",
+    "ai.paste_placeholder": "Klistra in dina kalkyldata här (från Excel, Word eller valfri tabell)...\n\nExempel:\nPos\tBeskrivning\tEnhet\tMängd\tÀ-pris\n01.01\tSchaktning\tm3\t250\t18,50\n01.02\tBetong C30/37\tm3\t120\t145,00\n01.03\tArmering BSt 500\tkg\t12000\t1,85",
     "ai.pdf_hint": "Ladda upp kalkylhandlingar, specifikationer eller ritningar i PDF-format.",
     "ai.powered_by": "Drivs av {{model}}",
     "ai.results": "Kalkylresultat",

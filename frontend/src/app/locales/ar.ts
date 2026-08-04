@@ -31351,7 +31351,7 @@ const resource = {
     "sheets.insights.page_label": "الصفحة {{page}}",
     "sheets.insights.title": "رؤى الورقات",
     "sheets.insights.unset": "غير محدد",
-    "sheets.is_current_no": "تم استبداله",
+    "sheets.is_current_no": "مستبدلة",
     "sheets.is_current_yes": "المراجعة الحالية",
     "sheets.no_results": "لا توجد ورقات متطابقة",
     "sheets.no_results_hint": "حاول ضبط مربع البحث أو اختر تخصصا مختلفا.",
