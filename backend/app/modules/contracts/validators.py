@@ -2,11 +2,11 @@
 # Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
 """Contracts validation rules.
 
-Ships three first-class rules registered with the platform rule registry under
-the ``contracts`` rule set:
+Ships five first-class rules registered with the platform rule registry under
+the ``contracts`` rule set, of which the first three are:
 
-* ``ContractPartyRolesRule`` (ERROR) - a signed contract (active / completed)
-  must carry at least one employer party and one contractor party.
+* ``ContractPartyRolesRule`` (ERROR) - a contract must name the two parties
+  that execute it.
 * ``ContractPerformanceBondRule`` (WARNING) - a contract whose terms require a
   performance bond should have an active security row of that type.
 * ``EOTDaysRule`` (ERROR) - a decided extension-of-time claim must never grant
@@ -17,10 +17,16 @@ caller as::
 
     {
         "contract": {"id", "status", "contract_type", "terms": {...}},
-        "parties": [{"party_role", "party_type", ...}],
+        "parties": [{"party_role", "party_type", "display_name", ...}],
         "securities": [{"security_type", "status", ...}],
         "eot_claims": [{"eot_number", "days_claimed", "days_granted", "status"}],
     }
+
+``display_name`` is the name the party would appear under on a signature
+block, which is not always the stored one: a party entered as a link to a
+contact, a subcontractor or a user carries no stored name at all. The service
+resolves that before it builds the context, so a rule reading the field never
+has to know which of the two it got.
 
 Keeping the rules pure and dict-driven makes them trivially unit-testable and
 satisfies the platform "no module without validation rules" requirement.
@@ -39,15 +45,23 @@ from app.core.validation.engine import (
     ValidationRule,
     rule_registry,
 )
+from app.modules.contracts.signing_bridge import SIGNING_PARTY_ROLES
 
 logger = logging.getLogger(__name__)
 
 #: Rule set this module's rules register under.
 CONTRACTS_RULE_SET = "contracts"
 
-#: Contract statuses that count as "signed" (commercially live) for the
-#: party-completeness check.
-_SIGNED_STATUSES = frozenset({"active", "completed"})
+#: How many parties have to be nameable before a contract can be executed. Two,
+#: because a contract is an agreement between two sides and a document only one
+#: side has signed is not a contract.
+#:
+#: Which roles those two sides go by is deliberately *not* stated here. It is
+#: :data:`~app.modules.contracts.signing_bridge.SIGNING_PARTY_ROLES`, imported
+#: rather than restated, so that "this rule passed" and "there is somebody for
+#: the signature block to address" are one fact rather than two lists that
+#: happen to agree until one of them is edited.
+REQUIRED_SIGNATORY_COUNT = 2
 
 
 def _data(context: ValidationContext) -> dict[str, Any]:
@@ -77,44 +91,105 @@ def _truthy(value: Any) -> bool:
     return False
 
 
+def _signing_roles(parties: list[dict[str, Any]], *, named: bool) -> set[str]:
+    """Signing roles on a party register, counted the way the signature block counts them.
+
+    ``named=True`` returns the roles a signature block could actually address;
+    ``named=False`` returns every signing role present, named or not. Roles are
+    a set in both cases because ``signatory_map_from_parties`` takes one party
+    per role: a second row in a role already taken is dropped, so two
+    contractor rows are one signatory and counting rows would overstate the
+    register.
+    """
+    roles: set[str] = set()
+    for party in parties:
+        role = str(party.get("party_role", "") or "").strip()
+        if role not in SIGNING_PARTY_ROLES:
+            continue
+        if named and not str(party.get("display_name", "") or "").strip():
+            continue
+        roles.add(role)
+    return roles
+
+
 class ContractPartyRolesRule(ValidationRule):
-    """A signed contract must name both an employer and a contractor party."""
+    """A contract must name the two parties that execute it.
+
+    Two *distinct signing roles*, each carrying a name - not a named employer
+    and a named contractor. Which two roles sign depends on the contract: a
+    main contract runs employer to contractor, a subcontract runs contractor to
+    subcontractor, and the same firm is the buying side of one and the selling
+    side of the other. An earlier version of this rule asked for an employer
+    and a contractor by name, which is true of a main contract and false of
+    every subcontract in the register - the employer is not a party to those
+    and deliberately does not appear on them. That rule reported the whole
+    subcontract register as incomplete for a party it should never have.
+
+    Distinct roles rather than two rows, because the signature block takes one
+    party per role. Two contractor rows and nobody else produce a single
+    signatory, which is a contract with itself.
+
+    Applies at every status, including ``draft``. An earlier version applied
+    only to a signed contract, on the reasoning that a draft may still be
+    assembling its register - but the moment the register has to be complete
+    is the moment somebody puts the contract up for signature, and that only
+    ever happens on a draft. So the rule that checked the party register could
+    never fire while there was still something a person could do about it, and
+    the check that actually stopped the press was a hardcoded refusal in the
+    service with no rule id, no suggestion and no way to see it coming.
+
+    Reporting an incomplete register on a brand-new draft is not noise: the
+    panel this feeds is a completeness traffic light, "incomplete" is the true
+    answer for a contract with nobody on it, and the finding carries the
+    suggestion that fixes it. Nothing blocks on the finding except the signing
+    gate, which is exactly the moment it should.
+    """
 
     rule_id = "contracts.parties_complete"
-    name = "Contract has employer and contractor parties"
+    name = "Contract names the parties that sign it"
     standard = CONTRACTS_RULE_SET
     severity = Severity.ERROR
     category = RuleCategory.COMPLETENESS
-    description = "A signed contract must record at least one employer and one contractor party"
+    description = "A contract must name two parties in different signing roles"
 
     async def validate(self, context: ValidationContext) -> list[RuleResult]:
         contract = _contract(context)
-        # The rule only applies to a signed (commercially live) contract; a
-        # draft may still be assembling its party register.
-        if str(contract.get("status", "")) not in _SIGNED_STATUSES:
+        # A context with no contract in it is not a contract with no parties.
+        # The compliance gate runs the same engine over a schedule of values
+        # and passes positions only, so without this guard the rule would
+        # report a missing party against a payload that has no register in it.
+        if not contract:
             return []
-        roles = {str(p.get("party_role", "")) for p in _rows(context, "parties")}
-        ref = str(contract.get("id", ""))
-        checks = (
-            ("employer", "employer"),
-            ("contractor", "contractor"),
-        )
-        results: list[RuleResult] = []
-        for role, label in checks:
-            present = role in roles
-            results.append(
-                RuleResult(
-                    rule_id=self.rule_id,
-                    rule_name=self.name,
-                    severity=self.severity,
-                    category=self.category,
-                    passed=present,
-                    message="OK" if present else f"Signed contract has no {label} party",
-                    element_ref=ref,
-                    suggestion=None if present else f"Add a party with role '{label}'",
-                )
+        parties = _rows(context, "parties")
+        named = _signing_roles(parties, named=True)
+        nameless = _signing_roles(parties, named=False) - named
+        passed = len(named) >= REQUIRED_SIGNATORY_COUNT
+        if passed:
+            message, suggestion = "OK", None
+        else:
+            message = f"Contract names {len(named)} of the {REQUIRED_SIGNATORY_COUNT} parties that sign it"
+            if nameless:
+                # The rows are there and the signature block still cannot
+                # address them, which reads on screen as a register already
+                # full. Say which ones rather than asking for a party that is
+                # sitting in front of the reader.
+                message += f", and the register carries no name for: {', '.join(sorted(nameless))}"
+                suggestion = "Name every party that signs, or link it to a company on the register"
+            else:
+                roles = ", ".join(SIGNING_PARTY_ROLES)
+                suggestion = f"Add both sides to the contract's party register, using the roles that sign: {roles}"
+        return [
+            RuleResult(
+                rule_id=self.rule_id,
+                rule_name=self.name,
+                severity=self.severity,
+                category=self.category,
+                passed=passed,
+                message=message,
+                element_ref=str(contract.get("id", "")),
+                suggestion=suggestion,
             )
-        return results
+        ]
 
 
 class ContractPerformanceBondRule(ValidationRule):
@@ -283,4 +358,4 @@ def register_contracts_validation_rules() -> None:
     rule_registry.register(EOTDaysRule(), [CONTRACTS_RULE_SET])
     rule_registry.register(ContractTemplatePinnedRule(), [CONTRACTS_RULE_SET])
     rule_registry.register(ContractTemplateClausesRule(), [CONTRACTS_RULE_SET])
-    logger.debug("contracts: registered 3 validation rules")
+    logger.debug("contracts: registered 5 validation rules")

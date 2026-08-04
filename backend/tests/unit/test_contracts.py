@@ -546,6 +546,47 @@ class _StubLineRepo:
         return list(self.lines)
 
 
+def _contract_row(**overrides: Any) -> SimpleNamespace:
+    """A fake contract row carrying every column the model defines.
+
+    Same principle as ``_service_with_stub_repos`` one level down. These rows
+    used to be assembled from the four or five fields the assertion below them
+    looked at, which held until a method read a sixth. ``contract_content_hash``
+    reads sixteen columns and ``update_contract`` reaches it now, so the row is
+    built from ``Contract`` itself and cannot fall behind the model.
+
+    Everything defaults to ``None``; the hash and the service both treat that as
+    "not set" rather than tripping over it. Tests override what they assert on.
+    """
+    from sqlalchemy import inspect as sa_inspect
+
+    from app.modules.contracts.models import Contract
+
+    row: dict[str, Any] = {attr.key: None for attr in sa_inspect(Contract).mapper.column_attrs}
+    # The two JSON columns the service reads with ``or {}``; a None here would
+    # still work but would not survive being written back to.
+    row["terms"] = {}
+    row["metadata_"] = {}
+    row.update(overrides)
+    return SimpleNamespace(**row)
+
+
+class _StubResult:
+    """What the fake session hands back for any query: nothing found."""
+
+    def scalars(self) -> _StubResult:
+        return self
+
+    def all(self) -> list[Any]:
+        return []
+
+    def first(self) -> Any:
+        return None
+
+    def scalar_one_or_none(self) -> Any:
+        return None
+
+
 class _StubSession:
     def __init__(self, project: Any | None = None) -> None:
         self._project = project
@@ -556,20 +597,51 @@ class _StubSession:
     async def refresh(self, obj: Any) -> None:
         pass
 
+    async def execute(self, *_args: Any, **_kwargs: Any) -> _StubResult:
+        return _StubResult()
+
+    async def flush(self) -> None:
+        pass
+
+    def add(self, _obj: Any) -> None:
+        pass
+
+
+def _service_with_stub_repos(**repos: Any) -> ContractsService:
+    """A real ``ContractsService`` over a fake session, with named repos replaced.
+
+    Built through ``__init__`` on purpose. These tests used to assemble the
+    service with ``__new__`` and set the two or three repositories the method
+    under test was known to touch, which works right up to the day a method
+    grows a call into a fourth. That is what happened when the signing work
+    extended ``update_contract`` into ``contract_content_hash``: the service had
+    eleven of its seventeen repositories, the twelfth was read, and the
+    ``AttributeError`` looked like a defect in the service rather than in the
+    fixture.
+
+    Going through the constructor means the service always carries all
+    seventeen, each bound to the fake session, so a call into a repository this
+    test never thought about returns an empty result instead of blowing up. A
+    test that needs a repository to actually hold rows passes it by name.
+    """
+    svc = ContractsService(_StubSession())
+    for name, repo in repos.items():
+        # Named rather than blanket-patched: setting an attribute the service
+        # does not define would be the old failure mode wearing a new hat.
+        assert hasattr(svc, name), f"ContractsService has no repository {name!r}"
+        setattr(svc, name, repo)
+    return svc
+
 
 def _stub_service() -> ContractsService:
-    svc = ContractsService.__new__(ContractsService)
-    svc.session = _StubSession()
-    svc.contract_repo = _StubContractRepo()
-    svc.line_repo = _StubLineRepo()
-    return svc
+    return _service_with_stub_repos(contract_repo=_StubContractRepo(), line_repo=_StubLineRepo())
 
 
 @pytest.mark.asyncio
 async def test_apply_change_order_increments_value_and_emits_event() -> None:
     svc = _stub_service()
     contract_id = uuid.uuid4()
-    svc.contract_repo.rows[contract_id] = SimpleNamespace(
+    svc.contract_repo.rows[contract_id] = _contract_row(
         id=contract_id,
         total_value=Decimal("100000"),
         status="active",
@@ -603,7 +675,7 @@ async def test_apply_change_order_rollup_key_survives_zero_net() -> None:
     """
     svc = _stub_service()
     contract_id = uuid.uuid4()
-    svc.contract_repo.rows[contract_id] = SimpleNamespace(
+    svc.contract_repo.rows[contract_id] = _contract_row(
         id=contract_id,
         total_value=Decimal("100000"),
         status="active",
@@ -623,7 +695,7 @@ async def test_apply_change_order_rollup_key_survives_zero_net() -> None:
 async def test_transition_contract_emits_signed_event() -> None:
     svc = _stub_service()
     contract_id = uuid.uuid4()
-    svc.contract_repo.rows[contract_id] = SimpleNamespace(
+    svc.contract_repo.rows[contract_id] = _contract_row(
         id=contract_id,
         code="CT-X",
         project_id=PROJECT_ID,
@@ -646,7 +718,7 @@ async def test_transition_contract_invalid_raises_http_400() -> None:
 
     svc = _stub_service()
     contract_id = uuid.uuid4()
-    svc.contract_repo.rows[contract_id] = SimpleNamespace(
+    svc.contract_repo.rows[contract_id] = _contract_row(
         id=contract_id,
         status="completed",
         total_value=Decimal("0"),
@@ -821,10 +893,7 @@ class _StubClaimRepo:
 
 
 def _stub_claim_service() -> ContractsService:
-    svc = ContractsService.__new__(ContractsService)
-    svc.session = _StubSession()
-    svc.claim_repo = _StubClaimRepo()
-    return svc
+    return _service_with_stub_repos(claim_repo=_StubClaimRepo())
 
 
 @pytest.mark.asyncio
@@ -858,10 +927,11 @@ class _StubContractRepoRows(_StubContractRepo):
 
 
 def _stub_update_service() -> ContractsService:
-    svc = ContractsService.__new__(ContractsService)
-    svc.session = _StubSession()
-    svc.contract_repo = _StubContractRepoRows()
-    return svc
+    # update_contract now re-hashes any open signing session, which reaches the
+    # party register and the signing register. Both resolve to real repositories
+    # over the fake session and come back empty, which is the truth for a
+    # contract these tests never put up for signature.
+    return _service_with_stub_repos(contract_repo=_StubContractRepoRows())
 
 
 def _contract_update(**kwargs: Any) -> Any:
@@ -876,7 +946,7 @@ async def test_update_contract_locks_financial_terms_when_active() -> None:
 
     svc = _stub_update_service()
     cid = uuid.uuid4()
-    svc.contract_repo.rows[cid] = SimpleNamespace(
+    svc.contract_repo.rows[cid] = _contract_row(
         id=cid,
         status="active",
         contract_type="lump_sum",
@@ -893,7 +963,7 @@ async def test_update_contract_locks_financial_terms_when_active() -> None:
 async def test_update_contract_allows_title_when_active() -> None:
     svc = _stub_update_service()
     cid = uuid.uuid4()
-    svc.contract_repo.rows[cid] = SimpleNamespace(
+    svc.contract_repo.rows[cid] = _contract_row(
         id=cid,
         status="active",
         contract_type="lump_sum",
@@ -909,7 +979,7 @@ async def test_update_contract_allows_title_when_active() -> None:
 async def test_update_contract_allows_financial_edit_while_draft() -> None:
     svc = _stub_update_service()
     cid = uuid.uuid4()
-    svc.contract_repo.rows[cid] = SimpleNamespace(
+    svc.contract_repo.rows[cid] = _contract_row(
         id=cid,
         status="draft",
         contract_type="lump_sum",
@@ -926,7 +996,7 @@ async def test_update_contract_rejects_direct_status_change() -> None:
 
     svc = _stub_update_service()
     cid = uuid.uuid4()
-    svc.contract_repo.rows[cid] = SimpleNamespace(
+    svc.contract_repo.rows[cid] = _contract_row(
         id=cid,
         status="draft",
         contract_type="lump_sum",

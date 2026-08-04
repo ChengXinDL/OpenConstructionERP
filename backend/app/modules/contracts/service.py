@@ -1253,8 +1253,15 @@ class ContractsService:
         self,
         report: ValidationReport,
         pack_ids: list[str],
+        *,
+        message: str | None = None,
     ) -> dict[str, Any]:
-        """Structured 422 body the ComplianceGate UI renders verbatim."""
+        """Structured 422 body the ComplianceGate UI renders verbatim.
+
+        ``message`` is the one line a caller that only gets a toast will see,
+        so a gate whose findings are not rendered anywhere near the button it
+        guards passes one that names them.
+        """
 
         def _serialise(r: Any) -> dict[str, Any]:
             return {
@@ -1268,7 +1275,9 @@ class ContractsService:
 
         return {
             "error": "compliance_gate_failed",
-            "message": ("Compliance gate failed: resolve the blocking issues below before signing this contract."),
+            "message": (
+                message or "Compliance gate failed: resolve the blocking issues below before signing this contract."
+            ),
             "rule_packs": pack_ids,
             "rule_sets": report.rule_sets_applied,
             "status": report.status.value,
@@ -1356,6 +1365,133 @@ class ContractsService:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=self._compliance_http_detail(report, pack_ids),
+        )
+
+    # ── The contract's own rule set (parties, securities, EOT, templates) ─
+
+    async def _party_signing_name(self, party: Any) -> str:
+        """The name this party would appear under on a signature block.
+
+        The stored ``display_name`` when there is one, and the live name of
+        whatever row the party links to otherwise. A party entered as a link
+        rather than as typed text carries no stored name at all, so reading
+        only the stored field would call a register empty while the screen
+        shows the employer by name.
+        """
+        stored = (getattr(party, "display_name", "") or "").strip()
+        if stored:
+            return stored
+        return (await self.resolve_party_name(party) or "").strip()
+
+    async def run_contract_rules(self, contract: Contract) -> ValidationReport:
+        """Run the ``contracts`` rule set against one contract.
+
+        One builder and one run for both callers: the completeness endpoint the
+        screen polls, and the gate that runs when the contract is put up for
+        signature. Two copies of the context would let the report the user is
+        shown drift away from the check that blocks them, which is the exact
+        failure the hardcoded party refusal used to be.
+        """
+        from app.modules.contracts.validators import CONTRACTS_RULE_SET  # noqa: PLC0415
+
+        parties = await self.party_repo.list_for_contract(contract.id)
+        securities = await self.security_repo.list_for_contract(contract.id)
+        eot_claims = await self.eot_repo.list_for_contract(contract.id)
+        party_rows: list[dict[str, Any]] = []
+        for p in parties:
+            party_rows.append(
+                {
+                    "party_role": p.party_role,
+                    "party_type": p.party_type,
+                    "display_name": await self._party_signing_name(p),
+                }
+            )
+        context = {
+            "contract": {
+                "id": str(contract.id),
+                "status": contract.status,
+                "contract_type": contract.contract_type,
+                "terms": contract.terms or {},
+                # Both of these, not just the code: the rule that reads them
+                # asks whether the pair is complete, and a rule handed half a
+                # pair can only ever pass.
+                "template_code": contract.template_code,
+                "template_version": contract.template_version,
+            },
+            "parties": party_rows,
+            "securities": [{"security_type": s.security_type, "status": s.status} for s in securities],
+            "eot_claims": [
+                {
+                    "id": str(e.id),
+                    "eot_number": e.eot_number,
+                    "days_claimed": e.days_claimed,
+                    "days_granted": e.days_granted,
+                    "status": e.status,
+                }
+                for e in eot_claims
+            ],
+        }
+        return await validation_engine.validate(
+            data=context,
+            rule_sets=[CONTRACTS_RULE_SET],
+            target_type="contract",
+            target_id=str(contract.id),
+            project_id=str(contract.project_id),
+            metadata={"locale": get_locale(), "workflow": WORKFLOW_CONTRACT_SIGNATURE},
+        )
+
+    async def enforce_contract_rules(self, contract: Contract) -> ValidationReport:
+        """Refuse to put a contract up for signature while its own rules block.
+
+        This is what "the contract has nobody who signs" is now: a blocking
+        finding from ``contracts.parties_complete``, carried in the same
+        structured body the compliance gate returns and visible on the
+        completeness panel long before anyone presses anything. The refusal it
+        replaces was prose written at the call site, so it named no rule, made
+        no suggestion the screen could render, and could not be seen coming.
+
+        Every ERROR the rule set produces blocks, not just the party one.
+        Naming a single rule id here would put the special case straight back
+        where it was; the rule set *is* this module's statement of what a
+        contract must be before it is executed.
+        """
+        from app.modules.contracts.validators import CONTRACTS_RULE_SET  # noqa: PLC0415
+
+        report = await self.run_contract_rules(contract)
+        if CONTRACTS_RULE_SET in report.unsupported_rule_sets:
+            # The rules register from the module package's import, so a build
+            # that reached this line without them would sail through a gate
+            # that checked nothing and open a session nobody can sign. Say the
+            # check could not run rather than let its silence read as a pass.
+            logger.error("contracts: rule set %s is not registered; signing gate cannot run", CONTRACTS_RULE_SET)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "The contract validation rules are not loaded on this deployment, "
+                    "so this contract cannot be checked before signature."
+                ),
+            )
+        if not report.has_errors:
+            return report
+
+        # The caller here is the signing panel, whose error path is a toast, so
+        # the findings have to survive being flattened to one line.
+        heads = "; ".join(r.message for r in report.errors[:3])
+        more = len(report.errors) - 3
+        if more > 0:
+            heads = f"{heads} (and {more} more)"
+        logger.info(
+            "Contract rules BLOCKED signature for %s (%d errors)",
+            contract.code,
+            len(report.errors),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=self._compliance_http_detail(
+                report,
+                [],
+                message=f"This contract is not complete enough to put up for signature: {heads}",
+            ),
         )
 
     async def transition_contract(
@@ -1478,9 +1614,13 @@ class ContractsService:
         second open session would give two content hashes for one contract and
         no answer to which one the signatures belong to.
 
-        A contract whose party register names nobody who signs is refused. The
-        signatories are the point of the session, and one built from no parties
-        would collect an attestation against a name that belongs to no company.
+        A contract whose party register names nobody who signs is refused, and
+        the refusal is the module's own rule set answering rather than a check
+        written here. That matters because the same rules run behind the
+        completeness panel, so the state that stops the press is on screen
+        before the press. The signatories are the point of the session, and one
+        built from no parties would collect an attestation against a name that
+        belongs to no company.
         """
         contract = await self.get_contract(contract_id)
         if contract.status != "draft":
@@ -1502,17 +1642,21 @@ class ContractsService:
             )
 
         await self.enforce_compliance_gate(contract, actor_id=actor_id)
+        await self.enforce_contract_rules(contract)
 
         parties = list(await self.party_repo.list_for_contract(contract_id))
-        signatory_map = signatories or signing_bridge.signatory_map_from_parties(parties)
-        if not signatory_map:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    "This contract has no parties who sign, so there is nobody to send it to. "
-                    "Add the employer and the contractor to the party register first."
-                ),
-            )
+        # The gate above passes only when both required roles are on the
+        # register under a name, and the map is derived from the same resolved
+        # names, so it cannot come back empty here.
+        signatory_map = signatories or signing_bridge.signatory_map_from_parties(
+            [
+                signing_bridge.SigningParty(
+                    party_role=p.party_role or "",
+                    display_name=await self._party_signing_name(p),
+                )
+                for p in parties
+            ]
+        )
 
         from pydantic import ValidationError  # noqa: PLC0415
 
@@ -1522,6 +1666,11 @@ class ContractsService:
             payload = SigningSessionCreate(
                 project_id=contract.project_id,
                 document_ref=ref,
+                # The stored rows, not the name-resolved view above. The hash
+                # is a function of what the contract records; feeding it a name
+                # looked up elsewhere would move the hash of every contract
+                # whose parties are links, and moving a hash is what marks a
+                # signature stale.
                 document_content_hash=signing_bridge.contract_content_hash(contract, parties),
                 provider_capability=provider_capability,
                 signatory_map=signatory_map,
@@ -3267,49 +3416,13 @@ class ContractsService:
     async def validate_contract_completeness(self, contract_id: uuid.UUID) -> dict[str, Any]:
         """Run the ``contracts`` rule set against a contract and return the report.
 
-        Assembles the dict context the contracts validation rules consume
-        (contract header + parties + securities + EOT claims) and runs the
-        shared validation engine. Returns the report summary plus the grouped
-        error / warning lists, mirroring the compliance-gate preview shape.
+        Returns the report summary plus the grouped error / warning lists,
+        mirroring the compliance-gate preview shape. The report is the same one
+        the signing gate blocks on, built by the same method, so what this
+        screen shows is what that button will do.
         """
-        from app.modules.contracts.validators import CONTRACTS_RULE_SET  # noqa: PLC0415
-
         contract = await self.get_contract(contract_id)
-        parties = await self.party_repo.list_for_contract(contract_id)
-        securities = await self.security_repo.list_for_contract(contract_id)
-        eot_claims = await self.eot_repo.list_for_contract(contract_id)
-        context = {
-            "contract": {
-                "id": str(contract.id),
-                "status": contract.status,
-                "contract_type": contract.contract_type,
-                "terms": contract.terms or {},
-                # Both of these, not just the code: the rule that reads them
-                # asks whether the pair is complete, and a rule handed half a
-                # pair can only ever pass.
-                "template_code": contract.template_code,
-                "template_version": contract.template_version,
-            },
-            "parties": [{"party_role": p.party_role, "party_type": p.party_type} for p in parties],
-            "securities": [{"security_type": s.security_type, "status": s.status} for s in securities],
-            "eot_claims": [
-                {
-                    "id": str(e.id),
-                    "eot_number": e.eot_number,
-                    "days_claimed": e.days_claimed,
-                    "days_granted": e.days_granted,
-                    "status": e.status,
-                }
-                for e in eot_claims
-            ],
-        }
-        report = await validation_engine.validate(
-            data=context,
-            rule_sets=[CONTRACTS_RULE_SET],
-            target_type="contract",
-            target_id=str(contract.id),
-            project_id=str(contract.project_id),
-        )
+        report = await self.run_contract_rules(contract)
 
         def _serialise(r: Any) -> dict[str, Any]:
             return {

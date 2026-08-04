@@ -33,6 +33,7 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
@@ -44,8 +45,24 @@ CONTRACT_REF_PREFIX = "contract:"
 #: Party roles that are asked to sign, in the order a signature block reads.
 #: A contract can carry consultants, guarantors and observers as parties; those
 #: are on the register because somebody has to be able to look them up, not
-#: because they execute the document.
-SIGNING_PARTY_ROLES: tuple[str, ...] = ("employer", "client", "contractor", "subcontractor")
+#: because they execute the document. Every value here is one the party schema
+#: actually accepts: a role listed here that ``PARTY_ROLES`` does not allow
+#: cannot be stored, so it reads as a supported case while being unreachable.
+SIGNING_PARTY_ROLES: tuple[str, ...] = ("employer", "contractor", "subcontractor")
+
+
+@dataclass(frozen=True)
+class SigningParty:
+    """A party reduced to what a signature block needs: a role and a name.
+
+    The name is the resolved one. A party row can be a link rather than a
+    typed-in name, and only the service can follow that link, so it does the
+    resolution once and hands the answer here. Everything downstream reads the
+    same two fields whichever way the party was entered.
+    """
+
+    party_role: str
+    display_name: str
 
 
 def contract_document_ref(contract_id: uuid.UUID | str) -> str:
@@ -137,15 +154,19 @@ def signatory_map_from_parties(parties: list[Any] | None = None) -> list[dict[st
     enforces that), so a second party in an already-taken role is dropped rather
     than silently overwriting the first.
 
-    Returns an empty list when the register holds nobody who signs, and the
-    caller refuses to open the session. There is nothing to fall back to: a
-    contract carries ``counterparty_type`` (a category, not a name) and a bare
-    ``counterparty_id`` that may point into either the contact register or the
-    subcontractor one, so no name is reachable from the row itself. An earlier
-    version filled the gap with the contract's own title, which produced a
-    signature record attesting that a party named after the document had signed
-    it. On paper whose whole purpose is to record who agreed to what, a placed
-    name is worse than a refusal.
+    Returns an empty list when the register holds nobody who signs. There is
+    nothing to fall back to: a contract carries ``counterparty_type`` (a
+    category, not a name) and a bare ``counterparty_id`` that may point into
+    either the contact register or the subcontractor one, so no name is
+    reachable from the row itself. An earlier version filled the gap with the
+    contract's own title, which produced a signature record attesting that a
+    party named after the document had signed it. On paper whose whole purpose
+    is to record who agreed to what, a placed name is worse than a refusal.
+
+    Nothing here decides what happens next. An empty map is reported as a
+    blocking finding by ``contracts.parties_complete``, which the signing gate
+    runs before it gets this far, so the state this function describes is one
+    the user has already been shown on the completeness panel.
     """
     entries: list[dict[str, Any]] = []
     seen: set[str] = set()

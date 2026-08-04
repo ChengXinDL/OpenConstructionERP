@@ -95,6 +95,30 @@ class _StubClaimLineRepo:
             self.rows[ln.id] = ln
         return lines
 
+    async def prior_period_value_by_line(
+        self,
+        _contract_id: uuid.UUID,
+        *,
+        exclude_claim_id: uuid.UUID | None = None,
+    ) -> dict[uuid.UUID, Decimal]:
+        """Period value already billed per contract line, from the rows held here.
+
+        The real repository also drops lines belonging to rejected claims,
+        which this cannot do: it holds claim lines and no claims, so it has no
+        status to read. Every row it has is counted. A test that needs a
+        rejected claim excluded has outgrown this fake and belongs on a real
+        repository rather than on a status field invented here.
+        """
+        totals: dict[uuid.UUID, Decimal] = {}
+        for row in self.rows.values():
+            if exclude_claim_id is not None and row.progress_claim_id == exclude_claim_id:
+                continue
+            line_id = getattr(row, "contract_line_id", None)
+            if line_id is None:
+                continue
+            totals[line_id] = totals.get(line_id, Decimal("0")) + Decimal(str(row.period_completed_value or 0))
+        return totals
+
 
 class _StubLineRepo:
     def __init__(self) -> None:
