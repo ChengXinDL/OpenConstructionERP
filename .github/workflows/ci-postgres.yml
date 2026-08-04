@@ -292,12 +292,19 @@ jobs:
       # seconds together. The rest of the census is written up separately.
       # Nothing here was failing when it was added, so a failure means a
       # regression rather than a pre-existing debt being surfaced.
-      - name: Run ungated money and permission tests
+      # The delete guards join this step rather than getting their own, because
+      # they run against stub repositories and finish in under two seconds.
+      # They decide whether a signed contract or a subcontractor who is on a
+      # job can be removed in one call, taking the claims, certificates and
+      # retention hanging off them, so the rule they hold is worth as much as
+      # the money rules beside it and was enforced by nothing.
+      - name: Run ungated money, permission and commercial delete guard tests
         run: >-
           pytest tests/unit/test_money_iso4217_minor_units.py
           tests/unit/test_money_decimal_global.py
           tests/unit/test_vat_lookup.py
           tests/unit/test_permissions.py
+          tests/unit/test_commercial_delete_guards.py
           -q -p no:cacheprovider
       - name: Run sheet access control and photo scope tests
         run: >-
@@ -358,14 +365,15 @@ jobs:
   access-control:
     name: Object ownership and cross-tenant access
     runs-on: ubuntu-latest
-    # Local measurements add up to about thirty three minutes under contention,
-    # 25s of router guards plus 4m56s of module and unit guards plus 11m48s and
-    # 16m06s for the two integration halves, and a pip install sits in front of
-    # all of it. A hosted runner clones a database per test and is not faster
-    # than this box at that. Sixty leaves real headroom over that sum while
-    # still naming a hung install or a wedged cluster in an hour rather than
-    # inheriting the six hour default.
-    timeout-minutes: 60
+    # Measured on the runner rather than guessed from here: 10.3 minutes for
+    # the whole job, 0.8 install, 0.1 router guards, 1.4 module and unit, 3.9
+    # and 3.1 for the two integration halves, 0.8 tenant isolation. The local
+    # numbers said about thirty three minutes, which turned out to be this box
+    # under contention from parallel work rather than anything about the tests.
+    # Thirty is three times the observed run, so an actual hang names itself in
+    # half an hour instead of inheriting the six hour default, and a runner
+    # having a slow day still finishes.
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: backend
@@ -454,16 +462,19 @@ jobs:
     # in the CI workflow, which has been red for a long time on a type check
     # that exhausts the heap, so a failure there stops nothing and nobody reads
     # it. Until that is fixed, a frontend test outside this file gates nothing.
-    # Counted 2026-08-04: 518 test files exist, 13 are named below, so 505 of
-    # them gate nothing. Recount rather than trust that sentence, because the
-    # list grows and the disk grows faster.
+    # Counted 2026-08-05: 519 vitest test files live under src, 14 are named
+    # below, so 505 of them gate nothing. That is the same 505 as yesterday,
+    # because the file added today was added to the list on the same day.
+    # Recount rather than trust that sentence, and count under src: a glob for
+    # the vitest default across the whole frontend returns 627, of which 108
+    # are Playwright specs that this job does not run.
     #
     # Named files rather than the whole suite, and that is a measurement rather
     # than a preference. The timing was taken when the list held eleven files:
     # 118 seconds against 12 logical cores, where the same work over the whole
     # suite comes to somewhere between 55 and 95 minutes depending on how the
     # workers saturate. That does not belong in front of every merge. The list
-    # has grown by two since that measurement and has not been re-timed, so
+    # has grown by three since that measurement and has not been re-timed, so
     # treat 118 seconds as a floor. This mirrors how the backend half of this
     # file already works: tests/unit is not collected wholesale either, it is
     # named.
@@ -476,7 +487,7 @@ jobs:
       run:
         working-directory: frontend
     env:
-      # Seven of the thirteen files below are jsdom component tests, which are
+      # Eight of the fourteen files below are jsdom component tests, which are
       # the expensive kind, and this runner has four cores rather than the
       # twelve the local measurement was taken on. The whole-program type check
       # and the build in the other workflow already need this ceiling and are
@@ -492,6 +503,7 @@ jobs:
         src/features/bim/BIMConverterVerifyGate.test.tsx
         src/features/cases/casesProjectContext.test.tsx
         src/features/contracts/ContractAnalyticsPanels.test.tsx
+        src/features/contracts/ContractDetailDrawerDelete.test.tsx
         src/features/contracts/findingKeys.test.ts
         src/features/dashboard/__tests__/DashboardWidgetScope.test.tsx
         src/features/dashboard/__tests__/LatestSitePhotosScope.test.tsx
