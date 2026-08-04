@@ -303,6 +303,7 @@ jobs:
         run: >-
           pytest tests/unit/test_sheets_access_control.py
           tests/unit/test_photos_recent_project_scope.py
+          tests/integration/test_tenant_isolation.py
           -q -p no:cacheprovider
       # The literal string bim did not appear anywhere in this file, so 30 unit
       # files and 528 tests, including the ones covering all 28 BIM validation
@@ -347,22 +348,22 @@ jobs:
   # fails skips every step below it, and one access-control failure should not
   # take the demo-seed and DWG checks down with it.
   #
-  # Only the database-free file is wired today. All 32 were measured on
-  # 2026-08-04 at 502 tests, 0 failed, 0 skipped, 0 errors, with no Redis,
-  # MinIO, Celery, subprocess or outbound network anywhere in the set, and the
-  # single conditional skip in it does not fire. That is good evidence and it
-  # is still a local measurement. The other 31 need PostgreSQL and the
-  # integration group runs about a quarter of an hour against a per-test
-  # database clone, so their first run on a GitHub runner should not be the
-  # release commit: a lane that goes red there reads as the release being
-  # broken. They land straight after the tag, in the groupings that were
-  # measured, which are written down in the report rather than re-derived.
+  # All 32 were measured on 2026-08-04 at 502 tests, 0 failed, 0 skipped,
+  # 0 errors, with no Redis, MinIO, Celery, subprocess or outbound network
+  # anywhere in the set, and the single conditional skip in it does not fire.
+  # The database-free file went in first, on its own, because the 31 that need
+  # PostgreSQL run about a quarter of an hour and their first run on a hosted
+  # runner should not be the release commit: a new lane going red there reads
+  # to everyone as the release being broken. v14.4.0 is tagged and published,
+  # so the rest are wired here, in the groupings that were measured.
   access-control:
     name: Object ownership and cross-tenant access
     runs-on: ubuntu-latest
-    # Twenty five seconds of tests behind a pip install. The ceiling is here so
-    # a hung install names itself rather than inheriting the six hour default.
-    timeout-minutes: 15
+    # The measured local total is about seventeen minutes under contention, and
+    # a hosted runner clones a database per test. The ceiling is here so a hung
+    # install or a wedged cluster names itself rather than inheriting the six
+    # hour default.
+    timeout-minutes: 40
     defaults:
       run:
         working-directory: backend
@@ -387,6 +388,47 @@ jobs:
       # is safe to wire inside a release window and the rest are not.
       - name: Run router-level ownership guards (no database)
         run: pytest tests/unit/test_idor_router_guards.py -q -p no:cacheprovider
+      # Grouped into single steps on purpose. Each pytest process boots its own
+      # embedded cluster, and the per-test database clone is what actually
+      # scales, so splitting these into many small steps pays the boot cost
+      # again for nothing. Merging them further is not free either: it changes
+      # the process composition the in-process registration limiter was
+      # measured under.
+      - name: Run module and unit ownership guards
+        run: >-
+          pytest tests/modules/geo_hub/test_overlay_crud_idor.py
+          tests/modules/qms/test_qms_idor.py
+          tests/modules/rfi/test_rfi_cross_tenant_idor.py
+          tests/modules/variations/test_variations_idor.py
+          tests/unit/test_bim_requirements_validate_idor.py
+          tests/unit/test_carbon_idor.py
+          tests/unit/test_clash_idor.py
+          tests/unit/test_coordination_idor.py
+          tests/unit/test_plan_read_idor.py
+          tests/unit/test_takeoff_idor.py
+          tests/unit/teams/test_teams_access_control.py
+          -q -p no:cacheprovider
+      - name: Run integration ownership guards
+        run: >-
+          pytest tests/integration/test_assemblies_idor.py
+          tests/integration/test_bim_hub_idor.py
+          tests/integration/test_costs_idor.py
+          tests/integration/test_dashboards_idor.py
+          tests/integration/test_eac_idor.py
+          tests/integration/test_erp_chat_idor.py
+          tests/integration/test_fieldreports_idor.py
+          tests/integration/test_inspections_idor.py
+          tests/integration/test_meetings_idor.py
+          tests/integration/test_property_dev_idor.py
+          tests/integration/test_reporting_idor.py
+          tests/integration/test_resources_idor.py
+          tests/integration/test_schedule_advanced_idor.py
+          tests/integration/test_schedule_idor.py
+          tests/integration/test_service_idor.py
+          tests/integration/test_snag_warranty_idor.py
+          tests/integration/test_subcontractors_idor.py
+          tests/integration/test_takeoff_dwg_idor.py
+          -q -p no:cacheprovider --timeout=300 --timeout-method=thread
 
   frontend-tests:
     name: Frontend tests that block a merge
