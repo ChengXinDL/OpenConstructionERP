@@ -150,6 +150,23 @@ describe('/data-explorer names itself once (#149)', () => {
 describe('no other surface mints a second name for it (#149)', () => {
   const FILES = ROOTS.flatMap((r) => sourceFiles(resolve(SRC, r)));
 
+  /**
+   * Every scanned file, read once for the whole block.
+   *
+   * The cases below are two `it.each` runs plus two singles, and each of them
+   * used to walk the tree again, so a set of several thousand files was read
+   * thirteen times over. That put the heaviest case at about 15.3 seconds
+   * against vitest's 15 second ceiling, which passes alone and fails the
+   * moment a full run puts the machine under load. Reading once is the
+   * difference between a guard and a coin toss, and it changes nothing about
+   * what is asserted.
+   *
+   * `STRIPPED` is the same set with commentary blanked, computed once for the
+   * same reason.
+   */
+  const CONTENTS = FILES.map((f) => [f, readFileSync(f, 'utf-8')] as const);
+  const STRIPPED = CONTENTS.map(([f, text]) => [f, stripComments(text)] as const);
+
   it('scans a real set of files across app, features and shared', () => {
     // Guards the walker itself. An empty or tiny list would make every
     // assertion below vacuously true, which is the failure mode of a
@@ -165,19 +182,17 @@ describe('no other surface mints a second name for it (#149)', () => {
     // page in a sentence is out of scope by construction - see the header.
     const pattern = new RegExp(`(['"\`])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\1`);
     const offenders: string[] = [];
-    for (const file of FILES) {
-      stripComments(readFileSync(file, 'utf-8'))
-        .split('\n')
-        .forEach((line, i) => {
-          if (pattern.test(line)) offenders.push(`${rel(file)}:${i + 1}`);
-        });
+    for (const [file, text] of STRIPPED) {
+      text.split('\n').forEach((line, i) => {
+        if (pattern.test(line)) offenders.push(`${rel(file)}:${i + 1}`);
+      });
     }
 
     expect(offenders).toEqual([]);
   });
 
   it.each(RETIRED_NAME_KEYS)('no scanned file reads %s', (key) => {
-    const offenders = FILES.filter((f) => readFileSync(f, 'utf-8').includes(`'${key}'`)).map(rel);
+    const offenders = CONTENTS.filter(([, text]) => text.includes(`'${key}'`)).map(([f]) => rel(f));
 
     expect(offenders).toEqual([]);
   });
@@ -186,8 +201,7 @@ describe('no other surface mints a second name for it (#149)', () => {
     // A defaultValue that drifts here is invisible until a locale is missing
     // the key, and then one page says something the others do not.
     const wrong: string[] = [];
-    for (const file of FILES) {
-      const text = readFileSync(file, 'utf-8');
+    for (const [file, text] of CONTENTS) {
       for (const m of text.matchAll(
         new RegExp(`t\\('${NAV_KEY}',\\s*\\{\\s*defaultValue:\\s*'([^']*)'`, 'g'),
       )) {
@@ -217,8 +231,7 @@ describe('no other surface mints a second name for it (#149)', () => {
     // characters, and SnapshotsPage needs the newline only because it puts
     // label and onClick on separate lines.
     const minted: string[] = [];
-    for (const file of FILES) {
-      const text = readFileSync(file, 'utf-8');
+    for (const [file, text] of CONTENTS) {
       for (const m of text.matchAll(
         /label:\s*t\('([^']+)'((?!label:)[\s\S]){0,200}?navigate\('\/data-explorer'\)/g,
       )) {
