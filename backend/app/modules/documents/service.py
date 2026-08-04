@@ -1622,6 +1622,7 @@ class PhotoService:
         user_id: str | None,
         *,
         limit: int = 12,
+        project_id: uuid.UUID | None = None,
     ) -> list[tuple[ProjectPhoto, str]]:
         """Return the most recent photos across every project the caller can see.
 
@@ -1630,6 +1631,14 @@ class PhotoService:
         leaks photos from a project the user cannot open. The accessible
         project-id set is resolved here and handed to the repository join,
         so the SQL can never return a row outside that set.
+
+        ``project_id`` narrows the answer to one project. It is applied as an
+        intersection with the accessible set and never as a replacement for
+        it, so asking for a project the caller cannot open returns nothing
+        rather than that project's photos. The caller is the dashboard, whose
+        card is project facing: clicking a photo opens that project's gallery,
+        so an unscoped answer put another project's site documentation under
+        the name of the one the reader had selected.
         """
         if not user_id:
             return []
@@ -1657,6 +1666,16 @@ class PhotoService:
                 (Project.owner_id == user_uuid) | (Project.id.in_(member_project_ids_subquery(user_uuid)))
             )
         accessible_ids = list((await self.session.execute(proj_stmt)).scalars().all())
+        if project_id is not None:
+            # Intersection, not replacement. An id the caller cannot reach
+            # falls out here and the empty list short-circuits below, which is
+            # the same answer an empty project gives. Narrowing must never be
+            # able to widen.
+            # Compared as text: the GUID column is VARCHAR(36) while the
+            # migrations declare a native uuid, so which Python type comes back
+            # is not something this line should have an opinion about.
+            wanted = str(project_id)
+            accessible_ids = [pid for pid in accessible_ids if str(pid) == wanted]
         if not accessible_ids:
             return []
 

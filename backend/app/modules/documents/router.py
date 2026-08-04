@@ -574,6 +574,7 @@ async def list_recent_photos(
     session: SessionDep,
     user_id: CurrentUserId = None,  # type: ignore[assignment]
     limit: int = Query(default=12, ge=1, le=48),
+    project_id: uuid.UUID | None = Query(default=None),
     service: PhotoService = Depends(_get_photo_service),
 ) -> list[RecentPhotoResponse]:
     """Most recent photos across every project the caller can access.
@@ -584,11 +585,16 @@ async def list_recent_photos(
     documentation from a project the caller cannot open. Ordered newest
     first by ``taken_at`` with ``created_at`` as the null fallback.
 
+    ``project_id`` narrows the feed to one project, which is what the
+    dashboard passes when a project is selected. It intersects with the
+    accessible set in the service rather than replacing it, so it can only
+    ever return fewer rows than the unfiltered call, never different ones.
+
     Each item carries the project name (joined server-side) and a
     relative thumbnail URL matching the existing ``/photos/{id}/thumb/``
     route the gallery already loads through ``AuthImage``.
     """
-    rows = await service.recent_across_projects(user_id, limit=limit)
+    rows = await service.recent_across_projects(user_id, limit=limit, project_id=project_id)
     return [
         RecentPhotoResponse(
             id=photo.id,

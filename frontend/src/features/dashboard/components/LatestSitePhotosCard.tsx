@@ -43,11 +43,21 @@ export function LatestSitePhotosCard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const setActiveProject = useProjectContextStore((s) => s.setActiveProject);
+  const activeProjectId = useProjectContextStore((s) => s.activeProjectId);
 
+  // The card is project facing: clicking a photo sets the active project and
+  // opens that project's gallery. So with a project selected it has to answer
+  // for that project, or it puts another project's site photos under the name
+  // of the one the reader picked. The id is in the query key as well as the
+  // URL, because a key that does not carry the scope cannot refetch when the
+  // scope changes.
   const { data: photos, isLoading } = useQuery({
-    queryKey: ['dashboard-recent-photos', RECENT_LIMIT],
+    queryKey: ['dashboard-recent-photos', RECENT_LIMIT, activeProjectId],
     queryFn: () =>
-      apiGet<RecentPhoto[]>(`/v1/documents/photos/recent/?limit=${RECENT_LIMIT}`).catch(() => []),
+      apiGet<RecentPhoto[]>(
+        `/v1/documents/photos/recent/?limit=${RECENT_LIMIT}` +
+          (activeProjectId ? `&project_id=${encodeURIComponent(activeProjectId)}` : ''),
+      ).catch(() => []),
     retry: false,
     staleTime: 60_000,
   });
