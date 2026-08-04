@@ -24,6 +24,7 @@ from __future__ import annotations
 import io
 import uuid
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -34,6 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.documents import service as documents_service
 from app.modules.documents.models import Document, Sheet
+from app.modules.documents.repository import SheetRepository
 from app.modules.documents.service import SheetService, detect_sheet_info
 from app.modules.projects.models import Project
 from app.modules.users.models import User
@@ -599,3 +601,79 @@ async def test_distinct_disciplines_collapses_rows_and_drops_the_unset_ones(sess
 
     _listed, total = await SheetService(session).list_sheets(project_id)
     assert total == 5
+
+
+async def test_which_row_a_revision_supersedes_does_not_depend_on_insertion_order(
+    session: AsyncSession,
+) -> None:
+    """Two current rows on one number resolve to the same one either way round.
+
+    ``current_by_sheet_numbers`` is what decides which row an incoming revision
+    records as its predecessor, and it picks by reading the rows in ascending
+    order and letting the last one win. It ordered on ``created_at`` alone.
+
+    That column is written per row by a Python default, so it is only as fine as
+    the clock underneath it, and on a coarse one an entire import batch carries
+    a single value. Duplicates in this register are produced by exactly that,
+    one upload writing the same number on two pages, which is the case where the
+    timestamp has nothing left to order by. What answered then was the plan.
+
+    So the two projects here hold identical rows written in opposite orders,
+    with the created instant pinned equal on purpose. Anything that resolves
+    them by arrival answers differently for the two, and this asserts they
+    agree. Pinning the timestamps rather than sleeping between the inserts also
+    keeps the test from passing on a machine whose clock happens to be fine
+    enough to separate them, which is what CI has and this box does not.
+    """
+    stamp = datetime(2026, 3, 14, 10, 0, 0, tzinfo=UTC)
+    low = uuid.UUID("00000000-0000-4000-8000-000000000001")
+    high = uuid.UUID("00000000-0000-4000-8000-000000000002")
+
+    async def _seed_pair(order: tuple[uuid.UUID, uuid.UUID]) -> uuid.UUID:
+        project_id, _user_id = await _seed_project(session)
+        for page, sheet_id in enumerate(order, start=1):
+            session.add(
+                Sheet(
+                    id=sheet_id,
+                    project_id=project_id,
+                    document_id=str(uuid.uuid4()),
+                    page_number=page,
+                    sheet_number="A-101",
+                    is_current=True,
+                    created_at=stamp,
+                )
+            )
+            await session.flush()
+        return project_id
+
+    forwards = await _seed_pair((low, high))
+    # A fresh id per row is required, so the reversed project gets its own pair
+    # carrying the same relative order.
+    low_b = uuid.UUID("00000000-0000-4000-8000-00000000000a")
+    high_b = uuid.UUID("00000000-0000-4000-8000-00000000000b")
+
+    backwards_project, _ = await _seed_project(session)
+    for page, sheet_id in enumerate((high_b, low_b), start=1):
+        session.add(
+            Sheet(
+                id=sheet_id,
+                project_id=backwards_project,
+                document_id=str(uuid.uuid4()),
+                page_number=page,
+                sheet_number="A-101",
+                is_current=True,
+                created_at=stamp,
+            )
+        )
+        await session.flush()
+
+    repo = SheetRepository(session)
+    picked_forwards = (await repo.current_by_sheet_numbers(forwards, ["A-101"]))["A-101"]
+    picked_backwards = (await repo.current_by_sheet_numbers(backwards_project, ["A-101"]))["A-101"]
+
+    # Both projects hold the same two rows. The one written second in each is a
+    # different id, so a resolution that follows arrival returns the high id for
+    # one project and the low id for the other. Under a total order both return
+    # the later id, whichever order the rows were written in.
+    assert str(picked_forwards.id) == str(high)
+    assert str(picked_backwards.id) == str(high_b)

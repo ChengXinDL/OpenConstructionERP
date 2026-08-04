@@ -462,7 +462,8 @@ class SheetRepository:
         Returns:
             Mapping of sheet number to its current row. A number with no current
             row is absent from the mapping. A number that somehow has more than
-            one current row resolves to the most recently created, so a register
+            one current row resolves to the later of them, and to one of them
+            rather than to whichever the plan happened to return, so a register
             already carrying duplicates converges rather than forking further.
         """
         if not sheet_numbers:
@@ -473,8 +474,20 @@ class SheetRepository:
             .where(Sheet.project_id == project_id)
             .where(Sheet.is_current.is_(True))
             .where(Sheet.sheet_number.in_(sheet_numbers))
-            .order_by(Sheet.created_at.asc())
+            # The id is not decoration. ``created_at`` is written per row by a
+            # Python default, so it is only as fine as the clock underneath it,
+            # and on a coarse one an entire import batch carries a single value.
+            # Duplicates in this register come from exactly that, one import
+            # writing the same number twice, which is the case where the
+            # timestamp has nothing left to order by. What this returns decides
+            # which row the incoming revision records as the one it replaces, so
+            # leaving that to the plan would let one upload link to a different
+            # predecessor than the same upload against the same rows elsewhere.
+            # Same tiebreak and same direction as ``get_version_chain`` above,
+            # so the two cannot disagree about which row is the later one.
+            .order_by(Sheet.created_at.asc(), Sheet.id.asc())
         )
         result = await self.session.execute(stmt)
-        # Ascending order plus overwrite leaves the newest row per number.
+        # Ascending order plus overwrite leaves the last row per number, which
+        # the total order above makes the later one rather than an arbitrary one.
         return {s.sheet_number: s for s in result.scalars().all() if s.sheet_number}
