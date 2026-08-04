@@ -1287,6 +1287,91 @@ export function syncContractFromSigning(
   );
 }
 
+/* ── Party register ───────────────────────────────────────────────────── */
+
+/**
+ * The roles a party can hold on a contract, in the order a signature block
+ * puts them. Mirrors PARTY_ROLES in the module's schemas; a value outside this
+ * list is refused by the API rather than stored.
+ */
+export const CONTRACT_PARTY_ROLES = [
+  'employer',
+  'contractor',
+  'subcontractor',
+  'consultant',
+  'architect',
+  'engineer',
+  'guarantor',
+  'other',
+] as const;
+
+export type ContractPartyRole = (typeof CONTRACT_PARTY_ROLES)[number];
+
+/**
+ * The roles that are asked to sign. Kept in step with SIGNING_PARTY_ROLES on
+ * the backend, which is what actually decides: this copy only lets the screen
+ * say which rows matter before the server is asked.
+ */
+export const SIGNING_PARTY_ROLES: readonly ContractPartyRole[] = [
+  'employer',
+  'contractor',
+  'subcontractor',
+];
+
+export interface ContractParty {
+  id: string;
+  contract_id: string;
+  party_role: string;
+  party_type: string;
+  party_id: string | null;
+  display_name: string;
+  /**
+   * The name resolved from the linked contact, subcontractor or user, which is
+   * current where display_name is a copy taken when the row was written. Null
+   * when there is no link or it no longer resolves, and the caller falls back
+   * to display_name.
+   */
+  resolved_name: string | null;
+  is_primary: boolean;
+  contact_details: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ContractPartyCreate {
+  contract_id: string;
+  party_role: string;
+  party_type?: string;
+  party_id?: string | null;
+  display_name: string;
+  is_primary?: boolean;
+}
+
+/** The contract's parties, each with the live name resolved for it. */
+export function listContractParties(
+  contractId: string,
+): Promise<ContractParty[]> {
+  return apiGet<ContractParty[]>(
+    `/v1/contracts/contracts/${contractId}/parties`,
+  );
+}
+
+export function createContractParty(
+  contractId: string,
+  body: ContractPartyCreate,
+): Promise<ContractParty> {
+  return apiPost<ContractParty>(
+    `/v1/contracts/contracts/${contractId}/parties`,
+    body,
+  );
+}
+
+/** Parties are addressed by their own id, not through the contract. */
+export function deleteContractParty(partyId: string): Promise<void> {
+  return apiDelete(`/v1/contracts/parties/${partyId}`);
+}
+
 /* ── Back-compat aliases (old skeleton names) ─────────────────────────── */
 
 export type Contract = ContractItem;

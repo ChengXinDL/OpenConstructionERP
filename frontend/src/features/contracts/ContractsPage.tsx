@@ -58,6 +58,7 @@ import {
 import { ContractStatusPipeline } from './ContractStatusPipeline';
 import { ContractExpiryBadge } from './ContractExpiryBadge';
 import { ComplianceGate } from './ComplianceGate';
+import { ContractPartiesPanel } from './ContractPartiesPanel';
 import { ContractAnalyticsPanels } from './ContractAnalyticsPanels';
 import { contractsGuide } from './contractsGuide';
 import { useToastStore } from '@/stores/useToastStore';
@@ -1763,6 +1764,11 @@ function ContractDetailDrawer({
               )}
             </div>
           </Card>
+
+          {/* Who the contract is between. Directly under the header because the
+              header's counterparty field is one side and a category, and this
+              is the list the signature block is actually built from. */}
+          <ContractPartiesPanel contractId={contractId} />
 
           {/* SoV */}
           <Card padding="sm">
