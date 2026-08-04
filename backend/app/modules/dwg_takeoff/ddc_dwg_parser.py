@@ -831,7 +831,15 @@ def parse_ddc_dwg_excel(excel_path: str | Path) -> dict[str, Any]:
             pos = _parse_coord(get(row, "Position") or get(row, "Text Position"))
             text = str(get(row, "Text String") or get(row, "TextString") or "")
             height = _safe_float(get(row, "Height") or get(row, "TextHeight")) or 2.5
-            rotation = _safe_float(get(row, "Rotation")) or 0.0
+            # ``_parse_angle``, not ``_safe_float``. The export writes an angle
+            # either as a bare number already in radians or with a ``d`` suffix
+            # meaning degrees, which is why the ARC branch above reads its start
+            # and end angles through that helper. ``float("90.0d")`` raises, so
+            # ``_safe_float`` returned None and ``or 0.0`` turned every rotated
+            # label upright without saying anything. A bare number that reached
+            # the viewer unconverted was fed straight to ``ctx.rotate``, which
+            # takes radians, so 90 arrived as 90 radians.
+            rotation = _parse_angle(get(row, "Rotation"))
             style_name = str(
                 get(row, "Style Name")
                 or get(row, "StyleName")
@@ -867,7 +875,8 @@ def parse_ddc_dwg_excel(excel_path: str | Path) -> dict[str, Any]:
             text = re.sub(r"\\[A-Za-z][^;]*;", "", text)
             text = re.sub(r"[{}]", "", text).strip()
             height = _safe_float(get(row, "TextHeight") or get(row, "ActualHeight") or get(row, "Actual Height")) or 2.5
-            rotation = _safe_float(get(row, "Rotation")) or 0.0
+            # Radians on the wire, see the TEXT branch above.
+            rotation = _parse_angle(get(row, "Rotation"))
             style_name = str(
                 get(row, "Style Name")
                 or get(row, "StyleName")
@@ -899,7 +908,10 @@ def parse_ddc_dwg_excel(excel_path: str | Path) -> dict[str, Any]:
         elif desc == "<AcDbBlockReference>":
             pos = _parse_coord(get(row, "Position"))
             block_name = str(get(row, "BlockTableRecord") or get(row, "Name") or "block")
-            rotation = _safe_float(get(row, "Rotation")) or 0.0
+            # Radians on the wire, see the TEXT branch above. This one places a
+            # whole block definition, so a dropped rotation turns every door and
+            # window in the drawing to face the same way.
+            rotation = _parse_angle(get(row, "Rotation"))
             scale_str = get(row, "ScaleFactors") or get(row, "Scale Factors")
             x_scale = y_scale = 1.0
             if scale_str:

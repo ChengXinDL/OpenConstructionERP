@@ -39,6 +39,10 @@ COLUMNS = [
     "Pattern Name",
     "Solid Fill",
     "Closed",
+    # Added for the rotation tests below. Every other row simply carries two
+    # more blank cells, which is what an export column nobody reads looks like.
+    "Text String",
+    "Height",
 ]
 
 
@@ -423,3 +427,102 @@ class TestWhatTheParserGetsRight:
             ]
         )
         assert result["layers"][0]["visible"] is False
+
+
+class TestRotationIsRadiansOnTheWire:
+    """The wire format is radians, and this path was not converting to it.
+
+    ``dxf-renderer.ts`` hands ``entity.rotation`` straight to ``ctx.rotate``,
+    which takes radians, so the unit is not a preference here. The DXF path was
+    fixed to convert; a comment in ``dxf_processor.py`` states that this parser
+    already emitted radians, and it did not.
+
+    The export writes an angle either as a bare number already in radians or
+    with a ``d`` suffix meaning degrees, which is why the ARC branch reads its
+    start and end angles through ``_parse_angle``. Rotation was read through
+    ``_safe_float`` instead. ``float("90.0d")`` raises, ``_safe_float`` answers
+    None, and ``or 0.0`` turned that into an unrotated entity, so a drawing
+    whose export used the suffix form came back with every label upright and
+    every block facing the same way, with nothing logged.
+
+    Nothing caught it because the only rotation assertion in this file used a
+    fixture that left the cell blank and asserted 0.0, and zero is zero in both
+    units. An assertion that cannot tell the two apart is not a units test.
+    """
+
+    def test_a_degree_suffixed_text_rotation_becomes_radians(self, export) -> None:
+        result = export(
+            [
+                LAYER,
+                _row(
+                    Description="<AcDbText>",
+                    ID="1",
+                    Layer="A-WALL",
+                    Position="10,20,0",
+                    **{"Text String": "ROOM 101", "Height": 2.5, "Rotation": "90.0d"},
+                ),
+            ]
+        )
+        texts = [e for e in result["entities"] if e["entity_type"] == "TEXT"]
+        assert len(texts) == 1
+        # Not 90.0, and not 0.0 either, which is what the old read produced.
+        assert texts[0]["geometry_data"]["rotation"] == pytest.approx(math.pi / 2)
+
+    def test_a_bare_text_rotation_is_already_radians_and_is_left_alone(self, export) -> None:
+        result = export(
+            [
+                LAYER,
+                _row(
+                    Description="<AcDbText>",
+                    ID="1",
+                    Layer="A-WALL",
+                    Position="10,20,0",
+                    **{"Text String": "ROOM 101", "Height": 2.5, "Rotation": "1.5707963"},
+                ),
+            ]
+        )
+        texts = [e for e in result["entities"] if e["entity_type"] == "TEXT"]
+        # Converting this one would be the mirror of the bug: the same number
+        # would be multiplied by pi over 180 and the label would lie flat.
+        assert texts[0]["geometry_data"]["rotation"] == pytest.approx(math.pi / 2)
+
+    def test_a_degree_suffixed_block_rotation_becomes_radians(self, export) -> None:
+        result = export(
+            [
+                LAYER,
+                _row(
+                    Description="<AcDbBlockReference>",
+                    ID="1",
+                    Layer="A-WALL",
+                    BlockId="*Model_Space",
+                    Position="100,200,0",
+                    BlockTableRecord="DOOR-900",
+                    Rotation="180.0d",
+                    ScaleFactors="[1,1,1]",
+                ),
+            ]
+        )
+        inserts = [e for e in result["entities"] if e["entity_type"] == "INSERT"]
+        assert len(inserts) == 1
+        # A placement carries the rotation for the whole definition, so losing
+        # it hangs every door in the drawing on the same side of its frame.
+        assert inserts[0]["geometry_data"]["rotation"] == pytest.approx(math.pi)
+
+    def test_a_missing_rotation_is_still_zero(self, export) -> None:
+        """The absent case is the one the old read got right, and it stays right."""
+        result = export(
+            [
+                LAYER,
+                _row(
+                    Description="<AcDbBlockReference>",
+                    ID="1",
+                    Layer="A-WALL",
+                    BlockId="*Model_Space",
+                    Position="100,200,0",
+                    BlockTableRecord="DOOR-900",
+                    ScaleFactors="[1,1,1]",
+                ),
+            ]
+        )
+        inserts = [e for e in result["entities"] if e["entity_type"] == "INSERT"]
+        assert inserts[0]["geometry_data"]["rotation"] == 0.0
