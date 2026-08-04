@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import uuid
+from collections.abc import Collection
 from contextlib import suppress
 from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
@@ -24,6 +25,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import async_session_factory
+from app.modules.dwg_takeoff.extents import model_space_extents
 from app.modules.dwg_takeoff.models import (
     DwgAnnotation,
     DwgDrawing,
@@ -422,6 +424,32 @@ def _dwg_version_too_old(code: str | None) -> bool:
     return version_num < floor_num
 
 
+def visible_entities(
+    entities: list[dict[str, Any]],
+    visible_layers: Collection[str] | None,
+) -> list[dict[str, Any]]:
+    """Drop entities whose layer the caller has switched off.
+
+    Block definition members are exempt. A block's internal geometry carries
+    its own authoring layer - usually "0", rarely the layer the INSERT sits on
+    - so filtering them by layer deletes the definition while keeping the
+    INSERT that needs it, and the block renders empty. Their visibility is
+    governed by the INSERT that places them, which is how a CAD package
+    resolves it too.
+
+    Args:
+        entities: Stored entity records.
+        visible_layers: Layer names to keep, or ``None`` to keep every layer.
+
+    Returns:
+        The surviving records, in input order.
+    """
+    if visible_layers is None:
+        return entities
+    visible_set = set(visible_layers)
+    return [e for e in entities if e.get("block") or e.get("layer", "0") in visible_set]
+
+
 def _normalize_entity(raw: dict[str, Any], index: int) -> dict[str, Any]:
     """Flatten stored entity format to the shape the frontend DxfViewer expects.
 
@@ -440,9 +468,14 @@ def _normalize_entity(raw: dict[str, Any], index: int) -> dict[str, Any]:
         "color": raw.get("color", "#cccccc"),
     }
 
-    # Pass through layout field (DXF layout name or DWG BlockId)
+    # An entity carries EITHER the sheet it is drawn on, or the block
+    # definition it belongs to. Never both. A definition member is drawn only
+    # where an INSERT places it, so it has no sheet of its own and the page's
+    # layout filter drops it from every sheet without needing to know why.
     if "layout" in raw:
         result["layout"] = raw["layout"]
+    if raw.get("block"):
+        result["block"] = raw["block"]
 
     if entity_type == "LINE":
         result["start"] = gd.get("start")
@@ -630,58 +663,18 @@ def resolve_source_drawing_path(stored_file_path: str | None) -> str | None:
 def _extents_from_raw_entities(entities: list[dict[str, Any]]) -> dict[str, float] | None:
     """Compute a bounding box from stored (un-normalised) entity records.
 
-    Mirrors the parser's ``expand`` pass over the stored
-    ``{entity_type, geometry_data: {…}}`` shape. Used by the lazy units
-    backfill to recover extents for legacy/seeded drawings whose version row
-    stored ``extents == {}``. Returns ``None`` when no coordinates are found.
+    Used by the lazy units backfill to recover extents for legacy/seeded
+    drawings whose version row stored ``extents == {}``. Returns ``None`` when
+    no coordinates are found.
+
+    This used to hold its own copy of the rule, and the copy disagreed with the
+    parser's: it read the ``insert`` that every writer emits while the parser
+    looked for an ``insertion_point`` nobody wrote, so the two reported
+    different boxes for the same drawing and no test compared them. The rule
+    now lives in one place, and the number this backfills is the number a fresh
+    parse would have stored - model space, no block-local coordinates.
     """
-    min_x = min_y = float("inf")
-    max_x = max_y = float("-inf")
-    found = False
-
-    def expand(x: Any, y: Any) -> None:
-        nonlocal min_x, min_y, max_x, max_y, found
-        try:
-            fx, fy = float(x), float(y)
-        except (TypeError, ValueError):
-            return
-        min_x, min_y = min(min_x, fx), min(min_y, fy)
-        max_x, max_y = max(max_x, fx), max(max_y, fy)
-        found = True
-
-    for ent in entities:
-        gd = ent.get("geometry_data", {}) or {}
-        start = gd.get("start")
-        end = gd.get("end")
-        if isinstance(start, dict):
-            expand(start.get("x"), start.get("y"))
-        if isinstance(end, dict):
-            expand(end.get("x"), end.get("y"))
-        for v in gd.get("points", []) or []:
-            if isinstance(v, dict):
-                expand(v.get("x"), v.get("y"))
-        center = gd.get("center")
-        if isinstance(center, dict):
-            r = gd.get("radius") or gd.get("major_radius") or 0
-            try:
-                rr = float(r)
-            except (TypeError, ValueError):
-                rr = 0.0
-            expand(center.get("x", 0) - rr, center.get("y", 0) - rr)
-            expand(center.get("x", 0) + rr, center.get("y", 0) + rr)
-        for key in ("insert", "insertion_point"):
-            pt = gd.get(key)
-            if isinstance(pt, dict):
-                expand(pt.get("x"), pt.get("y"))
-
-    if not found:
-        return None
-    return {
-        "min_x": float(min_x),
-        "min_y": float(min_y),
-        "max_x": float(max_x),
-        "max_y": float(max_y),
-    }
+    return model_space_extents(entities)
 
 
 def _process_dxf_sync(file_path: str, entities_key: str, thumbnail_key: str) -> dict[str, Any]:
@@ -2630,10 +2623,7 @@ class DwgTakeoffService:
             logger.exception("Failed to load entities for drawing %s", drawing_id)
             return []
 
-        # Filter by visible layers if specified
-        if visible_layers is not None:
-            visible_set = set(visible_layers)
-            entities = [e for e in entities if e.get("layer", "0") in visible_set]
+        entities = visible_entities(entities, visible_layers)
 
         # Normalize entity format for frontend consumption:
         # Backend stores {entity_type, geometry_data: {…}} but frontend

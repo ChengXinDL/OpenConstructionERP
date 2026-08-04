@@ -13,6 +13,8 @@ import logging
 import math
 from typing import Any
 
+from app.modules.dwg_takeoff.extents import model_space_extents
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -123,7 +125,11 @@ def _serialize_entity(
             "insert": {"x": insert.x, "y": insert.y} if insert else {"x": 0, "y": 0},
             "text": dxf.get("text", ""),
             "height": dxf.get("height", 1.0),
-            "rotation": dxf.get("rotation", 0.0),
+            # ezdxf reports rotation in DEGREES; the wire format is radians
+            # (the viewer feeds it straight to ctx.rotate, and the DDC parser
+            # emits radians). Text authored at 90 degrees was rendering at 90
+            # radians. Same conversion the ARC angles above already do.
+            "rotation": math.radians(dxf.get("rotation", 0.0)),
             "style": style_name,
             "font": styles.get(style_name, ""),
         }
@@ -144,7 +150,8 @@ def _serialize_entity(
             "block_name": dxf.get("name", ""),
             "x_scale": dxf.get("xscale", 1.0),
             "y_scale": dxf.get("yscale", 1.0),
-            "rotation": dxf.get("rotation", 0.0),
+            # Radians on the wire - see the TEXT branch above.
+            "rotation": math.radians(dxf.get("rotation", 0.0)),
         }
     elif entity_type == "ELLIPSE":
         center = dxf.get("center", None)
@@ -169,6 +176,78 @@ def _serialize_entity(
         }
 
     return result
+
+
+def _serialize_block_definitions(
+    doc: Any,
+    placed_entities: list[dict[str, Any]],
+    layer_colors: dict[str, str],
+    styles: dict[str, str],
+) -> list[dict[str, Any]]:
+    """Serialize the contents of every block definition an INSERT actually places.
+
+    An INSERT on its own says only "the door block goes here" - the door is in
+    the block definition, which this path never read, so the viewer drew a
+    marker where the door should be. On an architectural drawing that is the
+    doors, windows, furniture, grids and the title block, which is most of what
+    the drawing is.
+
+    Each entity is tagged ``block`` and carries **no** ``layout``, so it is
+    never drawn as sheet content and never reaches the extents; it is drawn
+    only where an INSERT places it, transformed by that INSERT's insertion
+    point, scale factors and rotation. Sending the definition once rather than
+    expanding it per placement is what keeps this affordable: a block placed
+    500 times costs one copy of its geometry, not 500.
+
+    Only definitions some INSERT references are emitted, followed transitively
+    so a block nested inside another block still arrives. A drawing with no
+    INSERTs grows by nothing. ``doc.blocks`` also holds the layout blocks
+    (``*Model_Space``, ``*Paper_Space``) and every anonymous ``*D``/``*U``
+    block a dimension or hatch left behind; starting from what is referenced
+    rather than from the block table is what keeps those out.
+
+    Args:
+        doc: The open ezdxf document.
+        placed_entities: Already-serialized layout entities, scanned for INSERTs.
+        layer_colors: Layer name to hex colour, for ByLayer resolution.
+        styles: Text style name to font file.
+
+    Returns:
+        Serialized block-definition entities, each tagged with its block name.
+    """
+    pending: list[str] = []
+    for entity in placed_entities:
+        if entity.get("entity_type") == "INSERT":
+            block_name = entity.get("geometry_data", {}).get("block_name")
+            if block_name:
+                pending.append(str(block_name))
+
+    seen: set[str] = set()
+    out: list[dict[str, Any]] = []
+    while pending:
+        name = pending.pop()
+        if name in seen:
+            continue
+        seen.add(name)
+        try:
+            block = doc.blocks.get(name)
+        except Exception:  # noqa: BLE001 - a missing definition is a drawing defect, not ours
+            continue
+        if block is None:
+            continue
+        for entity in block:
+            try:
+                serialized = _serialize_entity(entity, layer_colors, styles)
+            except Exception:  # noqa: BLE001 - skip one unreadable member, keep the block
+                logger.debug("Skipping unprocessable block entity in %s", name)
+                continue
+            serialized["block"] = name
+            out.append(serialized)
+            if serialized["entity_type"] == "INSERT":
+                nested = serialized.get("geometry_data", {}).get("block_name")
+                if nested:
+                    pending.append(str(nested))
+    return out
 
 
 def parse_dxf(file_path: str) -> dict[str, Any]:
@@ -265,6 +344,13 @@ def parse_dxf(file_path: str) -> dict[str, Any]:
                 skipped_count += 1
                 logger.debug("Skipping unprocessable entity: %s", entity.dxftype())
 
+    # Block definitions travel alongside the layout entities, tagged ``block``
+    # rather than ``layout``. They are counted in ``entity_count`` because they
+    # are records on the wire, but deliberately NOT in ``layer_counts``: the
+    # layer panel governs what a toggle removes, and a block's members are
+    # governed by the INSERT that places them, not by their own layer.
+    entities.extend(_serialize_block_definitions(doc, entities, layer_color_map, styles))
+
     if total_count > 0 and skipped_count / total_count > 0.10:
         logger.warning(
             "DXF parse: %d of %d entities skipped (%.1f%%) in %s",
@@ -278,35 +364,28 @@ def parse_dxf(file_path: str) -> dict[str, Any]:
     for layer_info in layers:
         layer_info["entity_count"] = layer_counts.get(layer_info["name"], 0)
 
-    # Calculate extents from parsed entities (more reliable than msp.get_extents)
-    min_x = min_y = float("inf")
-    max_x = max_y = float("-inf")
-    for ent in entities:
-        gd = ent.get("geometry_data", {})
-        points: list[tuple[float, float]] = []
-        if "start" in gd and "end" in gd:
-            points.append((gd["start"]["x"], gd["start"]["y"]))
-            points.append((gd["end"]["x"], gd["end"]["y"]))
-        if "points" in gd:
-            for v in gd["points"]:
-                points.append((v["x"], v["y"]))
-        if "center" in gd:
-            r = gd.get("radius", 0)
-            cx, cy = gd["center"]["x"], gd["center"]["y"]
-            points.append((cx - r, cy - r))
-            points.append((cx + r, cy + r))
-        if "insertion_point" in gd:
-            points.append((gd["insertion_point"]["x"], gd["insertion_point"]["y"]))
-        for px, py in points:
-            min_x = min(min_x, px)
-            min_y = min(min_y, py)
-            max_x = max(max_x, px)
-            max_y = max(max_y, py)
-
-    if min_x == float("inf"):
-        min_x = min_y = 0.0
-        max_x = max_y = 1000.0
-    extents = {"min_x": float(min_x), "min_y": float(min_y), "max_x": float(max_x), "max_y": float(max_y)}
+    # Calculate extents from parsed entities (more reliable than msp.get_extents).
+    #
+    # Model space only. The loop that used to live here unioned every layout,
+    # so an A3 title block in Layout1 made a 10-unit drawing report 420x297 -
+    # a box the user is never shown, and the box the unit inference below
+    # reads. It also looked for ``insertion_point``, which no writer in this
+    # codebase emits, so every block placement was invisible to it while the
+    # service's copy of the same rule saw them. Both callers now share
+    # ``extents.model_space_extents``; see that module for why one rule.
+    #
+    # A drawing that genuinely has no model-space content keeps its real
+    # paper-space box rather than falling through to the 0..1000 placeholder.
+    try:
+        model_space_name = doc.modelspace().name
+    except Exception:  # noqa: BLE001 - malformed document: fall back to every layout
+        model_space_name = None
+    extents = model_space_extents(
+        entities,
+        model_space_names={model_space_name} if model_space_name else None,
+    )
+    if extents is None:
+        extents = {"min_x": 0.0, "min_y": 0.0, "max_x": 1000.0, "max_y": 1000.0}
 
     # Extract units
     units_map = {
