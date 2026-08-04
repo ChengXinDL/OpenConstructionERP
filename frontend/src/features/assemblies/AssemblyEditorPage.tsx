@@ -361,7 +361,19 @@ export function AssemblyEditorPage() {
             <span className="text-content-tertiary">/</span>
             <span title={unitLabel(assembly.unit, t)}>{unitGlyph(assembly.unit)}</span>
             <span className="text-content-tertiary">/</span>
-            <span>{assembly.currency || 'EUR'}</span>
+            {/* No silent EUR. An assembly stored without a currency has an
+                unknown one, and printing "EUR" states something we do not
+                know - the same guess MoneyDisplay was rewritten to stop
+                making. Show the gap and say what it is. */}
+            <span
+              title={
+                assembly.currency
+                  ? undefined
+                  : t('projects.currency_not_set', { defaultValue: 'Currency not set' })
+              }
+            >
+              {assembly.currency || '—'}
+            </span>
             {assembly.bid_factor !== 1.0 && (
               <>
                 <span className="text-content-tertiary">/</span>

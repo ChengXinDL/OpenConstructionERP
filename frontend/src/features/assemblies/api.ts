@@ -306,9 +306,22 @@ export interface AppliedTemplateComponent {
   unit: string;
   unit_rate: number;
   total: number;
+  /** ISO code `unit_rate` and `total` are in — the matched item's own, which is
+   *  not necessarily the response's target currency. */
+  currency: string;
+  /** Whether this component's contribution reached the target-currency total. */
+  converted_to_target: boolean;
   role: string;
   match_confidence: number;
   match_channel: string;
+}
+
+/** One currency's share of a preview. Never mixed with another's. */
+export interface AppliedTemplateCurrencySubtotal {
+  currency: string;
+  amount: number;
+  component_count: number;
+  is_target: boolean;
 }
 
 export interface AppliedTemplateResponse {
@@ -320,8 +333,14 @@ export interface AppliedTemplateResponse {
   unit: string;
   currency: string;
   components: AppliedTemplateComponent[];
-  total_rate: number;
-  grand_total: number;
+  /** The authoritative figure: one bucket per currency, always complete. */
+  totals_by_currency: AppliedTemplateCurrencySubtotal[];
+  /** `null` when the preview spans more than one currency — the backend refuses
+   *  to name a single total it could only produce by adding two currencies
+   *  together. Render the per-currency breakdown instead, never `Number(null)`,
+   *  which would print a confident 0.00. */
+  total_rate: number | null;
+  grand_total: number | null;
   unresolved_components: string[];
   warnings: string[];
 }

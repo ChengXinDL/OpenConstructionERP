@@ -183,7 +183,11 @@ export function AssembliesPage() {
     const ratedItems = all.filter((a) => a.total_rate > 0);
     const byCurrency = new Map<string, { sum: number; count: number }>();
     for (const a of ratedItems) {
-      const code = (a.currency || 'EUR').toUpperCase();
+      // No silent EUR in the grouping key either: an assembly with no stored
+      // currency is its own group, not a Euro one. Folding it into EUR made
+      // the tile label a set of unknown-currency rates "EUR", which is the
+      // same guess as showing the symbol on a bare number.
+      const code = (a.currency || '').toUpperCase();
       const acc = byCurrency.get(code) ?? { sum: 0, count: 0 };
       acc.sum += Number(a.total_rate) || 0;
       acc.count += 1;
@@ -569,7 +573,7 @@ export function AssembliesPage() {
           <StatTile
             icon={<BarChart3 size={14} />}
             label={
-              banner.avgRateMixed
+              banner.avgRateMixed && banner.avgRateCurrency
                 ? t('assemblies.stat_avg_rate_dominant', {
                     defaultValue: 'Avg. rate ({{currency}})',
                     currency: banner.avgRateCurrency,
@@ -577,18 +581,23 @@ export function AssembliesPage() {
                 : t('assemblies.stat_avg_rate', { defaultValue: 'Avg. rate' })
             }
             value={
-              banner.avgRate > 0
+              banner.avgRate > 0 && banner.avgRateCurrency
                 ? `${fmt(banner.avgRate)} ${banner.avgRateCurrency}`
                 : '—'
             }
             title={
-              banner.avgRateMixed
-                ? t('assemblies.stat_avg_rate_mixed_hint', {
+              banner.avgRate > 0 && !banner.avgRateCurrency
+                ? t('assemblies.stat_avg_rate_no_currency_hint', {
                     defaultValue:
-                      'Assemblies span multiple currencies; showing the average for the most common one ({{currency}}).',
-                    currency: banner.avgRateCurrency,
+                      'Most assemblies here have no currency set, so their average cannot be stated in any money.',
                   })
-                : undefined
+                : banner.avgRateMixed
+                  ? t('assemblies.stat_avg_rate_mixed_hint', {
+                      defaultValue:
+                        'Assemblies span multiple currencies; showing the average for the most common one ({{currency}}).',
+                      currency: banner.avgRateCurrency,
+                    })
+                  : undefined
             }
           />
           <StatTile
@@ -1219,7 +1228,11 @@ function AssemblyTable({
                   <td className="px-3 py-2 align-middle text-right tabular-nums font-semibold text-content-primary">
                     {a.total_rate > 0 ? fmt(a.total_rate) : <span className="text-content-quaternary font-normal">—</span>}
                   </td>
-                  <td className="px-3 py-2 align-middle text-xs text-content-tertiary">{a.currency || 'EUR'}</td>
+                  <td className="px-3 py-2 align-middle text-xs text-content-tertiary">
+                    {a.currency || (
+                      <span title={t('projects.currency_not_set', { defaultValue: 'Currency not set' })}>—</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 align-middle text-right tabular-nums text-content-secondary">{a.component_count ?? 0}</td>
                   <td className="px-3 py-2 align-middle text-right tabular-nums">
                     {(a.usage_count ?? 0) > 0 ? (
@@ -1951,9 +1964,17 @@ function AssemblyCard({
               {assembly.category}
             </Badge>
           )}
-          <Badge variant="neutral" size="sm">
-            {assembly.currency || 'EUR'}
-          </Badge>
+          <span
+            title={
+              assembly.currency
+                ? undefined
+                : t('projects.currency_not_set', { defaultValue: 'Currency not set' })
+            }
+          >
+            <Badge variant="neutral" size="sm">
+              {assembly.currency || '—'}
+            </Badge>
+          </span>
           {assembly.bid_factor !== 1.0 && (
             <Badge variant="blue" size="sm">
               BF {assembly.bid_factor}
