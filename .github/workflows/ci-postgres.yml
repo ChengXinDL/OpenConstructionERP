@@ -304,6 +304,26 @@ jobs:
           pytest tests/unit/test_sheets_access_control.py
           tests/unit/test_photos_recent_project_scope.py
           -q -p no:cacheprovider
+      # The literal string bim did not appear anywhere in this file, so 30 unit
+      # files and 528 tests, including the ones covering all 28 BIM validation
+      # rules, were enforced by nothing. Those rules are reachable in production:
+      # the validation service pulls them by id from two flat lists that the
+      # bim_hub router imports, so they are not the dormant kind that a rule-set
+      # registration bug would have left unreferenced. Measured at 528 passed and
+      # 0 skipped, about four minutes here where DATABASE_URL already points at
+      # the service container above; two of the files open a real session and
+      # would fail rather than skip without it. The skip guard is not decoration:
+      # one test in test_bimlv_container.py calls pytest.skip from inside an
+      # except clause, which no grep for importorskip or skipif can see, and a
+      # broken import graph would make it vanish silently rather than fail.
+      - name: Run BIM unit tests
+        run: |
+          set -o pipefail
+          pytest tests/unit/test_bim_*.py tests/unit/test_bimlv_container.py -q -p no:cacheprovider | tee bim.log
+          if grep -qE '[0-9]+ skipped' bim.log; then
+            echo "::error::A BIM test skipped instead of running. This step proved nothing about the rules it is here to gate." >&2
+            exit 1
+          fi
       # The cost base pipeline produces the parquet editions people download from us, so it
       # needs a blocking gate. It needs no database; it is attached here because this is the
       # only merge-blocking lane that runs pytest, and an ungated test is the situation this
