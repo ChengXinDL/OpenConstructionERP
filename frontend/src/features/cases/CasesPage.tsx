@@ -801,8 +801,17 @@ function CasesList() {
               )}
             >
               <Pin size={12} aria-hidden="true" />
-              {t("cases.project_pin.show_pinned", {
-                defaultValue: "Cases for this project",
+              {/* The number beside this label is `pinnedIds.length` - the
+                  user's own pin list for this project, held in localStorage.
+                  It is not a count of cases the project has, so the old
+                  "Cases for this project" read as "this project has no
+                  cases" on every fresh project (issue #414). The label now
+                  names what the number is. New key rather than new text
+                  under the old one: 29 locales still carry the previous
+                  sentence, and changing only the English would leave them
+                  translating the claim we just removed. */}
+              {t("cases.project_pin.show_pinned_only", {
+                defaultValue: "Pinned to this project",
               })}
               {pinProjectId && (
                 <span className="tabular-nums opacity-70">
@@ -817,12 +826,10 @@ function CasesList() {
                 })}
               </span>
             )}
-            {/* A project is chosen but nothing is pinned to it yet. The count
-                on the button is the user's own pin list, not a case count the
-                project could ever have on its own, and "Cases for this project
-                0" beside a project name reads as "this project has no cases"
-                (issue #414). The same sentence the empty result already uses
-                is shown here, before the click rather than after it. */}
+            {/* A project is chosen but nothing is pinned to it yet. The same
+                sentence the empty result already uses is shown here, before
+                the click rather than after it, so a zero on the button is
+                explained where it appears. */}
             {pinProjectId && pinnedIds.length === 0 && (
               <span className="text-2xs text-content-tertiary">
                 {t("cases.project_pin.empty_body", {

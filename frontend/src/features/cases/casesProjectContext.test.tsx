@@ -22,6 +22,7 @@ import { MemoryRouter } from "react-router-dom";
 import React from "react";
 
 import { useProjectContextStore } from "@/stores/useProjectContextStore";
+import { useCasesStore } from "./useCasesStore";
 import { CasesPage } from "./CasesPage";
 
 const PROJECTS = [
@@ -161,6 +162,9 @@ function renderCases(): HTMLSelectElement {
 beforeEach(() => {
   localStorage.clear();
   useProjectContextStore.getState().clearProject();
+  // The pin map is read from localStorage once, when the store module is
+  // first imported, so clearing storage does not reach the live state.
+  useCasesStore.setState({ pins: {} });
 });
 
 /* ── Tests ────────────────────────────────────────────────────────────── */
@@ -196,11 +200,10 @@ describe("Cases project picker follows the app-wide project (#413)", () => {
     );
   });
 
-  it("explains the zero on 'Cases for this project' before the user clicks it", () => {
+  it("explains the zero on the pin toggle before the user clicks it", () => {
     // #414: the count beside that button is the user's own pin list, which is
-    // empty until they pin something. "Cases for this project 0" next to a
-    // project name reads as "this project has no cases", so the hub now says
-    // what the number is as soon as a project is chosen.
+    // empty until they pin something, so the hub says what the number is as
+    // soon as a project is chosen rather than after the click.
     selectProjectInTopBar("p-canary", "One Canary Square");
 
     renderCases();
@@ -210,5 +213,40 @@ describe("Cases project picker follows the app-wide project (#413)", () => {
         "Pin a case to this project from its card, and it will show up here.",
       ),
     ).toBeInTheDocument();
+  });
+});
+
+describe("The pin toggle is named after the number it shows (#414)", () => {
+  it("says the count is the pin list, not a property of the project", () => {
+    selectProjectInTopBar("p-canary", "One Canary Square");
+
+    renderCases();
+
+    // The number is `pins[projectId].length` out of localStorage - 0 on every
+    // fresh project, for every project, until the user pins something. Under
+    // the old label, "Cases for this project 0" beside a project name read as
+    // "this project has no cases", and the explanatory sentence added with it
+    // explained the zero rather than removing the claim.
+    //
+    // getByText, not getByRole: this page is large enough that computing an
+    // accessible name for every element runs past the suite timeout.
+    const toggle = screen.getByText("Pinned to this project");
+    expect(toggle.tagName).toBe("BUTTON");
+    expect(toggle).toHaveTextContent("0");
+    expect(screen.queryByText("Cases for this project")).not.toBeInTheDocument();
+  });
+
+  it("counts the pins the user made, under the same label", () => {
+    useCasesStore.getState().togglePin("p-canary", "estimate-a-fitout");
+    useCasesStore.getState().togglePin("p-canary", "tender-a-package");
+    useCasesStore.getState().togglePin("p-depot", "run-a-handover");
+    selectProjectInTopBar("p-canary", "One Canary Square");
+
+    renderCases();
+
+    // Two here, one on the other project: the number tracks the pin list and
+    // nothing else, which is what the label now claims.
+    const toggle = screen.getByText("Pinned to this project");
+    expect(toggle).toHaveTextContent("2");
   });
 });
