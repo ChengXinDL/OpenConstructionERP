@@ -417,10 +417,19 @@ jobs:
           # Graceful skip: when the signing secret is not configured, on
           # forks, on pull requests, or before the founder adds the secret,
           # leave the build green with unsigned installers instead of failing.
+          #
+          # It says so as a warning rather than a log line. Every branch of
+          # this job exits zero, so the job is green whether it signed
+          # anything or not, and a plain echo inside a green job is read by
+          # nobody. The releases so far have all taken this branch and the
+          # run page gave no sign of it.
           if [ -z "${AZURE_KV_CLIENT_SECRET:-}" ]; then
-            echo "AZURE_KV_CLIENT_SECRET signing secret not set, skipping Windows code signing."
+            echo "::warning title=Windows installers are not code signed::AZURE_KV_CLIENT_SECRET is not set, so the .exe and .msi on this release are unsigned. Windows SmartScreen will warn every person who runs them. Set the five AZURE_KV_* secrets to sign."
+            echo "Windows code signing: SKIPPED, installers are unsigned." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
+
+          echo "Windows code signing: running against Azure Key Vault." >> "$GITHUB_STEP_SUMMARY"
 
           shopt -s nullglob
           files=(signing/*.exe signing/*.msi)
