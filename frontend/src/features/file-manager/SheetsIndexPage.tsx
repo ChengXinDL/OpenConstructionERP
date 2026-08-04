@@ -616,13 +616,18 @@ export function SheetsIndexPage() {
                               })}
                             />
                           ) : (
-                            <span
-                              className="text-content-quaternary"
-                              aria-label={t('sheets.is_current_no', {
+                            /* Not an em-dash. The two columns to its left print
+                               one for "this sheet has no revision date" and "no
+                               scale", so the same glyph here reads as a field
+                               nobody filled in rather than as a sheet a later
+                               upload replaced. The word was in the markup all
+                               along, but only inside an aria-label, which
+                               carries it to the part of the audience that was
+                               not the one being misled. */
+                            <span className="inline-flex items-center h-5 px-2 rounded-full bg-surface-tertiary text-2xs font-medium text-content-tertiary">
+                              {t('sheets.is_current_no', {
                                 defaultValue: 'Superseded',
                               })}
-                            >
-                              &mdash;
                             </span>
                           )}
                         </td>

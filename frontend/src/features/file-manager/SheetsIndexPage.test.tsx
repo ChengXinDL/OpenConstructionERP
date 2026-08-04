@@ -334,6 +334,48 @@ describe('SheetsIndexPage', () => {
     expect(within(dialog).getByText('Current revision')).toBeInTheDocument();
   });
 
+  /* The "Current?" column answered no with an em-dash, which is the same glyph
+     the revision date and scale columns print when they hold nothing. Both
+     fixture rows carry `revision_date: null`, so a superseded row printed one
+     dash meaning "a later upload replaced this" beside another meaning "nobody
+     typed a date", and the two were the same mark. The word was in the markup
+     the whole time, but only inside an aria-label, so it reached the part of
+     the audience that was not the one being misled. `getByText` reads rendered
+     text and cannot be satisfied by an aria-label, so reverting the span to the
+     dash turns this red.
+
+     What this does NOT prove: `test/setup.ts` mocks `react-i18next` and its
+     `t` returns `defaultValue`, so a passing assertion here says nothing about
+     `sheets.is_current_no` existing in the 29 locale files. That was checked
+     separately and it is present in all of them. */
+  it('says superseded in words, not with the glyph an empty column uses', async () => {
+    routeApi();
+
+    renderPage();
+
+    expect(await screen.findByText('S-201')).toBeInTheDocument();
+    const row = screen.getByText('S-201').closest('tr');
+    expect(row).not.toBeNull();
+
+    expect(within(row as HTMLElement).getByText('Superseded')).toBeInTheDocument();
+
+    // The dash is still in that row, on the columns that genuinely hold
+    // nothing. The fix is that the two states stopped looking alike, not that
+    // the table lost its way of printing an absent value.
+    expect(within(row as HTMLElement).getAllByText('—').length).toBeGreaterThan(0);
+  });
+
+  it('leaves a current sheet unlabelled rather than calling it superseded', async () => {
+    routeApi();
+
+    renderPage();
+
+    expect(await screen.findByText('A-101')).toBeInTheDocument();
+    const row = screen.getByText('A-101').closest('tr');
+
+    expect(within(row as HTMLElement).queryByText('Superseded')).not.toBeInTheDocument();
+  });
+
   it('does not pretend to show a drawing preview it cannot fetch', async () => {
     routeApi();
 
