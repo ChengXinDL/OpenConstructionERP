@@ -293,11 +293,13 @@ jobs:
         src/features/contracts/ContractAnalyticsPanels.test.tsx
         src/features/contracts/findingKeys.test.ts
         src/features/dashboard/__tests__/DashboardWidgetScope.test.tsx
+        src/features/dashboard/__tests__/LatestSitePhotosScope.test.tsx
         src/features/dwg-takeoff/lib/__tests__/blocks.test.ts
         src/features/dwg-takeoff/lib/__tests__/dxf-renderer.test.ts
         src/features/dwg-takeoff/lib/__tests__/viewport.test.ts
         src/features/file-manager/SheetsIndexPage.test.tsx
         src/features/file-manager/sheetsInsights.test.ts
+        src/shared/lib/i18nInterpolatedKeys.test.ts
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
@@ -324,4 +326,21 @@ jobs:
           done
           exit $missing
       - name: Run the named frontend tests
-        run: npx vitest run $FRONTEND_TEST_FILES
+        # The positional arguments are FILTERS, not paths. A file that no
+        # filter matches is not a failure to vitest, it is simply not run, and
+        # the summary line then reports fewer files with the job still green.
+        # The existence check above cannot see that: a path can be present on
+        # disk and still be selected by nothing. So the count vitest reports
+        # for itself is compared against the number of names we asked for, and
+        # a disagreement fails the job and says which way it went.
+        run: |
+          set -o pipefail
+          expected=$(echo $FRONTEND_TEST_FILES | wc -w)
+          npx vitest run $FRONTEND_TEST_FILES 2>&1 | tee vitest.log
+          ran=$(sed -e 's/\x1b\[[0-9;]*m//g' vitest.log \
+                | sed -n 's/.*Test Files.*(\([0-9][0-9]*\)).*/\1/p' | tail -1)
+          echo "named=$expected ran=${ran:-none}"
+          if [ "$ran" != "$expected" ]; then
+            echo "::error::vitest ran ${ran:-no} test files but $expected were named. A renamed or mistyped filter matches nothing and would otherwise leave this job green."
+            exit 1
+          fi
