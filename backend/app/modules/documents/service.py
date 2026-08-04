@@ -1821,11 +1821,49 @@ def detect_discipline_from_sheet_number(sheet_number: str | None) -> str | None:
     return DISCIPLINE_PREFIX_MAP.get(prefix)
 
 
+# A title block lays its fields out in columns, and the text extractor joins
+# the cells that share a visual row into one line separated by runs of spaces.
+# So "SCALE: 1:50    DRAWN: AB    DATE: 2026-01-14" arrives as a single line and
+# a pattern that captures to the end of it captures three fields, not one.
+#
+# Two independent signals mark where the next field begins. A run of two or more
+# spaces is the column gap. A following label is the field name itself, and the
+# label carries no internal space so that "AS NOTED" is not mistaken for one.
+_FIELD_LABEL_BREAK = re.compile(r"[ \t]+(?=[A-Za-z][A-Za-z.]{0,14}[ \t]*[:=])")
+_COLUMN_GAP_BREAK = re.compile(r"[ \t]{2,}")
+
+
+def _trim_title_block_value(value: str, *, cut_on_column_gap: bool) -> str:
+    """Cut a captured title block value where the next field starts.
+
+    Args:
+        value: The raw capture, already bounded to a single line.
+        cut_on_column_gap: Whether a run of two or more spaces also ends the
+            value. True for narrow-vocabulary fields like the scale, where such
+            a run can only be a column gap. False for free text like the sheet
+            title, where wide letter spacing inside one cell can produce the
+            same run and cutting on it would truncate a real title.
+
+    Returns:
+        The value up to the first break, stripped.
+    """
+    cuts = [m.start() for m in (_FIELD_LABEL_BREAK.search(value),) if m is not None]
+    if cut_on_column_gap:
+        gap = _COLUMN_GAP_BREAK.search(value)
+        if gap is not None:
+            cuts.append(gap.start())
+    return (value[: min(cuts)] if cuts else value).strip()
+
+
 def detect_sheet_info(page_text: str) -> dict[str, str | None]:
     """Extract sheet number, title, scale, and revision from page text.
 
     Uses simple regex patterns on extracted text to find common title block fields.
     Does NOT rely on external OCR services - works on already-extracted text.
+
+    Scale reads both the ratio forms ("1:50", '1/4" = 1\'-0"') and the written
+    ones ("NTS", "N.T.S.", "VARIES", "AS NOTED"). Revision date is not read at
+    all, which is why a split row's ``revision_date`` is always null.
 
     Returns:
         Dict with keys: sheet_number, sheet_title, scale, revision
@@ -1861,21 +1899,42 @@ def detect_sheet_info(page_text: str) -> dict[str, str | None]:
     for pattern in title_patterns:
         match = re.search(pattern, page_text, re.IGNORECASE)
         if match:
-            title = match.group(1).strip()
+            # Free text, so only a following label ends it. A run of spaces
+            # inside a title can be letter spacing rather than a column gap.
+            title = _trim_title_block_value(match.group(1), cut_on_column_gap=False)
             if len(title) > 2:
                 result["sheet_title"] = title[:500]
             break
 
     # Scale patterns: "1:100", "1/4\" = 1'-0\"", "SCALE: 1:50"
+    #
+    # The labelled pattern is bounded to the label's own line. It used to allow
+    # \s inside the character class, which matches a newline, so the capture ran
+    # off the end of the line and the trailing \S* then took the first token of
+    # the next one. A title block reading "SCALE: 1:50" above "REV C" was stored
+    # as "1:50\nREV", and that string is what the sheet detail drawer prints.
+    # Horizontal whitespace only, on both sides of the separator, because a
+    # title block field and its value share a line and a scale value can contain
+    # spaces of its own ("1/4\" = 1'-0\"", "AS NOTED").
+    #
+    # The old pattern also had no "=" in its character class, so the imperial
+    # form was cut at the equals and stored as '1/4" ='. The third pattern below
+    # reads that form correctly but never ran, because the labelled pattern is
+    # tried first and the loop breaks on the first match.
     scale_patterns = [
-        r"(?:SCALE)\s*[:=]\s*([\d/:\"'\-\s]+\S*)",
+        r"(?:SCALE)[ \t]*[:=][ \t]*([^\r\n]+?)[ \t]*(?:\r?\n|$)",
         r"\b(1\s*:\s*\d{1,4})\b",
         r"(1/\d+\"\s*=\s*1'[\s-]*0\")",
     ]
-    for pattern in scale_patterns:
+    for idx, pattern in enumerate(scale_patterns):
         match = re.search(pattern, page_text, re.IGNORECASE)
         if match:
-            result["scale"] = match.group(1).strip()[:50]
+            value = match.group(1)
+            if idx == 0:
+                # Only the labelled pattern can run into a neighbouring column;
+                # the two below are bounded by their own character sets.
+                value = _trim_title_block_value(value, cut_on_column_gap=True)
+            result["scale"] = value.strip()[:50]
             break
 
     # Revision patterns: "REV A", "REVISION: 3", "Rev. B"
