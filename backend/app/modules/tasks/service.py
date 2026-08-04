@@ -326,8 +326,16 @@ class TaskService:
             stmt = stmt.where(Task.project_id == project_id)
 
         if dialect_name == "postgresql":
-            # JSONB ``@>`` containment: rows where bim_element_ids ⊇ [element_id]
-            stmt = stmt.where(Task.bim_element_ids.contains([element_id]))
+            # JSONB ``@>`` containment: rows where bim_element_ids ⊇ [element_id].
+            # The cast is what makes this containment. The column is declared
+            # JSON for cross-dialect parity, and ``.contains()`` on a JSON column
+            # compiles to a string LIKE rather than to ``@>``, which PostgreSQL
+            # then rejects because the bound parameter is JSONB. Same treatment
+            # as ``requirements/service.py::get_requirements_for_bim_element``.
+            from sqlalchemy import cast
+            from sqlalchemy.dialects.postgresql import JSONB
+
+            stmt = stmt.where(cast(Task.bim_element_ids, JSONB).contains([element_id]))
             result = await self.session.execute(stmt)
             tasks = list(result.scalars().all())
         else:
