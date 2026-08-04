@@ -8,6 +8,8 @@
  */
 
 import type { DxfEntity } from '../api';
+import type { BlockDefs } from './blocks';
+import { isResolvedInsert } from './blocks';
 import type { ViewportState } from './viewport';
 import { worldToScreen } from './viewport';
 
@@ -115,12 +117,14 @@ export function renderEntities(
   selectedId?: string | null,
   canvasWidth?: number,
   canvasHeight?: number,
+  blockDefs?: BlockDefs,
 ): void {
   const cw = canvasWidth ?? ctx.canvas.width / (window.devicePixelRatio || 1);
   const ch = canvasHeight ?? ctx.canvas.height / (window.devicePixelRatio || 1);
 
   // Render hatches first (background fill)
   for (const entity of entities) {
+    if (entity.block) continue;
     if (entity.type === 'HATCH' && visibleLayers.has(entity.layer)) {
       if (!isInViewport(entity, vp, cw, ch)) continue;
       applyStyle(ctx, entity, selectedId);
@@ -130,6 +134,10 @@ export function renderEntities(
 
   // Render geometry entities
   for (const entity of entities) {
+    // A definition member is drawn only through the INSERTs that place it -
+    // see `expandBlockReferences`. Its own coordinates are in block space, so
+    // drawing it here would scatter loose parts across the sheet.
+    if (entity.block) continue;
     if (!visibleLayers.has(entity.layer)) continue;
     if (entity.type === 'HATCH') continue; // already rendered
     if (!isInViewport(entity, vp, cw, ch)) continue;
@@ -159,7 +167,7 @@ export function renderEntities(
         renderPoint(ctx, entity, vp);
         break;
       case 'INSERT':
-        renderInsert(ctx, entity, vp);
+        renderInsert(ctx, entity, vp, blockDefs);
         break;
     }
   }
@@ -416,24 +424,29 @@ export function resolveFontFamily(entity: DxfEntity): string {
   return SANS_STACK;
 }
 
+/** Readable band for drawn annotation, in screen px. */
+const MIN_TEXT_PX = 8;
+const MAX_TEXT_PX = 72;
+
 /**
  * On-screen size in px of a text entity's glyphs at the current viewport.
  *
- * Annotation sits on the same transform as the geometry: a text height is a
- * distance in drawing units, so it scales with everything else. This used to
- * be clamped to [8px, 72px], which decoupled the two - below `8 / vp.scale`
- * world units a glyph stopped shrinking while the geometry kept shrinking
- * without limit, so a fitted plan turned into readable labels floating over a
- * hairline smear, and zooming in stalled every string at 72px while the walls
- * kept growing. Legibility is handled by skipping sub-pixel strings in
- * `renderText`, not by lying about their size.
+ * Annotation is drawn to a readable band rather than to true scale. That is a
+ * deliberate choice about what this viewer is for: the user is measuring
+ * geometry and reading labels, so a label that is too small to read carries no
+ * information and one that fills the canvas hides the thing being measured.
+ *
+ * The clamp is only sound because `computeExtents` fits to geometry alone. The
+ * two used to be coupled - the fit box asked how big the text was, and the
+ * font size asked how big the fit was - and any answer to one changed the
+ * other. Whichever end you then bound, the pair disagreed: bounding the box
+ * while drawing unbounded put a 30720px glyph over a correctly framed drawing.
+ * With text out of the box the loop is open, and this clamp is free to be
+ * about legibility and nothing else.
  */
 export function textFontSize(entity: DxfEntity, vp: ViewportState): number {
-  return (entity.height ?? 2.5) * vp.scale;
+  return Math.max(MIN_TEXT_PX, Math.min(MAX_TEXT_PX, (entity.height ?? 2.5) * vp.scale));
 }
-
-/** Below this a glyph is a smudge; drawing it adds noise, not information. */
-const MIN_TEXT_PX = 0.5;
 
 export function renderText(
   ctx: CanvasRenderingContext2D,
@@ -443,7 +456,6 @@ export function renderText(
   if (!entity.start || !entity.text) return;
   const pos = worldToScreen(entity.start.x, entity.start.y, vp);
   const fontSize = textFontSize(entity, vp);
-  if (fontSize < MIN_TEXT_PX) return; // too small to draw, as for sub-pixel ellipses
   // MTEXT keeps its newlines (the backend maps MTEXT -> TEXT but preserves the
   // string), and canvas fillText ignores "\n", so render each line stacked.
   const lines = entity.text.split('\n');
@@ -478,27 +490,30 @@ function renderPoint(
 const INSERT_MARKER_PX = 5;
 
 /**
- * Render a block reference as a diamond marker.
+ * Render a block reference as a diamond marker, when there is nothing better.
  *
- * This is a placeholder, not the block. The block's own geometry never
- * reaches the client - the wire carries only the insertion point, rotation,
- * scale factors and name - so the marker cannot be given a world-space
- * footprint: `x_scale = 50` says the block was scaled fifty-fold but not what
- * it was scaled from. Its size therefore stays fixed in screen pixels.
+ * The marker is the fallback, not the block. When `blockDefs` holds the
+ * definition, the reference's real geometry is drawn instead - placed by
+ * `expandBlockReferences` and appended to the render list by the caller - and
+ * this draws nothing, because a diamond on top of the door it stands for is
+ * worse than either alone.
  *
- * What the wire does carry is the insert's own transform, so the marker
- * honours it: the diamond turns with `rotation` and takes the aspect of
- * `x_scale`/`y_scale`, normalised so a uniformly scaled block keeps the
- * marker size. A field of inserts no longer reads as identical when the
- * drawing says otherwise. A point-symmetric marker still cannot show
- * mirroring (a negative scale factor), and no marker can show the geometry.
+ * A definition can be genuinely absent: filtered away, not exported, or named
+ * by an INSERT whose block never arrived. Drawing nothing there would hide a
+ * real object, so the marker stays. It cannot be given a world-space footprint
+ * - `x_scale = 50` says the block was scaled fifty-fold but not what it was
+ * scaled from - so its size stays fixed in screen pixels, while its aspect and
+ * rotation follow the reference's transform. A point-symmetric marker still
+ * cannot show mirroring, and no marker can show geometry it does not have.
  */
 export function renderInsert(
   ctx: CanvasRenderingContext2D,
   entity: DxfEntity,
   vp: ViewportState,
+  blockDefs?: BlockDefs,
 ): void {
   if (!entity.start) return;
+  if (blockDefs && isResolvedInsert(entity, blockDefs)) return;
   const pos = worldToScreen(entity.start.x, entity.start.y, vp);
   const norm = Math.max(Math.abs(entity.x_scale ?? 1), Math.abs(entity.y_scale ?? 1)) || 1;
   const rx = (INSERT_MARKER_PX * (entity.x_scale ?? 1)) / norm;

@@ -45,22 +45,61 @@ describe('computeExtents', () => {
     expect(computeExtents([rect])).toEqual({ minX: 0, minY: 0, maxX: 10, maxY: 10 });
   });
 
-  it('keeps a sane label inside the box (corpus 08_mtext)', () => {
-    // 11 characters at h=2.5 from (1,1) really do occupy 16.5 units, so the
-    // content box genuinely is 17.5 x 10. Fitting to the rectangle alone
-    // would clip the label on load — this is the regression guard, not a bug.
+  it('fits an ordinary label to the geometry, not to the label (corpus 08_mtext)', () => {
+    // The everyday case, and the one that decides whether a real drawing
+    // fills the view. 11 characters at h=2.5 genuinely occupy 16.5 units, so
+    // an honest content box is 17.5 x 10 - and fitting to it still renders
+    // the drawing 1.75x too small for no benefit the user asked for. The
+    // label is drawn, it just does not get a vote on the frame.
     const box = computeExtents([rect, textAt(1, 1, 2.5, 'ROOM 101 WC')]);
-    expect(box.maxX).toBeCloseTo(17.5);
-    expect(box.maxY).toBeCloseTo(10);
+    expect(box).toEqual({ minX: 0, minY: 0, maxX: 10, maxY: 10 });
   });
 
-  it('stops an oversized label squeezing out the geometry (corpus 06_text_large)', () => {
-    // h=1000 next to a 10-unit rectangle is authoring noise. The estimate is
-    // capped at the drawing's own span, so it contributes 10*4*0.6 = 24
-    // units rather than 1000*4*0.6 = 2400.
+  it('is unmoved by an oversized label (corpus 06_text_large)', () => {
+    // h=1000 beside a 10-unit rectangle used to inflate the box 240-fold.
+    // Capping the contribution only reduced it to 2.5-fold; excluding text
+    // removes it. The glyph is still drawn - `textFontSize` clamps it to a
+    // readable band - it simply cannot move the frame.
     const box = computeExtents([rect, textAt(1, 1, 1000, 'HUGE')]);
-    expect(box.maxX).toBeCloseTo(25);
-    expect(box.maxY).toBeCloseTo(11);
+    expect(box).toEqual({ minX: 0, minY: 0, maxX: 10, maxY: 10 });
+  });
+
+  it('ignores block definition members, which are not placed anywhere', () => {
+    // Definition coordinates are in the block's own space. A door leaf drawn
+    // 500 units from its block origin is not 500 units from the sheet origin,
+    // and letting it into the fit blows the frame out exactly the way an
+    // oversized label used to. The page's layout filter usually drops these
+    // first, but a drawing with no layouts at all takes a branch that does
+    // not, so the rule belongs here where it cannot be bypassed.
+    const leaf: DxfEntity = {
+      id: 'leaf',
+      type: 'LINE',
+      layer: '0',
+      color: 7,
+      block: 'DOOR-900',
+      start: { x: 0, y: 0 },
+      end: { x: 500, y: 500 },
+    };
+    expect(computeExtents([rect, leaf])).toEqual({ minX: 0, minY: 0, maxX: 10, maxY: 10 });
+  });
+
+  it('gives the same box whatever the text does to it (corpus 05, 06, 07, 08)', () => {
+    // The property behind the four cases above, stated once: for a fixed
+    // geometry the fit is a constant function of the annotation. Written as a
+    // sweep because the corpus files differ only in their text, and this is
+    // the invariant that makes all four of them land on the same frame.
+    const geometryOnly = computeExtents([rect]);
+    const annotations: DxfEntity[][] = [
+      [textAt(1, 1, 0.1, 'TINY')],
+      [textAt(1, 1, 1000, 'HUGE')],
+      [textAt(1, 1, 0.1, 'TINY'), textAt(1, 3, 2.5, 'NORMAL'), textAt(1, 5, 1000, 'HUGE')],
+      [textAt(1, 1, 2.5, 'MTEXT LABEL')],
+      [textAt(5, 5, 2.5, 'ROTATED', Math.PI)],
+      [textAt(1, 1, 2.5, 'LINE1\nLINE2\nLINE3')],
+    ];
+    for (const texts of annotations) {
+      expect(computeExtents([rect, ...texts])).toEqual(geometryOnly);
+    }
   });
 
   it('leaves a genuinely huge drawing alone (corpus 10_far_from_origin)', () => {
@@ -80,36 +119,23 @@ describe('computeExtents', () => {
     expect(computeExtents(far)).toEqual({ minX: 0, minY: 0, maxX: 500001, maxY: 500000 });
   });
 
-  it('expands along the text rotation instead of always +X', () => {
-    // A half-turn string runs to the LEFT of its insertion point; expanding
-    // +X only pushes the box the wrong way and clips the string.
-    const box = computeExtents([rect, textAt(5, 5, 2.5, 'ABCD', Math.PI)]);
-    expect(box.minX).toBeCloseTo(-1); // 5 - 2.5*4*0.6
-    expect(box.minY).toBeCloseTo(0); // rectangle still owns the bottom edge
-  });
-
-  it('covers the lines an MTEXT stacks below its insertion point', () => {
-    // The renderer splits on newlines and steps DOWN by 1.25 * height per
-    // line, so the width is the longest line and the box reaches below.
-    const box = computeExtents([rect, textAt(1, 1, 2.5, 'LINE1\nLINE2\nLINE3')]);
-    expect(box.maxX).toBeCloseTo(10); // longest line is 5 chars, rect wins
-    expect(box.minY).toBeCloseTo(-5.25); // 1 - 2 * 1.25 * 2.5
-  });
-
-  it('does not let a stray note widen the span that is meant to bound it', () => {
-    // The note is parked at the origin, far from the geometry. Its anchor is
-    // in the box - the frame should reach it - but if the cap were read off
-    // that same box the note would license a 510-unit glyph and push maxX out
-    // to 3060. Measuring the cap over geometry alone keeps it at 10.
+  it('leaves a stray note outside the frame rather than fitting to it', () => {
+    // A note parked far from the drawing is an ordinary CAD artifact, and it
+    // used to drag the frame across the gap. The accepted cost of fitting to
+    // geometry is that such a label sits off-view until the user pans, which
+    // is the right trade when the alternative is a drawing 50x too small.
     const away: DxfEntity = {
       ...rect,
       vertices: rect.vertices!.map((v) => ({ x: v.x + 500, y: v.y + 500 })),
     };
     const box = computeExtents([away, textAt(0, 0, 1000, 'STRAY NOTE')]);
-    expect(box).toEqual({ minX: 0, minY: 0, maxX: 510, maxY: 510 });
+    expect(box).toEqual({ minX: 500, minY: 500, maxX: 510, maxY: 510 });
   });
 
-  it('frames a text-only drawing, which has no span to cap against', () => {
+  it('frames a text-only drawing, which has no geometry to fit', () => {
+    // The fallback, and the only reason `textExtents` still exists. Without
+    // it a drawing made only of annotation would fit to the empty-drawing
+    // default and show nothing at all.
     const box = computeExtents([textAt(0, 0, 1000, 'HUGE')]);
     expect(box.maxX).toBeCloseTo(2400);
     expect(box.maxY).toBeCloseTo(1000);

@@ -118,6 +118,7 @@ import {
   type EntityContextMenuEvent,
 } from './components/DxfViewer';
 import { aggregateEntities } from './lib/group-aggregation';
+import { groupBlockDefinitions } from './lib/blocks';
 import { findTextMatches, type DwgTextMatch } from './lib/dwg-textsearch';
 import {
   quantifyByLayer,
@@ -1470,10 +1471,20 @@ export function DwgTakeoffPage() {
     });
   }, [entities]);
 
-  // Filter entities by selected layout
+  // Block definitions, grouped off the flat wire list before any layout
+  // filtering. Their members carry `block` instead of `layout`, so they belong
+  // to no sheet and every sheet at once - whichever one places them.
+  const blockDefs = useMemo(() => groupBlockDefinitions(entities), [entities]);
+
+  // Filter entities by selected layout. Definition members are excluded
+  // whichever branch runs: the layout filter drops them for free because they
+  // have no layout, but a drawing with no layouts at all takes the early
+  // return, and there they would arrive as loose parts in block coordinates.
   const filteredEntities = useMemo(() => {
-    if (!selectedLayout || layouts.length === 0) return annotatedEntities;
-    return annotatedEntities.filter((e) => e.layout === selectedLayout);
+    if (!selectedLayout || layouts.length === 0) {
+      return annotatedEntities.filter((e) => !e.block);
+    }
+    return annotatedEntities.filter((e) => e.layout === selectedLayout && !e.block);
   }, [annotatedEntities, selectedLayout, layouts]);
 
   // Layers present in THIS (possibly server-filtered) fetch + the virtual
@@ -3412,6 +3423,7 @@ export function DwgTakeoffPage() {
               <DxfViewer
                 key={`${selectedDrawingId}:${selectedLayout ?? 'default'}`}
                 entities={viewerEntities}
+                blockDefs={blockDefs}
                 annotations={visibleAnnotations}
                 visibleLayers={visibleLayers}
                 activeTool={activeTool}

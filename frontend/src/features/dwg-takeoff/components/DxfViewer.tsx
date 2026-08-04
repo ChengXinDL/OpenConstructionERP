@@ -4,7 +4,7 @@
  * Canvas2D-based DXF entity renderer with pan, zoom, selection, and annotation overlay.
  */
 
-import { useRef, useEffect, useCallback, useState } from 'react';
+import { useRef, useEffect, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import type { DxfEntity, DwgAnnotation } from '../api';
@@ -18,6 +18,8 @@ import {
   worldToScreen,
 } from '../lib/viewport';
 import { renderEntities } from '../lib/dxf-renderer';
+import type { BlockDefs } from '../lib/blocks';
+import { expandBlockReferences } from '../lib/blocks';
 import { renderAnnotations } from './AnnotationOverlay';
 import type { DwgTool } from './ToolPalette';
 import {
@@ -77,6 +79,14 @@ export interface EntityContextMenuEvent {
 
 interface Props {
   entities: DxfEntity[];
+  /**
+   * Block definitions, keyed by name. Their members arrive on the wire without
+   * a `layout`, so the page's layout filter drops them before they get here -
+   * which is what keeps them off the sheet, since their coordinates are in
+   * block space. Passing them separately is what lets a reference draw as the
+   * thing it references instead of as a marker. Omitted = markers, as before.
+   */
+  blockDefs?: BlockDefs;
   annotations: DwgAnnotation[];
   visibleLayers: Set<string>;
   activeTool: DwgTool;
@@ -158,6 +168,7 @@ interface Props {
 
 export function DxfViewer({
   entities,
+  blockDefs,
   annotations,
   visibleLayers,
   activeTool,
@@ -302,6 +313,24 @@ export function DxfViewer({
     snapCandidatesRef.current = collectSnapCandidates(visible, snapModes);
   }, [entities, visibleLayers, hiddenEntityIds, snapModes]);
 
+  /**
+   * Block geometry, placed in world coordinates by the INSERTs that reference
+   * it. Computed here rather than in the draw loop because the draw loop runs
+   * every frame and this walks every definition of every reference.
+   *
+   * These are render-only copies. They are deliberately kept out of hit
+   * testing, snapping and selection: they carry synthetic ids the backend has
+   * never heard of, so letting one be selected would send an id that resolves
+   * to nothing. Picking block content is its own feature, not a side effect of
+   * drawing it.
+   */
+  const placedBlocks = useMemo(
+    () => (blockDefs && blockDefs.size > 0 ? expandBlockReferences(entities, blockDefs) : []),
+    [entities, blockDefs],
+  );
+  const placedBlocksRef = useRef<DxfEntity[]>(placedBlocks);
+  placedBlocksRef.current = placedBlocks;
+
   // Recompute extents when entities change, then fit
   useEffect(() => {
     if (entities.length === 0) {
@@ -309,7 +338,12 @@ export function DxfViewer({
       fittedRef.current = false;
       return;
     }
-    const ext = computeExtents(entities);
+    // Placed block geometry is real geometry sitting on the sheet, so it
+    // belongs in the fit. A plan whose content is mostly blocks would
+    // otherwise fit to the handful of lines drawn outside them.
+    const ext = computeExtents(
+      placedBlocks.length > 0 ? entities.concat(placedBlocks) : entities,
+    );
     extentsRef.current = ext;
     // Fit immediately if the container already has a known size
     const container = containerRef.current;
@@ -321,7 +355,7 @@ export function DxfViewer({
         forceRender((n) => n + 1);
       }
     }
-  }, [entities]);
+  }, [entities, placedBlocks]);
 
   // Find-text: pan/zoom to frame a match whenever the focus nonce changes. The
   // match is framed at ~18% of the smaller viewport dimension so it lands with
@@ -472,11 +506,21 @@ export function DxfViewer({
       const visibleEntities = hidden.size > 0
         ? entities.filter((e) => !hidden.has(e.id))
         : entities;
+      // Hiding a reference has to hide what it placed, or the door stays on
+      // screen after the user hides the door. A placed id is the chain of ids
+      // that produced it, so its first segment is the reference the user hid.
+      const placed = placedBlocksRef.current;
+      const visiblePlaced = hidden.size > 0
+        ? placed.filter((e) => !hidden.has(e.id.slice(0, e.id.indexOf('/'))))
+        : placed;
       // Highlight only the first selected id via the legacy single-id API; any
       // additional selected entities get a secondary halo drawn below.
       const selectedIds = selectedEntityIdsRef.current;
       const primarySelId = selectedIds.size > 0 ? selectedIds.values().next().value ?? null : null;
-      renderEntities(ctx, visibleEntities, vp, visibleLayers, primarySelId, cw, ch);
+      const renderList = visiblePlaced.length > 0
+        ? visibleEntities.concat(visiblePlaced)
+        : visibleEntities;
+      renderEntities(ctx, renderList, vp, visibleLayers, primarySelId, cw, ch, blockDefs);
 
       // Draw secondary selection halos for additional selected entities (multi-select)
       if (selectedIds.size > 1) {
@@ -754,7 +798,7 @@ export function DxfViewer({
     rafRef.current = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(rafRef.current);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entities, annotations, visibleLayers]);
+  }, [entities, annotations, visibleLayers, blockDefs]);
 
   // Wheel zoom — use native listener with { passive: false } so preventDefault() works
   useEffect(() => {

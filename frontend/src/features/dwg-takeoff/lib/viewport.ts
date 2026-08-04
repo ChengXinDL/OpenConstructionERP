@@ -26,26 +26,32 @@ export interface Extents {
 /**
  * World-space bounding box of every entity, used to fit the drawing on load.
  *
- * Geometry is measured first, then annotation is added on top. The split is
- * deliberate: this is a takeoff tool, and a drawing framed around its labels
- * instead of around the thing being measured is the wrong default. Text is
- * still included - a room label really does sit beside its room, and clipping
- * it on load would be its own defect - but it cannot drive the frame on its
- * own. See `textExtents` for the bound.
+ * Annotation is deliberately excluded, and that exclusion is the whole design.
+ * A glyph's drawn size depends on the scale, and the scale depends on this
+ * box, so letting text in closes a loop with no stable answer - the frame and
+ * the font chase each other. Bounding one end alone does not open the loop, it
+ * only moves the disagreement: bounding the box while the renderer drew
+ * unbounded put a 30720px glyph over an otherwise correctly framed drawing.
+ * Fitting to geometry cuts the dependency, which is what frees `textFontSize`
+ * to clamp text to a readable band on legibility grounds alone. It is also
+ * what makes the drawing fill the view, which is the complaint in #426.
+ *
+ * Two consequences, accepted rather than overlooked. A label near the edge can
+ * extend past the fitted view - ordinary in CAD viewers, and the price of the
+ * geometry filling the screen. And a drawing that is *only* annotation has no
+ * geometry to fit, so there, and only there, the text estimate is the content.
+ *
+ * Block definition members (`e.block`) are skipped for a different reason: they
+ * are not placed anywhere. Their coordinates are in their block's own space, so
+ * fitting to them frames a drawing nobody is looking at. Pass the output of
+ * `expandBlockReferences` alongside the entities to have block content counted
+ * where it actually sits.
  */
 export function computeExtents(entities: DxfEntity[]): Extents {
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
   let maxY = -Infinity;
-  // The same box measured over geometry alone. Annotation contributes its
-  // anchor to the box - a label is somewhere, and the frame should cover it -
-  // but not to the bound below, or a note parked far from the drawing would
-  // widen the span that is supposed to be limiting it.
-  let geomMinX = Infinity;
-  let geomMinY = Infinity;
-  let geomMaxX = -Infinity;
-  let geomMaxY = -Infinity;
 
   const expand = (x: number, y: number) => {
     if (x < minX) minX = x;
@@ -54,77 +60,61 @@ export function computeExtents(entities: DxfEntity[]): Extents {
     if (y > maxY) maxY = y;
   };
 
-  const expandGeometry = (x: number, y: number) => {
-    expand(x, y);
-    if (x < geomMinX) geomMinX = x;
-    if (y < geomMinY) geomMinY = y;
-    if (x > geomMaxX) geomMaxX = x;
-    if (y > geomMaxY) geomMaxY = y;
-  };
-
   for (const e of entities) {
-    const put = e.type === 'TEXT' ? expand : expandGeometry;
-    if (e.start) put(e.start.x, e.start.y);
-    if (e.end) put(e.end.x, e.end.y);
+    if (e.type === 'TEXT' || e.block) continue;
+    if (e.start) expand(e.start.x, e.start.y);
+    if (e.end) expand(e.end.x, e.end.y);
     if (e.vertices) {
-      for (const v of e.vertices) put(v.x, v.y);
+      for (const v of e.vertices) expand(v.x, v.y);
     }
     if (e.start && e.radius) {
-      put(e.start.x - e.radius, e.start.y - e.radius);
-      put(e.start.x + e.radius, e.start.y + e.radius);
+      expand(e.start.x - e.radius, e.start.y - e.radius);
+      expand(e.start.x + e.radius, e.start.y + e.radius);
     }
     if (e.type === 'ELLIPSE' && e.start) {
       const r = Math.max(e.major_radius ?? 0, e.minor_radius ?? 0, e.radius ?? 0);
       if (r > 0) {
-        put(e.start.x - r, e.start.y - r);
-        put(e.start.x + r, e.start.y + r);
+        expand(e.start.x - r, e.start.y - r);
+        expand(e.start.x + r, e.start.y + r);
       }
     }
   }
 
-  if (!isFinite(minX)) return { minX: 0, minY: 0, maxX: 100, maxY: 100 };
+  if (isFinite(minX)) return { minX, minY, maxX, maxY };
 
-  // A glyph taller than the drawing itself is authoring noise, not content, so
-  // the height an estimate may use is capped at the drawing's own span. One
-  // 1000-unit label beside a 10-unit rectangle used to inflate the fit box
-  // 240-fold and collapse the geometry to four pixels. A drawing with no
-  // geometry to measure, or with all of it on one axis, has no span to cap
-  // against, so there the estimate is used as authored.
-  const heightCap = isFinite(geomMinX)
-    ? Math.min(geomMaxX - geomMinX, geomMaxY - geomMinY) ||
-      Math.max(geomMaxX - geomMinX, geomMaxY - geomMinY) ||
-      Infinity
-    : Infinity;
-
+  // Nothing but annotation. Fitting to the geometry would be fitting to
+  // nothing, so here the estimate is all the content there is.
   for (const e of entities) {
-    const box = textExtents(e, heightCap);
+    const box = textExtents(e);
     if (box) {
       expand(box.minX, box.minY);
       expand(box.maxX, box.maxY);
     }
   }
 
-  return { minX, minY, maxX, maxY };
+  if (isFinite(minX)) return { minX, minY, maxX, maxY };
+  return { minX: 0, minY: 0, maxX: 100, maxY: 100 };
 }
 
 /**
  * Estimated world-space box of one TEXT/MTEXT entity, or null if it draws
- * nothing. `heightCap` bounds the authored height the estimate may use.
+ * nothing. Reached only by the text-only fallback above.
  *
- * The box describes what the renderer will actually put on the canvas rather
- * than what the file claims, because the two have to agree for the fit to
- * mean anything. So: glyph width is the same `0.6 * height` advance estimate
- * the renderer's font produces; multi-line strings are as wide as their
- * longest line and stack *downwards* from the insertion point the way
- * `renderText` draws them; and the box turns with `rotation`, which the
- * renderer applies and this estimate used to ignore - a half-turn string runs
- * to the left of its insertion point, and expanding +X only pushed the frame
- * the wrong way. Justification is ignored here because the renderer ignores
- * it too: both draw from the insertion point.
+ * The estimate is rough and cannot be otherwise: `0.6 * height` per character
+ * is an average advance width, wrong in both directions for any proportional
+ * font, and the real width is only knowable by measuring against the font the
+ * canvas will actually use. That is tolerable here precisely because this is
+ * the fallback - it frames a drawing that would otherwise have no box at all,
+ * and being 20% out on such a file costs nothing. It would not be tolerable as
+ * an input to the normal fit, which is one more reason the normal fit does not
+ * use it. Multi-line strings are as wide as their longest line and stack
+ * *downwards*, matching how `renderText` lays them out; the box turns with
+ * `rotation`, since a half-turn string runs to the left of its insertion
+ * point; justification is ignored because the renderer ignores it too.
  */
-function textExtents(e: DxfEntity, heightCap: number): Extents | null {
+function textExtents(e: DxfEntity): Extents | null {
   if (e.type !== 'TEXT' || !e.start || !e.text) return null;
-  const h = Math.min(e.height ?? 2.5, heightCap);
+  const h = e.height ?? 2.5;
   const lines = e.text.split('\n');
   const longest = lines.reduce((m, line) => Math.max(m, line.length), 0);
   const width = h * longest * 0.6;

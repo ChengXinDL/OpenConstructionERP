@@ -47,13 +47,17 @@ const SNIPPET_RADIUS = 28;
  *
  * DXF text grows up and to the right from its insertion point; glyph width
  * is font dependent, so we use the same 0.6*height-per-character heuristic
- * the viewer's `computeExtents` uses for fitting. The two are not identical
- * beyond that shared width estimate: the fit box turns with the entity's
- * rotation and bounds an implausibly large authored height, neither of which
- * a highlight box wants - a highlight has to sit where the string is even
- * when the string is badly authored. So a rotated match is framed by its
- * axis-aligned box here. Returns null if the entity has no insertion point
- * or no text.
+ * `viewport.textExtents` uses. That is where the resemblance ends, and the
+ * gap is now wider than it was: this box is in world units at the authored
+ * height, while the renderer draws every string clamped to a readable pixel
+ * band, so at extreme zoom a highlight and its glyph are visibly different
+ * sizes. It is a real defect and it is not this function's to fix alone - a
+ * highlight that followed the drawn size would have to be computed in screen
+ * space, which is a change to the find-text overlay rather than to an
+ * estimate. Rotation is deliberately ignored here, unlike in the fit: a
+ * highlight has to sit where the string is, so a rotated match is framed by
+ * its axis-aligned box. Returns null if the entity has no insertion point or
+ * no text.
  */
 export function textBoxForEntity(e: DxfEntity): WorldBox | null {
   if (e.type !== 'TEXT' || !e.start || !e.text) return null;

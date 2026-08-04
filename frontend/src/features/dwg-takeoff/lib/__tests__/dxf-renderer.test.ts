@@ -1,7 +1,8 @@
 // DDC-CWICR-OE: DataDrivenConstruction · OpenConstructionERP
 // Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
 import { describe, it, expect } from 'vitest';
-import { textFontSize, renderText, renderInsert } from '../dxf-renderer';
+import { textFontSize, renderText, renderInsert, renderEntities } from '../dxf-renderer';
+import { groupBlockDefinitions } from '../blocks';
 import type { ViewportState } from '../viewport';
 import type { DxfEntity } from '../../api';
 
@@ -71,31 +72,40 @@ function pathPoints(calls: { op: string; args: unknown[] }[]): [number, number][
 }
 
 describe('textFontSize', () => {
-  // Annotation must sit on the same transform as the geometry. The old
-  // [8px, 72px] clamp broke that in both directions: below 8/scale world
-  // units a glyph stopped shrinking while the geometry kept shrinking, which
-  // is what turns a fitted plan into readable labels over a hairline smear.
-  it('tracks the viewport scale across three decades', () => {
+  // Annotation is drawn to a readable band, not to true scale. That is sound
+  // only because `computeExtents` fits to geometry alone - the clamp and the
+  // fit box no longer depend on each other, so neither can drag the other.
+  it('tracks the viewport scale inside the readable band', () => {
     const e = text(2.5);
-    expect(textFontSize(e, vp(1))).toBeCloseTo(2.5);
+    expect(textFontSize(e, vp(4))).toBeCloseTo(10);
     expect(textFontSize(e, vp(10))).toBeCloseTo(25);
-    expect(textFontSize(e, vp(100))).toBeCloseTo(250);
+    expect(textFontSize(e, vp(20))).toBeCloseTo(50);
   });
 
-  it('keeps shrinking below the old 8px floor', () => {
+  it('holds a fitted plan’s annotation at the 8px floor', () => {
     // A 100 m plan fitted into a 1877 px canvas puts vp.scale near 0.019, so
-    // 2.5 mm annotation wants a twentieth of a pixel. It used to get 8.
-    expect(textFontSize(text(2.5), vp(0.019))).toBeCloseTo(0.0475);
+    // 2.5 mm annotation is 0.0475 px - invisible. The floor is what keeps a
+    // label readable at the zoom the drawing is first shown at.
+    expect(textFontSize(text(2.5), vp(0.019))).toBe(8);
   });
 
-  it('keeps growing above the old 72px ceiling', () => {
-    expect(textFontSize(text(2.5), vp(1000))).toBeCloseTo(2500);
+  it('holds a pathological glyph at the 72px ceiling', () => {
+    // The 06_text_large case, and the reason the ceiling has to exist: at the
+    // fitted scale this glyph is 56800 px, which paints over the whole canvas
+    // and hides the geometry the user opened the file to measure.
+    expect(textFontSize(text(1000), vp(56.8))).toBe(72);
+    expect(textFontSize(text(2.5), vp(1000))).toBe(72);
   });
 
-  it('stays proportional — doubling the scale doubles the glyph', () => {
+  it('is monotonic in the scale and never leaves the band', () => {
     const e = text(2.5);
-    for (const s of [0.001, 0.01, 0.1, 1, 10, 100]) {
-      expect(textFontSize(e, vp(s * 2)) / textFontSize(e, vp(s))).toBeCloseTo(2);
+    let previous = 0;
+    for (const s of [0.001, 0.01, 0.1, 1, 10, 100, 1000]) {
+      const px = textFontSize(e, vp(s));
+      expect(px).toBeGreaterThanOrEqual(8);
+      expect(px).toBeLessThanOrEqual(72);
+      expect(px).toBeGreaterThanOrEqual(previous);
+      previous = px;
     }
   });
 
@@ -104,23 +114,30 @@ describe('textFontSize', () => {
   });
 });
 
-describe('renderText legibility floor', () => {
-  it('skips a string that would render below half a pixel', () => {
+describe('renderText', () => {
+  it('draws a string the fitted view would otherwise render sub-pixel', () => {
+    // Nothing is skipped for being small any more, because nothing can be
+    // small any more - the floor lifts it to 8 px first.
     const { ctx, calls } = stubCtx();
-    renderText(ctx, text(2.5), vp(0.1)); // 0.25 px
-    expect(calls.filter((c) => c.op === 'fillText')).toHaveLength(0);
-  });
-
-  it('draws a string that reaches the threshold', () => {
-    const { ctx, calls } = stubCtx();
-    renderText(ctx, text(2.5), vp(0.2)); // exactly 0.5 px
+    renderText(ctx, text(2.5), vp(0.1)); // 0.25 px unclamped, 8 px drawn
     expect(calls.filter((c) => c.op === 'fillText')).toHaveLength(1);
+    expect(ctx.font).toContain('8px');
   });
 
-  it('draws every line of a legible MTEXT', () => {
+  it('draws every line of an MTEXT', () => {
     const { ctx, calls } = stubCtx();
     renderText(ctx, text(2.5, 'LINE1\nLINE2\nLINE3'), vp(10));
     expect(calls.filter((c) => c.op === 'fillText')).toHaveLength(3);
+  });
+
+  it('steps lines by 1.25 of the clamped size, not the authored one', () => {
+    // The line step follows what is drawn. If it followed the authored height
+    // the lines of a clamped MTEXT would fly apart or collapse together.
+    const { ctx, calls } = stubCtx();
+    renderText(ctx, text(1000, 'A\nB'), vp(1)); // 1000 px unclamped, 72 px drawn
+    const ys = calls.filter((c) => c.op === 'fillText').map((c) => c.args[2] as number);
+    expect(ys).toHaveLength(2);
+    expect(ys[1]! - ys[0]!).toBeCloseTo(72 * 1.25);
   });
 });
 
@@ -171,5 +188,59 @@ describe('renderInsert marker', () => {
     renderInsert(ctx, insert(), vp(1));
     expect(calls.filter((c) => c.op === 'save')).toHaveLength(1);
     expect(calls.filter((c) => c.op === 'restore')).toHaveLength(1);
+  });
+
+  it('draws no marker once the definition is available', () => {
+    // The marker stands in for geometry the client did not have. When the
+    // geometry arrives the caller draws it, and a diamond on top of the door
+    // it stands for is worse than either alone.
+    const defs = groupBlockDefinitions([
+      { id: 'm', type: 'LINE', layer: '0', color: 7, block: 'DOOR-900' },
+    ]);
+    const { ctx, calls } = stubCtx();
+    renderInsert(ctx, insert(), vp(1), defs);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('still draws the marker when the named definition is missing', () => {
+    const defs = groupBlockDefinitions([
+      { id: 'm', type: 'LINE', layer: '0', color: 7, block: 'WINDOW' },
+    ]);
+    const { ctx, calls } = stubCtx();
+    renderInsert(ctx, insert(), vp(1), defs);
+    expect(pathPoints(calls)).toHaveLength(4);
+  });
+});
+
+describe('renderEntities', () => {
+  it('draws nothing for an unplaced definition member', () => {
+    // Its coordinates are in block space, so drawing it here scatters loose
+    // parts across the sheet at coordinates that mean nothing.
+    const { ctx, calls } = stubCtx();
+    const leaf: DxfEntity = {
+      id: 'leaf',
+      type: 'LINE',
+      layer: '0',
+      color: 7,
+      block: 'DOOR-900',
+      start: { x: 0, y: 0 },
+      end: { x: 1, y: 1 },
+    };
+    renderEntities(ctx, [leaf], vp(1), new Set(['0']), null, 800, 600);
+    expect(calls.filter((c) => c.op === 'lineTo')).toHaveLength(0);
+  });
+
+  it('draws an ordinary entity on a visible layer', () => {
+    const { ctx, calls } = stubCtx();
+    const line: DxfEntity = {
+      id: 'l',
+      type: 'LINE',
+      layer: 'A-WALL',
+      color: 7,
+      start: { x: 0, y: 0 },
+      end: { x: 1, y: 1 },
+    };
+    renderEntities(ctx, [line], vp(1), new Set(['A-WALL']), null, 800, 600);
+    expect(calls.filter((c) => c.op === 'lineTo')).toHaveLength(1);
   });
 });
