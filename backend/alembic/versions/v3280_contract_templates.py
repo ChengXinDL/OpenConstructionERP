@@ -144,7 +144,15 @@ def upgrade() -> None:
             sa.ForeignKeyConstraint(
                 ["template_id"],
                 [f"{_TEMPLATE}.id"],
-                name="fk_oe_contracts_template_clause_template_id_oe_contracts_template",
+                # Scoped to this table only, without repeating the referenced
+                # table, which is how the two constraints either side of this
+                # one are already named. Spelling it the long way produced a
+                # 65-character identifier, and PostgreSQL truncates at 63:
+                # SQLAlchemy refuses to emit a name it knows will be cut, so
+                # the revision raised before sending any DDL. Postgres runs DDL
+                # in a transaction, so that rolled back the whole upgrade and
+                # a site got none of the revisions rather than just this one.
+                name="fk_oe_contracts_template_clause_template",
                 ondelete="CASCADE",
             ),
             sa.UniqueConstraint(
