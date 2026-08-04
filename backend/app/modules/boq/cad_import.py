@@ -203,11 +203,46 @@ if _ddc_bin:
     logger.info("DDC toolkit converters found at %s", _ddc_bin)
 
 
+# The libraries every Windows converter folder carries beside its exe.
+# All four formats ship the same three files - byte for byte the same
+# blobs - so their absence is not a per-format quirk of the layout, it is
+# a folder holding part of what we installed.
+_WINDOWS_COMPANION_FILES: tuple[str, ...] = ("Qt6Core.dll", "Qt6Gui.dll", "Qt6Widgets.dll")
+
+
+def missing_companion_files(exe_path: Path) -> list[str]:
+    """Names of the Windows companion libraries absent from the exe's folder.
+
+    A rollback on Windows cannot delete a file another process holds open,
+    and the installer's rollbacks pass ``ignore_errors=True``, so a failed
+    install can leave a folder with the exe in it and little else. Nothing
+    downstream noticed: resolution accepted any file over 1 KB. Windows
+    then walks the rest of its search order for the missing libraries and
+    can bind the converter to an unrelated build elsewhere on the machine,
+    which is what error 0xC000007B looks like from the outside.
+
+    Keyed on the ``.exe`` suffix and not on the host platform: the Linux
+    build is a single ELF binary that resolves its dependencies through
+    the loader path and has no library beside it by design.
+    """
+    if exe_path.suffix.lower() != ".exe":
+        return []
+    folder = exe_path.parent
+    return [name for name in _WINDOWS_COMPANION_FILES if not (folder / name).exists()]
+
+
 def find_converter(extension: str) -> Path | None:
     """Find the converter executable for a given file extension.
 
     Searches through ``CONVERTER_SEARCH_PATHS`` in order and returns the
     first existing executable path, or ``None`` if no converter is found.
+
+    A Windows folder holding the exe without the Qt libraries beside it is
+    a partial install, and it used to win the search purely by sitting
+    earlier in the order. Such a candidate is now kept back: a complete
+    tree anywhere wins, and the partial one is returned only when there is
+    nothing better, so this never answers ``None`` where it used to answer
+    a path. Reporting the partial folder is the health check's job.
 
     Args:
         extension: Lowercase file extension without dot (e.g. ``"rvt"``).
@@ -298,12 +333,23 @@ def find_converter(extension: str) -> Path | None:
         if cand.exists() and cand.stat().st_size > 1024:
             return cand
 
+    partial: Path | None = None
     for search_path in search_paths:
         exe_path = search_path / exe_name
         if exe_path.exists() and exe_path.stat().st_size > 1024:
-            return exe_path
+            if not missing_companion_files(exe_path):
+                return exe_path
+            if partial is None:
+                partial = exe_path
 
-    return None
+    if partial is not None:
+        logger.warning(
+            "Converter %s at %s is missing %s - that folder holds part of an install",
+            exe_name,
+            partial,
+            ", ".join(missing_companion_files(partial)),
+        )
+    return partial
 
 
 # ── Automatic converter provisioning (zero-user-action download) ──────────
@@ -809,6 +855,30 @@ def smoke_test_converter(extension: str, force: bool = False) -> ConverterHealth
         _HEALTH_CACHE[extension] = result
         return result
 
+    # A folder with the exe but not the libraries we ship beside it is a
+    # partial install, and it reads as a healthy one from every check we
+    # had: the file is there and it is bigger than 1 KB. Say so before
+    # spawning anything, because whether the binary starts from such a
+    # folder depends on what else is installed on the machine, and a
+    # converter that starts by borrowing another program's libraries is
+    # not an install we can support either way.
+    absent = missing_companion_files(exe_path)
+    if absent:
+        result = {
+            "status": "failed",
+            "message": (
+                f"{exe_path.parent} holds {exe_path.name} but not {', '.join(absent)}, "
+                f"so that folder has only part of a converter in it. Windows will look "
+                f"for those libraries everywhere else on the machine and may start the "
+                f"converter against an unrelated copy. Press Uninstall and then Install "
+                f"so the folder is rebuilt from empty."
+            ),
+            "suggested_actions": ["reinstall_converter", "manual_install_from_github"],
+            "checked_at": now,
+        }
+        _HEALTH_CACHE[extension] = result
+        return result
+
     try:
         import subprocess
 
@@ -833,16 +903,23 @@ def smoke_test_converter(extension: str, force: bool = False) -> ConverterHealth
         if rc in _WINDOWS_DLL_LOAD_FAILURES:
             unsigned = rc & 0xFFFFFFFF
             if unsigned == _WINDOWS_STATUS_INVALID_IMAGE_FORMAT:
-                # Not a missing file. Every DLL the converter needs is present
-                # and one of them is built for the other word size, so the
-                # loader refuses the image. Telling somebody to reinstall the
-                # Qt plugins here sends them to re-download the files they
-                # already have.
+                # The loader found the image and refused it. This branch used
+                # to assert that every library was present and one of them was
+                # built for the other word size, and told the user to download
+                # the converter again. Both halves were wrong. Every file we
+                # publish for every converter is 64-bit, and has been in every
+                # version we have released, so the word-size claim describes
+                # nothing we ship; and downloading again cannot remove a file
+                # that should not be in the folder. What clears the folder is
+                # Uninstall, or deleting it.
                 diagnosis = (
-                    f"{exe_path.name} cannot start because one of the libraries beside it is built for a "
-                    f"different processor architecture - a 32-bit DLL next to a 64-bit program or the reverse "
-                    f"(Windows error 0x{unsigned:08x}). Re-download the converter and let the installer place "
-                    f"the whole folder, rather than copying individual files into it."
+                    f"Windows found {exe_path.name} and then refused to start it "
+                    f"(error 0x{unsigned:08x}). Every file we publish for this converter is 64-bit, "
+                    f"in every version we have released, so a folder that fails this way is either "
+                    f"missing something we ship or holding something we do not. Press Uninstall and "
+                    f"then Install so the folder is rebuilt from empty, or delete {exe_path.parent} "
+                    f"yourself and install again. If it comes back, send us the converter path shown "
+                    f"here and a listing of that folder with file sizes."
                 )
             else:
                 diagnosis = (
