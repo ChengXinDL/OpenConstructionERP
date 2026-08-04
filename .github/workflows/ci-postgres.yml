@@ -238,6 +238,36 @@ jobs:
       # No database, under a second.
       - name: Run release version literal reader tests
         run: pytest tests/unit/test_version_sync_check.py -q -p no:cacheprovider
+      # What the sheet register holds after a drawing set is split. Attached here
+      # for the reason stated repeatedly above, which is that tests/unit runs in
+      # no lane that blocks a merge, and this release ships the register's first
+      # real screen, so the split behind it was gated by nothing at all.
+      # It covers two things nothing else could see. A re-uploaded set used to
+      # leave two rows per sheet number, both flagged as the current revision,
+      # which also fed a doubled set into the completeness check because that
+      # reads current sheets only. And the title block reader captured past the
+      # end of a field: the pre-existing scale tests all assert with `in` rather
+      # than equality, so a value carrying an extra line or the neighbouring
+      # column passed every one of them. The assertions here are equalities for
+      # exactly that reason.
+      # The PDFs are rendered with reportlab and read back with pdfplumber, so
+      # the detection runs against text that was genuinely extracted rather than
+      # handed to it. Needs the database, about eighty seconds.
+      # The skip guard is the point of the shell block. Most of this file needs
+      # a PDF, and the helper that renders one calls importorskip, so if
+      # reportlab ever stops being installed here the file goes quiet and the
+      # step still exits zero. reportlab and pdfplumber are base dependencies of
+      # the backend package rather than extras today, so this should never fire;
+      # it exists because a gate that turns itself off without saying so is
+      # worse than no gate, and nothing else in this lane would notice.
+      - name: Run sheet register split tests
+        run: |
+          set -o pipefail
+          pytest tests/unit/test_sheets_split_and_register.py -q -p no:cacheprovider | tee sheets.log
+          if grep -qE '[0-9]+ skipped' sheets.log; then
+            echo "::error::A sheet register test skipped instead of running. reportlab or pdfplumber is missing from this lane, so this step proved nothing." >&2
+            exit 1
+          fi
       # The cost base pipeline produces the parquet editions people download from us, so it
       # needs a blocking gate. It needs no database; it is attached here because this is the
       # only merge-blocking lane that runs pytest, and an ungated test is the situation this
