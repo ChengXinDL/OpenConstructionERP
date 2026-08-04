@@ -11,11 +11,19 @@
  *     in IFC never being surfaced — the install button was unreachable).
  *  2. Stays visible even when everything is healthy, so the user can
  *     verify rather than guess.
- *  3. Polls the backend with `verify=true`, which runs an 8 s smoke test
- *     per installed converter. A binary that exists on disk but cannot
+ *  3. Can smoke-test each installed converter (`verify=true`, an 8 s run
+ *     per binary server-side). A binary that exists on disk but cannot
  *     load (Qt6 DLL missing, Mark-of-the-Web, VCRedist absent) shows up
  *     here as ⚠ Failed, with the specific reason and one-click fix
  *     buttons mapped from the backend's `suggested_actions`.
+ *
+ * The smoke test is not automatic. Since #416 the panel lists converters
+ * on mount and runs nothing: it renders on /bim, /projects and /settings,
+ * and executing every installed converter because a page opened is how a
+ * converter that cannot start became a page-opening error. Installed rows
+ * read "Installed" (neutral) until the user presses Check now, a row's
+ * Re-check, or installs something - after which this panel keeps
+ * verifying for the rest of its life.
  *
  * Cache: shares the `['bim-converters']` React-Query key with the upload
  * preflight in BIMPage so an install / verify here invalidates both.
@@ -206,12 +214,28 @@ export function BIMConverterStatusBanner({
     }
   };
 
-  // Fetch with `verify=true` so each installed converter gets a smoke test.
-  // The backend caches results 5 min, so the polling is cheap.
+  // `verify=true` makes the server spawn every installed converter
+  // executable to smoke-test it, 8 s timeout each. Mounting this banner is
+  // not a reason to do that: it renders on /bim, /projects and /settings, so
+  // simply arriving at one of those pages ran every converter with no file
+  // to convert - which is how the reporter of #416 met a Windows loader
+  // error. The passive listing (installed, missing, size, upstream version)
+  // needs no execution at all, so that is what the automatic fetch asks for,
+  // and installed converters come back as `unknown` until somebody checks.
+  //
+  // A ref, not state, so the queryFn reads the current choice when it runs
+  // and a `refetch()` in the same tick already carries it. Once the user has
+  // asked for a check - the header button, a row's Re-check, or an install -
+  // it stays on for the life of this panel, otherwise the invalidation those
+  // actions trigger would immediately refetch without verify and throw away
+  // the verdict the user just asked for. The backend caches health for five
+  // minutes, so what that costs is bounded.
+  const verifyOnFetch = useRef<boolean>(false);
+
   const { data, isLoading, isFetching, refetch } =
     useQuery<BIMConvertersResponse>({
       queryKey: ['bim-converters'],
-      queryFn: () => fetchBIMConverters({ verify: true }),
+      queryFn: () => fetchBIMConverters({ verify: verifyOnFetch.current }),
       staleTime: 30_000,
     });
 
@@ -304,6 +328,10 @@ export function BIMConverterStatusBanner({
             result.message || `${name} install did not complete cleanly.`,
         });
       }
+      // An install is an explicit user action, and "did it work?" is the
+      // whole point of it - so the refetch below runs the smoke test even
+      // though the passive listing does not (#416).
+      verifyOnFetch.current = true;
       queryClient.invalidateQueries({ queryKey: ['bim-converters'] });
       queryClient.invalidateQueries({ queryKey: ['takeoff', 'converters'] });
       queryClient.invalidateQueries({ queryKey: ['bim-converters-version-check'] });
@@ -356,6 +384,10 @@ export function BIMConverterStatusBanner({
           { duration: 20_000 },
         );
       }
+      // The user chose to check this row. Keep the list verified from here
+      // on, or the invalidation below would refetch the passive listing and
+      // drop the verdict straight back to "Installed" (#416).
+      verifyOnFetch.current = true;
       queryClient.invalidateQueries({ queryKey: ['bim-converters'] });
     },
     onError: (err, converterId) => {
@@ -494,6 +526,32 @@ export function BIMConverterStatusBanner({
   const allHealthy = healthyCount === relevant.length && !anyOutdated;
   const anyFailed = failedCount > 0;
 
+  // How much of what we are showing is a listing rather than a verdict.
+  // An installed converter reports `unknown` when the response carried no
+  // smoke-test result, which is the normal state now that the automatic
+  // fetch does not verify (#416). The panel has to say so: with verify off,
+  // `healthyCount` is 0 on a perfectly working machine, and the pill and
+  // subtitle written for the verified case would read "0/4 up to date" and
+  // "Without these, drag-and-drop will fail" beside four installed
+  // converters.
+  const installedCount = relevant.filter((c) => c.installed).length;
+  const uncheckedCount = relevant.filter(
+    (c) => c.installed && computedHealth(c) === 'unknown',
+  ).length;
+  const nothingChecked = installedCount > 0 && uncheckedCount === installedCount;
+  // Everything is present and nobody has looked. This is what decides the
+  // WORDING, and it deliberately ignores `anyOutdated`: an update being
+  // available says nothing about whether a converter is on disk, so the
+  // install prompt must not fire here either way.
+  const uncheckedAllInstalled = nothingChecked && installedCount === relevant.length;
+  // ...and with no update waiting either, the panel has nothing at all to
+  // tell the user, which is what the collapsed badge means. `!anyOutdated`
+  // mirrors `allHealthy` on purpose: an available update has always been
+  // allowed to pull the panel back open, and #416 must not change that.
+  // Deliberately NOT folded into `allHealthy`: green keeps meaning "we
+  // started it and it answered", never "we did not ask".
+  const uncheckedOk = uncheckedAllInstalled && !anyOutdated;
+
   const handleInstall = (converter: BIMConverterInfo): void => {
     setInstallingId(converter.id);
     installMutation.mutate({ converterId: converter.id });
@@ -513,7 +571,10 @@ export function BIMConverterStatusBanner({
     verifyMutation.mutate(converter.id);
   };
 
+  // The panel's own check button. This is the explicit user action #416
+  // gates the smoke test on: everything up to here is a disk listing.
   const handleRefresh = (): void => {
+    verifyOnFetch.current = true;
     refetch();
   };
 
@@ -525,31 +586,48 @@ export function BIMConverterStatusBanner({
   // the full panel. Per the founder (2026-05-07): when every converter is
   // already on the latest version this panel has nothing to say, so it should
   // shrink to a small badge somewhere on the page.
-  if (collapsed && allHealthy && !anyFailed) {
+  //
+  // `uncheckedOk` joins `allHealthy` here because of #416: with the smoke
+  // test no longer running on arrival, a machine where all four converters
+  // are installed and fine now reports 0 healthy, and gating the badge on
+  // `allHealthy` alone would replace it with a full amber install panel on
+  // three pages. The badge keeps the neutral slate of an unchecked row and
+  // counts what we actually know - how many are installed.
+  if (collapsed && (allHealthy || uncheckedOk) && !anyFailed) {
     return (
       <button
         type="button"
         onClick={() => setCollapsedPersist(false)}
-        title={t('bim.converters_mini_tooltip', {
-          defaultValue:
-            'BIM converters: {{count}}/{{total}} working and on the latest version. Click to view details.',
-          count: healthyCount,
-          total: relevant.length,
-        })}
+        title={
+          allHealthy
+            ? t('bim.converters_mini_tooltip', {
+                defaultValue:
+                  'BIM converters: {{count}}/{{total}} working and on the latest version. Click to view details.',
+                count: healthyCount,
+                total: relevant.length,
+              })
+            : t('bim.converters_mini_tooltip_unchecked', {
+                defaultValue:
+                  'BIM converters: {{count}}/{{total}} installed, not checked yet. Click to view details and run the check.',
+                count: installedCount,
+                total: relevant.length,
+              })
+        }
         aria-label={t('bim.converters_mini_aria', {
           defaultValue: 'BIM converter status',
         })}
         data-testid="bim-converters-mini-icon"
         className={clsx(
           'inline-flex items-center gap-1 px-2 py-1 rounded-full border text-[10px] font-medium',
-          'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800',
-          'text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors',
+          allHealthy
+            ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors'
+            : 'bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors',
           className,
         )}
       >
-        <CheckCircle2 size={12} />
+        {allHealthy ? <CheckCircle2 size={12} /> : <Check size={12} />}
         <span className="font-mono tabular-nums">
-          {healthyCount}/{relevant.length}
+          {allHealthy ? healthyCount : installedCount}/{relevant.length}
         </span>
       </button>
     );
@@ -568,11 +646,15 @@ export function BIMConverterStatusBanner({
       ? 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800'
       : allHealthy
         ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800'
-        : 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800';
+        : uncheckedOk
+          ? 'bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700'
+          : 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800';
     const stripIcon = anyFailed ? (
       <ShieldAlert size={14} className="text-rose-600 dark:text-rose-400" />
     ) : allHealthy ? (
       <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-400" />
+    ) : uncheckedOk ? (
+      <Check size={14} className="text-slate-500 dark:text-slate-400" />
     ) : (
       <AlertTriangle size={14} className="text-amber-600 dark:text-amber-400" />
     );
@@ -628,16 +710,23 @@ export function BIMConverterStatusBanner({
 
   // ── Tone selection: red if anything is broken, amber if missing,
   //    green if all healthy, default amber otherwise. ─────────────────────
+  //    Slate sits between green and amber for "installed, nobody looked":
+  //    amber is the install nag, and showing it to a user with nothing to
+  //    install is a false alarm (#416).
   const toneClass = anyFailed
     ? 'bg-rose-50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800'
     : allHealthy
       ? 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800'
-      : 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800';
+      : uncheckedOk
+        ? 'bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700'
+        : 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800';
 
   const headerIcon = anyFailed ? (
     <ShieldAlert size={16} className="text-rose-600 dark:text-rose-400" />
   ) : allHealthy ? (
     <CheckCircle2 size={16} className="text-emerald-600 dark:text-emerald-400" />
+  ) : uncheckedOk ? (
+    <Check size={16} className="text-slate-500 dark:text-slate-400" />
   ) : (
     <AlertTriangle size={16} className="text-amber-600 dark:text-amber-400" />
   );
@@ -646,7 +735,9 @@ export function BIMConverterStatusBanner({
     ? 'text-rose-900 dark:text-rose-200'
     : allHealthy
       ? 'text-emerald-900 dark:text-emerald-200'
-      : 'text-amber-900 dark:text-amber-200';
+      : uncheckedOk
+        ? 'text-slate-700 dark:text-slate-200'
+        : 'text-amber-900 dark:text-amber-200';
 
   return (
     <div className={clsx('rounded-xl border p-3', toneClass, className)} role="status">
@@ -666,7 +757,9 @@ export function BIMConverterStatusBanner({
                   ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800'
                   : allHealthy
                     ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                    : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+                    : nothingChecked
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
+                      : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800',
               )}
             >
               {anyFailed
@@ -677,18 +770,27 @@ export function BIMConverterStatusBanner({
                     ok: healthyCount,
                     total: relevant.length,
                   })
-                : anyOutdated
-                  ? t('bim.converter_panel_count_outdated', {
+                : /* Nobody has run the smoke test, so "working" is not a
+                     number we have. Count what the listing does know. */
+                  nothingChecked
+                  ? t('bim.converter_panel_count_unchecked', {
                       defaultValue:
-                        '{{ok}}/{{total}} working · update available',
-                      ok: healthyCount,
+                        '{{installed}}/{{total}} installed · not checked',
+                      installed: installedCount,
                       total: relevant.length,
                     })
-                  : t('bim.converter_panel_count', {
-                      defaultValue: '{{ok}}/{{total}} up to date',
-                      ok: healthyCount,
-                      total: relevant.length,
-                    })}
+                  : anyOutdated
+                    ? t('bim.converter_panel_count_outdated', {
+                        defaultValue:
+                          '{{ok}}/{{total}} working · update available',
+                        ok: healthyCount,
+                        total: relevant.length,
+                      })
+                    : t('bim.converter_panel_count', {
+                        defaultValue: '{{ok}}/{{total}} up to date',
+                        ok: healthyCount,
+                        total: relevant.length,
+                      })}
             </span>
             <button
               type="button"
@@ -700,15 +802,29 @@ export function BIMConverterStatusBanner({
                 headerTextTone,
                 isFetching && 'opacity-60 cursor-wait',
               )}
-              title={t('bim.converters_refresh_title', {
-                defaultValue: 'Re-scan disk + re-run smoke tests',
-              })}
+              title={
+                nothingChecked
+                  ? t('bim.converters_check_now_title', {
+                      defaultValue:
+                        'Start every installed converter once and report whether it runs',
+                    })
+                  : t('bim.converters_refresh_title', {
+                      defaultValue: 'Re-scan disk + re-run smoke tests',
+                    })
+              }
+              data-testid="bim-converters-check"
             >
               <RefreshCw
                 size={11}
                 className={isFetching ? 'animate-spin' : undefined}
               />
-              {t('bim.converters_refresh', { defaultValue: 'Refresh' })}
+              {/* The control that used to just reload a list the page had
+                  already smoke-tested is now the way the smoke test gets
+                  run at all, so it says so while nothing has been checked
+                  (#416). */}
+              {nothingChecked
+                ? t('bim.converters_check_now', { defaultValue: 'Check now' })
+                : t('bim.converters_refresh', { defaultValue: 'Refresh' })}
             </button>
             {allHealthy && (
               <button
@@ -765,10 +881,24 @@ export function BIMConverterStatusBanner({
                       defaultValue:
                         'Drag-and-drop of .rvt / .ifc / .dwg / .dgn is ready.',
                     })
-                  : t('bim.converter_panel_subtitle_missing', {
-                      defaultValue:
-                        'Without these, drag-and-drop of native CAD/BIM files will fail. One-time install from GitHub.',
-                    })}
+                  : /* Everything is installed and unchecked: there is
+                       nothing to install, so the install nag below would be
+                       a false alarm. Say what is true and offer the check
+                       (#416). `uncheckedAllInstalled`, not `uncheckedOk`:
+                       an available update leaves the header reading "4/4
+                       installed" and must not put "One-time install from
+                       GitHub" underneath it. The update itself is not lost -
+                       the tone stays amber and the update banner renders
+                       right below this line. */
+                    uncheckedAllInstalled
+                    ? t('bim.converter_panel_subtitle_unchecked', {
+                        defaultValue:
+                          'All converters are installed. Nothing has been started yet to confirm they run - use Check now.',
+                      })
+                    : t('bim.converter_panel_subtitle_missing', {
+                        defaultValue:
+                          'Without these, drag-and-drop of native CAD/BIM files will fail. One-time install from GitHub.',
+                      })}
           </p>
           {versionCheck?.any_outdated && !updateBannerDismissed && (
             <div
