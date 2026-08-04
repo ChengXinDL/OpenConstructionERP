@@ -151,10 +151,16 @@ describe('#200 counted keys carry every plural form their own language uses', ()
     expect(withMany).toContain('es');
     expect(withMany).toContain('fr');
 
+    // `id` belongs here on its own merits and was missed when this list was
+    // first written: Indonesian marks number lexically rather than on the noun,
+    // so CLDR gives it `other` alone, exactly as it does for the CJK languages
+    // beside it. Leaving it out made this assertion fail from the day it was
+    // written, and nothing reported that, because no frontend test ran in a
+    // blocking lane until 14.4.0.
     const otherOnly = localeFiles
       .map(([locale]) => locale)
       .filter((locale) => new Intl.PluralRules(locale).resolvedOptions().pluralCategories.length === 1);
-    expect(otherOnly.sort()).toEqual(['ja', 'ko', 'th', 'vi', 'zh']);
+    expect(otherOnly.sort()).toEqual(['id', 'ja', 'ko', 'th', 'vi', 'zh']);
   });
 
   for (const [locale, text] of localeFiles) {
