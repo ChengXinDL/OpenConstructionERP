@@ -124,12 +124,21 @@ vi.mock('@/app/i18n', () => ({
   },
 }));
 
-/* ── Stub the map ──────────────────────────────────────────────────────
+/* ── Stub the map component, keep the module ───────────────────────────
    Two projects make the `map` widget render, and it pulls maplibre through a
    WebGL canvas jsdom does not have. Nothing in this file is about the map, so
-   it is replaced rather than worked around. */
+   the component is replaced rather than worked around.
 
-vi.mock('../components/DashboardProjectsMap', () => ({
+   Only the component. The module also exports `resolveProjectCoords`, a pure
+   helper that reads a project's explicit lat/lng, then the geocode cache, then
+   a region centroid, and `DashboardSitesPanel` imports it. A whole-module mock
+   listing one export makes every other export undefined, which is not a
+   rendering problem the way the map is: it threw at import time and took the
+   whole file down. Spreading the original keeps the helper real, so nothing
+   here asserts against a coordinate this test invented. */
+
+vi.mock('../components/DashboardProjectsMap', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../components/DashboardProjectsMap')>()),
   DashboardProjectsMap: () => <div data-testid="stub-projects-map" />,
 }));
 
