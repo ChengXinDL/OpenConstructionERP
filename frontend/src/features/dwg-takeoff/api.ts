@@ -109,6 +109,13 @@ export interface DxfEntity {
   font?: string;
   /** Block name for INSERT entities */
   block_name?: string;
+  /** INSERT x/y scale factors. Sent by the backend for every block reference;
+   *  a negative value means the block is mirrored on that axis. They describe
+   *  the insert's transform, not its footprint - the block's own geometry does
+   *  not reach the client, so how large the reference actually draws is not
+   *  knowable here. */
+  x_scale?: number;
+  y_scale?: number;
   /** Whether the polyline/hatch is closed */
   closed?: boolean;
   /** Hatch pattern name */

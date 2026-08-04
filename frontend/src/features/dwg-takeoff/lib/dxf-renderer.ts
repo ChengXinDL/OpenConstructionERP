@@ -416,6 +416,25 @@ export function resolveFontFamily(entity: DxfEntity): string {
   return SANS_STACK;
 }
 
+/**
+ * On-screen size in px of a text entity's glyphs at the current viewport.
+ *
+ * Annotation sits on the same transform as the geometry: a text height is a
+ * distance in drawing units, so it scales with everything else. This used to
+ * be clamped to [8px, 72px], which decoupled the two - below `8 / vp.scale`
+ * world units a glyph stopped shrinking while the geometry kept shrinking
+ * without limit, so a fitted plan turned into readable labels floating over a
+ * hairline smear, and zooming in stalled every string at 72px while the walls
+ * kept growing. Legibility is handled by skipping sub-pixel strings in
+ * `renderText`, not by lying about their size.
+ */
+export function textFontSize(entity: DxfEntity, vp: ViewportState): number {
+  return (entity.height ?? 2.5) * vp.scale;
+}
+
+/** Below this a glyph is a smudge; drawing it adds noise, not information. */
+const MIN_TEXT_PX = 0.5;
+
 export function renderText(
   ctx: CanvasRenderingContext2D,
   entity: DxfEntity,
@@ -423,7 +442,8 @@ export function renderText(
 ): void {
   if (!entity.start || !entity.text) return;
   const pos = worldToScreen(entity.start.x, entity.start.y, vp);
-  const fontSize = Math.max(8, Math.min(72, (entity.height ?? 2.5) * vp.scale));
+  const fontSize = textFontSize(entity, vp);
+  if (fontSize < MIN_TEXT_PX) return; // too small to draw, as for sub-pixel ellipses
   // MTEXT keeps its newlines (the backend maps MTEXT -> TEXT but preserves the
   // string), and canvas fillText ignores "\n", so render each line stacked.
   const lines = entity.text.split('\n');
@@ -454,25 +474,65 @@ function renderPoint(
   ctx.fill();
 }
 
-function renderInsert(
+/** Half-diagonal in px of the placeholder marker drawn for a block reference. */
+const INSERT_MARKER_PX = 5;
+
+/**
+ * Render a block reference as a diamond marker.
+ *
+ * This is a placeholder, not the block. The block's own geometry never
+ * reaches the client - the wire carries only the insertion point, rotation,
+ * scale factors and name - so the marker cannot be given a world-space
+ * footprint: `x_scale = 50` says the block was scaled fifty-fold but not what
+ * it was scaled from. Its size therefore stays fixed in screen pixels.
+ *
+ * What the wire does carry is the insert's own transform, so the marker
+ * honours it: the diamond turns with `rotation` and takes the aspect of
+ * `x_scale`/`y_scale`, normalised so a uniformly scaled block keeps the
+ * marker size. A field of inserts no longer reads as identical when the
+ * drawing says otherwise. A point-symmetric marker still cannot show
+ * mirroring (a negative scale factor), and no marker can show the geometry.
+ */
+export function renderInsert(
   ctx: CanvasRenderingContext2D,
   entity: DxfEntity,
   vp: ViewportState,
 ): void {
   if (!entity.start) return;
   const pos = worldToScreen(entity.start.x, entity.start.y, vp);
-  // Render block insert as a small diamond marker
-  const s = 5;
+  const norm = Math.max(Math.abs(entity.x_scale ?? 1), Math.abs(entity.y_scale ?? 1)) || 1;
+  const rx = (INSERT_MARKER_PX * (entity.x_scale ?? 1)) / norm;
+  const ry = (INSERT_MARKER_PX * (entity.y_scale ?? 1)) / norm;
+  const rot = -(entity.rotation ?? 0); // negate for screen Y-flip
+  const cos = Math.cos(rot);
+  const sin = Math.sin(rot);
+  // Top, right, bottom, left in the block's own axes, mapped through the
+  // insert transform.
+  const corners: [number, number][] = [
+    [0, -ry],
+    [rx, 0],
+    [0, ry],
+    [-rx, 0],
+  ];
+
+  ctx.save();
   ctx.beginPath();
-  ctx.moveTo(pos.x, pos.y - s);
-  ctx.lineTo(pos.x + s, pos.y);
-  ctx.lineTo(pos.x, pos.y + s);
-  ctx.lineTo(pos.x - s, pos.y);
+  corners.forEach(([cx, cy], i) => {
+    const x = pos.x + cx * cos - cy * sin;
+    const y = pos.y + cx * sin + cy * cos;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
   ctx.closePath();
   ctx.stroke();
   if (entity.block_name) {
     ctx.font = '9px monospace';
     ctx.textBaseline = 'top';
-    ctx.fillText(entity.block_name, pos.x + s + 2, pos.y - s);
+    ctx.fillText(
+      entity.block_name,
+      pos.x + INSERT_MARKER_PX + 2,
+      pos.y - INSERT_MARKER_PX,
+    );
   }
+  ctx.restore();
 }

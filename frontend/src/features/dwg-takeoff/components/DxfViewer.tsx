@@ -9,7 +9,14 @@ import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import type { DxfEntity, DwgAnnotation } from '../api';
 import type { ViewportState, Extents } from '../lib/viewport';
-import { zoomToFit, applyZoom, applyPan, screenToWorld, worldToScreen } from '../lib/viewport';
+import {
+  computeExtents,
+  zoomToFit,
+  applyZoom,
+  applyPan,
+  screenToWorld,
+  worldToScreen,
+} from '../lib/viewport';
 import { renderEntities } from '../lib/dxf-renderer';
 import { renderAnnotations } from './AnnotationOverlay';
 import type { DwgTool } from './ToolPalette';
@@ -147,48 +154,6 @@ interface Props {
   searchBoxes?: Extents[];
   activeSearchBox?: Extents | null;
   focusTarget?: { box: Extents; nonce: number } | null;
-}
-
-function computeExtents(entities: DxfEntity[]): Extents {
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-
-  const expand = (x: number, y: number) => {
-    if (x < minX) minX = x;
-    if (y < minY) minY = y;
-    if (x > maxX) maxX = x;
-    if (y > maxY) maxY = y;
-  };
-
-  for (const e of entities) {
-    if (e.start) expand(e.start.x, e.start.y);
-    if (e.end) expand(e.end.x, e.end.y);
-    if (e.vertices) {
-      for (const v of e.vertices) expand(v.x, v.y);
-    }
-    if (e.start && e.radius) {
-      expand(e.start.x - e.radius, e.start.y - e.radius);
-      expand(e.start.x + e.radius, e.start.y + e.radius);
-    }
-    if (e.type === 'ELLIPSE' && e.start) {
-      const r = Math.max(e.major_radius ?? 0, e.minor_radius ?? 0, e.radius ?? 0);
-      if (r > 0) {
-        expand(e.start.x - r, e.start.y - r);
-        expand(e.start.x + r, e.start.y + r);
-      }
-    }
-    // TEXT/MTEXT: use insertion point + estimated text width
-    if ((e.type === 'TEXT') && e.start && e.text) {
-      const h = e.height ?? 2.5;
-      const estimatedWidth = h * e.text.length * 0.6;
-      expand(e.start.x + estimatedWidth, e.start.y + h);
-    }
-  }
-
-  if (!isFinite(minX)) return { minX: 0, minY: 0, maxX: 100, maxY: 100 };
-  return { minX, minY, maxX, maxY };
 }
 
 export function DxfViewer({
