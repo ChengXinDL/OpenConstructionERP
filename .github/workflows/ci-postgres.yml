@@ -336,6 +336,58 @@ jobs:
         working-directory: tools/costbase_pipeline
         run: pytest tests -q -p no:cacheprovider
 
+  # Object ownership and cross-tenant access. Of the 32 files in the repo that
+  # test this, exactly one was in a blocking lane; the other 31, all 29 *_idor
+  # files among them, were enforced by nothing. That is the class where a gap
+  # costs a customer their neighbour's data rather than a wrong number on a
+  # screen, and this platform has a live example of the shape: the permissions
+  # column on an API key is stored and displayed but read by no decision.
+  #
+  # Its own job rather than more steps on backend-postgres, because a step that
+  # fails skips every step below it, and one access-control failure should not
+  # take the demo-seed and DWG checks down with it.
+  #
+  # Only the database-free file is wired today. All 32 were measured on
+  # 2026-08-04 at 502 tests, 0 failed, 0 skipped, 0 errors, with no Redis,
+  # MinIO, Celery, subprocess or outbound network anywhere in the set, and the
+  # single conditional skip in it does not fire. That is good evidence and it
+  # is still a local measurement. The other 31 need PostgreSQL and the
+  # integration group runs about a quarter of an hour against a per-test
+  # database clone, so their first run on a GitHub runner should not be the
+  # release commit: a lane that goes red there reads as the release being
+  # broken. They land straight after the tag, in the groupings that were
+  # measured, which are written down in the report rather than re-derived.
+  access-control:
+    name: Object ownership and cross-tenant access
+    runs-on: ubuntu-latest
+    # Twenty five seconds of tests behind a pip install. The ceiling is here so
+    # a hung install names itself rather than inheriting the six hour default.
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      OE_TEST_DB: pg
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Create empty frontend dist (hatchling force-include)
+        run: |
+          mkdir -p ../frontend/dist
+          touch ../frontend/dist/.gitkeep
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,server]"
+      # 186 tests in 25 seconds and no database at all, so a router that grows
+      # a handler without an ownership guard is reported before anything pays
+      # for a cluster. Nothing in it is timing sensitive, which is why this one
+      # is safe to wire inside a release window and the rest are not.
+      - name: Run router-level ownership guards (no database)
+        run: pytest tests/unit/test_idor_router_guards.py -q -p no:cacheprovider
+
   frontend-tests:
     name: Frontend tests that block a merge
     runs-on: ubuntu-latest
