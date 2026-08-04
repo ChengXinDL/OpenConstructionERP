@@ -421,6 +421,51 @@ class SheetRepository:
                 forward_ids.add(s.id)
                 chain.append(s)
 
-        # Sort by page_number then created_at to get chronological order
-        chain.sort(key=lambda s: (s.created_at,))
+        # Oldest first. The tiebreak matters: rows written by one ``create_many``
+        # share a flush and therefore a ``created_at``, so sorting on the
+        # timestamp alone leaves ties to whatever order the walk happened to
+        # append. The id is not chronological, but it is stable, which is what a
+        # caller reading a version history needs.
+        chain.sort(key=lambda s: (s.created_at, str(s.id)))
         return chain
+
+    async def current_by_sheet_numbers(
+        self,
+        project_id: uuid.UUID,
+        sheet_numbers: list[str],
+    ) -> dict[str, Sheet]:
+        """Return the current sheet per number, for the numbers asked about.
+
+        The chain key for a sheet is ``(project_id, sheet_number)`` and not the
+        parent document, because a revised drawing set arrives as a new PDF and
+        the whole point is to recognise that its A-201 supersedes the previous
+        A-201. That is deliberately a different key from the one
+        ``canonical_name_for`` builds for the ``FileVersion`` index, which
+        composes the document id in so that two unrelated PDFs do not merge into
+        one history. The two answer different questions: this one answers what
+        the project's current drawing set is.
+
+        Args:
+            project_id: Project to look in.
+            sheet_numbers: Numbers to resolve. Empty input returns empty output
+                without a query.
+
+        Returns:
+            Mapping of sheet number to its current row. A number with no current
+            row is absent from the mapping. A number that somehow has more than
+            one current row resolves to the most recently created, so a register
+            already carrying duplicates converges rather than forking further.
+        """
+        if not sheet_numbers:
+            return {}
+
+        stmt = (
+            select(Sheet)
+            .where(Sheet.project_id == project_id)
+            .where(Sheet.is_current.is_(True))
+            .where(Sheet.sheet_number.in_(sheet_numbers))
+            .order_by(Sheet.created_at.asc())
+        )
+        result = await self.session.execute(stmt)
+        # Ascending order plus overwrite leaves the newest row per number.
+        return {s.sheet_number: s for s in result.scalars().all() if s.sheet_number}

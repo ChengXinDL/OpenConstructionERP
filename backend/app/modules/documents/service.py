@@ -2059,6 +2059,74 @@ class SheetService:
 
     # ── Split PDF ──────────────────────────────────────────────────────────
 
+    async def _supersede_previous_sheets(
+        self,
+        project_id: uuid.UUID,
+        sheets: list[Sheet],
+    ) -> int:
+        """Point each incoming sheet at the one it replaces and retire that one.
+
+        Called with rows that are built but not yet inserted, so the links are
+        written before the insert and the retirements ride the same flush.
+
+        The rules, and why each one is the way it is:
+
+        A page with no readable ``sheet_number`` is never chained. There is no
+        key to chain it on, and treating "unreadable" as a value would collect
+        every unreadable page in the project into one bogus history.
+
+        A number carried by two pages of the SAME upload is a fault in the
+        drawing set, not something to resolve by guessing. The earlier page
+        takes the link, the predecessor retires because this upload does
+        supersede it, and the later page stays current and unlinked. The
+        register then shows two current rows for that number, which is the
+        truth about the file that was uploaded. It is logged, because the
+        alternative is that it looks like our duplication rather than theirs.
+
+        Nothing is deleted and nothing is overwritten. A retired row keeps every
+        column it had and only stops being current.
+
+        Args:
+            project_id: Project the upload belongs to.
+            sheets: Freshly built, not yet inserted rows.
+
+        Returns:
+            How many existing sheets were retired.
+        """
+        numbered = [s for s in sheets if s.sheet_number]
+        if not numbered:
+            return 0
+
+        predecessors = await self.repo.current_by_sheet_numbers(
+            project_id,
+            sorted({str(s.sheet_number) for s in numbered}),
+        )
+        if not predecessors:
+            return 0
+
+        claimed: set[str] = set()
+        retired = 0
+        for sheet in sorted(numbered, key=lambda s: s.page_number):
+            number = str(sheet.sheet_number)
+            previous = predecessors.get(number)
+            if previous is None:
+                continue
+            if number in claimed:
+                logger.warning(
+                    "Sheet number %s appears on more than one page of this upload "
+                    "for project %s; page %d is kept as a separate current sheet",
+                    number,
+                    project_id,
+                    sheet.page_number,
+                )
+                continue
+            claimed.add(number)
+            sheet.previous_version_id = previous.id
+            previous.is_current = False
+            retired += 1
+
+        return retired
+
     async def split_pdf_to_sheets(
         self,
         project_id: uuid.UUID,
@@ -2074,8 +2142,14 @@ class SheetService:
         4. Save page thumbnail as PNG
         5. Create Sheet record in database
 
+        A sheet number already current in this project is superseded rather than
+        duplicated, so uploading a revised set leaves one current row per number
+        with the earlier row retired and linked. See
+        ``_supersede_previous_sheets`` for the rules that decide this.
+
         Returns:
-            List of created Sheet records.
+            List of created Sheet records. Only the new rows, never the ones
+            they superseded.
         """
         try:
             import pdfplumber
@@ -2177,6 +2251,15 @@ class SheetService:
                 detail=f"Failed to process PDF file: {exc}",
             )
 
+        # A revised drawing set arrives as a new PDF, so without this every
+        # re-upload doubled the register: two rows per sheet number, both
+        # flagged current, distinguishable only by parent document. It also fed
+        # a doubled ACTUAL set into ``check_completeness``, which reads
+        # ``current_only=True`` and reconciles against a drawing index by
+        # number. Run before the insert so the retirements and the new rows
+        # land in one flush.
+        superseded = await self._supersede_previous_sheets(project_id, sheets)
+
         if sheets:
             sheets = await self.repo.create_many(sheets)
 
@@ -2203,8 +2286,9 @@ class SheetService:
             )
 
         logger.info(
-            "PDF split into %d sheets: %s for project %s",
+            "PDF split into %d sheets (%d earlier sheets superseded): %s for project %s",
             len(sheets),
+            superseded,
             safe_name,
             project_id,
         )

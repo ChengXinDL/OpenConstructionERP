@@ -335,13 +335,18 @@ async def test_a_page_with_no_readable_number_is_kept_with_a_null_number(session
     assert unreadable.sheet_title is None
 
 
-async def test_a_second_split_of_the_same_file_creates_a_second_full_set(session: AsyncSession) -> None:
-    """Re-splitting duplicates the register. Nothing dedupes, by construction.
+async def test_a_second_split_supersedes_the_first_rather_than_doubling_it(session: AsyncSession) -> None:
+    """A re-uploaded drawing set leaves one current row per sheet number.
 
-    Each call creates its own parent ``Document`` and a fresh row per page,
-    all flagged current, with no uniqueness on the project and sheet number or
-    on the document and page. This is what the endpoint does today; the test
-    pins it so a change to it is visible rather than silent.
+    Every row used to be flagged current forever, so a second upload gave the
+    register two A-201s, both claiming to be the current revision and
+    distinguishable only by parent document. It also handed a doubled ACTUAL
+    set to ``check_completeness``, which reads ``current_only=True`` and
+    reconciles the project's sheets against a drawing index by number.
+
+    Nothing is deleted. Both parent documents survive, all four rows survive,
+    and the earlier pair keeps every column it had; they simply stop being
+    current and the new rows point back at them.
     """
     project_id, user_id = await _seed_project(session)
     pdf = _pdf_with_pages(
@@ -360,15 +365,116 @@ async def test_a_second_split_of_the_same_file_creates_a_second_full_set(session
 
     rows = list((await session.execute(select(Sheet).where(Sheet.project_id == project_id))).scalars().all())
     assert len(rows) == 4
-    # Two parent documents, so the duplicates are distinguishable only by
-    # document, never by sheet number.
     assert len({r.document_id for r in rows}) == 2
     assert sorted(str(r.sheet_number) for r in rows) == ["A-201", "A-201", "A-202", "A-202"]
-    # Every row claims to be the current revision of its sheet.
-    assert all(r.is_current for r in rows)
+
+    # One current row per number, and it is the one from the second upload.
+    current = [r for r in rows if r.is_current]
+    assert sorted(str(r.sheet_number) for r in current) == ["A-201", "A-202"]
+    assert {r.id for r in current} == {s.id for s in second}
+
+    # The retired rows are the first upload's, and each new row names the row
+    # it replaced rather than merely outranking it.
+    assert {r.id for r in rows if not r.is_current} == {s.id for s in first}
+    by_number_first = {s.sheet_number: s.id for s in first}
+    for sheet in second:
+        assert sheet.previous_version_id == by_number_first[sheet.sheet_number]
 
     documents = list((await session.execute(select(Document).where(Document.project_id == project_id))).scalars().all())
     assert len(documents) == 2
+
+
+async def test_the_version_chain_of_a_re_uploaded_sheet_reads_oldest_first(session: AsyncSession) -> None:
+    """The links the split writes are the ones the version history walks.
+
+    Setting ``previous_version_id`` is only worth doing if the read path that
+    follows it agrees, so this goes through ``get_version_chain`` rather than
+    asserting the column a second time. Three uploads, so the walk has to
+    traverse two hops rather than one.
+    """
+    project_id, user_id = await _seed_project(session)
+    pdf = _pdf_with_pages([["SHEET NO: A-201", "SHEET TITLE: Floor Plan Level 2"]])
+
+    service = SheetService(session)
+    uploads = [(await service.split_pdf_to_sheets(project_id, _upload(pdf), user_id))[0] for _ in range(3)]
+
+    chain = await service.repo.get_version_chain(uploads[-1].id)
+
+    assert [s.id for s in chain] == [s.id for s in uploads]
+    assert [s.is_current for s in chain] == [False, False, True]
+
+    # Walking from the oldest row returns the same chain, because the walk goes
+    # forwards as well as backwards.
+    from_oldest = await service.repo.get_version_chain(uploads[0].id)
+    assert [s.id for s in from_oldest] == [s.id for s in uploads]
+
+
+async def test_a_page_with_no_number_never_joins_a_version_chain(session: AsyncSession) -> None:
+    """Unreadable is not a key, so unreadable pages do not supersede each other.
+
+    Two uploads each carrying an unreadable page must leave two current rows,
+    not one retiring the other. Chaining on "no number" would collect every
+    unreadable page in the project into a single bogus history, and the second
+    upload's general notes page has nothing to do with the first's.
+    """
+    project_id, user_id = await _seed_project(session)
+    pdf = _pdf_with_pages(
+        [
+            ["SHEET NO: A-201", "SHEET TITLE: Floor Plan Level 2"],
+            ["GENERAL NOTES", "SEE THE SPECIFICATION"],
+        ]
+    )
+
+    service = SheetService(session)
+    await service.split_pdf_to_sheets(project_id, _upload(pdf), user_id)
+    await service.split_pdf_to_sheets(project_id, _upload(pdf), user_id)
+
+    rows = list((await session.execute(select(Sheet).where(Sheet.project_id == project_id))).scalars().all())
+    unnumbered = [r for r in rows if r.sheet_number is None]
+
+    assert len(unnumbered) == 2
+    assert all(r.is_current for r in unnumbered)
+    assert all(r.previous_version_id is None for r in unnumbered)
+
+    # The numbered page in the same uploads did supersede, so the difference is
+    # the missing key and not the split having skipped the step.
+    numbered = [r for r in rows if r.sheet_number == "A-201"]
+    assert sorted(r.is_current for r in numbered) == [False, True]
+
+
+async def test_one_upload_claiming_a_number_twice_keeps_both_pages_current(session: AsyncSession) -> None:
+    """A duplicate number inside one file is the file's fault, not resolved by us.
+
+    The earlier page takes the link to the sheet it replaces and the later page
+    stays current and unlinked, so the register shows two current rows for that
+    number. That is the truth about the PDF that was uploaded. Retiring the
+    predecessor anyway is deliberate: this upload does supersede it, and leaving
+    it current would make three.
+    """
+    project_id, user_id = await _seed_project(session)
+    original = _pdf_with_pages([["SHEET NO: A-201", "SHEET TITLE: Floor Plan Level 2"]])
+    duplicated = _pdf_with_pages(
+        [
+            ["SHEET NO: A-201", "SHEET TITLE: Floor Plan Level 2"],
+            ["SHEET NO: A-201", "SHEET TITLE: Floor Plan Level 2 Revised"],
+        ]
+    )
+
+    service = SheetService(session)
+    first = await service.split_pdf_to_sheets(project_id, _upload(original), user_id)
+    second = await service.split_pdf_to_sheets(project_id, _upload(duplicated), user_id)
+
+    rows = list((await session.execute(select(Sheet).where(Sheet.project_id == project_id))).scalars().all())
+    assert len(rows) == 3
+
+    current = [r for r in rows if r.is_current]
+    assert {r.id for r in current} == {s.id for s in second}
+
+    # Page 1 claims the link, page 2 stays unlinked rather than pointing at the
+    # same predecessor a second time.
+    by_page = {s.page_number: s for s in second}
+    assert by_page[1].previous_version_id == first[0].id
+    assert by_page[2].previous_version_id is None
 
 
 # ── Aggregation over the register ─────────────────────────────────────────
