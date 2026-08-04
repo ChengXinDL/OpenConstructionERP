@@ -39,6 +39,21 @@ class SigningRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def list_sessions_for_document(self, document_ref: str) -> list[SigningSession]:
+        """Every session opened against one document, newest first.
+
+        The register is shared by every module that puts paper up for signature,
+        so a subject module asks for its own document by reference rather than
+        filtering a whole project's sessions itself. ``document_ref`` is indexed.
+        """
+        stmt = (
+            select(SigningSession)
+            .where(SigningSession.document_ref == document_ref)
+            .order_by(SigningSession.created_at.desc())
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
     async def create_session(self, session: SigningSession) -> SigningSession:
         self.session.add(session)
         await self.session.flush()

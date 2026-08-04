@@ -11,6 +11,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.modules.contracts.models import CLAUSE_RISK_LEVELS
+
 # ── Contract ─────────────────────────────────────────────────────────────
 
 CONTRACT_TYPES = "lump_sum|gmp|cost_plus|tm|unit_price|design_build|combination|remeasurement"
@@ -1073,8 +1075,15 @@ class FinalAccountChecklistResponse(BaseModel):
 # endpoints, normalised by ``ContractTemplateRepository.list_all``. These
 # schemas cover the authoring side only.
 
-TEMPLATE_STATUS_PATTERN = "draft|published|archived"
-CLAUSE_RISK_PATTERN = "none|low|medium|high"
+# Built from the column domain rather than restated, so a risk grade cannot be
+# accepted by the schema and refused by the service, or the reverse. Sorted for
+# a stable pattern; alternation order does not matter.
+CLAUSE_RISK_PATTERN = "|".join(sorted(CLAUSE_RISK_LEVELS))
+
+# There is deliberately no status pattern here. A status is never accepted from
+# a request: it is set by creating, publishing or archiving, each of which is
+# its own endpoint. ``TEMPLATE_STATUSES`` in ``models`` is what those write and
+# what the tests assert the API never steps outside of.
 
 
 class TemplateClauseInput(BaseModel):
@@ -1171,18 +1180,24 @@ class TemplateClauseSetRequest(BaseModel):
 
 
 class ContractTemplateResponse(BaseModel):
-    """One authored template version, with its clauses when they were loaded."""
+    """One template version, with its clauses when they were loaded.
 
-    id: UUID
+    Both halves of the namespace answer in this shape. ``id`` and ``lineage_id``
+    are optional because a built-in standard form is a module constant and has
+    neither: it is identified by its code alone and reports version 0. Every
+    other field is filled for both halves, so a reader never has to branch.
+    """
+
+    id: UUID | None = None
     code: str
     version: int
-    lineage_id: UUID
+    lineage_id: UUID | None = None
     name: str
-    family: str
-    description: str
+    family: str = ""
+    description: str = ""
     retention_release_event: str
     status: str
-    published_at: str | None = None
+    published_at: datetime | None = None
     published_by: str | None = None
     derived_from_builtin: str | None = None
     source: str = "authored"
@@ -1214,3 +1229,63 @@ class TemplateCatalogueEntry(BaseModel):
     status: str
     derived_from_builtin: str | None = None
     template_id: UUID | None = None
+
+
+# ── E-signature bridge ───────────────────────────────────────────────────
+
+
+class ContractSignatoryEntry(BaseModel):
+    """One expected signatory when the caller overrides the derived map."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    name: str = Field(..., min_length=1, max_length=255)
+    role: str = Field(..., min_length=1, max_length=64)
+    required: bool = True
+
+
+class ContractSigningSessionOpen(BaseModel):
+    """Body for ``POST /contracts/{id}/signing-session``.
+
+    Everything is optional. Left alone, the signatories are derived from the
+    contract's own party register, which is the answer that stays right when the
+    parties change.
+
+    ``provider_capability`` is deliberately not pattern-validated here. The
+    vocabulary of signature capabilities belongs to the signing module, and
+    restating it in this file would give the platform two lists that drift. The
+    signing schema rejects an unknown value and the service turns that into a
+    422 naming the field.
+    """
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    provider_capability: str = Field(default="simple_electronic", max_length=64)
+    expires_at: datetime | None = None
+    signatories: list[ContractSignatoryEntry] | None = Field(
+        default=None,
+        description="Override the signatory map derived from the contract parties.",
+    )
+
+
+class ContractSigningSessionResponse(BaseModel):
+    """One signing session opened against a contract.
+
+    ``content_hash_current`` and ``stale_signatories`` are the reason this is not
+    just the raw session row. A contract can be edited while it is out for
+    signature, and when it is, everyone who already signed signed different
+    paper. Those two fields say so in the shape the screen needs: a flag for the
+    banner, and the names for the list of who has to sign again.
+    """
+
+    id: UUID
+    document_ref: str
+    document_content_hash: str
+    provider_capability: str
+    status: str
+    signatory_map: list[dict[str, Any]] = Field(default_factory=list)
+    expires_at: datetime | None = None
+    created_at: datetime | None = None
+    content_hash_current: bool
+    stale_signatories: list[str] = Field(default_factory=list)
+    signed_roles: list[str] = Field(default_factory=list)

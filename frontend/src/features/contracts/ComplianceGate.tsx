@@ -29,6 +29,7 @@ import clsx from 'clsx';
 
 import { WideModal } from '@/shared/ui/WideModal';
 import { Button, Badge } from '@/shared/ui';
+import { ContractSigningPanel } from './ContractSigningPanel';
 import { useToastStore } from '@/stores/useToastStore';
 import { getErrorMessage } from '@/shared/lib/api';
 import {
@@ -328,6 +329,17 @@ export function ComplianceGate({
             violations={warnings}
           />
         )}
+
+        {/* Who is signing, and did the paper move under them.
+            Below the findings on purpose: the gate's verdict is what decides
+            whether putting the contract up for signature is allowed at all, so
+            the user should have read it before they reach the button. */}
+        <ContractSigningPanel
+          contractId={contractId}
+          contractStatus={report?.contract_status}
+          blocked={blocked}
+          onContractChanged={onSigned}
+        />
 
         {/* All clear — no findings at all */}
         {report && errors.length === 0 && warnings.length === 0 && (

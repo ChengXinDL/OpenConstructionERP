@@ -28,6 +28,7 @@ from app.core.i18n import get_locale
 from app.core.json_merge import merge_metadata
 from app.core.validation.engine import ValidationReport, validation_engine
 from app.core.validation.messages import translate
+from app.modules.contracts import signing_bridge
 from app.modules.contracts.compliance_packs import (
     DEFAULT_PACK_ID,
     WORKFLOW_CONTRACT_SIGNATURE,
@@ -39,6 +40,8 @@ from app.modules.contracts.final_account import (
     evaluate_final_account_readiness,
 )
 from app.modules.contracts.models import (
+    CLAUSE_RISK_LEVELS,
+    TEMPLATE_STATUSES,
     Contract,
     ContractDocument,
     ContractLine,
@@ -881,6 +884,12 @@ class ContractsService:
             return contract
         await self.contract_repo.update_fields(contract_id, **fields)
         await self.session.refresh(contract)
+        # The paper moved, so any signature already collected against the old
+        # wording is stale. Pushing the new hash onto the outstanding sessions is
+        # what lets signing.delta_by_hash say so; without this call the staleness
+        # check can never fire for a contract. Best-effort, and it returns 0 on a
+        # deployment without the signing module.
+        await self.refresh_signing_content_hash(contract_id)
         return contract
 
     async def delete_contract(self, contract_id: uuid.UUID) -> None:
@@ -1273,6 +1282,82 @@ class ContractsService:
             "warnings": [_serialise(r) for r in report.warnings],
         }
 
+    async def enforce_compliance_gate(
+        self,
+        contract: Contract,
+        *,
+        actor_id: str | None = None,
+    ) -> tuple[dict[str, Any], ValidationReport, list[str]]:
+        """Run the compliance gate and raise 422 if it blocks.
+
+        Returns ``(audit_entry, report, pack_ids)`` when the gate passes. The
+        caller decides what to do with the audit entry; this method never writes
+        it on the happy path, because the write belongs in whatever transaction
+        the caller is already building.
+
+        Two callers, and the second is the reason this is a method rather than
+        an inline block. ``transition_contract`` runs it at ``draft → active``,
+        which is the terminal moment. ``open_signing_session`` runs it *before*
+        anyone is asked to sign, because a gate that only fires at the end tells
+        a room full of people who have already signed that the contract was
+        never eligible. Keeping both means the direct ``POST /sign`` path, which
+        does not open a session, is still gated.
+        """
+        report, pack_ids = await self.run_compliance_gate(contract)
+        blocked = report.has_errors
+        audit_entry = self._compliance_audit_entry(
+            report,
+            pack_ids,
+            actor_id=actor_id,
+            blocked=blocked,
+        )
+        if not blocked:
+            return audit_entry, report, pack_ids
+
+        # Persist the blocking outcome so the failed attempt is auditable, then
+        # raise a structured 422 the ComplianceGate UI renders verbatim.
+        #
+        # The audit is written in a SEPARATE, independent session that commits
+        # on its own. Committing the *request* session here and then raising
+        # used to corrupt the request lifecycle: the ``get_session`` dependency
+        # rolls back on the raised HTTPException, and rolling back a request
+        # session whose transaction was already explicitly committed left the
+        # connection in a state where the unwind raised a *second* exception.
+        # That secondary error hit the catch-all handler and the client saw a
+        # misleading ``500 Internal server error`` instead of the 422 violation
+        # list (even though the sign was, correctly, blocked). Using an isolated
+        # session keeps the request transaction untouched so the HTTPException
+        # reaches the client cleanly.
+        meta = dict(contract.metadata_ or {})
+        meta["compliance_validation"] = audit_entry
+        try:
+            from app.database import async_session_factory
+
+            async with async_session_factory() as audit_session:
+                await ContractRepository(audit_session).update_fields(
+                    contract.id,
+                    metadata_=meta,
+                )
+                await audit_session.commit()
+        except Exception:
+            # The audit trail is best-effort: never let a failure to record the
+            # blocked attempt mask the real reason (the 422).
+            logger.warning(
+                "Failed to persist compliance-gate audit for contract %s",
+                contract.code,
+                exc_info=True,
+            )
+        logger.info(
+            "Compliance gate BLOCKED contract %s (%d errors, packs=%s)",
+            contract.code,
+            len(report.errors),
+            pack_ids,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=self._compliance_http_detail(report, pack_ids),
+        )
+
     async def transition_contract(
         self,
         contract_id: uuid.UUID,
@@ -1302,61 +1387,10 @@ class ContractsService:
             from datetime import UTC, datetime
 
             # ── Compliance gate ──────────────────────────────────────
-            report, pack_ids = await self.run_compliance_gate(contract)
-            blocked = report.has_errors
-            audit_entry = self._compliance_audit_entry(
-                report,
-                pack_ids,
+            audit_entry, report, pack_ids = await self.enforce_compliance_gate(
+                contract,
                 actor_id=actor_id,
-                blocked=blocked,
             )
-            if blocked:
-                # Persist the blocking outcome so the failed attempt is
-                # auditable, then raise a structured 422 the ComplianceGate UI
-                # renders verbatim.
-                #
-                # The audit is written in a SEPARATE, independent session that
-                # commits on its own. Committing the *request* session here and
-                # then raising used to corrupt the request lifecycle: the
-                # ``get_session`` dependency rolls back on the raised
-                # HTTPException, and rolling back a request session whose
-                # transaction was already explicitly committed left the
-                # connection in a state where the unwind raised a *second*
-                # exception. That secondary error hit the catch-all handler and
-                # the client saw a misleading ``500 Internal server error``
-                # instead of the 422 violation list (even though the sign was,
-                # correctly, blocked). Using an isolated session keeps the
-                # request transaction untouched so the HTTPException reaches the
-                # client cleanly.
-                meta = dict(contract.metadata_ or {})
-                meta["compliance_validation"] = audit_entry
-                try:
-                    from app.database import async_session_factory
-
-                    async with async_session_factory() as audit_session:
-                        await ContractRepository(audit_session).update_fields(
-                            contract_id,
-                            metadata_=meta,
-                        )
-                        await audit_session.commit()
-                except Exception:
-                    # The audit trail is best-effort: never let a failure to
-                    # record the blocked attempt mask the real reason (the 422).
-                    logger.warning(
-                        "Failed to persist compliance-gate audit for contract %s",
-                        contract.code,
-                        exc_info=True,
-                    )
-                logger.info(
-                    "Compliance gate BLOCKED contract %s (%d errors, packs=%s)",
-                    contract.code,
-                    len(report.errors),
-                    pack_ids,
-                )
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=self._compliance_http_detail(report, pack_ids),
-                )
 
             # Gate passed - stamp the audit trail onto the contract metadata.
             meta = dict(contract.metadata_ or {})
@@ -1378,6 +1412,223 @@ class ContractsService:
         await self.contract_repo.update_fields(contract_id, **fields)
         await self.session.refresh(contract)
         return contract
+
+    # ── E-signature bridge ───────────────────────────────────────────────
+    #
+    # The signing module is subject-neutral: it knows a document reference and a
+    # content hash. Everything that makes a contract into those two strings is
+    # in ``contracts.signing_bridge``; everything that needs a session is here.
+    # The import is deferred in each method because modules are plugins and an
+    # installation may not carry ``oe_signing``: a missing module has to answer
+    # 503 on the three endpoints that need it, not break contracts at import.
+
+    #: Session statuses that no longer hold the contract open. Anything else is
+    #: an outstanding attempt to execute this paper.
+    _SIGNING_CLOSED_STATUSES: frozenset[str] = frozenset({"declined", "expired"})
+
+    def _signing_service(self) -> Any:
+        try:
+            from app.modules.signing.service import SigningService  # noqa: PLC0415
+        except ImportError as exc:  # pragma: no cover - depends on the install
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="The e-signature module is not installed on this deployment.",
+            ) from exc
+        return SigningService(self.session)
+
+    def _signing_repository(self) -> Any:
+        try:
+            from app.modules.signing.repository import SigningRepository  # noqa: PLC0415
+        except ImportError as exc:  # pragma: no cover - depends on the install
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="The e-signature module is not installed on this deployment.",
+            ) from exc
+        return SigningRepository(self.session)
+
+    async def contract_content_hash(self, contract: Contract) -> str:
+        """Hash of the contract body a signatory would be signing right now."""
+        parties = await self.party_repo.list_for_contract(contract.id)
+        return signing_bridge.contract_content_hash(contract, list(parties))
+
+    async def list_signing_sessions(self, contract_id: uuid.UUID) -> list[Any]:
+        """Signing sessions opened against this contract, newest first."""
+        await self.get_contract(contract_id)
+        ref = signing_bridge.contract_document_ref(contract_id)
+        return await self._signing_repository().list_sessions_for_document(ref)
+
+    async def open_signing_session(
+        self,
+        contract_id: uuid.UUID,
+        *,
+        provider_capability: str = "simple_electronic",
+        expires_at: Any = None,
+        signatories: list[dict[str, Any]] | None = None,
+        actor_id: str | None = None,
+    ) -> Any:
+        """Put a draft contract up for signature.
+
+        Runs the compliance gate first and refuses to open the session at all if
+        the gate blocks. That ordering is the whole point of this method: the
+        gate also guards ``draft → active``, but by then every signatory has
+        already signed, and telling them afterwards that the contract was never
+        eligible is not a workflow anyone can act on.
+
+        Only a draft is signable, and only one attempt may be outstanding: a
+        second open session would give two content hashes for one contract and
+        no answer to which one the signatures belong to.
+        """
+        contract = await self.get_contract(contract_id)
+        if contract.status != "draft":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(f"Only a draft contract can be put up for signature (this one is {contract.status})."),
+            )
+
+        ref = signing_bridge.contract_document_ref(contract_id)
+        existing = await self._signing_repository().list_sessions_for_document(ref)
+        open_now = [s for s in existing if s.status not in self._SIGNING_CLOSED_STATUSES]
+        if open_now:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"This contract already has a signing session in progress ({open_now[0].status}). "
+                    "Close it before opening another."
+                ),
+            )
+
+        await self.enforce_compliance_gate(contract, actor_id=actor_id)
+
+        parties = list(await self.party_repo.list_for_contract(contract_id))
+        signatory_map = signatories or signing_bridge.signatory_map_from_parties(contract, parties)
+
+        from pydantic import ValidationError  # noqa: PLC0415
+
+        from app.modules.signing.schemas import SigningSessionCreate  # noqa: PLC0415
+
+        try:
+            payload = SigningSessionCreate(
+                project_id=contract.project_id,
+                document_ref=ref,
+                document_content_hash=signing_bridge.contract_content_hash(contract, parties),
+                provider_capability=provider_capability,
+                signatory_map=signatory_map,
+                expires_at=expires_at,
+                metadata={"contract_code": contract.code, "contract_title": contract.title},
+            )
+        except ValidationError as exc:
+            # The capability vocabulary and the unique-role rule are owned by the
+            # signing module, so this is where its verdict becomes an HTTP answer
+            # rather than a 500. Restating either rule in the contracts schema
+            # would give the platform two lists that drift apart.
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "error": "invalid_signing_session",
+                    "message": "The signing register refused this session.",
+                    "details": exc.errors(include_url=False),
+                },
+            ) from exc
+
+        session_row = await self._signing_service().create_session(payload, user_id=actor_id)
+        logger.info(
+            "Signing session %s opened for contract %s (%d signatories)",
+            session_row.id,
+            contract.code,
+            len(signatory_map),
+        )
+        return session_row
+
+    async def signing_session_view(self, contract: Contract, session_row: Any) -> dict[str, Any]:
+        """Serialise one session with the two derived fields the screen needs.
+
+        ``content_hash_current`` compares the session's hash against what the
+        contract hashes to right now, and ``stale_signatories`` names whoever
+        signed a hash the session has since moved off. Both are computed rather
+        than stored, so they cannot go out of date the way a cached flag would.
+        """
+        from app.modules.signing.service import delta_by_hash  # noqa: PLC0415
+
+        signatures = await self._signing_repository().list_signatures_for_session(session_row.id)
+        current = await self.contract_content_hash(contract)
+        return {
+            "id": session_row.id,
+            "document_ref": session_row.document_ref,
+            "document_content_hash": session_row.document_content_hash,
+            "provider_capability": session_row.provider_capability,
+            "status": session_row.status,
+            "signatory_map": list(session_row.signatory_map or []),
+            "expires_at": session_row.expires_at,
+            "created_at": getattr(session_row, "created_at", None),
+            "content_hash_current": session_row.document_content_hash == current,
+            "stale_signatories": sorted(n for n in delta_by_hash(signatures, session_row.document_content_hash) if n),
+            "signed_roles": sorted({s.signatory_role for s in signatures if s.status == "signed" and s.signatory_role}),
+        }
+
+    async def refresh_signing_content_hash(self, contract_id: uuid.UUID) -> int:
+        """Push the contract's current hash onto its outstanding sessions.
+
+        This is what makes ``signing.delta_by_hash`` able to fire at all. That
+        function compares each attestation's hash against the session's current
+        one, so a signature can only ever be reported stale if somebody updates
+        the session when the paper changes. The signing module cannot: it has no
+        way to look at a contract. So the duty is here, on the write path that
+        changes the contract.
+
+        Returns the number of sessions moved. Best-effort by design: a contract
+        edit must not fail because the signing register could not be updated,
+        and a deployment without ``oe_signing`` reports zero rather than 503.
+        """
+        try:
+            repo = self._signing_repository()
+        except HTTPException:
+            return 0
+        contract = await self.get_contract(contract_id)
+        ref = signing_bridge.contract_document_ref(contract_id)
+        current = await self.contract_content_hash(contract)
+
+        moved = 0
+        for row in await repo.list_sessions_for_document(ref):
+            if row.status in self._SIGNING_CLOSED_STATUSES:
+                continue
+            if row.document_content_hash == current:
+                continue
+            row.document_content_hash = current
+            moved += 1
+        if moved:
+            await self.session.flush()
+            logger.info(
+                "Contract %s changed: %d signing session(s) re-hashed, earlier signatures now stale",
+                contract.code,
+                moved,
+            )
+        return moved
+
+    async def sync_contract_from_signing(
+        self,
+        contract_id: uuid.UUID,
+        actor_id: str | None = None,
+    ) -> Contract:
+        """Bring the contract status into line with its signing session.
+
+        A fully signed session moves a draft contract to active through the
+        normal transition, which re-runs the compliance gate. Running the gate
+        twice is deliberate: the paper can change between opening the session
+        and the last signature, and the transition is the only place that stamps
+        the audit entry the contract carries afterwards.
+
+        Anything short of fully signed leaves the contract alone and returns it
+        unchanged, so this is safe to call on every read of the signing panel.
+        """
+        contract = await self.get_contract(contract_id)
+        if contract.status != "draft":
+            return contract
+
+        ref = signing_bridge.contract_document_ref(contract_id)
+        sessions = await self._signing_repository().list_sessions_for_document(ref)
+        if not any(s.status == "fully_signed" for s in sessions):
+            return contract
+        return await self.transition_contract(contract_id, "active", actor_id)
 
     # ── ContractLines ────────────────────────────────────────────────────
 
@@ -3189,12 +3440,20 @@ class ContractsService:
         rows = await self.template_repo.list_versions(code)
         if not rows and is_builtin_template_code(code):
             builtin = get_contract_template(code)
+            # Filled out rather than minimal: a history screen that renders both
+            # halves would otherwise show a built-in with a blank family and no
+            # clause count, which reads as missing data rather than as a
+            # constant.
             return [
                 {
                     "code": code,
                     "version": 0,
                     "status": "published",
                     "name": builtin["name"],
+                    "family": builtin["family"],
+                    "description": "",
+                    "retention_release_event": builtin["retention_release_event"],
+                    "clause_count": builtin["clause_count"],
                     "source": "builtin",
                     "editable": False,
                     "published_at": None,
@@ -3925,12 +4184,9 @@ def get_contract_template(template_code: str) -> dict[str, Any]:
 # ``ContractTemplateRepository.list_all``; see its docstring for why the
 # built-ins are not rows.
 
-#: Statuses an authored template version can hold.
-TEMPLATE_STATUSES: frozenset[str] = frozenset({"draft", "published", "archived"})
-
-#: Risk grades a clause can carry. Advisory: this says what a reviewer should
-#: read first, not what a lawyer concluded.
-CLAUSE_RISK_LEVELS: frozenset[str] = frozenset({"none", "low", "medium", "high"})
+# ``TEMPLATE_STATUSES`` and ``CLAUSE_RISK_LEVELS`` are declared in ``models``
+# next to the columns whose domain they are, and re-exported here because this
+# is where callers of the service look for them.
 
 
 def is_builtin_template_code(code: str) -> bool:

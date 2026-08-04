@@ -813,6 +813,18 @@ class ContractMilestone(Base):
         return f"<ContractMilestone {self.code} {self.status}>"
 
 
+#: Statuses an authored template version can hold. Declared here, next to the
+#: column, because both the request schemas and the service have to agree on
+#: it: the schemas turn it into a validation pattern, the service refuses a
+#: write outside it. Two independent literals would drift the first time a
+#: status is added.
+TEMPLATE_STATUSES: frozenset[str] = frozenset({"draft", "published", "archived"})
+
+#: Risk grades a clause can carry. Advisory: this says what a reviewer should
+#: read first, not what a lawyer concluded.
+CLAUSE_RISK_LEVELS: frozenset[str] = frozenset({"none", "low", "medium", "high"})
+
+
 class ContractTemplate(Base):
     """One version of an authored clause template.
 

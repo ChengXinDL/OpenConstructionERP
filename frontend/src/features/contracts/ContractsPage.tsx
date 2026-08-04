@@ -51,6 +51,10 @@ import { MoneyDisplay } from '@/shared/ui/MoneyDisplay';
 import { MultiCurrencyTotal } from '@/shared/ui/MultiCurrencyTotal';
 import { DateDisplay } from '@/shared/ui/DateDisplay';
 import { PageHeader } from '@/shared/ui/PageHeader';
+import {
+  ContractTemplatesPanel,
+  TEMPLATE_CATALOGUE_KEY,
+} from './ContractTemplatesPanel';
 import { ContractStatusPipeline } from './ContractStatusPipeline';
 import { ContractExpiryBadge } from './ContractExpiryBadge';
 import { ComplianceGate } from './ComplianceGate';
@@ -94,7 +98,7 @@ import {
 import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
 import { buildContractsInsights } from './contractsInsights';
 
-type Tab = 'contracts' | 'claims' | 'final_accounts';
+type Tab = 'contracts' | 'claims' | 'final_accounts' | 'templates';
 
 const CONTRACT_TYPE_COLORS: Record<
   ContractType,
@@ -690,6 +694,11 @@ export function ContractsPage() {
                 label: t('contracts.tab_final_accounts', { defaultValue: 'Final Accounts' }),
                 icon: Archive,
               },
+              {
+                id: 'templates',
+                label: t('contracts.tab_templates', { defaultValue: 'Clause Templates' }),
+                icon: BookOpen,
+              },
             ] as { id: Tab; label: string; icon: React.ElementType }[]
           ).map((it) => {
             const Icon = it.icon;
@@ -757,7 +766,7 @@ export function ContractsPage() {
           </select>
         )}
 
-        {tab !== 'contracts' && contracts.length > 0 && (
+        {tab !== 'contracts' && tab !== 'templates' && contracts.length > 0 && (
           <select
             value={effectiveClaimsContract}
             onChange={(e) => setClaimsContractId(e.target.value)}
@@ -774,36 +783,41 @@ export function ContractsPage() {
           </select>
         )}
 
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          aria-label={t('a11y.contracts.status_filter', {
-            defaultValue: 'Filter contracts by status',
-          })}
-          className={clsx(inputCls, 'max-w-[180px]')}
-        >
-          <option value="">
-            {t('common.all_statuses', { defaultValue: 'All statuses' })}
-          </option>
-          {tab === 'contracts' &&
-            CONTRACT_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {contractStatusLabel(t, s)}
-              </option>
-            ))}
-          {tab === 'claims' &&
-            CLAIM_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {claimStatusLabel(t, s)}
-              </option>
-            ))}
-          {tab === 'final_accounts' &&
-            FINAL_ACCOUNT_CONTRACT_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {contractStatusLabel(t, s)}
-              </option>
-            ))}
-        </select>
+        {/* The template library filters itself by the search box alone: its
+            rows are catalogue entries, not contracts, so a contract-status
+            select over them would offer statuses none of them can hold. */}
+        {tab !== 'templates' && (
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label={t('a11y.contracts.status_filter', {
+              defaultValue: 'Filter contracts by status',
+            })}
+            className={clsx(inputCls, 'max-w-[180px]')}
+          >
+            <option value="">
+              {t('common.all_statuses', { defaultValue: 'All statuses' })}
+            </option>
+            {tab === 'contracts' &&
+              CONTRACT_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {contractStatusLabel(t, s)}
+                </option>
+              ))}
+            {tab === 'claims' &&
+              CLAIM_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {claimStatusLabel(t, s)}
+                </option>
+              ))}
+            {tab === 'final_accounts' &&
+              FINAL_ACCOUNT_CONTRACT_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {contractStatusLabel(t, s)}
+                </option>
+              ))}
+          </select>
+        )}
       </div>
 
       {/* CONN-43: active counterparty deep-link filter, dismissible. */}
@@ -828,7 +842,12 @@ export function ContractsPage() {
 
       {/* Body */}
       <Card padding="none">
-        {!projectId ? (
+        {/* Templates are tenant-wide paper, not project data, so the library
+            sits above the project gate. Requiring a project to look at a
+            standard form would be a gate on nothing. */}
+        {tab === 'templates' ? (
+          <ContractTemplatesPanel search={search} />
+        ) : !projectId ? (
           <RequiresProject
             emptyHint={t('contracts.no_project_desc', {
               defaultValue: 'Pick a project above to view its contracts.',
@@ -906,14 +925,24 @@ function ContractTable({
   // query is cheap (in-memory dict on the backend) and is shared with
   // the CreateContractModal via React Query's cache.
   const templatesQ = useQuery({
-    queryKey: ['contracts', 'clause-templates'],
+    queryKey: TEMPLATE_CATALOGUE_KEY,
     queryFn: listClauseTemplates,
     staleTime: 60 * 60 * 1000,
   });
 
   if (rows.length === 0) {
+    // Only paper a contract can actually be drawn from. The catalogue now
+    // carries the tenant's own templates too, and an unpublished draft is
+    // refused at contract creation, so advertising its family here would
+    // promise something the next screen takes away. A built-in reports
+    // "published", so both halves pass through this one predicate.
     const families = Array.from(
-      new Set((templatesQ.data ?? []).map((tpl) => tpl.family.toUpperCase())),
+      new Set(
+        (templatesQ.data ?? [])
+          .filter((tpl) => tpl.status === 'published')
+          .map((tpl) => tpl.family.toUpperCase())
+          .filter(Boolean),
+      ),
     ).slice(0, 5);
     return (
       <div className="relative">
@@ -1710,6 +1739,22 @@ function ContractDetailDrawer({
                 })}
                 value={contract.retention_release_event}
               />
+              {/* The pin, shown only when there is one. Version 0 is a built-in
+                  standard form, which has no versions of its own, so printing
+                  "v0" would invite the reader to look for a v1 that cannot
+                  exist. */}
+              {contract.template_code && (
+                <Field
+                  label={t('contracts.tpl_drawn_from', {
+                    defaultValue: 'Drawn from clause template',
+                  })}
+                  value={
+                    contract.template_version && contract.template_version > 0
+                      ? `${contract.template_code} · v${contract.template_version}`
+                      : contract.template_code
+                  }
+                />
+              )}
             </div>
           </Card>
 
@@ -2011,7 +2056,19 @@ function CreateContractModal({
     retention_percent: '5',
     start_date: todayIso(),
     end_date: '',
+    template_code: '',
   });
+
+  // Only paper that can be drawn from is offered. An unpublished draft is
+  // refused by the server, so listing it here would be an option that fails.
+  const templatesQ = useQuery({
+    queryKey: TEMPLATE_CATALOGUE_KEY,
+    queryFn: listClauseTemplates,
+    staleTime: 60 * 60 * 1000,
+  });
+  const pickableTemplates = (templatesQ.data ?? []).filter(
+    (tpl) => tpl.status === 'published',
+  );
 
   const submit = async () => {
     if (!form.code.trim()) {
@@ -2034,6 +2091,7 @@ function CreateContractModal({
         retention_percent: Number(form.retention_percent) || 0,
         start_date: form.start_date || null,
         end_date: form.end_date || null,
+        template_code: form.template_code || null,
       });
       addToast({
         type: 'success',
@@ -2133,6 +2191,32 @@ function CreateContractModal({
                 defaultValue: 'Subcontractor',
               })}
             </option>
+          </select>
+        </WideModalField>
+        <WideModalField
+          label={t('contracts.tpl_drawn_from', {
+            defaultValue: 'Drawn from clause template',
+          })}
+          span={2}
+          hint={t('contracts.tpl_drawn_from_hint', {
+            defaultValue:
+              'Optional. The contract records the exact version, so it keeps naming this paper after a later version is published.',
+          })}
+        >
+          <select
+            value={form.template_code}
+            onChange={(e) => setForm({ ...form, template_code: e.target.value })}
+            className={inputCls}
+          >
+            <option value="">
+              {t('contracts.tpl_none', { defaultValue: 'No template' })}
+            </option>
+            {pickableTemplates.map((tpl) => (
+              <option key={tpl.code} value={tpl.code}>
+                {tpl.name}
+                {tpl.version > 0 ? ` (v${tpl.version})` : ''}
+              </option>
+            ))}
           </select>
         </WideModalField>
       </WideModalSection>

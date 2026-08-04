@@ -89,6 +89,14 @@ export interface ContractItem {
   retention_release_event: RetentionReleaseEvent;
   status: ContractStatus;
   signed_at: string | null;
+  /**
+   * The clause template the contract was drawn from, pinned as a pair. Version
+   * 0 means a built-in standard form, which carries no versions of its own, so
+   * zero is a complete answer here and not a missing one. Both are null on a
+   * contract written from scratch.
+   */
+  template_code: string | null;
+  template_version: number | null;
   terms: Record<string, unknown>;
   created_by: string | null;
   metadata: Record<string, unknown>;
@@ -248,6 +256,12 @@ export interface ContractCreatePayload {
   retention_release_event?: RetentionReleaseEvent;
   status?: ContractStatus;
   signed_at?: string | null;
+  /**
+   * The clause template this contract is drawn from, if any. Only the code is
+   * sent: the server resolves the version and stores the pair, so the contract
+   * keeps naming the version it actually used after a later one is published.
+   */
+  template_code?: string | null;
   terms?: Record<string, unknown>;
   metadata?: Record<string, unknown>;
 }
@@ -593,16 +607,180 @@ export function cloneContract(
 
 /* ── Clause templates (FIDIC / JCT / NEC / AIA / ConsensusDocs) ───────── */
 
+/**
+ * One row of the catalogue, from either half of the namespace.
+ *
+ * `source` says which half: `builtin` are the standard forms the platform
+ * ships as constants, `authored` are the tenant's own versioned paper.
+ * `editable` is the answer to "may the pencil be drawn", which is false for
+ * both a built-in and a published version. `version` is 0 for a built-in
+ * rather than null, so sorting on it never has to branch on the type.
+ */
 export interface ClauseTemplate {
   code: string;
   name: string;
   family: string;
+  description?: string;
   retention_release_event: string;
   clause_count: number;
+  source: 'builtin' | 'authored';
+  editable: boolean;
+  version: number;
+  status: TemplateStatus;
+  derived_from_builtin?: string | null;
+  template_id?: string | null;
+}
+
+export type TemplateStatus = 'draft' | 'published' | 'archived';
+export type ClauseRiskLevel = 'none' | 'low' | 'medium' | 'high';
+
+export interface TemplateClause {
+  id?: string | null;
+  number: string;
+  title: string;
+  body: string;
+  sort_order: number;
+  risk_level: ClauseRiskLevel;
+  risk_note: string;
+  is_optional: boolean;
+}
+
+/** One template version. Built-ins answer in this shape too, at version 0. */
+export interface ClauseTemplateDetail extends ClauseTemplate {
+  id?: string | null;
+  lineage_id?: string | null;
+  published_at?: string | null;
+  published_by?: string | null;
+  clauses: TemplateClause[];
+}
+
+export interface ClauseTemplateCreatePayload {
+  code: string;
+  name: string;
+  family?: string;
+  description?: string;
+  retention_release_event?: RetentionReleaseEvent;
+  clauses?: TemplateClause[];
+}
+
+export interface ClauseTemplateUpdatePayload {
+  name?: string;
+  family?: string;
+  description?: string;
+  retention_release_event?: RetentionReleaseEvent;
 }
 
 export function listClauseTemplates(): Promise<ClauseTemplate[]> {
   return safeGetList<ClauseTemplate>('/v1/contracts/contract-templates/');
+}
+
+export function getClauseTemplate(
+  code: string,
+  version?: number,
+): Promise<ClauseTemplateDetail> {
+  const q = version === undefined ? '' : `?version=${version}`;
+  return apiGet<ClauseTemplateDetail>(
+    `/v1/contracts/contract-templates/${encodeURIComponent(code)}${q}`,
+  );
+}
+
+/**
+ * One entry of a version history. Deliberately narrower than ClauseTemplate:
+ * a built-in answers here with a single frozen row that carries no family and
+ * no clause count, so one history screen serves both halves of the catalogue.
+ */
+export interface TemplateVersionRow {
+  code: string;
+  version: number;
+  status: TemplateStatus;
+  name: string;
+  source: 'builtin' | 'authored';
+  editable: boolean;
+  published_at?: string | null;
+  published_by?: string | null;
+}
+
+export function listClauseTemplateVersions(
+  code: string,
+): Promise<TemplateVersionRow[]> {
+  return safeGetList<TemplateVersionRow>(
+    `/v1/contracts/contract-templates/${encodeURIComponent(code)}/versions`,
+  );
+}
+
+export function createClauseTemplate(
+  data: ClauseTemplateCreatePayload,
+): Promise<ClauseTemplateDetail> {
+  return apiPost<ClauseTemplateDetail>('/v1/contracts/contract-templates/', data);
+}
+
+export function forkClauseTemplate(
+  code: string,
+  data: { new_code: string; new_name?: string | null },
+): Promise<ClauseTemplateDetail> {
+  return apiPost<ClauseTemplateDetail>(
+    `/v1/contracts/contract-templates/${encodeURIComponent(code)}/fork`,
+    data,
+  );
+}
+
+export function updateClauseTemplate(
+  code: string,
+  version: number,
+  data: ClauseTemplateUpdatePayload,
+): Promise<ClauseTemplateDetail> {
+  return apiPatch<ClauseTemplateDetail>(
+    `/v1/contracts/contract-templates/${encodeURIComponent(code)}/versions/${version}`,
+    data,
+  );
+}
+
+/**
+ * Replace the whole clause set of a draft.
+ *
+ * Whole-set rather than per-clause because numbering and order are one
+ * document: renumbering 14.3 to 14.4 while 14.4 still exists is a legal edit
+ * of the document and an illegal sequence of row updates.
+ */
+export function setClauseTemplateClauses(
+  code: string,
+  version: number,
+  clauses: TemplateClause[],
+): Promise<ClauseTemplateDetail> {
+  return apiPut<ClauseTemplateDetail>(
+    `/v1/contracts/contract-templates/${encodeURIComponent(code)}/versions/${version}/clauses`,
+    { clauses },
+  );
+}
+
+export function publishClauseTemplate(
+  code: string,
+  version: number,
+): Promise<ClauseTemplateDetail> {
+  return apiPost<ClauseTemplateDetail>(
+    `/v1/contracts/contract-templates/${encodeURIComponent(code)}/versions/${version}/publish`,
+    {},
+  );
+}
+
+/** Open version N+1 as a draft. This is what editing published paper means. */
+export function openNextClauseTemplateVersion(
+  code: string,
+): Promise<ClauseTemplateDetail> {
+  return apiPost<ClauseTemplateDetail>(
+    `/v1/contracts/contract-templates/${encodeURIComponent(code)}/versions`,
+    {},
+  );
+}
+
+export function archiveClauseTemplateVersion(
+  code: string,
+  version: number,
+): Promise<ClauseTemplateDetail> {
+  return apiPost<ClauseTemplateDetail>(
+    `/v1/contracts/contract-templates/${encodeURIComponent(code)}/versions/${version}/archive`,
+    {},
+  );
 }
 
 /* ── Compliance gate (Item #27) ───────────────────────────────────────── */
@@ -1027,6 +1205,85 @@ export function getMilestoneSchedule(
 ): Promise<MilestoneSchedule> {
   return apiGet<MilestoneSchedule>(
     `/v1/contracts/contracts/${contractId}/milestone-schedule`,
+  );
+}
+
+/* ── E-signature bridge ───────────────────────────────────────────────── */
+
+/** One expected signatory on a session, derived from the party register. */
+export interface ContractSignatory {
+  name: string;
+  role: string;
+  required?: boolean;
+}
+
+/**
+ * A signing session opened against a contract.
+ *
+ * `content_hash_current` and `stale_signatories` are the two fields the screen
+ * exists for. A contract can be edited while it is out for signature, and when
+ * that happens everyone who already signed signed different paper. The flag
+ * drives the banner, the names drive the list of who has to sign again.
+ */
+export interface ContractSigningSession {
+  id: string;
+  document_ref: string;
+  document_content_hash: string;
+  provider_capability: string;
+  status: string;
+  signatory_map: ContractSignatory[];
+  expires_at: string | null;
+  created_at: string | null;
+  content_hash_current: boolean;
+  stale_signatories: string[];
+  signed_roles: string[];
+}
+
+export interface ContractSigningSessionOpen {
+  provider_capability?: string;
+  expires_at?: string | null;
+  /** Override the map derived from the contract's parties. Rarely needed. */
+  signatories?: ContractSignatory[];
+}
+
+/**
+ * Put the contract up for signature.
+ *
+ * Runs the compliance gate first, so this rejects with 422 on a contract that
+ * would be blocked at activation. That is the point: finding out after every
+ * party has signed is finding out too late.
+ */
+export function openContractSigningSession(
+  contractId: string,
+  body: ContractSigningSessionOpen = {},
+): Promise<ContractSigningSession> {
+  return apiPost<ContractSigningSession>(
+    `/v1/contracts/contracts/${contractId}/signing-session`,
+    body,
+  );
+}
+
+/** Every session ever opened against this contract, newest first. */
+export function listContractSigningSessions(
+  contractId: string,
+): Promise<ContractSigningSession[]> {
+  return apiGet<ContractSigningSession[]>(
+    `/v1/contracts/contracts/${contractId}/signing-sessions`,
+  );
+}
+
+/**
+ * Bring the contract's own status in line with its signing session.
+ *
+ * A partly signed contract stays in draft; a fully signed one is transitioned
+ * to active through the normal path, gate and audit included.
+ */
+export function syncContractFromSigning(
+  contractId: string,
+): Promise<ContractItem> {
+  return apiPost<ContractItem>(
+    `/v1/contracts/contracts/${contractId}/signing-session/sync`,
+    {},
   );
 }
 

@@ -30,7 +30,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.modules.contracts.models import ContractTemplate
+from app.modules.contracts.models import TEMPLATE_STATUSES, ContractTemplate
 from app.modules.contracts.schemas import ContractCreate, ContractTemplateCreate, TemplateClauseInput
 from app.modules.contracts.service import CONTRACT_CLAUSE_TEMPLATES, ContractsService
 from app.modules.projects.models import Project
@@ -430,3 +430,54 @@ async def test_a_contract_without_a_template_stores_neither_half(pg_session) -> 
     await pg_session.flush()
     assert contract.template_code is None
     assert contract.template_version is None
+
+
+# ── The declared domain ──────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_every_status_the_api_yields_is_inside_the_declared_domain(pg_session) -> None:
+    """``TEMPLATE_STATUSES`` is the domain of the column; this is what reads it.
+
+    A status is never accepted from a request, so no schema pattern guards it.
+    It is written by creating, publishing, opening the next version and
+    archiving, and read back by three endpoints. Walking a lineage through all
+    four writes and collecting what comes out of all three reads is the only
+    place the constant and the code that sets it actually meet.
+    """
+    _, user_id = await _project(pg_session)
+    service = ContractsService(pg_session)
+    code = _unique("own-domain")
+
+    seen: set[str] = set()
+
+    def _collect(payload) -> None:
+        rows = payload if isinstance(payload, list) else [payload]
+        for row in rows:
+            status_value = row["status"]
+            assert status_value in TEMPLATE_STATUSES, (code, status_value)
+            # A built-in reports "published" and is never editable; an authored
+            # row is editable exactly while it is a draft. Checking the pair
+            # together is what stops a published version being offered with a
+            # pencil on it.
+            assert row["editable"] is (row["source"] == "authored" and status_value == "draft")
+            seen.add(status_value)
+
+    _collect(await service.create_template(_draft(code), user_id))
+    await pg_session.flush()
+    _collect(await service.list_templates())
+
+    _collect(await service.publish_template(code, 1, user_id))
+    await pg_session.flush()
+    _collect(await service.open_next_template_version(code, user_id))
+    await pg_session.flush()
+    _collect(await service.list_template_versions(code))
+    _collect(await service.get_template(code))
+
+    _collect(await service.archive_template_version(code, 2))
+    await pg_session.flush()
+    _collect(await service.list_template_versions(code))
+
+    # All three were reached, so the assertion above was not vacuous on any of
+    # them: a set that only ever held "draft" would pass just as quietly.
+    assert seen == set(TEMPLATE_STATUSES)
