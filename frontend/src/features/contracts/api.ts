@@ -1367,9 +1367,14 @@ export function createContractParty(
   );
 }
 
-/** Parties are addressed by their own id, not through the contract. */
+/**
+ * Parties are addressed by their own id, not through the contract. Note the
+ * doubled segment: the module router is mounted at /v1/contracts and the route
+ * itself is /contracts/parties/{id}, so both belong in the path. Dropping one
+ * gives a 404 that looks like a missing row rather than a missing route.
+ */
 export function deleteContractParty(partyId: string): Promise<void> {
-  return apiDelete(`/v1/contracts/parties/${partyId}`);
+  return apiDelete(`/v1/contracts/contracts/parties/${partyId}`);
 }
 
 /* ── Back-compat aliases (old skeleton names) ─────────────────────────── */
