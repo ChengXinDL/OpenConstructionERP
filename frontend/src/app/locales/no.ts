@@ -33360,7 +33360,7 @@ const resource = {
     "sheetCompleteness.mode_paste": "Lim inn en arkliste",
     "sheetCompleteness.pick_index": "Velg tegning",
     "sheetCompleteness.pick_index_placeholder": "Velg en tegning...",
-    "sheetCompleteness.index_page": "Registerark (valgfritt)",
+    "sheetCompleteness.index_page": "Indeksside (valgfritt)",
     "sheetCompleteness.index_page_placeholder": "Alle sider",
     "sheetCompleteness.paste_placeholder": "Ett ark per linje, eller nummer,tittel,revisjon",
     "sheetCompleteness.running": "Sjekker…",

@@ -31342,7 +31342,7 @@ const resource = {
     "sheets.no_results": "Keine übereinstimmenden Blätter",
     "sheets.no_results_hint": "Versuche, das Suchfeld anzupassen oder ein anderes Fachgebiet zu wählen.",
     "sheets.no_sheets": "Noch keine Blätter indiziert",
-    "sheets.no_sheets_hint": "Lade ein mehrseitiges PDF-Zeichnungsset in das Files-Modul hoch - jede Seite wird hier automatisch zu einem Blatt.",
+    "sheets.no_sheets_hint": "Lade ein mehrseitiges PDF-Zeichnungsset in die Projektdateien hoch - jede Seite wird hier automatisch zu einem Blatt.",
     "sheets.flow_1_desc_split": "Ein mehrseitiges PDF wird in die Projektdateien hochgeladen oder direkt von dieser Seite aus mit der Schaltfläche über der Tabelle aufgeteilt.",
     "sheets.split_cta": "PDF in Blätter aufteilen",
     "sheets.split_input_label": "PDF des Zeichnungssets zum Aufteilen in Blätter",

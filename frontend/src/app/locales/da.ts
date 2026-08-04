@@ -31263,7 +31263,7 @@ const resource = {
     "sheets.no_results": "Ingen matchende ark",
     "sheets.no_results_hint": "Prøv at justere søgefeltet eller vælg en anden disciplin.",
     "sheets.no_sheets": "Ingen ark indexeret endnu",
-    "sheets.no_sheets_hint": "Upload et PDF-tegningssæt med flere sider til Files-modulet - hver side bliver automatisk et ark her.",
+    "sheets.no_sheets_hint": "Upload et PDF-tegningssæt med flere sider til Projektfiler - hver side bliver automatisk et ark her.",
     "sheets.flow_1_desc_split": "En PDF med flere sider uploades til Projektfiler, eller opdeles direkte fra denne side med knappen over tabellen.",
     "sheets.split_cta": "Opdel en PDF i ark",
     "sheets.split_input_label": "PDF med tegningssæt til opdeling i ark",
