@@ -472,3 +472,23 @@ frontend/scripts/_i18n_*.py
 # Module inventory dump: regenerated on demand for the marketing honeycomb,
 # not an input to anything in this repository.
 /modules.json
+
+# --- Personal data: never in this repository, which is public ---
+# The marketing host captures signups and enquiries as JSONL under /root/clawd,
+# and an export built for a mailing tool is a CSV of real people. A copy of one
+# of those files, or an export from it, must not be committable even by
+# accident. scripts/check_repo_hygiene.py blocks the same names, so a file that
+# slips past this list still fails the gate. Keep the two in step.
+demo-registrations*.jsonl
+demo-tokens*.json
+newsletter-subscribers*.jsonl
+license-requests*.jsonl
+partner-applications*.jsonl
+contact-requests*.jsonl
+email-delivery-failures*.jsonl
+*subscribers*.csv
+*newsletter*.csv
+*email-export*.csv
+*contacts-export*.csv
+*leads-export*.csv
+*audience*.csv
