@@ -128,7 +128,7 @@ def contract_content_hash(contract: Any, parties: list[Any] | None = None) -> st
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-def signatory_map_from_parties(contract: Any, parties: list[Any] | None = None) -> list[dict[str, Any]]:
+def signatory_map_from_parties(parties: list[Any] | None = None) -> list[dict[str, Any]]:
     """Derive the expected signatories from the contract's party register.
 
     Only the roles in :data:`SIGNING_PARTY_ROLES` are asked to sign, and every
@@ -137,9 +137,15 @@ def signatory_map_from_parties(contract: Any, parties: list[Any] | None = None) 
     enforces that), so a second party in an already-taken role is dropped rather
     than silently overwriting the first.
 
-    Falls back to the legacy single ``counterparty_*`` pair when the structured
-    register holds nobody who signs, because contracts created before the party
-    register existed still have to be signable.
+    Returns an empty list when the register holds nobody who signs, and the
+    caller refuses to open the session. There is nothing to fall back to: a
+    contract carries ``counterparty_type`` (a category, not a name) and a bare
+    ``counterparty_id`` that may point into either the contact register or the
+    subcontractor one, so no name is reachable from the row itself. An earlier
+    version filled the gap with the contract's own title, which produced a
+    signature record attesting that a party named after the document had signed
+    it. On paper whose whole purpose is to record who agreed to what, a placed
+    name is worse than a refusal.
     """
     entries: list[dict[str, Any]] = []
     seen: set[str] = set()
@@ -153,15 +159,6 @@ def signatory_map_from_parties(contract: Any, parties: list[Any] | None = None) 
         seen.add(role)
         entries.append({"name": name, "role": role, "required": True})
 
-    if not entries:
-        fallback = (contract.counterparty_type or "counterparty").strip() or "counterparty"
-        entries.append(
-            {
-                "name": (contract.title or contract.code or "Counterparty").strip(),
-                "role": fallback,
-                "required": True,
-            }
-        )
     entries.sort(
         key=lambda entry: (
             SIGNING_PARTY_ROLES.index(entry["role"])

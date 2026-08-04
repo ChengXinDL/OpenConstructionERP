@@ -1477,6 +1477,10 @@ class ContractsService:
         Only a draft is signable, and only one attempt may be outstanding: a
         second open session would give two content hashes for one contract and
         no answer to which one the signatures belong to.
+
+        A contract whose party register names nobody who signs is refused. The
+        signatories are the point of the session, and one built from no parties
+        would collect an attestation against a name that belongs to no company.
         """
         contract = await self.get_contract(contract_id)
         if contract.status != "draft":
@@ -1500,7 +1504,15 @@ class ContractsService:
         await self.enforce_compliance_gate(contract, actor_id=actor_id)
 
         parties = list(await self.party_repo.list_for_contract(contract_id))
-        signatory_map = signatories or signing_bridge.signatory_map_from_parties(contract, parties)
+        signatory_map = signatories or signing_bridge.signatory_map_from_parties(parties)
+        if not signatory_map:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "This contract has no parties who sign, so there is nobody to send it to. "
+                    "Add the employer and the contractor to the party register first."
+                ),
+            )
 
         from pydantic import ValidationError  # noqa: PLC0415
 

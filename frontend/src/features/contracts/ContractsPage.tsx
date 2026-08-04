@@ -1517,14 +1517,20 @@ function ContractDetailDrawer({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/30" />
+    <div className="fixed inset-0 z-50 flex justify-end">
+      {/* Close-on-backdrop lives on the backdrop itself, not on the wrapper.
+          The wrapper is also the React parent of the modals this drawer opens,
+          and a portal delivers its events to the React parent rather than to
+          whatever DOM node it was mounted under. A handler up here therefore
+          sees every click inside those modals and closes the drawer, taking
+          the modal down with it. The panel below needs no stopPropagation for
+          the same reason: nothing above it is listening any more. */}
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="contract-drawer-title"
         className="relative h-full w-full max-w-2xl overflow-y-auto bg-surface-elevated shadow-xl"
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border-light bg-surface-elevated px-5 py-3">
           <div>

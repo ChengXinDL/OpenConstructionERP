@@ -168,6 +168,13 @@ export function WideModal({
         // Stop propagation so click inside the panel does not bubble up
         // to the backdrop close handler.
         onMouseDown={(e) => e.stopPropagation()}
+        // And to any handler outside this modal. The portal moves the DOM node
+        // to the end of <body>, but React still routes events to the React
+        // parent, so a caller that renders <WideModal> inside its own
+        // close-on-click overlay would otherwise see every click in here as a
+        // click on its overlay and tear the modal down mid-interaction. What
+        // happens inside a modal is the modal's business.
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <header className="flex items-start justify-between gap-4 px-6 pt-5 pb-4 border-b border-border-light/60">

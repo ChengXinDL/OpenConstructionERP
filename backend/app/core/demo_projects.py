@@ -4978,6 +4978,27 @@ def _generate_module_data(
             # adds a value the other does not have.
             "party": "contractor",
             "party_index": 0,
+            # Who actually signs. The counterparty pair above records one side
+            # and a category; the signature register needs both sides by name,
+            # because a contract one party has not executed is not executed.
+            # Without these rows the contract cannot be put up for signature at
+            # all, which made the whole signing path undemonstrable in a demo.
+            "parties": [
+                {
+                    "party_role": "employer",
+                    "party": "client",
+                    "party_index": 0,
+                    "display_name": client_name or f"{proj} Client",
+                    "is_primary": True,
+                },
+                {
+                    "party_role": "contractor",
+                    "party": "contractor",
+                    "party_index": 0,
+                    "display_name": contractor_name,
+                    "is_primary": False,
+                },
+            ],
             "total_value": f"{round(contract_total, 2)}",
             "currency": cur[:3],
             "status": "active",
@@ -4985,9 +5006,16 @@ def _generate_module_data(
             "end_date": _d(months * 30),
         }
     )
-    for i, (company, _) in enumerate(firms[:3]):
+    sub_firms = firms[:3]
+    for i, (company, _) in enumerate(sub_firms):
         trade = trades[i % len(trades)][1] if trades else "Works"
         sub_value = round((contract_total * 0.15) + i * 50000.0, 2)
+        # The last subcontract is still a draft. Every contract being active
+        # left the register with nothing standing at the step between agreeing
+        # a deal and billing it: the compliance gate and the signature only
+        # appear on a draft, so a demo where everything is signed can show the
+        # whole lifecycle except the part where the contract becomes binding.
+        sub_status = "draft" if i == len(sub_firms) - 1 else "active"
         contracts.append(
             {
                 "code": f"{demo_id}-SUB-{i + 1:02d}",
@@ -5000,9 +5028,28 @@ def _generate_module_data(
                 # titles named three.
                 "party": "subcontractor",
                 "party_index": i,
+                # A subcontract is signed by the main contractor buying the
+                # work and the firm selling it, not by the employer, who is
+                # not a party to it.
+                "parties": [
+                    {
+                        "party_role": "contractor",
+                        "party": "contractor",
+                        "party_index": 0,
+                        "display_name": contractor_name,
+                        "is_primary": True,
+                    },
+                    {
+                        "party_role": "subcontractor",
+                        "party": "subcontractor",
+                        "party_index": i,
+                        "display_name": company,
+                        "is_primary": False,
+                    },
+                ],
                 "total_value": f"{sub_value}",
                 "currency": cur[:3],
-                "status": "active",
+                "status": sub_status,
                 "start_date": _d(14),
                 "end_date": _d(months * 30 - 14),
             }
@@ -9781,14 +9828,37 @@ async def _seed_module_data(
 
     # ── Contracts (main + trade subcontracts) ─────────────────────────
     try:
-        from app.modules.contracts.models import Contract
+        from app.modules.contracts.models import Contract, ContractParty
 
         contract_list = generated.get("contracts", [])
         for ct in contract_list:
             counterparty_id = _seeded_party_id(contact_ids_by_type, ct.get("party"), int(ct.get("party_index", 0) or 0))
+            contract_pk = _id()
+            for pt in ct.get("parties", []):
+                session.add(
+                    ContractParty(
+                        id=_id(),
+                        contract_id=contract_pk,
+                        party_role=pt["party_role"],
+                        # party_type names the register party_id points into,
+                        # and every one of these is resolved out of the contact
+                        # register above.
+                        party_type="contact",
+                        party_id=_uuid_or_none(
+                            _seeded_party_id(
+                                contact_ids_by_type,
+                                pt.get("party"),
+                                int(pt.get("party_index", 0) or 0),
+                            )
+                        ),
+                        display_name=pt["display_name"],
+                        is_primary=bool(pt.get("is_primary", False)),
+                        metadata_={"demo_id": demo_id},
+                    )
+                )
             session.add(
                 Contract(
-                    id=_id(),
+                    id=contract_pk,
                     project_id=project_id,
                     code=ct["code"],
                     title=ct.get("title", ""),

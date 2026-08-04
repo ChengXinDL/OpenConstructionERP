@@ -312,6 +312,27 @@ describe('WideModal - backdrop interactions', () => {
     fireEvent.mouseDown(screen.getByRole('dialog'));
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it('a click inside the panel never reaches the caller that opened it', () => {
+    // The portal puts this modal at the end of <body>, but React sends events
+    // to the React parent, not the DOM one. A caller that renders a modal
+    // inside its own close-on-click overlay - a drawer, a popover, a card that
+    // opens a detail dialog - would otherwise receive every click made inside
+    // the modal and close itself, taking the modal down with it. That defect
+    // is invisible on a healthy screen because most modal buttons close the
+    // modal anyway; it only shows on the ones meant to leave it open.
+    const parentClick = vi.fn();
+    render(
+      <div onClick={parentClick}>
+        <WideModal open onClose={vi.fn()} title="Contained">
+          <button type="button">Do something and stay open</button>
+        </WideModal>
+      </div>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /stay open/i }));
+    expect(parentClick).not.toHaveBeenCalled();
+  });
 });
 
 describe('WideModalField - required=false (no aria injection)', () => {

@@ -128,6 +128,73 @@ async def test_a_session_is_filed_under_the_contract_and_signatories_come_from_t
 
 
 @pytest.mark.asyncio
+async def test_a_contract_with_nobody_on_its_party_register_is_refused(pg_session) -> None:
+    """No parties means no signatories, and a session without those is theatre.
+
+    Every other test in this file builds a contract *with* parties, which is
+    exactly how an earlier version shipped a fallback that invented one: it
+    named the signatory after the contract's own title, so the register would
+    have recorded that a party named "Signing bridge" executed the paper called
+    "Signing bridge". Nothing in the suite touched the branch, and the screen
+    showed the invented name as though it were a company.
+    """
+    project_id, user_id = await _project(pg_session)
+    service = ContractsService(pg_session)
+    contract = await service.create_contract(
+        ContractCreate(
+            code=_unique("C"),
+            title="Signing bridge",
+            contract_type="lump_sum",
+            project_id=project_id,
+            total_value=Decimal("250000.00"),
+            currency="EUR",
+        ),
+        user_id,
+    )
+    await pg_session.flush()
+
+    with pytest.raises(HTTPException) as excinfo:
+        await service.open_signing_session(contract.id, actor_id=user_id)
+    assert excinfo.value.status_code == 400
+    assert "party register" in str(excinfo.value.detail)
+
+    # And nothing was filed: a refused attempt leaves no session behind.
+    assert await service.list_signing_sessions(contract.id) == []
+
+
+@pytest.mark.asyncio
+async def test_a_party_who_does_not_sign_does_not_make_a_contract_signable(pg_session) -> None:
+    """A consultant on the register is not a signatory to the contract."""
+    project_id, user_id = await _project(pg_session)
+    service = ContractsService(pg_session)
+    contract = await service.create_contract(
+        ContractCreate(
+            code=_unique("C"),
+            title="Consultant only",
+            contract_type="lump_sum",
+            project_id=project_id,
+            total_value=Decimal("10000.00"),
+            currency="EUR",
+        ),
+        user_id,
+    )
+    await pg_session.flush()
+    pg_session.add(
+        ContractParty(
+            contract_id=contract.id,
+            party_role="consultant",
+            party_type="external",
+            display_name="Harkness Cost Consultancy",
+        )
+    )
+    await pg_session.flush()
+
+    with pytest.raises(HTTPException) as excinfo:
+        await service.open_signing_session(contract.id, actor_id=user_id)
+    assert excinfo.value.status_code == 400
+
+
+@pytest.mark.asyncio
 async def test_a_second_session_is_refused_while_one_is_outstanding(pg_session) -> None:
     """Two open sessions would give one contract two hashes and no tie-break."""
     project_id, user_id = await _project(pg_session)
