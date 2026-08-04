@@ -50,6 +50,7 @@ import {
 import { Card, Badge, Button, Input } from '@/shared/ui';
 import { MoneyDisplay } from '@/shared/ui/MoneyDisplay';
 import { DateDisplay } from '@/shared/ui/DateDisplay';
+import { findingKeys } from './findingKeys';
 import {
   getSovStatus,
   getContractCompleteness,
@@ -386,6 +387,7 @@ function FindingList({
   findings: CompletenessFinding[];
 }) {
   const isError = tone === 'error';
+  const keys = findingKeys(findings);
   return (
     <div>
       <p className={clsx('mb-1 text-2xs font-semibold uppercase tracking-wide', isError ? DANGER : WARNING)}>
@@ -394,7 +396,7 @@ function FindingList({
       <ul className="space-y-1.5">
         {findings.map((f, i) => (
           <li
-            key={`${f.rule_id}-${f.element_ref ?? i}`}
+            key={keys[i]}
             className={clsx(
               'rounded-lg border px-3 py-2 text-sm',
               isError

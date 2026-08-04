@@ -30,6 +30,7 @@ import clsx from 'clsx';
 import { WideModal } from '@/shared/ui/WideModal';
 import { Button, Badge } from '@/shared/ui';
 import { ContractSigningPanel } from './ContractSigningPanel';
+import { findingKeys } from './findingKeys';
 import { useToastStore } from '@/stores/useToastStore';
 import { getErrorMessage } from '@/shared/lib/api';
 import {
@@ -366,6 +367,7 @@ function ViolationGroup({
   violations: ComplianceViolation[];
 }) {
   const isError = tone === 'error';
+  const keys = findingKeys(violations);
   return (
     <div>
       <p
@@ -381,7 +383,7 @@ function ViolationGroup({
       <ul className="space-y-1.5">
         {violations.map((v, i) => (
           <li
-            key={`${v.rule_id}-${v.element_ref ?? i}`}
+            key={keys[i]}
             className={clsx(
               'rounded-lg border px-3 py-2 text-sm',
               isError
