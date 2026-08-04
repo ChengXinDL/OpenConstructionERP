@@ -38,6 +38,13 @@ interface ChangelogEntry {
 // date, title and meaning intact; trim the prose, not the facts.
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '14.3.0',
+    date: '2026-08-04',
+    tag: 'NEW',
+    summary:
+      'The parties to a contract can now be seen, added and removed from the contract itself, and the panel says which of the rows the signature block is built from. A contract with nobody in a signing role no longer has a signatory invented from its own title, the compliance gate no longer closes itself and the drawer behind it on any click inside, and removing a party no longer answers with a not found error.',
+  },
+  {
     version: '14.2.2',
     date: '2026-08-03',
     tag: 'FIX',

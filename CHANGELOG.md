@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [14.3.0] - 2026-08-04
+
+The parties to a contract can now be seen, added and removed from the contract itself. The register behind them has had endpoints and no screen for a while, which stopped being academic once the signature block started being built from that list: a contract with nobody on it was refused for signature, and the message named a register there was no way to open. The panel lists each party with its role and says which of the rows are the ones asked to sign, so a register holding only a consultant does not look ready when the next press is going to be refused.
+
+A contract with no signing party used to have a signatory invented for it. Nothing on a contract row carries a name, so the gap was filled with the contract's own title, and the result was a signature record attesting that a party named after the document had signed it. That is gone, the session is refused instead, and the demo contracts carry their real parties.
+
+The compliance gate used to close itself on any click inside it and take the contract drawer down with it, because a portal delivers its events to the React parent rather than to whatever it was mounted under. Removing a party answered with a not found error and left the row on screen, from a path that was missing a segment.
+
 ## [14.2.2] - 2026-08-03
 
 Counted labels now carry every plural form the language they appear in actually uses. When a count key is missing one of its forms, the translation layer does not quietly reach for the other form of the same language, it leaves the language altogether and prints the English text, so "1 selected" was showing up in English in Turkish, Kyrgyz and Mongolian, and Spanish, French, Italian and Portuguese were missing the form those languages use once a number gets large. Which forms a language needs is now read from the language itself rather than assumed from English, and there is a test that asks the same question per locale, so the next counted string cannot ship with a hole in it.

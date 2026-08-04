@@ -72,7 +72,9 @@ describe('contract party endpoints', () => {
 
   it('does not address a party through the contract collection', async () => {
     await deleteContractParty(PARTY_ID);
-    const path = vi.mocked(apiDelete).mock.calls[0][0] as string;
+    const call = vi.mocked(apiDelete).mock.calls[0];
+    expect(call).toBeDefined();
+    const path = String(call?.[0]);
     expect(path).not.toContain(CONTRACT_ID);
     // The single-segment form is the bug this file exists for.
     expect(path).not.toBe(`/v1/contracts/parties/${PARTY_ID}`);
