@@ -231,13 +231,64 @@ class TestBimUploadConverterPreflight:
         assert len(pending) == 1, listing.json()["items"]
         assert pending[0]["status"] == "needs_converter"
         assert pending[0]["model_format"] == "rvt"
-        # Persistence is asserted through the listing rather than through the
-        # returned model id on purpose: measured 2026-08-04, a GET on
-        # ``body["model_id"]`` answers 404. The route mints its own UUID for
-        # the storage key and returns that, while the row it creates gets a
-        # different primary key. That is an application defect, reported
-        # separately, and a test is not the place to freeze it into a
-        # contract.
+
+        # The returned id has to be the row's id. It was not: the route minted
+        # a UUID to key the saved blob with, before any row existed, and
+        # returned that instead of the primary key the database handed back, so
+        # this GET answered 404 and the reprocess link in the ``Link`` header
+        # addressed nothing. The message the same response carries tells people
+        # to click Re-process, which is the thing that id is for. Asserted
+        # against the listing's own id so the two cannot drift apart again.
+        assert body["model_id"] == pending[0]["id"], (body["model_id"], pending[0]["id"])
+        detail = await preflight_client.get(
+            f"/api/v1/bim_hub/{body['model_id']}",
+            headers=preflight_auth,
+        )
+        assert detail.status_code == 200, f"returned model_id does not resolve: {detail.text}"
+        assert detail.json()["status"] == "needs_converter"
+
+    async def test_reprocess_link_addresses_the_row_that_was_created(
+        self,
+        preflight_client: AsyncClient,
+        preflight_auth: dict[str, str],
+        preflight_project: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """The ``Link`` header's reprocess URL must name the row, not the blob key.
+
+        Asserted separately from the body because the two were built from the
+        same wrong variable and a reader checking only the body would call the
+        pair fixed. A client that follows the header rather than reading the
+        JSON is the one this route was given a ``Link`` header for.
+        """
+        import app.modules.boq.cad_import as cad_import_mod
+
+        monkeypatch.setattr(cad_import_mod, "find_converter", lambda _ext: None)
+
+        resp = await preflight_client.post(
+            "/api/v1/bim_hub/upload-cad/",
+            params={
+                "project_id": preflight_project,
+                "name": "linkcheck.rvt",
+                "discipline": "architecture",
+            },
+            files={"file": ("linkcheck.rvt", io.BytesIO(b"\x00" * 512), "application/octet-stream")},
+            headers=preflight_auth,
+        )
+        assert resp.status_code == 202, resp.text
+        model_id = resp.json()["model_id"]
+
+        link = resp.headers.get("Link") or ""
+        assert 'rel="reprocess-model"' in link, link
+        assert f"/api/v1/bim_hub/{model_id}/retry/" in link, link
+
+        # And the URL that header advertises has to be a real endpoint on a
+        # real row. A retry answers 202 when it has something to retry.
+        retry = await preflight_client.post(
+            f"/api/v1/bim_hub/{model_id}/retry/",
+            headers=preflight_auth,
+        )
+        assert retry.status_code != 404, f"reprocess link points at no row: {retry.text}"
 
     async def test_ifc_is_never_blocked_by_preflight(
         self,
