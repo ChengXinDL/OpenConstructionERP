@@ -38,6 +38,13 @@ interface ChangelogEntry {
 // date, title and meaning intact; trim the prose, not the facts.
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '14.4.0',
+    date: '2026-08-04',
+    tag: 'FIX',
+    summary:
+      'An upgrade that crosses several releases applies again, after a foreign key name too long for PostgreSQL rolled back every pending revision and left the contracts feature uninstallable there. The assistant now reaches live project data whatever provider is behind it, an assembly applied from a template no longer folds an unconverted amount into a converted total, and DWG Take Off draws text at the scale the drawing asks for, keeps block definitions out of the sheet picker and stops rendering a right angle as ninety radians.',
+  },
+  {
     version: '14.3.0',
     date: '2026-08-04',
     tag: 'NEW',
