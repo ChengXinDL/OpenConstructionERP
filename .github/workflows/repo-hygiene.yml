@@ -48,6 +48,23 @@ jobs:
       - name: Check the tree for internal-only files
         run: python scripts/check_repo_hygiene.py
 
+  version-sync:
+    name: Every release version literal agrees
+    runs-on: ubuntu-latest
+    # The version literals are a repo-level invariant, not a backend concern, so
+    # they belong beside the other whole-tree guards rather than in a test lane.
+    # This check already runs in the CI workflow, and it stays there; it is
+    # repeated here because Repo hygiene is a job this project treats as a gate,
+    # and the desktop crate had drifted eleven minor releases behind the rest of
+    # the tree before anything was reading it at all.
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check every release version literal agrees
+        run: python scripts/check_version_sync.py
+
   trailers:
     name: No forbidden commit trailers
     runs-on: ubuntu-latest
