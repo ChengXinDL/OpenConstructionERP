@@ -16,7 +16,7 @@
 // no backend, same pattern as everything else in this file.
 
 import { create } from 'zustand';
-import type { CompanyType, PlaybookProgress, ProfessionalRole } from './types';
+import type { CaseCategory, CompanyType, PlaybookProgress, ProfessionalRole } from './types';
 import {
   clampStepIndex,
   emptyProgress,
@@ -29,6 +29,7 @@ const SELECTED_KEY = 'oe_cases_selected';
 const COMPANY_TYPE_KEY = 'oe_cases_company_type';
 const ROLE_KEY = 'oe_cases_role';
 const PINS_KEY = 'oe_cases_pins';
+const CATEGORY_KEY = 'oe_cases_categories';
 
 // There was a sixth key here, `oe_cases_pin_project`, holding "which real
 // project is the Cases hub pinning to". Nothing outside this store ever wrote
@@ -111,22 +112,42 @@ const VALID_COMPANY_TYPES: readonly CompanyType[] = [
   'owner-operator',
 ];
 
-function readCompanyType(): CompanyType | null {
+/** Read a persisted filter selection as a list of valid ids.
+ *
+ *  Both filters held a single id before they became multi-select, and that
+ *  value was written bare, not as JSON. A legacy entry therefore has to be
+ *  read as a one-item selection: parsing it as JSON throws, and treating the
+ *  throw as "nothing selected" would silently clear the filter of everyone who
+ *  had already picked something. Unknown ids are dropped rather than trusted,
+ *  so a renamed id cannot filter the list down to nothing with no way back. */
+function readIdList<T extends string>(key: string, valid: readonly T[]): T[] {
   try {
-    const raw = localStorage.getItem(COMPANY_TYPE_KEY);
-    return raw && (VALID_COMPANY_TYPES as string[]).includes(raw) ? (raw as CompanyType) : null;
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    const isValid = (v: unknown): v is T =>
+      typeof v === 'string' && (valid as readonly string[]).includes(v);
+    if (raw.startsWith('[')) {
+      const parsed: unknown = JSON.parse(raw);
+      return Array.isArray(parsed) ? [...new Set(parsed.filter(isValid))] : [];
+    }
+    return isValid(raw) ? [raw] : [];
   } catch {
-    return null;
+    return [];
   }
 }
 
-function persistCompanyType(value: CompanyType | null) {
+function persistIdList(key: string, value: readonly string[]) {
   try {
-    if (value) localStorage.setItem(COMPANY_TYPE_KEY, value);
-    else localStorage.removeItem(COMPANY_TYPE_KEY);
+    if (value.length) localStorage.setItem(key, JSON.stringify(value));
+    else localStorage.removeItem(key);
   } catch {
     /* non-fatal */
   }
+}
+
+/** Add or remove one id, preserving the order the user picked them in. */
+function toggleId<T extends string>(list: readonly T[], id: T): T[] {
+  return list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
 }
 
 const VALID_ROLES: readonly ProfessionalRole[] = [
@@ -144,23 +165,16 @@ const VALID_ROLES: readonly ProfessionalRole[] = [
   'foreman',
 ];
 
-function readRole(): ProfessionalRole | null {
-  try {
-    const raw = localStorage.getItem(ROLE_KEY);
-    return raw && (VALID_ROLES as string[]).includes(raw) ? (raw as ProfessionalRole) : null;
-  } catch {
-    return null;
-  }
-}
-
-function persistRole(value: ProfessionalRole | null) {
-  try {
-    if (value) localStorage.setItem(ROLE_KEY, value);
-    else localStorage.removeItem(ROLE_KEY);
-  } catch {
-    /* non-fatal */
-  }
-}
+const VALID_CATEGORIES: readonly CaseCategory[] = [
+  'estimating',
+  'tendering',
+  'planning',
+  'bim',
+  'site',
+  'quality',
+  'commercial',
+  'handover',
+];
 
 /** Case ids pinned per real project id (NOT a sample-project scope like
  *  `selected` above - this is the user's own "cases I use on this job" list). */
@@ -197,13 +211,21 @@ interface CasesState {
   runs: RunMap;
   /** Sample project chosen per playbook id (empty / absent = none). */
   selected: SelectedMap;
-  /** The "I work as..." company type picked on the Cases hub (null = show
-   *  every case, no company filter applied). Persists across visits. */
-  companyType: CompanyType | null;
-  /** The "Your role" professional role picked on the Cases hub (null = no role
-   *  filter applied). Independent of `companyType`; both narrow the list.
-   *  Persists across visits. */
-  role: ProfessionalRole | null;
+  /** The "I work as..." company types picked on the Cases hub (empty = show
+   *  every case, no company filter applied). Persists across visits.
+   *
+   *  The three filter lists below follow the ordinary faceted-search rule: OR
+   *  inside one list, AND between lists. Someone who is both a contractor and
+   *  a consultant wants the union of the two, but adding a role to that should
+   *  narrow the result, not widen it. */
+  companyTypes: CompanyType[];
+  /** The "Your role" professional roles picked on the Cases hub (empty = no
+   *  role filter). Independent of `companyTypes`; both narrow the list. */
+  roles: ProfessionalRole[];
+  /** The discipline chips picked on the Cases hub (empty = every discipline).
+   *  Held here rather than in the page so it survives a visit to a case and
+   *  back, which is how the other two filters already behaved. */
+  categories: CaseCategory[];
   /** Case ids pinned per real project id. The project the hub is pinning TO
    *  is not held here - it is the app-wide active project from
    *  `useProjectContextStore`. */
@@ -221,10 +243,20 @@ interface CasesState {
   reset: (playbookId: string, projectId?: string | null) => void;
   /** Set (or clear, with '') the sample project for a playbook. */
   setSelectedProject: (playbookId: string, projectId: string) => void;
-  /** Set (or clear, with null) the "I work as..." company type filter. */
-  setCompanyType: (companyType: CompanyType | null) => void;
-  /** Set (or clear, with null) the "Your role" professional role filter. */
-  setRole: (role: ProfessionalRole | null) => void;
+  /** Replace the whole "I work as..." filter (pass [] to clear it). */
+  setCompanyTypes: (companyTypes: CompanyType[]) => void;
+  /** Replace the whole "Your role" filter (pass [] to clear it). */
+  setRoles: (roles: ProfessionalRole[]) => void;
+  /** Replace the whole discipline filter (pass [] to clear it). */
+  setCategories: (categories: CaseCategory[]) => void;
+  /** Add or remove one company type from the "I work as..." filter. */
+  toggleCompanyType: (companyType: CompanyType) => void;
+  /** Add or remove one role from the "Your role" filter. */
+  toggleRole: (role: ProfessionalRole) => void;
+  /** Add or remove one discipline from the category filter. */
+  toggleCategory: (category: CaseCategory) => void;
+  /** Drop every company, role and discipline filter in one go. */
+  clearFilters: () => void;
   /** Pin or unpin a case for a project (no-op with an empty projectId). */
   togglePin: (projectId: string, playbookId: string) => void;
   /** True when the case is pinned to the given project. */
@@ -234,8 +266,9 @@ interface CasesState {
 export const useCasesStore = create<CasesState>((set, get) => ({
   runs: readRuns(),
   selected: readSelected(),
-  companyType: readCompanyType(),
-  role: readRole(),
+  companyTypes: readIdList(COMPANY_TYPE_KEY, VALID_COMPANY_TYPES),
+  roles: readIdList(ROLE_KEY, VALID_ROLES),
+  categories: readIdList(CATEGORY_KEY, VALID_CATEGORIES),
   pins: readPins(),
 
   toggleStepDone: (playbookId, projectId, stepId) => {
@@ -274,14 +307,44 @@ export const useCasesStore = create<CasesState>((set, get) => ({
     set({ selected });
   },
 
-  setCompanyType: (companyType) => {
-    persistCompanyType(companyType);
-    set({ companyType });
+  setCompanyTypes: (companyTypes) => {
+    persistIdList(COMPANY_TYPE_KEY, companyTypes);
+    set({ companyTypes });
   },
 
-  setRole: (role) => {
-    persistRole(role);
-    set({ role });
+  setRoles: (roles) => {
+    persistIdList(ROLE_KEY, roles);
+    set({ roles });
+  },
+
+  setCategories: (categories) => {
+    persistIdList(CATEGORY_KEY, categories);
+    set({ categories });
+  },
+
+  toggleCompanyType: (companyType) => {
+    const companyTypes = toggleId(get().companyTypes, companyType);
+    persistIdList(COMPANY_TYPE_KEY, companyTypes);
+    set({ companyTypes });
+  },
+
+  toggleRole: (role) => {
+    const roles = toggleId(get().roles, role);
+    persistIdList(ROLE_KEY, roles);
+    set({ roles });
+  },
+
+  toggleCategory: (category) => {
+    const categories = toggleId(get().categories, category);
+    persistIdList(CATEGORY_KEY, categories);
+    set({ categories });
+  },
+
+  clearFilters: () => {
+    persistIdList(COMPANY_TYPE_KEY, []);
+    persistIdList(ROLE_KEY, []);
+    persistIdList(CATEGORY_KEY, []);
+    set({ companyTypes: [], roles: [], categories: [] });
   },
 
   togglePin: (projectId, playbookId) => {

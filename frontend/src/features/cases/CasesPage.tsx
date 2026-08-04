@@ -19,6 +19,7 @@
 // this job".
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -43,6 +44,7 @@ import {
   UserRound,
   Flag,
   Info,
+  X,
   type LucideProps,
 } from "lucide-react";
 import { Badge, EmptyState } from "@/shared/ui";
@@ -54,7 +56,12 @@ import { PLAYBOOKS, getPlaybook } from "./playbooks";
 import { PlaybookRunner } from "./PlaybookRunner";
 import { useCasesStore } from "./useCasesStore";
 import { completedCount } from "./progress";
-import { CATEGORY_META, tintFor, NEUTRAL_TINT } from "./categories";
+import {
+  CATEGORY_META,
+  CATEGORY_BY_ID,
+  tintFor,
+  NEUTRAL_TINT,
+} from "./categories";
 import {
   COMPANY_TYPE_META,
   COMPANY_TYPE_BY_ID,
@@ -84,7 +91,6 @@ const CARD_BATCH_SIZE = 12;
 import { iconFor } from "./icons";
 import type {
   Playbook,
-  CaseCategory,
   CompanyType,
   ProfessionalRole,
   LifecycleStage,
@@ -129,10 +135,21 @@ function CasesList() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const runs = useCasesStore((s) => s.runs);
-  const companyType = useCasesStore((s) => s.companyType);
-  const setCompanyType = useCasesStore((s) => s.setCompanyType);
-  const role = useCasesStore((s) => s.role);
-  const setRole = useCasesStore((s) => s.setRole);
+  // Each of the three "who/what" filters holds a list, not one id: a user can
+  // be a contractor and a consultant, or run both estimating and planning
+  // cases, and the hub has to show all of it. OR inside a filter, AND between
+  // filters - the ordinary faceted-search rule, so adding a role never widens
+  // the result.
+  const companyTypes = useCasesStore((s) => s.companyTypes);
+  const toggleCompanyType = useCasesStore((s) => s.toggleCompanyType);
+  const roles = useCasesStore((s) => s.roles);
+  const toggleRole = useCasesStore((s) => s.toggleRole);
+  const activeCategories = useCasesStore((s) => s.categories);
+  const toggleCategory = useCasesStore((s) => s.toggleCategory);
+  const setCompanyTypes = useCasesStore((s) => s.setCompanyTypes);
+  const setRoles = useCasesStore((s) => s.setRoles);
+  const setCategories = useCasesStore((s) => s.setCategories);
+  const clearFilters = useCasesStore((s) => s.clearFilters);
   // The project this hub pins cases to is the app-wide active project - the
   // one the top-bar switcher writes. The hub used to keep its own copy in
   // `useCasesStore.pinProjectId` (localStorage `oe_cases_pin_project`), which
@@ -145,9 +162,6 @@ function CasesList() {
   const pins = useCasesStore((s) => s.pins);
   const togglePin = useCasesStore((s) => s.togglePin);
   const [query, setQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState<CaseCategory | "all">(
-    "all",
-  );
   const [activeStage, setActiveStage] = useState<LifecycleStage | "all">("all");
   const [showOnlyPinned, setShowOnlyPinned] = useState(false);
 
@@ -208,65 +222,107 @@ function CasesList() {
   );
 
   // Three filters narrow the same list: company type, professional role and
-  // discipline. Only surface a selector option that actually has a matching
-  // case, and scope each option's availability + count by the OTHER two active
-  // filters, so a count always describes what clicking it would really show.
+  // discipline. Each one is a list of picks and an empty list means "no filter",
+  // so a case matches when it satisfies ANY pick in a list (union) and EVERY
+  // list that has picks (intersection).
+  const inCompany = useCallback(
+    (p: Playbook) =>
+      companyTypes.length === 0 ||
+      p.companyTypes.some((c) => companyTypes.includes(c)),
+    [companyTypes],
+  );
+  const inRole = useCallback(
+    (p: Playbook) => roles.length === 0 || roles.some((r) => caseHasRole(p, r)),
+    [roles, caseHasRole],
+  );
+  const inCategory = useCallback(
+    (p: Playbook) =>
+      activeCategories.length === 0 || activeCategories.includes(p.category),
+    [activeCategories],
+  );
+
+  // Only surface a selector option that actually has a matching case, and scope
+  // each option's availability + count by the OTHER two active filters, so a
+  // count always describes what clicking it would really show.
   const byCategoryRole = useMemo(
-    () =>
-      PLAYBOOKS.filter(
-        (p) =>
-          (activeCategory === "all" || p.category === activeCategory) &&
-          (!role || caseHasRole(p, role)) &&
-          inStage(p),
-      ),
-    [activeCategory, role, caseHasRole, inStage],
+    () => PLAYBOOKS.filter((p) => inCategory(p) && inRole(p) && inStage(p)),
+    [inCategory, inRole, inStage],
   );
   const byCompanyRole = useMemo(
-    () =>
-      PLAYBOOKS.filter(
-        (p) =>
-          (!companyType || p.companyTypes.includes(companyType)) &&
-          (!role || caseHasRole(p, role)) &&
-          inStage(p),
-      ),
-    [companyType, role, caseHasRole, inStage],
+    () => PLAYBOOKS.filter((p) => inCompany(p) && inRole(p) && inStage(p)),
+    [inCompany, inRole, inStage],
   );
   const byCompanyCategory = useMemo(
-    () =>
-      PLAYBOOKS.filter(
-        (p) =>
-          (!companyType || p.companyTypes.includes(companyType)) &&
-          (activeCategory === "all" || p.category === activeCategory) &&
-          inStage(p),
-      ),
-    [companyType, activeCategory, inStage],
+    () => PLAYBOOKS.filter((p) => inCompany(p) && inCategory(p) && inStage(p)),
+    [inCompany, inCategory, inStage],
   );
   // Stage availability + counts are scoped by the who/discipline filters but
   // NOT by the active stage itself (so every reachable stage stays clickable).
   const byCompanyRoleCategory = useMemo(
-    () =>
-      PLAYBOOKS.filter(
-        (p) =>
-          (!companyType || p.companyTypes.includes(companyType)) &&
-          (!role || caseHasRole(p, role)) &&
-          (activeCategory === "all" || p.category === activeCategory),
-      ),
-    [companyType, role, caseHasRole, activeCategory],
+    () => PLAYBOOKS.filter((p) => inCompany(p) && inRole(p) && inCategory(p)),
+    [inCompany, inRole, inCategory],
   );
+  // An option the user has picked stays in its own row even when the other
+  // filters leave it with no matching case. Dropping it would take away the
+  // only control that undoes the empty result the user is looking at.
   const availableCompanyTypes = useMemo(() => {
     const present = new Set(byCategoryRole.flatMap((p) => p.companyTypes));
-    return COMPANY_TYPE_META.filter((c) => present.has(c.id));
-  }, [byCategoryRole]);
+    return COMPANY_TYPE_META.filter(
+      (c) => present.has(c.id) || companyTypes.includes(c.id),
+    );
+  }, [byCategoryRole, companyTypes]);
   const availableCategories = useMemo(() => {
     const present = new Set(byCompanyRole.map((p) => p.category));
-    return CATEGORY_META.filter((c) => present.has(c.id));
-  }, [byCompanyRole]);
+    return CATEGORY_META.filter(
+      (c) => present.has(c.id) || activeCategories.includes(c.id),
+    );
+  }, [byCompanyRole, activeCategories]);
   const availableRoles = useMemo(() => {
     const present = new Set(
       byCompanyCategory.flatMap((p) => rolesByPlaybook.get(p.id) ?? []),
     );
-    return ROLE_META.filter((r) => present.has(r.id));
-  }, [byCompanyCategory, rolesByPlaybook]);
+    return ROLE_META.filter((r) => present.has(r.id) || roles.includes(r.id));
+  }, [byCompanyCategory, rolesByPlaybook, roles]);
+  // One entry per active pick, ordered the way the selector rows are ordered
+  // on screen, each carrying the control that takes itself off.
+  const activeFilterChips = useMemo(
+    () => [
+      ...companyTypes.map((id) => ({
+        kind: "company" as const,
+        id: id as string,
+        label: t(COMPANY_TYPE_BY_ID[id]?.labelKey ?? "", {
+          defaultValue: COMPANY_TYPE_BY_ID[id]?.labelDefault ?? "",
+        }),
+        remove: () => toggleCompanyType(id),
+      })),
+      ...roles.map((id) => ({
+        kind: "role" as const,
+        id: id as string,
+        label: t(ROLE_BY_ID[id]?.labelKey ?? "", {
+          defaultValue: ROLE_BY_ID[id]?.labelDefault ?? "",
+        }),
+        remove: () => toggleRole(id),
+      })),
+      ...activeCategories.map((id) => ({
+        kind: "category" as const,
+        id: id as string,
+        label: t(CATEGORY_BY_ID[id]?.labelKey ?? "", {
+          defaultValue: CATEGORY_BY_ID[id]?.labelDefault ?? "",
+        }),
+        remove: () => toggleCategory(id),
+      })),
+    ],
+    [
+      companyTypes,
+      roles,
+      activeCategories,
+      toggleCompanyType,
+      toggleRole,
+      toggleCategory,
+      t,
+    ],
+  );
+
   const availableStages = useMemo(() => {
     const present = new Set(
       byCompanyRoleCategory.map((p) => stageByPlaybook.get(p.id)),
@@ -279,12 +335,11 @@ function CasesList() {
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return PLAYBOOKS.filter((pb) => {
-      if (companyType && !pb.companyTypes.includes(companyType)) return false;
-      if (role && !caseHasRole(pb, role)) return false;
+      if (!inCompany(pb)) return false;
+      if (!inRole(pb)) return false;
       if (activeStage !== "all" && stageByPlaybook.get(pb.id) !== activeStage)
         return false;
-      if (activeCategory !== "all" && pb.category !== activeCategory)
-        return false;
+      if (!inCategory(pb)) return false;
       if (showOnlyPinned && !pinnedIds.includes(pb.id)) return false;
       if (!q) return true;
       const haystack =
@@ -297,12 +352,11 @@ function CasesList() {
     );
   }, [
     query,
-    activeCategory,
     activeStage,
     stageByPlaybook,
-    companyType,
-    role,
-    caseHasRole,
+    inCompany,
+    inRole,
+    inCategory,
     showOnlyPinned,
     pinnedIds,
     caseNumbers,
@@ -355,10 +409,10 @@ function CasesList() {
   }, [cardLimit, visible.length]);
 
   const handlePickCompany = (id: CompanyType) => {
-    setCompanyType(companyType === id ? null : id);
+    toggleCompanyType(id);
   };
   const handlePickRole = (id: ProfessionalRole) => {
-    setRole(role === id ? null : id);
+    toggleRole(id);
   };
   const handlePickStage = (id: LifecycleStage) => {
     setActiveStage(activeStage === id ? "all" : id);
@@ -559,7 +613,7 @@ function CasesList() {
             >
               {COMPANY_TYPE_META.map((c) => {
                 const Icon = c.icon;
-                const active = companyType === c.id;
+                const active = companyTypes.includes(c.id);
                 const count = byCategoryRole.filter((p) =>
                   p.companyTypes.includes(c.id),
                 ).length;
@@ -604,10 +658,10 @@ function CasesList() {
                 );
               })}
             </div>
-            {companyType && (
+            {companyTypes.length > 0 && (
               <button
                 type="button"
-                onClick={() => setCompanyType(null)}
+                onClick={() => setCompanyTypes([])}
                 className="mt-2 text-2xs font-medium text-oe-blue hover:underline"
               >
                 {t("cases.company_selector.all", {
@@ -645,7 +699,7 @@ function CasesList() {
               })}
             >
               {ROLE_META.map((r) => {
-                const active = role === r.id;
+                const active = roles.includes(r.id);
                 const count = byCompanyCategory.filter((p) =>
                   caseHasRole(p, r.id),
                 ).length;
@@ -687,10 +741,10 @@ function CasesList() {
                 );
               })}
             </div>
-            {role && (
+            {roles.length > 0 && (
               <button
                 type="button"
-                onClick={() => setRole(null)}
+                onClick={() => setRoles([])}
                 className="mt-2 text-2xs font-medium text-oe-blue hover:underline"
               >
                 {t("cases.role_selector.all", { defaultValue: "All roles" })}
@@ -815,8 +869,8 @@ function CasesList() {
               </div>
               <div className="flex flex-wrap gap-2">
                 <CategoryChip
-                  active={activeCategory === "all"}
-                  onClick={() => setActiveCategory("all")}
+                  active={activeCategories.length === 0}
+                  onClick={() => setCategories([])}
                   label={t("cases.cat.all", { defaultValue: "All" })}
                   count={byCompanyRole.length}
                   icon={Layers}
@@ -829,8 +883,8 @@ function CasesList() {
                   return (
                     <CategoryChip
                       key={c.id}
-                      active={activeCategory === c.id}
-                      onClick={() => setActiveCategory(c.id)}
+                      active={activeCategories.includes(c.id)}
+                      onClick={() => toggleCategory(c.id)}
                       label={t(c.labelKey, { defaultValue: c.labelDefault })}
                       count={count}
                       icon={c.icon}
@@ -844,43 +898,50 @@ function CasesList() {
         </>
       )}
 
-      {/* ── Personalized summary strip: who the list is tuned to now ────── */}
-      {(role || companyType) && (
+      {/* ── Personalized summary strip: what the list is tuned to now ─────
+          Every pick gets its own removable chip. A sentence would have to name
+          one selection and hide the rest, and this strip is the only place
+          that answers "what is filtering my list right now" - so it lists all
+          of them, and each chip is the control that takes itself off. */}
+      {activeFilterChips.length > 0 && (
         <div
           className={clsx(
             "flex flex-wrap items-center gap-3 rounded-xl border p-3",
-            role
-              ? tintForRole(role).chip
-              : tintForCompany(companyType ?? undefined).chip,
+            roles[0]
+              ? tintForRole(roles[0]).chip
+              : companyTypes[0]
+                ? tintForCompany(companyTypes[0]).chip
+                : NEUTRAL_TINT.chip,
           )}
         >
-          {role ? (
-            <RoleArt
-              role={role}
-              withKindBadge
-              className="h-14 w-14"
-              title={t(ROLE_BY_ID[role]?.labelKey ?? "", {
-                defaultValue: ROLE_BY_ID[role]?.labelDefault ?? "",
-              })}
-            />
-          ) : (
-            companyType && (
-              <CompanyArt
-                id={companyType}
-                fallbackIcon={
-                  COMPANY_TYPE_BY_ID[companyType]?.icon ?? Briefcase
-                }
-                fallbackClass={tintForCompany(companyType).text}
-                tileClass={tintForCompany(companyType).tile}
+          <div className="flex shrink-0 items-center gap-1">
+            {roles.slice(0, 3).map((r) => (
+              <RoleArt
+                key={r}
+                role={r}
                 withKindBadge
                 className="h-14 w-14"
-                title={t(COMPANY_TYPE_BY_ID[companyType]?.labelKey ?? "", {
-                  defaultValue:
-                    COMPANY_TYPE_BY_ID[companyType]?.labelDefault ?? "",
+                title={t(ROLE_BY_ID[r]?.labelKey ?? "", {
+                  defaultValue: ROLE_BY_ID[r]?.labelDefault ?? "",
                 })}
               />
-            )
-          )}
+            ))}
+            {roles.length === 0 &&
+              companyTypes.slice(0, 3).map((c) => (
+                <CompanyArt
+                  key={c}
+                  id={c}
+                  fallbackIcon={COMPANY_TYPE_BY_ID[c]?.icon ?? Briefcase}
+                  fallbackClass={tintForCompany(c).text}
+                  tileClass={tintForCompany(c).tile}
+                  withKindBadge
+                  className="h-14 w-14"
+                  title={t(COMPANY_TYPE_BY_ID[c]?.labelKey ?? "", {
+                    defaultValue: COMPANY_TYPE_BY_ID[c]?.labelDefault ?? "",
+                  })}
+                />
+              ))}
+          </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold">
               {t("cases.persona.count", {
@@ -888,37 +949,27 @@ function CasesList() {
                 count: visible.length,
               })}
             </p>
-            <p className="text-xs opacity-80">
-              {role && companyType
-                ? t("cases.persona.role_and_company", {
-                    defaultValue: "{{role}} at a {{company}}",
-                    role: t(ROLE_BY_ID[role]?.labelKey ?? "", {
-                      defaultValue: ROLE_BY_ID[role]?.labelDefault ?? "",
-                    }),
-                    company: t(
-                      COMPANY_TYPE_BY_ID[companyType]?.labelKey ?? "",
-                      {
-                        defaultValue:
-                          COMPANY_TYPE_BY_ID[companyType]?.labelDefault ?? "",
-                      },
-                    ),
-                  })
-                : role
-                  ? t(ROLE_BY_ID[role]?.labelKey ?? "", {
-                      defaultValue: ROLE_BY_ID[role]?.labelDefault ?? "",
-                    })
-                  : t(COMPANY_TYPE_BY_ID[companyType!]?.labelKey ?? "", {
-                      defaultValue:
-                        COMPANY_TYPE_BY_ID[companyType!]?.labelDefault ?? "",
-                    })}
-            </p>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {activeFilterChips.map((chip) => (
+                <button
+                  key={`${chip.kind}:${chip.id}`}
+                  type="button"
+                  onClick={chip.remove}
+                  aria-label={t("cases.persona.remove", {
+                    defaultValue: "Remove filter {{name}}",
+                    name: chip.label,
+                  })}
+                  className="inline-flex items-center gap-1 rounded-full border border-current/30 bg-white/40 px-2 py-0.5 text-2xs font-medium transition-colors hover:bg-white/70 dark:bg-black/10 dark:hover:bg-black/20"
+                >
+                  {chip.label}
+                  <X size={11} aria-hidden="true" />
+                </button>
+              ))}
+            </div>
           </div>
           <button
             type="button"
-            onClick={() => {
-              setRole(null);
-              setCompanyType(null);
-            }}
+            onClick={clearFilters}
             className="shrink-0 rounded-lg border border-current/30 px-2.5 py-1 text-2xs font-semibold transition-colors hover:bg-white/30 dark:hover:bg-black/10"
           >
             {t("cases.persona.clear", { defaultValue: "Clear" })}

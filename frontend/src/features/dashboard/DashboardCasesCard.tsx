@@ -31,11 +31,11 @@ import { CaseArt } from '@/features/cases/CaseArt';
 const PREVIEW_COUNT = 10;
 
 export function DashboardCasesCard() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const runs = useCasesStore((s) => s.runs);
-  const role = useCasesStore((s) => s.role);
-  const companyType = useCasesStore((s) => s.companyType);
+  const roles = useCasesStore((s) => s.roles);
+  const companyTypes = useCasesStore((s) => s.companyTypes);
 
   // Best progress a case reached across any run (unscoped or per sample
   // project), used both to rank and to show a resume hint.
@@ -49,23 +49,39 @@ export function DashboardCasesCard() {
       }
       const total = pb.steps.length;
       const inProgress = best > 0 && best < total;
-      const roleMatch = role ? rolesForPlaybook(pb).includes(role) : false;
-      const companyMatch = companyType ? pb.companyTypes.includes(companyType) : false;
-      return { pb, best, total, inProgress, roleMatch, companyMatch };
+      // Both hub filters hold a list, so count the overlap rather than test a
+      // single id: a case that fits all three of someone's roles should outrank
+      // one that fits a single role, and a boolean cannot say that.
+      const pbRoles = rolesForPlaybook(pb);
+      const roleMatches = roles.filter((r) => pbRoles.includes(r)).length;
+      const companyMatches = companyTypes.filter((c) =>
+        pb.companyTypes.includes(c),
+      ).length;
+      return { pb, best, total, inProgress, roleMatches, companyMatches };
     });
     scored.sort((a, b) => {
       if (a.inProgress !== b.inProgress) return a.inProgress ? -1 : 1;
-      const am = (a.roleMatch ? 2 : 0) + (a.companyMatch ? 1 : 0);
-      const bm = (b.roleMatch ? 2 : 0) + (b.companyMatch ? 1 : 0);
+      const am = a.roleMatches * 2 + a.companyMatches;
+      const bm = b.roleMatches * 2 + b.companyMatches;
       if (am !== bm) return bm - am;
       return a.pb.order - b.pb.order;
     });
     return scored.slice(0, PREVIEW_COUNT);
-  }, [runs, role, companyType]);
+  }, [runs, roles, companyTypes]);
 
-  const roleLabel = role
-    ? t(ROLE_BY_ID[role]?.labelKey ?? '', { defaultValue: ROLE_BY_ID[role]?.labelDefault ?? '' })
-    : '';
+  // Name every role the user picked, joined the way their language joins a
+  // list. Printing only the first would drop the others silently, which is the
+  // same thing the hub filters were fixed for.
+  const roleLabel = useMemo(() => {
+    const names = roles.map((r) =>
+      t(ROLE_BY_ID[r]?.labelKey ?? '', { defaultValue: ROLE_BY_ID[r]?.labelDefault ?? '' }),
+    );
+    if (names.length === 0) return '';
+    return new Intl.ListFormat(i18n.language, {
+      style: 'long',
+      type: 'conjunction',
+    }).format(names);
+  }, [roles, t, i18n.language]);
 
   // Frame the preview chips by what they actually are: something half-finished
   // to resume, a role-tuned pick, or - the default on a fresh workspace - the
@@ -74,7 +90,7 @@ export function DashboardCasesCard() {
   const anyInProgress = picks.some((p) => p.inProgress);
   const framingLabel = anyInProgress
     ? t('cases.dashboard_card.resume_hint', { defaultValue: 'Pick up where you left off' })
-    : role
+    : roles.length > 0
       ? t('cases.dashboard_card.for_role', { defaultValue: 'Picked for you' })
       : t('cases.dashboard_card.popular', { defaultValue: 'Popular starting points' });
 
@@ -103,15 +119,21 @@ export function DashboardCasesCard() {
             </span>
           </div>
           <p className="mt-0.5 text-xs leading-relaxed text-content-secondary">
-            {role
+            {roles.length === 1
               ? t('cases.dashboard_card.body_role', {
                   defaultValue: 'Guided playbooks picked for a {{role}}, step by step across the modules.',
                   role: roleLabel,
                 })
-              : t('cases.dashboard_card.body', {
-                  defaultValue:
-                    'Follow a guided playbook from a PDF to a priced, validated estimate, step by step across the modules.',
-                })}
+              : roles.length > 1
+                ? t('cases.dashboard_card.body_roles', {
+                    defaultValue:
+                      'Guided playbooks picked for {{roles}}, step by step across the modules.',
+                    roles: roleLabel,
+                  })
+                : t('cases.dashboard_card.body', {
+                    defaultValue:
+                      'Follow a guided playbook from a PDF to a priced, validated estimate, step by step across the modules.',
+                  })}
           </p>
         </div>
         <button
