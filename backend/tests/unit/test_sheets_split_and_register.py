@@ -624,13 +624,20 @@ async def test_which_row_a_revision_supersedes_does_not_depend_on_insertion_orde
     agree. Pinning the timestamps rather than sleeping between the inserts also
     keeps the test from passing on a machine whose clock happens to be fine
     enough to separate them, which is what CI has and this box does not.
+
+    What this does NOT cover: pinning the instants equal is what makes the id
+    carry the whole assertion, so an implementation that ordered on the id alone
+    and dropped ``created_at`` would pass this too. The created component is
+    reasoned from what the column is for, not measured here, and a test that
+    separated the two would have to rely on the clock this one deliberately
+    takes out of the picture.
     """
     stamp = datetime(2026, 3, 14, 10, 0, 0, tzinfo=UTC)
     low = uuid.UUID("00000000-0000-4000-8000-000000000001")
     high = uuid.UUID("00000000-0000-4000-8000-000000000002")
 
     async def _seed_pair(order: tuple[uuid.UUID, uuid.UUID]) -> uuid.UUID:
-        project_id, _user_id = await _seed_project(session)
+        project_id, _ = await _seed_project(session)
         for page, sheet_id in enumerate(order, start=1):
             session.add(
                 Sheet(
