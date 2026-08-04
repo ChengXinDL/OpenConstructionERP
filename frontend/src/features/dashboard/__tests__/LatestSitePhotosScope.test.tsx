@@ -26,7 +26,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
-import React from 'react';
 
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 
@@ -64,7 +63,10 @@ function renderCard() {
 describe('#412 latest site photos answers for the selected project', () => {
   beforeEach(() => {
     harness.urls.length = 0;
-    useProjectContextStore.setState({ activeProjectId: null, activeProjectName: null });
+    // The store spells "no project" as an empty name, not a null one - the same
+    // pair clearProject() writes. Passing null type-checks nowhere and would
+    // put the store in a state the app cannot reach.
+    useProjectContextStore.setState({ activeProjectId: null, activeProjectName: '' });
   });
 
   it('asks for every project when nothing is selected', async () => {
