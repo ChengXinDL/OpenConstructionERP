@@ -12087,7 +12087,7 @@ const resource = {
     "costs.step_write": "Kirjoita",
     "costs.switch_to_ai_search": "Vaihda tekoälyn semanttiseen hakuun",
     "costs.switch_to_text_search": "Vaihda tekstihakuun",
-    "costs.target_year": "Kohdевуosi",
+    "costs.target_year": "Kohdevuosi",
     "costs.variant_common_base": "Materiaali / resurssi",
     "costs.variant_count_n": "{{count}} vaihtoehtoa",
     "costs.variant_count_one": "1 vaihtoehto",

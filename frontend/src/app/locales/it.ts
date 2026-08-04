@@ -10712,7 +10712,7 @@ const resource = {
     "match_elements.new_text.name_label": "Nome sessione (opzionale)",
     "match_elements.new_text.name_placeholder": "es. Stima rapida T3",
     "match_elements.new_text.lines_label": "Descrizioni (una per riga)",
-    "match_elements.new_text.lines_placeholder": "Stahlbetonwand C30/37, d=240mm\nфундамento a nastro 800x600\nsoletta in calcestruzzo 200mm",
+    "match_elements.new_text.lines_placeholder": "Stahlbetonwand C30/37, d=240mm\nленточный фундамент 800x600\nsoletta in calcestruzzo 200mm",
     "match_elements.new_text.create": "Crea sessione",
     "match_elements.new_excel.button": "Da Excel CME",
     "match_elements.new_excel.button_title": "Carica un Computo .xlsx",

@@ -12413,7 +12413,7 @@ const resource = {
     "procurement.subtotal": "Ara toplam",
     "procurement.tax": "Vergi",
     "procurement.total": "Toplam",
-    "bim.upload_generate_pdf_help": "Tasarımcının model içinde hazırladığı sayfaları Belgeler'e tek bir PDF olarak aktarır. Model hazır olduktan sonra çalışır - yükleme geciktirилmez.",
+    "bim.upload_generate_pdf_help": "Tasarımcının model içinde hazırladığı sayfaları Belgeler'e tek bir PDF olarak aktarır. Model hazır olduktan sonra çalışır - yükleme geciktirilmez.",
     "match_elements.info.button_aria": "Eşleşme nasıl çalışır",
     "match_elements.info.button_title": "Eşleşme nasıl çalışır",
     "match_elements.info.dialog_aria": "Eşleşme nasıl çalışır",

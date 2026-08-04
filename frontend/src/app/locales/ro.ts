@@ -23320,7 +23320,7 @@ const resource = {
     "clash.rules.saved": "Reguli salvate",
     "clash.rules.severity": "Severitate",
     "clash.rules.severity_none": "Fără suprascriu",
-    "clash.rules.subtitle": "Suprascriери de toleranță per pereche de discipline. Prima regulă activată corespunzătoare câștigă.",
+    "clash.rules.subtitle": "Suprascrieri de toleranță per pereche de discipline. Prima regulă activată corespunzătoare câștigă.",
     "clash.rules.title": "Editor de reguli",
     "clash.rules.tolerance": "Toleranță (m)",
     "clash.run_desc": "Descriere (opțional)",

@@ -30,10 +30,14 @@ an agglutinative Cyrillic-script language a Latin acronym or filename takes
 a native suffix directly, so ky writes "RFIге", "BOQдон", "Excelден" and
 "dwgга". That is correct orthography and there are 241 of them in ky alone,
 which is why the exclusion has to be a rule and cannot be a list. It is
-deliberately narrow: the word must be exactly one Latin run followed by
-exactly one Cyrillic run, in that order, in a Cyrillic-script locale. A
-Cyrillic run followed by a Latin one is not covered, because that is what
-"Нachtrag" and "болon" and "Этiketka" look like, and those are defects.
+deliberately narrow: the word must be one Latin run, then at most one
+underscore or hyphen, then one Cyrillic run, in that order, in a
+Cyrillic-script locale. The joining character admits the localised U-value,
+`u_стойност` in bg and `u_маанси` in ky, which are the ordinary spellings of
+a building-physics term rather than a machine identifier somebody translated
+by mistake. A Cyrillic run followed by a Latin one is not covered, because
+that is what "Нachtrag" and "болon" and "тамpon" look like, and those are
+defects.
 
 Only Cyrillic against Latin is measured. Greek, Armenian and Georgian
 homoglyphs are not in any locale we ship today and are not scanned, so a
@@ -72,7 +76,17 @@ _INTERPOLATION = re.compile(r"\{\{[^}]*\}\}")
 _ESCAPE = re.compile(r"\\[ntru]")
 
 # One Latin run then one Cyrillic run, nothing else: RFIге, Excelден, dwgга.
-_LATIN_THEN_CYRILLIC = re.compile(r"^[A-Za-z0-9]+[Ѐ-ӿ]+$")
+# An underscore or hyphen may join the two. That admits the localised form of a
+# symbol from building physics: en.ts offers `u_value` as an example row in a
+# paste placeholder, and the U-value is a real term with a real translation in
+# each language rather than a machine identifier that must stay put. de writes
+# `u_wert`, which is the standard German spelling; bg writes `u_стойност` and
+# ky `u_маанси`, which are likewise the normal spellings in those languages,
+# while fr, es and ru leave `u_value` in English. All five are defensible and
+# none is a homoglyph. The shape stays tight on purpose: one Latin run, at most
+# one joining character, one Cyrillic run, in that order. `тамpon` is Cyrillic
+# then Latin and is still caught, which is what this scan is for.
+_LATIN_THEN_CYRILLIC = re.compile(r"^[A-Za-z0-9]+[_\-]?[Ѐ-ӿ]+$")
 
 
 def _script_of(char: str) -> str:
@@ -142,9 +156,7 @@ def main() -> int:
         )
         return 1
 
-    print(
-        f"locale mixed-script OK: {len(paths)} files, no word mixes Cyrillic and Latin"
-    )
+    print(f"locale mixed-script OK: {len(paths)} files, no word mixes Cyrillic and Latin")
     return 0
 
 

@@ -13739,7 +13739,7 @@ const resource = {
     "chat.panel.sugg_walls": "Alle wanden > 30 cm vinden in het BIM van het huidige project",
     "chat.panel.title_default": "AI-assistent",
     "chat.panel.title_edit": "Gesprekstitel",
-    "chat.panel.token_over": "Te lang, verkorт alstublieft",
+    "chat.panel.token_over": "Te lang, verkort alstublieft",
     "chat.panel.token_warn": "Lang bericht",
     "chat.panel.tool_failed": "Tool {{name}} mislukt",
     "chat.panel.tool_running": "{{name}} uitvoeren...",

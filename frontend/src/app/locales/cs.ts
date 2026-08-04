@@ -25522,7 +25522,7 @@ const resource = {
     "explorer.feat_stats_desc": "Popisné statistiky pro každý numerický sloupec - minimum, maximum, průměr, standardní odchylka.",
     "explorer.feat_table": "Tabulka dat",
     "explorer.feat_table_desc": "Procházejte všechny prvky s třídením, filtrováním a výběrem sloupců. Exportujte do CSV nebo Excelu.",
-    "explorer.hero_subtitle": "Analyzujte data prvků budovy v mocném rozhraní tabulky. Filtrujte, otáčejte, kreslите a exportujte množství z vašich IFC a Revit modelů.",
+    "explorer.hero_subtitle": "Analyzujte data prvků budovy v mocném rozhraní tabulky. Filtrujte, otáčejte, kreslíte a exportujte množství z vašich IFC a Revit modelů.",
     "explorer.hero_title": "Průzkumník dat CAD/BIM",
     "explorer.kpi_categories": "Kategorie",
     "explorer.kpi_elements": "Prvky",
