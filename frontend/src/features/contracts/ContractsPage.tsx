@@ -27,12 +27,14 @@ import {
   BookOpen,
   Network,
   ArrowRight,
+  Trash2,
 } from 'lucide-react';
 import {
   Button,
   Card,
   Badge,
   CollapsibleSection,
+  ConfirmDialog,
   EmptyState,
   Breadcrumb,
   RecoveryCard,
@@ -80,6 +82,7 @@ import {
   terminateContract,
   closeContract,
   cloneContract,
+  deleteContract,
   listClauseTemplates,
   submitClaim,
   approveClaim,
@@ -1372,9 +1375,11 @@ function FinalAccountsView({
   );
 }
 
-/* ─── Detail drawer ─── */
+/* ─── Detail drawer ───
+   Exported for the delete-affordance test; the page itself renders it
+   directly. */
 
-function ContractDetailDrawer({
+export function ContractDetailDrawer({
   contractId,
   contracts,
   onClose,
@@ -1391,6 +1396,7 @@ function ContractDetailDrawer({
   // the project's compliance rule packs against the SoV and only lets the
   // user sign once there are no blocking errors.
   const [gateOpen, setGateOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const linesQ = useQuery({
     queryKey: ['contracts', 'lines', contractId],
@@ -1502,6 +1508,29 @@ function ContractDetailDrawer({
     onError: (err) => addToast({ type: 'error', title: getErrorMessage(err) }),
   });
 
+  // Delete is offered on a draft and on nothing else, which is the same rule
+  // the endpoint enforces. A contract that has been signed is the commercial
+  // record of the job and leaves through its status, not through deletion.
+  // The drawer has to close on success: its subject is looked up out of the
+  // list by id, so once the row is gone the drawer would render nothing while
+  // still counting as open.
+  const deleteMut = useMutation({
+    mutationFn: () => deleteContract(contractId),
+    onSuccess: () => {
+      setDeleteOpen(false);
+      qc.invalidateQueries({ queryKey: ['contracts', 'list'] });
+      addToast({
+        type: 'success',
+        title: t('contracts.deleted_ok', { defaultValue: 'Draft contract deleted' }),
+      });
+      onClose();
+    },
+    onError: (err) => {
+      setDeleteOpen(false);
+      addToast({ type: 'error', title: getErrorMessage(err) });
+    },
+  });
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -1601,13 +1630,23 @@ function ContractDetailDrawer({
           {/* Workflow buttons */}
           <div className="flex flex-wrap gap-2 pt-1">
             {contract.status === 'draft' && (
-              <Button
-                variant="primary"
-                icon={<PenLine size={14} />}
-                onClick={() => setGateOpen(true)}
-              >
-                {t('contracts.sign', { defaultValue: 'Sign' })}
-              </Button>
+              <>
+                <Button
+                  variant="primary"
+                  icon={<PenLine size={14} />}
+                  onClick={() => setGateOpen(true)}
+                >
+                  {t('contracts.sign', { defaultValue: 'Sign' })}
+                </Button>
+                <Button
+                  variant="ghost"
+                  icon={<Trash2 size={14} />}
+                  onClick={() => setDeleteOpen(true)}
+                  loading={deleteMut.isPending}
+                >
+                  {t('contracts.delete', { defaultValue: 'Delete' })}
+                </Button>
+              </>
             )}
             {contract.status === 'active' && (
               <Button
@@ -2016,6 +2055,24 @@ function ContractDetailDrawer({
           onClose={() => setGateOpen(false)}
         />
       )}
+
+      {/* The message names the children because the delete cascades to every
+          one of them. On a draft that is what the user wants, and saying so is
+          what makes the confirmation worth reading. */}
+      <ConfirmDialog
+        open={deleteOpen}
+        onConfirm={() => deleteMut.mutate()}
+        onCancel={() => setDeleteOpen(false)}
+        title={t('contracts.delete_title', { defaultValue: 'Delete draft contract' })}
+        message={t('contracts.delete_message', {
+          defaultValue:
+            'This removes the draft and everything held under it, including its lines, variations, progress claims and retention. Only a draft can be deleted. A contract that has been signed is closed or terminated instead. This action cannot be undone.',
+        })}
+        confirmLabel={t('contracts.delete', { defaultValue: 'Delete' })}
+        cancelLabel={t('common.cancel', { defaultValue: 'Cancel' })}
+        variant="danger"
+        loading={deleteMut.isPending}
+      />
     </div>
   );
 }
