@@ -112,3 +112,25 @@ jobs:
           python-version: '3.12'
       - name: Check for t() keys no locale file can answer
         run: python scripts/check_i18n_orphan_keys.py
+
+  locale-lost-escapes:
+    name: No locale value dropped an escape English still carries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check locale files for stripped escape backslashes
+        run: python scripts/check_locale_lost_escapes.py
+
+  locale-mixed-script:
+    name: No locale word mixes Cyrillic and Latin letters
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check locale files for homoglyph-mixed words
+        run: python scripts/check_locale_mixed_script.py
