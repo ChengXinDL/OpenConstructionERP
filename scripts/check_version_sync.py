@@ -43,11 +43,36 @@ PACKAGE_LOCK = REPO_ROOT / "frontend" / "package-lock.json"
 CHANGELOG_MD = REPO_ROOT / "CHANGELOG.md"
 CHANGELOG_TSX = REPO_ROOT / "frontend" / "src" / "features" / "about" / "Changelog.tsx"
 TAURI_CONF = REPO_ROOT / "desktop" / "src-tauri" / "tauri.conf.json"
+CARGO_TOML = REPO_ROOT / "desktop" / "src-tauri" / "Cargo.toml"
+CARGO_LOCK = REPO_ROOT / "desktop" / "src-tauri" / "Cargo.lock"
 
 # Match `version = "1.4.4"` in pyproject.toml — first occurrence only,
 # under the [project] table.  We deliberately stop at the first hit
 # instead of using a real TOML parser to keep the script dependency-free.
 _PYPROJECT_RE = re.compile(r'^\s*version\s*=\s*"([^"]+)"', re.MULTILINE)
+
+# Slice the `[package]` table out of a Cargo manifest, up to the next
+# `[section]` header or end of file.  Anchoring on the table is the whole
+# point: a manifest carries a `version` for every dependency as well, so a
+# first-match search would happily read `tauri = { version = "2" }` and then
+# pass forever while validating a literal nobody bumps.  Today those
+# dependency versions live in inline tables and would not match the pattern
+# below anyway, but one `[dependencies.tauri]` section written the long way
+# is enough to move the first match, and nothing would say so.
+_CARGO_PACKAGE_RE = re.compile(
+    r"^\[package\]\s*$(.*?)(?=^\[|\Z)", re.MULTILINE | re.DOTALL
+)
+_CARGO_VERSION_RE = re.compile(r'^\s*version\s*=\s*"([^"]+)"', re.MULTILINE)
+_CARGO_NAME_RE = re.compile(r'^\s*name\s*=\s*"([^"]+)"', re.MULTILINE)
+
+# The same slicing for Cargo.lock, which records one `[[package]]` entry per
+# resolved crate.  The stakes are higher here than in the manifest: the lock
+# carries 538 of these blocks and 538 version literals, so a reader that is not
+# anchored has a whole field of decoys to land on and would report some
+# alphabetically unlucky dependency as the desktop version, forever, in green.
+_CARGO_LOCK_ENTRY_RE = re.compile(
+    r"^\[\[package\]\]\s*$(.*?)(?=^\[|\Z)", re.MULTILINE | re.DOTALL
+)
 
 
 def _read_pyproject_version(path: Path) -> str:
@@ -98,6 +123,58 @@ def _read_tauri_conf_version(path: Path) -> str:
     return version
 
 
+def _read_cargo_toml_version(path: Path) -> str:
+    """Return the crate version from the `[package]` table of a Cargo manifest.
+
+    The Tauri shell is a Rust crate and its manifest carries the version the
+    compiled binary reports, independently of ``tauri.conf.json``.  It went
+    unchecked until v14.3.0 and drifted eleven minor releases behind while
+    every other literal stayed in step, which is exactly the shape of gap the
+    rest of this script exists to close.
+    """
+    text = path.read_text(encoding="utf-8")
+    package = _CARGO_PACKAGE_RE.search(text)
+    if package is None:
+        raise SystemExit(f"[FAIL] {path}: no `[package]` table found")
+    match = _CARGO_VERSION_RE.search(package.group(1))
+    if match is None:
+        raise SystemExit(
+            f'[FAIL] {path}: no `version = "..."` literal under `[package]`'
+        )
+    return match.group(1)
+
+
+def _read_cargo_toml_name(path: Path) -> str:
+    """Return the crate name from the `[package]` table of a Cargo manifest."""
+    package = _CARGO_PACKAGE_RE.search(path.read_text(encoding="utf-8"))
+    if package is None:
+        raise SystemExit(f"[FAIL] {path}: no `[package]` table found")
+    match = _CARGO_NAME_RE.search(package.group(1))
+    if match is None:
+        raise SystemExit(f'[FAIL] {path}: no `name = "..."` literal under `[package]`')
+    return match.group(1)
+
+
+def _read_cargo_lock_version(path: Path, crate: str) -> str:
+    """Return the version Cargo.lock records for the crate's own entry.
+
+    Cargo rewrites this entry on the next build if it disagrees with the
+    manifest, so a stale one is a lockfile that lies until someone compiles.
+    The crate name is read out of Cargo.toml rather than written down here, so
+    a rename cannot leave this quietly reading a name that no longer exists.
+    """
+    for entry in _CARGO_LOCK_ENTRY_RE.finditer(path.read_text(encoding="utf-8")):
+        block = entry.group(1)
+        name = _CARGO_NAME_RE.search(block)
+        if name is None or name.group(1) != crate:
+            continue
+        match = _CARGO_VERSION_RE.search(block)
+        if match is None:
+            raise SystemExit(f"[FAIL] {path}: `{crate}` entry carries no version")
+        return match.group(1)
+    raise SystemExit(f"[FAIL] {path}: no `[[package]]` entry named `{crate}`")
+
+
 def _changelog_md_top_version(path: Path) -> str | None:
     """‌⁠‍Return the topmost version listed in CHANGELOG.md, or None.
 
@@ -132,6 +209,9 @@ def main() -> int:
     changelog_md_version = _changelog_md_top_version(CHANGELOG_MD)
     changelog_tsx_version = _changelog_tsx_top_version(CHANGELOG_TSX)
     tauri_version = _read_tauri_conf_version(TAURI_CONF)
+    cargo_version = _read_cargo_toml_version(CARGO_TOML)
+    crate_name = _read_cargo_toml_name(CARGO_TOML)
+    lock_version = _read_cargo_lock_version(CARGO_LOCK, crate_name)
 
     print(f"backend  ({PYPROJECT.name})       = {backend_version}")
     print(f"frontend ({PACKAGE_JSON.name})    = {frontend_version}")
@@ -139,6 +219,8 @@ def main() -> int:
     print(f"changelog ({CHANGELOG_MD.name})    = {changelog_md_version or '?'}")
     print(f"changelog ({CHANGELOG_TSX.name})   = {changelog_tsx_version or '?'}")
     print(f"desktop  ({TAURI_CONF.name})    = {tauri_version}")
+    print(f"desktop  ({CARGO_TOML.name})         = {cargo_version}")
+    print(f"desktop  ({CARGO_LOCK.name})         = {lock_version}")
 
     failures: list[str] = []
 
@@ -162,6 +244,22 @@ def main() -> int:
             f"[FAIL] desktop/src-tauri/tauri.conf.json ({tauri_version}) does not "
             f"match backend version ({backend_version}) - bump the desktop app "
             f"version so the installers report the right release"
+        )
+
+    if cargo_version != backend_version:
+        failures.append(
+            f"[FAIL] desktop/src-tauri/Cargo.toml ({cargo_version}) does not "
+            f"match backend version ({backend_version}) - bump the desktop crate "
+            f"version so the compiled binary reports the right release, and set "
+            f"the crate's own entry in desktop/src-tauri/Cargo.lock to match"
+        )
+
+    if lock_version != backend_version:
+        failures.append(
+            f"[FAIL] desktop/src-tauri/Cargo.lock `{crate_name}` ({lock_version}) "
+            f"does not match backend version ({backend_version}) - cargo rewrites "
+            f"this entry on the next build anyway, so a stale one only means the "
+            f"lockfile disagrees with the manifest until someone compiles"
         )
 
     # CHANGELOG drift is a softer warning — only flag if BOTH changelog
@@ -188,9 +286,11 @@ def main() -> int:
             "Fix: bump backend/pyproject.toml + frontend/package.json + "
             "frontend/package-lock.json + CHANGELOG.md + "
             "frontend/src/features/about/Changelog.tsx + "
-            "desktop/src-tauri/tauri.conf.json in a single commit so the "
-            "running app, the desktop installers and the docs stay honest "
-            "about which version users are actually getting."
+            "desktop/src-tauri/tauri.conf.json + desktop/src-tauri/Cargo.toml + "
+            "desktop/src-tauri/Cargo.lock in a single commit so the running app, "
+            "the desktop installers and the docs stay honest about which version "
+            "users are actually getting. That is nine literals across eight "
+            "files: frontend/package-lock.json carries the version twice."
         )
         return 1
 
