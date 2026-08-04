@@ -1228,7 +1228,11 @@ def resolve_provider_and_key(
     model = preferred_model or (settings.preferred_model if settings else "claude-sonnet")
 
     # Map model preferences to providers
-    _MODEL_PROVIDER_MAP: list[tuple[list[str], str, str]] = [
+    # The key slot is ``str | None``: the self-hosted runtimes below genuinely
+    # have no API-key setting to read, and that absence is the thing the loop
+    # branches on. An empty string here would be worse than no annotation - it
+    # reads the same as None to ``if key_attr:`` but not to ``getattr``.
+    _MODEL_PROVIDER_MAP: list[tuple[list[str], str, str | None]] = [
         (["claude", "anthropic"], "anthropic", "anthropic_api_key"),
         (["gpt", "openai"], "openai", "openai_api_key"),
         (["gemini", "google"], "gemini", "gemini_api_key"),
@@ -1273,7 +1277,7 @@ def resolve_provider_and_key(
             break  # matched model but no (usable) key - fall through to fallback
 
     # Fallback: try any available key (in priority order)
-    _FALLBACK_ORDER: list[tuple[str, str]] = [
+    _FALLBACK_ORDER: list[tuple[str, str | None]] = [
         ("anthropic", "anthropic_api_key"),
         ("openai", "openai_api_key"),
         ("gemini", "gemini_api_key"),
