@@ -257,10 +257,18 @@ def test_component_repo_update_fields_has_no_global_expire():
 
 
 @pytest.mark.asyncio
-async def test_apply_to_boq_currency_mismatch_no_rate_flags_not_blocks(session):
-    """Issue #128: a foreign-currency assembly with NO FX rate configured
-    must NOT hard-block (the old 409 trapped the user). It applies and
-    carries a visible, non-blocking ``currency_mismatch`` flag instead.
+async def test_apply_to_boq_uses_the_fx_register_when_the_project_has_no_rate(session):
+    """A project with no ``fx_rates`` of its own now converts through ``oe_fx``.
+
+    This used to be the un-converted branch: ``Project.fx_rates`` was the only
+    rate source and it is empty on a default project, so a USD assembly landed
+    in a EUR project at its USD face value behind a warning. The register is
+    consulted now, so an ordinary major-currency pair converts.
+
+    The expected figure is deliberately not asserted: it comes from the bundled
+    seed, which is data that gets refreshed. What must hold is that the register
+    priced it - ``fx_source`` - and that the position is stamped with the
+    project's currency because it now genuinely holds project-currency money.
     """
     svc = AssemblyService(session)
     # Project (PROJECT_ID) is EUR with no fx_rates; assembly is USD.
@@ -278,15 +286,55 @@ async def test_apply_to_boq_currency_mismatch_no_rate_flags_not_blocks(session):
     session.add(boq)
     await session.flush()
 
+    pos = await svc.apply_to_boq(asm.id, ApplyToBOQRequest(boq_id=boq.id, quantity=1.0))
+    meta = getattr(pos, "metadata_", {}) or {}
+    assert "currency_converted" in meta
+    assert "currency_mismatch" not in meta
+    assert meta["currency_converted"]["from"] == "USD"
+    assert meta["currency_converted"]["to"] == "EUR"
+    assert meta["currency_converted"]["provenance"]["fx_source"] == "oe_fx"
+    # Converted money, so the position's currency IS the project's.
+    assert meta["currency"] == "EUR"
+    # And the figure actually moved rather than being relabelled.
+    assert meta["resources"][0]["unit_rate"] != 100.0
+
+
+@pytest.mark.asyncio
+async def test_apply_to_boq_currency_mismatch_no_rate_flags_not_blocks(session):
+    """Issue #128: a foreign-currency assembly no rate can price must NOT block.
+
+    XOF is in neither the project's ``fx_rates`` nor the FX register, so this is
+    the branch that survives the register being wired in. The apply succeeds and
+    the position is stamped with the assembly's own currency, which
+    ``boq.service._position_currency`` reads as authoritative - the value is
+    labelled with the money it is in, not disguised as the project's.
+    """
+    svc = AssemblyService(session)
+    # Project (PROJECT_ID) is EUR with no fx_rates; assembly is in a currency
+    # neither the project nor the bundled seed knows.
+    asm = await svc.create_assembly(
+        AssemblyCreate(code="ASM-FX2", name="FX2", unit="m", currency="XOF"),
+        owner_id=str(OWNER_ID),
+    )
+    await svc.add_component(
+        asm.id,
+        ComponentCreate(unit="m", description="c", factor=1.0, quantity=1.0, unit_cost=100.0),
+    )
+    from app.modules.boq.models import BOQ
+
+    boq = BOQ(project_id=PROJECT_ID, name="B2")
+    session.add(boq)
+    await session.flush()
+
     # No exception — the apply succeeds.
     pos = await svc.apply_to_boq(asm.id, ApplyToBOQRequest(boq_id=boq.id, quantity=1.0))
     meta = getattr(pos, "metadata_", {}) or {}
     assert "currency_mismatch" in meta
     assert "currency_converted" not in meta
-    assert meta["currency_mismatch"]["assembly_currency"] == "USD"
+    assert meta["currency_mismatch"]["assembly_currency"] == "XOF"
     assert meta["currency_mismatch"]["project_currency"] == "EUR"
-    # Value kept in the assembly's own currency (unconverted, but visible).
-    assert meta["currency"] == "USD"
+    # Value kept in the assembly's own currency (unconverted, but labelled).
+    assert meta["currency"] == "XOF"
     assert meta["resources"][0]["unit_rate"] == 100.0
 
 

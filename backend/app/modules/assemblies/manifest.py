@@ -14,7 +14,10 @@ manifest = ModuleManifest(
     ),
     author="OpenConstructionERP Core Team",
     category="core",
-    depends=["oe_costs"],
+    # ``oe_fx`` prices an assembly whose currency differs from the target
+    # project's; without it the only rate source is the project's hand-typed
+    # ``fx_rates``, which is empty on a default project.
+    depends=["oe_costs", "oe_fx"],
     auto_install=True,
     enabled=True,
 )

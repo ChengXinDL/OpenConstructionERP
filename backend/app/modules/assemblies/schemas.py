@@ -607,6 +607,12 @@ class AppliedComponent(BaseModel):
     stays float here because the apply-template endpoint is a preview
     (the persisted line totals are written via the BOQ service which is
     already Decimal-correct).
+
+    ``currency`` names the money ``unit_rate`` and ``total`` are in - the
+    matched catalogue item's own code, which is not necessarily the response's
+    target currency. Without it a row's figures were read under whatever code
+    the response carried, which is how a component in one currency was shown
+    as though it were in another.
     """
 
     description: str
@@ -619,12 +625,34 @@ class AppliedComponent(BaseModel):
     unit: str
     unit_rate: Decimal = Decimal("0")
     total: float = 0.0
+    currency: str = ""
+    converted_to_target: bool = False
     role: str = "material"
     match_confidence: float = 0.0
     match_channel: str = "lexical"
 
     @field_serializer("unit_rate", when_used="json")
     def _ser_unit_rate(self, v: Decimal) -> str | None:
+        return _serialise_money(v)
+
+
+class CurrencySubtotal(BaseModel):
+    """One currency's share of an apply preview, never mixed with another's.
+
+    ``is_target`` marks the bucket holding the response's target currency -
+    every component that could be converted lands there. Any other bucket is a
+    residual: components the platform could not price into the target, kept in
+    their own money so they are visible rather than folded into a number they
+    do not belong to.
+    """
+
+    currency: str = ""
+    amount: Decimal = Decimal("0")
+    component_count: int = 0
+    is_target: bool = False
+
+    @field_serializer("amount", when_used="json")
+    def _ser_amount(self, v: Decimal) -> str | None:
         return _serialise_money(v)
 
 
@@ -636,6 +664,15 @@ class ApplyTemplateResponse(BaseModel):
     "preview-then-confirm" contract matches the existing
     ``/assemblies/ai-generate`` endpoint and the platform's
     human-confirms-AI rule.
+
+    Money rule: a single scalar in this response never holds more than one
+    currency. ``totals_by_currency`` is the authoritative figure and always
+    carries the full picture. ``grand_total`` and ``total_rate`` are a
+    convenience for the ordinary single-currency case and are ``None`` whenever
+    the preview spans more than one currency - refusing to name a total is the
+    only honest answer when part of it could not be priced into the target, and
+    it is the answer that stays correct in a consumer which has not been taught
+    about the breakdown yet.
     """
 
     template_id: UUID
@@ -646,11 +683,12 @@ class ApplyTemplateResponse(BaseModel):
     unit: str
     currency: str = ""
     components: list[AppliedComponent] = Field(default_factory=list)
-    total_rate: float = 0.0
-    grand_total: Decimal = Decimal("0")
+    totals_by_currency: list[CurrencySubtotal] = Field(default_factory=list)
+    total_rate: float | None = None
+    grand_total: Decimal | None = None
     unresolved_components: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
 
     @field_serializer("grand_total", when_used="json")
-    def _ser_grand_total(self, v: Decimal) -> str | None:
+    def _ser_grand_total(self, v: Decimal | None) -> str | None:
         return _serialise_money(v)

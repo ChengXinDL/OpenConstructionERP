@@ -113,10 +113,17 @@ def _check_assembly_depth(
     return visited | {assembly_id}
 
 
-def _compute_component_total(factor: float, quantity: float, unit_cost: float) -> str:
+def _compute_component_total(factor: float, quantity: float, unit_cost: float | Decimal) -> str:
     """Compute component total as string: factor * quantity * unit_cost.
 
     Uses Decimal for precision, returns string for SQLite-safe storage.
+
+    This is the one boundary where a float quantity meets Decimal money. Callers
+    pass ``unit_cost`` as a Decimal (``ComponentCreate.get_unit_cost``); the
+    annotation admits both because ``Decimal(str(...))`` round-trips either
+    exactly. It deliberately does not say ``float`` alone - that reads as an
+    invitation to wrap the money in ``float()`` at the call site, which is the
+    one conversion here that would silently lose precision.
     """
     try:
         f = Decimal(str(factor))
@@ -132,7 +139,7 @@ def _compute_typed_total(
     resource_type: str | None,
     factor: float,
     quantity: float,
-    unit_cost: float,
+    unit_cost: float | Decimal,
     metadata: dict | None,
 ) -> str:
     """Compute a component total using a type-aware formula.
@@ -1178,10 +1185,11 @@ class AssemblyService:
         # every foreign-currency assembly impossible to place, even when
         # the project HAD an FX rate configured for that currency. We now
         # mirror how foreign-currency *resources* already behave: convert
-        # via the project's ``fx_rates`` when a rate exists; otherwise let
-        # it through with a visible, non-blocking ``currency_mismatch``
-        # flag - never silent corruption, never a dead end for the user.
-        from app.modules.boq.service import _project_fx_map
+        # through ``fx_bridge`` (the project's own ``fx_rates`` first, then
+        # the ``oe_fx`` register) when any rate resolves; otherwise let it
+        # through with a visible, non-blocking ``currency_mismatch`` flag -
+        # never silent corruption, never a dead end for the user.
+        from app.modules.assemblies.fx_bridge import load_fx_context
 
         currency_warning: dict | None = None
         currency_converted: dict | None = None
@@ -1204,49 +1212,53 @@ class AssemblyService:
             project_currency = ""
 
         if asm_currency and project_currency and asm_currency != project_currency:
-            # Project ``fx_rates`` projected to {CODE: "<base units per 1
-            # unit of foreign currency>"} - same convention the BOQ
-            # resource rollup uses, so foreign→base is multiplication.
-            fx_map = _project_fx_map(project)
-            raw_rate = fx_map.get(asm_currency)
-            conv_rate: Decimal | None = None
-            if raw_rate is not None:
-                try:
-                    candidate = Decimal(str(raw_rate))
-                    if candidate.is_finite() and candidate > 0:
-                        conv_rate = candidate
-                except (InvalidOperation, ValueError):
-                    conv_rate = None
+            # Rate resolution order lives in ``fx_bridge``: the project's own
+            # ``fx_rates`` first, because a contractually fixed project rate
+            # must outrank any market feed, then the ``oe_fx`` register, which
+            # answers with provenance saying whether the number came from a
+            # stored rate set, the legacy cache or the bundled seed.
+            #
+            # The register step is new. Before it, ``fx_rates`` was the only
+            # source and it is empty on a default project, so the un-converted
+            # branch below was the common case rather than the rare one.
+            fx_context = await load_fx_context(self.session, project)
+            conv_rate, fx_provenance = fx_context.rate(asm_currency, project_currency)
 
             if conv_rate is not None:
                 # Convert the whole assembly into the project's currency.
                 fx_multiplier = conv_rate
+                as_of = fx_provenance.get("fx_as_of")
                 currency_converted = {
                     "type": "currency_converted",
                     "from": asm_currency,
                     "to": project_currency,
                     "rate": str(conv_rate),
+                    "provenance": fx_provenance,
                     "message": (
                         f"Assembly priced in {asm_currency} was converted "
                         f"to {project_currency} at {conv_rate} "
-                        f"({asm_currency}->{project_currency})."
+                        f"({asm_currency}->{project_currency})" + (f", rates as of {as_of}." if as_of else ".")
                     ),
                 }
             else:
-                # No FX rate configured for this currency - proceed
-                # anyway. The legacy hard 409 trapped the user with no
-                # UI escape hatch (Issue #128). Flag it loudly so the
-                # un-converted foreign value is visible, not silent.
+                # Neither the project's own rates nor the register can price
+                # this pair - proceed anyway. The legacy hard 409 trapped the
+                # user with no UI escape hatch (Issue #128), and the value is
+                # not disguised: the position metadata below records
+                # ``currency`` as the assembly's own code, which
+                # ``boq.service._position_currency`` treats as authoritative,
+                # so the money stays labelled with the currency it is in.
                 currency_warning = {
                     "type": "currency_mismatch",
                     "assembly_currency": asm_currency,
                     "project_currency": project_currency,
                     "message": (
                         f"Unit rate is in {asm_currency} but the project "
-                        f"is {project_currency}, and no FX rate is "
-                        f"configured for {asm_currency}; the value was "
-                        f"kept in {asm_currency} (no conversion). Add an "
-                        f"FX rate in Project Settings to convert it."
+                        f"is {project_currency}, and no FX rate is available "
+                        f"for {asm_currency} from either Project Settings or "
+                        f"the FX register; the value was kept in "
+                        f"{asm_currency} (no conversion). Add an FX rate in "
+                        f"Project Settings to convert it."
                     ),
                 }
 

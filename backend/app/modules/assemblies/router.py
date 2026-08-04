@@ -44,12 +44,13 @@ from app.modules.assemblies.schemas import (
     ComponentCreate,
     ComponentResponse,
     ComponentUpdate,
+    CurrencySubtotal,
     ExpandPreviewRequest,
     ExpandPreviewResponse,
     ParameterValidationResponse,
     ReorderComponentsRequest,
 )
-from app.modules.assemblies.service import AssemblyService, _str_to_float
+from app.modules.assemblies.service import AssemblyService, _compute_component_total, _str_to_float
 
 logger = logging.getLogger(__name__)
 
@@ -450,10 +451,20 @@ async def add_component(
     try:
         return _component_to_response(component)
     except Exception:
-        # Fallback: construct from known data
+        # Fallback: construct from the request payload rather than the ORM
+        # instance, whose attributes may be expired.
+        #
+        # Factors and quantities are floats, money is Decimal, and the two only
+        # meet inside ``_compute_component_total``, which lifts all three into
+        # Decimal before multiplying. Taking the product here instead raises
+        # TypeError - ``float * Decimal`` is not defined - so this rescue used
+        # to fail on every execution and bury the error it was catching under a
+        # traceback pointing at arithmetic. Converting the money to float would
+        # remove the crash and lose the precision the Decimal is here for.
         from datetime import datetime
 
-        total = data.factor * data.quantity * data.unit_cost
+        unit_cost = data.get_unit_cost()
+        total = Decimal(_compute_component_total(data.factor, data.quantity, unit_cost))
         now = datetime.now(UTC)
         return ComponentResponse(
             id=component.id,
@@ -465,7 +476,10 @@ async def add_component(
             quantity=data.quantity,
             quantity_formula=data.quantity_formula,
             unit=data.unit,
-            unit_cost=data.unit_cost,
+            # The service resolves the ``unit_rate`` alias through
+            # ``get_unit_cost``; reading ``unit_cost`` raw reported 0 for a
+            # payload that priced the line through ``unit_rate``.
+            unit_cost=unit_cost,
             total=round(total, 2),
             sort_order=0,
             metadata={},
@@ -867,55 +881,59 @@ async def apply_template(
 
     components_out: list[AppliedComponent] = []
     unresolved: list[str] = []
-    grand_total = 0.0
-    # Target currency for the rolled-up ``grand_total``. The project currency is
-    # authoritative; when the project has none we lock the target to the first
-    # matched component's currency (below). Money rule: NEVER blend currencies -
-    # each component is converted into the target via the project's ``fx_rates``
-    # before it is summed; a foreign component with no configured FX rate is
-    # kept in its own currency and flagged (non-blocking), mirroring
-    # ``apply_to_boq``'s ``currency_mismatch`` behaviour rather than silently
-    # adding mismatched numbers (the previous behaviour).
-    from app.modules.boq.service import _project_fx_map
+    # Money rule, now enforced rather than merely described: NEVER blend
+    # currencies. Every component's amount is banked under an ISO code - the
+    # target when a rate resolved for it, otherwise its own - so no accumulator
+    # here ever holds two currencies at once. The previous implementation
+    # returned the UNCONVERTED amount when no rate was configured and added it
+    # straight into the target-currency total, so a component priced in one
+    # currency contributed its face value to a sum labelled with another. It
+    # attached a warning, but a warning on a wrong number leaves a wrong number.
+    #
+    # The target is the project's currency. When the project has none we do NOT
+    # elect one: the old code locked the target to whichever component matched
+    # first, which made the reported currency depend on catalogue match order.
+    # Every amount now stays under its own code, and the response names a
+    # currency only when they all turn out to agree.
+    from app.modules.assemblies.fx_bridge import load_fx_context
 
-    currency = (getattr(project, "currency", "") or "").strip().upper()
-    fx_map = _project_fx_map(project)
+    target_currency = (getattr(project, "currency", "") or "").strip().upper()
+    fx_context = await load_fx_context(session, project)
     fx_warnings: set[str] = set()
+    # ``{ISO code: amount}`` - each bucket holds one currency and only one.
+    totals_by_currency: dict[str, Decimal] = {}
+    counts_by_currency: dict[str, int] = {}
 
-    def _convert_component(amount: float, src_currency: str) -> float:
-        """Convert ``amount`` from ``src_currency`` into the locked target.
+    def _bank(amount: float, src_currency: str) -> bool:
+        """Bank one component's amount under exactly one currency.
 
-        Foreign→target is multiplication by ``fx_rates[src]`` (units of target
-        per 1 unit of source - the same convention the BOQ rollup uses). When no
-        rate is configured the amount is returned unchanged and a warning is
-        recorded so the un-converted value is visible, never silently blended.
+        Returns whether it was converted into the target. A component that
+        cannot be priced into the target is banked under its own code, which is
+        what keeps it out of the target total.
         """
-        nonlocal currency
         src = (src_currency or "").strip().upper()
-        if not src:
-            # Match carried no currency - treat as already in the target.
-            return amount
-        if not currency:
-            # Project had no currency: lock the target to this first currency.
-            currency = src
-            return amount
-        if src == currency:
-            return amount
-        raw_rate = fx_map.get(src)
-        if raw_rate:
-            try:
-                rate = float(raw_rate)
-            except (TypeError, ValueError):
-                rate = 0.0
-            if rate > 0.0 and rate == rate and rate not in (float("inf"), float("-inf")):
-                return amount * rate
-        # No usable FX rate - keep the native value and flag the mismatch.
-        fx_warnings.add(
-            f"Component priced in {src} could not be converted to {currency} "
-            f"(no FX rate configured); its value was kept in {src}. "
-            f"Add an FX rate in Project Settings to convert it."
-        )
-        return amount
+        booked = Decimal(str(amount))
+        # A catalogue row with no currency carries a bare number. It is banked
+        # against the target because the project's base is the only reading
+        # available - unchanged from before, and not a conversion.
+        code = src or target_currency
+        converted = False
+        if src and target_currency and src != target_currency:
+            rate, _provenance = fx_context.rate(src, target_currency)
+            if rate is not None:
+                booked = booked * rate
+                code = target_currency
+                converted = True
+            else:
+                fx_warnings.add(
+                    f"Component priced in {src} could not be converted to {target_currency} "
+                    f"(no FX rate available); it is reported separately in {src} and is NOT "
+                    f"part of the {target_currency} total. Add an FX rate in Project Settings, "
+                    f"or refresh the FX rates, to include it."
+                )
+        totals_by_currency[code] = totals_by_currency.get(code, Decimal("0")) + booked
+        counts_by_currency[code] = counts_by_currency.get(code, 0) + 1
+        return converted
 
     for raw in template.components or []:
         query = str(raw.get("cost_match_query", "")).strip()
@@ -986,12 +1004,19 @@ async def apply_template(
             m_currency = ""
             unresolved.append(query or description)
 
-        # Native total (in the matched item's currency) - what the component row
-        # displays. The rolled-up ``grand_total`` instead accumulates each
-        # component CONVERTED into the target currency so currencies are never
-        # blended (``_convert_component`` also locks the target on first match).
+        # ``total`` is the NATIVE total, in the matched item's own currency -
+        # that is what the component row displays, and ``currency`` below says
+        # which money it is in. Its contribution to the rolled-up figures goes
+        # through ``_bank``, which converts it into the target or keeps it apart.
         total = _component_total(factor, float(data.quantity), unit_rate)
-        grand_total += _convert_component(total, m_currency)
+        comp_currency = (m_currency or "").strip().upper() or target_currency
+        # A component that matched nothing has no price and no currency. Banking
+        # its zero would open a bucket keyed on the empty string, and on a
+        # project with no currency of its own that phantom bucket is enough to
+        # make the preview look multi-currency and withhold a total that is
+        # perfectly well defined. It is already reported in
+        # ``unresolved_components``, so it is left out of the money entirely.
+        comp_converted = _bank(total, m_currency) if matches else False
 
         components_out.append(
             AppliedComponent(
@@ -1005,6 +1030,8 @@ async def apply_template(
                 unit=comp_unit,
                 unit_rate=unit_rate,
                 total=total,
+                currency=comp_currency,
+                converted_to_target=comp_converted,
                 role=role,
                 match_confidence=round(match_score, 4),
                 match_channel=match_channel,
@@ -1014,15 +1041,44 @@ async def apply_template(
     warnings: list[str] = []
     if unresolved:
         warnings.append(f"{len(unresolved)} component(s) could not be matched against the project's cost catalogue.")
-    # Surface any currency mismatches the conversion could not resolve, so the
-    # un-converted (kept-native) components are visible rather than silently
-    # blended into the target-currency grand total.
+    # Surface any currency the conversion could not price, so the components
+    # held back from the target total are visible rather than folded into it.
     warnings.extend(sorted(fx_warnings))
 
-    # ``total_rate`` is the per-unit rate (assembly subtotal at quantity=1);
-    # ``grand_total`` is the rolled-up total for the requested quantity.
-    qty_safe = float(data.quantity) if data.quantity else 1.0
-    total_rate = round(grand_total / qty_safe, 4) if qty_safe else 0.0
+    # The response's currency. The project's own is authoritative; with no
+    # project currency we name one only when every component agreed on it,
+    # rather than electing whichever happened to match first.
+    single_code = next(iter(totals_by_currency)) if len(totals_by_currency) == 1 else ""
+    currency = target_currency or single_code
+
+    subtotals = [
+        CurrencySubtotal(
+            currency=code,
+            amount=amount,
+            component_count=counts_by_currency.get(code, 0),
+            is_target=bool(code) and code == currency,
+        )
+        for code, amount in sorted(totals_by_currency.items())
+    ]
+
+    # ``grand_total`` is the rolled-up total for the requested quantity and
+    # ``total_rate`` the same at quantity 1. Both are single scalars, so both
+    # are withheld when more than one currency is in play - producing either
+    # would mean adding two currencies together. ``totals_by_currency`` always
+    # carries the full picture, so nothing is lost by withholding them, and a
+    # consumer that has not learned about the breakdown yet gets no number
+    # rather than a wrong one.
+    grand_total: Decimal | None = None
+    total_rate: float | None = None
+    if len(totals_by_currency) <= 1:
+        grand_total = round(next(iter(totals_by_currency.values()), Decimal("0")), 4)
+        qty_safe = float(data.quantity) if data.quantity else 1.0
+        total_rate = round(float(grand_total) / qty_safe, 4) if qty_safe else 0.0
+    else:
+        warnings.append(
+            f"This preview covers {len(totals_by_currency)} currencies, so no single total is reported. "
+            "See the per-currency breakdown."
+        )
 
     return ApplyTemplateResponse(
         template_id=template.id,
@@ -1033,8 +1089,9 @@ async def apply_template(
         unit=template.unit,
         currency=currency,
         components=components_out,
+        totals_by_currency=subtotals,
         total_rate=total_rate,
-        grand_total=round(grand_total, 4),
+        grand_total=grand_total,
         unresolved_components=unresolved,
         warnings=warnings,
     )
