@@ -303,7 +303,6 @@ jobs:
         run: >-
           pytest tests/unit/test_sheets_access_control.py
           tests/unit/test_photos_recent_project_scope.py
-          tests/integration/test_tenant_isolation.py
           -q -p no:cacheprovider
       # The literal string bim did not appear anywhere in this file, so 30 unit
       # files and 528 tests, including the ones covering all 28 BIM validation
@@ -359,11 +358,14 @@ jobs:
   access-control:
     name: Object ownership and cross-tenant access
     runs-on: ubuntu-latest
-    # The measured local total is about seventeen minutes under contention, and
-    # a hosted runner clones a database per test. The ceiling is here so a hung
-    # install or a wedged cluster names itself rather than inheriting the six
-    # hour default.
-    timeout-minutes: 40
+    # Local measurements add up to about thirty three minutes under contention,
+    # 25s of router guards plus 4m56s of module and unit guards plus 11m48s and
+    # 16m06s for the two integration halves, and a pip install sits in front of
+    # all of it. A hosted runner clones a database per test and is not faster
+    # than this box at that. Sixty leaves real headroom over that sum while
+    # still naming a hung install or a wedged cluster in an hour rather than
+    # inheriting the six hour default.
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: backend
@@ -408,7 +410,12 @@ jobs:
           tests/unit/test_takeoff_idor.py
           tests/unit/teams/test_teams_access_control.py
           -q -p no:cacheprovider
-      - name: Run integration ownership guards
+      # Two steps rather than one because two halves is how the integration set
+      # was actually measured, and a single process holding all eighteen files
+      # has never been run anywhere. The extra cluster boot is seconds; a first
+      # hosted run is the wrong place to discover what one long-lived process
+      # does to the connection pool.
+      - name: Run integration ownership guards, first half
         run: >-
           pytest tests/integration/test_assemblies_idor.py
           tests/integration/test_bim_hub_idor.py
@@ -419,7 +426,10 @@ jobs:
           tests/integration/test_fieldreports_idor.py
           tests/integration/test_inspections_idor.py
           tests/integration/test_meetings_idor.py
-          tests/integration/test_property_dev_idor.py
+          -q -p no:cacheprovider --timeout=300 --timeout-method=thread
+      - name: Run integration ownership guards, second half
+        run: >-
+          pytest tests/integration/test_property_dev_idor.py
           tests/integration/test_reporting_idor.py
           tests/integration/test_resources_idor.py
           tests/integration/test_schedule_advanced_idor.py
@@ -429,6 +439,12 @@ jobs:
           tests/integration/test_subcontractors_idor.py
           tests/integration/test_takeoff_dwg_idor.py
           -q -p no:cacheprovider --timeout=300 --timeout-method=thread
+      # Tenant isolation belongs with its siblings rather than on
+      # backend-postgres, where it would sit above the BIM and cost base steps
+      # and a failure in it would skip both. That is the same reason this job
+      # exists at all.
+      - name: Run tenant isolation
+        run: pytest tests/integration/test_tenant_isolation.py -q -p no:cacheprovider
 
   frontend-tests:
     name: Frontend tests that block a merge
