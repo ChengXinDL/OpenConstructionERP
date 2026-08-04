@@ -1068,12 +1068,22 @@ interface AnalyticsOverview {
   }[];
 }
 
-function PortfolioOverview({ projects: _projects }: { projects: ProjectSummary[] }) {
+// Takes no props: the panel fetches its own portfolio-wide rollup and the
+// caller already decides whether it should exist at all. It used to receive
+// the project list solely to length it into the query key (see below).
+function PortfolioOverview() {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
+  // Portfolio-wide by design: this panel answers "how does the estate
+  // compare", so it deliberately ignores the top bar's project (#412) and
+  // its key carries no scope. It used to carry ``projects.length``, which
+  // looked like a scope but was a lossy one - two different project sets of
+  // the same size share a cache entry, so deleting one project and creating
+  // another served the stale figures. A constant key drops that, and the
+  // 60 s staleTime is what keeps the panel fresh.
   const { data: analytics } = useQuery({
-    queryKey: ['portfolio-analytics', _projects.length],
+    queryKey: ['portfolio-analytics'],
     queryFn: () => apiGet<AnalyticsOverview>('/v1/projects/analytics/overview/'),
     retry: false,
     staleTime: 60_000,
@@ -2286,8 +2296,17 @@ function DashboardPageInner() {
   // rollup's pre-computed ``boq_summary.last_boq`` so we don't need to
   // fan out a ``/v1/boq/boqs/?project_id=…`` per project just to sort by
   // ``updated_at`` client-side.
+  //
+  // Read from the SCOPED rollup (#412). The tile prints the estimate's
+  // project name, so on the unscoped read it put one project's name
+  // directly under the project the top bar had selected - the "some
+  // panels followed the selection, some did not" the report describes.
+  // The backend picks ``last_boq`` from the projects the filter left in
+  // scope, so this really does become "the selected project's most recent
+  // estimate"; with nothing selected the scoped read is the workspace one
+  // and the tile keeps its portfolio-wide behaviour.
   const lastBoq = useMemo(() => {
-    const lb = boqSummary?.last_boq;
+    const lb = scopedBoqSummary?.last_boq;
     if (!lb) return null;
     return {
       id: lb.id,
@@ -2299,7 +2318,7 @@ function DashboardPageInner() {
       currency: lb.currency,
       updatedAt: lb.updated_at,
     };
-  }, [boqSummary]);
+  }, [scopedBoqSummary]);
 
   // ── Widget node map - keyed by registry id. The dashboard renders these
   //    in the user's saved order (`resolvedWidgets`), skipping hidden ones.
@@ -2426,7 +2445,7 @@ function DashboardPageInner() {
 
     portfolio:
       projects && projects.length > 1 ? (
-        <PortfolioOverview projects={projects} />
+        <PortfolioOverview />
       ) : null,
 
     map:
@@ -2496,7 +2515,16 @@ function DashboardPageInner() {
                 }
               />
               <CardContent>
-                <CrossModuleActivityFeed limit={showAllActivity ? 25 : 6} />
+                {/* The feed takes a `project_id` filter and carries it in
+                    its query key, so passing the selection is all it needs
+                    to stop listing every project's events beside widgets
+                    that answer for one (#412). Undefined with nothing
+                    selected, which is the workspace-wide feed it showed
+                    before. */}
+                <CrossModuleActivityFeed
+                  limit={showAllActivity ? 25 : 6}
+                  projectId={activeProjectId ?? undefined}
+                />
               </CardContent>
             </Card>
           </div>
