@@ -139,9 +139,17 @@ jobs:
       #
       # "version" is the cheapest subcommand that still starts the interpreter
       # and imports the app package. It opens no database and no socket, which
-      # is what makes it safe to gate a release on. Team ID matching does not
-      # depend on the quarantine flag, so the runner reproduces the user's
-      # failure even though nothing here was downloaded from the web.
+      # is what makes it safe to gate a release on.
+      #
+      # Know what this step does NOT prove. A control run built from this
+      # workflow with the spec's codesign_identity reverted started here just
+      # fine, so this runner does not reproduce the user's failure: whether dyld
+      # enforces Team ID matching depends on the policy applied to the process,
+      # and a binary built locally and never quarantined is judged leniently.
+      # This step therefore catches "the build does not start at all", the issue
+      # #419 class. The Team ID question is answered by the archive inspection
+      # below, which reads a static property of the artifact instead of relying
+      # on this machine choosing to enforce it.
       #
       # This runs on all three platforms. The same "does it start at all"
       # question catches the issue #419 class of break more directly than
@@ -191,6 +199,21 @@ jobs:
           else
             echo "not found at $fw"
           fi
+
+      # The two lines above describe the wrapper and the build machine. Neither
+      # is what dyld maps at launch. This reads the members sealed inside the
+      # onefile archive, which is where a foreign Team ID actually travels to
+      # the user, and prints which of them carry one. It is the evidence that
+      # says whether the spec's codesign_identity did anything, independently of
+      # whether this runner enforces the rule.
+      - name: Record what the sidecar archive carries (diagnostic)
+        if: always() && runner.os == 'macOS'
+        shell: bash
+        timeout-minutes: 15
+        run: |
+          set -uo pipefail
+          python scripts/inspect_desktop_sidecar_signatures.py \
+            desktop/dist/openconstructionerp-server || true
 
       - name: Copy sidecar binary
         shell: bash
