@@ -61,6 +61,7 @@ import { ContractStatusPipeline } from './ContractStatusPipeline';
 import { ContractExpiryBadge } from './ContractExpiryBadge';
 import { ComplianceGate } from './ComplianceGate';
 import { ContractPartiesPanel } from './ContractPartiesPanel';
+import { ContractSecuritiesPanel } from './ContractSecuritiesPanel';
 import { ContractAnalyticsPanels } from './ContractAnalyticsPanels';
 import { contractsGuide } from './contractsGuide';
 import { useToastStore } from '@/stores/useToastStore';
@@ -2029,6 +2030,15 @@ export function ContractDetailDrawer({
                 )}
             </Card>
           )}
+
+          {/* The bonds, guarantees and insurance themselves, immediately above
+              the coverage tile that counts them. The summary was the only thing
+              on this screen for a while, which meant an expiring bond could be
+              read as a number and never opened. */}
+          <ContractSecuritiesPanel
+            contractId={contractId}
+            currency={contract.currency}
+          />
 
           {/* Analytics & close-out — four read-only endpoints surfaced as
               stacked panels (SoV status, completeness, EOT exposure, final-

@@ -1173,6 +1173,152 @@ export function getSecurityCoverage(
   );
 }
 
+/* ── Security register (the rows behind the coverage summary) ─────────── */
+
+/**
+ * The instruments a contract can be secured with, ordered the way a commercial
+ * manager reads them: the bonds, then the guarantees, then the insurance lines.
+ * Mirrors SECURITY_TYPES in the module's schemas; a value outside this list is
+ * refused by the API rather than stored.
+ */
+export const CONTRACT_SECURITY_TYPES = [
+  'performance_bond',
+  'payment_bond',
+  'advance_payment_bond',
+  'retention_bond',
+  'parent_company_guarantee',
+  'bank_guarantee',
+  'insurance_pl',
+  'insurance_car',
+  'insurance_pi',
+  'other',
+] as const;
+
+export type ContractSecurityType = (typeof CONTRACT_SECURITY_TYPES)[number];
+
+/**
+ * The life of one instrument, from the clause that demands it to the day it is
+ * given back or called. Mirrors SECURITY_STATUSES in the module's schemas.
+ */
+export const CONTRACT_SECURITY_STATUSES = [
+  'required',
+  'received',
+  'active',
+  'expired',
+  'released',
+  'claimed',
+] as const;
+
+export type ContractSecurityStatus =
+  (typeof CONTRACT_SECURITY_STATUSES)[number];
+
+export interface ContractSecurity {
+  id: string;
+  contract_id: string;
+  security_type: string;
+  /** The instrument's own number, as the issuer wrote it. */
+  reference: string | null;
+  /** The issuer: the bank, surety or insurer standing behind the instrument. */
+  provider_name: string;
+  /** Face value. Decimal on the wire, so keep the string when round-tripping. */
+  amount: number | string;
+  /** Per row, not per contract: a bond can be issued in another currency. */
+  currency: string;
+  /** Decimal on the wire; null when the row was entered as a flat sum. */
+  percent_of_contract: number | string | null;
+  /** ISO YYYY-MM-DD, or null when the instrument has no stated start. */
+  valid_from: string | null;
+  /** ISO YYYY-MM-DD expiry, or null when it is open-ended. */
+  valid_to: string | null;
+  status: string;
+  document_id: string | null;
+  notes: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Money and percent are typed `string` on the way in, never `number`. They are
+ * Decimal columns and the wire form is the exact text that was typed; parsing
+ * to a float here would send back a figure nobody entered. The date fields take
+ * `YYYY-MM-DD` only — the schema rejects an empty string, so an unknown date is
+ * omitted rather than blanked.
+ */
+export interface ContractSecurityCreate {
+  contract_id: string;
+  security_type: string;
+  reference?: string | null;
+  provider_name?: string;
+  amount?: string;
+  currency?: string;
+  percent_of_contract?: string;
+  valid_from?: string;
+  valid_to?: string;
+  status?: string;
+  document_id?: string | null;
+  notes?: string | null;
+}
+
+/**
+ * PATCH body. Only the keys present are touched, and note the asymmetry the
+ * service imposes: it drops nulls before writing, so a field cannot be cleared
+ * by sending null. An empty string does clear the free-text fields; the dated
+ * and numeric ones have no clear operation at all.
+ */
+export interface ContractSecurityUpdate {
+  security_type?: string;
+  reference?: string;
+  provider_name?: string;
+  amount?: string;
+  currency?: string;
+  percent_of_contract?: string;
+  valid_from?: string;
+  valid_to?: string;
+  status?: string;
+  document_id?: string | null;
+  notes?: string;
+}
+
+/** Every bond, guarantee and insurance line recorded against a contract. */
+export function listContractSecurities(
+  contractId: string,
+): Promise<ContractSecurity[]> {
+  return apiGet<ContractSecurity[]>(
+    `/v1/contracts/contracts/${contractId}/securities`,
+  );
+}
+
+export function createContractSecurity(
+  contractId: string,
+  body: ContractSecurityCreate,
+): Promise<ContractSecurity> {
+  return apiPost<ContractSecurity>(
+    `/v1/contracts/contracts/${contractId}/securities`,
+    body,
+  );
+}
+
+/**
+ * Securities are addressed by their own id, not through the contract. Note the
+ * doubled segment, as with the party register: the module router is mounted at
+ * /v1/contracts and the route itself is /contracts/securities/{id}, so both
+ * belong in the path.
+ */
+export function updateContractSecurity(
+  securityId: string,
+  body: ContractSecurityUpdate,
+): Promise<ContractSecurity> {
+  return apiPatch<ContractSecurity>(
+    `/v1/contracts/contracts/securities/${securityId}`,
+    body,
+  );
+}
+
+export function deleteContractSecurity(securityId: string): Promise<void> {
+  return apiDelete(`/v1/contracts/contracts/securities/${securityId}`);
+}
+
 /* ── Milestone payment schedule ───────────────────────────────────────── */
 
 /** One resolved milestone in the payment schedule. */
