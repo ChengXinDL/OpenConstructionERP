@@ -38,6 +38,13 @@ interface ChangelogEntry {
 // date, title and meaning intact; trim the prose, not the facts.
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '14.5.0',
+    date: '2026-08-05',
+    tag: 'NEW',
+    summary:
+      'A firm can write its own cases instead of only reading ours, the credentials register can finally be opened from inside the product, and the securities that make a contract enforceable are held against the contract itself. Three modules ship for work that crosses borders: invoices filed where a government has to clear them, statutory withholding taken the way the governing statute defines it, and payment deadlines treated the way security of payment law treats them, all three over the API with their screens still to come. A drawing opened in DWG Take Off matches the file it came from again, approving a timesheet no longer fails because of the daywork sheet written after it, and roughly 320 new strings per language reach all 29 languages. The macOS start failure reported against 14.4.0 is not fixed here: the shipped file was read binary by binary and the explanation we had for it is wrong, which is said plainly rather than shipped as a fix.',
+  },
+  {
     version: '14.4.0',
     date: '2026-08-04',
     tag: 'FIX',
