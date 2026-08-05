@@ -116,6 +116,17 @@ jobs:
       # returns 200 instead. Needs the conftest database, about twenty seconds.
       - name: Run compliance NL rate-limit tests
         run: pytest tests/unit/test_compliance_ai.py -q -p no:cacheprovider
+      # Cases: authored scenarios and the pins that used to live in
+      # localStorage. Three things here fail silently rather than loudly if
+      # they regress. The step target becomes an href, so the schema has to
+      # keep refusing javascript: and protocol-relative URLs. The permission
+      # keys have to stay in the registry, because RequirePermission denies an
+      # unregistered key and the module would go admin-only with every test
+      # that runs as an admin still green. And a pin points at its case across
+      # two id spaces with no foreign key, so deleting a case has to clear its
+      # own pins or the strip renders rows that resolve to nothing.
+      - name: Run cases module tests
+        run: pytest tests/unit/test_cases_module.py -q -p no:cacheprovider
       # The DWG parser. Attached for the same reason as the two suites either side
       # of it: tests/unit is in no lane that blocks a merge, and this is the parser
       # whose vertex re-scan shipped quadratic in every release from 3.0.2 to 14.1.0

@@ -1,0 +1,437 @@
+"""Unit + service tests for the Cases module.
+
+Three layers:
+  * Schema guards - no DB. The step target is an href in the reader, so the
+    cases it must refuse are worth stating one by one.
+  * Service layer against the shared PostgreSQL unit DB with per-test
+    transaction isolation (same fixture style as ``test_assets_ops.py``).
+  * Validation rules, which gate publishing a case to the team.
+
+This file lives in ``tests/unit`` and is named explicitly in
+``.github/workflows/ci-postgres.yml``. ``tests/integration`` runs in no
+blocking lane, so a guard placed there would pass review and gate nothing.
+"""
+
+from __future__ import annotations
+
+import uuid
+from collections.abc import AsyncIterator
+from typing import get_args
+
+import pytest
+import pytest_asyncio
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.modules.cases import schemas, service
+from app.modules.cases.models import CASE_CATEGORIES, CasePin, UserCase
+from app.modules.cases.permissions import register_cases_permissions
+from app.modules.cases.validators import blocking_findings, evaluate_case, register_cases_rules
+from app.modules.projects.models import Project
+from app.modules.users.models import User
+from tests._pg import transactional_session
+
+
+def _step(step_id: str = "s1", **overrides) -> dict:
+    body = {
+        "id": step_id,
+        "title": "Open the bill of quantities",
+        "what": "Check the priced lines against the drawing revision.",
+        "why": "A rate priced against a superseded drawing is the usual source of a claim.",
+        "to": "/boq",
+    }
+    body.update(overrides)
+    return body
+
+
+def _case_body(**overrides) -> dict:
+    body = {
+        "title": "How we price a variation here",
+        "description": "The route we take from a client instruction to a priced variation.",
+        "category": "estimating",
+        "est_minutes": 12,
+        "steps": [_step("s1"), _step("s2", to="/changeorders", title="Raise the change order")],
+    }
+    body.update(overrides)
+    return body
+
+
+# ── Schema guards (no DB) ────────────────────────────────────────────────────
+
+
+class TestStepTargetGuard:
+    """``to`` becomes an href, so only an in-app path may pass."""
+
+    @pytest.mark.parametrize(
+        "target",
+        [
+            "javascript:alert(1)",
+            "https://evil.example/x",
+            "//evil.example/x",  # protocol-relative: "starts with /" is not enough
+            "boq",  # no leading slash
+            "/../admin",  # traversal out of the named screen
+            "/a/../../b",
+            "",
+        ],
+    )
+    def test_rejects(self, target):
+        with pytest.raises(ValueError):
+            schemas.CaseStep(id="s", title="t", to=target)
+
+    @pytest.mark.parametrize(
+        "target",
+        ["/boq", "/reports?tab=cost", "/projects/new", "/bim/viewer", "/field-time"],
+    )
+    def test_accepts(self, target):
+        assert schemas.CaseStep(id="s", title="t", to=target).to == target
+
+
+class TestCaseBodyGuards:
+    def test_duplicate_step_ids_rejected(self):
+        # Reader progress is keyed by step id, so duplicates would mark two
+        # different steps complete at once.
+        with pytest.raises(ValueError):
+            schemas.CaseCreateRequest(**_case_body(steps=[_step("s1"), _step("s1", to="/reports")]))
+
+    def test_unknown_category_rejected(self):
+        with pytest.raises(ValueError):
+            schemas.CaseCreateRequest(**_case_body(category="procurement"))
+
+    def test_category_literal_matches_the_model_tuple(self):
+        # The tuple is what the column is documented against and the Literal is
+        # what the API rejects on. A drift lets a category through that the
+        # reader has no group to show it in.
+        assert set(get_args(schemas.CaseCategoryLiteral)) == set(CASE_CATEGORIES)
+
+    def test_step_ceiling_enforced(self):
+        with pytest.raises(ValueError):
+            schemas.CaseCreateRequest(**_case_body(steps=[_step(f"s{i}") for i in range(schemas.MAX_STEPS + 1)]))
+
+
+# ── Service layer (PostgreSQL) ───────────────────────────────────────────────
+
+
+@pytest_asyncio.fixture
+async def session() -> AsyncIterator[AsyncSession]:
+    async with transactional_session() as s:
+        yield s
+
+
+async def _user(session: AsyncSession, email: str) -> User:
+    user = User(email=email, hashed_password="x", full_name=email.split("@")[0])
+    session.add(user)
+    await session.flush()
+    return user
+
+
+async def _project(session: AsyncSession, owner: User, name: str = "Test project") -> Project:
+    project = Project(name=name, owner_id=owner.id)
+    session.add(project)
+    await session.flush()
+    return project
+
+
+@pytest.mark.asyncio
+class TestCaseVisibility:
+    async def test_private_case_is_invisible_to_everyone_else(self, session):
+        author = await _user(session, "author@example.com")
+        other = await _user(session, "other@example.com")
+        case = await service.create_case(session, owner_id=author.id, body=schemas.CaseCreateRequest(**_case_body()))
+
+        assert await service.get_case(session, case_id=case.id, user_id=author.id) is not None
+        # Reported as absent rather than forbidden: saying "forbidden" would
+        # confirm the row exists to someone with no right to know it does.
+        assert await service.get_case(session, case_id=case.id, user_id=other.id) is None
+
+    async def test_shared_case_is_readable_but_not_writable(self, session):
+        author = await _user(session, "author2@example.com")
+        other = await _user(session, "other2@example.com")
+        case = await service.create_case(
+            session, owner_id=author.id, body=schemas.CaseCreateRequest(**_case_body(is_shared=True))
+        )
+
+        seen = await service.get_case(session, case_id=case.id, user_id=other.id)
+        assert seen is not None
+        assert service.can_edit(seen, author.id) is True
+        assert service.can_edit(seen, other.id) is False
+
+    async def test_list_returns_own_plus_shared(self, session):
+        author = await _user(session, "author3@example.com")
+        other = await _user(session, "other3@example.com")
+        await service.create_case(
+            session, owner_id=author.id, body=schemas.CaseCreateRequest(**_case_body(title="Mine private"))
+        )
+        await service.create_case(
+            session,
+            owner_id=author.id,
+            body=schemas.CaseCreateRequest(**_case_body(title="Mine shared", is_shared=True)),
+        )
+        await service.create_case(
+            session, owner_id=other.id, body=schemas.CaseCreateRequest(**_case_body(title="Theirs private"))
+        )
+
+        titles = {c.title for c in await service.list_cases(session, user_id=author.id)}
+        assert "Mine private" in titles
+        assert "Mine shared" in titles
+        assert "Theirs private" not in titles
+
+        mine_only = {c.title for c in await service.list_cases(session, user_id=author.id, mine_only=True)}
+        assert mine_only == {"Mine private", "Mine shared"}
+
+
+@pytest.mark.asyncio
+class TestCaseLifecycle:
+    async def test_steps_round_trip_through_the_json_column(self, session):
+        author = await _user(session, "rt@example.com")
+        case = await service.create_case(session, owner_id=author.id, body=schemas.CaseCreateRequest(**_case_body()))
+        assert [s["to"] for s in case.steps] == ["/boq", "/changeorders"]
+        assert case.steps[0]["why"].startswith("A rate priced")
+
+    async def test_duplicate_starts_private_and_keeps_the_steps(self, session):
+        author = await _user(session, "dup-a@example.com")
+        other = await _user(session, "dup-b@example.com")
+        source = await service.create_case(
+            session, owner_id=author.id, body=schemas.CaseCreateRequest(**_case_body(is_shared=True))
+        )
+
+        copy = await service.duplicate_case(session, source=source, owner_id=other.id)
+        # Copying somebody else's shared case starts a draft, not a second
+        # publication, so the copy must not inherit is_shared.
+        assert copy.is_shared is False
+        assert copy.owner_id == other.id
+        assert [s["to"] for s in copy.steps] == [s["to"] for s in source.steps]
+        assert copy.id != source.id
+
+    async def test_duplicate_does_not_alias_the_source_steps(self, session):
+        author = await _user(session, "alias@example.com")
+        source = await service.create_case(session, owner_id=author.id, body=schemas.CaseCreateRequest(**_case_body()))
+        copy = await service.duplicate_case(session, source=source, owner_id=author.id)
+
+        copy.steps[0]["title"] = "Edited in the copy"
+        await session.flush()
+        assert source.steps[0]["title"] == "Open the bill of quantities"
+
+    async def test_deleting_a_case_removes_the_pins_that_point_at_it(self, session):
+        author = await _user(session, "del@example.com")
+        project = await _project(session, author)
+        case = await service.create_case(session, owner_id=author.id, body=schemas.CaseCreateRequest(**_case_body()))
+        await service.add_pin(
+            session,
+            user_id=author.id,
+            project_id=project.id,
+            case_source="custom",
+            case_id=str(case.id),
+        )
+        # A pin at a shipped playbook must survive: it points somewhere else.
+        await service.add_pin(
+            session,
+            user_id=author.id,
+            project_id=project.id,
+            case_source="builtin",
+            case_id="build-a-5d-cost-loaded-model",
+        )
+
+        await service.delete_case(session, case=case)
+
+        remaining = await service.list_pins(session, user_id=author.id, project_id=project.id)
+        assert [(p.case_source, p.case_id) for p in remaining] == [("builtin", "build-a-5d-cost-loaded-model")]
+
+
+@pytest.mark.asyncio
+class TestPins:
+    async def test_pinning_twice_does_not_produce_two_pins(self, session):
+        user = await _user(session, "pin@example.com")
+        project = await _project(session, user)
+
+        first, created_first = await service.add_pin(
+            session, user_id=user.id, project_id=project.id, case_source="builtin", case_id="set-up-a-new-project"
+        )
+        second, created_second = await service.add_pin(
+            session, user_id=user.id, project_id=project.id, case_source="builtin", case_id="set-up-a-new-project"
+        )
+
+        assert created_first is True
+        assert created_second is False
+        assert first.id == second.id
+
+    async def test_the_two_id_spaces_do_not_collide(self, session):
+        # A shipped playbook slug and a case UUID share one column. Without the
+        # source discriminator these would be one pin, not two.
+        user = await _user(session, "spaces@example.com")
+        project = await _project(session, user)
+        shared_id = "overlapping-identifier"
+
+        await service.add_pin(session, user_id=user.id, project_id=project.id, case_source="builtin", case_id=shared_id)
+        await service.add_pin(session, user_id=user.id, project_id=project.id, case_source="custom", case_id=shared_id)
+
+        pins = await service.list_pins(session, user_id=user.id, project_id=project.id)
+        assert len(pins) == 2
+
+    async def test_pins_are_per_user(self, session):
+        one = await _user(session, "u1@example.com")
+        two = await _user(session, "u2@example.com")
+        project = await _project(session, one)
+
+        await service.add_pin(session, user_id=one.id, project_id=project.id, case_source="builtin", case_id="x")
+        assert len(await service.list_pins(session, user_id=one.id, project_id=project.id)) == 1
+        assert await service.list_pins(session, user_id=two.id, project_id=project.id) == []
+
+    async def test_unpin_is_idempotent(self, session):
+        user = await _user(session, "unpin@example.com")
+        project = await _project(session, user)
+        await service.add_pin(session, user_id=user.id, project_id=project.id, case_source="builtin", case_id="y")
+
+        assert (
+            await service.remove_pin(
+                session, user_id=user.id, project_id=project.id, case_source="builtin", case_id="y"
+            )
+            is True
+        )
+        assert (
+            await service.remove_pin(
+                session, user_id=user.id, project_id=project.id, case_source="builtin", case_id="y"
+            )
+            is False
+        )
+
+    async def test_reorder_ignores_a_pin_the_caller_does_not_own(self, session):
+        mine = await _user(session, "mine@example.com")
+        theirs = await _user(session, "theirs@example.com")
+        project = await _project(session, mine)
+
+        a, _ = await service.add_pin(
+            session, user_id=mine.id, project_id=project.id, case_source="builtin", case_id="a"
+        )
+        b, _ = await service.add_pin(
+            session, user_id=mine.id, project_id=project.id, case_source="builtin", case_id="b"
+        )
+        foreign, _ = await service.add_pin(
+            session, user_id=theirs.id, project_id=project.id, case_source="builtin", case_id="c"
+        )
+        before = foreign.sort_order
+
+        ordered = await service.reorder_pins(
+            session,
+            user_id=mine.id,
+            project_id=project.id,
+            pin_ids=[b.id, a.id, foreign.id],
+        )
+
+        assert [p.case_id for p in ordered] == ["b", "a"]
+        assert foreign.sort_order == before
+
+    async def test_reorder_gives_unmentioned_pins_distinct_places(self, session):
+        # A pin the client did not list must not collapse to 0 and collide with
+        # the first pin it did list.
+        user = await _user(session, "tail@example.com")
+        project = await _project(session, user)
+        await service.add_pin(session, user_id=user.id, project_id=project.id, case_source="builtin", case_id="a")
+        await service.add_pin(session, user_id=user.id, project_id=project.id, case_source="builtin", case_id="b")
+        c, _ = await service.add_pin(
+            session, user_id=user.id, project_id=project.id, case_source="builtin", case_id="c"
+        )
+
+        ordered = await service.reorder_pins(session, user_id=user.id, project_id=project.id, pin_ids=[c.id])
+
+        places = [p.sort_order for p in ordered]
+        assert places == sorted(places)
+        assert len(set(places)) == 3
+        assert ordered[0].case_id == "c"
+
+
+# ── Validation rules ─────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+class TestCaseValidation:
+    @staticmethod
+    def _ids(findings) -> set[str]:
+        return {f.rule_id for f in findings}
+
+    async def test_empty_case_blocks_publishing(self):
+        register_cases_rules()
+        findings = await evaluate_case(_case_body(steps=[], description=""))
+        assert "cases.has_steps" in self._ids(findings)
+        # has_steps is an ERROR, so it must be in the set that stops sharing.
+        assert "cases.has_steps" in {f.rule_id for f in blocking_findings(findings)}
+
+    async def test_a_complete_case_has_nothing_blocking(self):
+        register_cases_rules()
+        findings = await evaluate_case(_case_body())
+        assert blocking_findings(findings) == []
+
+    async def test_repeated_screen_is_flagged_but_does_not_block(self):
+        register_cases_rules()
+        findings = await evaluate_case(_case_body(steps=[_step("s1"), _step("s2", title="Still the BOQ")]))
+        assert "cases.distinct_screens" in self._ids(findings)
+        assert blocking_findings(findings) == []
+
+    async def test_missing_why_is_flagged_but_does_not_block(self):
+        register_cases_rules()
+        findings = await evaluate_case(_case_body(steps=[_step("s1", why="")]))
+        assert "cases.step_purpose" in self._ids(findings)
+        assert blocking_findings(findings) == []
+
+    async def test_implausible_duration_is_flagged(self):
+        register_cases_rules()
+        findings = await evaluate_case(
+            _case_body(est_minutes=1, steps=[_step(f"s{i}", to=f"/screen-{i}") for i in range(10)])
+        )
+        assert "cases.duration_plausible" in self._ids(findings)
+
+    async def test_a_step_with_no_title_blocks_publishing(self):
+        # The schema refuses this shape, so the rule exists for cases that
+        # reached the database another way (an import, a seeded pack, an older
+        # row). Build the dict directly rather than through the schema.
+        register_cases_rules()
+        findings = await evaluate_case(_case_body(steps=[{"id": "s1", "title": "", "to": "/boq"}]))
+        assert "cases.step_titled" in {f.rule_id for f in blocking_findings(findings)}
+
+
+# ── Permissions ──────────────────────────────────────────────────────────────
+
+
+class TestCasePermissions:
+    """Every permission the router names has to exist in the registry.
+
+    ``RequirePermission`` denies an unregistered key rather than waving it
+    through, so a module that forgets its ``permissions.py`` ships endpoints
+    only an admin can reach, and no test that calls them as an admin notices.
+    """
+
+    @staticmethod
+    def _router_permissions() -> set[str]:
+        from app.modules.cases.router import router
+
+        found: set[str] = set()
+        for route in router.routes:
+            for dependency in getattr(route, "dependencies", []) or []:
+                call = getattr(dependency, "dependency", None)
+                key = getattr(call, "permission", None)
+                if isinstance(key, str):
+                    found.add(key)
+        return found
+
+    def test_every_permission_the_router_asks_for_is_registered(self):
+        from app.core.permissions import permission_registry
+
+        register_cases_permissions()
+        asked = self._router_permissions()
+        assert asked, "no route declared a permission; the guard would be vacuous"
+        registered = set(permission_registry.list_all())
+        assert asked <= registered, f"unregistered: {sorted(asked - registered)}"
+
+    def test_a_viewer_can_read_and_an_editor_can_write(self):
+        from app.core.permissions import Role, permission_registry
+
+        register_cases_permissions()
+        assert permission_registry.role_has_permission(Role.VIEWER, "cases.read") is True
+        # A viewer curating a pinned set would be writing to the account.
+        assert permission_registry.role_has_permission(Role.VIEWER, "cases.write") is False
+        assert permission_registry.role_has_permission(Role.EDITOR, "cases.write") is True
+
+
+@pytest.mark.asyncio
+async def test_case_and_pin_tables_are_named_by_convention():
+    assert UserCase.__tablename__ == "oe_cases_user_case"
+    assert CasePin.__tablename__ == "oe_cases_pin"
+    assert isinstance(uuid.uuid4(), uuid.UUID)
