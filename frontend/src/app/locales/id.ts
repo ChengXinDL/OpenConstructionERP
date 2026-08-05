@@ -13162,7 +13162,7 @@ const resource = {
     "pipeline.inspector.name_ph": "Otomatisasi saya",
     "pipeline.inspector.description": "Deskripsi",
     "pipeline.inspector.published": "Diterbitkan (dapat dipicu)",
-    "pipeline.inspector.summary_stub": "A plain-language summary of what this pipeline does will appear here. Use \"Explain this pipeline\" for the full story.",
+    "pipeline.inspector.summary_stub": "Ringkasan dalam bahasa sederhana tentang apa yang dilakukan pipeline ini akan muncul di sini. Gunakan “Jelaskan pipeline ini” untuk cerita lengkapnya.",
     "pipeline.canvas.aria": "Kanvas editor pipeline",
     "pipeline.canvas.hint": "Seret langkah dari palet, sambungkan portnya, lalu tekan Jalankan.",
     "pipeline.canvas.legend_sr": "Warna, bentuk, dan dasher tepi bersama-sama menyandikan jenis data.",

@@ -13466,7 +13466,7 @@ const resource = {
     "pipeline.inspector.name_ph": "أتمتتي",
     "pipeline.inspector.description": "الوصف",
     "pipeline.inspector.published": "منشور (يمكن تشغيله)",
-    "pipeline.inspector.summary_stub": "A plain-language summary of what this pipeline does will appear here. Use \"Explain this pipeline\" for the full story.",
+    "pipeline.inspector.summary_stub": "سيظهر هنا ملخص بلغة بسيطة لما يفعله خط الأنابيب هذا. استخدم «اشرح خط الأنابيب هذا» للقصة الكاملة.",
     "pipeline.canvas.aria": "لوحة محرر خط الأنابيب",
     "pipeline.canvas.hint": "اسحب الخطوات من اللوحة، واربط منافذها، ثم اضغط «تشغيل».",
     "pipeline.canvas.legend_sr": "لون الحافة وشكلها ونمطها معًا يرمزون لنوع البيانات.",

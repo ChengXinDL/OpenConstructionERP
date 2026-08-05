@@ -13170,7 +13170,7 @@ const resource = {
     "pipeline.inspector.name_ph": "Tự động hóa của tôi",
     "pipeline.inspector.description": "Mô tả",
     "pipeline.inspector.published": "Đã xuất bản (có thể trigger)",
-    "pipeline.inspector.summary_stub": "A plain-language summary of what this pipeline does will appear here. Use \"Explain this pipeline\" for the full story.",
+    "pipeline.inspector.summary_stub": "Bản tóm tắt bằng ngôn ngữ dễ hiểu về những gì pipeline này làm sẽ xuất hiện ở đây. Dùng “Giải thích pipeline này” để xem đầy đủ.",
     "pipeline.canvas.aria": "Canvas trình sửa pipeline",
     "pipeline.canvas.hint": "Kéo các bước từ bảng, kết nối cổng, rồi nhấn Chạy.",
     "pipeline.canvas.legend_sr": "Màu, hình dạng và nét đứt của cạnh cùng nhau mã hóa kiểu dữ liệu.",

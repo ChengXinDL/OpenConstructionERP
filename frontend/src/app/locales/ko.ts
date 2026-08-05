@@ -13204,7 +13204,7 @@ const resource = {
     "pipeline.inspector.name_ph": "내 자동화",
     "pipeline.inspector.description": "설명",
     "pipeline.inspector.published": "게시됨 (트리거 가능)",
-    "pipeline.inspector.summary_stub": "A plain-language summary of what this pipeline does will appear here. Use \"Explain this pipeline\" for the full story.",
+    "pipeline.inspector.summary_stub": "이 파이프라인이 하는 일에 대한 쉬운 설명이 여기에 표시됩니다. 전체 내용은 “이 파이프라인 설명”을 사용하세요.",
     "pipeline.canvas.aria": "파이프라인 편집기 캔버스",
     "pipeline.canvas.hint": "팔레트에서 단계를 끌어다 놓고 포트를 연결한 후 「실행」을 누르세요.",
     "pipeline.canvas.legend_sr": "엣지 색상, 모양 및 점선이 함께 데이터 유형을 인코딩합니다.",

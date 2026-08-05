@@ -13162,7 +13162,7 @@ const resource = {
     "pipeline.inspector.name_ph": "Otomasyonum",
     "pipeline.inspector.description": "Açıklama",
     "pipeline.inspector.published": "Yayımlandı (tetiklenebilir)",
-    "pipeline.inspector.summary_stub": "A plain-language summary of what this pipeline does will appear here. Use \"Explain this pipeline\" for the full story.",
+    "pipeline.inspector.summary_stub": "Bu pipeline'ın ne yaptığının sade bir dille özeti burada görünecek. Tamamı için “Bu pipeline'ı açıkla” seçeneğini kullanın.",
     "pipeline.canvas.aria": "Pipeline editör tuvali",
     "pipeline.canvas.hint": "Paletten adımları sürükleyin, portlarını bağlayın ve Çalıştır'a basın.",
     "pipeline.canvas.legend_sr": "Kenar rengi, şekli ve çizgi tipi birlikte veri türünü kodlar.",
