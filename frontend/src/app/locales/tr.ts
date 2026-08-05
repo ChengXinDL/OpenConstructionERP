@@ -9927,7 +9927,7 @@ const resource = {
     "boq.load_more": "Daha fazla yükle",
     "boq.loaded_n_of_m": "{{loaded}} / {{total}} kalem",
     "boq.tree_loading": "Yükleniyor...",
-    "boq.uncategorized": "(Kategorisiz)",
+    "boq.uncategorized": "(Belirtilmemiş)",
     "boq.from_variant": "varyant",
     "boq.variant_applied": "Varyant uygulandı: {{label}}",
     "common.how_it_works": "Nasıl çalışır",

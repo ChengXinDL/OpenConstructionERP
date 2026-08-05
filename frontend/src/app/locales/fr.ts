@@ -9086,7 +9086,7 @@ const resource = {
     "boq.load_more": "Charger plus",
     "boq.loaded_n_of_m": "{{loaded}} sur {{total}} éléments",
     "boq.tree_loading": "Chargement...",
-    "boq.uncategorized": "(Non catégorisé)",
+    "boq.uncategorized": "(Non spécifié)",
     "boq.from_variant": "variante",
     "boq.variant_applied": "Variante appliquée : {{label}}",
     "common.how_it_works": "Comment ça fonctionne",

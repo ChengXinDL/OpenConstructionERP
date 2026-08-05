@@ -8,6 +8,7 @@
 //   • Search-within-tree filters by node name AND keeps ancestors visible
 //     for matched descendants
 //   • Sentinel "__unspecified__" is rendered via the boq.uncategorized i18n key
+//     as "(Not specified)"
 
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -142,7 +143,7 @@ describe('CostCategoryTree', () => {
     expect(screen.queryByText('Masonry')).toBeNull();
   });
 
-  it('renders the __unspecified__ sentinel as the localized "(Uncategorized)" label', () => {
+  it('renders the __unspecified__ sentinel as the localized "(Not specified)" label', () => {
     render(
       <CostCategoryTree
         tree={SAMPLE_TREE}
@@ -157,7 +158,7 @@ describe('CostCategoryTree', () => {
       .at(-1);
     fireEvent.click(infraExpand!);
 
-    expect(screen.getByText(/^\(Uncategorized\)/)).toBeInTheDocument();
+    expect(screen.getByText(/^\(Not specified\)/)).toBeInTheDocument();
     // The literal sentinel token must NOT leak to the UI.
     expect(screen.queryByText('__unspecified__')).toBeNull();
   });
@@ -173,5 +174,71 @@ describe('CostCategoryTree', () => {
     );
     const buildingsRow = screen.getByText('Buildings').closest('[role="treeitem"]');
     expect(buildingsRow?.getAttribute('aria-selected')).toBe('true');
+  });
+
+  // ── A sentinel that is its parent's only child ──────────────────────────
+  //
+  // On the shipped catalogue this is not an edge case. Every one of the five
+  // top-level categories has exactly one child, the sentinel, holding 100% of
+  // the parent count, because that data carries no department level at all:
+  // 129 such nodes standing in front of 14967 rows. Rendering one puts a row
+  // on screen that repeats its parent's number and costs a click to get past.
+  //
+  // What must not break while removing that row: the slash-joined path is
+  // positional, so segment N is filtered at classification depth N. Dropping
+  // the sentinel from the path as well as from the screen would shift every
+  // deeper segment up one level and match section names against the
+  // department column.
+
+  const node = (name: string, count: number, children: CategoryTreeNode[] = []): CategoryTreeNode => ({
+    name,
+    count,
+    children,
+  });
+
+  it('does not render a sentinel that is its parent only child', () => {
+    const tree = [
+      node('Elektrikinstallation', 4580, [
+        node('__unspecified__', 4580, [node('Fernmodul', 5), node('Mikrofon', 3)]),
+      ]),
+    ];
+    render(<CostCategoryTree tree={tree} selectedPath="" onSelect={vi.fn()} t={t} />);
+
+    fireEvent.click(screen.getByText('Elektrikinstallation'));
+
+    expect(screen.queryByText(/^\(Not specified\)/)).not.toBeInTheDocument();
+    expect(screen.getByText('Fernmodul')).toBeInTheDocument();
+    expect(screen.getByText('Mikrofon')).toBeInTheDocument();
+  });
+
+  it('keeps the skipped sentinel in the emitted path so depths stay aligned', () => {
+    const onSelect = vi.fn();
+    const tree = [
+      node('Elektrikinstallation', 4580, [node('__unspecified__', 4580, [node('Fernmodul', 5)])]),
+    ];
+    render(<CostCategoryTree tree={tree} selectedPath="" onSelect={onSelect} t={t} />);
+
+    fireEvent.click(screen.getByText('Elektrikinstallation'));
+    fireEvent.click(screen.getByText('Fernmodul'));
+
+    // Not "Elektrikinstallation/Fernmodul": that would ask the backend to match
+    // a section name against the department column.
+    expect(onSelect).toHaveBeenLastCalledWith('Elektrikinstallation/__unspecified__/Fernmodul');
+  });
+
+  it('still renders a sentinel that has siblings', () => {
+    const tree = [
+      node('Buildings', 6, [
+        node('Concrete', 4, [node('Walls', 4)]),
+        node('__unspecified__', 2, [node('Walls', 2)]),
+      ]),
+    ];
+    render(<CostCategoryTree tree={tree} selectedPath="" onSelect={vi.fn()} t={t} />);
+
+    fireEvent.click(screen.getByText('Buildings'));
+
+    // Two real branches here, so the sentinel carries information rather than noise.
+    expect(screen.getByText(/^\(Not specified\)/)).toBeInTheDocument();
+    expect(screen.getByText('Concrete')).toBeInTheDocument();
   });
 });

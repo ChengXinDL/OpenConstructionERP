@@ -9965,7 +9965,7 @@ const resource = {
     "boq.load_more": "더 불러오기",
     "boq.loaded_n_of_m": "{{total}}개 중 {{loaded}}개",
     "boq.tree_loading": "로딩 중...",
-    "boq.uncategorized": "（미분류）",
+    "boq.uncategorized": "（미지정）",
     "boq.from_variant": "변형",
     "boq.variant_applied": "변형 적용됨: {{label}}",
     "common.how_it_works": "작동 방식",

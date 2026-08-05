@@ -9933,7 +9933,7 @@ const resource = {
     "boq.load_more": "Załaduj więcej",
     "boq.loaded_n_of_m": "{{loaded}} z {{total}} pozycji",
     "boq.tree_loading": "Ładowanie...",
-    "boq.uncategorized": "(Bez kategorii)",
+    "boq.uncategorized": "(Nieokreślone)",
     "boq.from_variant": "wariant",
     "boq.variant_applied": "Wariant zastosowany: {{label}}",
     "common.how_it_works": "Jak to działa",

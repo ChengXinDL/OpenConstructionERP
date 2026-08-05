@@ -9907,7 +9907,7 @@ const resource = {
     "boq.load_more": "Lataa lisää",
     "boq.loaded_n_of_m": "{{loaded}} / {{total}} nimikettä",
     "boq.tree_loading": "Ladataan...",
-    "boq.uncategorized": "(Luokittelematon)",
+    "boq.uncategorized": "(Määrittämätön)",
     "boq.markups_title": "Lisät ja yleiskulut",
     "boq.add_markup": "Lisää lisä",
     "boq.apply_template": "Käytä alueellista mallia",

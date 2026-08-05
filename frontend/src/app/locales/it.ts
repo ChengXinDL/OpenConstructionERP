@@ -9077,7 +9077,7 @@ const resource = {
     "boq.load_more": "Carica altro",
     "boq.loaded_n_of_m": "{{loaded}} di {{total}} voci",
     "boq.tree_loading": "Caricamento...",
-    "boq.uncategorized": "(Non categorizzato)",
+    "boq.uncategorized": "(Non specificato)",
     "boq.from_variant": "variante",
     "boq.variant_applied": "Variante applicata: {{label}}",
     "common.how_it_works": "Come funziona",

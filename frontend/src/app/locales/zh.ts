@@ -9970,7 +9970,7 @@ const resource = {
     "boq.load_more": "加载更多",
     "boq.loaded_n_of_m": "{{loaded}} / {{total}} 条",
     "boq.tree_loading": "加载中...",
-    "boq.uncategorized": "（未分类）",
+    "boq.uncategorized": "（未指定）",
     "boq.from_variant": "变体",
     "boq.variant_applied": "已应用变体：{{label}}",
     "common.how_it_works": "使用说明",

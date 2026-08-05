@@ -7328,7 +7328,7 @@ const resource = {
     "boq.load_more": "Indlæs mere",
     "boq.loaded_n_of_m": "{{loaded}} af {{total}} poster",
     "boq.tree_loading": "Indlæser...",
-    "boq.uncategorized": "(Ukategoriseret)",
+    "boq.uncategorized": "(Uspecificeret)",
     "boq.collapse_resources": "Skjul ressourcer",
     "boq.comment": "Kommentar",
     "boq.compare": "Sammenlign",

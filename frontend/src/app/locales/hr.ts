@@ -7240,7 +7240,7 @@ const resource = {
     "boq.load_more": "Učitaj više",
     "boq.loaded_n_of_m": "{{loaded}} od {{total}} stavki",
     "boq.tree_loading": "Učitavanje...",
-    "boq.uncategorized": "(Nekategorizirano)",
+    "boq.uncategorized": "(Nespecificirano)",
     "boq.collapse_resources": "Sažmi resurse",
     "boq.comment": "Komentar",
     "boq.compare": "Usporedi",

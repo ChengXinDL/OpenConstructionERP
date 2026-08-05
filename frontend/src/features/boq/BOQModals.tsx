@@ -1807,7 +1807,7 @@ export function CostDatabaseSearchModal({
                       .split('/')
                       .map((seg) =>
                         seg === '__unspecified__'
-                          ? t('boq.uncategorized', { defaultValue: '(Uncategorized)' })
+                          ? t('boq.uncategorized', { defaultValue: '(Not specified)' })
                           : seg,
                       )
                       .join(' / ')}

@@ -8407,7 +8407,7 @@ const resource = {
     "boq.total_value": "القيمة الإجمالية",
     "boq.tree_loading": "جارٍ التحميل...",
     "boq.try_different_search": "جرّب مصطلح بحث أو مرشّحًا مختلفًا",
-    "boq.uncategorized": "(غير مصنّف)",
+    "boq.uncategorized": "(غير محدد)",
     "boq.undo": "تراجع (Ctrl+Z)",
     "boq.undone": "تم التراجع",
     "boq.ungrouped": "غير مصنف",

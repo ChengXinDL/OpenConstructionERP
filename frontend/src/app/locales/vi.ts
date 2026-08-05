@@ -7254,7 +7254,7 @@ const resource = {
     "boq.load_more": "Tải thêm",
     "boq.loaded_n_of_m": "{{loaded}} trong {{total}} hạng mục",
     "boq.tree_loading": "Đang tải...",
-    "boq.uncategorized": "(Chưa phân loại)",
+    "boq.uncategorized": "(Chưa xác định)",
     "boq.collapse_resources": "Thu gọn nguồn lực",
     "boq.comment": "Nhận xét",
     "boq.compare": "So sánh",

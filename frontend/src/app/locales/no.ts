@@ -7296,7 +7296,7 @@ const resource = {
     "boq.load_more": "Last inn mer",
     "boq.loaded_n_of_m": "{{loaded}} av {{total}} poster",
     "boq.tree_loading": "Laster...",
-    "boq.uncategorized": "(Ukategorisert)",
+    "boq.uncategorized": "(Uspesifisert)",
     "boq.collapse_resources": "Skjul ressurser",
     "boq.comment": "Kommentar",
     "boq.compare": "Sammenlign",

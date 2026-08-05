@@ -12,9 +12,15 @@
  * auto-expand for the duration of the filter so the match is reachable.
  *
  * Sentinel handling: backend emits ``__unspecified__`` when a classification
- * segment is NULL/empty.  We render the sentinel as ``(Uncategorized)`` via
+ * segment is NULL/empty.  We render the sentinel as ``(Not specified)`` via
  * the ``boq.uncategorized`` i18n key — the underlying path stays the sentinel
  * so the backend filter still resolves cleanly.
+ *
+ * A sentinel that is its parent's ONLY child is not rendered at all: it holds
+ * every row the parent holds, so it is a click that changes nothing.  Its
+ * children are drawn one level up instead, and the sentinel remains in their
+ * path so each segment still lines up with the classification depth the
+ * backend filters on.
  */
 import { useMemo, useState, type KeyboardEvent } from 'react';
 import { ChevronRight, ChevronDown, Search } from 'lucide-react';
@@ -84,11 +90,27 @@ function TreeNodeRow({
 }: TreeNodeRowProps) {
   const path = parentPath ? `${parentPath}/${node.name}` : node.name;
   const isSelected = path === selectedPath;
-  const hasChildren = node.children.length > 0;
+
+  // A level whose only child is the sentinel holds every row its parent holds,
+  // so expanding it shows one row with the same count and costs a click that
+  // tells the user nothing. Measured on the shipped catalogue: 129 such nodes
+  // standing in front of 14967 rows, including every one of the five
+  // top-level categories, because this data has no department level at all.
+  //
+  // The grandchildren are rendered here instead. The sentinel stays in their
+  // path, so the backend still receives a segment for the depth it skipped and
+  // the slash-joined path keeps lining up with the depth it filters on -
+  // dropping it from the path would shift every deeper segment up one level.
+  const onlyChild = node.children.length === 1 ? node.children[0] : undefined;
+  const skipsSentinel =
+    onlyChild?.name === UNSPECIFIED_SENTINEL && onlyChild.children.length > 0;
+  const childNodes = skipsSentinel && onlyChild ? onlyChild.children : node.children;
+  const childParentPath = skipsSentinel ? `${path}/${UNSPECIFIED_SENTINEL}` : path;
+  const hasChildren = childNodes.length > 0;
 
   // While filtering, force ancestors of matches open so the path is visible.
   const childMatches = filter
-    ? node.children.some((c) => nodeMatchesDeep(c, filter))
+    ? childNodes.some((c) => nodeMatchesDeep(c, filter))
     : false;
   const isExpanded = expanded.has(path) || (filter ? childMatches : false);
 
@@ -97,7 +119,7 @@ function TreeNodeRow({
 
   const displayName =
     node.name === UNSPECIFIED_SENTINEL
-      ? t('boq.uncategorized', { defaultValue: '(Uncategorized)' })
+      ? t('boq.uncategorized', { defaultValue: '(Not specified)' })
       : node.name;
 
   function toggleExpand(e: React.MouseEvent | KeyboardEvent) {
@@ -186,11 +208,11 @@ function TreeNodeRow({
         </span>
       </div>
       {isExpanded &&
-        node.children.map((child) => (
+        childNodes.map((child) => (
           <TreeNodeRow
-            key={`${path}/${child.name}`}
+            key={`${childParentPath}/${child.name}`}
             node={child}
-            parentPath={path}
+            parentPath={childParentPath}
             depth={depth + 1}
             selectedPath={selectedPath}
             onSelect={onSelect}

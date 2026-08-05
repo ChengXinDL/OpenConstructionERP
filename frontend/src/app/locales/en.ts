@@ -2496,7 +2496,7 @@ const resource = {
     "boq.load_more": "Load more",
     "boq.loaded_n_of_m": "{{loaded}} of {{total}} items",
     "boq.tree_loading": "Loading...",
-    "boq.uncategorized": "(Uncategorized)",
+    "boq.uncategorized": "(Not specified)",
     "boq.collapse_resources": "Collapse resources",
     "boq.comment": "Comment",
     "boq.compare": "Compare",

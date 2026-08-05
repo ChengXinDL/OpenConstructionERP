@@ -10231,7 +10231,7 @@ const resource = {
     "boq.load_more": "Mehr laden",
     "boq.loaded_n_of_m": "{{loaded}} von {{total}} Einträgen",
     "boq.tree_loading": "Wird geladen...",
-    "boq.uncategorized": "(Ohne Kategorie)",
+    "boq.uncategorized": "(Nicht angegeben)",
     "boq.from_variant": "Variante",
     "boq.variant_applied": "Variante übernommen: {{label}}",
     "boq.mvp.title": "Materialien wählen",

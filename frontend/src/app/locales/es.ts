@@ -9539,7 +9539,7 @@ const resource = {
     "boq.load_more": "Cargar más",
     "boq.loaded_n_of_m": "{{loaded}} de {{total}} elementos",
     "boq.tree_loading": "Cargando...",
-    "boq.uncategorized": "(Sin categoría)",
+    "boq.uncategorized": "(Sin especificar)",
     "boq.from_variant": "variante",
     "boq.variant_applied": "Variante aplicada: {{label}}",
     "common.how_it_works": "Cómo funciona",

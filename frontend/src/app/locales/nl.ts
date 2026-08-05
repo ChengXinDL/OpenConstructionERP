@@ -9067,7 +9067,7 @@ const resource = {
     "boq.load_more": "Meer laden",
     "boq.loaded_n_of_m": "{{loaded}} van {{total}} items",
     "boq.tree_loading": "Laden...",
-    "boq.uncategorized": "(Zonder categorie)",
+    "boq.uncategorized": "(Niet gespecificeerd)",
     "boq.from_variant": "variant",
     "boq.variant_applied": "Variant toegepast: {{label}}",
     "common.how_it_works": "Hoe het werkt",

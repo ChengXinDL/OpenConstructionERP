@@ -9933,7 +9933,7 @@ const resource = {
     "boq.load_more": "Načíst další",
     "boq.loaded_n_of_m": "{{loaded}} z {{total}} položek",
     "boq.tree_loading": "Načítám...",
-    "boq.uncategorized": "(Bez kategorie)",
+    "boq.uncategorized": "(Neurčeno)",
     "boq.from_variant": "varianta",
     "boq.variant_applied": "Varianta použita: {{label}}",
     "common.how_it_works": "Jak to funguje",

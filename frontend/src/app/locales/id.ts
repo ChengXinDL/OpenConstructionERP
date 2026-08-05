@@ -7254,7 +7254,7 @@ const resource = {
     "boq.load_more": "Muat lebih banyak",
     "boq.loaded_n_of_m": "{{loaded}} dari {{total}} item",
     "boq.tree_loading": "Memuat...",
-    "boq.uncategorized": "(Tidak Terkategori)",
+    "boq.uncategorized": "(Tidak ditentukan)",
     "boq.collapse_resources": "Ciutkan sumber daya",
     "boq.comment": "Komentar",
     "boq.compare": "Bandingkan",

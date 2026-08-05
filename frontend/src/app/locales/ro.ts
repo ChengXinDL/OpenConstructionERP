@@ -7274,7 +7274,7 @@ const resource = {
     "boq.load_more": "Încărcați mai mult",
     "boq.loaded_n_of_m": "{{loaded}} din {{total}} articole",
     "boq.tree_loading": "Se încarcă...",
-    "boq.uncategorized": "(Necategorizat)",
+    "boq.uncategorized": "(Nespecificat)",
     "boq.collapse_resources": "Restrângeți resursele",
     "boq.comment": "Comentariu",
     "boq.compare": "Compară",

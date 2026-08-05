@@ -9947,7 +9947,7 @@ const resource = {
     "boq.load_more": "さらに読み込む",
     "boq.loaded_n_of_m": "{{total}}件中{{loaded}}件",
     "boq.tree_loading": "読み込み中...",
-    "boq.uncategorized": "（未分類）",
+    "boq.uncategorized": "（未指定）",
     "boq.from_variant": "バリアント",
     "boq.variant_applied": "バリアントを適用しました: {{label}}",
     "boq.mvp.subtitle_one": "{{count}} 件のリソースに選択が必要です",
