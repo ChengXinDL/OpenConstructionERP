@@ -79,10 +79,27 @@ class TestStepTargetGuard:
 
     @pytest.mark.parametrize(
         "target",
-        ["/boq", "/reports?tab=cost", "/projects/new", "/bim/viewer", "/field-time"],
+        [
+            "/boq",
+            "/reports?tab=cost",
+            "/projects/new",
+            "/bim/viewer",
+            "/field-time",
+            # A route parameter. The shipped cases use these and the reader
+            # substitutes the active project, so refusing the colon made
+            # copying one of the product's own cases unsavable.
+            "/projects/:projectId/files",
+        ],
     )
     def test_accepts(self, target):
         assert schemas.CaseStep(id="s", title="t", to=target).to == target
+
+    def test_a_colon_still_cannot_smuggle_a_scheme(self):
+        # The colon is allowed inside the path, so state plainly that it does
+        # not reopen the hole it was excluded for.
+        for target in ("javascript:alert(1)", "data:text/html,x", "vbscript:x"):
+            with pytest.raises(ValueError):
+                schemas.CaseStep(id="s", title="t", to=target)
 
 
 class TestCaseBodyGuards:

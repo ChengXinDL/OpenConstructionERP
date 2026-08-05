@@ -48,7 +48,14 @@ PinSourceLiteral = Literal["builtin", "custom"]
 # but a ``..`` segment is rejected separately below. The character class alone
 # does not catch it: ``/../admin`` matches this pattern happily, and a router
 # that normalises the path would then land somewhere the author never named.
-_ROUTE_RE = re.compile(r"^/(?!/)[A-Za-z0-9\-_/.]*(\?[A-Za-z0-9\-_=&%.,:+]*)?$")
+#
+# ``:`` is allowed because the shipped cases use route parameters - a third of
+# them step through ``/projects/:projectId/files`` and the reader substitutes
+# the active project at run time. Without it, copying one of the product's own
+# cases produced a case the product refused to save. It costs nothing here:
+# the leading slash is mandatory and unescapable, so ``javascript:`` cannot
+# match this pattern with or without the colon in the class.
+_ROUTE_RE = re.compile(r"^/(?!/)[A-Za-z0-9\-_/.:]*(\?[A-Za-z0-9\-_=&%.,:+]*)?$")
 
 MAX_STEPS = 40
 
