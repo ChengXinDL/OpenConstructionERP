@@ -15,6 +15,15 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      sidecar_only:
+        description: >-
+          Build and smoke-test the sidecar without bundling or releasing.
+          Leave this on to check a sidecar change: the bundle step names the
+          release after the git ref, so a manual run from a branch would
+          otherwise open a draft release called "main".
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -83,6 +92,29 @@ jobs:
           pip install "pyinstaller>=6.0.0"
           pyinstaller desktop/pyinstaller.spec --distpath desktop/dist --workpath desktop/build --noconfirm
 
+      # Ad-hoc sign the sidecar here, before anything runs it, rather than in
+      # the bundling job. The signature is part of the file, so it survives the
+      # artifact round trip (only the exec bit does not, which is why the other
+      # job still chmods). Signing here means the binary the next step executes
+      # is the binary users get, and it gives a signing change a test loop that
+      # does not involve the release path.
+      #
+      # An unsigned nested Mach-O breaks the .app bundle's signature seal, and
+      # on Apple Silicon a broken seal on a quarantined download makes
+      # Gatekeeper report the app as "damaged", the severe path that right-click
+      # Open cannot bypass, rather than the milder "unidentified developer".
+      # Giving the sidecar a valid ad-hoc cdhash lets Tauri's own ad-hoc bundle
+      # signing (bundle.macOS.signingIdentity "-") seal a valid bundle. This is
+      # not notarization: users still clear quarantine once (see the release
+      # notes and docs/desktop/INSTALL.md).
+      - name: Ad-hoc sign sidecar (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          f="desktop/dist/openconstructionerp-server"
+          codesign --force --sign - --timestamp=none "$f"
+          codesign --verify --verbose=2 "$f"
+
       - name: Check the sidecar carries a usable embedded database
         shell: bash
         # Issue #419: the Linux and macOS installers shipped without PostgreSQL's
@@ -94,6 +126,71 @@ jobs:
         run: |
           python scripts/check_desktop_sidecar_bundle.py \
             "desktop/dist/openconstructionerp-server${{ matrix.ext }}"
+
+      # Run the thing we just built. Nothing in this workflow ever did, and that
+      # is how the 14.4.0 macOS break shipped: the app reached "Starting the
+      # application server" and stopped, on a clean machine, because the onefile
+      # bootloader extracts its archive at launch and dyld then refuses to map
+      # the Python framework out of it ("mapping process and mapped file
+      # (non-platform) have different Team IDs"). The process never reaches
+      # Python, so no amount of reading the archive can see the failure. Only
+      # executing the binary can. The archive check above answers a different
+      # question, whether a needed file is present at all, and both stay.
+      #
+      # "version" is the cheapest subcommand that still starts the interpreter
+      # and imports the app package. It opens no database and no socket, which
+      # is what makes it safe to gate a release on. Team ID matching does not
+      # depend on the quarantine flag, so the runner reproduces the user's
+      # failure even though nothing here was downloaded from the web.
+      #
+      # This runs on all three platforms. The same "does it start at all"
+      # question catches the issue #419 class of break more directly than
+      # reading the archive does, and it costs seconds.
+      - name: Check the sidecar starts
+        shell: bash
+        timeout-minutes: 10
+        run: |
+          set -uo pipefail
+          bin="desktop/dist/openconstructionerp-server${{ matrix.ext }}"
+          chmod +x "$bin" 2>/dev/null || true
+          echo "Running: $bin version"
+          out=$("$bin" version 2>&1)
+          code=$?
+          echo "--- output ---"
+          echo "$out"
+          echo "--- exit $code ---"
+          if [ "$code" -ne 0 ]; then
+            echo "::error title=The desktop sidecar does not start::The sidecar built on ${{ matrix.os }} exits ${code} on its own runner. Shipping it would put this same failure on every user's machine at the 'Starting the application server' step. See the output above for the cause."
+            exit 1
+          fi
+          case "$out" in
+            *"OpenConstructionERP v"*)
+              echo "OK: the sidecar starts and reports its version." ;;
+            *)
+              echo "::error title=The desktop sidecar started but said nothing recognisable::Exit was 0 but the output does not carry a version line, so the interpreter may have started without the app package."
+              exit 1 ;;
+          esac
+
+      # Printed on every macOS run, green or red, because it is the evidence for
+      # the paragraph above. An ad-hoc signature carries no Team ID, so if the
+      # sidecar and the framework it loads are both ad-hoc they can never
+      # mismatch. If a start failure ever comes back, these two lines say which
+      # side grew a real Team ID.
+      - name: Record the macOS signing identities (diagnostic)
+        if: always() && runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -uo pipefail
+          echo "=== sidecar ==="
+          codesign -dvvv desktop/dist/openconstructionerp-server 2>&1 \
+            | grep -Ei 'identifier=|teamidentifier|flags=|signature' || true
+          echo "=== the build machine's Python framework, the copy PyInstaller collected ==="
+          fw="$(python -c 'import sys, os; print(os.path.join(sys.base_prefix, "Python"))')"
+          if [ -f "$fw" ]; then
+            codesign -dvvv "$fw" 2>&1 | grep -Ei 'identifier=|teamidentifier|flags=|signature' || true
+          else
+            echo "not found at $fw"
+          fi
 
       - name: Copy sidecar binary
         shell: bash
@@ -113,6 +210,11 @@ jobs:
   build-tauri:
     name: Build Desktop (${{ matrix.os }})
     needs: build-sidecar
+    # Skipped on a manual sidecar-only run. The step below names the release
+    # after the git ref, so a manual run from a branch would open a draft
+    # release called "main". A tag push never takes this branch: the input is
+    # empty there, so the condition is true.
+    if: github.event_name != 'workflow_dispatch' || inputs.sidecar_only != true
     runs-on: ${{ matrix.os }}
     strategy:
       # Build every OS even if one fails, so a single-platform break never
@@ -167,23 +269,18 @@ jobs:
         if: runner.os != 'Windows'
         run: chmod +x desktop/src-tauri/binaries/*
 
-      # Ad-hoc code sign the sidecar on macOS BEFORE Tauri bundles it. The
-      # sidecar is an unsigned PyInstaller binary; an unsigned nested Mach-O
-      # breaks the .app bundle's code-signature seal, and on Apple Silicon a
-      # broken seal on a quarantined download makes Gatekeeper report the app
-      # as "damaged" (the severe path, which right-click Open cannot bypass)
-      # rather than the milder "unidentified developer". Giving the sidecar a
-      # valid ad-hoc cdhash here lets Tauri's own ad-hoc bundle signing
-      # (bundle.macOS.signingIdentity "-") seal a valid bundle. This is not
-      # notarization: users still clear quarantine once (see the release
-      # notes and docs/desktop/INSTALL.md), but the app stops being reported
-      # as damaged.
-      - name: Ad-hoc sign sidecar (macOS)
+      # The sidecar was already ad-hoc signed in the build-sidecar job, before
+      # that job ran it, and a code signature is part of the file so it survives
+      # the artifact round trip. This re-signs it anyway: the signature has to
+      # be valid at the moment Tauri seals the bundle around it, and confirming
+      # that here costs a second. Verify, do not assume.
+      - name: Confirm the sidecar signature survived the artifact round trip (macOS)
         if: runner.os == 'macOS'
         run: |
           set -euo pipefail
           for f in desktop/src-tauri/binaries/*; do
-            echo "Ad-hoc signing $f"
+            echo "=== $f as downloaded ==="
+            codesign --verify --verbose=2 "$f" || echo "signature did not verify, re-signing"
             codesign --force --sign - --timestamp=none "$f"
             codesign --verify --verbose=2 "$f"
           done
