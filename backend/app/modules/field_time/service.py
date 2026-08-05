@@ -706,54 +706,63 @@ class FieldTimeService:
 
         Best-effort: any failure is logged and swallowed so the approval (and the
         hours actuals it posts) is never held hostage by the daywork write-through.
+
+        The whole write-through runs inside a SAVEPOINT, which is what makes
+        "swallowed" true on PostgreSQL. Catching the exception is not enough
+        there: a failed statement puts the surrounding transaction into an
+        aborted state, so every later statement - including the status update
+        that posts the hours - fails with ``PendingRollbackError``. The savepoint
+        confines the damage to the daywork writes, exactly as the docstring
+        promises.
         """
         daywork_lines = [line for line in self._line_dicts(timesheet) if line.get("is_daywork")]
         if not daywork_lines:
             return
         try:
-            from app.modules.variations.schemas import DayworkSheetCreate, DayworkSheetLineCreate
-            from app.modules.variations.service import VariationsService
+            async with self.session.begin_nested():
+                from app.modules.variations.schemas import DayworkSheetCreate, DayworkSheetLineCreate
+                from app.modules.variations.service import VariationsService
 
-            variations = VariationsService(self.session)
-            # Group daywork lines by the variation they were performed under so
-            # each signed sheet stays scoped to a single variation.
-            by_variation: dict[str, list[dict[str, Any]]] = {}
-            for line in daywork_lines:
-                by_variation.setdefault(str(line.get("variation_id") or ""), []).append(line)
+                variations = VariationsService(self.session)
+                # Group daywork lines by the variation they were performed under so
+                # each signed sheet stays scoped to a single variation.
+                by_variation: dict[str, list[dict[str, Any]]] = {}
+                for line in daywork_lines:
+                    by_variation.setdefault(str(line.get("variation_id") or ""), []).append(line)
 
-            for variation_id, group in by_variation.items():
-                sheet = await variations.create_daywork_sheet(
-                    DayworkSheetCreate(
-                        project_id=timesheet.project_id,
-                        work_date=str(timesheet.date),
-                        description=(
-                            f"Field timesheet {timesheet.reference} daywork"
-                            + (f" (variation {variation_id})" if variation_id else "")
+                for variation_id, group in by_variation.items():
+                    sheet = await variations.create_daywork_sheet(
+                        DayworkSheetCreate(
+                            project_id=timesheet.project_id,
+                            work_date=str(timesheet.date),
+                            description=(
+                                f"Field timesheet {timesheet.reference} daywork"
+                                + (f" (variation {variation_id})" if variation_id else "")
+                            ),
+                            currency=currency,
+                            status="draft",
                         ),
-                        currency=currency,
-                        status="draft",
-                    ),
-                    user_id,
-                )
-                drafts = ft.daywork_line_drafts(group, labour_rates=labour_rates, plant_rates=plant_rates)
-                for draft in drafts:
-                    await variations.add_daywork_line(
-                        DayworkSheetLineCreate(
-                            sheet_id=sheet.id,
-                            line_type=draft.line_type,
-                            description=draft.description,
-                            quantity=draft.quantity,
-                            unit=draft.unit,
-                            unit_rate=draft.unit_rate,
-                            worker_name=draft.worker_name,
-                            equipment_code=draft.equipment_code,
-                        ),
+                        user_id,
                     )
-                # Stamp the resulting sheet id back onto the source lines.
-                for line in group:
-                    line_uuid = _as_uuid(line.get("id"))
-                    if line_uuid is not None:
-                        await self.repo.update_line_fields(line_uuid, daywork_sheet_id=sheet.id)
+                    drafts = ft.daywork_line_drafts(group, labour_rates=labour_rates, plant_rates=plant_rates)
+                    for draft in drafts:
+                        await variations.add_daywork_line(
+                            DayworkSheetLineCreate(
+                                sheet_id=sheet.id,
+                                line_type=draft.line_type,
+                                description=draft.description,
+                                quantity=draft.quantity,
+                                unit=draft.unit,
+                                unit_rate=draft.unit_rate,
+                                worker_name=draft.worker_name,
+                                equipment_code=draft.equipment_code,
+                            ),
+                        )
+                    # Stamp the resulting sheet id back onto the source lines.
+                    for line in group:
+                        line_uuid = _as_uuid(line.get("id"))
+                        if line_uuid is not None:
+                            await self.repo.update_line_fields(line_uuid, daywork_sheet_id=sheet.id)
             await self.session.refresh(timesheet)
         except Exception:
             logger.exception(

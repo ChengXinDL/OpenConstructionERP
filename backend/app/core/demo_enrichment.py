@@ -69,6 +69,7 @@ async def enrich_projects(project_ids: list[uuid.UUID]) -> None:
         from app.modules.costmodel.seed import seed_costmodel
         from app.modules.crm.seed import seed_crm_demo
         from app.modules.documents.photos_seed import seed_photos
+        from app.modules.field_time.seed import seed_field_time_demo
         from app.modules.hse_advanced.seed import seed_hse_advanced_demo
         from app.modules.markups.seed import seed_markups
         from app.modules.moc.seed import seed_moc
@@ -107,6 +108,11 @@ async def enrich_projects(project_ids: list[uuid.UUID]) -> None:
                 lambda s: seed_schedule_advanced_demo(s, _all_pids),
             ),
             ("variations", Notice, lambda s: seed_variations_demo(s, _all_pids)),
+            # Field time runs after variations so a daywork booking can name an
+            # open variation order, and after the equipment seed (which runs at
+            # boot before this list) so plant hours price off a real rental.
+            # Self-guards per project on an existing timesheet.
+            ("field_time", None, lambda s: seed_field_time_demo(s, _all_pids)),
             # ── Modules that shipped without any startup seeder at all ──
             # Each new seeder below is internally idempotent (it returns an
             # empty dict once its own marker rows already exist), so they are

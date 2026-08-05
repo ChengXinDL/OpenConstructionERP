@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import re
 import uuid
 from decimal import Decimal, InvalidOperation
 from typing import Any, TypeVar
@@ -29,6 +30,9 @@ from app.modules.variations.models import (
 )
 
 T = TypeVar("T")
+
+# Trailing digits of a daywork sheet number, e.g. the "0042" of "DW-0042".
+_SHEET_NUMBER_RE = re.compile(r"(\d+)\s*$")
 
 
 def _to_decimal(value: object) -> Decimal:
@@ -304,9 +308,25 @@ class DayworkSheetRepository(_BaseRepo):
     project_field = "project_id"
 
     async def next_sheet_number(self, project_id: uuid.UUID) -> str:
-        stmt = select(func.count()).select_from(DayworkSheet).where(DayworkSheet.project_id == project_id)
-        count = (await self.session.execute(stmt)).scalar_one()
-        return f"DW-{count + 1:04d}"
+        """Return the next per-project sheet number, e.g. ``DW-0042``.
+
+        Derived from the highest numeric suffix already used in the project, not
+        from the row count. A count only produces a free number while the
+        existing numbers run 1..n with no gaps, and they do not have to: a
+        deleted sheet, or a sheet numbered by anything other than this method,
+        leaves a count that points at a number already taken. The
+        ``(project_id, sheet_number)`` unique constraint then rejects the
+        insert, which on PostgreSQL takes the caller's whole transaction down
+        with it.
+        """
+        stmt = select(DayworkSheet.sheet_number).where(DayworkSheet.project_id == project_id)
+        rows = (await self.session.execute(stmt)).scalars().all()
+        highest = 0
+        for number in rows:
+            match = _SHEET_NUMBER_RE.search(number or "")
+            if match:
+                highest = max(highest, int(match.group(1)))
+        return f"DW-{highest + 1:04d}"
 
     async def list_signed(self, project_id: uuid.UUID) -> list[DayworkSheet]:
         stmt = select(DayworkSheet).where(
