@@ -78,6 +78,26 @@ def _classification_expr(depth_key: str) -> Any:
     return CostItem.classification[depth_key].as_string()
 
 
+def _classification_predicate(depth_key: str, segment: str) -> Any:
+    """Return the WHERE predicate that selects one classification segment.
+
+    ``UNSPECIFIED_CATEGORY`` is not a value any row carries. The tree mints
+    it in Python for rows whose level is NULL, missing, empty or whitespace
+    (see ``_norm`` in :meth:`CostRepository.get_category_tree`), so asking
+    for it by equality matches nothing. That is how a node counting 4580
+    rows could open onto "no cost items found": the count came from the
+    coalescing side and the filter came from the literal side.
+
+    Selecting those rows back has to ask the same question the tree asked,
+    which is what this does. Every caller that turns a path segment into a
+    filter must go through here rather than comparing the segment itself.
+    """
+    expr = _classification_expr(depth_key)
+    if segment == UNSPECIFIED_CATEGORY:
+        return or_(expr.is_(None), func.trim(expr) == "")
+    return expr == segment
+
+
 # ── Multilingual free-text search ────────────────────────────────────────────
 #
 # The main cost browser and its autocomplete route their ``q`` through the same
@@ -438,8 +458,7 @@ class CostItemRepository:
             for depth_idx, segment in enumerate(_split_classification_path(classification_path)):
                 if segment is None:
                     continue
-                expr = _classification_expr(_CLASSIFICATION_DEPTHS[depth_idx])
-                base = base.where(expr == segment)
+                base = base.where(_classification_predicate(_CLASSIFICATION_DEPTHS[depth_idx], segment))
 
         # Coerce to float for cross-dialect comparison - the rate column is
         # String(50) for SQLite Decimal compat (see models.py). ``numeric_value``
@@ -746,8 +765,7 @@ class CostItemRepository:
             for depth_idx, segment in enumerate(_split_classification_path(parent_path)):
                 if segment is None:
                     continue
-                expr = _classification_expr(_CLASSIFICATION_DEPTHS[depth_idx])
-                stmt = stmt.where(expr == segment)
+                stmt = stmt.where(_classification_predicate(_CLASSIFICATION_DEPTHS[depth_idx], segment))
 
         result = await self.session.execute(stmt)
         rows = result.all()

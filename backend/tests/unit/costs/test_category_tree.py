@@ -164,6 +164,65 @@ async def test_tree_unspecified_sorts_last(session: AsyncSession) -> None:
     assert dept_order[-1] == UNSPECIFIED_CATEGORY
 
 
+# ── Drilling into the unspecified node ────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_unspecified_segment_selects_the_rows_it_counted(session: AsyncSession) -> None:
+    """Filtering by the sentinel must return the rows the sentinel counted.
+
+    The tree mints ``__unspecified__`` in Python for a NULL, missing or empty
+    level, so no row carries it as a value. A filter that compares the literal
+    to the column therefore matches nothing, and the node opens onto "no cost
+    items found" while still showing its count. Both halves have to ask the
+    same question.
+    """
+    repo = CostItemRepository(session)
+
+    # Z1 is the only Buildings row with a NULL department.
+    items, total, _ = await repo.search(
+        region="DE_BERLIN", classification_path=f"Buildings/{UNSPECIFIED_CATEGORY}", limit=50
+    )
+    assert [i.code for i in items] == ["Z1"]
+    assert total == 1
+
+    # Z2's section is an empty string rather than NULL, which pins that the two
+    # collapse into one node on the filter side as well as in the aggregation.
+    items, total, _ = await repo.search(
+        region="DE_BERLIN", classification_path=f"Buildings/Concrete/{UNSPECIFIED_CATEGORY}", limit=50
+    )
+    assert [i.code for i in items] == ["Z2"]
+    assert total == 1
+
+
+@pytest.mark.asyncio
+async def test_unspecified_node_count_matches_the_drilldown(session: AsyncSession) -> None:
+    """Every sentinel node's count must equal what drilling into it returns."""
+    repo = CostItemRepository(session)
+    tree = await repo.category_tree(region="DE_BERLIN")
+    buildings = next(n for n in tree if n["name"] == "Buildings")
+    node = next(n for n in buildings["children"] if n["name"] == UNSPECIFIED_CATEGORY)
+
+    _, total, _ = await repo.search(
+        region="DE_BERLIN", classification_path=f"Buildings/{UNSPECIFIED_CATEGORY}", limit=50
+    )
+    assert total == node["count"]
+
+
+@pytest.mark.asyncio
+async def test_unspecified_parent_path_scopes_the_tree(session: AsyncSession) -> None:
+    """The same sentinel handling applies when the tree itself drills down.
+
+    ``parent_path`` builds its filter through the identical code path, so a
+    tree scoped to an unspecified branch used to come back empty for the same
+    reason the item list did.
+    """
+    repo = CostItemRepository(session)
+    scoped = await repo.category_tree(region="DE_BERLIN", parent_path=f"Buildings/{UNSPECIFIED_CATEGORY}")
+    assert scoped, "scoping the tree to the unspecified department returned nothing"
+    assert sum(n["count"] for n in scoped) == 1
+
+
 # ── Cursor codec ──────────────────────────────────────────────────────────
 
 
