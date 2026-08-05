@@ -134,3 +134,34 @@ jobs:
           python-version: '3.12'
       - name: Check locale files for homoglyph-mixed words
         run: python scripts/check_locale_mixed_script.py
+
+  case-routes:
+    name: Every case step lands on a declared route
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # A case step is a link the reader clicks. /pipelines was linked from the
+      # sidebar and stepped through by a shipped case for as long as the module
+      # existed, with no Route ever declared, so the walkthrough dead-ended and
+      # nothing compared the two lists.
+      - name: Check case step targets against the route table
+        run: python scripts/check_case_routes.py
+
+  permission-registration:
+    name: Every permission a route asks for is registered
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # An unregistered key resolves to False for every role while admin
+      # short-circuits above the check, so the route is admin-only in
+      # production and every admin-authenticated test still passes. The
+      # failure needs a non-admin user to appear at all, which is why this is
+      # a static check and not a test.
+      - name: Check permission keys against the registry
+        run: python scripts/check_permission_registration.py

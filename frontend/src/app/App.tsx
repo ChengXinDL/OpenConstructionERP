@@ -1400,12 +1400,6 @@ export default function App() {
             <P title="Document Templates"><PropertyDevDocumentTemplatesSettingsPage /></P>
           }
         />
-        <Route
-          path="/property-dev/admin/bulk-operations"
-          element={
-            <P title="Bulk Operations"><PropertyDevBulkOperationsPage /></P>
-          }
-        />
         <Route path="/property-dev/dashboards/:key" element={<P title="Property Development Dashboard"><PropertyDevDashboardFullView /></P>} />
         <Route path="/accommodation" element={<P title="Accommodation"><AccommodationListPage /></P>} />
         <Route path="/accommodation/calendar" element={<P title="Accommodation Calendar"><AccommodationCalendarPage /></P>} />
