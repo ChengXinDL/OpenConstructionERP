@@ -118,6 +118,7 @@ import {
   type EntityContextMenuEvent,
 } from './components/DxfViewer';
 import { aggregateEntities } from './lib/group-aggregation';
+import { effectiveLayout, layoutNames, sceneEntities } from './lib/dxf-renderer';
 import { groupBlockDefinitions } from './lib/blocks';
 import { findTextMatches, type DwgTextMatch } from './lib/dwg-textsearch';
 import {
@@ -161,6 +162,9 @@ import {
 import type { SnapModes } from './lib/snap';
 import { LayerPanel } from './components/LayerPanel';
 import { EntityNameFilter, entityDisplayName } from './components/EntityNameFilter';
+import { TextDisplayControl } from './components/TextDisplayControl';
+import type { TextDisplayState } from './lib/text-display-store';
+import { loadTextDisplay, saveTextDisplay } from './lib/text-display-store';
 import CreateTaskFromDwgModal from './CreateTaskFromDwgModal';
 import LinkDocumentToDwgModal from './LinkDocumentToDwgModal';
 import LinkActivityToDwgModal from './LinkActivityToDwgModal';
@@ -762,6 +766,17 @@ export function DwgTakeoffPage() {
     }
   }, [snapModes]);
   const [snapMenuOpen, setSnapMenuOpen] = useState(false);
+
+  /* ── Text display ──────────────────────────────────────────────────
+   * Hide every label on the sheet, or draw them smaller / larger than the
+   * drawing asks for. Stored globally like the snap modes rather than per
+   * drawing: it says how big this person wants to read, not anything about
+   * the file. Display only - the entity list the viewer measures, hit-tests
+   * and quantifies is the same list either way. */
+  const [textDisplay, setTextDisplay] = useState<TextDisplayState>(() => loadTextDisplay());
+  useEffect(() => {
+    saveTextDisplay(textDisplay);
+  }, [textDisplay]);
   /**
    * Drawing scale denominator (RFC 13 #13). `1` = use raw DXF units as
    * meters. `50` = the drawing is 1:50, so a 0.20-unit segment represents
@@ -1291,33 +1306,26 @@ export function DwgTakeoffPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deepLinkDrawingId, deepLinkDocId, deepLinkDocName, drawings, loadingDrawings]);
 
-  // Layout support
-  const [selectedLayout, setSelectedLayout] = useState<string | null>(null);
+  // Layout support. What the reader picked in the sheet strip, which is not
+  // the same thing as which sheet is on screen: see `selectedLayout` below.
+  const [pickedLayout, setPickedLayout] = useState<string | null>(null);
 
-  // Unique layout names from entities
-  const layouts = useMemo(() => {
-    const set = new Set<string>();
-    for (const e of entities) {
-      if (e.layout) set.add(e.layout);
-    }
-    if (set.size === 0) return [];
-    // Sort: "Model" / "*Model_Space" first, then alphabetical
-    return Array.from(set).sort((a, b) => {
-      const aIsModel = a === 'Model' || a === '*Model_Space';
-      const bIsModel = b === 'Model' || b === '*Model_Space';
-      if (aIsModel && !bIsModel) return -1;
-      if (!aIsModel && bIsModel) return 1;
-      return a.localeCompare(b);
-    });
-  }, [entities]);
+  // Unique layout names from entities, model space first.
+  const layouts = useMemo(() => layoutNames(entities), [entities]);
 
-  // Auto-select first layout when entities load
-  useEffect(() => {
-    if (layouts.length > 0 && selectedLayout === null) {
-      setSelectedLayout(layouts[0] ?? null);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layouts]);
+  /**
+   * The sheet on screen. Derived during render, not latched by an effect.
+   *
+   * An effect runs after commit, so latching "no pick yet -> first sheet" left
+   * the first painted frame of every drawing showing whatever the un-picked
+   * state rendered as - and that was the union of every sheet, model space and
+   * paper space fitted into one box. Deriving it means there is no frame in
+   * which no sheet is chosen.
+   */
+  const selectedLayout = useMemo(
+    () => effectiveLayout(layouts, pickedLayout),
+    [layouts, pickedLayout],
+  );
 
   // Per-layout entity counts for the SheetStrip. Memoised so a hover on
   // the strip doesn't re-walk the entity list.
@@ -1476,16 +1484,14 @@ export function DwgTakeoffPage() {
   // to no sheet and every sheet at once - whichever one places them.
   const blockDefs = useMemo(() => groupBlockDefinitions(entities), [entities]);
 
-  // Filter entities by selected layout. Definition members are excluded
-  // whichever branch runs: the layout filter drops them for free because they
-  // have no layout, but a drawing with no layouts at all takes the early
-  // return, and there they would arrive as loose parts in block coordinates.
-  const filteredEntities = useMemo(() => {
-    if (!selectedLayout || layouts.length === 0) {
-      return annotatedEntities.filter((e) => !e.block);
-    }
-    return annotatedEntities.filter((e) => e.layout === selectedLayout && !e.block);
-  }, [annotatedEntities, selectedLayout, layouts]);
+  // The scene: one sheet's entities, minus the definition members that are
+  // drawn only through the INSERTs placing them. `sceneEntities` keeps the
+  // union for a drawing that has no sheets at all, which is the one case where
+  // the union is the right answer.
+  const filteredEntities = useMemo(
+    () => sceneEntities(annotatedEntities, layouts, pickedLayout),
+    [annotatedEntities, layouts, pickedLayout],
+  );
 
   // Layers present in THIS (possibly server-filtered) fetch + the virtual
   // USER_MARKUP layer so it gets a LayerPanel row once users start drawing.
@@ -2115,7 +2121,7 @@ export function DwgTakeoffPage() {
     setSelectedEntityIds(new Set());
     setHiddenEntityIds(new Set());
     setSelectedAnnotationId(null);
-    setSelectedLayout(null);
+    setPickedLayout(null);
     setEntityPopup(null);
     setContextMenu(null);
     // Drop in-progress draw / calibration so a half-started measurement on
@@ -3460,6 +3466,7 @@ export function DwgTakeoffPage() {
                 searchBoxes={searchBoxes}
                 activeSearchBox={activeMatch ? activeMatch.box : null}
                 focusTarget={findFocusTarget}
+                textDisplay={textDisplay}
               />
 
               {/* Onion-skin overlay (Item 17) - a dim wash over the current
@@ -3490,8 +3497,12 @@ export function DwgTakeoffPage() {
                   Lives here (not in a fixed header bar) so the drawing gets
                   the full viewport height and tools stay visually attached
                   to the thing they act on. */}
-              <div className="absolute top-3 left-3 z-10 flex items-start gap-2">
-                <div className="rounded-lg border border-white/60 bg-white/85 dark:bg-white/90 backdrop-blur-md shadow-xl shadow-black/30 ring-1 ring-black/5">
+              {/* pointer-events-none on the strip, auto on each group: with
+                  three groups the row wraps on a narrow viewer, and an empty
+                  transparent box beside the second row would swallow clicks
+                  meant for the drawing under it. */}
+              <div className="absolute top-3 left-3 z-10 flex flex-wrap items-start gap-2 max-w-[calc(100%-1.5rem)] pointer-events-none">
+                <div className="pointer-events-auto rounded-lg border border-white/60 bg-white/85 dark:bg-white/90 backdrop-blur-md shadow-xl shadow-black/30 ring-1 ring-black/5">
                   <ToolPalette
                     activeTool={activeTool}
                     onToolChange={setActiveTool}
@@ -3504,7 +3515,7 @@ export function DwgTakeoffPage() {
                     to the tool palette so tool + history + snap controls
                     are all reachable without leaving the top-left. */}
                 <div
-                  className="flex items-center gap-1 rounded-lg border border-white/60 bg-white/85 dark:bg-white/90 backdrop-blur-md px-1.5 py-1 shadow-xl shadow-black/30 ring-1 ring-black/5"
+                  className="pointer-events-auto flex items-center gap-1 rounded-lg border border-white/60 bg-white/85 dark:bg-white/90 backdrop-blur-md px-1.5 py-1 shadow-xl shadow-black/30 ring-1 ring-black/5"
                   data-testid="dwg-history-bar"
                 >
                   <button
@@ -3613,6 +3624,14 @@ export function DwgTakeoffPage() {
                       </div>
                     )}
                   </div>
+                </div>
+
+                {/* Text display. Sits with the tools rather than in the
+                    layer panel because it is reached mid-measurement, with
+                    a drawing tool still selected, and a trip to a side tab
+                    to unbury the wall you are tracing is a trip too far. */}
+                <div className="pointer-events-auto">
+                  <TextDisplayControl value={textDisplay} onChange={setTextDisplay} />
                 </div>
               </div>
 
@@ -4171,7 +4190,7 @@ export function DwgTakeoffPage() {
               layouts={layouts}
               entities={entities}
               activeLayout={selectedLayout}
-              onLayoutChange={setSelectedLayout}
+              onLayoutChange={setPickedLayout}
               entityCountByLayout={entityCountByLayout}
             />
             </>

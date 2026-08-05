@@ -17,9 +17,10 @@ import {
   screenToWorld,
   worldToScreen,
 } from '../lib/viewport';
-import { renderEntities } from '../lib/dxf-renderer';
+import { layoutNames, renderEntities, sceneEntities } from '../lib/dxf-renderer';
 import type { BlockDefs } from '../lib/blocks';
 import { expandBlockReferences } from '../lib/blocks';
+import type { TextDisplayState } from '../lib/text-display-store';
 import { renderAnnotations } from './AnnotationOverlay';
 import type { DwgTool } from './ToolPalette';
 import {
@@ -164,6 +165,15 @@ interface Props {
   searchBoxes?: Extents[];
   activeSearchBox?: Extents | null;
   focusTarget?: { box: Extents; nonce: number } | null;
+  /**
+   * Whether to paint drawing text, and at what multiple of its drawn height.
+   * Reaches `renderEntities` and nothing else: the fit box already ignores
+   * text, and hit testing, snapping and the quantity totals all run off the
+   * entity list rather than off what was painted. So a hidden label is a label
+   * you cannot see, not a label the takeoff has forgotten. Omitted = shown at
+   * the drawing's own size.
+   */
+  textDisplay?: TextDisplayState;
 }
 
 export function DxfViewer({
@@ -188,9 +198,15 @@ export function DxfViewer({
   searchBoxes,
   activeSearchBox,
   focusTarget,
+  textDisplay,
 }: Props) {
   const drawingScaleRef = useRef(drawingScale);
   drawingScaleRef.current = drawingScale;
+  // Read inside the draw loop rather than closed over, so a toggle lands on the
+  // next frame without tearing down and restarting the loop. The prop change
+  // re-renders, which is what marks the canvas dirty (see `dirtyRef`).
+  const textDisplayRef = useRef(textDisplay);
+  textDisplayRef.current = textDisplay;
   const calibrationOverlayRef = useRef(calibrationOverlay);
   calibrationOverlayRef.current = calibrationOverlay;
   const calibrationRef = useRef(calibration);
@@ -239,6 +255,27 @@ export function DxfViewer({
   /** Whether the viewport has been fitted at least once (prevents redundant fits). */
   const fittedRef = useRef(false);
 
+  /**
+   * Whether the canvas needs repainting.
+   *
+   * The render loop polls every frame and always will - the viewport is moved
+   * by ref, outside React, so there is nothing to subscribe to. What it does
+   * not do any more is repaint every frame regardless: an idle viewer used to
+   * clear and redraw the whole drawing sixty times a second, which costs the
+   * same as panning does and takes the main thread away from React while the
+   * user is interacting with the page.
+   *
+   * Set from two places. The effect below runs after every commit, so any prop
+   * or state the drawing depends on marks it by existing - no list to keep in
+   * sync, and nothing to forget when a prop is added. The pointer handlers set
+   * it themselves, because they deliberately move the viewport by ref without
+   * a re-render and would otherwise leave the canvas showing the old frame.
+   */
+  const dirtyRef = useRef(true);
+  useEffect(() => {
+    dirtyRef.current = true;
+  });
+
   /** Whether Shift is currently held. Mirrored into a ref so the render
    *  loop (outside React's closure) can read the live value without
    *  rebuilding the animation-frame callback. Used for ortho-lock
@@ -272,7 +309,12 @@ export function DxfViewer({
   // can abandon a half-drawn polyline / area without switching tools.
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if (e.key === 'Shift') shiftHeldRef.current = true;
+      // Shift ortho-locks the rubber band, and the lock has to show the moment
+      // the key goes down rather than on the next mouse move.
+      if (e.key === 'Shift') {
+        shiftHeldRef.current = true;
+        dirtyRef.current = true;
+      }
       if (e.key === 'Escape' && drawPointsRef.current.length > 0) {
         const tag = (e.target as HTMLElement | null)?.tagName;
         // Never steal Escape when the user is typing in an input.
@@ -283,10 +325,14 @@ export function DxfViewer({
       }
     };
     const up = (e: KeyboardEvent) => {
-      if (e.key === 'Shift') shiftHeldRef.current = false;
+      if (e.key === 'Shift') {
+        shiftHeldRef.current = false;
+        dirtyRef.current = true;
+      }
     };
     const blur = () => {
       shiftHeldRef.current = false;
+      dirtyRef.current = true;
     };
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', up);
@@ -315,8 +361,9 @@ export function DxfViewer({
 
   /**
    * Block geometry, placed in world coordinates by the INSERTs that reference
-   * it. Computed here rather than in the draw loop because the draw loop runs
-   * every frame and this walks every definition of every reference.
+   * it. Computed here rather than in the draw loop because this walks every
+   * definition of every reference, and a pan would pay for it on every frame
+   * it moves.
    *
    * These are render-only copies. They are deliberately kept out of hit
    * testing, snapping and selection: they carry synthetic ids the backend has
@@ -340,10 +387,18 @@ export function DxfViewer({
     }
     // Placed block geometry is real geometry sitting on the sheet, so it
     // belongs in the fit. A plan whose content is mostly blocks would
-    // otherwise fit to the handful of lines drawn outside them.
-    const ext = computeExtents(
-      placedBlocks.length > 0 ? entities.concat(placedBlocks) : entities,
-    );
+    // otherwise fit to the handful of lines drawn outside them. Placed copies
+    // carry the layout of the INSERT that placed them, so they sort with the
+    // sheet they land on.
+    const drawn = placedBlocks.length > 0 ? entities.concat(placedBlocks) : entities;
+    // A scene is one sheet. The caller decides which one; this only refuses to
+    // frame a scene that turned out to hold several, because model space and
+    // paper space share neither origin nor scale and there is no box that
+    // fits both - the sheet ends up a speck drawn over the plan. Framing the
+    // first sheet is wrong about the other one's position; framing the union
+    // is wrong about everything.
+    const sheets = layoutNames(drawn);
+    const ext = computeExtents(sheets.length > 1 ? sceneEntities(drawn, sheets, null) : drawn);
     extentsRef.current = ext;
     // Fit immediately if the container already has a known size
     const container = containerRef.current;
@@ -444,6 +499,11 @@ export function DxfViewer({
     if (!ctx) return;
 
     const draw = () => {
+      if (!dirtyRef.current) {
+        rafRef.current = requestAnimationFrame(draw);
+        return;
+      }
+      dirtyRef.current = false;
       const dpr = window.devicePixelRatio || 1;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -520,7 +580,17 @@ export function DxfViewer({
       const renderList = visiblePlaced.length > 0
         ? visibleEntities.concat(visiblePlaced)
         : visibleEntities;
-      renderEntities(ctx, renderList, vp, visibleLayers, primarySelId, cw, ch, blockDefs);
+      renderEntities(
+        ctx,
+        renderList,
+        vp,
+        visibleLayers,
+        primarySelId,
+        cw,
+        ch,
+        blockDefs,
+        textDisplayRef.current,
+      );
 
       // Draw secondary selection halos for additional selected entities (multi-select)
       if (selectedIds.size > 1) {
@@ -811,6 +881,7 @@ export function DxfViewer({
       const cx = e.clientX - rect.left;
       const cy = e.clientY - rect.top;
       vpRef.current = applyZoom(vpRef.current, factor, cx, cy);
+      dirtyRef.current = true;
     };
     el.addEventListener('wheel', handler, { passive: false });
     return () => el.removeEventListener('wheel', handler);
@@ -821,6 +892,9 @@ export function DxfViewer({
     (e: React.MouseEvent) => {
       const rect = canvasRef.current?.getBoundingClientRect();
       if (!rect) return;
+      // A click commits or abandons points by ref; not every branch below ends
+      // in a state change, so ask for the repaint here rather than per branch.
+      dirtyRef.current = true;
       const sx = e.clientX - rect.left;
       const sy = e.clientY - rect.top;
 
@@ -977,6 +1051,9 @@ export function DxfViewer({
 
   // Mouse move (pan + rubber band tracking + snap hover test)
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    // Everything below moves the viewport, the rubber band or the snap marker
+    // by ref, without a re-render, so the repaint has to be asked for here.
+    dirtyRef.current = true;
     if (isPanningRef.current) {
       const dx = e.clientX - lastMouseRef.current.x;
       const dy = e.clientY - lastMouseRef.current.y;
@@ -1024,6 +1101,10 @@ export function DxfViewer({
     isPanningRef.current = false;
     setIsPanning(false);
     mousePosRef.current = null;
+    // `setIsPanning(false)` is a no-op when it already is, and React does not
+    // re-render for a state write that changes nothing - so the cursor
+    // leaving would otherwise leave its crosshair painted on the canvas.
+    dirtyRef.current = true;
   }, []);
 
   /**
@@ -1059,6 +1140,7 @@ export function DxfViewer({
 
   // Double-click to finish multi-point tools (area polygon and open polyline).
   const handleDoubleClick = useCallback(() => {
+    dirtyRef.current = true; // the in-progress rubber band goes away by ref
     const pts = drawPointsRef.current;
     if (activeTool === 'area' && pts.length >= 3) {
       // Persist raw area; display path multiplies by drawingScale².

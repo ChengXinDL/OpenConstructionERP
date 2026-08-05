@@ -10,6 +10,8 @@
 import type { DxfEntity } from '../api';
 import type { BlockDefs } from './blocks';
 import { isResolvedInsert } from './blocks';
+import type { TextDisplayState } from './text-display-store';
+import { DEFAULT_TEXT_DISPLAY } from './text-display-store';
 import type { ViewportState } from './viewport';
 import { worldToScreen } from './viewport';
 
@@ -41,6 +43,77 @@ export function resolveColor(color: string | number): string {
 /** @deprecated Use resolveColor instead */
 export function aciToHex(colorIndex: number | string): string {
   return resolveColor(colorIndex);
+}
+
+/* ── Scene selection ──────────────────────────────────────────────────── */
+
+/**
+ * Sheet names present in an entity list, model space first and the rest
+ * alphabetical - the order the sheet strip shows them in, so "the first sheet"
+ * means the same thing everywhere.
+ *
+ * Definition members carry `block` instead of `layout` and so belong to no
+ * sheet; they are placed by the INSERTs that reference them and are counted
+ * wherever those land.
+ */
+export function layoutNames(entities: DxfEntity[]): string[] {
+  const set = new Set<string>();
+  for (const e of entities) {
+    if (e.layout) set.add(e.layout);
+  }
+  if (set.size === 0) return [];
+  return Array.from(set).sort((a, b) => {
+    const aIsModel = a === 'Model' || a === '*Model_Space';
+    const bIsModel = b === 'Model' || b === '*Model_Space';
+    if (aIsModel && !bIsModel) return -1;
+    if (!aIsModel && bIsModel) return 1;
+    return a.localeCompare(b);
+  });
+}
+
+/**
+ * Which sheet is on screen, given the one the reader picked.
+ *
+ * Derived, never latched. A drawing that has sheets is always showing one of
+ * them, including on the frame that paints before the reader has picked
+ * anything - so "nothing picked yet" resolves to the first sheet here rather
+ * than being corrected afterwards by an effect. An effect runs after commit,
+ * which means the first painted frame of every drawing would show whatever the
+ * un-picked state renders as, and that used to be every sheet at once.
+ *
+ * A pick that names a sheet the current drawing does not have is treated as no
+ * pick: switching drawings must not leave the viewer filtering by a name that
+ * only existed in the previous file, which shows an empty canvas.
+ */
+export function effectiveLayout(layouts: string[], picked: string | null): string | null {
+  if (picked !== null && layouts.includes(picked)) return picked;
+  return layouts[0] ?? null;
+}
+
+/**
+ * The entity set that makes up one rendered scene: what reaches
+ * `renderEntities` and `computeExtents`.
+ *
+ * Exactly one sheet, whenever the drawing has sheets. Model space and paper
+ * space are different coordinate systems sharing neither origin nor scale, so
+ * a scene holding both cannot be framed: fitting an 18 m building and a 400 mm
+ * title block into one window collapses the title block to a speck drawn over
+ * the plan and pushes the plan to whatever is left. That is why the union is
+ * not a fallback for "no sheet chosen" - `effectiveLayout` answers that
+ * question instead, and answers it with a sheet.
+ *
+ * The union survives in one case only, and there it is correct: a drawing whose
+ * entities carry no layout at all has a single implied sheet, and every entity
+ * is on it.
+ */
+export function sceneEntities(
+  all: DxfEntity[],
+  layouts: string[],
+  picked: string | null,
+): DxfEntity[] {
+  if (layouts.length === 0) return all.filter((e) => !e.block);
+  const layout = effectiveLayout(layouts, picked);
+  return all.filter((e) => e.layout === layout && !e.block);
 }
 
 /* ── Viewport culling ─────────────────────────────────────────────────── */
@@ -118,9 +191,11 @@ export function renderEntities(
   canvasWidth?: number,
   canvasHeight?: number,
   blockDefs?: BlockDefs,
+  textDisplay?: TextDisplayState,
 ): void {
   const cw = canvasWidth ?? ctx.canvas.width / (window.devicePixelRatio || 1);
   const ch = canvasHeight ?? ctx.canvas.height / (window.devicePixelRatio || 1);
+  const td = textDisplay ?? DEFAULT_TEXT_DISPLAY;
 
   // Render hatches first (background fill)
   for (const entity of entities) {
@@ -161,13 +236,17 @@ export function renderEntities(
         renderEllipse(ctx, entity, vp);
         break;
       case 'TEXT':
-        renderText(ctx, entity, vp);
+        // The one place text visibility is decided. Everything upstream - the
+        // fit box, the hit test, the layer filter, the quantities - is handed
+        // the same entity list either way, so this is painting and nothing
+        // else.
+        if (td.visible) renderText(ctx, entity, vp, td.scale);
         break;
       case 'POINT':
         renderPoint(ctx, entity, vp);
         break;
       case 'INSERT':
-        renderInsert(ctx, entity, vp, blockDefs);
+        renderInsert(ctx, entity, vp, blockDefs, td);
         break;
     }
   }
@@ -424,38 +503,69 @@ export function resolveFontFamily(entity: DxfEntity): string {
   return SANS_STACK;
 }
 
-/** Readable band for drawn annotation, in screen px. */
-const MIN_TEXT_PX = 8;
-const MAX_TEXT_PX = 72;
+/** Below this a glyph is a smudge; drawing it adds noise, not information. */
+const MIN_TEXT_PX = 0.5;
 
 /**
  * On-screen size in px of a text entity's glyphs at the current viewport.
  *
- * Annotation is drawn to a readable band rather than to true scale. That is a
- * deliberate choice about what this viewer is for: the user is measuring
- * geometry and reading labels, so a label that is too small to read carries no
- * information and one that fills the canvas hides the thing being measured.
+ * The authored height, scaled. Nothing else - no readable band, no floor, no
+ * ceiling.
  *
- * The clamp is only sound because `computeExtents` fits to geometry alone. The
- * two used to be coupled - the fit box asked how big the text was, and the
- * font size asked how big the fit was - and any answer to one changed the
- * other. Whichever end you then bound, the pair disagreed: bounding the box
- * while drawing unbounded put a 30720px glyph over a correctly framed drawing.
- * With text out of the box the loop is open, and this clamp is free to be
- * about legibility and nothing else.
+ * DO NOT REINTRODUCE A READABLE BAND HERE. It has been added twice and reverted
+ * once, and it is the defect behind issue 426. `f936eace4` removed an 8..72px
+ * band; `14aef60d5`, the next commit to touch this file and the last one before
+ * v14.4.0 shipped, put it back with a docstring arguing it was intended - so
+ * the release advertised the fix and shipped without it, and a reviewer reading
+ * only HEAD found nothing wrong.
+ *
+ * The argument for a band is easy to make and wrong. It goes: a label too small
+ * to read carries no information, so lift it to something legible. What that
+ * misses is that annotation size is *authored*. A drafter sets a room tag at
+ * 25 mm and a sheet title at 20000 mm, and the 800:1 between them is how the
+ * sheet says which is which. Bounding both ends converts that 800:1 into a 9:1
+ * - measured, on a bench drawing, fitted to an ordinary window - so the room
+ * tag comes out 1.7x too big, the title 53x too small, and the two land at
+ * nearly the same size. The drawing stops reading as a drawing. Small labels
+ * are also the majority of a real floor plan's annotation, so lifting them to a
+ * floor is exactly the reported "labels are much bigger".
+ *
+ * The band also hides itself. On a drawing small enough that it never binds,
+ * the render is correct, which is how it passed review twice and why the
+ * fixture that catches it (`fixtures/bench-drawings.ts`) had to be built with a
+ * wide authored range on purpose.
+ *
+ * A label too small to read is handled where it belongs, in `renderText`, by
+ * not drawing it: below half a pixel a glyph is a smudge, and the reader who
+ * wants it zooms in - which is what zoom is for. A label so large it covers the
+ * geometry is a true report of a drawing that says so, and the reader has a
+ * size control for that.
+ *
+ * `textScale` is that control, and it multiplies the authored height, inside
+ * everything else. That is the only place it works at every zoom and on every
+ * label at once while leaving the proportions between labels alone. Multiplied
+ * onto a banded result it could only slide a flattened sheet up and down,
+ * giving the reader a way to make the wrongness smaller rather than a way to
+ * make it right. Its own range is bounded at the control, in `clampTextScale`.
  */
-export function textFontSize(entity: DxfEntity, vp: ViewportState): number {
-  return Math.max(MIN_TEXT_PX, Math.min(MAX_TEXT_PX, (entity.height ?? 2.5) * vp.scale));
+export function textFontSize(entity: DxfEntity, vp: ViewportState, textScale = 1): number {
+  return (entity.height ?? 2.5) * textScale * vp.scale;
 }
 
 export function renderText(
   ctx: CanvasRenderingContext2D,
   entity: DxfEntity,
   vp: ViewportState,
+  textScale = 1,
 ): void {
   if (!entity.start || !entity.text) return;
   const pos = worldToScreen(entity.start.x, entity.start.y, vp);
-  const fontSize = textFontSize(entity, vp);
+  const fontSize = textFontSize(entity, vp, textScale);
+  // Sub-pixel: a glyph this small is a smudge, so drawing it adds noise rather
+  // than information. Omitting it is also the cheapest cull the renderer has -
+  // a zoomed-out plan otherwise lays out and fills every label in the drawing,
+  // once per frame, for nothing anyone can read.
+  if (fontSize < MIN_TEXT_PX) return;
   // MTEXT keeps its newlines (the backend maps MTEXT -> TEXT but preserves the
   // string), and canvas fillText ignores "\n", so render each line stacked.
   const lines = entity.text.split('\n');
@@ -490,6 +600,22 @@ function renderPoint(
 const INSERT_MARKER_PX = 5;
 
 /**
+ * Size in px of the block name drawn beside that marker, before the reader's
+ * text multiplier.
+ *
+ * This is the file's second decision about how big text is drawn, and it is
+ * deliberately not the one `textFontSize` makes. That one renders annotation
+ * the drafter authored, so it follows `entity.height` and the zoom and nothing
+ * else. This renders a caption on a placeholder the drafter never drew - a
+ * marker standing in for geometry the client could not resolve - so it is
+ * screen furniture, fixed in screen px like the marker it labels, and reading
+ * `entity.height` here would size a label the drawing never asked for. It
+ * follows `textDisplay` because it is still text on the sheet and a reader who
+ * hid the labels meant this one too.
+ */
+const INSERT_LABEL_PX = 9;
+
+/**
  * Render a block reference as a diamond marker, when there is nothing better.
  *
  * The marker is the fallback, not the block. When `blockDefs` holds the
@@ -505,12 +631,19 @@ const INSERT_MARKER_PX = 5;
  * scaled from - so its size stays fixed in screen pixels, while its aspect and
  * rotation follow the reference's transform. A point-symmetric marker still
  * cannot show mirroring, and no marker can show geometry it does not have.
+ *
+ * The name beside the marker is text, so it answers to `textDisplay` like the
+ * rest: hidden when the reader hides text, scaled when they scale it. The
+ * marker itself does not, because it stands for geometry rather than for a
+ * label, and a reader who hid the labels still needs to see that something is
+ * placed here.
  */
 export function renderInsert(
   ctx: CanvasRenderingContext2D,
   entity: DxfEntity,
   vp: ViewportState,
   blockDefs?: BlockDefs,
+  textDisplay?: TextDisplayState,
 ): void {
   if (!entity.start) return;
   if (blockDefs && isResolvedInsert(entity, blockDefs)) return;
@@ -540,8 +673,9 @@ export function renderInsert(
   });
   ctx.closePath();
   ctx.stroke();
-  if (entity.block_name) {
-    ctx.font = '9px monospace';
+  const td = textDisplay ?? DEFAULT_TEXT_DISPLAY;
+  if (entity.block_name && td.visible) {
+    ctx.font = `${INSERT_LABEL_PX * td.scale}px monospace`;
     ctx.textBaseline = 'top';
     ctx.fillText(
       entity.block_name,

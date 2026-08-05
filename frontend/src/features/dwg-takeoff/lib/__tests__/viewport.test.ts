@@ -58,8 +58,8 @@ describe('computeExtents', () => {
   it('is unmoved by an oversized label (corpus 06_text_large)', () => {
     // h=1000 beside a 10-unit rectangle used to inflate the box 240-fold.
     // Capping the contribution only reduced it to 2.5-fold; excluding text
-    // removes it. The glyph is still drawn - `textFontSize` clamps it to a
-    // readable band - it simply cannot move the frame.
+    // removes it. The glyph is still drawn, at the size the drawing asks for -
+    // it simply cannot move the frame.
     const box = computeExtents([rect, textAt(1, 1, 1000, 'HUGE')]);
     expect(box).toEqual({ minX: 0, minY: 0, maxX: 10, maxY: 10 });
   });
