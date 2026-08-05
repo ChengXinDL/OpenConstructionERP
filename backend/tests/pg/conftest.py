@@ -57,6 +57,14 @@ def _register_all_models() -> None:
     import app.core.audit  # noqa: F401
     import app.core.audit_log  # noqa: F401
     import app.core.pg_optimizations  # noqa: F401
+
+    # The translation cache declares its table on Base.metadata at import time,
+    # and nothing imports it until something asks for a translation. When that
+    # import lands after create_all has run, the table exists in the metadata and
+    # not in the database, so a test that walks the metadata to query real tables
+    # asks PostgreSQL for a relation that does not exist. Registering it here
+    # keeps the schema this lane builds equal to the metadata it reads back.
+    import app.core.translation.cache  # noqa: F401
     import app.modules as _modules_pkg
 
     for mod in pkgutil.iter_modules(_modules_pkg.__path__):
