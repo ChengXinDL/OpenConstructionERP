@@ -102,6 +102,20 @@ jobs:
       # than two copies kept in step by a comment. No database, about eight seconds.
       - name: Run cost region currency table tests
         run: pytest tests/unit/costs/test_region_currency_fallback.py -q -p no:cacheprovider
+      # The AI rate limit on the compliance NL builder. Attached for the same
+      # reason as the suites around it, and for a sharper one: the guard it
+      # covers was written on the wrong endpoint. check_ai_rate_limit shipped
+      # on /v1/compliance-ai/from-nl, which the product does not call, while
+      # the NL Rule Builder panel posts to the older /v1/compliance/dsl/from-nl
+      # where use_ai=true reaches a real provider with no ceiling at all. A
+      # cost limit on an endpoint with no caller reads green from every angle:
+      # the dependency exists, a test asserts 429, and none of it stands
+      # between a scripted client and the bill. The suite now asserts the
+      # limit on both routes by overriding the dependency, so dropping the
+      # Depends line on either one turns the override unreachable and the call
+      # returns 200 instead. Needs the conftest database, about twenty seconds.
+      - name: Run compliance NL rate-limit tests
+        run: pytest tests/unit/test_compliance_ai.py -q -p no:cacheprovider
       # The DWG parser. Attached for the same reason as the two suites either side
       # of it: tests/unit is in no lane that blocks a merge, and this is the parser
       # whose vertex re-scan shipped quadratic in every release from 3.0.2 to 14.1.0

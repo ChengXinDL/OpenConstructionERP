@@ -35,7 +35,12 @@ from app.core.validation.dsl import (
     list_supported_patterns,
     parse_nl_to_dsl,
 )
-from app.dependencies import CurrentUserPayload, RequirePermission, SessionDep
+from app.dependencies import (
+    CurrentUserPayload,
+    RequirePermission,
+    SessionDep,
+    check_ai_rate_limit,
+)
 from app.modules.compliance.manifest import manifest
 from app.modules.compliance.repository import ComplianceDSLRepository
 from app.modules.compliance.schemas import (
@@ -321,7 +326,17 @@ async def from_nl(
     body: DSLFromNlRequest,
     payload: CurrentUserPayload,
     session: SessionDep,
+    _ai_remaining: int = Depends(check_ai_rate_limit),
 ) -> DSLFromNlResponse:
+    """Convert plain-language text into a DSL definition.
+
+    Rate-limited via :func:`check_ai_rate_limit`, the same guard the
+    ``compliance_ai`` sibling carries. The limit shipped on the sibling
+    alone, and the sibling is not the route the product calls: the NL Rule
+    Builder panel posts to this one (``features/compliance/api.ts``). So the
+    cost ceiling existed on an endpoint with no caller while the reachable
+    path had none, and ``use_ai=true`` here drives real LLM calls.
+    """
     ai_caller = None
     if body.use_ai:
         ai_caller = await _build_ai_caller(payload, session)

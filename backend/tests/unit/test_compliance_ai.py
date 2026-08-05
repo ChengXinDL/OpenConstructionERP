@@ -168,6 +168,47 @@ async def test_from_nl_rate_limit_returns_429(app_factory):
         app.dependency_overrides.clear()
 
 
+async def test_sibling_compliance_route_is_rate_limited_too(app_factory):
+    """The ceiling has to sit on the route the product actually calls.
+
+    ``check_ai_rate_limit`` shipped on this module's route only, and nothing
+    calls this module's route: the NL Rule Builder panel posts to the older
+    sibling at ``/api/v1/compliance/dsl/from-nl`` (see
+    ``frontend/src/features/compliance/api.ts``). So the cost ceiling existed
+    on an endpoint with no caller while the reachable one had none, and
+    ``use_ai=true`` on the sibling drives real LLM calls all the same.
+
+    Asserting it here rather than in ``tests/integration`` is deliberate: the
+    blocking lane runs ``tests/pg`` plus a named list out of ``tests/unit``
+    and never runs ``tests/integration`` at all, so a guard placed there
+    would never once execute in CI.
+    """
+    app = app_factory
+    user_id = uuid.uuid4()
+    _override_payload(app, user_id)
+
+    from app.dependencies import check_ai_rate_limit
+
+    async def _always_429() -> int:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="AI rate limit exceeded. Please wait a moment and try again.",
+            headers={"Retry-After": "60"},
+        )
+
+    app.dependency_overrides[check_ai_rate_limit] = _always_429
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp = await client.post(
+                "/api/v1/compliance/dsl/from-nl",
+                json={"text": "all walls must have fire_rating", "lang": "en"},
+            )
+        assert resp.status_code == 429, resp.text
+        assert resp.headers.get("retry-after") == "60"
+    finally:
+        app.dependency_overrides.clear()
+
+
 async def test_from_nl_ai_fallback_invalid_yaml_does_not_500(monkeypatch):
     """Service layer must absorb a broken AI response, never bubble 500.
 
