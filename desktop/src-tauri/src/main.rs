@@ -58,18 +58,38 @@ const OPENER_POLL_INTERVAL: Duration = Duration::from_millis(20);
 /// Uses the platform opener directly (`cmd /c start` on Windows, `open` on
 /// macOS, `xdg-open` on Linux) rather than the tauri shell plugin's deprecated
 /// `open`: it is fully cross-platform and adds no dependency.
+///
+/// Split per platform by `cfg` attribute rather than by a runtime `cfg!`
+/// branch inside one body, because the Windows arm needs `CommandExt`, which
+/// only exists on Windows.
+#[cfg(target_os = "windows")]
 fn spawn_os_opener(target: &str) -> std::io::Result<std::process::Child> {
-    if cfg!(target_os = "windows") {
-        // The empty "" is start's title argument; without it a quoted target is
-        // mis-parsed as the window title and nothing opens.
-        std::process::Command::new("cmd")
-            .args(["/c", "start", "", target])
-            .spawn()
-    } else if cfg!(target_os = "macos") {
-        std::process::Command::new("open").arg(target).spawn()
-    } else {
-        std::process::Command::new("xdg-open").arg(target).spawn()
-    }
+    use std::os::windows::process::CommandExt;
+
+    /// `CREATE_NO_WINDOW`. A console subsystem process spawned from a GUI app
+    /// allocates and shows its own console, so without this every outbound
+    /// link put a black command window on screen ahead of the browser. It is
+    /// the launcher's window, not the browser's, and it is what made clicking
+    /// a link in the app look like it opened a separate window rather than a
+    /// page.
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+    // The empty "" is start's title argument; without it a quoted target is
+    // mis-parsed as the window title and nothing opens.
+    std::process::Command::new("cmd")
+        .args(["/c", "start", "", target])
+        .creation_flags(CREATE_NO_WINDOW)
+        .spawn()
+}
+
+#[cfg(target_os = "macos")]
+fn spawn_os_opener(target: &str) -> std::io::Result<std::process::Child> {
+    std::process::Command::new("open").arg(target).spawn()
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+fn spawn_os_opener(target: &str) -> std::io::Result<std::process::Child> {
+    std::process::Command::new("xdg-open").arg(target).spawn()
 }
 
 /// Open a URL or file path in the operating system's default handler, and say
