@@ -1028,5 +1028,15 @@
     "en_value": "#",
     "note": "row-number column header, a single symbol with no word to translate",
     "reason_category": "symbol"
+  },
+  "carbon.framework_gri": {
+    "en_value": "GRI",
+    "note": "acronym of the Global Reporting Initiative, the standards body itself; identical in all 28 locales including ru, ja, zh and ar",
+    "reason_category": "standard_code"
+  },
+  "carbon.framework_issb": {
+    "en_value": "ISSB",
+    "note": "acronym of the International Sustainability Standards Board, the standards body itself; identical in all 28 locales including ru, ja, zh and ar",
+    "reason_category": "standard_code"
   }
 }

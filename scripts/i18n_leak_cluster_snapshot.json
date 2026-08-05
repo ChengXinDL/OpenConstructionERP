@@ -867,6 +867,17 @@
  {
   "locale_set": [
    "da",
+   "de",
+   "id",
+   "nl",
+   "no",
+   "sv"
+  ],
+  "key_count_at_seed": 3
+ },
+ {
+  "locale_set": [
+   "da",
    "es",
    "es-MX",
    "id",

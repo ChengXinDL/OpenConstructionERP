@@ -276,6 +276,16 @@
   "en_value": "51-80%",
   "n": 24
  },
+ "carbon.framework_ghg_protocol": {
+  "differs_in": [
+   "ja",
+   "ko",
+   "ky",
+   "tr"
+  ],
+  "en_value": "GHG Protocol",
+  "n": 24
+ },
  "changeorders.linked_rfi": {
   "differs_in": [
    "ar"
@@ -481,6 +491,15 @@
   ],
   "en_value": "ID",
   "n": 27
+ },
+ "dwg_takeoff.text_size_percent": {
+  "differs_in": [
+   "de",
+   "fr",
+   "tr"
+  ],
+  "en_value": "{{percent}}%",
+  "n": 25
  },
  "field.auth_pin": {
   "differs_in": [
