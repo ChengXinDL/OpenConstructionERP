@@ -130,7 +130,7 @@ async def convert_currency(
 @router.post("/exchange-rates/fetch-ecb/")
 async def fetch_ecb_rates(
     _user_id: CurrentUserId,
-    _admin: None = Depends(RequirePermission("admin")),
+    _admin: None = Depends(RequirePermission("i18n_foundation.exchange_rates.fetch")),
     service: I18nFoundationService = Depends(_get_service),
 ) -> dict:
     """Fetch latest exchange rates from ECB (admin only).

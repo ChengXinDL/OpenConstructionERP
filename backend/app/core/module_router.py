@@ -39,9 +39,17 @@ async def get_module_detail(module_name: str) -> dict[str, Any]:
         )
 
 
+# ``system.modules.enable`` and ``.disable`` are registered at Role.ADMIN by
+# ``register_core_permissions``. These two routes used to ask for the bare
+# literal ``"admin"``, which nobody registers: ``RequirePermission`` returns
+# False for an unknown key, and admin short-circuits above that check, so the
+# routes behaved as admin-only and no test could tell. What it cost was the
+# admin permission matrix - ``set_min_role("admin", ...)`` raises KeyError, so
+# unlike every other enable/disable-shaped permission these two could never be
+# delegated to a manager. Ask for the key that exists.
 @router.post(
     "/{module_name}/enable",
-    dependencies=[Depends(RequirePermission("admin"))],
+    dependencies=[Depends(RequirePermission("system.modules.enable"))],
 )
 async def enable_module(module_name: str, request: Request) -> dict[str, Any]:
     """Enable a module (admin only)."""
@@ -63,7 +71,7 @@ async def enable_module(module_name: str, request: Request) -> dict[str, Any]:
 
 @router.post(
     "/{module_name}/disable",
-    dependencies=[Depends(RequirePermission("admin"))],
+    dependencies=[Depends(RequirePermission("system.modules.disable"))],
 )
 async def disable_module(module_name: str, request: Request) -> dict[str, Any]:
     """Disable a module (admin only). Fails if other enabled modules depend on it."""
