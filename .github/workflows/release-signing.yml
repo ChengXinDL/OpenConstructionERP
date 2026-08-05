@@ -25,14 +25,16 @@ permissions:
   id-token: write
 
 jobs:
-  sign:
-    name: Sign release artefacts
+  resolve:
+    name: Resolve the tag
     runs-on: ubuntu-latest
     # Desktop Release also runs from workflow_dispatch against a branch, where
     # head_branch is a branch name and there is no release behind it.
     if: >-
       github.event_name != 'workflow_run' ||
       startsWith(github.event.workflow_run.head_branch, 'v')
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
       - name: Determine tag
         id: tag
@@ -45,6 +47,31 @@ jobs:
             echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
           fi
 
+  # The licence inventory used to hang off the same dead release event as this
+  # workflow and stopped publishing on the same day. It is a job here rather
+  # than a workflow of its own so the order is decided by the graph: it attaches
+  # its three files first, then they get checksummed with everything else. Two
+  # workflows racing on one trigger would have produced a manifest describing
+  # some of the release, which reads exactly like a manifest describing all of it.
+  sbom:
+    name: SBOM and licences
+    needs: resolve
+    permissions:
+      contents: write
+    uses: ./.github/workflows/sbom-and-licenses.yml
+    with:
+      tag: ${{ needs.resolve.outputs.tag }}
+
+  sign:
+    name: Sign release artefacts
+    needs: [resolve, sbom]
+    # Signing proceeds even when the inventory job fails. A manifest over the
+    # installers alone is what every release since v8.0.0 would have had, and
+    # withholding signatures because a licence list broke helps nobody. The run
+    # still goes red, so the failure is not hidden.
+    if: ${{ !cancelled() && needs.resolve.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
         with:
@@ -53,7 +80,7 @@ jobs:
       - name: Download release artefacts
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.tag.outputs.tag }}
+          TAG: ${{ needs.resolve.outputs.tag }}
         run: |
           mkdir -p release-assets
           cd release-assets
@@ -105,7 +132,7 @@ jobs:
       - name: Upload checksums and signature to the release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.tag.outputs.tag }}
+          TAG: ${{ needs.resolve.outputs.tag }}
         working-directory: release-assets
         run: |
           # All three or none. Uploading two of them and staying green is the
