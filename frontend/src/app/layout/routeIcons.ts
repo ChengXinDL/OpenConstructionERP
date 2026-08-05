@@ -3,14 +3,16 @@
 /**
  * Route → lucide icon map for the top-bar page-title chip.
  *
- * ⚠️ This map MIRRORS the nav definitions in `Sidebar.tsx` (the 19
- * `navGroups`, the `adminGridItems` grid, and the footer "Add module"
- * tile). Each route's icon here is the EXACT same lucide icon the sidebar
- * row uses for that destination, so the top-bar title and the sidebar
- * entry can never disagree. The two MUST be kept in sync: when a route's
- * icon changes in `Sidebar.tsx`, change it here too (and vice versa). A
- * later consolidation can make `Sidebar.tsx` consume this map directly so
- * there is a single source of truth; until then, update both together.
+ * ⚠️ This map MIRRORS the nav definitions in `./navCatalog` (the 19
+ * `navGroups`) plus the `adminGridItems` grid and the footer "Add module"
+ * tile, which are still declared in `Sidebar.tsx`. Each route's icon here
+ * is the EXACT same lucide icon the sidebar row uses for that destination,
+ * so the top-bar title and the sidebar entry can never disagree. The two
+ * MUST be kept in sync: when a route's icon changes in `navCatalog.ts`,
+ * change it here too (and vice versa). The consolidation this comment used
+ * to ask for is half done - the groups now live in `navCatalog.ts`, which
+ * is a source both this file and the case-editor screen picker can read -
+ * so folding this map into a lookup over that array is the remaining step.
  *
  * `getRouteIcon` does longest-prefix matching so detail routes resolve to
  * their parent module's icon (e.g. `/rfi/123` → the `/rfi` icon, and
