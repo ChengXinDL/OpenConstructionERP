@@ -57,17 +57,29 @@ jobs:
         run: |
           mkdir -p release-assets
           cd release-assets
-          gh release download "$TAG" \
-            --repo "${{ github.repository }}" \
-            --skip-existing || true
+          gh release download "$TAG" --repo "${{ github.repository }}" --skip-existing
+          # A manifest built from some of the assets is worse than none, because
+          # it reads as a complete one. Count what the release says it holds.
+          expected=$(gh release view "$TAG" --repo "${{ github.repository }}" --json assets --jq '.assets | length')
+          actual=$(ls -1 | wc -l)
+          echo "release lists $expected assets, downloaded $actual"
+          if [ "$expected" -ne "$actual" ]; then
+            echo "Downloaded $actual of $expected assets, refusing to checksum a partial set." >&2
+            exit 1
+          fi
           ls -la
 
       - name: Produce SHA-256 checksums
         working-directory: release-assets
         run: |
+          # A second run downloads the previous manifest and its signature along
+          # with the real assets, and the glob below would hash those into the
+          # new manifest, which would then describe its own history rather than
+          # the release.
+          rm -f SHA256SUMS SHA256SUMS.sig SHA256SUMS.pem
           if [ -z "$(ls -A . 2>/dev/null)" ]; then
-            echo "No release assets to checksum." >&2
-            exit 0
+            echo "No release assets to checksum, so nothing would be signed." >&2
+            exit 1
           fi
           sha256sum * > SHA256SUMS
           cat SHA256SUMS
@@ -79,7 +91,7 @@ jobs:
         run: |
           if [ ! -f SHA256SUMS ]; then
             echo "No SHA256SUMS to sign." >&2
-            exit 0
+            exit 1
           fi
           cosign sign-blob --yes \
             --output-signature SHA256SUMS.sig \
@@ -96,10 +108,17 @@ jobs:
           TAG: ${{ steps.tag.outputs.tag }}
         working-directory: release-assets
         run: |
+          # All three or none. Uploading two of them and staying green is the
+          # same failure this workflow already had once, wearing a smaller hat:
+          # a signature without its certificate verifies for nobody.
           for f in SHA256SUMS SHA256SUMS.sig SHA256SUMS.pem; do
-            if [ -f "$f" ]; then
-              gh release upload "$TAG" "$f" --repo "${{ github.repository }}" --clobber
+            if [ ! -f "$f" ]; then
+              echo "$f is missing, refusing to publish a partial signature." >&2
+              exit 1
             fi
+          done
+          for f in SHA256SUMS SHA256SUMS.sig SHA256SUMS.pem; do
+            gh release upload "$TAG" "$f" --repo "${{ github.repository }}" --clobber
           done
 
       - name: Verification snippet (for the release notes)
