@@ -299,33 +299,11 @@ const navGroups: NavGroup[] = [
       { labelKey: 'nav.methodologies', to: '/methodologies', icon: SlidersHorizontal },
     ],
   },
-  // ── 4b. ESTIMATE DETAIL ────────────────────────────────────────────
-  // The advanced refinements layered on top of the BOQ: the basis of
-  // estimate, preliminaries and allowances. Split out of Estimating so
-  // that group stays at five rows (all advanced-mode only).
-  {
-    id: 'grp_estimate_detail',
-    labelKey: 'sidebar.group.estimate_detail',
-    defaultLabel: 'Estimate Detail',
-    defaultOpen: true,
-    hideInSimple: true,
-    items: [
-      { labelKey: 'nav.estimate_basis', to: '/estimate-basis', icon: FileText, advancedOnly: true },
-      { labelKey: 'nav.preliminaries', to: '/preliminaries', icon: ClipboardList, advancedOnly: true },
-      { labelKey: 'nav.allowances', to: '/allowances', icon: Wallet, advancedOnly: true },
-      { labelKey: 'nav.design_options', to: '/design-options', icon: Scale, advancedOnly: true },
-      // Shares the page's own heading key rather than minting a second key
-      // holding the same word, the way the Teams row below does.
-      { labelKey: 'formwork.title', to: '/formwork', icon: Boxes, advancedOnly: true, defaultLabel: 'Formwork' },
-    ],
-  },
-  // ── 4c. DRAWINGS & FILES ───────────────────────────────────────────
+  // ── 4b. DRAWINGS & FILES ───────────────────────────────────────────
   // Where a drawing lives and how you get to it: the sheet index, the plan
   // room that opens a sheet with its overlays, and the markups drawn on top.
   // Founder-requested position, below Estimating rather than up beside
-  // Overview. It sits after Estimate Detail rather than between the two
-  // estimating groups, because 4b was split off 4 on purpose and putting a
-  // third subject between them would undo that.
+  // Overview.
   //
   // Project files used to lead this group and is back in Overview, so what
   // is left here is the drawing surfaces themselves.
@@ -497,7 +475,32 @@ const navGroups: NavGroup[] = [
       },
     ],
   },
-  // ── 10b. CHANGE ────────────────────────────────────────────────────
+  // ── 10b. ESTIMATE DETAIL ───────────────────────────────────────────
+  // The advanced refinements layered on top of the BOQ: the basis of
+  // estimate, preliminaries and allowances. Split out of Estimating so that
+  // group stays at five rows (all advanced-mode only).
+  //
+  // Founder-requested position, below Procurement rather than directly under
+  // Estimating. Everything in here is priced against something bought, so it
+  // reads better next to the sourcing groups than as a second estimating
+  // block a reader has to scroll past to reach the rest of the project.
+  {
+    id: 'grp_estimate_detail',
+    labelKey: 'sidebar.group.estimate_detail',
+    defaultLabel: 'Estimate Detail',
+    defaultOpen: true,
+    hideInSimple: true,
+    items: [
+      { labelKey: 'nav.estimate_basis', to: '/estimate-basis', icon: FileText, advancedOnly: true },
+      { labelKey: 'nav.preliminaries', to: '/preliminaries', icon: ClipboardList, advancedOnly: true },
+      { labelKey: 'nav.allowances', to: '/allowances', icon: Wallet, advancedOnly: true },
+      { labelKey: 'nav.design_options', to: '/design-options', icon: Scale, advancedOnly: true },
+      // Shares the page's own heading key rather than minting a second key
+      // holding the same word, the way the Teams row below does.
+      { labelKey: 'formwork.title', to: '/formwork', icon: Boxes, advancedOnly: true, defaultLabel: 'Formwork' },
+    ],
+  },
+  // ── 10c. CHANGE ────────────────────────────────────────────────────
   // The change-management workflow (variations, MoC, change orders) and
   // the analytics it feeds (change-intelligence, value). Split out of the
   // old "Procurement & Change" group so procurement reads clean (#280),
