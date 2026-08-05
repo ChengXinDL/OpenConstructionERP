@@ -88,8 +88,12 @@ jobs:
       - name: Build sidecar with PyInstaller
         run: |
           # PyInstaller is a build tool, not a runtime dependency, so it is
-          # installed separately and is intentionally absent from the lock.
-          pip install "pyinstaller>=6.0.0"
+          # installed separately and is intentionally absent from the lock. It
+          # is pinned all the same: PyInstaller decides how every collected
+          # binary is laid out and re-signed, so when a released build behaves
+          # differently from the one before it, the first question is whether
+          # the packer changed. A range cannot answer that question later.
+          pip install "pyinstaller==6.21.0"
           pyinstaller desktop/pyinstaller.spec --distpath desktop/dist --workpath desktop/build --noconfirm
 
       # Ad-hoc sign the sidecar here, before anything runs it, rather than in
@@ -180,10 +184,11 @@ jobs:
           esac
 
       # Printed on every macOS run, green or red, because it is the evidence for
-      # the paragraph above. An ad-hoc signature carries no Team ID, so if the
-      # sidecar and the framework it loads are both ad-hoc they can never
-      # mismatch. If a start failure ever comes back, these two lines say which
-      # side grew a real Team ID.
+      # the paragraph above. It describes the wrapper and the machine that built
+      # it, which is useful context and is not the thing dyld compares at launch.
+      # Note that the build machine's own Python framework is signed by the
+      # Python Software Foundation and does carry a Team ID; what reaches users
+      # is PyInstaller's re-signed copy of it, which is read by the next step.
       - name: Record the macOS signing identities (diagnostic)
         if: always() && runner.os == 'macOS'
         shell: bash
@@ -200,20 +205,27 @@ jobs:
             echo "not found at $fw"
           fi
 
-      # The two lines above describe the wrapper and the build machine. Neither
-      # is what dyld maps at launch. This reads the members sealed inside the
-      # onefile archive, which is where a foreign Team ID actually travels to
-      # the user, and prints which of them carry one. It is the evidence that
-      # says whether the spec's codesign_identity did anything, independently of
-      # whether this runner enforces the rule.
-      - name: Record what the sidecar archive carries (diagnostic)
+      # The step above describes the wrapper and the build machine. Neither is
+      # what dyld maps at launch. This reads the members sealed inside the
+      # onefile archive, which is where a foreign Team ID would actually travel
+      # to a user, and fails the build if any of them carries one.
+      #
+      # Read this gate narrowly. It is a regression tripwire, not a defence
+      # against the macOS start failure reported against 14.4.0. That build was
+      # measured member by member and every one of its 402 Mach-O members was
+      # ad-hoc with no Team ID, exactly like the builds since, so a foreign Team
+      # ID inside the archive is not what stops it. What this catches is the day
+      # a dependency or a packer upgrade starts shipping a vendor-signed binary
+      # inside the archive, which would introduce that failure for real.
+      - name: Check what the sidecar archive carries
         if: always() && runner.os == 'macOS'
         shell: bash
         timeout-minutes: 15
         run: |
           set -uo pipefail
           python scripts/inspect_desktop_sidecar_signatures.py \
-            desktop/dist/openconstructionerp-server || true
+            --fail-on-foreign-team-id \
+            desktop/dist/openconstructionerp-server
 
       - name: Copy sidecar binary
         shell: bash

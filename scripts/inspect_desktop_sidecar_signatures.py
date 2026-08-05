@@ -21,11 +21,25 @@ what each Mach-O member is signed with. A member carrying a real Team ID while t
 process carries none is the exact mismatch dyld refuses, whether or not this machine
 happens to enforce it today.
 
+What it measured
+----------------
+Not the cause of the 14.4.0 failure. The 14.4.0 sidecar was read member by member,
+along with two later builds that differ only in the spec's codesign_identity line, and
+all three are the same artifact in this respect: 402 Mach-O members, every one ad-hoc
+with no Team ID. Nothing inside the archive carries an identity that could disagree with
+the process, so whatever supplies one on the affected machine comes from outside the
+file. PyInstaller rewrites rpaths in the binaries it collects, which invalidates their
+original signatures, and re-signs them ad-hoc on its own.
+
+That leaves this script as a tripwire rather than a fix: it fails the build the day a
+dependency or a packer upgrade starts sealing a vendor-signed binary inside the archive,
+which would introduce that failure for real.
+
 Usage:
     python scripts/inspect_desktop_sidecar_signatures.py desktop/dist/openconstructionerp-server
 
-Exit code is 0 unless --fail-on-foreign-team-id is passed, so it can run as evidence on
-every build without deciding anything by itself.
+Exit code is 0 unless --fail-on-foreign-team-id is passed, so it can also run as plain
+evidence without deciding anything by itself.
 """
 
 from __future__ import annotations
