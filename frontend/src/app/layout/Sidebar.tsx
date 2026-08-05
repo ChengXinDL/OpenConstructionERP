@@ -239,41 +239,11 @@ const navGroups: NavGroup[] = [
       // Overview so the "learn by example" entry is discoverable from the top,
       // and above Project files so the "learn by example" entry is seen first.
       { labelKey: 'nav.cases', to: '/cases', icon: Route },
-    ],
-  },
-  // ── 1b. DRAWINGS & FILES ───────────────────────────────────────────
-  // Where a drawing lives and how you get to it: the project file store,
-  // the sheet index built out of it, the plan room that opens a sheet with
-  // its overlays, and the markups drawn on top. Founder-requested home for
-  // the sheet register, which used to sit in Overview under Project files.
-  //
-  // Named for its contents rather than "Documents", because `grp_documents`
-  // below already carries that label: two headers starting with the same
-  // word would be a coin toss for the reader. That group keeps the outbound
-  // paperwork (submittals, transmittals, signing), the formal binder (CDE,
-  // source data) and the site photos - none of which are drawings.
-  //
-  // No `hideInSimple` and no `advancedOnly` on any row: Project files was
-  // reachable in Simple mode from Overview, and moving it must not take it
-  // away from the users least able to find it again.
-  {
-    id: 'grp_drawings',
-    labelKey: 'sidebar.group.drawings',
-    defaultLabel: 'Drawings & Files',
-    defaultOpen: true,
-    items: [
+      // Project files is back in Overview by founder request. It carries no
+      // hideInSimple and no advancedOnly, which is what keeps it reachable in
+      // Simple mode; the sheet register and the drawing surfaces stay behind
+      // in Drawings & Files, which now sits below Estimating.
       { labelKey: 'nav.project_files', to: '/files', icon: HardDrive },
-      // Reuses the page's own title key, which is already translated in all
-      // 29 locales, so the sidebar entry and the page heading cannot drift.
-      { labelKey: 'sheets.page_title', to: '/sheets', icon: FileText },
-      // These two arrive from Documents, which hides itself in Simple mode, so
-      // they carry the row-level form of that flag to keep the audience they
-      // already had. Moving a row between groups must not change who can see
-      // it, or a reorganisation becomes indistinguishable from a launch, and
-      // Plan room is still BETA: landing it in front of the users who chose the
-      // simplest view is a decision somebody should make on purpose.
-      { labelKey: 'nav.plan_room', to: '/plan-room', icon: Layers, badge: 'BETA', advancedOnly: true },
-      { labelKey: 'nav.markups', to: '/markups', icon: PenTool, advancedOnly: true },
     ],
   },
   // ── 2. TAKEOFF ─────────────────────────────────────────────────────
@@ -347,6 +317,41 @@ const navGroups: NavGroup[] = [
       // Shares the page's own heading key rather than minting a second key
       // holding the same word, the way the Teams row below does.
       { labelKey: 'formwork.title', to: '/formwork', icon: Boxes, advancedOnly: true, defaultLabel: 'Formwork' },
+    ],
+  },
+  // ── 4c. DRAWINGS & FILES ───────────────────────────────────────────
+  // Where a drawing lives and how you get to it: the sheet index, the plan
+  // room that opens a sheet with its overlays, and the markups drawn on top.
+  // Founder-requested position, below Estimating rather than up beside
+  // Overview. It sits after Estimate Detail rather than between the two
+  // estimating groups, because 4b was split off 4 on purpose and putting a
+  // third subject between them would undo that.
+  //
+  // Project files used to lead this group and is back in Overview, so what
+  // is left here is the drawing surfaces themselves.
+  //
+  // Named for its contents rather than "Documents", because `grp_documents`
+  // below already carries that label: two headers starting with the same
+  // word would be a coin toss for the reader. That group keeps the outbound
+  // paperwork (submittals, transmittals, signing), the formal binder (CDE,
+  // source data) and the site photos - none of which are drawings.
+  {
+    id: 'grp_drawings',
+    labelKey: 'sidebar.group.drawings',
+    defaultLabel: 'Drawings & Files',
+    defaultOpen: true,
+    items: [
+      // Reuses the page's own title key, which is already translated in all
+      // 29 locales, so the sidebar entry and the page heading cannot drift.
+      { labelKey: 'sheets.page_title', to: '/sheets', icon: FileText },
+      // These two arrive from Documents, which hides itself in Simple mode, so
+      // they carry the row-level form of that flag to keep the audience they
+      // already had. Moving a row between groups must not change who can see
+      // it, or a reorganisation becomes indistinguishable from a launch, and
+      // Plan room is still BETA: landing it in front of the users who chose the
+      // simplest view is a decision somebody should make on purpose.
+      { labelKey: 'nav.plan_room', to: '/plan-room', icon: Layers, badge: 'BETA', advancedOnly: true },
+      { labelKey: 'nav.markups', to: '/markups', icon: PenTool, advancedOnly: true },
     ],
   },
   // ── 5. REALITY CAPTURE & 3D ─────────────────────────────────────────
@@ -788,24 +793,7 @@ const navGroups: NavGroup[] = [
       { labelKey: 'nav.resource_summary', to: '/resource-summary', icon: Package, advancedOnly: true },
     ],
   },
-  // ── 20. AUTOMATION & AI ────────────────────────────────────────────
-  // AI agents, advisor, ERP chat, and the pipeline builder (listed
-  // statically — its manifest group `ai` no longer matches any group id,
-  // so there is no dynamic duplication).
-  {
-    id: 'grp_automation_ai',
-    labelKey: 'sidebar.group.automation_ai',
-    defaultLabel: 'Automation & AI',
-    defaultOpen: true,
-    hideInSimple: true,
-    items: [
-      { labelKey: 'nav.ai_agents', to: '/ai-agents', icon: Bot, badge: 'BETA' },
-      { labelKey: 'nav.ai_advisor', to: '/advisor', icon: MessageSquare },
-      { labelKey: 'nav.erp_chat', to: '/chat', icon: MessageSquare },
-      { labelKey: 'nav.pipelines', to: '/pipelines', icon: GitBranch, moduleKey: 'pipelines', advancedOnly: true, badge: 'BETA' },
-    ],
-  },
-  // ── 20a. AI ESTIMATING (beta, in development) ──────────────────────
+  // ── 20. AI ESTIMATING (beta, in development) ───────────────────────
   // AI-assisted drafting: the AI estimate, the AI estimator and the
   // estimate copilot. They work but are still beta and lean on the core
   // BOQ, so they sit down here with the other AI surfaces rather than at
@@ -820,6 +808,28 @@ const navGroups: NavGroup[] = [
       { labelKey: 'nav.ai_estimate', to: '/ai-estimate', icon: Sparkles, badge: 'BETA' },
       { labelKey: 'nav.ai_estimator', to: '/ai-estimator', icon: Wand2, badge: 'BETA' },
       { labelKey: 'nav.estimate_copilot', to: '/estimate-copilot', icon: Bot, badge: 'BETA' },
+    ],
+  },
+  // ── 21. AUTOMATION & AI ────────────────────────────────────────────
+  // AI agents, advisor, ERP chat, and the pipeline builder (listed
+  // statically — its manifest group `ai` no longer matches any group id,
+  // so there is no dynamic duplication).
+  //
+  // Founder-requested last position. Last among the working groups rather
+  // than last in the array: the `regional` group below carries
+  // `separator: true`, which draws the line between project work and the
+  // reference and setup surfaces, and this is not one of those.
+  {
+    id: 'grp_automation_ai',
+    labelKey: 'sidebar.group.automation_ai',
+    defaultLabel: 'Automation & AI',
+    defaultOpen: true,
+    hideInSimple: true,
+    items: [
+      { labelKey: 'nav.ai_agents', to: '/ai-agents', icon: Bot, badge: 'BETA' },
+      { labelKey: 'nav.ai_advisor', to: '/advisor', icon: MessageSquare },
+      { labelKey: 'nav.erp_chat', to: '/chat', icon: MessageSquare },
+      { labelKey: 'nav.pipelines', to: '/pipelines', icon: GitBranch, moduleKey: 'pipelines', advancedOnly: true, badge: 'BETA' },
     ],
   },
   // ── REGIONAL EXCHANGE (setup-only, dynamic) ────────────────────────
