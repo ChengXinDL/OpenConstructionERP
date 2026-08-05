@@ -28,6 +28,11 @@ permissions:
 jobs:
   generate:
     runs-on: ubuntu-latest
+    # One observation, 2.6 minutes on v14.5.0, so this is a backstop rather than
+    # a measured ceiling. It installs the backend with its dev extra and runs
+    # npm ci, either of which can get slower without anything being wrong, so it
+    # is set an order of magnitude above what was seen rather than close to it.
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v7

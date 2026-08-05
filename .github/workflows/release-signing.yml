@@ -28,11 +28,20 @@ jobs:
   resolve:
     name: Resolve the tag
     runs-on: ubuntu-latest
-    # Desktop Release also runs from workflow_dispatch against a branch, where
-    # head_branch is a branch name and there is no release behind it.
+    timeout-minutes: 10
+    # Two ways a Desktop Release completion is not something to sign. It also
+    # runs from workflow_dispatch against a branch, where head_branch is a
+    # branch name and there is no release behind it. And `types: [completed]`
+    # includes a failed run: if one platform fails, the release is short an
+    # installer, and the asset-count check below cannot tell, because it
+    # compares the download against the release rather than the release against
+    # the platforms it should have. Signing that produces a manifest which
+    # verifies cleanly over an incomplete release, which reads as a complete
+    # one. The recovery is to re-run Desktop Release, not this workflow.
     if: >-
       github.event_name != 'workflow_run' ||
-      startsWith(github.event.workflow_run.head_branch, 'v')
+      (github.event.workflow_run.conclusion == 'success' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
@@ -71,6 +80,13 @@ jobs:
     # still goes red, so the failure is not hidden.
     if: ${{ !cancelled() && needs.resolve.result == 'success' }}
     runs-on: ubuntu-latest
+    # Observed at 2.8 and 0.6 minutes, the difference being how much of the
+    # 2.6 GB of installers the runner had to pull. This is a backstop against
+    # inheriting the six hour default, not a ceiling sized from a distribution:
+    # two samples do not make one, and the download only grows as platforms are
+    # added. It is far enough above both readings that it cannot fire on a
+    # healthy run.
+    timeout-minutes: 60
     steps:
       - name: Install cosign
         uses: sigstore/cosign-installer@v3
