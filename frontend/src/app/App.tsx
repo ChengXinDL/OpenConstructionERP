@@ -154,6 +154,9 @@ const ProcurementPage = lazy(() =>
 const SafetyPage = lazy(() =>
   import('@/features/safety/SafetyPage').then((m) => ({ default: m.SafetyPage }))
 );
+const CredentialsPage = lazy(() =>
+  import('@/features/credentials/CredentialsPage').then((m) => ({ default: m.CredentialsPage }))
+);
 const ContactsPage = lazy(() =>
   import('@/features/contacts/ContactsPage').then((m) => ({ default: m.ContactsPage }))
 );
@@ -1215,6 +1218,9 @@ export default function App() {
 
         <Route path="/safety" element={<P title="Safety"><SafetyPage /></P>} />
         <Route path="/projects/:projectId/safety" element={<P title="Safety"><SafetyPage /></P>} />
+
+        <Route path="/credentials" element={<P title="Credentials"><CredentialsPage /></P>} />
+        <Route path="/projects/:projectId/credentials" element={<P title="Credentials"><CredentialsPage /></P>} />
 
         <Route path="/contacts" element={<P title="Contacts"><ContactsPage /></P>} />
         <Route path="/projects/:projectId/tasks" element={<P title="Tasks"><TasksPage /></P>} />

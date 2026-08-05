@@ -596,6 +596,16 @@ const navGroups: NavGroup[] = [
     items: [
       { labelKey: 'nav.equipment', to: '/equipment', icon: Truck },
       { labelKey: 'nav.resources', to: '/resources', icon: Users },
+      // What the crew is licensed to do, and what the project demands of them.
+      // The module has shipped installed since it was written and had no menu
+      // entry and no route, so the only way to reach it was to know the URL.
+      {
+        labelKey: 'nav.credentials',
+        defaultLabel: 'Credentials',
+        to: '/credentials',
+        icon: BadgeCheck,
+        advancedOnly: true,
+      },
       { labelKey: 'nav.payroll', to: '/payroll', icon: Wallet, advancedOnly: true },
       { labelKey: 'nav.assets', to: '/assets', icon: Package },
       // Off-site / prefab production sits with resources (it is a production
