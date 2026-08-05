@@ -568,11 +568,14 @@ jobs:
         src/features/cases/casesProjectContext.test.tsx
         src/features/contracts/ContractAnalyticsPanels.test.tsx
         src/features/contracts/ContractDetailDrawerDelete.test.tsx
+        src/features/contracts/ContractSecuritiesPanel.test.tsx
         src/features/contracts/findingKeys.test.ts
         src/features/dashboard/__tests__/DashboardWidgetScope.test.tsx
         src/features/dashboard/__tests__/LatestSitePhotosScope.test.tsx
         src/features/dwg-takeoff/lib/__tests__/blocks.test.ts
         src/features/dwg-takeoff/lib/__tests__/dxf-renderer.test.ts
+        src/features/dwg-takeoff/lib/__tests__/issue-426-render.test.ts
+        src/features/dwg-takeoff/lib/__tests__/text-display-store.test.ts
         src/features/dwg-takeoff/lib/__tests__/viewport.test.ts
         src/features/file-manager/SheetsIndexPage.test.tsx
         src/features/file-manager/sheetsInsights.test.ts
