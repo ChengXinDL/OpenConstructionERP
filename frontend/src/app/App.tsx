@@ -58,6 +58,9 @@ const CadDataExplorerPage = lazy(() =>
 const PointCloudPage = lazy(() =>
   import('@/features/pointcloud/PointCloudPage').then((m) => ({ default: m.PointCloudPage }))
 );
+const PipelinesPage = lazy(() =>
+  import('@/features/pipelines/PipelinesPage').then((m) => ({ default: m.PipelinesPage }))
+);
 const MatchElementsPage = lazy(() =>
   import('@/features/match-elements/MatchElementsPage').then((m) => ({ default: m.MatchElementsPage }))
 );
@@ -637,6 +640,10 @@ const HowItWorksPage = lazy(() => import('@/features/help/HowItWorksPage'));
 const CasesPage = lazy(() =>
   import('@/features/cases').then((m) => ({ default: m.CasesPage }))
 );
+// The case editor, split from the hub: most readers never author one.
+const CaseEditorPage = lazy(() =>
+  import('@/features/cases').then((m) => ({ default: m.CaseEditorPage }))
+);
 // Inside track - backers-only early-look panel (donation perk). Lazy so the
 // changelog it reuses does not weigh down the boot bundle.
 const InsidePage = lazy(() =>
@@ -1069,6 +1076,12 @@ export default function App() {
         <Route path="/data-explorer" element={<P title="CAD-BIM BI Explorer"><CadDataExplorerPage /></P>} />
         <Route path="/match-elements" element={<P title="Match Elements"><MatchElementsPage /></P>} />
         <Route path="/pointcloud" element={<P title="Point Cloud"><PointCloudPage /></P>} />
+        {/* The sidebar has linked to /pipelines since the module landed, and the
+            feature is complete (page, canvas, store, templates, api), but the
+            route was never declared, so the menu entry went nowhere. It only
+            shows for an advanced user who installed an opt-in module, which is
+            why it went unreported for so long. */}
+        <Route path="/pipelines" element={<P title="Pipelines"><PipelinesPage /></P>} />
         <Route path="/bim" element={<P title="BIM Viewer"><BIMPage /></P>} />
         <Route path="/bim/federations" element={<P title="BIM Federations"><FederationsPage /></P>} />
         <Route path="/bim/rules" element={<P title="BIM Rules"><BIMQuantityRulesPage /></P>} />
@@ -1284,8 +1297,14 @@ export default function App() {
         <Route path="/about" element={<P title="About"><AboutPage /></P>} />
         <Route path="/how-it-works" element={<P title="How it works"><HowItWorksPage /></P>} />
         {/* Cases (playbooks) - list at /cases, the stepper at /cases/:playbookId
-            (one component serves both so it stays a single lazy chunk). */}
+            (one component serves both so it stays a single lazy chunk).
+            The editor is a separate chunk: most readers never author a case,
+            and the form has no business loading for the ones who do not.
+            /cases/new is declared before the stepper for readability only -
+            the router ranks a static segment above a dynamic one regardless. */}
         <Route path="/cases" element={<P title="Cases"><CasesPage /></P>} />
+        <Route path="/cases/new" element={<P title="Cases"><CaseEditorPage /></P>} />
+        <Route path="/cases/:playbookId/edit" element={<P title="Cases"><CaseEditorPage /></P>} />
         <Route path="/cases/:playbookId" element={<P title="Cases"><CasesPage /></P>} />
         {/* Inside track - backers-only early-look panel (donation perk):
             recent releases (reused from the /about changelog) + a short

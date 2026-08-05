@@ -12,11 +12,17 @@
 //
 // It also owns two small pieces of view state for the Cases hub itself (not
 // per-run progress): the "I work as..." company type the user picked, and
-// which cases they pinned to which real project. Both are plain localStorage,
-// no backend, same pattern as everything else in this file.
+// which cases they pinned to which real project. The filters are plain
+// localStorage, same pattern as the progress map above. The pins are not: they
+// live on the server under `/v1/cases/pins/`, because the set of cases someone
+// curated for a job belongs to their account and not to one browser. What is
+// in localStorage under `oe_cases_pins` is a mirror of that list, kept so the
+// hub has something to show before the first read lands and after one fails.
 
 import { create } from 'zustand';
 import type { CaseCategory, CompanyType, PlaybookProgress, ProfessionalRole } from './types';
+import type { PinResponse, PinSource } from './api';
+import { authoredPlaybookId, caseIdFromPlaybookId, fetchCasePins, pinCase, unpinCase } from './api';
 import {
   clampStepIndex,
   emptyProgress,
@@ -29,6 +35,7 @@ const SELECTED_KEY = 'oe_cases_selected';
 const COMPANY_TYPE_KEY = 'oe_cases_company_type';
 const ROLE_KEY = 'oe_cases_role';
 const PINS_KEY = 'oe_cases_pins';
+const PINS_MIGRATED_KEY = 'oe_cases_pins_migrated';
 const CATEGORY_KEY = 'oe_cases_categories';
 
 // There was a sixth key here, `oe_cases_pin_project`, holding "which real
@@ -176,8 +183,10 @@ const VALID_CATEGORIES: readonly CaseCategory[] = [
   'handover',
 ];
 
-/** Case ids pinned per real project id (NOT a sample-project scope like
- *  `selected` above - this is the user's own "cases I use on this job" list). */
+/** Playbook ids pinned per real project id (NOT a sample-project scope like
+ *  `selected` above - this is the user's own "cases I use on this job" list).
+ *  The server holds the real list; this shape is the mirror of it and the
+ *  shape the hub renders. */
 type PinsMap = Record<string, string[]>;
 
 function readPins(): PinsMap {
@@ -206,6 +215,174 @@ function persistPins(pins: PinsMap) {
   }
 }
 
+/** Projects whose localStorage pins have already been handed to the server.
+ *
+ *  Per browser, because that is where the thing being migrated lives: a second
+ *  device with its own `oe_cases_pins` has its own upload to do. */
+function readMigratedProjects(): Set<string> {
+  try {
+    const raw = localStorage.getItem(PINS_MIGRATED_KEY);
+    if (!raw) return new Set();
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((id): id is string => typeof id === 'string'));
+  } catch {
+    return new Set();
+  }
+}
+
+function markProjectMigrated(projectId: string) {
+  try {
+    const migrated = readMigratedProjects();
+    if (migrated.has(projectId)) return;
+    migrated.add(projectId);
+    localStorage.setItem(PINS_MIGRATED_KEY, JSON.stringify([...migrated]));
+  } catch {
+    /* non-fatal: without the marker the upload runs again, and the pin
+       endpoint is idempotent, so a lost marker costs a request and nothing
+       else. */
+  }
+}
+
+/** The pins that still exist only in this browser, in the order they were
+ *  pinned. Empty once the project has been migrated, so the upload runs once.
+ *
+ *  The rule the hub was specified against is "the server has nothing for this
+ *  project and localStorage has something". This is that rule with the partial
+ *  case spelled out: an upload that failed halfway leaves the server holding
+ *  SOME of the list, and the literal rule would then read a non-empty server
+ *  answer as "already migrated" and drop the remainder on the floor. */
+function pinsOwedToServer(projectId: string, serverIds: readonly string[]): string[] {
+  if (readMigratedProjects().has(projectId)) return [];
+  const local = readPins()[projectId] ?? [];
+  return local.filter((id) => !serverIds.includes(id));
+}
+
+/** `sort_order` is bounded 0..999 by `PinRequest` in the module's schemas.py.
+ *  A 1000th pin is not worth a rejected request, so the tail all shares the
+ *  last place rather than failing to save. */
+const MAX_SORT_ORDER = 999;
+
+const clampSortOrder = (index: number): number =>
+  Math.min(Math.max(index, 0), MAX_SORT_ORDER);
+
+/** Which id space a playbook id belongs to, in the form the pin API wants.
+ *  A shipped playbook is a source file and pins under its slug; an authored
+ *  case is a database row and pins under its UUID. `caseIdFromPlaybookId` is
+ *  the only supported way to tell the two apart. */
+function pinTarget(playbookId: string): { case_source: PinSource; case_id: string } {
+  const caseId = caseIdFromPlaybookId(playbookId);
+  return caseId
+    ? { case_source: 'custom', case_id: caseId }
+    : { case_source: 'builtin', case_id: playbookId };
+}
+
+/** The inverse: the playbook id a stored pin points at. */
+function playbookIdFromPin(pin: PinResponse): string {
+  return pin.case_source === 'custom' ? authoredPlaybookId(pin.case_id) : pin.case_id;
+}
+
+/** Reads in flight, so a hub that re-renders mid-request does not start a
+ *  second read of the same project and let the two answers race. */
+const pinLoadsInFlight = new Set<string>();
+
+/** Writes in flight, counted per project. A read that resolves while one is
+ *  running is stale by construction - the server composed its answer before it
+ *  knew about the pin the user just clicked - so that answer is dropped rather
+ *  than painted over the optimistic list. Losing the pin you just made is the
+ *  exact failure the optimistic update exists to prevent. */
+const pinWritesInFlight = new Map<string, number>();
+
+function beginPinWrite(projectId: string) {
+  pinWritesInFlight.set(projectId, (pinWritesInFlight.get(projectId) ?? 0) + 1);
+}
+
+function endPinWrite(projectId: string) {
+  const left = (pinWritesInFlight.get(projectId) ?? 1) - 1;
+  if (left > 0) pinWritesInFlight.set(projectId, left);
+  else pinWritesInFlight.delete(projectId);
+}
+
+/** Write one project's pin list into the store, and by default into the
+ *  localStorage mirror as well. Pass `mirror = false` when the list on screen
+ *  is not one the server has confirmed - overwriting the mirror with an
+ *  unconfirmed list is how the copy we still need gets lost. */
+function setPinsForProject(projectId: string, ids: string[], mirror = true) {
+  const pins = { ...useCasesStore.getState().pins, [projectId]: ids };
+  if (mirror) persistPins(pins);
+  useCasesStore.setState({ pins });
+}
+
+/** Hand a list of playbook ids to the server in order, continuing the
+ *  `sort_order` sequence after the rows already stored. Sequential and not
+ *  parallel: the order is the point, and a burst of parallel writes on a small
+ *  box is how you earn a 429. Returns false if any one of them did not land. */
+async function uploadPins(
+  projectId: string,
+  playbookIds: readonly string[],
+  startIndex: number,
+): Promise<boolean> {
+  for (const [offset, playbookId] of playbookIds.entries()) {
+    try {
+      await pinCase({
+        project_id: projectId,
+        ...pinTarget(playbookId),
+        sort_order: clampSortOrder(startIndex + offset),
+      });
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** Undo one optimistic toggle, unless the user has already toggled it back.
+ *
+ *  Restoring a snapshot of the whole list would be wrong: two clicks on two
+ *  different cases overlap, and the slower failure would then put back a list
+ *  that predates the faster success. Only the one case this call was about is
+ *  touched, and only while the state still shows what this call wrote.
+ *  A re-pinned case lands at the end; the server's order wins on the next
+ *  read. */
+function rollbackPin(projectId: string, playbookId: string, pinned: boolean) {
+  const current = useCasesStore.getState().pins[projectId] ?? [];
+  if (current.includes(playbookId) !== pinned) return;
+  const reverted = pinned
+    ? current.filter((id) => id !== playbookId)
+    : [...current, playbookId];
+  setPinsForProject(projectId, reverted);
+}
+
+/** Send one pin or unpin, and roll the optimistic change back if it did not
+ *  land. Not awaited by `togglePin`, which stays synchronous and void: no
+ *  caller has to hold a promise, and none can leave an unhandled rejection. */
+async function syncPin(projectId: string, playbookId: string, pinned: boolean): Promise<void> {
+  const target = pinTarget(playbookId);
+  beginPinWrite(projectId);
+  try {
+    if (pinned) {
+      const index = (useCasesStore.getState().pins[projectId] ?? []).indexOf(playbookId);
+      // The response row is deliberately not read. Offline, `apiPost` queues
+      // the mutation for replay and resolves with undefined instead of a row,
+      // so anything that reached into the result would throw on exactly the
+      // path the queue exists to survive.
+      await pinCase({
+        project_id: projectId,
+        ...target,
+        sort_order: clampSortOrder(index),
+      });
+    } else {
+      await unpinCase(projectId, target.case_source, target.case_id);
+    }
+    useCasesStore.setState({ pinsError: false });
+  } catch {
+    rollbackPin(projectId, playbookId, pinned);
+    useCasesStore.setState({ pinsError: true });
+  } finally {
+    endPinWrite(projectId);
+  }
+}
+
 interface CasesState {
   /** Progress per run key (playbookId or `playbookId::projectId`). */
   runs: RunMap;
@@ -226,10 +403,18 @@ interface CasesState {
    *  Held here rather than in the page so it survives a visit to a case and
    *  back, which is how the other two filters already behaved. */
   categories: CaseCategory[];
-  /** Case ids pinned per real project id. The project the hub is pinning TO
-   *  is not held here - it is the app-wide active project from
+  /** Playbook ids pinned per real project id, as last read from the server (or
+   *  out of the mirror, before the first read). The project the hub is pinning
+   *  TO is not held here - it is the app-wide active project from
    *  `useProjectContextStore`. */
   pins: PinsMap;
+  /** True while a `loadPins` read is in flight for any project. */
+  pinsLoading: boolean;
+  /** True when the last pin call did not reach the server, so the list on
+   *  screen is this browser's copy rather than the account's. Not an error to
+   *  raise at the user by itself: the pins still work locally, and the hub can
+   *  say so quietly. Cleared by the next call that succeeds. */
+  pinsError: boolean;
   /** Toggle a step's done flag for a run. */
   toggleStepDone: (playbookId: string, projectId: string | null, stepId: string) => void;
   /** Move the runner's focus to a step index (clamped to the step count). */
@@ -257,7 +442,14 @@ interface CasesState {
   toggleCategory: (category: CaseCategory) => void;
   /** Drop every company, role and discipline filter in one go. */
   clearFilters: () => void;
-  /** Pin or unpin a case for a project (no-op with an empty projectId). */
+  /** Read a project's pins from the server, run the one-time upload of what
+   *  this browser had in localStorage if it is still owed, and refresh the
+   *  mirror. Never rejects: a failure leaves the local list on screen and
+   *  raises `pinsError`. Safe to call on every visit to the hub. */
+  loadPins: (projectId: string) => Promise<void>;
+  /** Pin or unpin a case for a project (no-op with an empty projectId).
+   *  Optimistic: the list moves on the click and rolls back if the write
+   *  fails. */
   togglePin: (projectId: string, playbookId: string) => void;
   /** True when the case is pinned to the given project. */
   isPinned: (projectId: string, playbookId: string) => boolean;
@@ -270,6 +462,8 @@ export const useCasesStore = create<CasesState>((set, get) => ({
   roles: readIdList(ROLE_KEY, VALID_ROLES),
   categories: readIdList(CATEGORY_KEY, VALID_CATEGORIES),
   pins: readPins(),
+  pinsLoading: false,
+  pinsError: false,
 
   toggleStepDone: (playbookId, projectId, stepId) => {
     const key = runKey(playbookId, projectId);
@@ -347,16 +541,66 @@ export const useCasesStore = create<CasesState>((set, get) => ({
     set({ companyTypes: [], roles: [], categories: [] });
   },
 
+  loadPins: async (projectId) => {
+    if (!projectId) return;
+    if (pinLoadsInFlight.has(projectId)) return;
+    pinLoadsInFlight.add(projectId);
+    set({ pinsLoading: true });
+    try {
+      const rows = await fetchCasePins(projectId);
+      // A pin was clicked while this read was on the wire, so the answer that
+      // just arrived predates it. Drop it; the write keeps the local list
+      // right and the next read reconciles.
+      if (pinWritesInFlight.has(projectId)) return;
+      const serverIds = (rows ?? []).map(playbookIdFromPin);
+      const owed = pinsOwedToServer(projectId, serverIds);
+      if (owed.length === 0) {
+        // Either this browser had nothing of its own to hand over, or it has
+        // already handed it over. Both settle the question for this project,
+        // so the marker goes down and the upload never runs again here.
+        markProjectMigrated(projectId);
+        setPinsForProject(projectId, serverIds);
+        set({ pinsError: false });
+        return;
+      }
+      const uploaded = await uploadPins(projectId, owed, serverIds.length);
+      if (!uploaded) {
+        // Show everything known about - the server's rows plus the ones still
+        // only here - but leave `oe_cases_pins` alone and do not mark the
+        // project migrated. The upload is the only thing that would have moved
+        // this data off this browser, so until it lands, localStorage is the
+        // only copy of it that exists and overwriting it would destroy the
+        // list the user curated.
+        setPinsForProject(projectId, [...serverIds, ...owed], false);
+        set({ pinsError: true });
+        return;
+      }
+      markProjectMigrated(projectId);
+      setPinsForProject(projectId, [...serverIds, ...owed]);
+      set({ pinsError: false });
+    } catch {
+      // Server unreachable, no access to the project, or offline with nothing
+      // cached. The mirror stays on screen - an empty strip would read as "you
+      // pinned nothing", which is a different and untrue statement - and the
+      // flag says the list may be stale.
+      set({ pinsError: true });
+    } finally {
+      pinLoadsInFlight.delete(projectId);
+      set({ pinsLoading: pinLoadsInFlight.size > 0 });
+    }
+  },
+
   togglePin: (projectId, playbookId) => {
     if (!projectId) return;
     const current = get().pins[projectId] ?? [];
-    const has = current.includes(playbookId);
-    const nextForProject = has
-      ? current.filter((id) => id !== playbookId)
-      : [...current, playbookId];
-    const pins = { ...get().pins, [projectId]: nextForProject };
-    persistPins(pins);
-    set({ pins });
+    const pinned = !current.includes(playbookId);
+    const nextForProject = pinned
+      ? [...current, playbookId]
+      : current.filter((id) => id !== playbookId);
+    // Optimistic, then the request. A pin that waits for a round trip reads as
+    // a control that did not work, and the user clicks it a second time.
+    setPinsForProject(projectId, nextForProject);
+    void syncPin(projectId, playbookId, pinned);
   },
 
   isPinned: (projectId, playbookId) => {

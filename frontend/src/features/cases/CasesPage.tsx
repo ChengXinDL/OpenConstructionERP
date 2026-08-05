@@ -44,15 +44,20 @@ import {
   UserRound,
   Flag,
   Info,
+  Loader2,
+  PenLine,
+  Pencil,
   X,
   type LucideProps,
 } from "lucide-react";
-import { Badge, EmptyState } from "@/shared/ui";
+import { Badge, Button, EmptyState } from "@/shared/ui";
 import { useNearViewport } from "@/shared/hooks/useNearViewport";
 import { useActiveProjectId } from "@/shared/hooks/useActiveProjectId";
 import { useProjectContextStore } from "@/stores/useProjectContextStore";
 import { projectsApi } from "@/features/projects/api";
 import { PLAYBOOKS, getPlaybook } from "./playbooks";
+import { caseIdFromPlaybookId } from "./api";
+import { useAuthoredCases } from "./useCustomCases";
 import { PlaybookRunner } from "./PlaybookRunner";
 import { useCasesStore } from "./useCasesStore";
 import { completedCount } from "./progress";
@@ -100,11 +105,42 @@ export function CasesPage() {
   const { playbookId } = useParams<{ playbookId?: string }>();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  // Authored cases are rows on the server, so the runner can only resolve one
+  // once they have arrived. Fetched here, above the detail branch, because a
+  // hook cannot sit below a return.
+  const { playbooks: authoredPlaybooks, isLoading: authoredLoading } =
+    useAuthoredCases();
 
   // Detail mode: a specific case is open in the runner.
   if (playbookId) {
-    const playbook = getPlaybook(playbookId);
+    // `getPlaybook` only knows the 144 shipped files, and an authored id
+    // (`custom-<uuid>`) is not one of them, so the authored list answers first
+    // and the bundle answers for everything else.
+    const playbook =
+      authoredPlaybooks.find((pb) => pb.id === playbookId) ??
+      getPlaybook(playbookId);
     if (!playbook) {
+      // An id is only genuinely unknown once the authored list has loaded, so
+      // "not found" never flashes over a case that is still on its way. Only an
+      // authored-looking id waits: a file slug the bundle does not carry is
+      // already answered, and making it wait for a fetch would be a regression.
+      if (authoredLoading && caseIdFromPlaybookId(playbookId) !== null) {
+        return (
+          <div
+            className="flex items-center justify-center py-16 animate-fade-in"
+            role="status"
+          >
+            <Loader2
+              size={22}
+              className="animate-spin text-content-tertiary"
+              aria-hidden="true"
+            />
+            <span className="sr-only">
+              {t("cases.loading_case", { defaultValue: "Loading case..." })}
+            </span>
+          </div>
+        );
+      }
       return (
         <div className="py-8 animate-fade-in">
           <EmptyState
@@ -180,6 +216,21 @@ function CasesList() {
     [pinProjectId, pins],
   );
 
+  // Authored cases stand beside the shipped ones from here on. `allPlaybooks`
+  // is the catalogue every filter, count, number and card below reads, so a
+  // case somebody wrote is narrowed, counted and drawn exactly like one we
+  // ship - one list rather than a concatenation repeated at each use. When the
+  // fetch fails the shipped list is what is left, which is a shorter list, not
+  // a broken screen (see `useAuthoredCases`).
+  const { playbooks: authoredPlaybooks } = useAuthoredCases();
+  const allPlaybooks = useMemo(
+    () =>
+      authoredPlaybooks.length > 0
+        ? [...PLAYBOOKS, ...authoredPlaybooks]
+        : PLAYBOOKS,
+    [authoredPlaybooks],
+  );
+
   // Best progress for a card = the furthest a user got on this case across any
   // run (unscoped or scoped to a sample project).
   const bestDoneFor = useMemo(() => {
@@ -198,9 +249,9 @@ function CasesList() {
   // role filter and the per-role counts are cheap.
   const rolesByPlaybook = useMemo(() => {
     const m = new Map<string, ProfessionalRole[]>();
-    for (const pb of PLAYBOOKS) m.set(pb.id, rolesForPlaybook(pb));
+    for (const pb of allPlaybooks) m.set(pb.id, rolesForPlaybook(pb));
     return m;
-  }, []);
+  }, [allPlaybooks]);
   const caseHasRole = useMemo(
     () => (pb: Playbook, r: ProfessionalRole) =>
       rolesByPlaybook.get(pb.id)?.includes(r) ?? false,
@@ -211,10 +262,13 @@ function CasesList() {
   // end) for every case, so the timeline and the numbered cards read in order.
   const stageByPlaybook = useMemo(() => {
     const m = new Map<string, LifecycleStage>();
-    for (const pb of PLAYBOOKS) m.set(pb.id, stageForPlaybook(pb));
+    for (const pb of allPlaybooks) m.set(pb.id, stageForPlaybook(pb));
     return m;
-  }, []);
-  const caseNumbers = useMemo(() => buildCaseNumbers(PLAYBOOKS), []);
+  }, [allPlaybooks]);
+  const caseNumbers = useMemo(
+    () => buildCaseNumbers(allPlaybooks),
+    [allPlaybooks],
+  );
   const inStage = useMemo(
     () => (pb: Playbook) =>
       activeStage === "all" || stageByPlaybook.get(pb.id) === activeStage,
@@ -245,22 +299,24 @@ function CasesList() {
   // each option's availability + count by the OTHER two active filters, so a
   // count always describes what clicking it would really show.
   const byCategoryRole = useMemo(
-    () => PLAYBOOKS.filter((p) => inCategory(p) && inRole(p) && inStage(p)),
-    [inCategory, inRole, inStage],
+    () => allPlaybooks.filter((p) => inCategory(p) && inRole(p) && inStage(p)),
+    [allPlaybooks, inCategory, inRole, inStage],
   );
   const byCompanyRole = useMemo(
-    () => PLAYBOOKS.filter((p) => inCompany(p) && inRole(p) && inStage(p)),
-    [inCompany, inRole, inStage],
+    () => allPlaybooks.filter((p) => inCompany(p) && inRole(p) && inStage(p)),
+    [allPlaybooks, inCompany, inRole, inStage],
   );
   const byCompanyCategory = useMemo(
-    () => PLAYBOOKS.filter((p) => inCompany(p) && inCategory(p) && inStage(p)),
-    [inCompany, inCategory, inStage],
+    () =>
+      allPlaybooks.filter((p) => inCompany(p) && inCategory(p) && inStage(p)),
+    [allPlaybooks, inCompany, inCategory, inStage],
   );
   // Stage availability + counts are scoped by the who/discipline filters but
   // NOT by the active stage itself (so every reachable stage stays clickable).
   const byCompanyRoleCategory = useMemo(
-    () => PLAYBOOKS.filter((p) => inCompany(p) && inRole(p) && inCategory(p)),
-    [inCompany, inRole, inCategory],
+    () =>
+      allPlaybooks.filter((p) => inCompany(p) && inRole(p) && inCategory(p)),
+    [allPlaybooks, inCompany, inRole, inCategory],
   );
   // An option the user has picked stays in its own row even when the other
   // filters leave it with no matching case. Dropping it would take away the
@@ -334,7 +390,7 @@ function CasesList() {
   // shortlist and a plain title/description text search. All narrow the list.
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return PLAYBOOKS.filter((pb) => {
+    return allPlaybooks.filter((pb) => {
       if (!inCompany(pb)) return false;
       if (!inRole(pb)) return false;
       if (activeStage !== "all" && stageByPlaybook.get(pb.id) !== activeStage)
@@ -351,6 +407,7 @@ function CasesList() {
       (a, b) => (caseNumbers.get(a.id) ?? 0) - (caseNumbers.get(b.id) ?? 0),
     );
   }, [
+    allPlaybooks,
     query,
     activeStage,
     stageByPlaybook,
@@ -435,11 +492,11 @@ function CasesList() {
               <h1 className="text-xl font-semibold tracking-tight text-content-primary">
                 {t("cases.page_title", { defaultValue: "Cases" })}
               </h1>
-              {PLAYBOOKS.length > 0 && (
+              {allPlaybooks.length > 0 && (
                 <span className="inline-flex items-center rounded-full bg-oe-blue/10 px-2 py-0.5 text-2xs font-semibold text-oe-blue ring-1 ring-inset ring-oe-blue/20">
                   {t("cases.header.count", {
                     defaultValue: "{{count}} guided cases",
-                    count: PLAYBOOKS.length,
+                    count: allPlaybooks.length,
                   })}
                 </span>
               )}
@@ -451,10 +508,22 @@ function CasesList() {
               })}
             </p>
           </div>
+          {/* The catalogue is not only ours: a user writes their own case the
+              way their firm actually works, and it then lives in this same hub
+              beside the shipped ones. */}
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<PenLine size={13} />}
+            onClick={() => navigate("/cases/new")}
+            className="shrink-0"
+          >
+            {t("cases.write_own", { defaultValue: "Write your own case" })}
+          </Button>
         </div>
       </div>
 
-      {PLAYBOOKS.length > 0 && (
+      {allPlaybooks.length > 0 && (
         <>
           {/* ── How-to helper: how to use the hub in one line ─────────────── */}
           <div className="flex items-start gap-2 rounded-xl border border-dashed border-border-light bg-surface-secondary/30 p-3">
@@ -985,7 +1054,7 @@ function CasesList() {
       )}
 
       {/* ── Cards ───────────────────────────────────────────────────────── */}
-      {PLAYBOOKS.length === 0 ? (
+      {allPlaybooks.length === 0 ? (
         <EmptyState
           icon={<Route size={28} />}
           title={t("cases.empty_title", { defaultValue: "No cases yet" })}
@@ -1020,10 +1089,14 @@ function CasesList() {
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
             {windowed.map((pb) => {
               const stageId = stageByPlaybook.get(pb.id);
+              // A shipped case is a source file with nothing an editor could
+              // open; only an authored one is a row somebody may rewrite.
+              const authored = caseIdFromPlaybookId(pb.id) !== null;
               return (
                 <CaseCard
                   key={pb.id}
                   pb={pb}
+                  authored={authored}
                   num={caseNumbers.get(pb.id)}
                   totalCases={caseNumbers.size}
                   stage={stageId ? STAGE_BY_ID[stageId] : undefined}
@@ -1033,6 +1106,11 @@ function CasesList() {
                   pinned={pinProjectId ? pinnedIds.includes(pb.id) : false}
                   onOpen={() => navigate(`/cases/${pb.id}`)}
                   onTogglePin={() => togglePin(pinProjectId, pb.id)}
+                  onEdit={
+                    authored
+                      ? () => navigate(`/cases/${pb.id}/edit`)
+                      : undefined
+                  }
                 />
               );
             })}
@@ -1073,6 +1151,9 @@ function CasesList() {
 
 interface CaseCardProps {
   pb: Playbook;
+  /** Whether this case was written by a user rather than shipped with the
+   *  product. Only marks the card; what may be DONE with it is `onEdit`. */
+  authored: boolean;
   /** 1-based lifecycle number, or undefined if this case has none. */
   num: number | undefined;
   /** Total number of numbered cases, for the "Case X of N" tooltip. */
@@ -1089,6 +1170,9 @@ interface CaseCardProps {
   pinned: boolean;
   onOpen: () => void;
   onTogglePin: () => void;
+  /** Opens this case in the editor. Passed only when it can be rewritten, so
+   *  a shipped case never offers an edit it cannot honour. */
+  onEdit?: () => void;
 }
 
 /**
@@ -1100,6 +1184,7 @@ interface CaseCardProps {
  */
 function CaseCard({
   pb,
+  authored,
   num,
   totalCases,
   stage,
@@ -1109,6 +1194,7 @@ function CaseCard({
   pinned,
   onOpen,
   onTogglePin,
+  onEdit,
 }: CaseCardProps) {
   const { t } = useTranslation();
   const { ref, near } = useNearViewport<HTMLDivElement>("400px");
@@ -1170,17 +1256,30 @@ function CaseCard({
         ) : (
           <div className="h-full w-full" aria-hidden="true" />
         )}
-        {num != null && (
-          <span
-            className="absolute left-3 top-3 inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-md bg-slate-900/85 px-1.5 text-2xs font-bold tabular-nums text-white shadow-sm ring-1 ring-inset ring-white/15"
-            title={t("cases.card.number", {
-              defaultValue: "Case {{num}} of {{total}}",
-              num,
-              total: totalCases,
-            })}
-          >
-            {num}
-          </span>
+        {(num != null || authored) && (
+          <div className="absolute left-3 top-3 flex items-center gap-1.5">
+            {num != null && (
+              <span
+                className="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-md bg-slate-900/85 px-1.5 text-2xs font-bold tabular-nums text-white shadow-sm ring-1 ring-inset ring-white/15"
+                title={t("cases.card.number", {
+                  defaultValue: "Case {{num}} of {{total}}",
+                  num,
+                  total: totalCases,
+                })}
+              >
+                {num}
+              </span>
+            )}
+            {/* Says at a glance that this case was written in the user's own
+                organisation rather than shipped with the product. Not "yours":
+                the hub also lists cases a colleague shared, and those are as
+                little the reader's own work as the shipped ones. */}
+            {authored && (
+              <Badge variant="blue" size="sm">
+                {t("cases.card.custom_badge", { defaultValue: "Custom" })}
+              </Badge>
+            )}
+          </div>
         )}
         <div className="absolute right-3 top-3 flex items-center gap-1.5">
           {complete ? (
@@ -1198,6 +1297,32 @@ function CaseCard({
               })}
             />
           ) : null}
+          {/* Rewrite this case. Sits beside the pin and borrows its treatment,
+              including the z-20 that keeps it above the hover panel: a user
+              reads that panel to decide the case needs changing, so the
+              control they then reach for cannot be the one it just covered. */}
+          {onEdit && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+              title={t("cases.card.edit", { defaultValue: "Edit this case" })}
+              aria-label={t("cases.card.edit", {
+                defaultValue: "Edit this case",
+              })}
+              className={clsx(
+                "relative z-20 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40",
+                "border-border-light bg-surface-primary/90 text-content-tertiary",
+                "group-hover:border-white/35 group-hover:bg-white/15 group-hover:text-white",
+                "group-focus-visible:border-white/35 group-focus-visible:bg-white/15 group-focus-visible:text-white",
+                "hover:border-white/60 hover:bg-white/30 hover:text-white",
+              )}
+            >
+              <Pencil size={13} />
+            </button>
+          )}
           {/* Pin this case to the active project. It has to stay legible while
               the card is hovered: the hover panel below covers the whole card
               at z-10, and a user reads that panel to decide whether this case
