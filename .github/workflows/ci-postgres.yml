@@ -127,6 +127,32 @@ jobs:
       # own pins or the strip renders rows that resolve to nothing.
       - name: Run cases module tests
         run: pytest tests/unit/test_cases_module.py -q -p no:cacheprovider
+      # Government clearance for electronic invoices. Three regimes that look
+      # alike from the outside and are not: under clearance the authority's
+      # identifier is what makes the invoice legally valid, under reporting the
+      # invoice was already valid and the filing is late or not, and on a
+      # network there is no authority at all. One shared success state would
+      # record a network delivery as a tax clearance and nothing downstream
+      # could tell. The permission keys have to stay in the registry, because
+      # RequirePermission denies an unregistered key and the module would go
+      # admin-only in production with every admin-authenticated test still
+      # green. The migration guard is the one that earns its place: a fresh
+      # install goes through create_all and an upgrade goes through the
+      # revision, and nothing else in the tree notices when the two stop
+      # building the same table. About thirty seconds, most of it fixtures.
+      - name: Run e-invoice clearance module tests
+        run: pytest tests/unit/test_einvoice_clearance_module.py -q -p no:cacheprovider
+      # Statutory withholding. Two rules here decide real money and neither is
+      # visible from a passing import. The taxable base excludes materials
+      # where the scheme says so and includes them where it does not, and the
+      # UK and Germany differ on exactly that, so hardcoding either one
+      # under-withholds somewhere. And an expired verification has to move the
+      # party up to the higher band rather than quietly keeping the reduced
+      # one. The suite also asserts that the revision builds the same index set
+      # as a fresh create_all install, which nothing else in the tree would
+      # notice. About thirty seconds.
+      - name: Run tax withholding module tests
+        run: pytest tests/unit/test_tax_withholding_module.py -q -p no:cacheprovider
       # The DWG parser. Attached for the same reason as the two suites either side
       # of it: tests/unit is in no lane that blocks a merge, and this is the parser
       # whose vertex re-scan shipped quadratic in every release from 3.0.2 to 14.1.0
