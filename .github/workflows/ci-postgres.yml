@@ -153,6 +153,19 @@ jobs:
       # notice. About thirty seconds.
       - name: Run tax withholding module tests
         run: pytest tests/unit/test_tax_withholding_module.py -q -p no:cacheprovider
+      # Security-of-payment deadlines. The module is a date engine, and a date
+      # engine tested only against itself proves it is consistent rather than
+      # right, so the arithmetic tests carry worked examples with the dates
+      # written out. Two things here fail quietly. Every shipped regime must
+      # put its final date for payment after its due date, because the
+      # product's own ERROR rule says so and a regime that breaks it would
+      # make that rule unsatisfiable rather than strict. And the permission
+      # keys have to stay registered, because RequirePermission denies an
+      # unregistered key while admin short-circuits above the check, so the
+      # module would go admin-only in production with every
+      # admin-authenticated test still green. About thirty seconds.
+      - name: Run payment clock module tests
+        run: pytest tests/unit/test_payment_clock_module.py -q -p no:cacheprovider
       # The DWG parser. Attached for the same reason as the two suites either side
       # of it: tests/unit is in no lane that blocks a merge, and this is the parser
       # whose vertex re-scan shipped quadratic in every release from 3.0.2 to 14.1.0
