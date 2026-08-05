@@ -1198,6 +1198,17 @@ function CaseCard({
               })}
             />
           ) : null}
+          {/* Pin this case to the active project. It has to stay legible while
+              the card is hovered: the hover panel below covers the whole card
+              at z-10, and a user reads that panel to decide whether this case
+              belongs on their job, so the control they then reach for cannot
+              be the one the panel just swallowed. It sat under the panel and
+              stayed clickable (the panel takes no pointer events), which is
+              worse than missing - an invisible target you have to know is
+              there. z-20 keeps it on top, and the unpinned chip borrows the
+              panel's light-on-dark treatment for as long as the panel is up.
+              Never opacity-gated on hover, so touch and keyboard reach it the
+              same way the mouse does. */}
           {pinProjectId && (
             <button
               type="button"
@@ -1225,10 +1236,23 @@ function CaseCard({
                     })
               }
               className={clsx(
-                "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40",
+                "relative z-20 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40",
                 pinned
-                  ? "border-oe-blue/40 bg-oe-blue/10 text-oe-blue"
-                  : "border-border-light bg-surface-primary/90 text-content-tertiary hover:border-oe-blue/30 hover:text-content-primary",
+                  ? // Solid, not a 10% tint: the same chip has to read on the
+                    // light banner at rest and on the near-black hover panel,
+                    // and a tint that faint survives neither.
+                    "border-oe-blue bg-oe-blue text-white shadow-sm"
+                  : clsx(
+                      "border-border-light bg-surface-primary/90 text-content-tertiary",
+                      // Same hover/focus pair that raises the panel, so the
+                      // chip and the panel can never disagree about which one
+                      // is showing.
+                      "group-hover:border-white/35 group-hover:bg-white/15 group-hover:text-white",
+                      "group-focus-visible:border-white/35 group-focus-visible:bg-white/15 group-focus-visible:text-white",
+                      // Pointing at the pin always means pointing at the card,
+                      // so this only ever brightens the treatment above.
+                      "hover:border-white/60 hover:bg-white/30 hover:text-white",
+                    ),
               )}
             >
               {pinned ? <Pin size={13} /> : <PinOff size={13} />}
