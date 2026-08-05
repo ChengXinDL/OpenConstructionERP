@@ -37,6 +37,7 @@ const ROLE_KEY = 'oe_cases_role';
 const PINS_KEY = 'oe_cases_pins';
 const PINS_MIGRATED_KEY = 'oe_cases_pins_migrated';
 const CATEGORY_KEY = 'oe_cases_categories';
+const FINDER_KEY = 'oe_cases_finder_open';
 
 // There was a sixth key here, `oe_cases_pin_project`, holding "which real
 // project is the Cases hub pinning to". Nothing outside this store ever wrote
@@ -147,6 +148,32 @@ function persistIdList(key: string, value: readonly string[]) {
   try {
     if (value.length) localStorage.setItem(key, JSON.stringify(value));
     else localStorage.removeItem(key);
+  } catch {
+    /* non-fatal */
+  }
+}
+
+/** Whether the filter panel is expanded, remembered across visits.
+ *
+ *  No stored answer is not the same as "closed". Someone arriving for the
+ *  first time has to see the filters to know they exist, while someone who
+ *  already picked a company and a role has answered the question and wants the
+ *  catalogue instead. So the fallback is computed from whether anything is
+ *  selected, and an explicit choice always wins over it. */
+function readFinderOpen(fallback: boolean): boolean {
+  try {
+    const raw = localStorage.getItem(FINDER_KEY);
+    if (raw === '1') return true;
+    if (raw === '0') return false;
+    return fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function persistFinderOpen(open: boolean) {
+  try {
+    localStorage.setItem(FINDER_KEY, open ? '1' : '0');
   } catch {
     /* non-fatal */
   }
@@ -415,6 +442,11 @@ interface CasesState {
    *  raise at the user by itself: the pins still work locally, and the hub can
    *  say so quietly. Cleared by the next call that succeeds. */
   pinsError: boolean;
+  /** Whether the hub's "find your case" panel is expanded. Open on a first
+   *  visit so the filters are discoverable, closed once something is picked so
+   *  the catalogue starts near the top of the page, and an explicit toggle
+   *  overrides both and is remembered. */
+  finderOpen: boolean;
   /** Toggle a step's done flag for a run. */
   toggleStepDone: (playbookId: string, projectId: string | null, stepId: string) => void;
   /** Move the runner's focus to a step index (clamped to the step count). */
@@ -442,6 +474,8 @@ interface CasesState {
   toggleCategory: (category: CaseCategory) => void;
   /** Drop every company, role and discipline filter in one go. */
   clearFilters: () => void;
+  /** Expand or collapse the hub's filter panel, remembering the choice. */
+  setFinderOpen: (open: boolean) => void;
   /** Read a project's pins from the server, run the one-time upload of what
    *  this browser had in localStorage if it is still owed, and refresh the
    *  mirror. Never rejects: a failure leaves the local list on screen and
@@ -455,15 +489,24 @@ interface CasesState {
   isPinned: (projectId: string, playbookId: string) => boolean;
 }
 
+// Read once, before the store is built: the initial state of the filter panel
+// depends on whether any of these came back with something in them.
+const initialCompanyTypes = readIdList(COMPANY_TYPE_KEY, VALID_COMPANY_TYPES);
+const initialRoles = readIdList(ROLE_KEY, VALID_ROLES);
+const initialCategories = readIdList(CATEGORY_KEY, VALID_CATEGORIES);
+
 export const useCasesStore = create<CasesState>((set, get) => ({
   runs: readRuns(),
   selected: readSelected(),
-  companyTypes: readIdList(COMPANY_TYPE_KEY, VALID_COMPANY_TYPES),
-  roles: readIdList(ROLE_KEY, VALID_ROLES),
-  categories: readIdList(CATEGORY_KEY, VALID_CATEGORIES),
+  companyTypes: initialCompanyTypes,
+  roles: initialRoles,
+  categories: initialCategories,
   pins: readPins(),
   pinsLoading: false,
   pinsError: false,
+  finderOpen: readFinderOpen(
+    initialCompanyTypes.length + initialRoles.length + initialCategories.length === 0,
+  ),
 
   toggleStepDone: (playbookId, projectId, stepId) => {
     const key = runKey(playbookId, projectId);
@@ -539,6 +582,11 @@ export const useCasesStore = create<CasesState>((set, get) => ({
     persistIdList(ROLE_KEY, []);
     persistIdList(CATEGORY_KEY, []);
     set({ companyTypes: [], roles: [], categories: [] });
+  },
+
+  setFinderOpen: (open) => {
+    persistFinderOpen(open);
+    set({ finderOpen: open });
   },
 
   loadPins: async (projectId) => {

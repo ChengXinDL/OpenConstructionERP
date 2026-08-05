@@ -43,11 +43,12 @@ import {
   FolderKanban,
   UserRound,
   Flag,
-  Info,
   Loader2,
   PenLine,
   Pencil,
   X,
+  SlidersHorizontal,
+  ChevronDown,
   type LucideProps,
 } from "lucide-react";
 import { Badge, Button, EmptyState } from "@/shared/ui";
@@ -186,6 +187,8 @@ function CasesList() {
   const setRoles = useCasesStore((s) => s.setRoles);
   const setCategories = useCasesStore((s) => s.setCategories);
   const clearFilters = useCasesStore((s) => s.clearFilters);
+  const finderOpen = useCasesStore((s) => s.finderOpen);
+  const setFinderOpen = useCasesStore((s) => s.setFinderOpen);
   // The project this hub pins cases to is the app-wide active project - the
   // one the top-bar switcher writes. The hub used to keep its own copy in
   // `useCasesStore.pinProjectId` (localStorage `oe_cases_pin_project`), which
@@ -525,49 +528,98 @@ function CasesList() {
 
       {allPlaybooks.length > 0 && (
         <>
-          {/* ── How-to helper: how to use the hub in one line ─────────────── */}
-          <div className="flex items-start gap-2 rounded-xl border border-dashed border-border-light bg-surface-secondary/30 p-3">
-            <Info
-              size={15}
-              className="mt-px shrink-0 text-content-tertiary"
-              aria-hidden="true"
-            />
-            <p className="text-2xs leading-relaxed text-content-tertiary">
-              {t("cases.hub_howto", {
-                defaultValue:
-                  "New here? Pick where you are in the project, the kind of company you work for, and your role, and the list narrows to the cases that matter to you.",
-              })}
-            </p>
-          </div>
+          {/* ── Find your case ───────────────────────────────────────────────
+              The three "where am I / who am I" selectors used to be three
+              full-width blocks stacked one under another, each with its own
+              heading and its own gap, and together they pushed the catalogue
+              off the first screen. They are one question asked three ways, so
+              they are one panel: the lifecycle across the top because it is
+              the ordered map, then company and role side by side because they
+              are both "who is asking".
 
-          {/* ── Project lifecycle: cases from start to finish, as stage cards ─ */}
-          <div>
-            <div className="mb-2.5 flex items-center gap-2">
-              <Flag
-                size={14}
-                className="text-content-tertiary"
+              The panel folds. Someone arriving needs to see that the filters
+              exist; someone who has already answered wants the cases. So it
+              opens on a first visit, starts folded once anything is picked,
+              and the toggle overrides both and is remembered. The summary
+              strip below the panel keeps naming every active pick either way,
+              so folding never hides what the list is filtered to. */}
+          <section className="rounded-2xl border border-border-light bg-surface-primary">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3.5 py-2.5">
+              <SlidersHorizontal
+                size={15}
+                className="shrink-0 text-content-tertiary"
                 aria-hidden="true"
               />
               <h2 className="text-xs font-semibold uppercase tracking-wide text-content-secondary">
-                {t("cases.stage_selector.heading", {
-                  defaultValue: "Project lifecycle",
-                })}
+                {t("cases.finder.heading", { defaultValue: "Find your case" })}
               </h2>
-              <span className="text-2xs text-content-tertiary">
-                {t("cases.stage_selector.subtitle", {
+              <p className="min-w-0 flex-1 text-2xs leading-relaxed text-content-tertiary">
+                {t("cases.hub_howto", {
                   defaultValue:
-                    "Cases laid out in the order a project runs, start to finish.",
+                    "New here? Pick where you are in the project, the kind of company you work for, and your role, and the list narrows to the cases that matter to you.",
                 })}
-              </span>
+              </p>
+              {activeFilterChips.length > 0 && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="shrink-0 text-2xs font-medium text-oe-blue hover:underline"
+                >
+                  {t("cases.finder.reset", { defaultValue: "Reset filters" })}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setFinderOpen(!finderOpen)}
+                aria-expanded={finderOpen}
+                aria-controls="cases-finder-body"
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border-light px-2.5 py-1 text-2xs font-medium text-content-secondary transition-colors hover:border-oe-blue/30 hover:text-content-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40"
+              >
+                <ChevronDown
+                  size={12}
+                  aria-hidden="true"
+                  className={clsx(
+                    "transition-transform motion-reduce:transition-none",
+                    finderOpen && "rotate-180",
+                  )}
+                />
+                {finderOpen
+                  ? t("cases.finder.hide", { defaultValue: "Hide" })
+                  : t("cases.finder.show", { defaultValue: "Change" })}
+              </button>
             </div>
-            {/* Eight stage cards in lifecycle order. Compact horizontal cards in
-                the "My company" card language, but wrapped in a lifted panel and
-                each led by a numbered tile, so this row reads as the higher-level
-                project map (the ordered journey, start to finish) that sits above
-                the who/role filters below. */}
-            <div className="rounded-2xl border border-border-light bg-surface-secondary/40 p-2.5 dark:bg-white/[0.03]">
+
+            {finderOpen && (
               <div
-                className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"
+                id="cases-finder-body"
+                className="space-y-3 border-t border-border-light p-3"
+              >
+                {/* ── Project lifecycle: cases from start to finish ───────── */}
+                <div>
+                  <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <Flag
+                      size={13}
+                      className="text-content-tertiary"
+                      aria-hidden="true"
+                    />
+                    <h3 className="text-2xs font-semibold uppercase tracking-wide text-content-secondary">
+                      {t("cases.stage_selector.heading", {
+                        defaultValue: "Project lifecycle",
+                      })}
+                    </h3>
+                    <span className="text-2xs text-content-tertiary">
+                      {t("cases.stage_selector.subtitle", {
+                        defaultValue:
+                          "Cases laid out in the order a project runs, start to finish.",
+                      })}
+                    </span>
+                  </div>
+                  {/* Eight stage cards in lifecycle order, each led by a
+                      numbered tile so the row reads as the ordered journey
+                      rather than as one more set of chips. */}
+                  <div className="rounded-xl border border-border-light bg-surface-secondary/40 p-2 dark:bg-white/[0.03]">
+              <div
+                className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"
                 role="group"
                 aria-label={t("cases.stage_selector.heading", {
                   defaultValue: "Project lifecycle",
@@ -590,7 +642,7 @@ function CasesList() {
                       disabled={disabled}
                       title={t(s.descKey, { defaultValue: s.descDefault })}
                       className={clsx(
-                        "group flex items-center gap-2.5 rounded-xl border p-2 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40 motion-reduce:transition-none",
+                        "group flex items-center gap-2 rounded-xl border p-1.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40 motion-reduce:transition-none",
                         active
                           ? clsx(s.tint.chip, "shadow-sm")
                           : "border-border-light bg-surface-primary text-content-primary hover:border-oe-blue/30",
@@ -601,11 +653,11 @@ function CasesList() {
                           ordered journey (this is the top-level lifecycle map). */}
                       <span
                         className={clsx(
-                          "relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset",
+                          "relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset",
                           s.tint.tile,
                         )}
                       >
-                        <Icon size={18} strokeWidth={1.8} aria-hidden="true" />
+                        <Icon size={15} strokeWidth={1.8} aria-hidden="true" />
                         <span
                           className={clsx(
                             "absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold tabular-nums shadow-sm",
@@ -643,38 +695,46 @@ function CasesList() {
                 })}
               </div>
             </div>
-            {activeStage !== "all" && (
-              <button
-                type="button"
-                onClick={() => setActiveStage("all")}
-                className="mt-2 text-2xs font-medium text-oe-blue hover:underline"
-              >
-                {t("cases.stage_selector.all", { defaultValue: "All stages" })}
-              </button>
-            )}
-          </div>
+                  {activeStage !== "all" && (
+                    <button
+                      type="button"
+                      onClick={() => setActiveStage("all")}
+                      className="mt-1.5 text-2xs font-medium text-oe-blue hover:underline"
+                    >
+                      {t("cases.stage_selector.all", {
+                        defaultValue: "All stages",
+                      })}
+                    </button>
+                  )}
+                </div>
 
-          {/* ── Primary filter: "I work as..." company-type selector ─────── */}
-          <div>
-            <div className="mb-2.5 flex items-center gap-2">
-              <Briefcase
-                size={14}
-                className="text-content-tertiary"
-                aria-hidden="true"
-              />
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-content-secondary">
-                {t("cases.company_selector.heading", {
-                  defaultValue: "My company",
-                })}
-              </h2>
-              <span className="text-2xs text-content-tertiary">
-                {t("cases.company_selector.subtitle", {
-                  defaultValue: "Pick the kind of firm you work for.",
-                })}
-              </span>
-            </div>
+                {/* Company and role side by side on a wide screen. They answer
+                    the same question, "who is asking", and stacking them cost a
+                    whole screen of height for no gain. Eight company cards in
+                    three columns and twelve role cards in four come out the
+                    same three rows deep, so the two columns end level. */}
+                <div className="grid gap-x-5 gap-y-3 xl:grid-cols-[2fr_3fr]">
+                  {/* ── "I work as..." company-type selector ─────────────── */}
+                  <div>
+                    <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <Briefcase
+                        size={13}
+                        className="text-content-tertiary"
+                        aria-hidden="true"
+                      />
+                      <h3 className="text-2xs font-semibold uppercase tracking-wide text-content-secondary">
+                        {t("cases.company_selector.heading", {
+                          defaultValue: "My company",
+                        })}
+                      </h3>
+                      <span className="text-2xs text-content-tertiary">
+                        {t("cases.company_selector.subtitle", {
+                          defaultValue: "Pick the kind of firm you work for.",
+                        })}
+                      </span>
+                    </div>
             <div
-              className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8"
+              className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-3"
               role="group"
               aria-label={t("cases.company_selector.heading", {
                 defaultValue: "My company",
@@ -696,7 +756,7 @@ function CasesList() {
                     aria-pressed={active}
                     disabled={disabled}
                     className={clsx(
-                      "flex items-center gap-2.5 rounded-xl border p-2 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40 motion-reduce:transition-none",
+                      "flex items-center gap-2 rounded-xl border p-1.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40 motion-reduce:transition-none",
                       active
                         ? clsx(c.tint.chip, "shadow-sm")
                         : "border-border-light bg-surface-primary text-content-primary hover:border-oe-blue/30",
@@ -709,7 +769,7 @@ function CasesList() {
                       fallbackClass={c.tint.text}
                       tileClass={c.tint.tile}
                       withKindBadge
-                      className="h-14 w-14"
+                      className="h-9 w-9 shrink-0"
                       title={t(c.labelKey, { defaultValue: c.labelDefault })}
                     />
                     <span className="min-w-0 flex-1">
@@ -727,41 +787,41 @@ function CasesList() {
                 );
               })}
             </div>
-            {companyTypes.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setCompanyTypes([])}
-                className="mt-2 text-2xs font-medium text-oe-blue hover:underline"
-              >
-                {t("cases.company_selector.all", {
-                  defaultValue: "All company types",
-                })}
-              </button>
-            )}
-          </div>
+                    {companyTypes.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setCompanyTypes([])}
+                        className="mt-1.5 text-2xs font-medium text-oe-blue hover:underline"
+                      >
+                        {t("cases.company_selector.all", {
+                          defaultValue: "All company types",
+                        })}
+                      </button>
+                    )}
+                  </div>
 
-          {/* ── Secondary persona filter: "Your role" avatar selector ────── */}
-          <div>
-            <div className="mb-2.5 flex items-center gap-2">
-              <UserRound
-                size={14}
-                className="text-content-tertiary"
-                aria-hidden="true"
-              />
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-content-secondary">
-                {t("cases.role_selector.heading", {
-                  defaultValue: "Your role",
-                })}
-              </h2>
-              <span className="text-2xs text-content-tertiary">
-                {t("cases.role_selector.subtitle", {
-                  defaultValue:
-                    "Pick what you do day to day for a tighter list.",
-                })}
-              </span>
-            </div>
+                  {/* ── "Your role" avatar selector ──────────────────────── */}
+                  <div>
+                    <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <UserRound
+                        size={13}
+                        className="text-content-tertiary"
+                        aria-hidden="true"
+                      />
+                      <h3 className="text-2xs font-semibold uppercase tracking-wide text-content-secondary">
+                        {t("cases.role_selector.heading", {
+                          defaultValue: "Your role",
+                        })}
+                      </h3>
+                      <span className="text-2xs text-content-tertiary">
+                        {t("cases.role_selector.subtitle", {
+                          defaultValue:
+                            "Pick what you do day to day for a tighter list.",
+                        })}
+                      </span>
+                    </div>
             <div
-              className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6"
+              className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-4"
               role="group"
               aria-label={t("cases.role_selector.heading", {
                 defaultValue: "Your role",
@@ -782,7 +842,7 @@ function CasesList() {
                     aria-pressed={active}
                     disabled={disabled}
                     className={clsx(
-                      "flex items-center gap-2.5 rounded-xl border p-2 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40 motion-reduce:transition-none",
+                      "flex items-center gap-2 rounded-xl border p-1.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40 motion-reduce:transition-none",
                       active
                         ? clsx(r.tint.chip, "shadow-sm")
                         : "border-border-light bg-surface-primary text-content-primary hover:border-oe-blue/30",
@@ -792,7 +852,7 @@ function CasesList() {
                     <RoleArt
                       role={r.id}
                       withKindBadge
-                      className="h-14 w-14 shrink-0"
+                      className="h-9 w-9 shrink-0"
                       title={t(r.labelKey, { defaultValue: r.labelDefault })}
                     />
                     <span className="min-w-0 flex-1">
@@ -810,19 +870,25 @@ function CasesList() {
                 );
               })}
             </div>
-            {roles.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setRoles([])}
-                className="mt-2 text-2xs font-medium text-oe-blue hover:underline"
-              >
-                {t("cases.role_selector.all", { defaultValue: "All roles" })}
-              </button>
+                    {roles.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setRoles([])}
+                        className="mt-1.5 text-2xs font-medium text-oe-blue hover:underline"
+                      >
+                        {t("cases.role_selector.all", {
+                          defaultValue: "All roles",
+                        })}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
             )}
-          </div>
+          </section>
 
           {/* ── Project pin bar ───────────────────────────────────────────── */}
-          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-border-light bg-surface-secondary/40 p-3">
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-border-light bg-surface-secondary/40 px-3 py-2">
             <FolderKanban
               size={15}
               className="shrink-0 text-content-tertiary"
@@ -909,9 +975,12 @@ function CasesList() {
             )}
           </div>
 
-          {/* ── Secondary filter: search + discipline chips ──────────────── */}
-          <div className="space-y-3">
-            <div className="relative max-w-md">
+          {/* ── Secondary filter: search + discipline chips ────────────────
+              One row, not two stacked blocks. Search never folds away with the
+              panel above: typing a word is the fastest route to a case and it
+              has to stay reachable whatever the filters are doing. */}
+          <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
+            <div className="relative w-full shrink-0 sm:w-64">
               <Search
                 size={15}
                 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-content-tertiary"
@@ -930,20 +999,17 @@ function CasesList() {
                 className="w-full rounded-lg border border-border-light bg-surface-primary py-2 pl-9 pr-3 text-sm text-content-primary placeholder:text-content-tertiary focus:border-oe-blue/50 focus:outline-none focus:ring-2 focus:ring-oe-blue/20"
               />
             </div>
-            <div>
-              <div className="mb-2.5 flex items-center gap-2">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+              <span className="mr-0.5 inline-flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-wide text-content-secondary">
                 <Layers
-                  size={14}
+                  size={13}
                   className="text-content-tertiary"
                   aria-hidden="true"
                 />
-                <h2 className="text-xs font-semibold uppercase tracking-wide text-content-secondary">
-                  {t("cases.filter.discipline_label", {
-                    defaultValue: "Discipline",
-                  })}
-                </h2>
-              </div>
-              <div className="flex flex-wrap gap-2">
+                {t("cases.filter.discipline_label", {
+                  defaultValue: "Discipline",
+                })}
+              </span>
                 <CategoryChip
                   active={activeCategories.length === 0}
                   onClick={() => setCategories([])}
@@ -968,7 +1034,6 @@ function CasesList() {
                     />
                   );
                 })}
-              </div>
             </div>
           </div>
         </>
