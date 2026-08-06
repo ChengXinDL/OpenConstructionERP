@@ -190,6 +190,7 @@ class TestRendering:
             "router.py",
             "validators.py",
             "permissions.py",
+            "schema.py",
             "spec.json",
             "locales/en.json",
             "README.md",
@@ -205,16 +206,41 @@ class TestRendering:
             assert first[path] == second[path], f"{path} is not deterministic"
 
     def test_money_is_never_a_float(self) -> None:
+        """The platform's own decimal column, not a bare Numeric.
+
+        Plain Numeric hands back a float on backends that have no decimal type,
+        so a rate written as 1450.75 can come back as 1450.7499999. MoneyType
+        binds and returns Decimal on every backend and still compiles to
+        NUMERIC(18, 2) on PostgreSQL - which the DDL test checks separately.
+        """
         models = next(f for f in generator.render(a_spec()) if f.path == "models.py").content
-        assert "Numeric(18, 2)" in models
+        assert "MoneyType(18, 2)" in models
         assert "Float" not in models
 
     def test_permissions_are_registered_not_just_named(self) -> None:
-        content = next(f for f in generator.render(a_spec()) if f.path == "permissions.py").content
-        assert "register_module_permissions" in content
-        # Called at import, not merely defined: a registration function nobody
-        # invokes leaves every permission unknown, and unknown is denied.
-        assert content.rstrip().endswith("register_scaffold_hire_permissions()")
+        """Defining a registration function nobody calls registers nothing.
+
+        A permission the registry has never heard of is denied to everyone
+        except an administrator, so a module whose hook is missing works for
+        whoever tested it as an admin and for no one else.
+        """
+        rendered = {f.path: f.content for f in generator.render(a_spec())}
+        assert "register_module_permissions" in rendered["permissions.py"]
+        # The loader awaits on_startup after importing the package. That is the
+        # only place the call can go: import time is too early for anything
+        # that touches the database, and nothing else imports permissions.py.
+        assert "async def on_startup()" in rendered["__init__.py"]
+        assert "register_scaffold_hire_permissions()" in rendered["__init__.py"]
+
+    def test_the_startup_hook_also_creates_the_table(self) -> None:
+        """Nothing else will. The module has no migration and never can have one."""
+        init = next(f for f in generator.render(a_spec()) if f.path == "__init__.py").content
+        assert "await ensure_table(engine)" in init
+
+    def test_deleting_is_not_the_same_permission_as_writing(self) -> None:
+        rendered = {f.path: f.content for f in generator.render(a_spec())}
+        assert '"scaffold_hire.delete": Role.MANAGER' in rendered["permissions.py"]
+        assert 'require_permission("scaffold_hire.delete")' in rendered["router.py"]
 
     def test_locales_are_english_only(self) -> None:
         paths = {f.path for f in generator.render(a_spec())}
@@ -295,6 +321,205 @@ class TestTheGeneratedModuleIsReal:
             rr._package_path()[:] = before
         assert result.returncode == 0, result.stdout + result.stderr
         assert "passed" in result.stdout
+
+
+def a_minimal_spec() -> ModuleSpec:
+    """The other end of the range: one text field, no project, no dates.
+
+    The full spec exercises every branch and therefore uses every import the
+    generator could emit. This one uses almost none, which is what catches an
+    import block written as a fixed list.
+    """
+    return ModuleSpec(
+        key="site_notice",
+        display_name="Site Notice",
+        entity=EntitySpec(
+            name="notice",
+            display_name="Notice",
+            project_scoped=False,
+            fields=[FieldSpec(name="title", label="Title", type="text", required=True)],
+        ),
+        rules=[RuleSpec(code="TITLE_REQUIRED", message="A notice needs a title.", kind="required", field="title")],
+    )
+
+
+class TestASpecThatUsesAlmostNothing:
+    @pytest.fixture
+    def written(self, tmp_path: Path) -> Path:
+        generator.write(a_minimal_spec(), tmp_path)
+        return tmp_path / "site_notice"
+
+    def test_it_compiles(self, written: Path) -> None:
+        assert compileall.compile_dir(str(written), quiet=1, force=True)
+
+    def test_ruff_accepts_it(self, written: Path) -> None:
+        """An unused import is a hard error here, which is the point.
+
+        The generator emits imports per field type. A spec with no money, no
+        dates and no project would otherwise carry Numeric, Date and
+        ForeignKey that nothing references.
+        """
+        result = subprocess.run(
+            ["uvx", "ruff@0.15.20", "check", "--line-length", "120", str(written)],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if result.returncode == 127 or "not found" in (result.stderr or "").lower():
+            pytest.skip("ruff is not available in this environment")
+        assert result.returncode == 0, result.stdout + result.stderr
+
+    def test_it_carries_no_project_column(self, written: Path) -> None:
+        models = (written / "models.py").read_text(encoding="utf-8")
+        assert "project_id" not in models
+        assert "ForeignKey" not in models
+
+
+class TestTheTableActuallyExists:
+    """The generated module creates its own table, and only its own.
+
+    A runtime module is outside Alembic's history, so nothing else will ever
+    create this table. Rendering a correct ``models.py`` is not the claim being
+    made here: the claim is that after install there is a table on the database
+    that accepts the module's own rows.
+    """
+
+    @pytest.fixture
+    def installed(self, tmp_path: Path):
+        """The generated module, imported for real, then unregistered.
+
+        Importing the model registers its table on the process-wide
+        ``Base.metadata``. Left there, the next test to import it would fail on
+        a duplicate table and the failure would land nowhere near its cause.
+        """
+        import importlib
+
+        from app.core import module_runtime_root as rr
+        from app.database import Base
+
+        spec = a_spec()
+        generator.write(spec, tmp_path)
+        before = list(rr._package_path())
+        rr.attach_runtime_root(tmp_path)
+        importlib.invalidate_caches()
+        try:
+            yield spec, importlib.import_module(f"app.modules.{spec.key}.schema")
+        finally:
+            rr._package_path()[:] = before
+            for name in [n for n in list(sys.modules) if n.startswith(f"app.modules.{spec.key}")]:
+                del sys.modules[name]
+            existing = Base.metadata.tables.get(spec.table_name)
+            if existing is not None:
+                Base.metadata.remove(existing)
+            Base.registry._class_registry.pop(spec.class_name, None)
+            importlib.invalidate_caches()
+
+    def test_the_ddl_postgres_would_run_is_the_ddl_we_meant(self, installed) -> None:
+        """Production is PostgreSQL, so that is the dialect that has to accept it."""
+        from sqlalchemy.dialects import postgresql
+        from sqlalchemy.schema import CreateTable
+
+        spec, schema = installed
+        ddl = str(CreateTable(schema.table()).compile(dialect=postgresql.dialect()))
+
+        assert f"CREATE TABLE {spec.table_name} (" in ddl
+        # Money keeps its cents. A rate rendered as DOUBLE PRECISION is a defect
+        # the user finds in an invoice, months later.
+        assert "weekly_rate NUMERIC(18, 2) NOT NULL" in ddl
+        assert "area_m2 NUMERIC(18, 4)" in ddl
+        assert "PRIMARY KEY (id)" in ddl
+        assert "FOREIGN KEY(project_id) REFERENCES oe_projects_project (id) ON DELETE CASCADE" in ddl
+        assert "DOUBLE PRECISION" not in ddl
+
+    def test_the_table_is_created_and_holds_a_row(self, installed) -> None:
+        import uuid
+        from datetime import date
+        from decimal import Decimal
+
+        from sqlalchemy import create_engine, insert, select
+
+        _, schema = installed
+        engine = create_engine("sqlite://")
+        try:
+            schema.create_table(engine)
+            table = schema.table()
+            row_id, project_id = uuid.uuid4(), uuid.uuid4()
+            with engine.begin() as connection:
+                connection.execute(
+                    insert(table).values(
+                        id=row_id,
+                        project_id=project_id,
+                        reference="SC-014",
+                        bay_count=12,
+                        weekly_rate=Decimal("1450.75"),
+                        on_hire_date=date(2026, 3, 1),
+                        status="erected",
+                    )
+                )
+                found = connection.execute(select(table).where(table.c.id == row_id)).mappings().one()
+
+            assert found["reference"] == "SC-014"
+            assert found["bay_count"] == 12
+            assert Decimal(str(found["weekly_rate"])) == Decimal("1450.75")
+            assert found["project_id"] == project_id
+            # Not required by the spec, so it has to be nullable in the table too.
+            assert found["off_hire_date"] is None
+        finally:
+            engine.dispose()
+
+    def test_it_creates_that_table_and_nothing_else(self, installed) -> None:
+        """The whole point of scoping ``create_all`` to one table.
+
+        ``Base.metadata`` carries every table the platform owns. An unscoped
+        create_all would raise the entire schema outside Alembic and still look
+        green here, so the count is what is asserted, not the presence.
+        """
+        from sqlalchemy import create_engine, inspect
+
+        from app.database import Base
+
+        spec, schema = installed
+        assert len(Base.metadata.tables) > 50, "metadata is too small for this test to mean anything"
+
+        engine = create_engine("sqlite://")
+        try:
+            schema.create_table(engine)
+            tables = set(inspect(engine).get_table_names())
+        finally:
+            engine.dispose()
+
+        assert tables == {spec.table_name}
+
+    def test_creating_twice_is_not_an_error(self, installed) -> None:
+        """Install, restart, reinstall. All three call this."""
+        from sqlalchemy import create_engine, inspect
+
+        spec, schema = installed
+        engine = create_engine("sqlite://")
+        try:
+            schema.create_table(engine)
+            schema.create_table(engine)
+            assert set(inspect(engine).get_table_names()) == {spec.table_name}
+        finally:
+            engine.dispose()
+
+    def test_drop_takes_the_table_away_and_tolerates_its_absence(self, installed) -> None:
+        from sqlalchemy import create_engine, inspect
+
+        _, schema = installed
+        engine = create_engine("sqlite://")
+        try:
+            schema.create_table(engine)
+            schema.drop_table(engine)
+            assert inspect(engine).get_table_names() == []
+            schema.drop_table(engine)
+        finally:
+            engine.dispose()
+
+    # ensure_table / remove_table run against the platform's async engine and
+    # are covered in tests/pg/test_module_builder_table.py. There is no async
+    # SQLite driver in this environment, and adding a dependency so that a test
+    # can avoid the database it actually runs on would prove the wrong thing.
 
 
 def _clean_env() -> dict[str, str]:
