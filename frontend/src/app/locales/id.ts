@@ -23141,6 +23141,8 @@ const resource = {
     "changeorders.reason_client_request": "Permintaan Klien",
     "changeorders.reason_design_change": "Perubahan Desain",
     "changeorders.reason_error": "Kesalahan/Kelalaian",
+    "changeorders.reason_non_conformance": "Non-konformitas",
+    "changeorders.reason_value_engineering": "Rekayasa nilai",
     "changeorders.reason_regulatory": "Regulasi",
     "changeorders.reason_unforeseen": "Kondisi yang Tidak Terduga",
     "changeorders.reject_confirm_title": "Tolak pesanan perubahan?",

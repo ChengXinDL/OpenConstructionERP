@@ -23139,6 +23139,8 @@ const resource = {
     "changeorders.reason_client_request": "Klientforespørsel",
     "changeorders.reason_design_change": "Designendring",
     "changeorders.reason_error": "Feil/utelatelse",
+    "changeorders.reason_non_conformance": "Avvik",
+    "changeorders.reason_value_engineering": "Verdianalyse",
     "changeorders.reason_regulatory": "Regulatorisk",
     "changeorders.reason_unforeseen": "Uforutsette forhold",
     "changeorders.reject_confirm_title": "Avvis endringsorden?",

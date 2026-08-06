@@ -23155,6 +23155,8 @@ const resource = {
     "changeorders.reason_client_request": "Zahtjev klijenta",
     "changeorders.reason_design_change": "Promjena dizajna",
     "changeorders.reason_error": "Greška/Propust",
+    "changeorders.reason_non_conformance": "Nesklađenost",
+    "changeorders.reason_value_engineering": "Inženjering vrijednosti",
     "changeorders.reason_regulatory": "Propis",
     "changeorders.reason_unforeseen": "Nepredviđeni uvjeti",
     "changeorders.reject_confirm_title": "Odbiti nalog promjene?",

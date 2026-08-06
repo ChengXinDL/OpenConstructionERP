@@ -23145,6 +23145,8 @@ const resource = {
     "changeorders.reason_client_request": "Asiakkaan pyyntö",
     "changeorders.reason_design_change": "Suunnittelu muutos",
     "changeorders.reason_error": "Virhe/puuttuma",
+    "changeorders.reason_non_conformance": "Epäyhdenmukaisuus",
+    "changeorders.reason_value_engineering": "Arvoanalyysi",
     "changeorders.reason_regulatory": "Sääntelevä",
     "changeorders.reason_unforeseen": "Ennakoimattomat olosuhteet",
     "changeorders.reject_confirm_title": "Hylää muutostilaus?",

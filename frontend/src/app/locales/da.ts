@@ -23138,6 +23138,8 @@ const resource = {
     "changeorders.reason_client_request": "Klientanmodning",
     "changeorders.reason_design_change": "Designændring",
     "changeorders.reason_error": "Fejl/udeladelse",
+    "changeorders.reason_non_conformance": "Afvigelse",
+    "changeorders.reason_value_engineering": "Værdianalyse",
     "changeorders.reason_regulatory": "Lovgivning",
     "changeorders.reason_unforeseen": "Uforudsete forhold",
     "changeorders.reject_confirm_title": "Afvis ændringsordre?",

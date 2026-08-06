@@ -23169,6 +23169,8 @@ const resource = {
     "changeorders.reason_client_request": "Prośba klienta",
     "changeorders.reason_design_change": "Zmiana projektowania",
     "changeorders.reason_error": "Błąd/Pominięcie",
+    "changeorders.reason_non_conformance": "Niezgodność",
+    "changeorders.reason_value_engineering": "Inżynieria wartości",
     "changeorders.reason_regulatory": "Regulacyjny",
     "changeorders.reason_unforeseen": "Nieprzewidziane warunki",
     "changeorders.reject_confirm_title": "Odrzucić zamówienie zmian?",

@@ -23167,6 +23167,8 @@ const resource = {
     "changeorders.reason_client_request": "Požadavek klienta",
     "changeorders.reason_design_change": "Změna návrhu",
     "changeorders.reason_error": "Chyba/Opomenutí",
+    "changeorders.reason_non_conformance": "Neshoda",
+    "changeorders.reason_value_engineering": "Hodnotové inženýrství",
     "changeorders.reason_regulatory": "Regulační",
     "changeorders.reason_unforeseen": "Nepředvídané podmínky",
     "changeorders.reject_confirm_title": "Odmítnout objednávku změn?",

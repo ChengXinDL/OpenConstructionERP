@@ -23152,6 +23152,8 @@ const resource = {
     "changeorders.reason_client_request": "Yêu cầu Khách hàng",
     "changeorders.reason_design_change": "Thay đổi Thiết kế",
     "changeorders.reason_error": "Lỗi/Bỏ sót",
+    "changeorders.reason_non_conformance": "Không phù hợp",
+    "changeorders.reason_value_engineering": "Kỹ thuật giá trị",
     "changeorders.reason_regulatory": "Quy định",
     "changeorders.reason_unforeseen": "Điều kiện Không lường trước",
     "changeorders.reject_confirm_title": "Từ chối lệnh thay đổi?",

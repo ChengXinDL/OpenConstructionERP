@@ -23344,6 +23344,8 @@ const resource = {
     "changeorders.reason_client_request": "Kundenauftrag",
     "changeorders.reason_design_change": "Designänderung",
     "changeorders.reason_error": "Fehler/Auslassung",
+    "changeorders.reason_non_conformance": "Nichtkonformität",
+    "changeorders.reason_value_engineering": "Wertanalyse",
     "changeorders.reason_regulatory": "Behördlich",
     "changeorders.reason_unforeseen": "Unvorhergesehene Bedingungen",
     "changeorders.reject_confirm_title": "Änderungsauftrag ablehnen?",

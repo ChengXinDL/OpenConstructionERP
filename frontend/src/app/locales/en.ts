@@ -20983,6 +20983,8 @@ const resource = {
     "changeorders.reason_unforeseen": "Unforeseen Conditions",
     "changeorders.reason_regulatory": "Regulatory",
     "changeorders.reason_error": "Error/Omission",
+    "changeorders.reason_non_conformance": "Non-conformance",
+    "changeorders.reason_value_engineering": "Value Engineering",
     "changeorders.section_basic": "Item details",
     "changeorders.section_quantities": "Quantities & rates",
     "changeorders.approval_chain_builder_title": "Start approval chain",

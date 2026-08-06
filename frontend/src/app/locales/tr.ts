@@ -23144,6 +23144,8 @@ const resource = {
     "changeorders.reason_client_request": "İstemci İsteği",
     "changeorders.reason_design_change": "Tasarım Değişikliği",
     "changeorders.reason_error": "Hata/Eksiklik",
+    "changeorders.reason_non_conformance": "Uygunsuzluk",
+    "changeorders.reason_value_engineering": "Değer mühendisliği",
     "changeorders.reason_regulatory": "Mevzuat",
     "changeorders.reason_unforeseen": "Öngörülemeyen Koşullar",
     "changeorders.reject_confirm_title": "Değişiklik emri reddedilsin mi?",

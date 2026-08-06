@@ -23132,6 +23132,8 @@ const resource = {
     "changeorders.reason_client_request": "Solicitare client",
     "changeorders.reason_design_change": "Schimbare de design",
     "changeorders.reason_error": "Eroare/Omisiune",
+    "changeorders.reason_non_conformance": "Neconformitate",
+    "changeorders.reason_value_engineering": "Ingineria valorii",
     "changeorders.reason_regulatory": "Reglementare",
     "changeorders.reason_unforeseen": "Condiții neprevăzute",
     "changeorders.reject_confirm_title": "Respingeți comanda de schimbare?",

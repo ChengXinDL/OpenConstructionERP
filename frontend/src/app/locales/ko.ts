@@ -23146,6 +23146,8 @@ const resource = {
     "changeorders.reason_client_request": "클라이언트 요청",
     "changeorders.reason_design_change": "설계 변경",
     "changeorders.reason_error": "오류/누락",
+    "changeorders.reason_non_conformance": "부적합",
+    "changeorders.reason_value_engineering": "가치공학",
     "changeorders.reason_regulatory": "규제",
     "changeorders.reason_unforeseen": "예상 외의 상황",
     "changeorders.reject_confirm_title": "변경 주문을 거부하시겠습니까?",

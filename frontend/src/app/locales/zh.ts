@@ -23138,6 +23138,8 @@ const resource = {
     "changeorders.reason_client_request": "客户请求",
     "changeorders.reason_design_change": "设计变更",
     "changeorders.reason_error": "错误/遗漏",
+    "changeorders.reason_non_conformance": "不合格项",
+    "changeorders.reason_value_engineering": "价值工程",
     "changeorders.reason_regulatory": "监管",
     "changeorders.reason_unforeseen": "不可预见的条件",
     "changeorders.reject_confirm_title": "拒绝变更单?",

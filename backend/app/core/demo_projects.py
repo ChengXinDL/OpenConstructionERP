@@ -5393,7 +5393,10 @@ def _generate_module_data(
     #   (code, title, description, reason_category, status, cost_impact,
     #    schedule_impact_days, items_list) where each item is
     #   (description, change_type, orig_qty, new_qty, orig_rate, new_rate, unit)
-    co_reasons = ["client_request", "design_change", "site_condition", "value_engineering", "client_request"]
+    # Every code here has to be in REASON_CATEGORY_LABELS, or the register prints
+    # it raw and the change order cannot be updated through its own schema.
+    # "site_condition" was such a code: it is the same cause as "unforeseen".
+    co_reasons = ["client_request", "design_change", "unforeseen", "value_engineering", "regulatory"]
     co_statuses = ["approved", "pending", "approved", "implemented", "pending"]
     change_orders: list[dict] = []
     co_n = min(max(len(trades), 3), 5)

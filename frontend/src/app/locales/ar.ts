@@ -23257,6 +23257,8 @@ const resource = {
     "changeorders.reason_client_request": "طلب العميل",
     "changeorders.reason_design_change": "تغيير التصميم",
     "changeorders.reason_error": "خطأ/حذف",
+    "changeorders.reason_non_conformance": "عدم المطابقة",
+    "changeorders.reason_value_engineering": "هندسة القيمة",
     "changeorders.reason_regulatory": "تنظيمي",
     "changeorders.reason_unforeseen": "ظروف غير متوقعة",
     "changeorders.reject_confirm_title": "رفض أمر التغيير؟",

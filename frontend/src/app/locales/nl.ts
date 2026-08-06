@@ -23143,6 +23143,8 @@ const resource = {
     "changeorders.reason_client_request": "Clientverzoek",
     "changeorders.reason_design_change": "Ontwerpwijziging",
     "changeorders.reason_error": "Fout/Omissie",
+    "changeorders.reason_non_conformance": "Niet-conformiteit",
+    "changeorders.reason_value_engineering": "Waardeanalyse",
     "changeorders.reason_regulatory": "Regelgeving",
     "changeorders.reason_unforeseen": "Onvoorziene omstandigheden",
     "changeorders.reject_confirm_title": "Wijzigingsopdracht afwijzen?",

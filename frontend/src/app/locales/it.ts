@@ -23161,6 +23161,8 @@ const resource = {
     "changeorders.reason_client_request": "Richiesta del cliente",
     "changeorders.reason_design_change": "Modifica di progettazione",
     "changeorders.reason_error": "Errore/Omissione",
+    "changeorders.reason_non_conformance": "Non conformità",
+    "changeorders.reason_value_engineering": "Ingegneria del valore",
     "changeorders.reason_regulatory": "Normativa",
     "changeorders.reason_unforeseen": "Condizioni impreviste",
     "changeorders.reject_confirm_title": "Rifiutare ordine di variazione?",

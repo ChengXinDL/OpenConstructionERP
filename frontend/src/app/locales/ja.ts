@@ -23141,6 +23141,8 @@ const resource = {
     "changeorders.reason_client_request": "クライアント要求",
     "changeorders.reason_design_change": "デザイン変更",
     "changeorders.reason_error": "エラー/省略",
+    "changeorders.reason_non_conformance": "不適合",
+    "changeorders.reason_value_engineering": "バリューエンジニアリング",
     "changeorders.reason_regulatory": "規制",
     "changeorders.reason_unforeseen": "予期しない条件",
     "changeorders.reject_confirm_title": "Change Orderを却下しますか?",
