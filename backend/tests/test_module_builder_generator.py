@@ -240,7 +240,7 @@ class TestRendering:
     def test_deleting_is_not_the_same_permission_as_writing(self) -> None:
         rendered = {f.path: f.content for f in generator.render(a_spec())}
         assert '"scaffold_hire.delete": Role.MANAGER' in rendered["permissions.py"]
-        assert 'require_permission("scaffold_hire.delete")' in rendered["router.py"]
+        assert 'RequirePermission("scaffold_hire.delete")' in rendered["router.py"]
 
     def test_locales_are_english_only(self) -> None:
         paths = {f.path for f in generator.render(a_spec())}
@@ -373,6 +373,165 @@ class TestASpecThatUsesAlmostNothing:
         models = (written / "models.py").read_text(encoding="utf-8")
         assert "project_id" not in models
         assert "ForeignKey" not in models
+
+
+class TestEveryGeneratedFileImports:
+    """Import each module, not merely compile it.
+
+    Compiling proves the syntax and ruff proves the style. Neither resolves a
+    name: a model importing a type from the wrong module, or a router asking
+    for a dependency the platform does not have, compiles and lints clean and
+    then fails at load time on the user's server. Both of those were real, and
+    both were invisible until something imported the files.
+    """
+
+    @pytest.fixture
+    def imported(self, tmp_path: Path):
+        import importlib
+
+        from app.core import module_runtime_root as rr
+        from app.database import Base
+
+        spec = a_spec()
+        generator.write(spec, tmp_path)
+        before = list(rr._package_path())
+        rr.attach_runtime_root(tmp_path)
+        importlib.invalidate_caches()
+        try:
+            yield spec, importlib.import_module
+        finally:
+            rr._package_path()[:] = before
+            for name in [n for n in list(sys.modules) if n.startswith(f"app.modules.{spec.key}")]:
+                del sys.modules[name]
+            existing = Base.metadata.tables.get(spec.table_name)
+            if existing is not None:
+                Base.metadata.remove(existing)
+            Base.registry._class_registry.pop(spec.class_name, None)
+            importlib.invalidate_caches()
+
+    @pytest.mark.parametrize(
+        "name",
+        ["manifest", "models", "schema", "schemas", "validators", "permissions", "repository", "service", "router"],
+    )
+    def test_it_imports(self, imported, name: str) -> None:
+        spec, import_module = imported
+        import_module(f"app.modules.{spec.key}.{name}")
+
+    def test_the_manifest_is_one_the_loader_accepts(self, imported) -> None:
+        from app.core.module_loader import ModuleManifest
+
+        spec, import_module = imported
+        manifest = import_module(f"app.modules.{spec.key}.manifest").manifest
+        assert isinstance(manifest, ModuleManifest)
+        assert manifest.name == spec.module_name
+        assert manifest.version == spec.version
+
+    def test_the_router_serves_what_the_module_needs(self, imported) -> None:
+        spec, import_module = imported
+        router = import_module(f"app.modules.{spec.key}.router").router
+        paths = {(r.path, m) for r in router.routes for m in getattr(r, "methods", ())}
+
+        assert ("/ui-spec", "GET") in paths
+        assert ("", "GET") in paths
+        assert ("", "POST") in paths
+        assert ("/{record_id}", "GET") in paths
+        assert ("/{record_id}", "PATCH") in paths
+        assert ("/{record_id}", "DELETE") in paths
+
+    def test_every_endpoint_is_behind_a_permission(self, imported) -> None:
+        """An unguarded endpoint on a generated module is the whole risk of this feature.
+
+        Checked on the dependency the platform actually enforces with, so
+        renaming that dependency breaks this test rather than silently
+        unguarding every module built from here on.
+        """
+        from app.dependencies import RequirePermission
+
+        spec, import_module = imported
+        router = import_module(f"app.modules.{spec.key}.router").router
+
+        for route in router.routes:
+            path = getattr(route, "path", "")
+            if path == "/ui-spec":
+                continue  # the screen description, readable by anyone who reached the app
+            assert _guards(route, RequirePermission), f"{path} has no permission guard"
+
+    def test_the_permissions_the_router_asks_for_are_the_ones_registered(self, imported) -> None:
+        """Otherwise every request is denied to everyone but an administrator.
+
+        A guard naming a permission the registry does not know is not a loud
+        failure. It is a quiet 403 for every role except admin, and a test run
+        as an admin cannot see it.
+        """
+        from app.dependencies import RequirePermission
+
+        spec, import_module = imported
+        declared = set(import_module(f"app.modules.{spec.key}.permissions").SCAFFOLD_HIRE_PERMISSIONS)
+        router = import_module(f"app.modules.{spec.key}.router").router
+
+        asked = {guard.permission for route in router.routes for guard in _guards(route, RequirePermission)}
+        assert asked, "no permission guards found, so this test proves nothing"
+        assert asked <= declared, f"the router asks for {sorted(asked - declared)}, which nothing registers"
+
+    def test_the_startup_hook_runs(self, imported) -> None:
+        """The hook the loader awaits, exercised rather than read.
+
+        It registers the permissions and creates the table, so it is the one
+        piece of a generated module that cannot be checked by looking at it.
+        """
+        import asyncio
+
+        from app.core.permissions import Role, permission_registry
+
+        spec, import_module = imported
+        package = import_module(f"app.modules.{spec.key}")
+
+        created: list[object] = []
+
+        class _FakeEngine:
+            def begin(self):
+                created.append(self)
+                return _FakeTransaction()
+
+        class _FakeTransaction:
+            async def __aenter__(self):
+                return _FakeConnection()
+
+            async def __aexit__(self, *exc):
+                return False
+
+        class _FakeConnection:
+            async def run_sync(self, fn, *args, **kwargs):
+                created.append(fn)
+
+        import app.database as database
+
+        real_engine = database.engine
+        database.engine = _FakeEngine()  # type: ignore[assignment]
+        try:
+            asyncio.run(package.on_startup())
+        finally:
+            database.engine = real_engine
+
+        assert created, "the startup hook never reached the database"
+        # A viewer can read and cannot delete: registration happened, and it
+        # registered the roles the module meant rather than merely a name.
+        assert permission_registry.role_has_permission(Role.VIEWER, "scaffold_hire.read")
+        assert not permission_registry.role_has_permission(Role.EDITOR, "scaffold_hire.delete")
+        assert permission_registry.role_has_permission(Role.MANAGER, "scaffold_hire.delete")
+
+
+def _guards(route: object, kind: type) -> list:
+    """The RequirePermission instances a route is actually wired with.
+
+    Read off the resolved dependency tree rather than off the source, so a
+    guard that was written but never reached - a default argument FastAPI does
+    not treat as a dependency, say - does not count as one.
+    """
+    dependant = getattr(route, "dependant", None)
+    if dependant is None:
+        return []
+    return [d.call for d in dependant.dependencies if isinstance(d.call, kind)]
 
 
 class TestTheTableActuallyExists:

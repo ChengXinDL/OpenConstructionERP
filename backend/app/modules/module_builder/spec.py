@@ -88,6 +88,18 @@ def reserved_module_keys() -> frozenset[str]:
     return frozenset(names)
 
 
+def url_prefix_for(key: str) -> str:
+    """The path a module with this key is served from.
+
+    The loader mounts a router at the hyphenated form of the module's directory
+    name, so a key with an underscore is reachable at a URL without one. The
+    frontend renders every generated module from this prefix, and the wizard
+    shows it before installing, so the rule lives here rather than being
+    reassembled from the key at each caller.
+    """
+    return f"/api/v1/{key.replace('_', '-')}"
+
+
 def _check_identifier(value: str, what: str) -> str:
     value = (value or "").strip()
     if not IDENTIFIER_RE.match(value):
@@ -322,3 +334,8 @@ class ModuleSpec(BaseModel):
     @property
     def class_name(self) -> str:
         return "".join(part.title() for part in self.entity.name.split("_"))
+
+    @property
+    def url_prefix(self) -> str:
+        """Where the loader will mount this module's router."""
+        return url_prefix_for(self.key)

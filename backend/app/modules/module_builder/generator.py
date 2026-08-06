@@ -14,7 +14,7 @@ validation engine pick it up with no special case for having been generated.
 The user interface is deliberately not a React page. The frontend is a
 compiled bundle, so a module installed at runtime cannot add a compiled screen
 without a rebuild, and pretending otherwise would ship half a module. Instead
-every generated module serves its own spec at ``/api/v1/<key>/ui-spec`` and the
+every generated module serves its own spec at ``<url_prefix>/ui-spec`` and the
 core frontend renders list, detail and form from it. One generic screen that is
 always in step beats a generated one that cannot be installed.
 """
@@ -698,10 +698,8 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.permissions import require_permission
-from app.database import get_db
+from app.dependencies import RequirePermission, SessionDep
 from app.modules.{spec.key}.schemas import (
     {spec.class_name}Create,
     {spec.class_name}List,
@@ -729,10 +727,10 @@ async def ui_spec() -> dict:
 
 @router.get("", response_model={spec.class_name}List, summary="List {entity.plural_name.lower()}")
 async def list_records(
+    db: SessionDep,
 {project_query}    limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
-    db: AsyncSession = Depends(get_db),
-    _: object = Depends(require_permission("{spec.key}.read")),
+    _perm: None = Depends(RequirePermission("{spec.key}.read")),
 ) -> {spec.class_name}List:
     rows, total = await {spec.class_name}Service(db).list_page({project_arg}limit=limit, offset=offset)
     return {spec.class_name}List(items=[{spec.class_name}Read.model_validate(r) for r in rows], total=total)
@@ -741,8 +739,8 @@ async def list_records(
 @router.get("/{{record_id}}", response_model={spec.class_name}Read, summary="One {entity.display_name.lower()}")
 async def get_record(
     record_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
-    _: object = Depends(require_permission("{spec.key}.read")),
+    db: SessionDep,
+    _perm: None = Depends(RequirePermission("{spec.key}.read")),
 ) -> {spec.class_name}Read:
     record = await {spec.class_name}Service(db).get(record_id)
     if record is None:
@@ -753,8 +751,8 @@ async def get_record(
 @router.post("", response_model={spec.class_name}Read, status_code=status.HTTP_201_CREATED)
 async def create_record(
     payload: {spec.class_name}Create,
-    db: AsyncSession = Depends(get_db),
-    _: object = Depends(require_permission("{spec.key}.write")),
+    db: SessionDep,
+    _perm: None = Depends(RequirePermission("{spec.key}.write")),
 ) -> {spec.class_name}Read:
     try:
         record, _findings = await {spec.class_name}Service(db).create(payload)
@@ -772,8 +770,8 @@ async def create_record(
 async def update_record(
     record_id: uuid.UUID,
     payload: {spec.class_name}Update,
-    db: AsyncSession = Depends(get_db),
-    _: object = Depends(require_permission("{spec.key}.write")),
+    db: SessionDep,
+    _perm: None = Depends(RequirePermission("{spec.key}.write")),
 ) -> {spec.class_name}Read:
     service = {spec.class_name}Service(db)
     record = await service.get(record_id)
@@ -794,10 +792,10 @@ async def update_record(
 @router.delete("/{{record_id}}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_record(
     record_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
+    db: SessionDep,
     # Deleting is a manager's action, as it is everywhere else in the platform.
     # Whoever may correct a record is not automatically whoever may remove it.
-    _: object = Depends(require_permission("{spec.key}.delete")),
+    _perm: None = Depends(RequirePermission("{spec.key}.delete")),
 ) -> None:
     service = {spec.class_name}Service(db)
     record = await service.get(record_id)
@@ -981,7 +979,7 @@ platform renders the screen from.
 
 ## API
 
-Mounted at `/api/v1/{spec.key}`.
+Mounted at `{spec.url_prefix}`.
 
 - `GET /ui-spec` the screen description
 - `GET /` list, `GET /{{id}}` one

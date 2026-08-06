@@ -11,3 +11,10 @@ language. It never writes Python. Everything installed on a user's server comes
 out of the deterministic renderer, from a spec that passed validation, which is
 what makes a generated module reviewable rather than merely plausible.
 """
+
+
+async def on_startup() -> None:
+    """Register the builder's permissions."""
+    from app.modules.module_builder.permissions import register_module_builder_permissions
+
+    register_module_builder_permissions()

@@ -375,6 +375,24 @@ jobs:
           pytest tests/unit/test_sheets_access_control.py
           tests/unit/test_photos_recent_project_scope.py
           -q -p no:cacheprovider
+      # The module builder writes Python that a server then imports and serves.
+      # A defect in the renderer is not a wrong number on a screen, it is a
+      # module that cannot load, and the failure surfaces on a user's instance
+      # rather than here. These files import every rendered module rather than
+      # only compiling it, which is what caught three imports of names that do
+      # not exist in this codebase. The service suite covers the refusals: a
+      # draft that cannot be built, a key already taken, a module that writes
+      # its files and then fails to load, each of which has to leave the server
+      # as it was found. The registry file gates removal of a module's
+      # permissions, without which an uninstalled module keeps granting what
+      # nothing enforces. No database, a few seconds together. The end-to-end
+      # install lives in tests/pg above, which this lane already runs whole.
+      - name: Run module builder and permission registry tests
+        run: >-
+          pytest tests/test_module_builder_generator.py
+          tests/test_module_builder_service.py
+          tests/unit/test_permission_registry.py
+          -q -p no:cacheprovider
       # The literal string bim did not appear anywhere in this file, so 30 unit
       # files and 528 tests, including the ones covering all 28 BIM validation
       # rules, were enforced by nothing. Those rules are reachable in production:
