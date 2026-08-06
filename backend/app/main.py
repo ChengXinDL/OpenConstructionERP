@@ -2734,6 +2734,16 @@ def create_app() -> FastAPI:
 
         # Load all modules (triggers module on_startup hooks)
         _section("Modules")
+        # Modules installed at runtime live in the instance's data directory,
+        # not in the source tree, so the import system has to be told about
+        # that directory before anything discovers or imports a module. A
+        # failure here is not fatal: the platform runs on its shipped modules.
+        try:
+            from app.core.module_runtime_root import attach_runtime_root
+
+            attach_runtime_root()
+        except Exception:
+            logger.warning("Runtime module root not attached", exc_info=True)
         await module_loader.load_all(app)
 
         # Mount OpenCDE API at the spec-compliant prefix /api/v1/opencde

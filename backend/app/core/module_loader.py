@@ -70,8 +70,37 @@ class ModuleLoader:
         return self._modules
 
     def discover(self, modules_dir: Path | None = None) -> list[ModuleManifest]:
-        """Scan modules directory for manifest.py files."""
-        scan_dir = modules_dir or MODULES_DIR
+        """Scan for manifest.py files across every module root.
+
+        With no argument this walks the whole ``app.modules`` search path:
+        the shipped directory plus any runtime root attached by
+        :mod:`app.core.module_runtime_root`. A directory name found in more
+        than one root is scanned once, from the root Python will import it
+        from, so the manifest read here is the manifest that runs.
+
+        An explicit ``modules_dir`` scans only that directory.
+        """
+        if modules_dir is not None:
+            return self._discover_in(modules_dir)
+
+        manifests: list[ModuleManifest] = []
+        seen: set[str] = set()
+        for root in self._module_roots():
+            for manifest in self._discover_in(root, skip=seen):
+                manifests.append(manifest)
+        return manifests
+
+    @staticmethod
+    def _module_roots() -> list[Path]:
+        """Every directory ``app.modules`` is searched in, in import order."""
+        with contextlib.suppress(Exception):
+            from app.core.module_runtime_root import module_search_paths
+
+            return module_search_paths()
+        return [MODULES_DIR]
+
+    def _discover_in(self, scan_dir: Path, skip: set[str] | None = None) -> list[ModuleManifest]:
+        """Read every manifest in one directory, recording names into ``skip``."""
         manifests: list[ModuleManifest] = []
 
         if not scan_dir.exists():
@@ -79,6 +108,11 @@ class ModuleLoader:
             return manifests
 
         for module_dir in sorted(scan_dir.iterdir()):
+            if skip is not None:
+                if module_dir.name in skip:
+                    continue
+                if module_dir.is_dir() and (module_dir / "manifest.py").exists():
+                    skip.add(module_dir.name)
             if not module_dir.is_dir():
                 continue
             if module_dir.name.startswith("_"):
