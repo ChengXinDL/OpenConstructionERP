@@ -108,6 +108,7 @@ data/takeoff_documents/
 data/dwg_uploads/
 data/dwg_entities/
 data/dwg_thumbnails/
+data/pointcloud/
 frontend/debug-bim/
 
 # MCP artifacts
