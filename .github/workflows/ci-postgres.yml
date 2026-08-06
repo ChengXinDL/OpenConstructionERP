@@ -523,15 +523,25 @@ jobs:
     runs-on: ubuntu-latest
     # This job needs nothing from PostgreSQL and sits in this workflow anyway,
     # because this workflow is the gate. The frontend suite does run elsewhere,
-    # in the CI workflow, which has been red for a long time on a type check
-    # that exhausts the heap, so a failure there stops nothing and nobody reads
-    # it. Until that is fixed, a frontend test outside this file gates nothing.
-    # Counted 2026-08-05: 519 vitest test files live under src, 14 are named
-    # below, so 505 of them gate nothing. That is the same 505 as yesterday,
-    # because the file added today was added to the list on the same day.
+    # in the CI workflow, which is red often enough that a failure there stops
+    # nothing and nobody reads it. Until that is fixed, a frontend test outside
+    # this file gates nothing.
+    #
+    # The reason that workflow is red is not what this comment used to say. It
+    # blamed a type check that exhausts the heap, and that has not been true for
+    # a while: the ceiling was raised to 9216 MB, and on run 31088534634 all
+    # three Frontend CI jobs - ubuntu, windows and macos - passed. What is red
+    # there is the backend, the embedded-PG mac and windows shards, the brand
+    # token check and the IDOR job. The conclusion is unchanged, the cause is
+    # not, and a wrong cause invites somebody to "fix the OOM" and expect this
+    # job to become redundant.
+    # Counted 2026-08-06: 525 vitest test files live under src, 17 are named
+    # below, so 508 of them gate nothing.
     # Recount rather than trust that sentence, and count under src: a glob for
     # the vitest default across the whole frontend returns 627, of which 108
-    # are Playwright specs that this job does not run.
+    # are Playwright specs that this job does not run. Two more test files live
+    # outside src, under frontend/tests/pwa, which vitest does collect and this
+    # count does not reach - so 508 is the floor of what gates nothing.
     #
     # Named files rather than the whole suite, and that is a measurement rather
     # than a preference. The timing was taken when the list held eleven files:
