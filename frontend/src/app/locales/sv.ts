@@ -31459,7 +31459,7 @@ const resource = {
     "siteLogistics.status_approved": "Godkänd",
     "siteLogistics.status_requested": "Begärd",
     "siteLogistics.subtitle": "Planera vad som anländer till webbplatsen: boka leveranser till grindens tidplatser, håll lagningszonerna städade och godkänn eller avvisa varje bokning så grindar aldrig dubbelbokeras.",
-    "siteLogistics.supplier_placeholder": "t.ex. Ready-Mix Concrete Ltd",
+    "siteLogistics.supplier_placeholder": "t.ex. Ready-Mix Concrete",
     "siteLogistics.supplier_required": "Leverantör krävs",
     "siteLogistics.tab_deliveries": "Leveranser",
     "siteLogistics.tab_gates": "Grindar",

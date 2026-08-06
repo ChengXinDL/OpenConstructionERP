@@ -31487,7 +31487,7 @@ const resource = {
     "siteLogistics.status_approved": "Odobreno",
     "siteLogistics.status_requested": "Zahtijevano",
     "siteLogistics.subtitle": "Planirajte što dolazi na mjesto: rezervirajte dostave u vremenske slotove vrata, držite zone postavljanja čiste i odobrite ili odbijte svaku rezervaciju kako vrata nikada ne bi bila dvostruko rezervirana.",
-    "siteLogistics.supplier_placeholder": "npr. Ready-Mix Concrete Ltd",
+    "siteLogistics.supplier_placeholder": "npr. Ready-Mix Concrete",
     "siteLogistics.supplier_required": "Dobavljač je obavezan",
     "siteLogistics.tab_deliveries": "Dostave",
     "siteLogistics.tab_gates": "Vrata",

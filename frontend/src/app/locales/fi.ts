@@ -31475,7 +31475,7 @@ const resource = {
     "siteLogistics.status_approved": "Hyväksytty",
     "siteLogistics.status_requested": "Pyydetty",
     "siteLogistics.subtitle": "Suunnittele, mitä saapuu työmaalle: varaa toimitukset portin aika-paikkoihin, pidä laskeutumisalueet siistinä ja hyväksy tai hylkää kukin varaus niin, että portit eivät koskaan varaa kahdesti.",
-    "siteLogistics.supplier_placeholder": "esim. Ready-Mix Concrete Ltd",
+    "siteLogistics.supplier_placeholder": "esim. Ready-Mix Concrete",
     "siteLogistics.supplier_required": "Toimittaja vaaditaan",
     "siteLogistics.tab_deliveries": "Toimitukset",
     "siteLogistics.tab_gates": "Portit",

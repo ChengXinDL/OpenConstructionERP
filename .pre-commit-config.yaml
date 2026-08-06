@@ -65,6 +65,20 @@ repos:
         language: system
         pass_filenames: true
 
+      # Keep the accents in the demo packs. The German, Portuguese, Spanish and
+      # French seed text was authored without them ("Koecherfundamente",
+      # "Instalacoes", "Batiment") and now carries them; this stops a corrected
+      # spelling being written back the old way. It is a denylist of the exact
+      # spellings that were broken in this repo, per file, because no rule about
+      # German or Portuguese orthography can tell "Wasser" from "Strasse" or
+      # Spanish "agua" from Portuguese "água" without false positives.
+      - id: seed-diacritics-check
+        name: Keep accents in the demo seed text
+        entry: python scripts/check_seed_diacritics.py
+        language: system
+        pass_filenames: true
+        files: ^backend/app/core/(demo_projects\.py|demo_packs/.*\.py)$
+
       # Keep internal-only planning, strategy, QA, audit and runbook files out
       # of the repo. They are local only; this fails the commit if one is
       # staged. CI and the publish pipelines run the same script (against the
