@@ -332,6 +332,14 @@ jobs:
       # the artifact round trip. This re-signs it anyway: the signature has to
       # be valid at the moment Tauri seals the bundle around it, and confirming
       # that here costs a second. Verify, do not assume.
+      #
+      # The identity is printed as well as verified. "--verify" answers whether
+      # the signature is intact and never says whose it is, and whose it is is
+      # the value dyld compares every unpacked archive member against at launch.
+      # This is one of two signing passes between the archive census in the
+      # other job and the bundled census at the end of this one, so without a
+      # reading here a disagreement between those two could not be attributed to
+      # either pass.
       - name: Confirm the sidecar signature survived the artifact round trip (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -341,6 +349,7 @@ jobs:
             codesign --verify --verbose=2 "$f" || echo "signature did not verify, re-signing"
             codesign --force --sign - --timestamp=none "$f"
             codesign --verify --verbose=2 "$f"
+            codesign -dvvv "$f" 2>&1 | grep -Ei 'teamidentifier|signature|flags=' || true
           done
 
       # Bundle the small (~30 MB) DDC IFC converter into the Windows installer
@@ -500,6 +509,124 @@ jobs:
           fi
           echo "=== spctl assess (expected: rejected, unnotarized) ==="
           spctl -a -t exec -vvv "$APP" 2>&1 || true
+
+      # Python is not otherwise needed in this job. The census below reads the
+      # sidecar's appended archive through PyInstaller's own reader, so both
+      # have to be here, and the version is pinned to the one that wrote the
+      # archive in the other job. The reader has to match the writer: the
+      # archive's table of contents has changed shape across PyInstaller
+      # releases, and a reader that cannot parse it reports members it could not
+      # read, which under a gate is a red release caused by nothing.
+      - name: Set up Python for the bundled sidecar census (macOS)
+        if: runner.os == 'macOS'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The same census as in the Build Sidecar job, taken again on the artifact
+      # that ships.
+      #
+      # That first reading is of the raw PyInstaller output, and it happens two
+      # signing passes before the file reaches a user: the round trip re-sign
+      # above, and Tauri sealing the bundle around it. Neither pass can touch
+      # the members sealed inside the archive, because by then they are payload
+      # bytes rather than files on disk. What a pass can do is change the
+      # identity on the wrapper, and that is the identity every one of those
+      # members is compared against, so a signing pass changes the answer while
+      # changing nothing the first census looked at. A reading taken before both
+      # passes cannot speak for the artifact after them.
+      #
+      # This runs against the sidecar as it sits inside the produced .app. The
+      # first line of the output is the one that decides the question, the
+      # wrapper's own TeamIdentifier, because at launch that wrapper is the
+      # process and dyld refuses to map any file whose Team ID disagrees with
+      # it. A wrapper signed with a real identity over members PyInstaller left
+      # ad-hoc is the same refusal as the reverse, and it is what a bundler
+      # applying its own signing identity would produce. --require-member keeps
+      # the file named in the user's failure report from clearing a run by never
+      # having been opened.
+      #
+      # It warns rather than fails, for now. The measurement is new here and has
+      # never been taken at this point, so nothing establishes what a healthy
+      # bundled sidecar reads as, and making a release depend on an unmeasured
+      # property is how you learn its value at tag time. The cost of the other
+      # choice is bounded but real: tauri-action uploads the installers to the
+      # draft release from inside itself, before this step runs, so failing here
+      # withholds no artifact that was going to ship, but it does turn the run
+      # red and it skips the Windows signing job, which needs build-tauri. Once
+      # one clean reading exists, turn the exit 0 at the end of the failing
+      # branch into exit 1 and this becomes a gate.
+      - name: Check what the bundled sidecar carries (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        timeout-minutes: 15
+        run: |
+          set -uo pipefail
+
+          APP=$(find desktop/src-tauri/target -path '*/bundle/macos/*.app' -type d -maxdepth 8 2>/dev/null | head -1)
+          if [ -z "${APP:-}" ]; then
+            echo "::warning title=The bundled sidecar was never measured::No .app bundle was found under desktop/src-tauri/target, so the census of the artifact users install did not run. The pre-bundle census in the Build Sidecar job still holds, and it says nothing about what bundling did."
+            exit 0
+          fi
+          echo "App bundle: $APP"
+
+          SIDECAR=$(find "$APP/Contents/MacOS" -type f -name 'openconstructionerp-server*' 2>/dev/null | head -1)
+          if [ -z "${SIDECAR:-}" ]; then
+            echo "::warning title=The bundled sidecar was never measured::No openconstructionerp-server binary was found in $APP/Contents/MacOS, so the census of the artifact users install did not run."
+            ls -la "$APP/Contents/MacOS" || true
+            exit 0
+          fi
+          echo "Bundled sidecar: $SIDECAR"
+
+          SIG=$(codesign -dvvv "$SIDECAR" 2>&1)
+          echo "=== the identity bundling left on the sidecar ==="
+          echo "$SIG" | grep -Ei 'identifier=|teamidentifier|flags=|signature' || true
+
+          # Read the flags as well as the Team ID, because one flag decides how
+          # strictly the Team ID is compared. The hardened runtime turns on
+          # library validation, and library validation does not ask whether the
+          # process and the file it maps agree, it asks whether the file carries
+          # the loader's team or a platform identity. An ad-hoc file carries
+          # neither, so an ad-hoc process running under the hardened runtime is
+          # refused its own ad-hoc payload, and the refusal is worded as a Team
+          # ID disagreement even though no Team ID exists on either side. That
+          # is the one shape the census below cannot detect: every member comes
+          # back clean and the load still fails.
+          #
+          # This is measured, not hypothetical. The sidecar leaves the Build
+          # Sidecar job with flags=0x2(adhoc); inside the shipped v14.5.0 bundle
+          # the same file reads flags=0x10002(adhoc,runtime) with no entitlements
+          # embedded at all. Nothing in this repository had asked for the
+          # hardened runtime: the default lives in the bundler, in tauri-utils
+          # src/config.rs, where hardenedRuntime is serde default_true, and
+          # tauri.conf.json set only signingIdentity. That is why grepping the
+          # repo for the flag proved nothing.
+          #
+          # tauri.conf.json now says hardenedRuntime false and points at
+          # Entitlements.plist, so this warning is expected to stay quiet. If it
+          # fires again, the config stopped being applied - which is exactly
+          # what this check exists to notice, because the failure it predicts
+          # only shows up on a user's Mac.
+          if echo "$SIG" | grep -qi 'flags=.*runtime'; then
+            echo "::warning title=The shipped sidecar is ad-hoc and hardened at the same time::The sidecar inside the .app is signed ad-hoc AND with the hardened runtime, and carries no entitlements. That enables library validation with nothing able to satisfy it: the process has no Team ID, every file it unpacks into its _MEI directory has no Team ID, and the loader refuses them with a message about differing Team IDs. A clean member census below does not clear this, because no member is at fault."
+          else
+            echo "The bundled sidecar is not signed with the hardened runtime, so library validation is not in play."
+          fi
+
+          pip install "pyinstaller==6.21.0"
+
+          echo "=== what the bundled sidecar will unpack and map at launch ==="
+          if python scripts/inspect_desktop_sidecar_signatures.py \
+              --fail-on-foreign-team-id \
+              --require-member Python.framework \
+              "$SIDECAR"; then
+            echo "OK: inside the shipped bundle, nothing the sidecar unpacks disagrees with it about a Team ID."
+            echo "Bundled sidecar census: clean." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::warning title=The shipped sidecar disagrees with its own payload about a Team ID::The census above found inside the .app the shape that stops the app at 'Starting the application server' on a user's machine, or could not measure enough of it to rule that out. Compare it against the pre-bundle census in the Build Sidecar job: if that one was clean, bundling is what changed it. This warns rather than fails while the measurement is new."
+            echo "Bundled sidecar census: MISMATCH or inconclusive, see the Build Desktop (macos-latest) log." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
 
   # Authenticode code signing for the Windows installers.
   #

@@ -96,7 +96,9 @@
     },
     "macOS": {
       "minimumSystemVersion": "10.15",
-      "signingIdentity": "-"
+      "signingIdentity": "-",
+      "hardenedRuntime": false,
+      "entitlements": "Entitlements.plist"
     },
     "linux": {
       "appimage": {

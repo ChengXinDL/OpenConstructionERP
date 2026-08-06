@@ -58,16 +58,20 @@ Two files change. Neither change is in place yet. This section is the whole acti
 
 ### (a) desktop/src-tauri/tauri.conf.json
 
-Today the macOS bundle block ad-hoc signs with `"signingIdentity": "-"` and sets nothing else.
+Today the macOS bundle block ad-hoc signs with `"signingIdentity": "-"`, turns the hardened runtime off, and points at the entitlements file.
 
 Before:
 
 ```json
     "macOS": {
       "minimumSystemVersion": "10.15",
-      "signingIdentity": "-"
+      "signingIdentity": "-",
+      "hardenedRuntime": false,
+      "entitlements": "Entitlements.plist"
     },
 ```
+
+`hardenedRuntime` is written out because Tauri's own default is `true`, not `false`. A config that says nothing about it gets the hardened runtime, and an ad-hoc signature under the hardened runtime enforces library validation with no identity that can satisfy it, so the app is refused the payload it unpacks for itself. macOS reports that refusal as a Team ID disagreement even though neither side carries a Team ID at all. Turning notarization on is what makes the hardened runtime meaningful, so the line flips back to `true` as part of the change below rather than being removed.
 
 After:
 
