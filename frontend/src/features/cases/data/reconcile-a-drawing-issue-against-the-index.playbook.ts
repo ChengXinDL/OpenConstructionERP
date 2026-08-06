@@ -146,6 +146,7 @@ const playbook: Playbook = {
       whyDefault:
         "A designer answers we sent everything in one line, and answers a list of eleven sheet numbers in a day. Naming the gap precisely, against the transmittal that was meant to carry it, turns a fortnight of email into a short conversation, and leaves a dated trail if the missing sheet later costs somebody a week.",
       moduleLabel: "Transmittals",
+      moduleLabelKey: "transmittals.title",
       to: "/files/transmittals",
     },
     {

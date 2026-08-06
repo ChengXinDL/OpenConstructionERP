@@ -133,6 +133,7 @@ const playbook: Playbook = {
       whyDefault:
         "A non-conformance left open at handover does not disappear, it follows the building into occupation and the defects period as a problem for whoever takes the building on. Closing every one, with the evidence attached, is what makes the handover both complete and defensible.",
       moduleLabel: "Non-conformances",
+      moduleLabelKey: "nav.ncr",
       to: "/projects/:projectId/inspections",
     },
     {
