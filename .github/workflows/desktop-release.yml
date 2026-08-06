@@ -217,12 +217,21 @@ jobs:
       # to a user, and fails the build if any of them carries one.
       #
       # Read this gate narrowly. It is a regression tripwire, not a defence
-      # against the macOS start failure reported against 14.4.0. That build was
-      # measured member by member and every one of its 402 Mach-O members was
-      # ad-hoc with no Team ID, exactly like the builds since, so a foreign Team
-      # ID inside the archive is not what stops it. What this catches is the day
-      # a dependency or a packer upgrade starts shipping a vendor-signed binary
-      # inside the archive, which would introduce that failure for real.
+      # against the macOS start failure reported against 14.4.0. What it catches
+      # is the day a dependency or a packer upgrade starts shipping a
+      # vendor-signed binary inside the archive, which would introduce that
+      # failure for real.
+      #
+      # The earlier wording here said that build "was measured member by member
+      # and every one of its 402 Mach-O members was ad-hoc with no Team ID".
+      # That is wider than the measurement supports. The script counted only the
+      # members it could open and parse; anything it failed to extract dropped
+      # out of the total silently, and anything whose signature it could not
+      # parse was filed under "no Team ID". Neither was visible in the number.
+      # The file named in the user's error is a framework member, which is
+      # exactly the kind that would go missing that way, so --require-member
+      # below makes the run fail unless that member was actually opened.
+      # Whether 14.4.0 was clean is still an open question, not a settled one.
       - name: Check what the sidecar archive carries
         if: always() && runner.os == 'macOS'
         shell: bash
@@ -231,6 +240,7 @@ jobs:
           set -uo pipefail
           python scripts/inspect_desktop_sidecar_signatures.py \
             --fail-on-foreign-team-id \
+            --require-member Python.framework \
             desktop/dist/openconstructionerp-server
 
       - name: Copy sidecar binary
