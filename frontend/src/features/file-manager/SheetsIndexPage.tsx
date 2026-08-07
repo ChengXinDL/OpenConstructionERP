@@ -376,6 +376,7 @@ export function SheetsIndexPage() {
             onAdd={insights.addCustom}
             onUpdate={insights.updateCustom}
             onRemove={insights.removeCustom}
+            onCollapse={() => insights.setOpen(false)}
           />
 
           {/* Discipline filter chips */}

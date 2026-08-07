@@ -2392,6 +2392,7 @@ export function MeetingsPage() {
         onAdd={insights.addCustom}
         onUpdate={insights.updateCustom}
         onRemove={insights.removeCustom}
+        onCollapse={() => insights.setOpen(false)}
       />
 
       {/* Canonical module info card — pain-named title + workflow body.

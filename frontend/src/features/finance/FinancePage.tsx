@@ -804,6 +804,7 @@ export function FinancePage() {
         onAdd={insights.addCustom}
         onUpdate={insights.updateCustom}
         onRemove={insights.removeCustom}
+        onCollapse={() => insights.setOpen(false)}
       />
 
       {/* Canonical module intro — pain-named, copy from MODULE_INTRO_COPY.
