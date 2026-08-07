@@ -153,9 +153,12 @@ export function GeneratedModulePage() {
   // empty search result nothing about the screen would look wrong.
   const canSort = !hasNextPage && !recordsQuery.isFetching;
 
-  // Memoised because the filter below depends on it: rebuilt inline it would
-  // be a new object every render and the filter would re-run over every loaded
-  // row on each keystroke elsewhere on the page.
+  // Memoised because the filter below depends on it: rebuilt inline it would be
+  // a new object on every render and the filter would re-run over every loaded
+  // row each time. Stable rather than guaranteed constant - `t` takes a new
+  // identity when a locale finishes loading, and the filter re-runs then. That
+  // is the one moment it should, because the strings it matches against have
+  // just changed.
   const labels = useMemo(
     () => ({
       yes: t('common.yes', { defaultValue: 'Yes' }),
