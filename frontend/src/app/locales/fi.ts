@@ -35969,6 +35969,8 @@ const resource = {
     "runtime_module.new_record": "Uusi {{entity}}",
     "runtime_module.edit_record": "Muokkaa: {{entity}}",
     "runtime_module.deleted": "Poistettu",
+    "runtime_module.showing_of": "Näytetään {{shown}} / {{total}}",
+    "runtime_module.no_rules": "Tämä moduuli kuvattiin ilman tarkistuksia.",
     "runtime_module.needs_project": "Nämä tietueet kuuluvat projektiin. Valitse projekti ennen tallennusta.",
     "runtime_module.field_required": "Tätä ei voi jättää tyhjäksi.",
     "runtime_module.field_not_a_number": "Anna luku käyttäen pistettä desimaalierottimena.",

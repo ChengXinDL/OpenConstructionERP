@@ -35970,6 +35970,8 @@ const resource = {
     "runtime_module.new_record": "Nieuw: {{entity}}",
     "runtime_module.edit_record": "{{entity}} bewerken",
     "runtime_module.deleted": "Verwijderd",
+    "runtime_module.showing_of": "{{shown}} van {{total}} getoond",
+    "runtime_module.no_rules": "Deze module is beschreven zonder controles.",
     "runtime_module.needs_project": "Deze records horen bij een project. Kies er een voordat u opslaat.",
     "runtime_module.field_required": "Dit mag niet leeg blijven.",
     "runtime_module.field_not_a_number": "Vul een getal in, met een punt als decimaalteken.",

@@ -35998,6 +35998,8 @@ const resource = {
     "runtime_module.new_record": "Nou: {{entity}}",
     "runtime_module.edit_record": "Editează: {{entity}}",
     "runtime_module.deleted": "Șters",
+    "runtime_module.showing_of": "Se afișează {{shown}} din {{total}}",
+    "runtime_module.no_rules": "Acest modul a fost descris fără nicio verificare.",
     "runtime_module.needs_project": "Aceste înregistrări aparțin unui proiect. Alegeți unul înainte de salvare.",
     "runtime_module.field_required": "Acest câmp nu poate rămâne gol.",
     "runtime_module.field_not_a_number": "Introduceți un număr, cu punct ca separator zecimal.",

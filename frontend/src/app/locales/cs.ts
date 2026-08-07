@@ -36024,6 +36024,8 @@ const resource = {
     "runtime_module.new_record": "Nový záznam: {{entity}}",
     "runtime_module.edit_record": "Upravit: {{entity}}",
     "runtime_module.deleted": "Smazáno",
+    "runtime_module.showing_of": "Zobrazeno {{shown}} z {{total}}",
+    "runtime_module.no_rules": "Tento modul byl popsán bez jakýchkoli kontrol.",
     "runtime_module.needs_project": "Tyto záznamy patří k projektu. Vyberte projekt před uložením.",
     "runtime_module.field_required": "Tohle nesmí zůstat prázdné.",
     "runtime_module.field_not_a_number": "Zadejte číslo s tečkou jako desetinným oddělovačem.",

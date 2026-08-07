@@ -32524,6 +32524,8 @@ const resource = {
     "runtime_module.new_record": "New {{entity}}",
     "runtime_module.edit_record": "Edit {{entity}}",
     "runtime_module.deleted": "Deleted",
+    "runtime_module.showing_of": "Showing {{shown}} of {{total}}",
+    "runtime_module.no_rules": "This module was described without any checks.",
     "runtime_module.needs_project": "These records belong to a project. Choose one before saving.",
     "runtime_module.field_required": "This cannot be left empty.",
     "runtime_module.field_not_a_number": "Enter a number, using a dot for the decimal point.",

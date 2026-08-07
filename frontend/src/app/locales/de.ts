@@ -36039,6 +36039,8 @@ const resource = {
     "runtime_module.new_record": "Neu: {{entity}}",
     "runtime_module.edit_record": "{{entity}} bearbeiten",
     "runtime_module.deleted": "Gelöscht",
+    "runtime_module.showing_of": "{{shown}} von {{total}} angezeigt",
+    "runtime_module.no_rules": "Dieses Modul wurde ohne Prüfungen beschrieben.",
     "runtime_module.needs_project": "Diese Datensätze gehören zu einem Projekt. Wählen Sie vor dem Speichern eines aus.",
     "runtime_module.field_required": "Das darf nicht leer bleiben.",
     "runtime_module.field_not_a_number": "Geben Sie eine Zahl ein, mit einem Punkt als Dezimaltrennzeichen.",

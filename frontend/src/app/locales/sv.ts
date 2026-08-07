@@ -35965,6 +35965,8 @@ const resource = {
     "runtime_module.new_record": "Ny {{entity}}",
     "runtime_module.edit_record": "Redigera {{entity}}",
     "runtime_module.deleted": "Raderad",
+    "runtime_module.showing_of": "Visar {{shown}} av {{total}}",
+    "runtime_module.no_rules": "Den här modulen beskrevs utan några kontroller.",
     "runtime_module.needs_project": "De här posterna hör till ett projekt. Välj ett innan du sparar.",
     "runtime_module.field_required": "Det här får inte lämnas tomt.",
     "runtime_module.field_not_a_number": "Ange ett tal med punkt som decimaltecken.",

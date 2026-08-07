@@ -35969,6 +35969,8 @@ const resource = {
     "runtime_module.new_record": "Yeni kayıt: {{entity}}",
     "runtime_module.edit_record": "Düzenle: {{entity}}",
     "runtime_module.deleted": "Silindi",
+    "runtime_module.showing_of": "{{total}} kayıttan {{shown}} tanesi gösteriliyor",
+    "runtime_module.no_rules": "Bu modül hiçbir denetim olmadan tanımlandı.",
     "runtime_module.needs_project": "Bu kayıtlar bir projeye ait. Kaydetmeden önce bir proje seçin.",
     "runtime_module.field_required": "Burası boş bırakılamaz.",
     "runtime_module.field_not_a_number": "Ondalık ayırıcı olarak nokta kullanarak bir sayı girin.",

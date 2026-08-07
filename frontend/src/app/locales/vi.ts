@@ -35978,6 +35978,8 @@ const resource = {
     "runtime_module.new_record": "Bản ghi mới: {{entity}}",
     "runtime_module.edit_record": "Sửa: {{entity}}",
     "runtime_module.deleted": "Đã xóa",
+    "runtime_module.showing_of": "Hiển thị {{shown}} trong {{total}}",
+    "runtime_module.no_rules": "Mô-đun này được mô tả mà không có kiểm tra nào.",
     "runtime_module.needs_project": "Những bản ghi này thuộc một dự án. Hãy chọn dự án trước khi lưu.",
     "runtime_module.field_required": "Chỗ này không được để trống.",
     "runtime_module.field_not_a_number": "Nhập một con số, dùng dấu chấm làm dấu thập phân.",

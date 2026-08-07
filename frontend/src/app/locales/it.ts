@@ -35996,6 +35996,8 @@ const resource = {
     "runtime_module.new_record": "Nuovo: {{entity}}",
     "runtime_module.edit_record": "Modifica: {{entity}}",
     "runtime_module.deleted": "Eliminato",
+    "runtime_module.showing_of": "Visualizzati {{shown}} di {{total}}",
+    "runtime_module.no_rules": "Questo modulo è stato descritto senza alcun controllo.",
     "runtime_module.needs_project": "Queste schede appartengono a un progetto. Scegline uno prima di salvare.",
     "runtime_module.field_required": "Questo non può restare vuoto.",
     "runtime_module.field_not_a_number": "Inserisci un numero, con il punto come separatore decimale.",

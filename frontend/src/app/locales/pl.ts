@@ -36028,6 +36028,8 @@ const resource = {
     "runtime_module.new_record": "Nowy wpis: {{entity}}",
     "runtime_module.edit_record": "Edytuj: {{entity}}",
     "runtime_module.deleted": "Usunięto",
+    "runtime_module.showing_of": "Pokazano {{shown}} z {{total}}",
+    "runtime_module.no_rules": "Ten moduł opisano bez żadnych kontroli.",
     "runtime_module.needs_project": "Te wpisy należą do projektu. Wybierz projekt przed zapisaniem.",
     "runtime_module.field_required": "To pole nie może zostać puste.",
     "runtime_module.field_not_a_number": "Wpisz liczbę, używając kropki jako separatora dziesiętnego.",

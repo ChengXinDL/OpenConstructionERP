@@ -35972,6 +35972,8 @@ const resource = {
     "runtime_module.new_record": "新規: {{entity}}",
     "runtime_module.edit_record": "編集: {{entity}}",
     "runtime_module.deleted": "削除しました",
+    "runtime_module.showing_of": "{{total}} 件中 {{shown}} 件を表示",
+    "runtime_module.no_rules": "このモジュールはチェックなしで記述されました。",
     "runtime_module.needs_project": "この記録はプロジェクトに属します。保存する前にプロジェクトを選んでください。",
     "runtime_module.field_required": "ここは空にできません。",
     "runtime_module.field_not_a_number": "小数点にピリオドを使って数値を入力してください。",

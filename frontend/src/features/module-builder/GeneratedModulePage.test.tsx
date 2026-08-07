@@ -147,7 +147,9 @@ describe('reading a module it has never seen', () => {
     await waitFor(() => expect(uiSpec).toHaveBeenCalledWith(BASE_PATH));
     // The route carries `pour_register`; the URL is `pour-register`. Nothing
     // here turned one into the other - the installed list did.
-    expect(records).toHaveBeenCalledWith(BASE_PATH, { projectId: 'p1', limit: 200 });
+    // offset is part of the call now: the register pages by offset rather
+    // than reading one capped page and saying nothing about the rest.
+    expect(records).toHaveBeenCalledWith(BASE_PATH, { projectId: 'p1', limit: 200, offset: 0 });
   });
 
   it('draws the columns the spec marked, and not the ones it did not', async () => {
@@ -208,7 +210,7 @@ describe('the project a record belongs to', () => {
     uiSpec.mockResolvedValue({ ...SPEC, entity: { ...SPEC.entity, project_scoped: false } });
     renderPage();
     await screen.findByTestId('runtime-module-table');
-    expect(records).toHaveBeenCalledWith(BASE_PATH, { projectId: null, limit: 200 });
+    expect(records).toHaveBeenCalledWith(BASE_PATH, { projectId: null, limit: 200, offset: 0 });
     expect(screen.getByTestId('runtime-module-new')).not.toBeDisabled();
   });
 });
@@ -324,5 +326,98 @@ describe('removing one', () => {
 
     await user.click(screen.getByTestId('confirm-dialog-confirm'));
     await waitFor(() => expect(remove).toHaveBeenCalledWith(BASE_PATH, 'rec-1'));
+  });
+});
+
+/**
+ * A generated register is the screen a module exists to provide, and it used to
+ * read one capped page of 200 and render it with nothing said about the rest.
+ * These cover the three things that follow from fixing that: the count is
+ * always on screen, a search never answers about rows it has not read, and a
+ * sort is not offered over a partial set.
+ */
+const ROW_B: GeneratedRecord = {
+  ...ROW,
+  id: 'rec-2',
+  reference: 'A-001',
+  volume: '3.00',
+  cost: '99.00',
+  poured_on: '2026-07-02',
+};
+
+describe('the generated register over more rows than one page', () => {
+  it('says how many of the total are on screen', async () => {
+    records.mockResolvedValue({ items: [ROW, ROW_B], total: 5 });
+    renderPage();
+    await screen.findByTestId('runtime-module-table');
+    expect(screen.getByTestId('runtime-module-count').textContent).toBe('Showing 2 of 5');
+  });
+
+  it('offers to load the rest, and refuses to sort until it is loaded', async () => {
+    records.mockResolvedValue({ items: [ROW, ROW_B], total: 5 });
+    renderPage();
+    await screen.findByTestId('runtime-module-table');
+
+    expect(screen.getByTestId('runtime-module-more')).toBeTruthy();
+    // The header is plain text, not a control. Sorting three of five rows puts
+    // a row on top that is not the largest and says nothing about it.
+    expect(screen.queryByTestId('runtime-module-sort-cost')).toBeNull();
+  });
+
+  it('sorts once every row is in, and sorts by value rather than by rendered text', async () => {
+    const user = userEvent.setup();
+    records.mockResolvedValue({ items: [ROW, ROW_B], total: 2 });
+    renderPage();
+    await screen.findByTestId('runtime-module-table');
+
+    expect(screen.queryByTestId('runtime-module-more')).toBeNull();
+    await user.click(screen.getByTestId('runtime-module-sort-cost'));
+
+    // 99.00 before 4210.00 ascending. Compared as strings "4210.00" sorts
+    // first, which is the bug this asserts against.
+    const cells = screen.getAllByRole('row').slice(1).map((r) => r.textContent ?? '');
+    expect(cells[0]).toContain('A-001');
+    expect(cells[1]).toContain('P-014');
+  });
+
+  it('filters to what the reader can see, and counts the filtered rows', async () => {
+    const user = userEvent.setup();
+    records.mockResolvedValue({ items: [ROW, ROW_B], total: 2 });
+    renderPage();
+    await screen.findByTestId('runtime-module-table');
+
+    await user.type(screen.getByTestId('runtime-module-search'), 'A-001');
+    await waitFor(() =>
+      expect(screen.getByTestId('runtime-module-count').textContent).toBe('Showing 1 of 2'),
+    );
+    expect(screen.queryByText('P-014')).toBeNull();
+  });
+
+  it('keeps empty cells at the bottom whichever way the column is sorted', async () => {
+    const user = userEvent.setup();
+    const blank: GeneratedRecord = { ...ROW, id: 'rec-3', reference: 'Z-999', cost: '' };
+    records.mockResolvedValue({ items: [ROW, ROW_B, blank], total: 3 });
+    renderPage();
+    await screen.findByTestId('runtime-module-table');
+
+    await user.click(screen.getByTestId('runtime-module-sort-cost'));
+    let rows = screen.getAllByRole('row').slice(1).map((r) => r.textContent ?? '');
+    expect(rows[2]).toContain('Z-999');
+
+    // Descending flips the rows that have a value. It must not float the
+    // blanks to the top: a column sorted the other way would otherwise open
+    // on a screen of empty cells and hide what was asked for.
+    await user.click(screen.getByTestId('runtime-module-sort-cost'));
+    rows = screen.getAllByRole('row').slice(1).map((r) => r.textContent ?? '');
+    expect(rows[0]).toContain('P-014');
+    expect(rows[2]).toContain('Z-999');
+  });
+
+  it('says a module was described without checks rather than heading an empty list', async () => {
+    uiSpec.mockResolvedValue({ ...SPEC, rules: [] });
+    records.mockResolvedValue({ items: [ROW], total: 1 });
+    renderPage();
+    await screen.findByTestId('runtime-module-table');
+    expect(screen.getByText(/described without any checks/i)).toBeTruthy();
   });
 });

@@ -36008,6 +36008,8 @@ const resource = {
     "runtime_module.new_record": "Novi zapis: {{entity}}",
     "runtime_module.edit_record": "Uredi: {{entity}}",
     "runtime_module.deleted": "Izbrisano",
+    "runtime_module.showing_of": "Prikazano {{shown}} od {{total}}",
+    "runtime_module.no_rules": "Ovaj modul opisan je bez ijedne provjere.",
     "runtime_module.needs_project": "Ovi zapisi pripadaju projektu. Odaberite projekt prije spremanja.",
     "runtime_module.field_required": "Ovo ne smije ostati prazno.",
     "runtime_module.field_not_a_number": "Upišite broj, s točkom kao decimalnim znakom.",

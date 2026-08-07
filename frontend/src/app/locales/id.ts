@@ -35968,6 +35968,8 @@ const resource = {
     "runtime_module.new_record": "Catatan baru: {{entity}}",
     "runtime_module.edit_record": "Ubah: {{entity}}",
     "runtime_module.deleted": "Dihapus",
+    "runtime_module.showing_of": "Menampilkan {{shown}} dari {{total}}",
+    "runtime_module.no_rules": "Modul ini dijelaskan tanpa pemeriksaan apa pun.",
     "runtime_module.needs_project": "Catatan ini milik sebuah proyek. Pilih proyek sebelum menyimpan.",
     "runtime_module.field_required": "Ini tidak boleh dibiarkan kosong.",
     "runtime_module.field_not_a_number": "Masukkan angka dengan titik sebagai tanda desimal.",

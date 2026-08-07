@@ -384,3 +384,56 @@ export function formatValue(
 function withUnit(text: string, unit: string): string {
   return unit ? `${text} ${unit}` : text;
 }
+
+/**
+ * Order two stored values of one field, for sorting a generated register.
+ *
+ * Sorting on the rendered text would be wrong for exactly the columns people
+ * sort on: "1 000,00" against "900,00" compares as strings to the wrong answer,
+ * and a localised month name orders alphabetically rather than by date. So this
+ * reads the stored value and compares it as what it is.
+ *
+ * Money and quantities are compared as numbers even though they are carried as
+ * strings, and that is safe in a way `Number()` is not safe for arithmetic: a
+ * double is precise enough to say which of two amounts is larger, and it is
+ * never written back. The exact string stays the value.
+ *
+ * Blanks always sort last, in both directions. A column sorted descending that
+ * opens on a screen of empty cells hides the rows the user asked to see, and
+ * "no value" is not a value that belongs at either extreme.
+ */
+export function compareByField(field: ModuleFieldSpec, a: unknown, b: unknown): number {
+  if (field.type === 'boolean') return (a === true ? 1 : 0) - (b === true ? 1 : 0);
+
+  const aBlank = a === null || a === undefined || a === '';
+  const bBlank = b === null || b === undefined || b === '';
+  if (aBlank && bBlank) return 0;
+  if (aBlank) return 1;
+  if (bBlank) return -1;
+
+  switch (field.type) {
+    case 'integer':
+    case 'number':
+    case 'money': {
+      const na = Number(a);
+      const nb = Number(b);
+      // A value that is not a number at all is treated as blank rather than as
+      // NaN: NaN comparisons are all false and would make the sort unstable.
+      if (!Number.isFinite(na) && !Number.isFinite(nb)) return 0;
+      if (!Number.isFinite(na)) return 1;
+      if (!Number.isFinite(nb)) return -1;
+      return na < nb ? -1 : na > nb ? 1 : 0;
+    }
+    case 'date':
+    case 'datetime': {
+      const ta = Date.parse(String(a));
+      const tb = Date.parse(String(b));
+      if (Number.isNaN(ta) && Number.isNaN(tb)) return 0;
+      if (Number.isNaN(ta)) return 1;
+      if (Number.isNaN(tb)) return -1;
+      return ta - tb;
+    }
+    default:
+      return String(a).localeCompare(String(b), getIntlLocale());
+  }
+}

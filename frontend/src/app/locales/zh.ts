@@ -35972,6 +35972,8 @@ const resource = {
     "runtime_module.new_record": "新建：{{entity}}",
     "runtime_module.edit_record": "编辑：{{entity}}",
     "runtime_module.deleted": "已删除",
+    "runtime_module.showing_of": "显示 {{total}} 条中的 {{shown}} 条",
+    "runtime_module.no_rules": "此模块在描述时未设置任何检查。",
     "runtime_module.needs_project": "这些记录属于某个项目。保存前请先选择项目。",
     "runtime_module.field_required": "此处不能留空。",
     "runtime_module.field_not_a_number": "请输入数字，小数点用英文句点。",

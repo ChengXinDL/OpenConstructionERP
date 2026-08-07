@@ -35965,6 +35965,8 @@ const resource = {
     "runtime_module.new_record": "Ny {{entity}}",
     "runtime_module.edit_record": "Rediger {{entity}}",
     "runtime_module.deleted": "Slettet",
+    "runtime_module.showing_of": "Viser {{shown}} av {{total}}",
+    "runtime_module.no_rules": "Denne modulen ble beskrevet uten noen kontroller.",
     "runtime_module.needs_project": "Disse postene hører til et prosjekt. Velg ett før du lagrer.",
     "runtime_module.field_required": "Dette kan ikke stå tomt.",
     "runtime_module.field_not_a_number": "Skriv inn et tall med punktum som desimaltegn.",

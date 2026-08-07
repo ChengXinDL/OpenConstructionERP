@@ -36092,6 +36092,8 @@ const resource = {
     "runtime_module.new_record": "سجل جديد: {{entity}}",
     "runtime_module.edit_record": "تحرير: {{entity}}",
     "runtime_module.deleted": "حُذف",
+    "runtime_module.showing_of": "عرض {{shown}} من {{total}}",
+    "runtime_module.no_rules": "وُصفت هذه الوحدة دون أي عمليات تحقق.",
     "runtime_module.needs_project": "هذه السجلات تخص مشروعًا. اختر مشروعًا قبل الحفظ.",
     "runtime_module.field_required": "لا يمكن ترك هذا فارغًا.",
     "runtime_module.field_not_a_number": "أدخل رقمًا مستخدمًا النقطة فاصلةً عشرية.",

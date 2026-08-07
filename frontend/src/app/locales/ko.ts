@@ -35972,6 +35972,8 @@ const resource = {
     "runtime_module.new_record": "새 기록: {{entity}}",
     "runtime_module.edit_record": "수정: {{entity}}",
     "runtime_module.deleted": "삭제했습니다",
+    "runtime_module.showing_of": "{{total}}개 중 {{shown}}개 표시",
+    "runtime_module.no_rules": "이 모듈은 검사 없이 기술되었습니다.",
     "runtime_module.needs_project": "이 기록은 프로젝트에 속합니다. 저장하기 전에 프로젝트를 고르세요.",
     "runtime_module.field_required": "여기는 비워 둘 수 없습니다.",
     "runtime_module.field_not_a_number": "소수점으로 마침표를 써서 숫자를 입력하세요.",
