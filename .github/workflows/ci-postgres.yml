@@ -384,10 +384,16 @@ jobs:
           tests/unit/test_permissions.py
           tests/unit/test_commercial_delete_guards.py
           -q -p no:cacheprovider
+      # Photo categories are stated three times, in the uploader, in the edit
+      # schema and in the gallery's own union, and one of the three disagreed:
+      # a drone shot could be uploaded and shown as "aerial" while setting that
+      # category from the editor came back 422. Each list was locally
+      # consistent, so only a check that reads all three can see it.
       - name: Run sheet access control and photo scope tests
         run: >-
           pytest tests/unit/test_sheets_access_control.py
           tests/unit/test_photos_recent_project_scope.py
+          tests/unit/test_documents_photo_categories.py
           -q -p no:cacheprovider
       # The module builder writes Python that a server then imports and serves.
       # A defect in the renderer is not a wrong number on a screen, it is a
