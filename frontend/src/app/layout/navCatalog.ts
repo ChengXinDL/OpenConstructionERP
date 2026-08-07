@@ -804,6 +804,10 @@ export const navGroups: NavGroup[] = [
       { labelKey: 'nav.ai_advisor', to: '/advisor', icon: MessageSquare },
       { labelKey: 'nav.erp_chat', to: '/chat', icon: MessageSquare },
       { labelKey: 'nav.pipelines', to: '/pipelines', icon: GitBranch, moduleKey: 'pipelines', advancedOnly: true, badge: 'BETA' },
+      // The register of modules built on this instance. Readable by anyone, so
+      // no role gate here: the build and remove controls on the page are what
+      // an administrator sees and what the server enforces.
+      { labelKey: 'nav.module_builder', to: '/module-builder', icon: Wand2, advancedOnly: true },
     ],
   },
   // ── REGIONAL EXCHANGE (setup-only, dynamic) ────────────────────────

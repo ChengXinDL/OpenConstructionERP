@@ -157,6 +157,17 @@ const SafetyPage = lazy(() =>
 const CredentialsPage = lazy(() =>
   import('@/features/credentials/CredentialsPage').then((m) => ({ default: m.CredentialsPage }))
 );
+const ModuleBuilderPage = lazy(() =>
+  import('@/features/module-builder/ModuleBuilderPage').then((m) => ({ default: m.ModuleBuilderPage }))
+);
+// One screen for every module ever built on this instance: it renders from the
+// specification the module serves, because a runtime module cannot ship a
+// compiled screen of its own.
+const GeneratedModulePage = lazy(() =>
+  import('@/features/module-builder/GeneratedModulePage').then((m) => ({
+    default: m.GeneratedModulePage,
+  }))
+);
 const ContactsPage = lazy(() =>
   import('@/features/contacts/ContactsPage').then((m) => ({ default: m.ContactsPage }))
 );
@@ -1222,6 +1233,13 @@ export default function App() {
 
         <Route path="/credentials" element={<P title="Credentials"><CredentialsPage /></P>} />
         <Route path="/projects/:projectId/credentials" element={<P title="Credentials"><CredentialsPage /></P>} />
+
+        {/* The register of modules built here, and the screen each one renders
+            on. `:moduleKey` is the module's key, not its URL: the loader owns
+            the key-to-URL rule and the page asks the server for it. */}
+        <Route path="/module-builder" element={<P title="Module Builder"><ModuleBuilderPage /></P>} />
+        <Route path="/modules/:moduleKey" element={<P title="Module"><GeneratedModulePage /></P>} />
+        <Route path="/projects/:projectId/modules/:moduleKey" element={<P title="Module"><GeneratedModulePage /></P>} />
 
         <Route path="/contacts" element={<P title="Contacts"><ContactsPage /></P>} />
         <Route path="/projects/:projectId/tasks" element={<P title="Tasks"><TasksPage /></P>} />

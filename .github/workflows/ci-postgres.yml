@@ -572,27 +572,42 @@ jobs:
     # token check and the IDOR job. The conclusion is unchanged, the cause is
     # not, and a wrong cause invites somebody to "fix the OOM" and expect this
     # job to become redundant.
-    # Counted 2026-08-06: 525 vitest test files live under src, 17 are named
-    # below, so 508 of them gate nothing.
-    # Recount rather than trust that sentence, and count under src: a glob for
-    # the vitest default across the whole frontend returns 627, of which 108
-    # are Playwright specs that this job does not run. Two more test files live
-    # outside src, under frontend/tests/pwa, which vitest does collect and this
-    # count does not reach - so 508 is the floor of what gates nothing.
+    # Counted 2026-08-07: the include in vite.config.ts is
+    # src/**/*.test.{ts,tsx} plus tests/**/*.test.{ts,tsx}, which collects 533
+    # files under src and 2 under frontend/tests/pwa, so 535 in all. 20 are
+    # named below, so 515 of them gate nothing. Recount rather than trust that
+    # sentence, and recount against that include rather than against the vitest
+    # default: the default would also sweep up the Playwright specs, which this
+    # job does not run and which were never part of this number.
     #
     # Named files rather than the whole suite, and that is a measurement rather
-    # than a preference. The timing was taken when the list held eleven files:
-    # 118 seconds against 12 logical cores, where the same work over the whole
-    # suite comes to somewhere between 55 and 95 minutes depending on how the
-    # workers saturate. That does not belong in front of every merge. The list
-    # has grown by three since that measurement and has not been re-timed, so
-    # treat 118 seconds as a floor. This mirrors how the backend half of this
-    # file already works: tests/unit is not collected wholesale either, it is
-    # named.
+    # than a preference. The whole suite came to somewhere between 55 and 95
+    # minutes when it was last timed, depending on how the workers saturate,
+    # and that does not belong in front of every merge. The twenty named here
+    # run 317 tests in 31 seconds against 12 logical cores with a warm cache,
+    # measured 2026-08-07. An earlier note in this file recorded 118 seconds
+    # for eleven files and that could not be reproduced, so take neither figure
+    # as the cost on the runner: it has four cores and installs cold. What the
+    # numbers do support is the shape, a named list rather than the suite. This
+    # mirrors how the backend half of this file already works: tests/unit is
+    # not collected wholesale either, it is named.
     #
     # The list is the frontend half of the work this release carries, and it is
     # deliberately short. Adding to it should be a decision each time, not a
     # habit, because every entry is paid on every merge.
+    #
+    # The three module builder entries are this release's decision. That
+    # feature ships eight test files; five are jsdom component tests covering
+    # wiring that a red build or a refused request already surfaces loudly, and
+    # they are deliberately left out, which is written here so that leaving
+    # them out reads as a choice rather than as coverage. The three named are
+    # pure TypeScript and hold the values nothing else would catch: money and
+    # quantities staying strings the whole way to the wire rather than passing
+    # through a double, a local wall-clock time leaving as a zoned instant so
+    # the module's own validator does not read "now" as the future for everyone
+    # east of UTC, an update sending the fields that changed and no others, and
+    # the module's address being taken from the server rather than rebuilt from
+    # its key on this side.
     timeout-minutes: 20
     defaults:
       run:
@@ -626,6 +641,9 @@ jobs:
         src/features/dwg-takeoff/lib/__tests__/viewport.test.ts
         src/features/file-manager/SheetsIndexPage.test.tsx
         src/features/file-manager/sheetsInsights.test.ts
+        src/features/module-builder/api.test.ts
+        src/features/module-builder/draft.test.ts
+        src/features/module-builder/fields.test.ts
         src/shared/lib/i18nInterpolatedKeys.test.ts
     steps:
       - uses: actions/checkout@v7

@@ -16,6 +16,7 @@ import { CountryFlag, PartnerLogoBadge } from '@/shared/ui';
 import { usePartnerPack } from '@/shared/hooks/usePartnerPack';
 import { NotificationBell } from '@/shared/ui/NotificationBell';
 import { HeaderNewsButton } from '@/shared/ui/HeaderNewsButton';
+import { ModuleBuilderButton } from '@/features/module-builder';
 import { apiGet } from '@/shared/lib/api';
 import { copyToClipboard } from '@/shared/lib/browser';
 import {
@@ -365,6 +366,10 @@ export function Header({ title, onMenuClick }: HeaderProps) {
             report doesn't have to scan past the marketing CTAs. */}
         <NotificationBell />
         <HeaderNewsButton />
+        {/* Building a module is something you do from wherever you noticed the
+            platform was missing one, so it lives here rather than in the
+            sidebar. Renders nothing for anyone who may not install one. */}
+        <ModuleBuilderButton />
         <SupportUsButton />
         <SubscribeButton />
         <BugReportMenu />
