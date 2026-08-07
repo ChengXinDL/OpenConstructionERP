@@ -7,9 +7,14 @@
  * the implementation and pass on any address at all, which is exactly how the
  * page came to advertise `/calendar/feed.ics` - a path no route has ever
  * served. So the expected shape is read out of the router itself: the
- * decorator that mounts the feed, and the prefix its router is included under.
- * Change either on the server and this test fails on the next run instead of
- * on a user's calendar client.
+ * decorator that mounts the feed, and the name of the query parameter it
+ * authenticates on. Change either on the server and this test fails on the next
+ * run instead of on a user's calendar client.
+ *
+ * What it does not cover: the mount prefix. `module_loader` composes that from
+ * the module directory at import time rather than declaring it somewhere
+ * readable, so it is written on both sides here. A change to that scheme passes
+ * this test and still breaks the address.
  */
 
 import { readFileSync } from 'node:fs';

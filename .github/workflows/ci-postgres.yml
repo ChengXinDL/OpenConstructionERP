@@ -613,8 +613,13 @@ jobs:
     # other check in this repository can see. The page advertised a URL that no
     # route has ever served, and every layer agreed with itself: the string
     # type checked, the build passed, and the request only failed on a user's
-    # calendar client. That test reads the route out of the module's router and
-    # compares, so the two can no longer drift in silence.
+    # calendar client. That test reads the decorated path and the required
+    # query parameter out of the module's router and compares, so neither can
+    # move without it failing. The mount prefix is still written on both sides:
+    # the loader composes it from the module directory rather than declaring it
+    # anywhere the test can read, so a change to that scheme would pass here and
+    # break in the browser. Worth knowing before trusting this entry further
+    # than it goes.
     timeout-minutes: 20
     defaults:
       run:
