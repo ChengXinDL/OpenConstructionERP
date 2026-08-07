@@ -337,7 +337,7 @@ _WORK_PACKAGES: tuple[_WorkPackage, ...] = (
             ce_marking=True,
         ),
         lab=_Lab(
-            title="Tensile test on reinforcing bar sample",
+            title="Tensile test on a reinforcing bar specimen",
             test_method="ISO 6892-1",
             specimen_age_days=None,
         ),
@@ -1235,7 +1235,7 @@ async def _seed_work_package(
             project_id=project_id,
             title=lab.title,
             description=(
-                f"Sample taken from {package.location} and tested to {lab.test_method}, judged against {spec.code}."
+                f"Specimen taken from {package.location} and tested to {lab.test_method}, judged against {spec.code}."
             ),
             criterion_id=str(criterion.id),
             sample_id=f"S-{spec.code.split('-')[-1]}-{position + 1:03d}",
