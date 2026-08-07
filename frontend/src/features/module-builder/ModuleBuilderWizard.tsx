@@ -17,7 +17,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
@@ -238,6 +238,7 @@ export function ModuleBuilderWizard({ open, onClose, onInstalled }: ModuleBuilde
             drafting={drafting}
             assistantAvailable={vocabulary?.assistant_available ?? false}
             onDraft={() => void handleDraft()}
+            onClose={onClose}
             problems={stepProblems.describe}
           />
         )}
@@ -385,6 +386,8 @@ interface DescribeStepProps {
   drafting: boolean;
   assistantAvailable: boolean;
   onDraft: () => void;
+  /** Dismisses the wizard when the reader leaves to connect a provider. */
+  onClose: () => void;
   problems: SpecProblem[];
 }
 
@@ -396,6 +399,7 @@ function DescribeStep({
   drafting,
   assistantAvailable,
   onDraft,
+  onClose,
   problems,
 }: DescribeStepProps) {
   const { t } = useTranslation();
@@ -451,11 +455,27 @@ function DescribeStep({
           </div>
         </div>
       ) : (
-        <p className="rounded-lg bg-surface-secondary/60 px-3 py-2 text-xs text-content-tertiary">
-          {t('module_builder.no_assistant', {
-            defaultValue:
-              'No AI provider is connected, so the module is described by hand. Everything below works the same way either way.',
-          })}
+        // The by-hand path is not a degraded one, so this says what is missing
+        // and where to fix it rather than sitting on a disabled control the
+        // reader has to guess about. Leaving closes the wizard: the header
+        // mounts it above every page, so a modal left open would follow the
+        // reader onto the settings screen it just sent them to.
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-surface-secondary/60 px-3 py-2 text-xs text-content-tertiary">
+          <span>
+            {t('module_builder.no_assistant', {
+              defaultValue:
+                'No AI provider is connected, so the module is described by hand. Everything below works the same way either way.',
+            })}
+          </span>
+          <Link
+            to="/settings?tab=ai"
+            onClick={onClose}
+            className="inline-flex items-center gap-1 font-medium text-oe-blue-text hover:text-oe-blue-hover"
+            data-testid="module-builder-connect-ai"
+          >
+            {t('module_builder.connect_ai', { defaultValue: 'Connect an AI provider' })}
+            <ArrowRight size={12} className="shrink-0" />
+          </Link>
         </p>
       )}
 

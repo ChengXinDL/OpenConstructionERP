@@ -47,13 +47,26 @@ export function ModuleBuilderButton({ className }: { className?: string }) {
         title={label}
         data-testid="header-module-builder"
         className={clsx(
-          'relative flex h-8 w-8 items-center justify-center rounded-lg',
+          'relative flex h-8 items-center justify-center gap-1.5 rounded-lg',
+          // Icon-only below xl, labelled from xl up. Not md, where the other
+          // labelled header pill sits: by lg the right-hand cluster is already
+          // tight enough that the page title truncates and the search box is
+          // held narrow until xl - both are written down in Header.tsx. A
+          // second label at md would take that space from the title again,
+          // while at xl there is room for both. The label never wraps, because
+          // it is longer in several locales and a two-line button would break
+          // the header's fixed height.
+          'w-8 xl:w-auto xl:px-2.5',
           'text-content-secondary hover:bg-surface-secondary hover:text-content-primary',
           'transition-colors focus:outline-none focus:ring-2 focus:ring-oe-blue/40',
           className,
         )}
       >
         <Wand2 size={16} strokeWidth={1.9} />
+        {/* `aria-label` stays on the button regardless: the accessible name is
+            then the same string at every width, rather than appearing and
+            disappearing with the breakpoint. */}
+        <span className="hidden whitespace-nowrap text-xs font-medium xl:inline">{label}</span>
       </button>
 
       {open && (

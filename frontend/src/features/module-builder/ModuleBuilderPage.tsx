@@ -13,12 +13,18 @@
  * module someone regrets installing should not also lose what was recorded with
  * it, so the records stay unless the box is ticked, and the table can still be
  * dropped later by uninstalling again.
+ *
+ * Whether an AI provider is connected is answered by this module's own
+ * `assistant_available`, not by a shared readiness probe. The server computes it
+ * from the provider the draft call would actually use, so a second opinion
+ * assembled here could say "connected" about a provider this module cannot
+ * reach, or the reverse.
  */
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Boxes, ExternalLink, Trash2, Wand2 } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Boxes, ExternalLink, Sparkles, Trash2, Wand2 } from 'lucide-react';
 
 import {
   Badge,
@@ -34,7 +40,12 @@ import { getErrorMessage } from '@/shared/lib/api';
 import { useToastStore } from '@/stores/useToastStore';
 import { useAuthStore } from '@/stores/useAuthStore';
 
-import { fetchInstalledModules, uninstallModule, type InstalledModule } from './api';
+import {
+  fetchInstalledModules,
+  fetchVocabulary,
+  uninstallModule,
+  type InstalledModule,
+} from './api';
 import { ModuleBuilderWizard } from './ModuleBuilderWizard';
 import { RUNTIME_MODULE_QUERY_KEY } from './GeneratedModulePage';
 
@@ -53,6 +64,23 @@ export function ModuleBuilderPage() {
     queryFn: fetchInstalledModules,
     staleTime: 5 * 60_000,
   });
+
+  // Same query key as the wizard's, so the two share one answer instead of
+  // asking twice. Only fetched for an administrator: the strip it feeds is the
+  // one thing on this page a reader is expected to act on, and connecting a
+  // provider is an administrator's screen.
+  const vocabularyQuery = useQuery({
+    queryKey: ['module-builder', 'vocabulary'],
+    queryFn: fetchVocabulary,
+    enabled: isAdmin,
+    staleTime: 30 * 60_000,
+  });
+  // Deliberately not defaulted to `false`. Undefined means "not answered yet",
+  // which covers both the request in flight and a request that failed, and
+  // neither of those is evidence that no provider is connected. Announcing one
+  // for the length of every page load would be a false alarm that then
+  // corrects itself, which reads as a bug.
+  const assistantAvailable = vocabularyQuery.data?.assistant_available;
 
   const removal = useMutation({
     mutationFn: (module: InstalledModule) => uninstallModule(module.key, dropData),
@@ -105,6 +133,42 @@ export function ModuleBuilderPage() {
         }
       />
 
+      {assistantAvailable === true && (
+        <p
+          className="flex items-center gap-1.5 text-xs text-content-tertiary"
+          data-testid="module-builder-ai-ready"
+        >
+          <Sparkles size={13} strokeWidth={1.9} className="shrink-0 text-oe-blue-text" />
+          {t('module_builder.ai_connected', {
+            defaultValue:
+              'An AI provider is connected, so a module can be drafted from a sentence.',
+          })}
+        </p>
+      )}
+
+      {assistantAvailable === false && (
+        <div
+          className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-200"
+          data-testid="module-builder-ai-missing"
+        >
+          <AlertTriangle size={13} strokeWidth={1.9} className="shrink-0" />
+          <span>
+            {t('module_builder.ai_missing', {
+              defaultValue:
+                'No AI provider is connected. The builder still works: you describe the module by hand, and everything after that step is the same either way.',
+            })}
+          </span>
+          <Link
+            to="/settings?tab=ai"
+            className="inline-flex items-center gap-1 font-semibold underline-offset-2 hover:underline"
+            data-testid="module-builder-connect-ai"
+          >
+            {t('module_builder.connect_ai', { defaultValue: 'Connect an AI provider' })}
+            <ArrowRight size={12} className="shrink-0" />
+          </Link>
+        </div>
+      )}
+
       <CollapsibleSection
         storageKey="module_builder.how"
         title={t('module_builder.title', { defaultValue: 'Module builder' })}
@@ -113,7 +177,13 @@ export function ModuleBuilderPage() {
           defaultValue: 'Modules built on this instance, and where they live.',
         })}
       >
-        <ol className="list-decimal space-y-1 pl-4 text-sm text-content-secondary">
+        <p className="text-sm text-content-secondary">
+          {t('module_builder.how_intro', {
+            defaultValue:
+              'A module built here is a working part of the platform: the same models, rules, screen and API any shipped module has. Its files are written into a module directory that belongs to this instance, outside the platform source tree, and the running server picks them up the moment they land - nothing is restarted, and an upgrade cannot overwrite them.',
+          })}
+        </p>
+        <ol className="mt-2 list-decimal space-y-1 pl-4 text-sm text-content-secondary">
           <li>
             {t('module_builder.how_1', {
               defaultValue: 'Describe the register you need, in a sentence or by hand.',
@@ -136,6 +206,21 @@ export function ModuleBuilderPage() {
             })}
           </li>
         </ol>
+        <p className="mt-2 text-sm text-content-secondary">
+          {t('module_builder.how_ai', {
+            defaultValue:
+              'An AI provider, where one is connected, only ever drafts the description of the module - what a record holds and what the module checks. It never writes the code. The platform renders the files from that description, you read every one of them on the review step, and nothing is written until you press install.',
+          })}
+        </p>
+        <p className="mt-2 text-sm text-content-secondary">
+          {/* Worded to avoid repeating the removal dialog's own sentence about
+              records: the two would then read as one duplicated warning, and a
+              page holding both is what the reader actually sees. */}
+          {t('module_builder.how_remove', {
+            defaultValue:
+              'A module is removed from the list below. It stops serving straight away, and what was recorded with it is kept unless you ask for that to go too - reinstalling then brings it back.',
+          })}
+        </p>
         {installedQuery.data?.runtime_root && (
           <p className="mt-2 font-mono text-xs text-content-tertiary">
             {installedQuery.data.runtime_root}
