@@ -1,0 +1,353 @@
+"""Bootstrap a new UI locale: work out what has to be translated, then assemble it.
+
+Adding a language to this app is not "copy en.ts and translate it". Two facts
+make that wrong, and both are measured rather than assumed by this script.
+
+First, en.ts is not the full key set. English is supplied inline at the call
+site as `t('key', { defaultValue: 'English' })`, so a key only reaches en.ts
+when someone put it there. Every translated locale carries thousands of keys
+English does not. Building a new locale from en.ts silently drops them and the
+new language shows English on those screens forever.
+
+Second, no single existing locale is the full key set either. Arabic carries
+plural forms (_zero, _two, _few, _many) that a two-form language never asks
+for, and the two-form locales are each missing a handful of ordinary keys that
+some other locale has. Grounding a new language in one sibling inherits that
+sibling's gaps.
+
+So the target key set is computed: the union of every locale on disk, minus the
+plural categories the new language does not have according to CLDR. Plural
+category membership comes from the language itself, never from English.
+
+The English source text for each key is harvested from three places in priority
+order: en.ts, the `defaultValue` at the call site, and the English field beside
+a `<name>Key` field in the case playbooks and module guides. `plan` reports what
+each source covered and names the keys it found nothing for, because a key with
+no English anywhere is a bug in its own right: an English reader sees the raw
+key, and a translator has nothing to work from.
+
+Usage:
+    python scripts/i18n_new_locale.py plan     et
+    python scripts/i18n_new_locale.py extract  et [--batch-size 400]
+    python scripts/i18n_new_locale.py assemble et
+    python scripts/i18n_new_locale.py verify   et
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+LOCALES = ROOT / "frontend" / "src" / "app" / "locales"
+SRC = ROOT / "frontend" / "src"
+WORK = ROOT / ".i18n-work"
+
+# Suffixes that are CLDR plural categories. `_one` and `_other` are deliberately
+# absent: every language has `other`, and `_other` is also a perfectly ordinary
+# key name meaning the enum value "Other" (documents.type_other is "Other", not
+# a plural form). Treating those two as category markers would both demand
+# nonsense forms and delete real keys.
+CATEGORY_SUFFIXES = ("_zero", "_two", "_few", "_many")
+
+# A key line carries a string value. The `"translation": {` wrapper does not,
+# and counting it as a key puts a bogus entry named `translation` in the target.
+KEY_LINE = re.compile(r'^\s*"([^"]+)":\s*"')
+
+# t('key', { ... defaultValue: 'text' ... }) with the options object brace-free.
+DEFAULT_VALUE = re.compile(
+    r"""['"]([A-Za-z0-9_.\-]+)['"]\s*,\s*\{[^{}]*?defaultValue:\s*(['"])((?:\\.|(?!\2).)*)\2""",
+    re.DOTALL,
+)
+
+# Data files name a key and its English text as two adjacent fields, and both the
+# naming and the order vary: titleKey/titleDefault, labelKey/label, labelKey with
+# a `fallback`, and moduleLabel/moduleLabelKey with the English one first. Quoting
+# varies too, since the tree has no formatter. One regex per shape would miss a
+# shape, so find every `<stem>Key` and look for its English sibling nearby under
+# any of the names that have been used for it.
+SIBLING_KEY = re.compile(r"""(\w+)Key:\s*['"]([^'"]+)['"]""")
+SIBLING_WINDOW = 400
+
+
+def sibling_pairs(text: str) -> dict[str, str]:
+    found: dict[str, str] = {}
+    for m in SIBLING_KEY.finditer(text):
+        stem, key = m.group(1), m.group(2)
+        window = text[max(0, m.start() - SIBLING_WINDOW) : m.end() + SIBLING_WINDOW]
+        for name in (f"{stem}Default", stem, "fallback", "default"):
+            sibling = re.search(rf"""\b{re.escape(name)}:\s*(['"])((?:\\[\s\S]|(?!\1).)*)\1""", window)
+            if sibling:
+                found.setdefault(key, sibling.group(2))
+                break
+    return found
+
+
+HEADER = (
+    "// Locale source. Edit this file directly: nothing generates it.\n"
+    "// ../i18n-fallbacks.ts reads these files for tests, it does not produce them.\n"
+    "\n"
+    "const resource = {\n"
+    '  "translation": {\n'
+)
+# Every existing locale widens to Record<string, string> rather than using
+# `as const`. That is not a style preference: `as const` on 36k entries makes
+# TypeScript build a literal type per key, and tsc in this repo already runs out
+# of memory on the full project. Match the neighbours.
+FOOTER = "  }\n} as { translation: Record<string, string> };\n\nexport default resource;\n"
+
+
+def read(path: Path) -> str:
+    """Read preserving line endings. Path.read_text has no newline= and would
+    translate CRLF to LF, which turns a one-key edit into a whole-file diff."""
+    with open(path, encoding="utf-8", newline="") as fh:
+        return fh.read()
+
+
+def keys_of(path: Path) -> list[str]:
+    return [m.group(1) for m in (KEY_LINE.match(line) for line in read(path).splitlines()) if m]
+
+
+def locale_paths() -> list[Path]:
+    return sorted(LOCALES.glob("*.ts"))
+
+
+def plural_categories(code: str) -> set[str]:
+    """Ask the language, through Node's ICU, which categories i18next will look for."""
+    out = subprocess.run(
+        [
+            "node",
+            "-e",
+            f"process.stdout.write(new Intl.PluralRules({code!r}).resolvedOptions().pluralCategories.join(','))",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return set(out.stdout.strip().split(","))
+
+
+def target_keys(code: str) -> tuple[list[str], set[str]]:
+    """The key set the new locale must carry, in a readable order.
+
+    Order follows the locale that shares the new language's plural categories and
+    has the most keys, so a reviewer can diff the new file against a sibling and
+    see translations rather than reordering. Keys no sibling has are appended.
+    """
+    union: set[str] = set()
+    per_file: dict[Path, list[str]] = {}
+    for path in locale_paths():
+        ks = keys_of(path)
+        per_file[path] = ks
+        union.update(ks)
+
+    have = plural_categories(code)
+    dropped = {k for k in union if s_of(k) and s_of(k) not in have and is_plural_family(k, union)}
+    target = union - dropped
+
+    template = max(per_file, key=lambda p: len(per_file[p]))
+    ordered = [k for k in per_file[template] if k in target]
+    ordered += sorted(target - set(ordered))
+    return ordered, dropped
+
+
+def s_of(key: str) -> str:
+    for suffix in CATEGORY_SUFFIXES:
+        if key.endswith(suffix):
+            return suffix[1:]
+    return ""
+
+
+def is_plural_family(key: str, union: set[str]) -> bool:
+    """Whether a category-suffixed key really is one form of a plural family.
+
+    The suffix alone does not settle it. Eight keys carried by all 29 locales end
+    in a category word and are ordinary sentences: `dwg_compare.pick_two` is
+    "Pick two different versions", `assembly.params.err_div_by_zero` is a
+    division-by-zero error, `geo.overlays.crop_too_few` asks for three points.
+    Dropping those from a two-form language would delete real strings, and the
+    orphan gate would then fail on keys the new locale is missing.
+
+    CLDR requires an `other` form of every language, and i18next writes `_one`
+    beside it for the two-form case, so a genuine family has a sibling. A lone
+    `_zero`/`_two`/`_few`/`_many` with neither sibling anywhere is a word, not a
+    category.
+    """
+    stem = key[: -len(s_of(key)) - 1]
+    return f"{stem}_other" in union or f"{stem}_one" in union
+
+
+def english_sources() -> dict[str, tuple[str, str]]:
+    """key -> (english text, where it came from). en.ts wins, then call sites."""
+    found: dict[str, tuple[str, str]] = {}
+
+    en = LOCALES / "en.ts"
+    for line in read(en).splitlines():
+        m = re.match(r'^\s*"([^"]+)":\s*"((?:\\.|[^"])*)",?\s*$', line)
+        if m:
+            found[m.group(1)] = (unescape(m.group(2)), "en.ts")
+
+    for path in SRC.rglob("*.ts*"):
+        if LOCALES in path.parents:
+            continue
+        text = read(path)
+        for m in DEFAULT_VALUE.finditer(text):
+            found.setdefault(m.group(1), (unescape(m.group(3)), "defaultValue"))
+        for key, english in sibling_pairs(text).items():
+            found.setdefault(key, (unescape(english), "playbook"))
+
+    return found
+
+
+def unescape(value: str) -> str:
+    return value.replace('\\"', '"').replace("\\'", "'").replace("\\\\", "\\")
+
+
+def escape(value: str) -> str:
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def cmd_plan(code: str) -> int:
+    ordered, dropped = target_keys(code)
+    sources = english_sources()
+    have = plural_categories(code)
+    missing = [k for k in ordered if k not in sources]
+    by_source: dict[str, int] = {}
+    for k in ordered:
+        by_source[sources.get(k, ("", "MISSING"))[1]] = by_source.get(sources.get(k, ("", "MISSING"))[1], 0) + 1
+
+    print(f"locale        {code}")
+    print(f"plural forms  {', '.join(sorted(have))}")
+    print(f"target keys   {len(ordered)}")
+    print(f"dropped       {len(dropped)} key(s) whose plural category {code} does not have")
+    for source, count in sorted(by_source.items(), key=lambda kv: -kv[1]):
+        print(f"  english from {source:<14} {count}")
+    if missing:
+        out = WORK / code
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "_no_english.txt").write_text("\n".join(missing) + "\n", encoding="utf-8")
+        print(f"\n{len(missing)} key(s) have no English text anywhere. They need a human.")
+        print(f"Full list: {out / '_no_english.txt'}")
+        for k in missing[:20]:
+            print(f"    {k}")
+        if len(missing) > 20:
+            print(f"    ... and {len(missing) - 20} more")
+    return 0
+
+
+def cmd_extract(code: str, batch_size: int) -> int:
+    ordered, _ = target_keys(code)
+    sources = english_sources()
+    out = WORK / code
+    out.mkdir(parents=True, exist_ok=True)
+    for stale in out.glob("batch_*.json"):
+        stale.unlink()
+
+    batches = 0
+    for start in range(0, len(ordered), batch_size):
+        chunk = ordered[start : start + batch_size]
+        payload = {k: sources.get(k, ("", "MISSING"))[0] for k in chunk}
+        path = out / f"batch_{start // batch_size:03d}.json"
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        batches += 1
+
+    (out / "_order.json").write_text(json.dumps(ordered, ensure_ascii=False), encoding="utf-8")
+    print(f"{len(ordered)} key(s) in {batches} batch(es) under {out}")
+    print("Translate each batch_NNN.json in place: keep the keys, replace the values.")
+    return 0
+
+
+def cmd_assemble(code: str) -> int:
+    out = WORK / code
+    order = json.loads((out / "_order.json").read_text(encoding="utf-8"))
+    merged: dict[str, str] = {}
+    for path in sorted(out.glob("batch_*.json")):
+        for key, value in json.loads(path.read_text(encoding="utf-8")).items():
+            if key in merged:
+                print(f"REFUSED {key} appears in more than one batch")
+                return 1
+            merged[key] = value
+
+    missing = [k for k in order if k not in merged]
+    extra = [k for k in merged if k not in set(order)]
+    if missing or extra:
+        print(f"REFUSED {len(missing)} key(s) missing, {len(extra)} not in the target set")
+        for k in (missing + extra)[:10]:
+            print(f"    {k}")
+        return 1
+    untranslated = [k for k in order if not merged[k].strip()]
+    if untranslated:
+        print(f"REFUSED {len(untranslated)} key(s) still have an empty value")
+        for k in untranslated[:10]:
+            print(f"    {k}")
+        return 1
+
+    body = "".join(f'    "{key}": "{escape(merged[key])}",\n' for key in order)
+    # CRLF, because every other locale file is CRLF and a lone LF file makes the
+    # next tool that edits it produce a whole-file diff.
+    text = (HEADER + body + FOOTER).replace("\n", "\r\n")
+    with open(LOCALES / f"{code}.ts", "w", encoding="utf-8", newline="") as fh:
+        fh.write(text)
+    print(f"wrote {LOCALES / f'{code}.ts'} with {len(order)} key(s)")
+    return 0
+
+
+def cmd_verify(code: str) -> int:
+    path = LOCALES / f"{code}.ts"
+    if not path.exists():
+        print(f"FAIL {path} does not exist")
+        return 1
+    text = read(path)
+    ordered, _ = target_keys(code)
+    present = keys_of(path)
+
+    problems: list[str] = []
+    if len(present) != len(set(present)):
+        seen: set[str] = set()
+        dupes = sorted({k for k in present if k in seen or seen.add(k)})  # type: ignore[func-returns-value]
+        problems.append(f"{len(dupes)} duplicate key(s), first: {dupes[:5]}")
+    missing = sorted(set(ordered) - set(present))
+    extra = sorted(set(present) - set(ordered))
+    if missing:
+        problems.append(f"{len(missing)} key(s) missing, first: {missing[:5]}")
+    if extra:
+        problems.append(f"{len(extra)} key(s) not in the target set, first: {extra[:5]}")
+    if "\r\n" not in text:
+        problems.append("file is not CRLF like every other locale")
+    for bad in re.findall(r'^\s*"[^"]+":\s*"(?:\\.|[^"\\])*[^\\]"[^,\s]', text, re.MULTILINE):
+        problems.append(f"unescaped quote near: {bad[:60]}")
+        break
+
+    if problems:
+        for p in problems:
+            print(f"FAIL {p}")
+        return 1
+    print(f"OK {code}.ts carries {len(present)} key(s), CRLF, no duplicates")
+    return 0
+
+
+def main() -> int:
+    if len(sys.argv) < 3:
+        print(__doc__)
+        return 2
+    action, code = sys.argv[1], sys.argv[2]
+    if action == "plan":
+        return cmd_plan(code)
+    if action == "extract":
+        size = 400
+        if "--batch-size" in sys.argv:
+            size = int(sys.argv[sys.argv.index("--batch-size") + 1])
+        return cmd_extract(code, size)
+    if action == "assemble":
+        return cmd_assemble(code)
+    if action == "verify":
+        return cmd_verify(code)
+    print(f"unknown action {action!r}")
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
