@@ -5078,14 +5078,22 @@ def _generate_module_data(
             "code": f"{demo_id}-MAIN",
             "title": f"Main construction contract - {proj}",
             "contract_type": "lump_sum",
-            "counterparty_type": "contractor",
+            # client, not contractor. The contracts module records the
+            # counterparty as client or subcontractor, which is a statement of
+            # which side of the demo estate the money is on, and the estate
+            # holds the trade subcontracts below, so the party keeping these
+            # books is the main contractor and its head contract is with the
+            # client. "contractor" was not on the list at all: neither the
+            # create endpoint nor the picker in the UI offers it, so the seeded
+            # row was one the product itself would refuse.
+            "counterparty_type": "client",
             # The contact role to link to, kept separate from counterparty_type
             # above even though the two words agree today. They are two
             # vocabularies owned by two modules: the contracts one describes the
             # contract, the contacts one describes the register. Reusing one as
             # a key into the other would break silently the first time either
             # adds a value the other does not have.
-            "party": "contractor",
+            "party": "client",
             "party_index": 0,
             # Who actually signs. The counterparty pair above records one side
             # and a category; the signature register needs both sides by name,
@@ -6375,7 +6383,10 @@ async def _seed_module_data(
                 "title": "Medical equipment list freeze",
                 "description": "Obtain frozen equipment list from radiology, surgery, and ED departments",
                 "status": "in_progress",
-                "priority": "critical",
+                # urgent, not critical: the task scale runs low / normal / high /
+                # urgent. critical is the top of the punchlist scale, which is a
+                # different module with a different vocabulary.
+                "priority": "urgent",
                 "due_date": (base + timedelta(days=30)).strftime("%Y-%m-%d"),
             },
             {

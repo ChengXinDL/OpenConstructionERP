@@ -80,6 +80,13 @@ jobs:
       # than three incidents. It also covers the other half of a demo register
       # being useful: that it is not seeded entirely closed, and that two
       # projects do not render the same rows.
+      # The file after it stops naming modules one at a time. It reads the
+      # vocabulary out of every module's schemas and checks every seeded record
+      # against the module that owns it, which is how the fourth instance was
+      # found - contracts, where the seed wrote a counterparty type neither the
+      # endpoint nor the picker offers. The four named files above stay because
+      # they check things a source scan cannot: values a generator computes,
+      # dates that have to agree with arithmetic, and text.
       - name: Run demo seed and import consistency tests
         run: >-
           pytest tests/unit/test_demo_contact_types.py
@@ -92,6 +99,7 @@ jobs:
           tests/unit/test_demo_insight_dimensions.py
           tests/unit/test_demo_seed_has_no_real_firm_names.py
           tests/unit/test_demo_safety_vocabulary.py
+          tests/unit/test_demo_seed_speaks_module_vocabularies.py
           -q -p no:cacheprovider
       # The region to currency table. Attached for the same reason as the suites
       # around it, which is that tests/unit runs in no lane that blocks a merge.
