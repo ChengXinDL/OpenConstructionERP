@@ -331,6 +331,16 @@ jobs:
       # Reads workflow files as text. No database, under three seconds.
       - name: Run CI lane coverage guard
         run: pytest tests/unit/test_ci_lane_coverage.py -q -p no:cacheprovider
+      # Snapshot column integrity. Attached for the reason repeated above, and
+      # with a second one of its own: the check it performs is the kind that
+      # keeps reporting after it has stopped working. pandas 3 gives a text
+      # column the str dtype rather than object, the sniffing that finds a CSV
+      # whose numbers arrived as text was reached only for object, and so every
+      # text column began reading as a plain string. The report still rendered
+      # and still counted nulls. Nothing was red anywhere.
+      # No database, under five seconds.
+      - name: Run snapshot column integrity tests
+        run: pytest tests/unit/test_dashboards_integrity.py -q -p no:cacheprovider
       # What the sheet register holds after a drawing set is split. Attached here
       # for the reason stated repeatedly above, which is that tests/unit runs in
       # no lane that blocks a merge, and this release ships the register's first
