@@ -1,7 +1,13 @@
 // DDC-CWICR-OE: DataDrivenConstruction · OpenConstructionERP
 // Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
 import { describe, it, expect } from 'vitest';
-import { textFontSize, renderText, renderInsert, renderEntities } from '../dxf-renderer';
+import {
+  textFontSize,
+  renderText,
+  renderInsert,
+  renderEntities,
+  hatchPatternSpacing,
+} from '../dxf-renderer';
 import { groupBlockDefinitions, expandBlockReferences } from '../blocks';
 import type { ViewportState } from '../viewport';
 import type { DxfEntity } from '../../api';
@@ -420,3 +426,48 @@ function blockWithTag(): { defs: ReturnType<typeof groupBlockDefinitions>; rende
   const placed = expandBlockReferences([ref], defs);
   return { defs, renderList: [ref, ...placed] };
 }
+
+describe('hatchPatternSpacing', () => {
+  // The bug this replaces: the spacing was the literal 8 and the pattern cache
+  // keyed on the colour and that literal, so a hatch was drawn 8 screen px apart
+  // at every zoom. Zoomed out, a region a few pixels across was filled solid by
+  // its own hatch and covered the linework beneath it, which is why the reported
+  // overlaps went away on zooming in. The single assertion that would have
+  // caught it is that two different zooms do not agree.
+  it('answers the zoom instead of returning one constant', () => {
+    expect(hatchPatternSpacing(1, 500)).not.toBe(hatchPatternSpacing(2, 500));
+  });
+
+  it('scales with the drawing between its two clamps', () => {
+    expect(hatchPatternSpacing(1, 500)).toBe(8);
+    expect(hatchPatternSpacing(2, 500)).toBe(16);
+    expect(hatchPatternSpacing(4, 500)).toBe(32);
+  });
+
+  it('stops growing at the upper clamp so the tile cache stays small', () => {
+    expect(hatchPatternSpacing(6, 500)).toBe(48);
+    expect(hatchPatternSpacing(600, 500)).toBe(48);
+  });
+
+  it('rounds to whole pixels, because zoom is continuous and the cache is not', () => {
+    expect(hatchPatternSpacing(1.3, 500)).toBe(10); // 10.4
+    expect(hatchPatternSpacing(1.45, 500)).toBe(12); // 11.6
+  });
+
+  it('gives up on the pattern once the lines would be closer than the floor', () => {
+    expect(hatchPatternSpacing(0.5, 500)).toBe(4); // exactly the floor, still drawn
+    expect(hatchPatternSpacing(0.49, 500)).toBeNull();
+    expect(hatchPatternSpacing(0.01, 500)).toBeNull();
+  });
+
+  it('gives up on a region too small to hold a repeat', () => {
+    expect(hatchPatternSpacing(1, 3)).toBe(8);
+    expect(hatchPatternSpacing(1, 2)).toBeNull();
+    expect(hatchPatternSpacing(1, 0)).toBeNull();
+  });
+
+  it('treats a degenerate scale as no pattern rather than as a huge one', () => {
+    expect(hatchPatternSpacing(0, 500)).toBeNull();
+    expect(hatchPatternSpacing(Number.NaN, 500)).toBeNull();
+  });
+});

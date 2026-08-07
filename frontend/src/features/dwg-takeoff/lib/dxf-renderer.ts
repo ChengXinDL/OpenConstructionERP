@@ -376,6 +376,56 @@ export function renderEllipse(
 /** Cache for hatch line patterns to avoid recreating each frame. */
 const hatchPatternCache = new Map<string, CanvasPattern | null>();
 
+/**
+ * Hatch line spacing in screen px at zoom 1, and the range it may occupy once
+ * the zoom has been applied.
+ *
+ * The spacing used to be the constant 8, and the cache keyed on the colour and
+ * that constant, so the pattern never answered the zoom at all. A hatched region
+ * drawn small received the same 8 px grid as one drawn large, which filled it in
+ * and hid the linework underneath; the same region drawn large kept a grain far
+ * finer than the drawing asked for. That is why zooming in appeared to cure the
+ * overlap rather than merely postpone it. The spacing is now anchored in the
+ * drawing and moves with the view like everything else on the sheet.
+ *
+ * Rounding to whole pixels is what keeps the cache bounded. Zoom is continuous,
+ * so one entry per float would grow without limit, while 45 sizes per colour at
+ * 48 px square costs nothing. The upper clamp does mean the pattern stops
+ * growing at extreme zoom. That is a deliberate limit rather than an exact
+ * rendering: by then the reader is inside a small area where 48 px reads fine,
+ * and the thing it replaces is a pattern that never grew at all.
+ */
+const HATCH_SPACING_AT_UNIT_SCALE = 8;
+const HATCH_MIN_SCREEN_PX = 4;
+const HATCH_MAX_SCREEN_PX = 48;
+
+/**
+ * Screen size below which a hatched region is filled flat instead of patterned.
+ *
+ * Not a visibility cull. The region is still filled, so a field of small hatches
+ * still reads as texture and nothing disappears. It only skips the pattern,
+ * which at that size cannot be resolved and costs a tile lookup and a pattern
+ * fill to produce a smudge.
+ */
+const HATCH_MIN_PATTERN_BOX_PX = 3;
+
+/**
+ * Screen spacing to draw a hatch pattern at, or `null` to fill the region flat.
+ *
+ * `null` is returned for the two cases where a pattern cannot say anything: the
+ * lines would fall closer together than the screen can resolve, which is what
+ * used to paint a solid block over the geometry beneath, and the region itself
+ * is too small to hold a repeat.
+ *
+ * @param scale       viewport scale, screen px per drawing unit
+ * @param screenBoxPx longest side of the region's screen bounding box
+ */
+export function hatchPatternSpacing(scale: number, screenBoxPx: number): number | null {
+  const spacing = HATCH_SPACING_AT_UNIT_SCALE * scale;
+  if (!(spacing >= HATCH_MIN_SCREEN_PX) || screenBoxPx < HATCH_MIN_PATTERN_BOX_PX) return null;
+  return Math.round(Math.min(HATCH_MAX_SCREEN_PX, spacing));
+}
+
 /** Create a diagonal line pattern (ANSI31-style, 45-degree lines). */
 function createDiagonalPattern(
   ctx: CanvasRenderingContext2D,
@@ -420,16 +470,27 @@ export function renderHatch(
   ctx.beginPath();
   const first = worldToScreen(entity.vertices[0]!.x, entity.vertices[0]!.y, vp);
   ctx.moveTo(first.x, first.y);
+  // The screen extent comes out of the walk the path already does, so knowing
+  // how big the region lands costs nothing beyond four comparisons a vertex.
+  let minX = first.x;
+  let maxX = first.x;
+  let minY = first.y;
+  let maxY = first.y;
   for (let i = 1; i < entity.vertices.length; i++) {
     const v = entity.vertices[i]!;
     const p = worldToScreen(v.x, v.y, vp);
     ctx.lineTo(p.x, p.y);
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
   }
   ctx.closePath();
 
   ctx.save();
 
   const patternName = (entity.pattern_name ?? '').toUpperCase();
+  const spacing = hatchPatternSpacing(vp.scale, Math.max(maxX - minX, maxY - minY));
 
   if (entity.is_solid || patternName === 'SOLID') {
     // Solid fill
@@ -438,7 +499,7 @@ export function renderHatch(
   } else if (patternName === 'ANSI31' || patternName === 'ANSI32' || patternName === 'ANSI37') {
     // Diagonal line patterns
     const color = ctx.fillStyle as string;
-    const pattern = createDiagonalPattern(ctx, color, 8);
+    const pattern = spacing === null ? null : createDiagonalPattern(ctx, color, spacing);
     if (pattern) {
       ctx.globalAlpha = 0.35;
       ctx.fillStyle = pattern;
