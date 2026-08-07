@@ -5612,6 +5612,29 @@ def _seeded_party_id(contact_ids_by_type: dict[str, list[str]], role: str | None
     return ids[index]
 
 
+def _contacts_for_project(hand_written: list[dict] | None, generated: list[dict]) -> list[dict]:
+    """The contacts to seed: the hand-written list if there is one, else the generated one.
+
+    With one repair on top. Every hand-written list names a client, its
+    subcontractors and its consultants, and no main contractor, while the
+    registers seeded afterwards point at one anyway: the punchlist assigns to
+    "contractor" by default, and both contract signature blocks name it. A role
+    nobody seeded resolves to ``None`` without complaining, which is deliberate
+    in ``_seeded_party_id`` and wrong here. Measured on five of the six
+    hand-written projects: every punch item read as unassigned, and the contract
+    parties carried a company name with no contact behind it.
+
+    The generated list always carries a main contractor built from the same
+    template metadata, so it is borrowed rather than a firm being invented per
+    project. It also means a hand-written list added later cannot reopen this
+    hole by forgetting the same row.
+    """
+    contacts = list(hand_written or generated)
+    if not any(c.get("contact_type") == "contractor" for c in contacts):
+        contacts += [c for c in generated if c.get("contact_type") == "contractor"]
+    return contacts
+
+
 def _uuid_or_none(value: str | None) -> uuid.UUID | None:
     """Contact id as a UUID, for the columns typed that way rather than as text.
 
@@ -6240,7 +6263,7 @@ async def _seed_module_data(
     contact_ids_by_type: dict[str, list[str]] = {}
 
     try:
-        contact_list = _CONTACTS.get(demo_id) or generated.get("contacts", [])
+        contact_list = _contacts_for_project(_CONTACTS.get(demo_id), generated.get("contacts", []))
         for c in contact_list:
             contact_id = _id()
             contact_ids_by_type.setdefault(c["contact_type"], []).append(str(contact_id))
