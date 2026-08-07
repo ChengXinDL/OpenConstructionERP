@@ -421,3 +421,54 @@ describe('the generated register over more rows than one page', () => {
     expect(screen.getByText(/described without any checks/i)).toBeTruthy();
   });
 });
+
+/**
+ * Paging with DISTINCT pages. The tests above hand back the same rows for every
+ * offset, which is enough to check what the screen says but not enough to check
+ * that a second page is really fetched, really appended, and really stops. A
+ * mock that answers identically forever hides both an off-by-one offset and a
+ * loop that never terminates.
+ */
+describe('the generated register fetching a real second page', () => {
+  it('appends the next page and stops offering once it holds them all', async () => {
+    const user = userEvent.setup();
+    records
+      .mockResolvedValueOnce({ items: [ROW], total: 2 })
+      .mockResolvedValueOnce({ items: [ROW_B], total: 2 });
+    renderPage();
+    await screen.findByTestId('runtime-module-table');
+    expect(screen.getByTestId('runtime-module-count').textContent).toBe('Showing 1 of 2');
+
+    await user.click(screen.getByTestId('runtime-module-more'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('runtime-module-count').textContent).toBe('Showing 2 of 2'),
+    );
+    expect(screen.getByText('P-014')).toBeTruthy();
+    expect(screen.getByText('A-001')).toBeTruthy();
+    // Nothing left to ask for, so the control goes and sorting becomes real.
+    expect(screen.queryByTestId('runtime-module-more')).toBeNull();
+    expect(screen.getByTestId('runtime-module-sort-cost')).toBeTruthy();
+    expect(records).toHaveBeenCalledTimes(2);
+    // Offset is the count already held, not the page number.
+    expect(records).toHaveBeenLastCalledWith(BASE_PATH, { projectId: 'p1', limit: 200, offset: 1 });
+  });
+
+  it('pulls the unread pages in before it answers a search', async () => {
+    const user = userEvent.setup();
+    records
+      .mockResolvedValueOnce({ items: [ROW], total: 2 })
+      .mockResolvedValueOnce({ items: [ROW_B], total: 2 });
+    renderPage();
+    await screen.findByTestId('runtime-module-table');
+
+    // A-001 is on the page that has not been read yet. Before this, the search
+    // would have said nothing found about a record that exists, which is the
+    // whole reason the auto-load is there.
+    await user.type(screen.getByTestId('runtime-module-search'), 'A-001');
+
+    await waitFor(() => expect(records).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByText('A-001')).toBeTruthy());
+    expect(screen.queryByText('P-014')).toBeNull();
+  });
+});
