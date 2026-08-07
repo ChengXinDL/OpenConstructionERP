@@ -36022,6 +36022,8 @@ const resource = {
     "runtime_module.empty_hint": "Tutaj nic jeszcze nie zapisano.",
     "runtime_module.confirm_delete_title": "Usunąć: {{entity}}?",
     "runtime_module.confirm_delete_message": "Wpis znika dla wszystkich. Tego nie da się cofnąć.",
+    "integrations.calendar_needs_project": "Wybierz projekt w przełączniku u góry, aby uzyskać adres jego kanału.",
+    "integrations.calendar_token_hint": "Zastąp API_KEY jednym ze swoich kluczy API przed subskrypcją.",
   }
 } as { translation: Record<string, string> };
 

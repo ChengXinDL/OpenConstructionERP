@@ -35992,6 +35992,8 @@ const resource = {
     "runtime_module.empty_hint": "Aici nu s-a înregistrat încă nimic.",
     "runtime_module.confirm_delete_title": "Ștergeți: {{entity}}?",
     "runtime_module.confirm_delete_message": "Înregistrarea este eliminată pentru toată lumea. Această acțiune nu poate fi anulată.",
+    "integrations.calendar_needs_project": "Alege un proiect din selectorul din antet pentru a obține adresa fluxului.",
+    "integrations.calendar_token_hint": "Înlocuiește API_KEY cu una dintre cheile tale API înainte de a te abona.",
   }
 } as { translation: Record<string, string> };
 

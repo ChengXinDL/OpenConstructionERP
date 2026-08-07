@@ -35964,6 +35964,8 @@ const resource = {
     "runtime_module.empty_hint": "Hier is nog niets vastgelegd.",
     "runtime_module.confirm_delete_title": "Deze {{entity}} verwijderen?",
     "runtime_module.confirm_delete_message": "Het record wordt voor iedereen verwijderd. Dit kan niet ongedaan gemaakt worden.",
+    "integrations.calendar_needs_project": "Kies een project in de projectkiezer bovenaan om het feedadres te krijgen.",
+    "integrations.calendar_token_hint": "Vervang API_KEY door een van uw API-sleutels voordat u zich abonneert.",
   }
 } as { translation: Record<string, string> };
 

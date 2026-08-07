@@ -35959,6 +35959,8 @@ const resource = {
     "runtime_module.empty_hint": "Inget har registrerats här än.",
     "runtime_module.confirm_delete_title": "Radera den här {{entity}}?",
     "runtime_module.confirm_delete_message": "Posten tas bort för alla. Det går inte att ångra.",
+    "integrations.calendar_needs_project": "Välj ett projekt i projektväljaren högst upp för att få dess flödesadress.",
+    "integrations.calendar_token_hint": "Ersätt API_KEY med en av dina API-nycklar innan du prenumererar.",
   }
 } as { translation: Record<string, string> };
 

@@ -35966,6 +35966,8 @@ const resource = {
     "runtime_module.empty_hint": "这里还没有记下任何内容。",
     "runtime_module.confirm_delete_title": "删除：{{entity}}？",
     "runtime_module.confirm_delete_message": "这条记录会对所有人消失。此操作无法撤销。",
+    "integrations.calendar_needs_project": "在顶部的项目切换器中选择一个项目，即可获得其订阅地址。",
+    "integrations.calendar_token_hint": "订阅前请将 API_KEY 替换为你的某个 API 密钥。",
   }
 } as { translation: Record<string, string> };
 

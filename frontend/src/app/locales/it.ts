@@ -35990,6 +35990,8 @@ const resource = {
     "runtime_module.empty_hint": "Qui non è stato ancora registrato nulla.",
     "runtime_module.confirm_delete_title": "Eliminare: {{entity}}?",
     "runtime_module.confirm_delete_message": "La scheda viene rimossa per tutti. Non è reversibile.",
+    "integrations.calendar_needs_project": "Scegli un progetto nel selettore in alto per ottenere l'indirizzo del suo feed.",
+    "integrations.calendar_token_hint": "Sostituisci API_KEY con una delle tue chiavi API prima di iscriverti.",
   }
 } as { translation: Record<string, string> };
 

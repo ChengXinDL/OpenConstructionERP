@@ -32518,6 +32518,8 @@ const resource = {
     "runtime_module.empty_hint": "Nothing has been recorded here yet.",
     "runtime_module.confirm_delete_title": "Delete this {{entity}}?",
     "runtime_module.confirm_delete_message": "The record is removed for everyone. This cannot be undone.",
+    "integrations.calendar_needs_project": "Pick a project in the header switcher to get its feed address.",
+    "integrations.calendar_token_hint": "Replace API_KEY with one of your API keys before subscribing.",
   }
 } as { translation: Record<string, string> };
 

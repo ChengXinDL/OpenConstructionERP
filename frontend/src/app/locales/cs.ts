@@ -36018,6 +36018,8 @@ const resource = {
     "runtime_module.empty_hint": "Zde se zatím nic nezapsalo.",
     "runtime_module.confirm_delete_title": "Smazat: {{entity}}?",
     "runtime_module.confirm_delete_message": "Záznam zmizí všem. Tohle nejde vzít zpět.",
+    "integrations.calendar_needs_project": "Vyberte projekt v přepínači v záhlaví a získáte adresu jeho kanálu.",
+    "integrations.calendar_token_hint": "Před přihlášením k odběru nahraďte API_KEY jedním ze svých API klíčů.",
   }
 } as { translation: Record<string, string> };
 

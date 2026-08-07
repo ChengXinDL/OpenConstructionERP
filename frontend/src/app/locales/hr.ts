@@ -36002,6 +36002,8 @@ const resource = {
     "runtime_module.empty_hint": "Ovdje još ništa nije zapisano.",
     "runtime_module.confirm_delete_title": "Izbrisati: {{entity}}?",
     "runtime_module.confirm_delete_message": "Zapis nestaje za sve. Ovo se ne može poništiti.",
+    "integrations.calendar_needs_project": "Odaberite projekt u izborniku na vrhu da biste dobili adresu njegova kanala.",
+    "integrations.calendar_token_hint": "Zamijenite API_KEY jednim od svojih API ključeva prije pretplate.",
   }
 } as { translation: Record<string, string> };
 

@@ -35993,6 +35993,8 @@ const resource = {
     "runtime_module.empty_hint": "Rien n'a encore été enregistré ici.",
     "runtime_module.confirm_delete_title": "Supprimer : {{entity}} ?",
     "runtime_module.confirm_delete_message": "La fiche est retirée pour tout le monde. C'est irréversible.",
+    "integrations.calendar_needs_project": "Choisissez un projet dans le sélecteur en haut de page pour obtenir l'adresse de son flux.",
+    "integrations.calendar_token_hint": "Remplacez API_KEY par l'une de vos clés API avant de vous abonner.",
   }
 } as { translation: Record<string, string> };
 

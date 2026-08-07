@@ -36033,6 +36033,8 @@ const resource = {
     "runtime_module.empty_hint": "Hier wurde noch nichts erfasst.",
     "runtime_module.confirm_delete_title": "{{entity}} löschen?",
     "runtime_module.confirm_delete_message": "Der Datensatz wird für alle entfernt. Das lässt sich nicht rückgängig machen.",
+    "integrations.calendar_needs_project": "Wählen Sie im Projektwechsler in der Kopfzeile ein Projekt, um dessen Feed-Adresse zu erhalten.",
+    "integrations.calendar_token_hint": "Ersetzen Sie API_KEY durch einen Ihrer API-Schlüssel, bevor Sie das Abonnement einrichten.",
   }
 } as { translation: Record<string, string> };
 

@@ -35992,6 +35992,8 @@ const resource = {
     "runtime_module.empty_hint": "Aquí todavía no se ha anotado nada.",
     "runtime_module.confirm_delete_title": "¿Eliminar: {{entity}}?",
     "runtime_module.confirm_delete_message": "El registro se elimina para todos. Esto no se puede deshacer.",
+    "integrations.calendar_needs_project": "Elige un proyecto en el selector de la cabecera para obtener la dirección de su feed.",
+    "integrations.calendar_token_hint": "Sustituye API_KEY por una de tus claves de API antes de suscribirte.",
   }
 } as { translation: Record<string, string> };
 

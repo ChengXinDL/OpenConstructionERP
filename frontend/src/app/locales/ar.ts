@@ -36086,6 +36086,8 @@ const resource = {
     "runtime_module.empty_hint": "لم يُدوَّن شيء هنا بعد.",
     "runtime_module.confirm_delete_title": "حذف: {{entity}}؟",
     "runtime_module.confirm_delete_message": "يختفي السجل للجميع. لا يمكن التراجع عن هذا.",
+    "integrations.calendar_needs_project": "اختر مشروعا من مبدل المشاريع في الأعلى للحصول على عنوان تغذيته.",
+    "integrations.calendar_token_hint": "استبدل API_KEY بأحد مفاتيح API الخاصة بك قبل الاشتراك.",
   }
 } as { translation: Record<string, string> };
 

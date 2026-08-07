@@ -35986,6 +35986,8 @@ const resource = {
     "runtime_module.empty_hint": "Nada foi anotado aqui ainda.",
     "runtime_module.confirm_delete_title": "Excluir: {{entity}}?",
     "runtime_module.confirm_delete_message": "O registro é removido para todos. Não dá para desfazer.",
+    "integrations.calendar_needs_project": "Escolha um projeto no seletor do cabeçalho para obter o endereço do feed.",
+    "integrations.calendar_token_hint": "Substitua API_KEY por uma das suas chaves de API antes de subscrever.",
   }
 } as { translation: Record<string, string> };
 

@@ -35966,6 +35966,8 @@ const resource = {
     "runtime_module.empty_hint": "ここにはまだ何も書かれていません。",
     "runtime_module.confirm_delete_title": "削除しますか: {{entity}}？",
     "runtime_module.confirm_delete_message": "この記録は全員から消えます。元には戻せません。",
+    "integrations.calendar_needs_project": "ヘッダーのプロジェクト切替でプロジェクトを選ぶと、フィードのアドレスが表示されます。",
+    "integrations.calendar_token_hint": "購読する前に API_KEY を自分の API キーに置き換えてください。",
   }
 } as { translation: Record<string, string> };
 

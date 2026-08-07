@@ -35962,6 +35962,8 @@ const resource = {
     "runtime_module.empty_hint": "Belum ada yang dicatat di sini.",
     "runtime_module.confirm_delete_title": "Hapus: {{entity}}?",
     "runtime_module.confirm_delete_message": "Catatan ini hilang untuk semua orang. Ini tidak bisa dibatalkan.",
+    "integrations.calendar_needs_project": "Pilih proyek di pengalih proyek di bagian atas untuk mendapatkan alamat umpannya.",
+    "integrations.calendar_token_hint": "Ganti API_KEY dengan salah satu kunci API Anda sebelum berlangganan.",
   }
 } as { translation: Record<string, string> };
 

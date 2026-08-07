@@ -35966,6 +35966,8 @@ const resource = {
     "runtime_module.empty_hint": "여기에는 아직 아무것도 적히지 않았습니다.",
     "runtime_module.confirm_delete_title": "삭제할까요: {{entity}}?",
     "runtime_module.confirm_delete_message": "이 기록은 모두에게서 사라집니다. 되돌릴 수 없습니다.",
+    "integrations.calendar_needs_project": "헤더의 프로젝트 선택기에서 프로젝트를 고르면 피드 주소가 표시됩니다.",
+    "integrations.calendar_token_hint": "구독하기 전에 API_KEY를 본인의 API 키로 바꾸세요.",
   }
 } as { translation: Record<string, string> };
 

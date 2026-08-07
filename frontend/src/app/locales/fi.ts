@@ -35963,6 +35963,8 @@ const resource = {
     "runtime_module.empty_hint": "Tänne ei ole vielä kirjattu mitään.",
     "runtime_module.confirm_delete_title": "Poistetaanko tämä: {{entity}}?",
     "runtime_module.confirm_delete_message": "Tietue poistetaan kaikilta. Tätä ei voi peruuttaa.",
+    "integrations.calendar_needs_project": "Valitse projekti yläpalkin projektivalitsimesta, niin saat sen syöteosoitteen.",
+    "integrations.calendar_token_hint": "Korvaa API_KEY jollakin API-avaimellasi ennen tilaamista.",
   }
 } as { translation: Record<string, string> };
 

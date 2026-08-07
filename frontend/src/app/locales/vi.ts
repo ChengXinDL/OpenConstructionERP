@@ -35972,6 +35972,8 @@ const resource = {
     "runtime_module.empty_hint": "Chưa ghi gì ở đây cả.",
     "runtime_module.confirm_delete_title": "Xóa: {{entity}}?",
     "runtime_module.confirm_delete_message": "Bản ghi sẽ biến mất với mọi người. Không thể hoàn tác.",
+    "integrations.calendar_needs_project": "Chọn một dự án ở bộ chuyển dự án phía trên để lấy địa chỉ nguồn cấp.",
+    "integrations.calendar_token_hint": "Thay API_KEY bằng một trong các khóa API của bạn trước khi đăng ký.",
   }
 } as { translation: Record<string, string> };
 

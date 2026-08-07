@@ -35963,6 +35963,8 @@ const resource = {
     "runtime_module.empty_hint": "Burada henüz bir şey yazılmadı.",
     "runtime_module.confirm_delete_title": "Silinsin mi: {{entity}}?",
     "runtime_module.confirm_delete_message": "Kayıt herkes için yok olur. Bu geri alınamaz.",
+    "integrations.calendar_needs_project": "Akış adresini almak için üst çubuktaki proje seçicisinden bir proje seçin.",
+    "integrations.calendar_token_hint": "Abone olmadan önce API_KEY yerine API anahtarlarınızdan birini yazın.",
   }
 } as { translation: Record<string, string> };
 

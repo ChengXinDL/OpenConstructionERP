@@ -573,8 +573,8 @@ jobs:
     # not, and a wrong cause invites somebody to "fix the OOM" and expect this
     # job to become redundant.
     # Counted 2026-08-07: the include in vite.config.ts is
-    # src/**/*.test.{ts,tsx} plus tests/**/*.test.{ts,tsx}, which collects 533
-    # files under src and 2 under frontend/tests/pwa, so 535 in all. 20 are
+    # src/**/*.test.{ts,tsx} plus tests/**/*.test.{ts,tsx}, which collects 534
+    # files under src and 2 under frontend/tests/pwa, so 536 in all. 21 are
     # named below, so 515 of them gate nothing. Recount rather than trust that
     # sentence, and recount against that include rather than against the vitest
     # default: the default would also sweep up the Playwright specs, which this
@@ -583,9 +583,9 @@ jobs:
     # Named files rather than the whole suite, and that is a measurement rather
     # than a preference. The whole suite came to somewhere between 55 and 95
     # minutes when it was last timed, depending on how the workers saturate,
-    # and that does not belong in front of every merge. The twenty named here
-    # run 317 tests in 31 seconds against 12 logical cores with a warm cache,
-    # measured 2026-08-07. An earlier note in this file recorded 118 seconds
+    # and that does not belong in front of every merge. The twenty-one named
+    # here run 322 tests in 29 seconds against 12 logical cores with a warm
+    # cache, measured 2026-08-07. An earlier note in this file recorded 118 seconds
     # for eleven files and that could not be reproduced, so take neither figure
     # as the cost on the runner: it has four cores and installs cold. What the
     # numbers do support is the shape, a named list rather than the suite. This
@@ -608,12 +608,19 @@ jobs:
     # east of UTC, an update sending the fields that changed and no others, and
     # the module's address being taken from the server rather than rebuilt from
     # its key on this side.
+    #
+    # The calendar feed entry is here because the defect it covers is one no
+    # other check in this repository can see. The page advertised a URL that no
+    # route has ever served, and every layer agreed with itself: the string
+    # type checked, the build passed, and the request only failed on a user's
+    # calendar client. That test reads the route out of the module's router and
+    # compares, so the two can no longer drift in silence.
     timeout-minutes: 20
     defaults:
       run:
         working-directory: frontend
     env:
-      # Eight of the fourteen files below are jsdom component tests, which are
+      # Nine of the twenty-one files below are jsdom component tests, which are
       # the expensive kind, and this runner has four cores rather than the
       # twelve the local measurement was taken on. The whole-program type check
       # and the build in the other workflow already need this ceiling and are
@@ -641,6 +648,7 @@ jobs:
         src/features/dwg-takeoff/lib/__tests__/viewport.test.ts
         src/features/file-manager/SheetsIndexPage.test.tsx
         src/features/file-manager/sheetsInsights.test.ts
+        src/features/integrations/calendarFeed.test.ts
         src/features/module-builder/api.test.ts
         src/features/module-builder/draft.test.ts
         src/features/module-builder/fields.test.ts

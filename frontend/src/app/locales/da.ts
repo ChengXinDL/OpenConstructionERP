@@ -35959,6 +35959,8 @@ const resource = {
     "runtime_module.empty_hint": "Der er endnu ikke registreret noget her.",
     "runtime_module.confirm_delete_title": "Slet denne {{entity}}?",
     "runtime_module.confirm_delete_message": "Posten fjernes for alle. Det kan ikke fortrydes.",
+    "integrations.calendar_needs_project": "Vælg et projekt i projektvælgeren øverst for at få dets feedadresse.",
+    "integrations.calendar_token_hint": "Erstat API_KEY med en af dine API-nøgler, før du abonnerer.",
   }
 } as { translation: Record<string, string> };
 
