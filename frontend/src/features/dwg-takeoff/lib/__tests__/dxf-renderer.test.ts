@@ -6,6 +6,7 @@ import {
   renderText,
   renderInsert,
   renderEntities,
+  renderLine,
   hatchPatternSpacing,
 } from '../dxf-renderer';
 import { groupBlockDefinitions, expandBlockReferences } from '../blocks';
@@ -41,6 +42,8 @@ function stubCtx(): { ctx: CanvasRenderingContext2D; calls: { op: string; args: 
     rotate: rec('rotate'),
     scale: rec('scale'),
     fillText: rec('fillText'),
+    arc: rec('arc'),
+    ellipse: rec('ellipse'),
   };
   return { ctx: ctx as unknown as CanvasRenderingContext2D, calls };
 }
@@ -469,5 +472,119 @@ describe('hatchPatternSpacing', () => {
   it('treats a degenerate scale as no pattern rather than as a huge one', () => {
     expect(hatchPatternSpacing(0, 500)).toBeNull();
     expect(hatchPatternSpacing(Number.NaN, 500)).toBeNull();
+  });
+});
+
+describe('stroke batching in renderEntities', () => {
+  // A canvas charges for every stroke() and every state change, and a drawing is
+  // thousands of short segments that mostly agree about their colour. The loop
+  // used to issue beginPath and stroke per entity. It now collects a run of
+  // entities that would be stroked with the same style into one path.
+  //
+  // Runs, deliberately, not groups: sorting by colour would batch harder and
+  // would also change which line lands on top of which where they cross. Every
+  // test here pins that the order and the geometry come out unchanged, because
+  // that is the property the optimisation is only worth having if it keeps.
+  const line = (id: string, color: number, x: number): DxfEntity => ({
+    id,
+    type: 'LINE',
+    layer: 'A-WALL',
+    color,
+    start: { x, y: 0 },
+    end: { x: x + 1, y: 0 },
+  });
+
+  const layers = new Set(['A-WALL']);
+  const strokes = (calls: { op: string; args: unknown[] }[]): number =>
+    calls.filter((c) => c.op === 'stroke').length;
+
+  it('strokes a run of one colour once instead of once per entity', () => {
+    const { ctx, calls } = stubCtx();
+    renderEntities(ctx, [line('a', 7, 0), line('b', 7, 5), line('c', 7, 10)], vp(1), layers, null, 800, 600);
+    expect(strokes(calls)).toBe(1);
+    expect(calls.filter((c) => c.op === 'beginPath')).toHaveLength(1);
+    // All three are still drawn, in the order they arrived.
+    expect(pathPoints(calls)).toHaveLength(6);
+  });
+
+  it('keeps the geometry identical to drawing each entity on its own', () => {
+    const entities = [line('a', 7, 0), line('b', 7, 5), line('c', 7, 10)];
+    const batched = stubCtx();
+    renderEntities(batched.ctx, entities, vp(1), layers, null, 800, 600);
+
+    const oneByOne = stubCtx();
+    for (const e of entities) renderLine(oneByOne.ctx, e, vp(1));
+
+    expect(pathPoints(batched.calls)).toEqual(pathPoints(oneByOne.calls));
+  });
+
+  it('breaks the run when the colour changes', () => {
+    const { ctx, calls } = stubCtx();
+    renderEntities(ctx, [line('a', 7, 0), line('b', 1, 5), line('c', 7, 10)], vp(1), layers, null, 800, 600);
+    expect(strokes(calls)).toBe(3);
+  });
+
+  it('rejoins a run after a colour interrupts it, rather than giving up', () => {
+    // Four entities, one odd one in the middle: 7, 7, 1, 7. Three batches, not
+    // four, and not one. A flush that forgot to reset would keep breaking after
+    // the first interruption and quietly undo the whole optimisation on any
+    // drawing that mixes colours.
+    const { ctx, calls } = stubCtx();
+    renderEntities(
+      ctx,
+      [line('a', 7, 0), line('b', 7, 5), line('c', 1, 10), line('d', 7, 15)],
+      vp(1),
+      layers,
+      null,
+      800,
+      600,
+    );
+    expect(strokes(calls)).toBe(3);
+    expect(pathPoints(calls)).toHaveLength(8);
+  });
+
+  it('breaks the run on both sides of the selected entity', () => {
+    // The selected entity gets a wider stroke and a glow. Lending that to a
+    // neighbour, or borrowing a neighbour's plain style, would both be visible.
+    const { ctx, calls } = stubCtx();
+    renderEntities(ctx, [line('a', 7, 0), line('sel', 7, 5), line('c', 7, 10)], vp(1), layers, 'sel', 800, 600);
+    expect(strokes(calls)).toBe(3);
+  });
+
+  it('closes the batch before anything that fills or writes text', () => {
+    // renderText and renderPoint open paths and fill. Leaving a half-built
+    // stroke path open across them would either lose it or stroke it twice.
+    const { ctx, calls } = stubCtx();
+    renderEntities(ctx, [line('a', 7, 0), LABEL, line('c', 7, 10)], vp(1), layers, null, 800, 600);
+    const order = calls.filter((c) => c.op === 'stroke' || c.op === 'fillText').map((c) => c.op);
+    expect(order).toEqual(['stroke', 'fillText', 'stroke']);
+  });
+
+  it('moves to the start of an arc so a batch does not draw a chord to it', () => {
+    // Inside a shared path, arc() is joined to the previous subpath by a
+    // straight line. That would be a stray chord across the drawing, and it is
+    // the one way this optimisation could change pixels.
+    const arc: DxfEntity = {
+      id: 'arc',
+      type: 'ARC',
+      layer: 'A-WALL',
+      color: 7,
+      start: { x: 100, y: 100 },
+      radius: 10,
+      start_angle: 0,
+      end_angle: Math.PI,
+    };
+    const { ctx, calls } = stubCtx();
+    renderEntities(ctx, [line('a', 7, 0), arc], vp(1), layers, null, 800, 600);
+    const ops = calls.filter((c) => ['moveTo', 'lineTo', 'arc'].includes(c.op)).map((c) => c.op);
+    expect(ops).toEqual(['moveTo', 'lineTo', 'moveTo', 'arc']);
+    expect(strokes(calls)).toBe(1);
+  });
+
+  it('strokes nothing when every entity is filtered out', () => {
+    const { ctx, calls } = stubCtx();
+    renderEntities(ctx, [line('a', 7, 0)], vp(1), new Set(['OTHER']), null, 800, 600);
+    expect(strokes(calls)).toBe(0);
+    expect(calls.filter((c) => c.op === 'beginPath')).toHaveLength(0);
   });
 });
