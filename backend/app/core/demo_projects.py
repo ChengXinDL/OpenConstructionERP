@@ -4532,13 +4532,26 @@ def _generate_module_data(
         )
 
     # ── Safety incidents (3-4) ───────────────────────────────────────────
-    # The pool is longer than the slice taken out of it, and where the slice
-    # starts is derived from ``demo_id``. Every project that falls through to
-    # this generator used to get the same four incidents with the same titles
-    # and the same root causes, so two projects rendered a safety register that
-    # was identical down to the pixel - measured across two different demo
-    # projects whose screens compared 0 bits apart and 1.00 alike on text.
-    # ``demo_id`` is stable across re-seeds, so the rotation is too.
+    # Every project that falls through to this generator used to get the same
+    # four incidents with the same titles and the same root causes, so two
+    # projects rendered a safety register identical down to the pixel -
+    # measured across two demo projects whose screens compared 0 bits apart
+    # and 1.00 alike on text.
+    #
+    # A sliding window over the pool does not fix that: it can only produce as
+    # many registers as the pool is long, so a pool of seven left all 34
+    # templates sharing seven registers. Both the start and the step vary, which
+    # makes the slice a combination rather than a window. The pool length is
+    # prime, so every step from 1 to 10 walks all 11 entries before repeating
+    # and the four picks within one register are always distinct.
+    #
+    # Both are taken from the template's rank rather than from a hash of its
+    # id. A hash only makes a collision unlikely, and unlikely was not good
+    # enough here - hashing the id left four pairs of projects still sharing a
+    # register. Rank makes the (start, step) pair injective up to 110 templates,
+    # so no two projects can collide by construction. Ranking is over the sorted
+    # ids, so it does not move when the template literal is reordered, and it is
+    # stable across re-seeds of one build.
     incident_pool = [
         ("near_miss", "moderate", "Near miss - material fell from height", "Edge protection gap"),
         ("injury", "minor", "Minor hand laceration during handling", "Cut-resistant gloves not worn"),
@@ -4557,9 +4570,33 @@ def _generate_module_data(
             "Stacked materials toppled in high wind",
             "Stack height above the method statement limit",
         ),
+        (
+            "environmental",
+            "minor",
+            "Silt-laden runoff reached the site drain",
+            "Bunding not reinstated after the pour",
+        ),
+        ("injury", "moderate", "Slip on a wet access ramp", "Ramp left uncovered after the wash-down"),
+        (
+            "fire",
+            "minor",
+            "Smouldering waste bin beside hot works",
+            "Fire watch stood down before the cooling period ended",
+        ),
+        ("near_miss", "minor", "Scaffold board dislodged underfoot", "Board not clipped after an inspection"),
     ]
-    offset = sum(ord(ch) for ch in demo_id) % len(incident_pool)
-    incident_seeds = [incident_pool[(offset + k) % len(incident_pool)] for k in range(4)]
+    known = sorted(DEMO_TEMPLATES)
+    # An id outside the shipped estate still has to land somewhere, so it falls
+    # back to a position-weighted sum of its characters, offset past the known
+    # ranks. Weighting by position keeps two ids built from the same letters apart.
+    rank = (
+        known.index(demo_id)
+        if demo_id in DEMO_TEMPLATES
+        else len(known) + sum((i + 1) * ord(ch) for i, ch in enumerate(demo_id))
+    )
+    offset = rank % len(incident_pool)
+    step = 1 + (rank // len(incident_pool)) % (len(incident_pool) - 1)
+    incident_seeds = [incident_pool[(offset + k * step) % len(incident_pool)] for k in range(4)]
     safety_incidents: list[dict] = []
     for i, (itype, sev, title, cause) in enumerate(incident_seeds):
         # The most recent incident is still under investigation and the one

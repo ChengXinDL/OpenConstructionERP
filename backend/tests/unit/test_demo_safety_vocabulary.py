@@ -35,6 +35,7 @@ by constructing the real schema objects rather than by matching strings.
 from __future__ import annotations
 
 import ast
+import itertools
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -128,17 +129,40 @@ def test_a_generated_project_has_something_still_open(demo_id: str) -> None:
     assert [r for r in obs if r["status"] != "closed"], f"{demo_id} closes all {len(obs)} observations"
 
 
-def test_two_projects_do_not_get_the_same_generated_incident_register() -> None:
+def test_no_two_projects_get_the_same_generated_incident_register() -> None:
     """Two demo projects rendered a safety screen identical down to the pixel.
 
     Measured in the case-capture run: two different projects compared 0 bits
     apart and 1.00 alike on text, because every project that falls through to
     the generator got the same four titles in the same order.
+
+    The assertion is pairwise on purpose. Asking whether the registers are not
+    *all* identical is a much weaker question than it looks: it passes on two
+    distinct registers shared out among every project, which is exactly the
+    state a sliding window over a seven-entry pool produced - 34 templates,
+    7 registers, every project sharing with at least four others. Only a
+    pairwise check can see the pair that was actually reported.
     """
     registers = {
         demo_id: tuple(r["title"] for r in _generate(demo_id)["safety_incidents"]) for demo_id in DEMO_TEMPLATES
     }
-    assert len(set(registers.values())) > 1, f"every demo project generates the same incident titles: {registers}"
+    collisions = [(a, b) for a, b in itertools.combinations(sorted(registers), 2) if registers[a] == registers[b]]
+    assert not collisions, (
+        f"{len(collisions)} pair(s) of demo projects render an identical incident register: {collisions[:5]}"
+    )
+
+
+@pytest.mark.parametrize("demo_id", sorted(DEMO_TEMPLATES))
+def test_one_register_does_not_repeat_an_incident(demo_id: str) -> None:
+    """Spreading the pool must not hand one project the same incident twice.
+
+    The picks step through the pool rather than sliding along it, so a step
+    that shared a factor with the pool length would revisit an entry before
+    the fourth pick. The pool length is prime to prevent that; this is the
+    check that says so.
+    """
+    titles = [r["title"] for r in _generate(demo_id)["safety_incidents"]]
+    assert len(set(titles)) == len(titles), f"{demo_id} lists the same incident more than once: {titles}"
 
 
 def test_the_generated_register_is_stable_for_one_project() -> None:
