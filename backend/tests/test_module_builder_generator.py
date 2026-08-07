@@ -24,6 +24,41 @@ from app.modules.module_builder.spec import EntitySpec, FieldSpec, ModuleSpec, R
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 
+# Lint a generated tree with the same ruff the repo pins, found wherever it
+# happens to live. The interpreter running these tests has it: ruff==0.15.20 is
+# a dev dependency, and pytest arrives from the same extra, so anything able to
+# collect this file can import it. Developers who follow the repo convention
+# reach for uvx instead, hence the second attempt.
+#
+# --isolated because the tree under test sits in a temp directory, so config
+# discovery would walk out of it into whatever happens to be above.
+_RUFF_ARGS = ("check", "--isolated", "--line-length", "120")
+
+
+def ruff_check(target: Path) -> subprocess.CompletedProcess[str]:
+    """Run ruff over a generated module and hand back the finished process.
+
+    Never skips. A lint check that quietly opts out is exactly the one that
+    lets the generator ship a module carrying an import nothing references.
+    """
+    installed = subprocess.run(
+        [sys.executable, "-m", "ruff", *_RUFF_ARGS, str(target)],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    if "No module named ruff" not in installed.stderr:
+        return installed
+    try:
+        return subprocess.run(
+            ["uvx", "ruff@0.15.20", *_RUFF_ARGS, str(target)],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+    except OSError as exc:
+        pytest.fail(f"no ruff to run: {sys.executable} -m ruff is absent and uvx is not on PATH ({exc})")
+
 
 def a_spec(**overrides: object) -> ModuleSpec:
     """A realistic spec: every field type, every rule kind, project scoped."""
@@ -287,14 +322,7 @@ class TestTheGeneratedModuleIsReal:
         assert compileall.compile_dir(str(written), quiet=1, force=True), "the generated module does not compile"
 
     def test_ruff_accepts_it(self, written: Path) -> None:
-        result = subprocess.run(
-            ["uvx", "ruff@0.15.20", "check", "--line-length", "120", str(written)],
-            capture_output=True,
-            text=True,
-            timeout=300,
-        )
-        if result.returncode == 127 or "not found" in (result.stderr or "").lower():
-            pytest.skip("ruff is not available in this environment")
+        result = ruff_check(written)
         assert result.returncode == 0, result.stdout + result.stderr
 
     def test_its_own_tests_pass(self, written: Path, tmp_path: Path) -> None:
@@ -359,14 +387,7 @@ class TestASpecThatUsesAlmostNothing:
         dates and no project would otherwise carry Numeric, Date and
         ForeignKey that nothing references.
         """
-        result = subprocess.run(
-            ["uvx", "ruff@0.15.20", "check", "--line-length", "120", str(written)],
-            capture_output=True,
-            text=True,
-            timeout=300,
-        )
-        if result.returncode == 127 or "not found" in (result.stderr or "").lower():
-            pytest.skip("ruff is not available in this environment")
+        result = ruff_check(written)
         assert result.returncode == 0, result.stdout + result.stderr
 
     def test_it_carries_no_project_column(self, written: Path) -> None:
