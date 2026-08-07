@@ -75,6 +75,11 @@ jobs:
       # seed sources, and it is attached here for the reason stated above: a test
       # that blocks no merge is the same as a test that does not exist, which is
       # exactly how a name rejected once already shipped in every wheel since.
+      # Safety is the third module caught storing words its own schema refuses,
+      # after contacts and variations, which is what makes this a class rather
+      # than three incidents. It also covers the other half of a demo register
+      # being useful: that it is not seeded entirely closed, and that two
+      # projects do not render the same rows.
       - name: Run demo seed and import consistency tests
         run: >-
           pytest tests/unit/test_demo_contact_types.py
@@ -86,6 +91,7 @@ jobs:
           tests/unit/test_demo_seed_text_has_no_scaffolding_words.py
           tests/unit/test_demo_insight_dimensions.py
           tests/unit/test_demo_seed_has_no_real_firm_names.py
+          tests/unit/test_demo_safety_vocabulary.py
           -q -p no:cacheprovider
       # The region to currency table. Attached for the same reason as the suites
       # around it, which is that tests/unit runs in no lane that blocks a merge.
