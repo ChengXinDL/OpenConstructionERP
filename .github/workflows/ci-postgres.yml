@@ -320,6 +320,17 @@ jobs:
       # No database, under a second.
       - name: Run release version literal reader tests
         run: pytest tests/unit/test_version_sync_check.py -q -p no:cacheprovider
+      # The guard that pins which test trees this lane actually runs. It was in
+      # no workflow at all, which is the failure it exists to describe, and it
+      # had been red for long enough that nobody could say since when. What it
+      # got wrong is worth stating: it read a step naming nineteen files under
+      # tests/integration as a run of the whole tree, because it only asked
+      # whether the tree's name appeared in the command and whether a -k was
+      # present. So the two trees this file records as thinly gated were being
+      # reported as fully gated, by the one check written to notice that.
+      # Reads workflow files as text. No database, under three seconds.
+      - name: Run CI lane coverage guard
+        run: pytest tests/unit/test_ci_lane_coverage.py -q -p no:cacheprovider
       # What the sheet register holds after a drawing set is split. Attached here
       # for the reason stated repeatedly above, which is that tests/unit runs in
       # no lane that blocks a merge, and this release ships the register's first
