@@ -386,3 +386,76 @@ describe('the review step', () => {
     expect(screen.getByTestId('module-builder-install')).toBeTruthy();
   });
 });
+
+describe('the step rail', () => {
+  it('goes back to a finished step in one press', async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    await draftAndAdvance(user);
+
+    await user.click(screen.getByTestId('module-builder-step-describe'));
+
+    expect(screen.getByTestId('module-builder-name')).toBeTruthy();
+  });
+
+  it('does not offer a step the wizard has not reached', async () => {
+    // Skipping ahead would promise something the footer takes back: it refuses
+    // to advance past a step that still has problems on it.
+    const user = userEvent.setup();
+    renderWizard();
+    await draftAndAdvance(user);
+
+    expect(screen.queryByTestId('module-builder-step-rules')).toBeNull();
+    expect(screen.queryByTestId('module-builder-step-review')).toBeNull();
+  });
+
+  it('does not offer the step being stood on', async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    await draftAndAdvance(user);
+
+    expect(screen.queryByTestId('module-builder-step-record')).toBeNull();
+  });
+});
+
+describe('the table preview', () => {
+  it('shows the columns the register would open on', async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    await draftAndAdvance(user);
+
+    const table = within(screen.getByTestId('module-builder-preview')).getByRole('table');
+    expect(within(table).getByText('Reference')).toBeTruthy();
+    expect(within(table).getByText('Volume')).toBeTruthy();
+    // The unit belongs to the column heading, not to a row of invented figures.
+    expect(within(table).getByText('m3')).toBeTruthy();
+  });
+
+  it('puts no values in the rows at all', async () => {
+    // The load-bearing one. A plausible sample row reads as a real record on
+    // the screen where somebody decides whether the module is right, which is
+    // the same mistake the insights panel refuses to make. The rows are shape
+    // and nothing else, so the assertion is that they carry no text.
+    const user = userEvent.setup();
+    renderWizard();
+    await draftAndAdvance(user);
+
+    const table = within(screen.getByTestId('module-builder-preview')).getByRole('table');
+    const body = table.querySelector('tbody');
+    expect(body).not.toBeNull();
+    expect(body?.querySelectorAll('tr').length).toBeGreaterThan(0);
+    expect(body?.textContent?.trim()).toBe('');
+  });
+
+  it('says the register would open empty when no field is shown in the table', async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    await draftAndAdvance(user);
+
+    await user.click(screen.getByTestId('module-builder-field-in-list-0'));
+    await user.click(screen.getByTestId('module-builder-field-in-list-1'));
+
+    expect(screen.getByTestId('module-builder-preview-empty')).toBeTruthy();
+    expect(within(screen.getByTestId('module-builder-preview')).queryByRole('table')).toBeNull();
+  });
+});

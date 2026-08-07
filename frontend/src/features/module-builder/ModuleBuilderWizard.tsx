@@ -29,6 +29,7 @@ import {
   FileCode,
   Plus,
   Sparkles,
+  Table2,
   Trash2,
   Wand2,
 } from 'lucide-react';
@@ -217,7 +218,7 @@ export function ModuleBuilderWizard({ open, onClose, onInstalled }: ModuleBuilde
       }
     >
       <div className="space-y-5" data-testid="module-builder-wizard">
-        {step !== 'done' && <StepBar current={step} />}
+        {step !== 'done' && <StepBar current={step} onJump={setStep} />}
 
         {refusal && (
           <p
@@ -261,7 +262,17 @@ export function ModuleBuilderWizard({ open, onClose, onInstalled }: ModuleBuilde
 
 /* ── Step chrome ─────────────────────────────────────────────────────────── */
 
-function StepBar({ current }: { current: Step }) {
+/**
+ * The rail across the top of the wizard. It answers two questions a form in
+ * steps has to answer at a glance: where am I, and how much is left.
+ *
+ * A finished step is a button back to itself. Going back used to mean pressing
+ * Back once per step, which is the same journey made longer, and the numbered
+ * nodes already looked pressable. Steps ahead are not links: the wizard refuses
+ * to advance past a step with problems on it, so offering to skip forward would
+ * promise something the footer then takes away.
+ */
+function StepBar({ current, onJump }: { current: Step; onJump: (step: Step) => void }) {
   const { t } = useTranslation();
   const labels: Record<Step, string> = {
     describe: t('module_builder.step_describe', { defaultValue: 'Describe' }),
@@ -271,27 +282,72 @@ function StepBar({ current }: { current: Step }) {
     done: '',
   };
   const index = STEP_ORDER.indexOf(current);
+
   return (
-    <ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-      {STEP_ORDER.map((step, i) => (
-        <li key={step} className="flex items-center gap-2">
-          <span
-            className={clsx(
-              'flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold',
-              i < index && 'bg-oe-blue text-white',
-              i === index && 'bg-oe-blue-subtle text-oe-blue-text ring-1 ring-oe-blue',
-              i > index && 'bg-surface-secondary text-content-quaternary',
-            )}
-          >
-            {i < index ? <Check size={11} strokeWidth={3} /> : i + 1}
-          </span>
-          <span className={clsx(i === index ? 'font-medium text-content-primary' : 'text-content-tertiary')}>
-            {labels[step]}
-          </span>
-          {i < STEP_ORDER.length - 1 && <span className="text-content-quaternary">·</span>}
-        </li>
-      ))}
-    </ol>
+    <nav aria-label={t('module_builder.subtitle', { defaultValue: 'Describe what you need and the platform builds it.' })}>
+      <ol className="flex items-start">
+        {STEP_ORDER.map((step, i) => {
+          const done = i < index;
+          const here = i === index;
+          const node = (
+            <span
+              className={clsx(
+                'relative z-10 flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold transition-colors',
+                done && 'bg-oe-blue text-white',
+                here && 'bg-oe-blue-subtle text-oe-blue-text ring-2 ring-oe-blue',
+                !done && !here && 'bg-surface-secondary text-content-quaternary ring-1 ring-border-light',
+              )}
+            >
+              {done ? <Check size={13} strokeWidth={3} /> : i + 1}
+            </span>
+          );
+          // The label sits inside the button rather than beside it, so the
+          // accessible name is already "2 What a record holds" and needs no
+          // separate aria-label, and so the whole column is the target instead
+          // of a 28px circle.
+          const body = (
+            <>
+              {node}
+              <span
+                className={clsx(
+                  'text-center text-[11px] leading-tight',
+                  here ? 'font-medium text-content-primary' : 'text-content-tertiary',
+                )}
+              >
+                {labels[step]}
+              </span>
+            </>
+          );
+          return (
+            <li key={step} className="relative flex flex-1 flex-col items-center px-1">
+              {/* Drawn from the previous node's centre to this one, so the rail
+                  fills as the reader advances instead of sitting there whole. */}
+              {i > 0 && (
+                <span
+                  aria-hidden
+                  className={clsx(
+                    'absolute right-1/2 top-3.5 h-0.5 w-full -translate-y-1/2 transition-colors',
+                    i <= index ? 'bg-oe-blue' : 'bg-border-light',
+                  )}
+                />
+              )}
+              {done ? (
+                <button
+                  type="button"
+                  onClick={() => onJump(step)}
+                  className="flex w-full flex-col items-center gap-1.5 rounded-lg py-0.5 transition-colors hover:text-content-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40"
+                  data-testid={`module-builder-step-${step}`}
+                >
+                  {body}
+                </button>
+              ) : (
+                <div className="flex w-full flex-col items-center gap-1.5 py-0.5">{body}</div>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
   );
 }
 
@@ -542,6 +598,98 @@ interface EditStepProps {
   problems: SpecProblem[];
 }
 
+/** Roughly how wide a value of this type tends to be, for the placeholder bar. */
+const PREVIEW_WIDTH: Record<string, string> = {
+  bool: 'w-6',
+  number: 'w-10',
+  integer: 'w-10',
+  currency: 'w-14',
+  date: 'w-16',
+  datetime: 'w-20',
+  select: 'w-14',
+  text: 'w-24',
+};
+
+/**
+ * The table the module will actually serve, drawn from the fields as they are
+ * typed. This step asks the reader to describe a register in the abstract, and
+ * a register is a thing people recognise by looking at it, so the abstraction
+ * was doing all the work.
+ *
+ * The cells are bars, not sample values. Inventing plausible figures here would
+ * be the same mistake the insights panel refuses to make: a made-up row reads
+ * as if it were a real one, and this is the screen where someone decides
+ * whether the module is right. A bar says a value goes here and claims nothing
+ * about what it is.
+ */
+function TablePreview({ spec }: { spec: ModuleSpec }) {
+  const { t } = useTranslation();
+  const columns = spec.entity.fields.filter((f) => f.in_list && f.label.trim() !== '');
+  const caption = spec.entity.plural_name.trim() || spec.display_name.trim();
+
+  return (
+    <div
+      className="overflow-hidden rounded-xl border border-border-light bg-surface-secondary/30"
+      data-testid="module-builder-preview"
+    >
+      <div className="flex items-center gap-2 border-b border-border-light bg-surface-primary/60 px-3 py-2">
+        <Table2 size={13} className="shrink-0 text-content-tertiary" />
+        <p className="min-w-0 truncate text-xs font-medium text-content-secondary">
+          {t('module_builder.preview_table', { defaultValue: 'The table this builds' })}
+          {caption && <span className="ml-1.5 font-normal text-content-tertiary">{caption}</span>}
+        </p>
+      </div>
+      {columns.length === 0 ? (
+        <p
+          className="px-3 py-5 text-center text-xs text-content-tertiary"
+          data-testid="module-builder-preview-empty"
+        >
+          {t('module_builder.preview_empty', {
+            defaultValue: 'No field is shown in the table yet, so the register would open on empty columns.',
+          })}
+        </p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-border-light">
+                {columns.map((field, i) => (
+                  <th
+                    key={i}
+                    className="whitespace-nowrap px-3 py-1.5 text-xs font-medium text-content-secondary"
+                  >
+                    {field.label}
+                    {field.unit.trim() !== '' && (
+                      <span className="ml-1 font-normal text-content-quaternary">{field.unit}</span>
+                    )}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[0, 1].map((row) => (
+                <tr key={row} className="border-b border-border-light/50 last:border-0">
+                  {columns.map((field, i) => (
+                    <td key={i} className="px-3 py-2">
+                      <span
+                        aria-hidden
+                        className={clsx(
+                          'block h-2 rounded-full bg-surface-tertiary',
+                          PREVIEW_WIDTH[field.type] ?? 'w-20',
+                        )}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RecordStep({ spec, setSpec, vocabulary, problems }: EditStepProps) {
   const { t } = useTranslation();
   const types = vocabulary?.field_types ?? [];
@@ -606,9 +754,14 @@ function RecordStep({ spec, setSpec, vocabulary, problems }: EditStepProps) {
         </span>
       </label>
 
+      <TablePreview spec={spec} />
+
       <div className="space-y-3">
         {spec.entity.fields.map((field, index) => (
-          <div key={index} className="rounded-xl border border-border-light p-3">
+          <div
+            key={index}
+            className="rounded-xl border border-border-light p-3 transition-colors focus-within:border-oe-blue/50"
+          >
             <div className="grid gap-2 sm:grid-cols-12">
               <div className="sm:col-span-4">
                 <Input
@@ -711,6 +864,7 @@ function RecordStep({ spec, setSpec, vocabulary, problems }: EditStepProps) {
                     checked={field.in_list}
                     onChange={(e) => setSpec(updateField(spec, index, { in_list: e.target.checked }))}
                     className="h-3.5 w-3.5 rounded border-border-light text-oe-blue"
+                    data-testid={`module-builder-field-in-list-${index}`}
                   />
                   {t('module_builder.field_in_list', { defaultValue: 'Show in the table' })}
                 </label>
@@ -750,16 +904,33 @@ function RecordStep({ spec, setSpec, vocabulary, problems }: EditStepProps) {
         ))}
       </div>
 
-      <Button
-        variant="secondary"
-        size="sm"
-        icon={<Plus size={13} />}
-        disabled={atLimit}
-        onClick={() => setSpec(addField(spec))}
-        data-testid="module-builder-add-field"
-      >
-        {t('module_builder.add_field', { defaultValue: 'Add a field' })}
-      </Button>
+      <div className="flex items-center gap-3">
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<Plus size={13} />}
+          disabled={atLimit}
+          onClick={() => setSpec(addField(spec))}
+          data-testid="module-builder-add-field"
+        >
+          {t('module_builder.add_field', { defaultValue: 'Add a field' })}
+        </Button>
+        {/* There is a cap, and until now it announced itself only by greying
+            the button out at the moment it was reached. Two numbers and a
+            slash need no translating, and they turn a dead control into a
+            limit the reader saw coming. */}
+        {vocabulary !== undefined && (
+          <span
+            className={clsx(
+              'text-xs tabular-nums',
+              atLimit ? 'font-medium text-semantic-warning' : 'text-content-quaternary',
+            )}
+            data-testid="module-builder-field-count"
+          >
+            {spec.entity.fields.length} / {vocabulary.max_fields}
+          </span>
+        )}
+      </div>
 
       <ProblemList problems={problems} />
     </div>
@@ -939,6 +1110,12 @@ function RulesStep({ spec, setSpec, vocabulary, problems }: EditStepProps) {
 
 function ReviewStep({ preview }: { preview: PreviewResponse }) {
   const { t } = useTranslation();
+  // The longest file sets the scale, so the bars compare the files with each
+  // other rather than against a number nobody has in their head. A module of
+  // sixteen even files and one of two large ones read differently at a glance,
+  // and that difference is worth seeing before pressing install.
+  const longest = preview.files.reduce((max, file) => Math.max(max, file.lines), 0);
+
   return (
     <div className="space-y-3" data-testid="module-builder-review">
       <div className="rounded-xl border border-border-light bg-surface-secondary/40 p-3 text-sm">
@@ -964,7 +1141,13 @@ function ReviewStep({ preview }: { preview: PreviewResponse }) {
               <FileCode size={13} className="shrink-0 text-content-quaternary" />
               <span className="truncate font-mono">{file.path}</span>
             </span>
-            <span className="shrink-0 text-content-tertiary">
+            <span className="flex shrink-0 items-center gap-2 text-content-tertiary">
+              <span aria-hidden className="hidden h-1 w-16 rounded-full bg-surface-tertiary sm:block">
+                <span
+                  className="block h-full rounded-full bg-oe-blue/50"
+                  style={{ width: longest > 0 ? `${Math.max(4, (file.lines / longest) * 100)}%` : '0%' }}
+                />
+              </span>
               {/* Deliberately not a counted key: `count` would make i18next
                   demand a plural form per language for a string whose natural
                   rendering in several of them is "lines: 96". */}
@@ -989,22 +1172,28 @@ function ReviewStep({ preview }: { preview: PreviewResponse }) {
 function DoneStep({ installed }: { installed: InstalledModule }) {
   const { t } = useTranslation();
   return (
-    <div className="space-y-2 py-2 text-center" data-testid="module-builder-done">
-      <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-semantic-success-subtle text-semantic-success">
-        <Check size={20} strokeWidth={2.5} />
+    <div className="space-y-2 py-4 text-center" data-testid="module-builder-done">
+      {/* The one moment in the wizard that is purely good news, so it is given
+          the room to read as one. The ring is a halo around the mark rather
+          than a second border on it. */}
+      <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-semantic-success-subtle text-semantic-success ring-8 ring-semantic-success-subtle/40">
+        <Check size={28} strokeWidth={2.5} />
       </span>
-      <p className="text-sm font-medium text-content-primary">{installed.display_name}</p>
-      <p className="text-xs text-content-tertiary">
-        {t('module_builder.done_note', {
-          path: installed.base_path,
-          defaultValue: 'Installed and serving on {{path}}. No restart is needed.',
-        })}
-      </p>
+      <p className="pt-1 text-base font-semibold text-content-primary">{installed.display_name}</p>
       <p className="text-xs text-content-tertiary">
         {t('module_builder.done_counts', {
           fields: installed.field_count,
           rules: installed.rule_count,
           defaultValue: '{{fields}} fields, {{rules}} rules.',
+        })}
+      </p>
+      {/* The path stays inside done_note rather than also getting a monospace
+          chip of its own. A chip would look better and would print the same
+          path twice on a screen four lines long, which reads as a mistake. */}
+      <p className="mx-auto max-w-sm break-words text-xs text-content-tertiary">
+        {t('module_builder.done_note', {
+          path: installed.base_path,
+          defaultValue: 'Installed and serving on {{path}}. No restart is needed.',
         })}
       </p>
     </div>

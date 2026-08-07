@@ -254,30 +254,46 @@ export function ModuleBuilderPage() {
           }
         />
       ) : (
-        <ul className="space-y-2" data-testid="module-builder-list">
+        // Cards rather than rows. A module built here is a thing someone made,
+        // and the flat list read as configuration; the path each one lives at
+        // matters enough to keep, so the card gives it a line of its own
+        // instead of crowding it into a subtitle.
+        <ul className="grid gap-3 sm:grid-cols-2" data-testid="module-builder-list">
           {modules.map((module) => (
             <li
               key={module.key}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border-light bg-surface-primary p-3"
+              className="flex flex-col gap-3 rounded-xl border border-border-light bg-surface-primary p-4 transition-colors hover:border-oe-blue/40"
             >
-              <div className="min-w-0">
-                <p className="flex items-center gap-2 text-sm font-medium text-content-primary">
-                  {module.display_name}
-                  <Badge variant="neutral" size="sm">
-                    v{module.version}
-                  </Badge>
-                </p>
-                <p className="mt-0.5 text-xs text-content-tertiary">
-                  {t('module_builder.module_summary', {
-                    entity: module.entity,
-                    fields: module.field_count,
-                    rules: module.rule_count,
-                    defaultValue: '{{entity}} · {{fields}} fields · {{rules}} rules',
-                  })}
-                </p>
-                <p className="mt-0.5 font-mono text-[11px] text-content-quaternary">{module.base_path}</p>
+              <div className="flex items-start gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-oe-blue-subtle text-oe-blue-text">
+                  <Boxes size={17} strokeWidth={1.8} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-content-primary">
+                    <span className="min-w-0 truncate">{module.display_name}</span>
+                    <Badge variant="neutral" size="sm">
+                      v{module.version}
+                    </Badge>
+                  </p>
+                  <p className="mt-0.5 text-xs text-content-tertiary">
+                    {t('module_builder.module_summary', {
+                      entity: module.entity,
+                      fields: module.field_count,
+                      rules: module.rule_count,
+                      defaultValue: '{{entity}} · {{fields}} fields · {{rules}} rules',
+                    })}
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
+
+              {/* Kept on its own line and allowed to wrap. It is the answer to
+                  "where did this actually go", and truncating a path hides the
+                  part that differs between one instance and another. */}
+              <p className="break-all font-mono text-[11px] leading-relaxed text-content-quaternary">
+                {module.base_path}
+              </p>
+
+              <div className="mt-auto flex items-center justify-between gap-2 border-t border-border-light pt-3">
                 <Link
                   to={`/modules/${module.key}`}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-border-light px-2.5 py-1.5 text-xs font-medium text-content-secondary transition-colors hover:bg-surface-secondary hover:text-content-primary"
