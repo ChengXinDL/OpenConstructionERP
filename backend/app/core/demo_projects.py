@@ -4532,14 +4532,42 @@ def _generate_module_data(
         )
 
     # ── Safety incidents (3-4) ───────────────────────────────────────────
-    incident_seeds = [
+    # The pool is longer than the slice taken out of it, and where the slice
+    # starts is derived from ``demo_id``. Every project that falls through to
+    # this generator used to get the same four incidents with the same titles
+    # and the same root causes, so two projects rendered a safety register that
+    # was identical down to the pixel - measured across two different demo
+    # projects whose screens compared 0 bits apart and 1.00 alike on text.
+    # ``demo_id`` is stable across re-seeds, so the rotation is too.
+    incident_pool = [
         ("near_miss", "moderate", "Near miss - material fell from height", "Edge protection gap"),
-        ("first_aid", "minor", "Minor hand laceration during handling", "Cut-resistant gloves not worn"),
+        ("injury", "minor", "Minor hand laceration during handling", "Cut-resistant gloves not worn"),
         ("near_miss", "moderate", "Plant / pedestrian near miss in laydown area", "Segregation not enforced"),
         ("property_damage", "minor", "Temporary services strike during excavation", "Service scan not refreshed"),
+        (
+            "near_miss",
+            "major",
+            "Load swung outside the exclusion zone during a lift",
+            "Lift plan not re-briefed after the crane moved",
+        ),
+        ("injury", "minor", "Eye irritation from airborne dust", "Water suppression not connected before cutting"),
+        (
+            "property_damage",
+            "moderate",
+            "Stacked materials toppled in high wind",
+            "Stack height above the method statement limit",
+        ),
     ]
+    offset = sum(ord(ch) for ch in demo_id) % len(incident_pool)
+    incident_seeds = [incident_pool[(offset + k) % len(incident_pool)] for k in range(4)]
     safety_incidents: list[dict] = []
     for i, (itype, sev, title, cause) in enumerate(incident_seeds):
+        # The most recent incident is still under investigation and the one
+        # before it still has an action outstanding. Seeded entirely closed,
+        # the Open Incidents tile reads zero on every project and the register
+        # gives a reader nothing to work from.
+        last = i == len(incident_seeds) - 1
+        pending = i == len(incident_seeds) - 2
         safety_incidents.append(
             {
                 "incident_number": f"INC-{i + 1:03d}",
@@ -4549,30 +4577,46 @@ def _generate_module_data(
                 "incident_type": itype,
                 "severity": sev,
                 "description": f"{title} during {trades[i % len(trades)][1].lower() if trades else 'works'}.",
-                "root_cause": cause,
+                "root_cause": None if last else cause,
                 "corrective_actions": [
                     {
-                        "description": "Toolbox talk and re-brief affected crew",
+                        "description": (
+                            "Toolbox talk and re-brief affected crew"
+                            if not last
+                            else "Investigation under way, actions to follow"
+                        ),
                         "due_date": _d(13 + i * 9),
-                        "status": "completed",
+                        "status": "completed" if not (last or pending) else "open" if last else "in_progress",
                     }
                 ],
-                "status": "closed",
+                "status": "investigating" if last else "corrective_action" if pending else "closed",
             }
         )
 
     # ── Safety observations (6) ──────────────────────────────────────────
+    # (type, severity, likelihood, status, description).
+    #
+    # The types are the four ``ObservationCreate`` accepts. This list used to
+    # carry unsafe_behavior, housekeeping and environmental, none of which the
+    # API will take back and none of which the type picker offers, so a reader
+    # who opened one of those rows could not re-select the value it already
+    # held.
+    #
+    # The statuses are not all terminal on purpose. Seeded entirely closed, an
+    # observation register shows nothing to act on, and the whole point of the
+    # register is what is still outstanding.
     obs_seeds = [
-        ("unsafe_condition", 4, 3, "Scaffold handrail incomplete on working platform"),
-        ("unsafe_behavior", 3, 4, "Operative without eye protection during cutting"),
-        ("housekeeping", 3, 2, "Access route partially blocked by stored materials"),
-        ("unsafe_condition", 4, 3, "Unprotected slab edge at leading edge of works"),
-        ("environmental", 2, 3, "Dust generation during dry cutting"),
-        ("positive", 1, 1, "Good practice - full PPE and clean work area observed"),
+        ("unsafe_condition", 4, 3, "closed", "Scaffold handrail incomplete on working platform"),
+        ("unsafe_act", 3, 4, "closed", "Operative without eye protection during cutting"),
+        ("unsafe_condition", 3, 2, "closed", "Access route partially blocked by stored materials"),
+        ("unsafe_condition", 4, 3, "in_progress", "Unprotected slab edge at leading edge of works"),
+        ("unsafe_condition", 2, 3, "open", "Dust generation during dry cutting"),
+        ("positive", 1, 1, "closed", "Good practice - full PPE and clean work area observed"),
     ]
     safety_observations: list[dict] = []
-    for i, (otype, sev, lik, desc) in enumerate(obs_seeds):
+    for i, (otype, sev, lik, ostatus, desc) in enumerate(obs_seeds):
         positive = otype == "positive"
+        done = ostatus == "closed"
         safety_observations.append(
             {
                 "observation_number": f"OBS-{i + 1:03d}",
@@ -4582,8 +4626,16 @@ def _generate_module_data(
                 "severity": sev,
                 "likelihood": lik,
                 "immediate_action": None if positive else "Corrected on the spot",
-                "corrective_action": None if positive else "Re-brief crew and add to inspection checklist",
-                "status": "closed" if positive else "resolved",
+                # An outstanding observation names what is still to be done
+                # rather than reporting it as already done.
+                "corrective_action": (
+                    None
+                    if positive
+                    else "Re-brief crew and add to inspection checklist"
+                    if done
+                    else "Awaiting re-inspection before the entry can be closed"
+                ),
+                "status": ostatus,
             }
         )
 
@@ -7064,7 +7116,7 @@ async def _seed_module_data(
                 "title": "Minor hand injury - rebar handling",
                 "incident_date": (base + timedelta(days=35)).strftime("%Y-%m-%d"),
                 "location": "Foundation zone, Grid A-B / 1-3",
-                "incident_type": "first_aid",
+                "incident_type": "injury",
                 "severity": "minor",
                 "description": "Worker cut left hand while handling rebar ties. Cut treated on site with first aid.",
                 "treatment_type": "first_aid",
@@ -7088,7 +7140,7 @@ async def _seed_module_data(
                 "incident_date": (base + timedelta(days=60)).strftime("%Y-%m-%d"),
                 "location": "Level 5, perimeter zone",
                 "incident_type": "near_miss",
-                "severity": "serious",
+                "severity": "major",
                 "description": "M24 bolt dropped from Level 5 during steel erection. "
                 "Landed in exclusion zone - no one injured.",
                 "root_cause": "Tool tether not attached to impact wrench",
@@ -7115,7 +7167,7 @@ async def _seed_module_data(
                 "incident_date": (base + timedelta(days=45)).strftime("%Y-%m-%d"),
                 "location": "Level 2, Surgical Suite corridor",
                 "incident_type": "environmental",
-                "severity": "serious",
+                "severity": "major",
                 "description": "ICRA Class IV barrier was breached during ductwork installation. "
                 "Negative air pressure lost for 15 minutes in adjacent occupied area.",
                 "root_cause": "Subcontractor cut opening in barrier without notifying ICRA monitor",
@@ -7145,7 +7197,7 @@ async def _seed_module_data(
                 "title": "Slip and fall - wet concrete pour area",
                 "incident_date": (base + timedelta(days=25)).strftime("%Y-%m-%d"),
                 "location": "Level 1, ED wing foundation",
-                "incident_type": "recordable",
+                "incident_type": "injury",
                 "severity": "moderate",
                 "description": "Worker slipped on wet concrete near pour area. Bruised knee, "
                 "returned to work next day.",
@@ -7170,7 +7222,7 @@ async def _seed_module_data(
                 "incident_date": (base + timedelta(days=50)).strftime("%Y-%m-%d"),
                 "location": "Zone de stockage, aire nord",
                 "incident_type": "near_miss",
-                "severity": "serious",
+                "severity": "major",
                 "description": "CLT panel slipped from storage rack due to improper bracing. "
                 "No injuries - area was cordoned off.",
                 "root_cause": "Storage rack not rated for CLT panel weight. Wind loading not considered.",
@@ -7196,7 +7248,7 @@ async def _seed_module_data(
                 "title": "Heat exhaustion - steel erector",
                 "incident_date": (base + timedelta(days=75)).strftime("%Y-%m-%d"),
                 "location": "Warehouse bay 3, roof level",
-                "incident_type": "recordable",
+                "incident_type": "injury",
                 "severity": "moderate",
                 "description": "Steel erector showed signs of heat exhaustion at 14:00 during "
                 "June operations. Temperature 48C. Worker evacuated and treated.",
@@ -7224,7 +7276,7 @@ async def _seed_module_data(
                 "incident_date": (base + timedelta(days=30)).strftime("%Y-%m-%d"),
                 "location": "Eastern yard, crane pad area",
                 "incident_type": "near_miss",
-                "severity": "serious",
+                "severity": "major",
                 "description": "Mobile crane outrigger pad sank 150mm into soft ground during "
                 "steel beam lift. Crane immediately halted and load secured.",
                 "root_cause": "Ground bearing capacity not verified at crane position. "
@@ -7289,29 +7341,29 @@ async def _seed_module_data(
                 "likelihood": 3,
                 "immediate_action": "Area cordoned off until handrail installed",
                 "corrective_action": "Scaffolders to complete handrails before platform use",
-                "status": "resolved",
+                "status": "closed",
             },
             {
                 "observation_number": "OBS-002",
-                "observation_type": "unsafe_behavior",
+                "observation_type": "unsafe_act",
                 "description": "Two workers observed not wearing safety glasses during concrete cutting.",
                 "location": "Ground floor slab, Grid E/5",
                 "severity": 3,
                 "likelihood": 4,
                 "immediate_action": "Workers stopped and issued PPE",
                 "corrective_action": "Toolbox talk on mandatory eye protection for cutting works",
-                "status": "resolved",
+                "status": "closed",
             },
             {
                 "observation_number": "OBS-003",
-                "observation_type": "housekeeping",
+                "observation_type": "unsafe_condition",
                 "description": "Debris and loose materials blocking emergency exit route at level 1.",
                 "location": "Stairwell 2, Level 1",
                 "severity": 3,
                 "likelihood": 2,
                 "immediate_action": "Area cleared immediately",
                 "corrective_action": "Weekly housekeeping audit added to site inspection schedule",
-                "status": "resolved",
+                "status": "in_progress",
             },
         ],
         "office-london": [
@@ -7324,18 +7376,18 @@ async def _seed_module_data(
                 "likelihood": 2,
                 "immediate_action": "Barrier installed within 30 minutes",
                 "corrective_action": "Daily check of all temporary edge protection",
-                "status": "resolved",
+                "status": "closed",
             },
             {
                 "observation_number": "OBS-002",
-                "observation_type": "unsafe_behavior",
+                "observation_type": "unsafe_act",
                 "description": "Operative working at height without harness clip attached.",
                 "location": "Perimeter, Level 7",
                 "severity": 5,
                 "likelihood": 3,
                 "immediate_action": "Operative removed from site for remainder of day",
                 "corrective_action": "All operatives re-inducted on working at height procedures",
-                "status": "resolved",
+                "status": "closed",
             },
             {
                 "observation_number": "OBS-003",
@@ -7345,7 +7397,7 @@ async def _seed_module_data(
                 "location": "Basement Level -1",
                 "severity": 1,
                 "likelihood": 1,
-                "status": "closed",
+                "status": "in_progress",
             },
         ],
         "medical-us": [
@@ -7358,7 +7410,7 @@ async def _seed_module_data(
                 "likelihood": 4,
                 "immediate_action": "Filter replaced immediately, air quality test performed",
                 "corrective_action": "Filter change schedule posted on each machine with daily check log",
-                "status": "resolved",
+                "status": "closed",
             },
             {
                 "observation_number": "OBS-002",
@@ -7369,18 +7421,18 @@ async def _seed_module_data(
                 "likelihood": 3,
                 "immediate_action": "Temporary illuminated exit sign installed",
                 "corrective_action": "All fire exit signs checked weekly during construction phase",
-                "status": "resolved",
+                "status": "closed",
             },
             {
                 "observation_number": "OBS-003",
-                "observation_type": "housekeeping",
+                "observation_type": "unsafe_condition",
                 "description": "Sharp rebar ends protruding from slab edge not capped.",
                 "location": "Level 3 slab edge, grid D/7",
                 "severity": 4,
                 "likelihood": 3,
                 "immediate_action": "Mushroom caps installed on all exposed rebar",
                 "corrective_action": "Rebar capping added to daily checklist for concrete crew",
-                "status": "resolved",
+                "status": "closed",
             },
             {
                 "observation_number": "OBS-004",
@@ -7390,7 +7442,7 @@ async def _seed_module_data(
                 "location": "Level 1, radiology suite",
                 "severity": 1,
                 "likelihood": 1,
-                "status": "closed",
+                "status": "in_progress",
             },
         ],
         "school-paris": [
@@ -7404,11 +7456,11 @@ async def _seed_module_data(
                 "likelihood": 4,
                 "immediate_action": "Barriers and warning signs installed",
                 "corrective_action": "Daily perimeter check for public safety hazards",
-                "status": "resolved",
+                "status": "closed",
             },
             {
                 "observation_number": "OBS-002",
-                "observation_type": "noise",
+                "observation_type": "unsafe_condition",
                 "description": "Demolition noise exceeding 85 dB at property boundary at 07:30. "
                 "Mairie restriction is 08:00 start for noisy works.",
                 "location": "Boundary fence, rue de Belleville",
@@ -7416,18 +7468,18 @@ async def _seed_module_data(
                 "likelihood": 3,
                 "immediate_action": "Works stopped until 08:00, noise barrier repositioned",
                 "corrective_action": "Site manager to confirm noise levels before 08:00 start",
-                "status": "resolved",
+                "status": "closed",
             },
             {
                 "observation_number": "OBS-003",
-                "observation_type": "housekeeping",
+                "observation_type": "unsafe_condition",
                 "description": "Stockage CLT non bache - CLT panels stored without weather protection.",
                 "location": "Zone de stockage nord",
                 "severity": 3,
                 "likelihood": 4,
                 "immediate_action": "Panels covered with tarpaulin",
                 "corrective_action": "All CLT deliveries to be stored in covered area only",
-                "status": "resolved",
+                "status": "in_progress",
             },
         ],
         "warehouse-dubai": [
@@ -7440,7 +7492,7 @@ async def _seed_module_data(
                 "likelihood": 4,
                 "immediate_action": "Water replenished, additional cooler boxes provided",
                 "corrective_action": "Hourly water station checks during summer months",
-                "status": "resolved",
+                "status": "closed",
             },
             {
                 "observation_number": "OBS-002",
@@ -7451,18 +7503,18 @@ async def _seed_module_data(
                 "likelihood": 3,
                 "immediate_action": "All loose materials secured, lightweight items moved to warehouse",
                 "corrective_action": "Weather alert response procedure updated and drilled",
-                "status": "resolved",
+                "status": "closed",
             },
             {
                 "observation_number": "OBS-003",
-                "observation_type": "unsafe_behavior",
+                "observation_type": "unsafe_act",
                 "description": "Welding in progress without fire watch posted nearby.",
                 "location": "Bay 4, steel connection area",
                 "severity": 4,
                 "likelihood": 3,
                 "immediate_action": "Welding stopped, fire watch assigned",
                 "corrective_action": "Hot work permit must include fire watch name before issuance",
-                "status": "resolved",
+                "status": "closed",
             },
             {
                 "observation_number": "OBS-004",
@@ -7472,7 +7524,7 @@ async def _seed_module_data(
                 "location": "General site",
                 "severity": 1,
                 "likelihood": 1,
-                "status": "closed",
+                "status": "in_progress",
             },
         ],
     }
