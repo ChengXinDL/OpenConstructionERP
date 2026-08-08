@@ -176,6 +176,7 @@ const EXTRA_ROUTE_ICONS: Record<string, LucideIcon> = {
   // ── 8. Commercial ─────────────────────────────────────────────────
   '/crm': Briefcase,
   '/contracts': FileSignature,
+  '/payment-clock': Scale,
   '/subcontractors': HardHat,
   '/bid-management': Scale,
   '/tendering': FileText,

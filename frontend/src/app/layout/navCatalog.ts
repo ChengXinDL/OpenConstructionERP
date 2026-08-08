@@ -387,6 +387,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { labelKey: 'nav.crm', to: '/crm', icon: Briefcase, advancedOnly: true },
       { labelKey: 'nav.contracts', to: '/contracts', icon: FileSignature },
+      { labelKey: 'nav.payment_clock', to: '/payment-clock', icon: Scale },
       { labelKey: 'nav.subcontractors', to: '/subcontractors', icon: HardHat, advancedOnly: true },
     ],
   },

@@ -5302,6 +5302,7 @@ const resource = {
     "nav.portal_payments": "Partner Payment Portal",
     "nav.crm": "CRM",
     "nav.contracts": "Contracts",
+    "nav.payment_clock": "Payment Clock",
     "nav.subcontractors": "Subcontractor Directory",
     "nav.bid_management": "Bid Management",
     "nav.variations": "Variations",

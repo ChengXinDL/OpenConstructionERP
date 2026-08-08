@@ -173,6 +173,7 @@ const ROUTE_BACKEND_MODULE: Record<string, string> = {
   // Commercial
   '/crm': 'oe_crm',
   '/contracts': 'oe_contracts',
+  '/payment-clock': 'oe_payment_clock',
   '/subcontractors': 'oe_subcontractors',
   '/bid-management': 'oe_bid_management',
   '/tendering': 'oe_tendering',

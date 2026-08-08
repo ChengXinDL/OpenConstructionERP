@@ -390,6 +390,9 @@ const ResourceLevelingPage = lazy(() =>
 const ContractsPage = lazy(() =>
   import('@/features/contracts').then((m) => ({ default: m.ContractsPage }))
 );
+const PaymentClockPage = lazy(() =>
+  import('@/features/payment-clock').then((m) => ({ default: m.PaymentClockPage }))
+);
 const ProgressClaimDetailPage = lazy(() =>
   import('@/features/contracts').then((m) => ({ default: m.ProgressClaimDetailPage }))
 );
@@ -1400,6 +1403,7 @@ export default function App() {
 
         {/* 18-Modules Wave — Commercial */}
         <Route path="/contracts" element={<P title="Contracts"><ContractsPage /></P>} />
+        <Route path="/payment-clock" element={<P title="Payment Clock"><PaymentClockPage /></P>} />
         <Route path="/projects/:projectId/contracts" element={<P title="Contracts"><ContractsPage /></P>} />
         <Route path="/projects/:projectId/contracts/claims/:claimId" element={<P title="Progress Claim"><ProgressClaimDetailPage /></P>} />
         <Route path="/subcontractors" element={<P title="Subcontractors"><SubcontractorsPage /></P>} />

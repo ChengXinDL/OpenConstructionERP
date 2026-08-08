@@ -1064,6 +1064,7 @@ const ROUTE_COMPONENT_MAP: ReadonlyArray<readonly [string, string]> = [
   ['/portal', 'Client & Partner Portal'],
   ['/resources', 'Resources & Crew'],
   ['/contracts', 'Contracts'],
+  ['/payment-clock', 'Payment Clock'],
   ['/ai-estimate', 'AI Quick Estimate'],
   ['/ai-agents', 'AI Agents'],
   ['/advisor', 'AI Cost Advisor'],
