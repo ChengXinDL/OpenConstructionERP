@@ -4,6 +4,7 @@
   "leaked_locales": [
    "ar",
    "bg",
+   "bn",
    "cs",
    "da",
    "de",
@@ -34,6 +35,7 @@
   "leaked_locales": [
    "ar",
    "bg",
+   "bn",
    "cs",
    "da",
    "de",
@@ -64,6 +66,7 @@
   "leaked_locales": [
    "ar",
    "bg",
+   "bn",
    "cs",
    "da",
    "es",
@@ -96,6 +99,7 @@
   "leaked_locales": [
    "ar",
    "bg",
+   "bn",
    "cs",
    "da",
    "es",
@@ -128,6 +132,7 @@
   "leaked_locales": [
    "ar",
    "bg",
+   "bn",
    "cs",
    "da",
    "es",
@@ -160,6 +165,7 @@
   "leaked_locales": [
    "ar",
    "bg",
+   "bn",
    "cs",
    "da",
    "es",
@@ -192,6 +198,7 @@
   "leaked_locales": [
    "ar",
    "bg",
+   "bn",
    "cs",
    "da",
    "es",
@@ -217,6 +224,33 @@
    "tr",
    "vi",
    "zh"
+  ]
+ },
+ "aiest.stage_09_MEP": {
+  "en_value": "MEP",
+  "leaked_locales": [
+   "bn",
+   "et",
+   "id",
+   "ky"
+  ]
+ },
+ "field.task_opt.mep": {
+  "en_value": "MEP",
+  "leaked_locales": [
+   "bn",
+   "et",
+   "id",
+   "ky"
+  ]
+ },
+ "match_elements.stage.09_MEP": {
+  "en_value": "MEP",
+  "leaked_locales": [
+   "bn",
+   "et",
+   "id",
+   "ky"
   ]
  }
 }

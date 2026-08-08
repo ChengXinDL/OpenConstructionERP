@@ -1068,5 +1068,50 @@
     "en_value": "Last Planner",
     "note": "named scheduling methodology (Last Planner System), kept as its proper name like FIDIC/NEC/JCT (et joins 24 siblings; et locale addition)",
     "reason_category": "proper_noun"
+  },
+  "assets.field.serial_short": {
+    "en_value": "S/N",
+    "note": "abbreviation, identical in every locale including ru (bn locale addition)",
+    "reason_category": "abbreviation"
+  },
+  "carbon.boq": {
+    "en_value": "BOQ",
+    "note": "named open data / interchange standard or format code (CLAUDE.md: not translated); identical in every locale including ru (bn locale addition)",
+    "reason_category": "standard_code"
+  },
+  "changeorders.boq_picker_boq": {
+    "en_value": "BOQ",
+    "note": "named open data / interchange standard or format code (CLAUDE.md: not translated); identical in every locale including ru (bn locale addition)",
+    "reason_category": "standard_code"
+  },
+  "costExplorer.addToBoq.boq": {
+    "en_value": "BOQ",
+    "note": "named open data / interchange standard or format code (CLAUDE.md: not translated); identical in every locale including ru (bn locale addition)",
+    "reason_category": "standard_code"
+  },
+  "costExplorer.mod_boq": {
+    "en_value": "BOQ",
+    "note": "named open data / interchange standard or format code (CLAUDE.md: not translated); identical in every locale including ru (bn locale addition)",
+    "reason_category": "standard_code"
+  },
+  "costmodel.mod_boq": {
+    "en_value": "BOQ",
+    "note": "named open data / interchange standard or format code (CLAUDE.md: not translated); identical in every locale including ru (bn locale addition)",
+    "reason_category": "standard_code"
+  },
+  "cost_match.confidence_percent": {
+    "en_value": "{{percent}}%",
+    "note": "pure interpolation shell with a bare percent sign, no literal text to translate (bn locale addition)",
+    "reason_category": "template_placeholder"
+  },
+  "fx.rate_line": {
+    "en_value": "1 {{from}} = {{rate}} {{to}}",
+    "note": "pure interpolation template, no literal text to translate (bn locale addition)",
+    "reason_category": "template_only"
+  },
+  "quantities.flow_ai": {
+    "en_value": "AI",
+    "note": "acronym, identical in every locale including ru (bn locale addition)",
+    "reason_category": "acronym"
   }
 }
