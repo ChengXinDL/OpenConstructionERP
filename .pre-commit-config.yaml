@@ -162,3 +162,19 @@ repos:
         language: system
         pass_filenames: false
         files: ^(frontend/src/.*\.tsx?|scripts/i18n_orphan_baseline\.json)$
+
+      # The orphan guard above asks whether a key is reachable at all, and
+      # says in its own comments that it deliberately does not ask whether a
+      # language has every form it needs: a Russian file carrying only
+      # _other passes there. This asks the second question. i18next does not
+      # fall back to _other inside a language - it walks the fallback chain
+      # and prints English - so a Turkish key with _other and no _one shows
+      # an English sentence for every count of one, and nothing else we own
+      # can see it. Counted keys are found from the call sites, because a
+      # suffix is not a plural: err_div_by_zero is division by zero.
+      - id: i18n-plural-form-check
+        name: Gate counted keys missing a form their language needs
+        entry: python scripts/check_i18n_plural_forms.py
+        language: system
+        pass_filenames: false
+        files: ^(frontend/src/.*\.tsx?|scripts/i18n_plural_baseline\.json)$

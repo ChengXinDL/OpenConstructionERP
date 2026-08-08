@@ -113,6 +113,17 @@ jobs:
       - name: Check for t() keys no locale file can answer
         run: python scripts/check_i18n_orphan_keys.py
 
+  i18n-plural-forms:
+    name: Every counted key has the forms its language needs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check counted keys for missing CLDR plural forms
+        run: python scripts/check_i18n_plural_forms.py
+
   locale-lost-escapes:
     name: No locale value dropped an escape English still carries
     runs-on: ubuntu-latest
