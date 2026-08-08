@@ -53,6 +53,12 @@ WORK = ROOT / ".i18n-work"
 # nonsense forms and delete real keys.
 CATEGORY_SUFFIXES = ("_zero", "_two", "_few", "_many")
 
+# `t('some.key')` and the Trans component's i18nKey. The word boundary before
+# `t` keeps `split(`, `format(` and friends out.
+LITERAL_CALL = re.compile(r"""\bt\(\s*['"`]([\w.-]+)['"`]""")
+TRANS_KEY = re.compile(r"""i18nKey\s*=\s*\{?\s*['"`]([\w.-]+)['"`]""")
+_LITERAL_KEYS: set[str] | None = None
+
 # A key line carries a string value. The `"translation": {` wrapper does not,
 # and counting it as a key puts a bogus entry named `translation` in the target.
 KEY_LINE = re.compile(r'^\s*"([^"]+)":\s*"')
@@ -161,6 +167,29 @@ def s_of(key: str) -> str:
     return ""
 
 
+def literal_call_keys() -> set[str]:
+    """Keys the source names in full, rather than letting i18next resolve them.
+
+    A plural family is normally reached through the stem with a count, and
+    i18next appends the category. Some call sites instead choose the form with a
+    ternary and pass the whole key: CostsPage.tsx calls
+    `t('costs_catalogs.fx_mismatch_many')` outright. Then the suffix is part of
+    the name, i18next never resolves anything, and every language needs the key
+    no matter which categories it has.
+    """
+    global _LITERAL_KEYS
+    if _LITERAL_KEYS is None:
+        found: set[str] = set()
+        for path in SRC.rglob("*.ts*"):
+            if LOCALES in path.parents:
+                continue
+            text = read(path)
+            found.update(LITERAL_CALL.findall(text))
+            found.update(TRANS_KEY.findall(text))
+        _LITERAL_KEYS = found
+    return _LITERAL_KEYS
+
+
 def is_plural_family(key: str, union: set[str]) -> bool:
     """Whether a category-suffixed key really is one form of a plural family.
 
@@ -175,7 +204,16 @@ def is_plural_family(key: str, union: set[str]) -> bool:
     beside it for the two-form case, so a genuine family has a sibling. A lone
     `_zero`/`_two`/`_few`/`_many` with neither sibling anywhere is a word, not a
     category.
+
+    Having a sibling is still not enough. `costs_catalogs.fx_mismatch` has both
+    `_one` and `_many`, which looks like a family, but the call site picks
+    between them by name and never passes a count. Estonian has two categories,
+    so the family reading dropped `_many` from it, and the orphan gate then
+    failed on a key the language really does need. A key the source names in
+    full is not a form of anything.
     """
+    if key in literal_call_keys():
+        return False
     stem = key[: -len(s_of(key)) - 1]
     return f"{stem}_other" in union or f"{stem}_one" in union
 
