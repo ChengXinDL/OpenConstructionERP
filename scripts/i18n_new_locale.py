@@ -69,25 +69,47 @@ DEFAULT_VALUE = re.compile(
     re.DOTALL,
 )
 
+# <Trans i18nKey="key" defaults="text with <tag> markup"> carries its English the
+# same way defaultValue does, just on a JSX component instead of a t() call.
+# Stops at the next i18nKey so it can't bleed into a second Trans block.
+TRANS_DEFAULTS = re.compile(
+    r"""i18nKey\s*=\s*\{?\s*['"`]([\w.-]+)['"`](?:(?!i18nKey)[\s\S])*?\bdefaults\s*=\s*(['"])((?:\\.|(?!\2).)*)\2""",
+)
+
 # Data files name a key and its English text as two adjacent fields, and both the
 # naming and the order vary: titleKey/titleDefault, labelKey/label, labelKey with
 # a `fallback`, and moduleLabel/moduleLabelKey with the English one first. Quoting
 # varies too, since the tree has no formatter. One regex per shape would miss a
-# shape, so find every `<stem>Key` and look for its English sibling nearby under
-# any of the names that have been used for it.
-SIBLING_KEY = re.compile(r"""(\w+)Key:\s*['"]([^'"]+)['"]""")
-SIBLING_WINDOW = 400
+# shape, so find every `<stem>Key` and pair it with its English sibling.
+#
+# Pairing is by token-sequence adjacency, not a character-distance window: tokenize
+# every `field: "value"` in the file in file order, and for a `<stem>Key` token the
+# paired English is whichever IMMEDIATE neighbor (next token preferred, since the
+# file convention is key-field-then-value; previous token as fallback, for the
+# reversed moduleLabel/moduleLabelKey shape) has field name `<stem>`, `<stem>Default`,
+# `fallback`, or `default`. A window-based nearest-match was tried first and failed
+# two ways: (1) a dense run of same-named sibling fields (every step's `label:`)
+# made re.search's "first in window" not necessarily belong to this entry, and
+# anchoring on distance-from-match still let a long value string on either side
+# outweigh the real sibling; (2) a value long enough to run past the window
+# (multi-sentence longDescDefault/whatDefault paragraphs) meant the closing quote
+# never appeared inside the window at all, so the key silently got no source. Exact
+# adjacency in the token stream has neither failure mode: there is no "nearest",
+# only the one token actually sitting next to this key in the object literal.
+FIELD_TOKEN = re.compile(r"""\b(\w+):\s*(['"])((?:\\[\s\S]|(?!\2).)*)\2""")
 
 
 def sibling_pairs(text: str) -> dict[str, str]:
     found: dict[str, str] = {}
-    for m in SIBLING_KEY.finditer(text):
-        stem, key = m.group(1), m.group(2)
-        window = text[max(0, m.start() - SIBLING_WINDOW) : m.end() + SIBLING_WINDOW]
-        for name in (f"{stem}Default", stem, "fallback", "default"):
-            sibling = re.search(rf"""\b{re.escape(name)}:\s*(['"])((?:\\[\s\S]|(?!\1).)*)\1""", window)
-            if sibling:
-                found.setdefault(key, sibling.group(2))
+    tokens = [(m.group(1), m.group(3)) for m in FIELD_TOKEN.finditer(text)]
+    for i, (field, value) in enumerate(tokens):
+        if not field.endswith("Key"):
+            continue
+        stem = field[: -len("Key")]
+        names = (f"{stem}Default", stem, "fallback", "default")
+        for j in (i + 1, i - 1):
+            if 0 <= j < len(tokens) and tokens[j][0] in names:
+                found.setdefault(value, tokens[j][1])
                 break
     return found
 
@@ -234,6 +256,8 @@ def english_sources() -> dict[str, tuple[str, str]]:
         text = read(path)
         for m in DEFAULT_VALUE.finditer(text):
             found.setdefault(m.group(1), (unescape(m.group(3)), "defaultValue"))
+        for m in TRANS_DEFAULTS.finditer(text):
+            found.setdefault(m.group(1), (unescape(m.group(3)), "Trans defaults"))
         for key, english in sibling_pairs(text).items():
             found.setdefault(key, (unescape(english), "playbook"))
 
@@ -245,7 +269,34 @@ def unescape(value: str) -> str:
 
 
 def escape(value: str) -> str:
-    return value.replace("\\", "\\\\").replace('"', '\\"')
+    # Two different inputs both need to come out as the literal two-character
+    # `\n`: a real 0x0A newline (a translator who types an actual line break
+    # into a batch value gets one back from json.loads) and an already-literal
+    # backslash+n pair (extract's own encoding of an English \n-bearing
+    # string, which most translators leave untouched since they're only
+    # retyping the surrounding words). Escaping backslashes first turns the
+    # second case into a doubled backslash - a translator who never touched
+    # the marker still gets `\\n` in the .ts output, which renders as a
+    # visible backslash-n instead of a line break. Walk the string once so an
+    # existing `\n` pair is recognized and left alone before the general
+    # backslash-doubling rule can reach it.
+    out = []
+    i = 0
+    while i < len(value):
+        ch = value[i]
+        if ch == "\n" or (ch == "\\" and value[i + 1 : i + 2] == "n"):
+            out.append("\\n")
+            i += 2 if ch == "\\" else 1
+        elif ch == "\\":
+            out.append("\\\\")
+            i += 1
+        elif ch == '"':
+            out.append('\\"')
+            i += 1
+        else:
+            out.append(ch)
+            i += 1
+    return "".join(out)
 
 
 def cmd_plan(code: str) -> int:
@@ -316,7 +367,12 @@ def cmd_assemble(code: str) -> int:
         for k in (missing + extra)[:10]:
             print(f"    {k}")
         return 1
-    untranslated = [k for k in order if not merged[k].strip()]
+    # An empty value is normally a translator skipping a key that needs a human
+    # (the "no English anywhere" keys `plan` names). But a handful of keys are
+    # blank in en.ts on purpose, e.g. an unlabelled table column - those must
+    # not be forced to have a value that doesn't exist in English either.
+    deliberately_blank = {k for k, (text, origin) in english_sources().items() if origin == "en.ts" and text == ""}
+    untranslated = [k for k in order if not merged[k].strip() and k not in deliberately_blank]
     if untranslated:
         print(f"REFUSED {len(untranslated)} key(s) still have an empty value")
         for k in untranslated[:10]:
