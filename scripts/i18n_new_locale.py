@@ -29,8 +29,15 @@ key, and a translator has nothing to work from.
 Usage:
     python scripts/i18n_new_locale.py plan     et
     python scripts/i18n_new_locale.py extract  et [--batch-size 400]
+    python scripts/i18n_new_locale.py delta    et
     python scripts/i18n_new_locale.py assemble et
     python scripts/i18n_new_locale.py verify   et
+
+`delta` catches a locale's corpus up when target_keys() has moved since
+extract() ran (new modules landed, or keys reached the shipped locales after
+this locale's own extraction) - writes exactly the new keys to
+batch_delta.json and updates _order.json, without touching any existing
+batch_NNN.json.
 """
 
 from __future__ import annotations
@@ -364,6 +371,62 @@ def cmd_extract(code: str, batch_size: int) -> int:
     return 0
 
 
+def cmd_delta(code: str) -> int:
+    """Catch a locale's corpus up to a target_keys() that moved since extract().
+
+    extract() freezes _order.json at the moment it runs. The app keeps growing
+    while a locale is mid-translation, so target_keys() computed fresh can
+    diverge from that frozen list - new modules add keys nobody's corpus has,
+    and keys that reached the already-shipped locales after this locale's
+    extract() are in the same boat. verify() catches the symptom (keys
+    missing); this catches it before translation and hands out exactly the
+    delta, batch_NNN.json files and already-answered work untouched.
+    """
+    out = WORK / code
+    order_path = out / "_order.json"
+    if not order_path.exists():
+        print(f"no {order_path} - run extract {code} first")
+        return 1
+    frozen = json.loads(order_path.read_text(encoding="utf-8"))
+    frozen_set = set(frozen)
+
+    live_ordered, _ = target_keys(code)
+    live_set = set(live_ordered)
+
+    new_keys = [k for k in live_ordered if k not in frozen_set]
+    stale_keys = sorted(frozen_set - live_set)
+
+    if stale_keys:
+        print(f"{len(stale_keys)} key(s) in _order.json are no longer in the live target set:")
+        for k in stale_keys[:20]:
+            print(f"    {k}")
+        print("These need removing from whichever batch_NNN.json carries them before assemble will pass.")
+
+    if not new_keys:
+        print(f"{code}: nothing new, _order.json already matches the live target set ({len(live_set)} keys).")
+        return 0
+
+    sources = english_sources()
+    payload = {k: sources.get(k, ("", "MISSING"))[0] for k in new_keys}
+    delta_path = out / "batch_delta.json"
+    delta_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    no_english = [k for k in new_keys if not payload[k]]
+
+    # Append rather than replace: keeps every already-translated key's row
+    # position stable in the eventual .ts output, so this touches only the
+    # new tail instead of reshuffling the whole file.
+    updated_order = [k for k in frozen if k in live_set] + new_keys
+    order_path.write_text(json.dumps(updated_order, ensure_ascii=False), encoding="utf-8")
+
+    print(f"{len(new_keys)} new key(s) written to {delta_path}")
+    print(f"_order.json updated to {len(updated_order)} keys (existing order preserved, new keys appended).")
+    if no_english:
+        print(f"{len(no_english)} of the new keys have no English source (need a human): {no_english[:10]}")
+    print("Translate batch_delta.json in place like any other batch, then assemble as usual.")
+    return 0
+
+
 def cmd_assemble(code: str) -> int:
     out = WORK / code
     order = json.loads((out / "_order.json").read_text(encoding="utf-8"))
@@ -450,6 +513,8 @@ def main() -> int:
         if "--batch-size" in sys.argv:
             size = int(sys.argv[sys.argv.index("--batch-size") + 1])
         return cmd_extract(code, size)
+    if action == "delta":
+        return cmd_delta(code)
     if action == "assemble":
         return cmd_assemble(code)
     if action == "verify":
