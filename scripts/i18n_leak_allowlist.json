@@ -1038,5 +1038,35 @@
     "en_value": "ISSB",
     "note": "acronym of the International Sustainability Standards Board, the standards body itself; identical in all 28 locales including ru, ja, zh and ar",
     "reason_category": "standard_code"
+  },
+  "integrations.teams": {
+    "en_value": "Microsoft Teams",
+    "note": "third-party product name, not translated in any locale (et joins 24 siblings; module 14 et locale addition)",
+    "reason_category": "product_name"
+  },
+  "notifications.transmittal.responded.body": {
+    "en_value": "{{code}} ({{title}}). {{response_summary}}",
+    "note": "template-only string, no natural-language content outside placeholders and punctuation (et locale addition)",
+    "reason_category": "template_only"
+  },
+  "propdev.dashboards.funnel.drop_pct": {
+    "en_value": "↓ {{pct}}%",
+    "note": "template-only string, a direction glyph and a placeholder, no natural-language content (et locale addition)",
+    "reason_category": "template_only"
+  },
+  "schedule.intro_link_advanced": {
+    "en_value": "Last Planner",
+    "note": "named scheduling methodology (Last Planner System), kept as its proper name like FIDIC/NEC/JCT (et joins 24 siblings; et locale addition)",
+    "reason_category": "proper_noun"
+  },
+  "takeoff_viewer.suggested": {
+    "en_value": "AI",
+    "note": "acronym, not translated in any locale (et joins 24 siblings; et locale addition)",
+    "reason_category": "acronym"
+  },
+  "takt.intro_link_advanced": {
+    "en_value": "Last Planner",
+    "note": "named scheduling methodology (Last Planner System), kept as its proper name like FIDIC/NEC/JCT (et joins 24 siblings; et locale addition)",
+    "reason_category": "proper_noun"
   }
 }

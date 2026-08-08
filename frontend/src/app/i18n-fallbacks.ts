@@ -3,7 +3,7 @@
 /**
  * Test-only aggregator. Re-exports every per-locale resource as a single
  * ``fallbackResources`` object so existing tests (notably
- * ``boqResourceTypes.test.ts``) can iterate all 29 locales without
+ * ``boqResourceTypes.test.ts``) can iterate all 30 locales without
  * duplicating the imports.
  *
  * This file reads ``./locales/*``; it does not generate them. A locale added
@@ -46,6 +46,7 @@ import th from './locales/th';
 import vi from './locales/vi';
 import mn from './locales/mn';
 import ky from './locales/ky';
+import et from './locales/et';
 
 export const fallbackResources = {
   en,
@@ -77,4 +78,5 @@ export const fallbackResources = {
   vi,
   mn,
   ky,
+  et,
 };

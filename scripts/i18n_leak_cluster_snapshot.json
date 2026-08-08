@@ -1120,5 +1120,83 @@
    "vi"
   ],
   "key_count_at_seed": 3
+ },
+ {
+  "locale_set": [
+   "da",
+   "de",
+   "et",
+   "hr",
+   "nl",
+   "no",
+   "pl",
+   "ro",
+   "sv"
+  ],
+  "key_count_at_seed": 12
+ },
+ {
+  "locale_set": [
+   "et",
+   "sv",
+   "tr"
+  ],
+  "key_count_at_seed": 9
+ },
+ {
+  "locale_set": [
+   "da",
+   "et",
+   "nl",
+   "no",
+   "sv"
+  ],
+  "key_count_at_seed": 5
+ },
+ {
+  "locale_set": [
+   "cs",
+   "da",
+   "de",
+   "et",
+   "fr",
+   "hr",
+   "id",
+   "it",
+   "nl",
+   "no",
+   "pl",
+   "ro",
+   "sv"
+  ],
+  "key_count_at_seed": 3
+ },
+ {
+  "locale_set": [
+   "da",
+   "et",
+   "fr",
+   "id",
+   "it",
+   "nl",
+   "no",
+   "sv"
+  ],
+  "key_count_at_seed": 3
+ },
+ {
+  "locale_set": [
+   "et",
+   "id",
+   "ky"
+  ],
+  "key_count_at_seed": 3
+ },
+ {
+  "locale_set": [
+   "et",
+   "sv"
+  ],
+  "key_count_at_seed": 3
  }
 ]

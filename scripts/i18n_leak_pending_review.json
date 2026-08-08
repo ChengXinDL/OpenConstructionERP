@@ -17,6 +17,40 @@
   "en_value": "Artem Boiko",
   "n": 26
  },
+ "accommodation.booking.source.propdev_import": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "PropDev import",
+  "n": 1
+ },
  "admin.permissions.toggle_success_message": {
   "differs_in": [
    "ar",
@@ -41,6 +75,40 @@
   "en_value": "Match elements",
   "n": 27
  },
+ "aiest.method.llm": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "AI agent",
+  "n": 1
+ },
  "approvalRoutes.analytics_col_sla": {
   "differs_in": [
    "ar",
@@ -57,12 +125,91 @@
   "en_value": "Target turnaround with automatic follow-up. An overdue step notifies the approver, then escalates to the next authority past the grace window. The step itself is not hard-blocked.",
   "n": 27
  },
+ "architecture.legend": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "Legend",
+  "n": 1
+ },
+ "assemblies.library.category_mep": {
+  "differs_in": [
+   "de",
+   "fi",
+   "ja",
+   "ru",
+   "sv"
+  ],
+  "en_value": "MEP",
+  "n": 24
+ },
  "bid_management.mod_crm": {
   "differs_in": [
    "ar"
   ],
   "en_value": "CRM",
   "n": 27
+ },
+ "bim.color_legend": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "Legend",
+  "n": 1
  },
  "bim.converter_panel_size": {
   "differs_in": [
@@ -75,6 +222,40 @@
   ],
   "en_value": "{{size}} MB",
   "n": 22
+ },
+ "bim.federation.disc_mep": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "MEP",
+  "n": 1
  },
  "bim.federation.tab_3d": {
   "differs_in": [
@@ -135,6 +316,40 @@
   ],
   "en_value": "BOQ",
   "n": 25
+ },
+ "boq.column_type_number": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "Number",
+  "n": 1
  },
  "boq.export_format_csv": {
   "differs_in": [
@@ -256,6 +471,40 @@
   "en_value": "Acme Construction GmbH",
   "n": 24
  },
+ "buyer_portal.na": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "—",
+  "n": 1
+ },
  "capacity.legend_high": {
   "differs_in": [
    "cs",
@@ -286,6 +535,74 @@
   "en_value": "GHG Protocol",
   "n": 24
  },
+ "catalog.source_cad_import": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "CAD import",
+  "n": 1
+ },
+ "catalog.source_gaeb_import": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "GAEB import",
+  "n": 1
+ },
  "changeorders.linked_rfi": {
   "differs_in": [
    "ar"
@@ -302,6 +619,40 @@
   ],
   "en_value": "3D",
   "n": 24
+ },
+ "construction_control.col.number": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "Number",
+  "n": 1
  },
  "construction_control.ncr_linked": {
   "differs_in": [
@@ -361,6 +712,17 @@
   ],
   "en_value": "Cost Explorer",
   "n": 15
+ },
+ "costmodel.benchmark_area_value": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "mn",
+   "ru",
+   "th"
+  ],
+  "en_value": "{{area}} m²",
+  "n": 24
  },
  "costmodel.evm_cpi": {
   "differs_in": [
@@ -461,6 +823,74 @@
   "en_value": "dtype",
   "n": 26
  },
+ "dashboards.integrity_no_issues": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "—",
+  "n": 1
+ },
+ "deadlines.mod_ncr": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "NCR register",
+  "n": 1
+ },
  "dwg_takeoff.format_support": {
   "differs_in": [
    "ja"
@@ -492,6 +922,40 @@
   "en_value": "ID",
   "n": 27
  },
+ "dwg_takeoff.scale_calibrate_none": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "—",
+  "n": 1
+ },
  "dwg_takeoff.text_size_percent": {
   "differs_in": [
    "de",
@@ -509,6 +973,40 @@
   ],
   "en_value": "PIN",
   "n": 25
+ },
+ "files.transmittals.col_number": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "Number",
+  "n": 1
  },
  "finance.wbs": {
   "differs_in": [
@@ -591,6 +1089,40 @@
   "en_value": "CAPA",
   "n": 27
  },
+ "insights.chart_kpi": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "Number",
+  "n": 1
+ },
  "integrations.slack": {
   "differs_in": [
    "ja",
@@ -605,6 +1137,40 @@
   ],
   "en_value": "Telegram",
   "n": 27
+ },
+ "iso.number": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "Number",
+  "n": 1
  },
  "leveling.legend_high": {
   "differs_in": [
@@ -658,6 +1224,17 @@
    "zh"
   ],
   "en_value": "BIM → BOQ",
+  "n": 24
+ },
+ "match_elements.trade.mep": {
+  "differs_in": [
+   "de",
+   "ja",
+   "mn",
+   "ru",
+   "zh"
+  ],
+  "en_value": "MEP",
   "n": 24
  },
  "meetings.external_name_placeholder": {
@@ -745,6 +1322,40 @@
   "en_value": "CRM",
   "n": 27
  },
+ "pdf_compare.legend": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "Legend",
+  "n": 1
+ },
  "photos.gps_auto": {
   "differs_in": [
    "ar"
@@ -785,6 +1396,40 @@
   ],
   "en_value": "• {{label}} ({{type}})",
   "n": 26
+ },
+ "pipeline.palette.item_title": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "{{label}} — {{description}}",
+  "n": 1
  },
  "pointcloud.source_lidar": {
   "differs_in": [
@@ -829,6 +1474,40 @@
   "en_value": "BOQ",
   "n": 27
  },
+ "reporting.schedule_none": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "—",
+  "n": 1
+ },
  "reports.csv_boq": {
   "differs_in": [
    "de"
@@ -858,6 +1537,40 @@
   "en_value": "WBS",
   "n": 27
  },
+ "requirements.matrix.legend": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "Legend",
+  "n": 1
+ },
  "requirements.matrix.linked_boq": {
   "differs_in": [
    "ar",
@@ -873,6 +1586,74 @@
   "en_value": "{{quality}}, {{region}}",
   "n": 27
  },
+ "rulePacks.category_mep": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "MEP",
+  "n": 1
+ },
+ "schedule.codes.type_number": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "Number",
+  "n": 1
+ },
  "schedule.compare.cp": {
   "differs_in": [
    "nl",
@@ -880,6 +1661,40 @@
   ],
   "en_value": "CP",
   "n": 26
+ },
+ "schedule.delay.has_fragnet": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "Fragnet",
+  "n": 1
  },
  "schedule.export_wbs": {
   "differs_in": [
@@ -926,6 +1741,17 @@
   "en_value": "EVM",
   "n": 27
  },
+ "schedule.view_gantt": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "ja",
+   "ru",
+   "zh"
+  ],
+  "en_value": "Gantt",
+  "n": 24
+ },
  "schedule.view_in_boq_short": {
   "differs_in": [
    "ar",
@@ -962,6 +1788,40 @@
   "en_value": "n/a",
   "n": 27
  },
+ "smartViews.value_disabled": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "n/a",
+  "n": 1
+ },
  "supplier_catalogs.sku": {
   "differs_in": [
    "fr"
@@ -976,6 +1836,40 @@
   ],
   "en_value": "- BOQ -",
   "n": 26
+ },
+ "takeoff_viewer.legend": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "Legend",
+  "n": 1
  },
  "takeoff_viewer.width_unit_px": {
   "differs_in": [
@@ -1008,6 +1902,40 @@
   ],
   "en_value": "RFI",
   "n": 25
+ },
+ "teams.badge_admin": {
+  "differs_in": [
+   "ar",
+   "bg",
+   "cs",
+   "da",
+   "de",
+   "es",
+   "es-MX",
+   "fi",
+   "fr",
+   "hi",
+   "hr",
+   "id",
+   "it",
+   "ja",
+   "ko",
+   "ky",
+   "mn",
+   "nl",
+   "no",
+   "pl",
+   "pt",
+   "ro",
+   "ru",
+   "sv",
+   "th",
+   "tr",
+   "vi",
+   "zh"
+  ],
+  "en_value": "Admin",
+  "n": 1
  },
  "tour.step.4.title": {
   "differs_in": [
