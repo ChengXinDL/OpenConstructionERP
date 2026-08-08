@@ -1065,6 +1065,8 @@ const ROUTE_COMPONENT_MAP: ReadonlyArray<readonly [string, string]> = [
   ['/resources', 'Resources & Crew'],
   ['/contracts', 'Contracts'],
   ['/payment-clock', 'Payment Clock'],
+  ['/tax-withholding', 'Withholding Tax'],
+  ['/einvoice-clearance', 'E-invoice Clearance'],
   ['/ai-estimate', 'AI Quick Estimate'],
   ['/ai-agents', 'AI Agents'],
   ['/advisor', 'AI Cost Advisor'],

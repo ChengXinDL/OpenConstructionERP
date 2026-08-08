@@ -393,6 +393,12 @@ const ContractsPage = lazy(() =>
 const PaymentClockPage = lazy(() =>
   import('@/features/payment-clock').then((m) => ({ default: m.PaymentClockPage }))
 );
+const TaxWithholdingPage = lazy(() =>
+  import('@/features/tax-withholding').then((m) => ({ default: m.TaxWithholdingPage }))
+);
+const EInvoiceClearancePage = lazy(() =>
+  import('@/features/einvoice-clearance').then((m) => ({ default: m.EInvoiceClearancePage }))
+);
 const ProgressClaimDetailPage = lazy(() =>
   import('@/features/contracts').then((m) => ({ default: m.ProgressClaimDetailPage }))
 );
@@ -1404,6 +1410,8 @@ export default function App() {
         {/* 18-Modules Wave — Commercial */}
         <Route path="/contracts" element={<P title="Contracts"><ContractsPage /></P>} />
         <Route path="/payment-clock" element={<P title="Payment Clock"><PaymentClockPage /></P>} />
+        <Route path="/tax-withholding" element={<P title="Withholding Tax"><TaxWithholdingPage /></P>} />
+        <Route path="/einvoice-clearance" element={<P title="E-invoice Clearance"><EInvoiceClearancePage /></P>} />
         <Route path="/projects/:projectId/contracts" element={<P title="Contracts"><ContractsPage /></P>} />
         <Route path="/projects/:projectId/contracts/claims/:claimId" element={<P title="Progress Claim"><ProgressClaimDetailPage /></P>} />
         <Route path="/subcontractors" element={<P title="Subcontractors"><SubcontractorsPage /></P>} />

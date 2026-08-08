@@ -174,6 +174,8 @@ const ROUTE_BACKEND_MODULE: Record<string, string> = {
   '/crm': 'oe_crm',
   '/contracts': 'oe_contracts',
   '/payment-clock': 'oe_payment_clock',
+  '/tax-withholding': 'oe_tax_withholding',
+  '/einvoice-clearance': 'oe_einvoice_clearance',
   '/subcontractors': 'oe_subcontractors',
   '/bid-management': 'oe_bid_management',
   '/tendering': 'oe_tendering',

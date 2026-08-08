@@ -5303,6 +5303,8 @@ const resource = {
     "nav.crm": "CRM",
     "nav.contracts": "Contracts",
     "nav.payment_clock": "Payment Clock",
+    "nav.tax_withholding": "Withholding Tax",
+    "nav.einvoice_clearance": "E-invoice Clearance",
     "nav.subcontractors": "Subcontractor Directory",
     "nav.bid_management": "Bid Management",
     "nav.variations": "Variations",
