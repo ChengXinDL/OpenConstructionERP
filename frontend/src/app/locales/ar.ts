@@ -10917,7 +10917,6 @@ const resource = {
     "match_wizard.match_kickoff_warn": "تم إنشاء الجلسة",
     "match_wizard.match_kickoff_warn_msg": "الجلسة جاهزة، لكن المطابقة التلقائية فشلت: {{error}}. أعد التشغيل من شريط الأدوات.",
     "match_wizard.no_bim": "لا توجد نماذج BIM في هذا المشروع. ارفع نموذجًا في /bim، أو بدّل إلى Excel BoQ / نص ملصوق.",
-    "match_wizard.no_installed": "لا توجد كتالوجات مثبَّتة بعد. ثبّت واحدًا من الرصيف العائم أسفل اليسار، سيحتفظ المعالج باختياراتك أثناء التنزيل.",
     "match_wizard.pill_catalogue": "كتالوج",
     "match_wizard.pill_run": "تشغيل",
     "match_wizard.pill_source": "مصدر",

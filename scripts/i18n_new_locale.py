@@ -63,6 +63,21 @@ _LITERAL_KEYS: set[str] | None = None
 # and counting it as a key puts a bogus entry named `translation` in the target.
 KEY_LINE = re.compile(r'^\s*"([^"]+)":\s*"')
 
+# A long value is sometimes wrapped onto its own line: `"key":` with nothing
+# after the colon, value on the next line. KEY_LINE never matches that key
+# line (no opening quote before end of line), so keys_of() would silently
+# drop the key. Match it separately, key-only, no value needed.
+KEY_LINE_WRAPPED = re.compile(r'^\s*"([^"]+)":\s*$')
+
+# Whole-file version of the same value pattern used by english_sources() to
+# read en.ts, permitting one optional line break (and its leading indent)
+# between the colon and the opening quote so a wrapped value is not silently
+# treated as absent.
+KEY_VAL_MULTILINE = re.compile(
+    r"""^[ \t]*"([^"]+)":[ \t]*\r?\n?[ \t]*(['"])((?:\\.|(?!\2).)*)\2,?[ \t]*\r?$""",
+    re.MULTILINE,
+)
+
 # t('key', { ... defaultValue: 'text' ... }) with the options object brace-free.
 DEFAULT_VALUE = re.compile(
     r"""['"]([A-Za-z0-9_.\-]+)['"]\s*,\s*\{[^{}]*?defaultValue:\s*(['"])((?:\\.|(?!\2).)*)\2""",
@@ -136,7 +151,9 @@ def read(path: Path) -> str:
 
 
 def keys_of(path: Path) -> list[str]:
-    return [m.group(1) for m in (KEY_LINE.match(line) for line in read(path).splitlines()) if m]
+    keys = [m.group(1) for m in (KEY_LINE.match(line) for line in read(path).splitlines()) if m]
+    keys += [m.group(1) for m in (KEY_LINE_WRAPPED.match(line) for line in read(path).splitlines()) if m]
+    return keys
 
 
 def locale_paths() -> list[Path]:
@@ -245,10 +262,8 @@ def english_sources() -> dict[str, tuple[str, str]]:
     found: dict[str, tuple[str, str]] = {}
 
     en = LOCALES / "en.ts"
-    for line in read(en).splitlines():
-        m = re.match(r'^\s*"([^"]+)":\s*"((?:\\.|[^"])*)",?\s*$', line)
-        if m:
-            found[m.group(1)] = (unescape(m.group(2)), "en.ts")
+    for m in KEY_VAL_MULTILINE.finditer(read(en)):
+        found[m.group(1)] = (unescape(m.group(3)), "en.ts")
 
     for path in SRC.rglob("*.ts*"):
         if LOCALES in path.parents:
