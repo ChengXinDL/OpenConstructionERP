@@ -46,7 +46,6 @@ from app.modules.einvoice_clearance.adapters import (
     adapter_registry,
 )
 from app.modules.einvoice_clearance.models import (
-    FINAL_STATUSES,
     SETTLED_STATUSES,
     STATUS_CANCELLED,
     STATUS_DRAFT,
@@ -57,6 +56,7 @@ from app.modules.einvoice_clearance.models import (
     TERMINAL_SUCCESS,
     EInvoiceDocument,
     EInvoiceProfile,
+    can_be_sent,
     can_transition,
 )
 from app.modules.einvoice_clearance.regimes import (
@@ -566,7 +566,18 @@ async def submit_document(
     a tax clearance.
     """
     regime = regime_for(profile)
-    if document.status in FINAL_STATUSES:
+    if not can_be_sent(document.status):
+        # Asked of the state machine, not of a list kept here. The move to
+        # ``queued`` below would refuse the same states anyway; refusing up
+        # front says so before the duplicate lookup, the rules and the adapter
+        # have all been run, and says it in the words of what is actually wrong.
+        if document.status == STATUS_SUBMITTED:
+            raise ClearanceError(
+                f"This document has already gone to {regime.platform} and nothing is recorded about how it "
+                "was answered. Sending it again risks two cleared invoices for one sale, so read the "
+                "outcome off the platform and record that instead.",
+                conflict=True,
+            )
         raise ClearanceError(
             f"This document is already {document.status}; it cannot be sent again.",
             conflict=True,
@@ -662,7 +673,8 @@ async def submit_document(
         logger.warning("e-invoice clearance adapter %s failed", profile.adapter_key, exc_info=True)
         raise ClearanceError(
             f"The adapter failed before {regime.platform} answered, so this document is left as "
-            "submitted with an unknown outcome. Check the platform before sending it again."
+            "submitted with an unknown outcome. It cannot simply be sent again, because it may "
+            "already be cleared. Read what the platform shows and record that against this document."
         ) from exc
 
     if outcome.accepted:
