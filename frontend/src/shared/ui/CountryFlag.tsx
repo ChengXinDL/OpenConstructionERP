@@ -124,6 +124,12 @@ const FLAGS: Record<string, string> = {
   // MN — Mongolia (red-blue-red vertical + simplified soyombo on hoist red)
   mn: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 6"><rect width="3" height="6" fill="#C4272F"/><rect x="3" width="3" height="6" fill="#015197"/><rect x="6" width="3" height="6" fill="#C4272F"/><g fill="#F9CF02" transform="translate(1.5,3)"><circle r=".25"/><rect x="-.55" y="-1.4" width=".3" height="1" rx=".05"/><rect x=".25" y="-1.4" width=".3" height="1" rx=".05"/><rect x="-.55" y=".4" width=".3" height="1" rx=".05"/><rect x=".25" y=".4" width=".3" height="1" rx=".05"/><rect x="-1.05" y="-.15" width=".25" height=".3" rx=".05"/><rect x=".8" y="-.15" width=".25" height=".3" rx=".05"/></g></svg>`,
 
+  // EE — Estonia (blue-black-white horizontal). The Estonian locale shipped
+  // with country 'ee' and no entry here, and resolveIso returns null for a
+  // code in neither map, so CountryFlag rendered nothing at all: the language
+  // switcher showed a name with an empty slot where every other row has a flag.
+  ee: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 11 7"><rect width="11" height="2.333" fill="#0072CE"/><rect y="2.333" width="11" height="2.334" fill="#000"/><rect y="4.667" width="11" height="2.333" fill="#fff"/></svg>`,
+
   // CIS — Commonwealth of Independent States (СНГ). Not an ISO country; a
   // provenance badge for the in-house GESN/CWICR post-Soviet norm bases.
   // Blue field + gold sun emblem (CIS colours), distinct from any national flag.
@@ -150,6 +156,8 @@ const EMOJI_FALLBACK: Record<string, string> = {
   mn: '🇲🇳',
   // Kyrgyz locale (12.2.0)
   kg: '🇰🇬',
+  // Estonian locale (has an SVG above; fallback only)
+  ee: '🇪🇪',
   // CIS provenance badge (has an SVG above; fallback only)
   cis: '🤝',
 };
