@@ -48,6 +48,7 @@ import mn from './locales/mn';
 import ky from './locales/ky';
 import et from './locales/et';
 import bn from './locales/bn';
+import kk from './locales/kk';
 
 export const fallbackResources = {
   en,
@@ -81,4 +82,5 @@ export const fallbackResources = {
   ky,
   et,
   bn,
+  kk,
 };

@@ -1113,5 +1113,35 @@
     "en_value": "AI",
     "note": "acronym, identical in every locale including ru (bn locale addition)",
     "reason_category": "acronym"
+  },
+  "boq.shortcut_ctrl_enter": {
+    "en_value": "Ctrl+Enter",
+    "note": "keyboard shortcut, identical in en/ru/kk (kk locale addition)",
+    "reason_category": "keyboard_shortcut"
+  },
+  "capacity.legend_low": {
+    "en_value": "≤ 50%",
+    "note": "symbol/number only, no words to translate, identical in en/ru/kk (kk locale addition)",
+    "reason_category": "template_only"
+  },
+  "costs.variants_range": {
+    "en_value": "{{min}} - {{max}}",
+    "note": "placeholder-only template, identical in en/ru/kk (kk locale addition)",
+    "reason_category": "template_only"
+  },
+  "pipeline.dock.progress": {
+    "en_value": "{{pct}}%",
+    "note": "placeholder-only template, identical in en/ru/kk (kk locale addition)",
+    "reason_category": "template_only"
+  },
+  "rfi.insights.f_subject": {
+    "en_value": "RFI",
+    "note": "universal acronym, identical in en/ru/kk (kk locale addition)",
+    "reason_category": "acronym"
+  },
+  "about.book_title": {
+    "en_value": "Data-Driven Construction",
+    "note": "book/product title, identical in en/ru/kk (kk locale addition)",
+    "reason_category": "product_name"
   }
 }
