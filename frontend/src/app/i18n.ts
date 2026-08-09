@@ -41,6 +41,7 @@ export const SUPPORTED_LANGUAGES = [
   { code: 'ur', name: 'اردو', english: 'Urdu', flag: '🇵🇰', country: 'pk', dir: 'rtl' },
   { code: 'fa', name: 'فارسی', english: 'Persian', flag: '🇮🇷', country: 'ir', dir: 'rtl' },
   { code: 'he', name: 'עברית', english: 'Hebrew', flag: '🇮🇱', country: 'il', dir: 'rtl' },
+  { code: 'el', name: 'Ελληνικά', english: 'Greek', flag: '🇬🇷', country: 'gr' },
 ];
 
 export function getLanguageByCode(code: string): (typeof SUPPORTED_LANGUAGES)[number] {
