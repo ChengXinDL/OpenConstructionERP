@@ -50,6 +50,7 @@ import et from './locales/et';
 import bn from './locales/bn';
 import kk from './locales/kk';
 import fil from './locales/fil';
+import ur from './locales/ur';
 import fa from './locales/fa';
 import he from './locales/he';
 
@@ -87,6 +88,7 @@ export const fallbackResources = {
   bn,
   kk,
   fil,
+  ur,
   fa,
   he,
 };
