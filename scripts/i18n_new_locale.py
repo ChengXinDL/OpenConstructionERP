@@ -291,24 +291,30 @@ def unescape(value: str) -> str:
 
 
 def escape(value: str) -> str:
-    # Two different inputs both need to come out as the literal two-character
-    # `\n`: a real 0x0A newline (a translator who types an actual line break
-    # into a batch value gets one back from json.loads) and an already-literal
-    # backslash+n pair (extract's own encoding of an English \n-bearing
-    # string, which most translators leave untouched since they're only
-    # retyping the surrounding words). Escaping backslashes first turns the
-    # second case into a doubled backslash - a translator who never touched
-    # the marker still gets `\\n` in the .ts output, which renders as a
-    # visible backslash-n instead of a line break. Walk the string once so an
-    # existing `\n` pair is recognized and left alone before the general
-    # backslash-doubling rule can reach it.
+    # Several inputs need to come out as one of a handful of canonical
+    # two-character escapes (`\n`, `\t`, `\r`, `\"`): a real control
+    # character (a translator who types an actual line break or tab into a
+    # batch value gets one back from json.loads) and an already-literal
+    # escape pair (extract's own encoding of an English string that carried
+    # one of these, which most translators leave untouched since they're
+    # only retyping the surrounding words). Escaping backslashes first turns
+    # the second case into a doubled backslash - a translator who never
+    # touched the marker still gets e.g. `\\t` in the .ts output, which
+    # renders as a visible backslash-t instead of a tab. Walk the string
+    # once so an existing escape pair is recognized and left alone before
+    # the general backslash-doubling rule can reach it.
+    RAW = {"\n": "\\n", "\t": "\\t", "\r": "\\r"}
+    ALREADY_ESCAPED = {"n": "\\n", "t": "\\t", "r": "\\r", '"': '\\"'}
     out = []
     i = 0
     while i < len(value):
         ch = value[i]
-        if ch == "\n" or (ch == "\\" and value[i + 1 : i + 2] == "n"):
-            out.append("\\n")
-            i += 2 if ch == "\\" else 1
+        if ch in RAW:
+            out.append(RAW[ch])
+            i += 1
+        elif ch == "\\" and value[i + 1 : i + 2] in ALREADY_ESCAPED:
+            out.append(ALREADY_ESCAPED[value[i + 1]])
+            i += 2
         elif ch == "\\":
             out.append("\\\\")
             i += 1
