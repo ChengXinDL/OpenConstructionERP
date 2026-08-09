@@ -152,6 +152,10 @@ const FLAGS: Record<string, string> = {
   // IR — Iran (green/white/red horizontal bands with a stylized red
   // emblem centered on the white band)
   ir: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"><rect width="30" height="6.67" fill="#239F40"/><rect y="6.67" width="30" height="6.66" fill="#fff"/><rect y="13.33" width="30" height="6.67" fill="#DA0000"/><g fill="#DA0000"><circle cx="15" cy="10" r="1.6"/><path d="M15 6.8 q1.6 1.6 0 3.2 q-1.6 -1.6 0 -3.2z"/><path d="M15 13.2 q1.6 -1.6 0 -3.2 q-1.6 1.6 0 3.2z"/><path d="M11.8 10 q1.6 1.6 3.2 0 q-1.6 -1.6 -3.2 0z"/><path d="M18.2 10 q-1.6 1.6 -3.2 0 q1.6 -1.6 3.2 0z"/></g></svg>`,
+
+  // IL — Israel (white field, blue horizontal stripes near top/bottom,
+  // blue Star of David centered)
+  il: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"><rect width="30" height="20" fill="#fff"/><rect y="2.2" width="30" height="2.4" fill="#0038b8"/><rect y="15.4" width="30" height="2.4" fill="#0038b8"/><g fill="none" stroke="#0038b8" stroke-width="0.7"><polygon points="15,6 11.5,12.5 18.5,12.5"/><polygon points="15,15 11.5,8.5 18.5,8.5"/></g></svg>`,
 };
 
 /** Fallback emoji map for unknown codes. Covers everything that lands in
@@ -181,6 +185,8 @@ const EMOJI_FALLBACK: Record<string, string> = {
   ph: '🇵🇭',
   // Persian/Farsi locale (has an SVG above; fallback only)
   ir: '🇮🇷',
+  // Hebrew locale (has an SVG above; fallback only)
+  il: '🇮🇱',
   // CIS provenance badge (has an SVG above; fallback only)
   cis: '🤝',
 };

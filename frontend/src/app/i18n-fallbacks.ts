@@ -51,6 +51,7 @@ import bn from './locales/bn';
 import kk from './locales/kk';
 import fil from './locales/fil';
 import fa from './locales/fa';
+import he from './locales/he';
 
 export const fallbackResources = {
   en,
@@ -87,4 +88,5 @@ export const fallbackResources = {
   kk,
   fil,
   fa,
+  he,
 };

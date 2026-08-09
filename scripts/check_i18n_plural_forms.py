@@ -81,6 +81,7 @@ CATEGORIES: dict[str, tuple[str, ...]] = {
     "fi": ("one", "other"),
     "fil": ("one", "other"),
     "fr": ("one", "many", "other"),
+    "he": ("one", "two", "other"),
     "hi": ("one", "other"),
     "hr": ("one", "few", "other"),
     "id": ("other",),
@@ -99,6 +100,7 @@ CATEGORIES: dict[str, tuple[str, ...]] = {
     "sv": ("one", "other"),
     "th": ("other",),
     "tr": ("one", "other"),
+    "ur": ("one", "other"),
     "vi": ("other",),
     "zh": ("other",),
 }
