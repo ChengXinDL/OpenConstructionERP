@@ -130,6 +130,10 @@ const FLAGS: Record<string, string> = {
   // switcher showed a name with an empty slot where every other row has a flag.
   ee: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 11 7"><rect width="11" height="2.333" fill="#0072CE"/><rect y="2.333" width="11" height="2.334" fill="#000"/><rect y="4.667" width="11" height="2.333" fill="#fff"/></svg>`,
 
+  // BD — Bangladesh (green field, red disc offset toward the hoist so it
+  // appears centred when flying)
+  bd: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 18"><rect width="30" height="18" fill="#006A4E"/><circle cx="13.5" cy="9" r="5.4" fill="#F42A41"/></svg>`,
+
   // CIS — Commonwealth of Independent States (СНГ). Not an ISO country; a
   // provenance badge for the in-house GESN/CWICR post-Soviet norm bases.
   // Blue field + gold sun emblem (CIS colours), distinct from any national flag.
@@ -158,6 +162,8 @@ const EMOJI_FALLBACK: Record<string, string> = {
   kg: '🇰🇬',
   // Estonian locale (has an SVG above; fallback only)
   ee: '🇪🇪',
+  // Bengali locale (has an SVG above; fallback only)
+  bd: '🇧🇩',
   // CIS provenance badge (has an SVG above; fallback only)
   cis: '🤝',
 };

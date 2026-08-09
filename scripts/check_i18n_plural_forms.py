@@ -69,6 +69,7 @@ BASELINE_PATH = "scripts/i18n_plural_baseline.json"
 CATEGORIES: dict[str, tuple[str, ...]] = {
     "ar": ("zero", "one", "two", "few", "many", "other"),
     "bg": ("one", "other"),
+    "bn": ("one", "other"),
     "cs": ("one", "few", "many", "other"),
     "da": ("one", "other"),
     "de": ("one", "other"),
