@@ -243,6 +243,8 @@ export const navGroups: NavGroup[] = [
       { labelKey: 'catalog.title', to: '/catalog', icon: Boxes },
       { labelKey: 'nav.cost_explorer', to: '/cost-explorer', icon: Compass },
       { labelKey: 'nav.assemblies', to: '/assemblies', icon: Layers },
+      { labelKey: 'nav.cost_match', to: '/cost-match', icon: Link2 },
+      { labelKey: 'nav.fx', to: '/fx', icon: Wallet },
       { labelKey: 'nav.benchmarks', to: '/benchmarks', icon: BarChart3, moduleKey: 'cost-benchmark', advancedOnly: true },
     ],
   },
@@ -367,6 +369,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { labelKey: 'nav.5d_cost_model', to: '/5d', icon: TrendingUp, moduleKey: '5d', advancedOnly: true },
       { labelKey: 'nav.progress', to: '/progress', icon: Activity, advancedOnly: true },
+      { labelKey: 'nav.full_evm', to: '/full-evm', icon: LineChart, advancedOnly: true },
       { labelKey: 'nav.capacity_planning', to: '/portfolio/capacity', icon: CalendarRange, advancedOnly: true },
       { labelKey: 'nav.resource_leveling', to: '/portfolio/leveling', icon: Scale, advancedOnly: true },
       { labelKey: 'nav.risk_register', to: '/risks', icon: ShieldAlert, advancedOnly: true },

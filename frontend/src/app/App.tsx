@@ -399,6 +399,15 @@ const TaxWithholdingPage = lazy(() =>
 const EInvoiceClearancePage = lazy(() =>
   import('@/features/einvoice-clearance').then((m) => ({ default: m.EInvoiceClearancePage }))
 );
+const CostMatchPage = lazy(() =>
+  import('@/features/cost-match').then((m) => ({ default: m.CostMatchPage }))
+);
+const FullEvmPage = lazy(() =>
+  import('@/features/full-evm').then((m) => ({ default: m.FullEvmPage }))
+);
+const FxPage = lazy(() =>
+  import('@/features/fx').then((m) => ({ default: m.FxPage }))
+);
 const ProgressClaimDetailPage = lazy(() =>
   import('@/features/contracts').then((m) => ({ default: m.ProgressClaimDetailPage }))
 );
@@ -1412,6 +1421,9 @@ export default function App() {
         <Route path="/payment-clock" element={<P title="Payment Clock"><PaymentClockPage /></P>} />
         <Route path="/tax-withholding" element={<P title="Withholding Tax"><TaxWithholdingPage /></P>} />
         <Route path="/einvoice-clearance" element={<P title="E-invoice Clearance"><EInvoiceClearancePage /></P>} />
+        <Route path="/cost-match" element={<P title="Cost Match"><CostMatchPage /></P>} />
+        <Route path="/full-evm" element={<P title="Earned Value"><FullEvmPage /></P>} />
+        <Route path="/fx" element={<P title="Currencies"><FxPage /></P>} />
         <Route path="/projects/:projectId/contracts" element={<P title="Contracts"><ContractsPage /></P>} />
         <Route path="/projects/:projectId/contracts/claims/:claimId" element={<P title="Progress Claim"><ProgressClaimDetailPage /></P>} />
         <Route path="/subcontractors" element={<P title="Subcontractors"><SubcontractorsPage /></P>} />
