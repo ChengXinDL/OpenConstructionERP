@@ -1198,5 +1198,79 @@
    "sv"
   ],
   "key_count_at_seed": 3
+ },
+ {
+  "locale_set": [
+   "fil"
+  ],
+  "key_count_at_seed": 59
+ },
+ {
+  "locale_set": [
+   "fil",
+   "fr"
+  ],
+  "key_count_at_seed": 11
+ },
+ {
+  "locale_set": [
+   "fil",
+   "id"
+  ],
+  "key_count_at_seed": 11
+ },
+ {
+  "locale_set": [
+   "cs",
+   "de",
+   "fil",
+   "fr",
+   "it",
+   "nl",
+   "ro",
+   "sv"
+  ],
+  "key_count_at_seed": 6
+ },
+ {
+  "locale_set": [
+   "fil",
+   "nl"
+  ],
+  "key_count_at_seed": 4
+ },
+ {
+  "locale_set": [
+   "fil",
+   "ro"
+  ],
+  "key_count_at_seed": 4
+ },
+ {
+  "locale_set": [
+   "fil",
+   "id",
+   "vi"
+  ],
+  "key_count_at_seed": 3
+ },
+ {
+  "locale_set": [
+   "cs",
+   "da",
+   "de",
+   "et",
+   "fil",
+   "fr",
+   "hr",
+   "id",
+   "it",
+   "nl",
+   "no",
+   "pl",
+   "ro",
+   "sv"
+  ],
+  "key_count_at_seed": 3
  }
 ]

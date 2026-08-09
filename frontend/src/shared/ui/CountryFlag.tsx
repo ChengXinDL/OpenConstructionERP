@@ -144,6 +144,10 @@ const FLAGS: Record<string, string> = {
 
   // KZ — Kazakhstan (sky-blue field, 32-ray gold sun, gold ornament near the hoist)
   kz: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"><rect width="30" height="20" fill="#00AFCA"/><g stroke="#FEC50C" stroke-width="0.6" stroke-linecap="round"><line x1="15" y1="4.5" x2="15" y2="2.6"/><line x1="15" y1="4.5" x2="15" y2="2.6" transform="rotate(22.5 15 10)"/><line x1="15" y1="4.5" x2="15" y2="2.6" transform="rotate(45 15 10)"/><line x1="15" y1="4.5" x2="15" y2="2.6" transform="rotate(67.5 15 10)"/><line x1="15" y1="4.5" x2="15" y2="2.6" transform="rotate(90 15 10)"/><line x1="15" y1="4.5" x2="15" y2="2.6" transform="rotate(112.5 15 10)"/><line x1="15" y1="4.5" x2="15" y2="2.6" transform="rotate(135 15 10)"/><line x1="15" y1="4.5" x2="15" y2="2.6" transform="rotate(157.5 15 10)"/><line x1="15" y1="4.5" x2="15" y2="2.6" transform="rotate(180 15 10)"/><line x1="15" y1="4.5" x2="15" y2="2.6" transform="rotate(202.5 15 10)"/><line x1="15" y1="4.5" x2="15" y2="2.6" transform="rotate(225 15 10)"/><line x1="15" y1="4.5" x2="15" y2="2.6" transform="rotate(247.5 15 10)"/><line x1="15" y1="4.5" x2="15" y2="2.6" transform="rotate(270 15 10)"/><line x1="15" y1="4.5" x2="15" y2="2.6" transform="rotate(292.5 15 10)"/><line x1="15" y1="4.5" x2="15" y2="2.6" transform="rotate(315 15 10)"/><line x1="15" y1="4.5" x2="15" y2="2.6" transform="rotate(337.5 15 10)"/></g><circle cx="15" cy="10" r="3.4" fill="#FEC50C"/><rect x="1.5" y="1.5" width="1.4" height="17" fill="#FEC50C"/></svg>`,
+
+  // PH — Philippines (blue over red field, white hoist triangle with an
+  // 8-ray gold sun and three gold stars at the triangle's points)
+  ph: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"><rect width="30" height="10" fill="#0038A8"/><rect y="10" width="30" height="10" fill="#CE1126"/><polygon points="0,0 0,20 11,10" fill="#FFFFFF"/><g stroke="#FCD116" stroke-width="0.5" stroke-linecap="round"><line x1="4" y1="7.8" x2="4" y2="6.2" transform="rotate(0 4 10)"/><line x1="4" y1="7.8" x2="4" y2="6.2" transform="rotate(45 4 10)"/><line x1="4" y1="7.8" x2="4" y2="6.2" transform="rotate(90 4 10)"/><line x1="4" y1="7.8" x2="4" y2="6.2" transform="rotate(135 4 10)"/><line x1="4" y1="7.8" x2="4" y2="6.2" transform="rotate(180 4 10)"/><line x1="4" y1="7.8" x2="4" y2="6.2" transform="rotate(225 4 10)"/><line x1="4" y1="7.8" x2="4" y2="6.2" transform="rotate(270 4 10)"/><line x1="4" y1="7.8" x2="4" y2="6.2" transform="rotate(315 4 10)"/></g><circle cx="4" cy="10" r="1.7" fill="#FCD116"/><circle cx="1.3" cy="1.3" r="0.9" fill="#FCD116"/><circle cx="1.3" cy="18.7" r="0.9" fill="#FCD116"/><circle cx="9.2" cy="10" r="0.9" fill="#FCD116"/></svg>`,
 };
 
 /** Fallback emoji map for unknown codes. Covers everything that lands in
@@ -169,6 +173,8 @@ const EMOJI_FALLBACK: Record<string, string> = {
   bd: '🇧🇩',
   // Kazakh locale (has an SVG above; fallback only)
   kz: '🇰🇿',
+  // Filipino locale (has an SVG above; fallback only)
+  ph: '🇵🇭',
   // CIS provenance badge (has an SVG above; fallback only)
   cis: '🤝',
 };
