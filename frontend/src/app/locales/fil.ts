@@ -16024,7 +16024,7 @@ const resource = {
     "schedule.confirm_reset": "Burahin ang lahat ng aktibidad sa schedule na ito? Hindi na ito maibabalik. Puwede mo pa itong buuin ulit mula sa BOQ.",
     "takeoff.drop_file_here": "I-drop dito ang iyong PDF",
     "takeoff.file_limit": "PDF",
-    "takeoff.formats_detailed": "PDF construction drawings â€” vector floor plans, section, at scans. Kukunin ng AI ang mga dingding, slab, pinto, at ibang element na may quantity.",
+    "takeoff.formats_detailed": "PDF construction drawings — vector floor plans, section, at scans. Kukunin ng AI ang mga dingding, slab, pinto, at ibang element na may quantity.",
     "takeoff.landing_drop_pdf_only_msg": "Sinusukat ng viewer na ito ang mga PDF drawing. I-drop ang PDF file para magsimula.",
     "takeoff.landing_feat_extract_desc": "Kunin ang mga schedule at BOQ table diretso mula sa teksto ng PDF, bawat row ay may kasamang confidence score na dapat i-review.",
     "takeoff.landing_feat_extract_title": "AI text at table extraction",

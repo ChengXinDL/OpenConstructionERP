@@ -13590,7 +13590,7 @@ const resource = {
   "schedule_cpm.intro_link_schedule": "Back to schedule",
     "takeoff.drop_file_here": "Drop your PDF here",
     "takeoff.file_limit": "PDF",
-    "takeoff.formats_detailed": "PDF construction drawings â€” vector floor plans, sections and scans. AI will extract walls, slabs, doors, and other elements with quantities.",
+    "takeoff.formats_detailed": "PDF construction drawings — vector floor plans, sections and scans. AI will extract walls, slabs, doors, and other elements with quantities.",
     "takeoff.landing_drop_here": "Drop a PDF here or click to browse",
     "takeoff.landing_drop_pdf_only_msg": "This viewer measures PDF drawings. Drop a PDF file to get started.",
     "takeoff.landing_drop_pdf_only_title": "PDF only",
