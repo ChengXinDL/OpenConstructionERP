@@ -11444,7 +11444,6 @@ const resource = {
     "match_progress.toast_failed_title": "فشلت المطابقة",
     "match_wizard.available_label": "المتاح للتثبيت ({{n}})",
     "match_wizard.bim_ready": "جاهز",
-    "match_wizard.bim_not_ready": "{{status}}",
     "match_wizard.create_failed": "تعذّر بدء المطابقة",
     "match_wizard.creating": "جارٍ إنشاء الجلسة وتشغيل المطابقة المتجهية…",
     "match_wizard.excel_drop": "انقر أو أفلت ملف Excel",

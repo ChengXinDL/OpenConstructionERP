@@ -10878,7 +10878,6 @@ const resource = {
     "match_progress.toast_failed_title": "Nabigo ang match",
     "match_wizard.available_label": "Available na i-install ({{n}})",
     "match_wizard.bim_ready": "Handa na",
-    "match_wizard.bim_not_ready": "{{status}}",
     "match_wizard.create_failed": "Hindi masimulan ang pagtutugma",
     "match_wizard.creating": "Gumagawa ng session at nagpapatakbo ng vector match…",
     "match_wizard.excel_drop": "I-click o ihulog ang file na Excel",

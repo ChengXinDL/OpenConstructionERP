@@ -11348,7 +11348,6 @@ const resource = {
     "match_progress.toast_failed_title": "Sobitamine ebaõnnestus",
     "match_wizard.available_label": "Paigaldamiseks saadaval ({{n}})",
     "match_wizard.bim_ready": "Valmis",
-    "match_wizard.bim_not_ready": "{{status}}",
     "match_wizard.create_failed": "Sobitamist ei õnnestunud käivitada",
     "match_wizard.creating": "Seansi loomine ja vektorsobituse käivitamine…",
     "match_wizard.excel_drop": "Klõpsa või lohista Exceli fail siia",
