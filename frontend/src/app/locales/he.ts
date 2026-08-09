@@ -15318,6 +15318,7 @@ const resource = {
     "bim.federation.member_count": "מודלים",
     "bim.federation.member_count_n_one": "{{count}} מודל",
     "bim.federation.member_count_n_other": "{{count}} מודלים",
+    "bim.federation.member_count_n_two": "{{count}} מודלים",
     "bim.federation.members": "חברים",
     "bim.federation.new": "פדרציה חדשה",
     "bim.federation.new_subtitle": "פדרציות מקבצות N מודלי BIM עם מקור משותף. תוכלו להוסיף מודלים לאחר היצירה.",
