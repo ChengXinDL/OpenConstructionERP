@@ -178,3 +178,20 @@ repos:
         language: system
         pass_filenames: false
         files: ^(frontend/src/.*\.tsx?|scripts/i18n_plural_baseline\.json)$
+
+      # Both guards above ask about a key's name or its value. This one asks
+      # where the key sits, which nothing else does. A locale file is one
+      # object holding one member, "translation", and i18n.ts hands i18next
+      # that member alone. A key appended a level higher, beside the
+      # dictionary instead of inside it, parses and builds and is never
+      # looked up, and because every call site carries an English
+      # defaultValue the screen renders English in all 30 languages with
+      # every other gate green. That is exactly how the three statutory
+      # modules shipped: 6969 translated keys, none of them reachable. No
+      # baseline, because a sibling key is never correct.
+      - id: i18n-key-nesting-check
+        name: Gate locale keys written beside the dictionary
+        entry: python scripts/check_i18n_key_nesting.py
+        language: system
+        pass_filenames: false
+        files: ^frontend/src/app/locales/.*\.ts$
