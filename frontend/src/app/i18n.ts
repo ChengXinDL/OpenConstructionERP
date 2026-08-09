@@ -38,6 +38,7 @@ export const SUPPORTED_LANGUAGES = [
   { code: 'bn', name: 'বাংলা', english: 'Bengali', flag: '🇧🇩', country: 'bd' },
   { code: 'kk', name: 'Қазақша', english: 'Kazakh', flag: '🇰🇿', country: 'kz' },
   { code: 'fil', name: 'Filipino', english: 'Filipino', flag: '🇵🇭', country: 'ph' },
+  { code: 'fa', name: 'فارسی', english: 'Persian', flag: '🇮🇷', country: 'ir', dir: 'rtl' },
 ];
 
 export function getLanguageByCode(code: string): (typeof SUPPORTED_LANGUAGES)[number] {

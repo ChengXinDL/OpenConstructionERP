@@ -148,6 +148,10 @@ const FLAGS: Record<string, string> = {
   // PH — Philippines (blue over red field, white hoist triangle with an
   // 8-ray gold sun and three gold stars at the triangle's points)
   ph: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"><rect width="30" height="10" fill="#0038A8"/><rect y="10" width="30" height="10" fill="#CE1126"/><polygon points="0,0 0,20 11,10" fill="#FFFFFF"/><g stroke="#FCD116" stroke-width="0.5" stroke-linecap="round"><line x1="4" y1="7.8" x2="4" y2="6.2" transform="rotate(0 4 10)"/><line x1="4" y1="7.8" x2="4" y2="6.2" transform="rotate(45 4 10)"/><line x1="4" y1="7.8" x2="4" y2="6.2" transform="rotate(90 4 10)"/><line x1="4" y1="7.8" x2="4" y2="6.2" transform="rotate(135 4 10)"/><line x1="4" y1="7.8" x2="4" y2="6.2" transform="rotate(180 4 10)"/><line x1="4" y1="7.8" x2="4" y2="6.2" transform="rotate(225 4 10)"/><line x1="4" y1="7.8" x2="4" y2="6.2" transform="rotate(270 4 10)"/><line x1="4" y1="7.8" x2="4" y2="6.2" transform="rotate(315 4 10)"/></g><circle cx="4" cy="10" r="1.7" fill="#FCD116"/><circle cx="1.3" cy="1.3" r="0.9" fill="#FCD116"/><circle cx="1.3" cy="18.7" r="0.9" fill="#FCD116"/><circle cx="9.2" cy="10" r="0.9" fill="#FCD116"/></svg>`,
+
+  // IR — Iran (green/white/red horizontal bands with a stylized red
+  // emblem centered on the white band)
+  ir: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"><rect width="30" height="6.67" fill="#239F40"/><rect y="6.67" width="30" height="6.66" fill="#fff"/><rect y="13.33" width="30" height="6.67" fill="#DA0000"/><g fill="#DA0000"><circle cx="15" cy="10" r="1.6"/><path d="M15 6.8 q1.6 1.6 0 3.2 q-1.6 -1.6 0 -3.2z"/><path d="M15 13.2 q1.6 -1.6 0 -3.2 q-1.6 1.6 0 3.2z"/><path d="M11.8 10 q1.6 1.6 3.2 0 q-1.6 -1.6 -3.2 0z"/><path d="M18.2 10 q-1.6 1.6 -3.2 0 q1.6 -1.6 3.2 0z"/></g></svg>`,
 };
 
 /** Fallback emoji map for unknown codes. Covers everything that lands in
@@ -175,6 +179,8 @@ const EMOJI_FALLBACK: Record<string, string> = {
   kz: '🇰🇿',
   // Filipino locale (has an SVG above; fallback only)
   ph: '🇵🇭',
+  // Persian/Farsi locale (has an SVG above; fallback only)
+  ir: '🇮🇷',
   // CIS provenance badge (has an SVG above; fallback only)
   cis: '🤝',
 };
