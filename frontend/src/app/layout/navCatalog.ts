@@ -168,8 +168,13 @@ export interface NavGroup {
 // the active route auto-expands; per-group open/closed state persists
 // to localStorage (see COLLAPSED_KEY).
 //
-// Source-of-truth audit: every `to` here is cross-checked against
-// `App.tsx` <Route path="…"/> entries — no broken links. Two routes the
+// Source-of-truth audit: every `to` here is cross-checked against both places
+// a route can come from, the `App.tsx` <Route path="…"/> list and the manifests
+// under `src/modules`, which `ModuleRoutes` mounts only while their module is
+// enabled. Checking App.tsx alone reports the module-owned screens as broken
+// links when they are not, so `navCatalog.test.ts` reads both and also asserts
+// that a row whose screen only a module provides names that module in
+// `moduleKey` — without it the row outlives its own route. Two routes the
 // old flat menu had dropped (`/benchmarks` Cost Benchmarks, and
 // `/collaboration`) are re-surfaced here, along with the module-registry
 // surface that never had a sidebar home because its manifest declared a
@@ -261,7 +266,7 @@ export const navGroups: NavGroup[] = [
       { labelKey: 'nav.match_elements', to: '/match-elements', icon: Link2, badge: 'BETA' },
       { labelKey: 'nav.estimation_dashboard', to: '/project-intelligence', icon: BrainCircuit },
       { labelKey: 'nav.rom_estimate', to: '/rom-estimate', icon: Gauge },
-      { labelKey: 'nav.methodologies', to: '/methodologies', icon: SlidersHorizontal },
+      { labelKey: 'nav.methodologies', to: '/methodologies', icon: SlidersHorizontal, moduleKey: 'methodology' },
     ],
   },
   // ── 4b. DRAWINGS & FILES ───────────────────────────────────────────

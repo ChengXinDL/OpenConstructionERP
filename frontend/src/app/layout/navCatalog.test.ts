@@ -10,9 +10,12 @@
 // parent module's icon, which is the behaviour detail routes rely on, so a
 // disagreement here is a real one rather than a gap.
 
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { navGroups } from './navCatalog';
 import { getRouteIcon } from './routeIcons';
+import { MODULE_REGISTRY } from '@/modules/_registry';
 
 describe('the screen catalogue and the route-icon map', () => {
   it('agree on the icon for every screen the menu offers', () => {
@@ -54,5 +57,79 @@ describe('the screen catalogue and the route-icon map', () => {
       }
     }
     expect(twice).toEqual([]);
+  });
+});
+
+// A menu row and the screen behind it live in different files, and one of them
+// can be switched off while the app runs. Routes reach the router from two
+// places: the static <Route> list in App.tsx, and the manifests under
+// src/modules, which ModuleRoutes mounts only for modules that are enabled.
+// The sidebar, meanwhile, hides a row only when the row names a module. So a
+// row whose screen is module-owned and that names no module survives its own
+// route being unmounted, and the click lands on the catch-all Not Found.
+//
+// Both sources have to be read together. Checking the menu against App.tsx
+// alone reports four working screens as dead, which is how the gap below was
+// first mis-diagnosed. App.tsx is read as text rather than imported: importing
+// it would pull the entire application into the test worker.
+//
+// Resolved from the working directory rather than `import.meta.url`, which this
+// vitest config rewrites to a bare drive root on Windows. Runs from `frontend/`
+// under `npm test` and from the repo root under a workspace run.
+const APP_CANDIDATES = [
+  resolve(process.cwd(), 'src/app/App.tsx'),
+  resolve(process.cwd(), 'frontend/src/app/App.tsx'),
+];
+const APP_PATH = APP_CANDIDATES.find(existsSync);
+if (!APP_PATH) throw new Error(`cannot find App.tsx, looked in ${APP_CANDIDATES.join(' and ')}`);
+const APP_SOURCE = readFileSync(APP_PATH, 'utf8');
+const staticRoutes = new Set<string>();
+for (const match of APP_SOURCE.matchAll(/<Route\s[^>]*?path=["']([^"']+)["']/g)) {
+  if (match[1]) staticRoutes.add(match[1]);
+}
+
+// A menu target and a manifest path may both carry a query string
+// (`/takeoff?tab=measurements`); the router matches on the path in front of it.
+const bare = (path: string): string => path.split(/[?#]/)[0] ?? path;
+
+const moduleRoutes = new Map<string, string>();
+for (const manifest of MODULE_REGISTRY) {
+  for (const route of manifest.routes) moduleRoutes.set(bare(route.path), manifest.id);
+}
+
+const navItems = navGroups.flatMap((group) => group.items);
+
+describe('the screen catalogue and the routes that mount those screens', () => {
+  it('offers no screen the router cannot mount', () => {
+    // If the regex above ever stops matching, every row looks dead at once;
+    // say so plainly instead of reporting the whole menu as broken.
+    expect(staticRoutes.size).toBeGreaterThan(100);
+
+    const dead: string[] = [];
+    for (const item of navItems) {
+      const path = bare(item.to);
+      if (!staticRoutes.has(path) && !moduleRoutes.has(path)) {
+        dead.push(`${item.to} (${item.labelKey}): no <Route> in App.tsx and no module declares it`);
+      }
+    }
+    expect(dead).toEqual([]);
+  });
+
+  it('names the module behind a screen that only that module provides', () => {
+    const silent: string[] = [];
+    for (const item of navItems) {
+      const path = bare(item.to);
+      // A statically routed screen is there whatever the module does, so the
+      // row is free to stay. Only a module-owned screen can disappear.
+      if (staticRoutes.has(path)) continue;
+      const owner = moduleRoutes.get(path);
+      if (!owner) continue; // already reported as unmountable above
+      if (!item.moduleKey) {
+        silent.push(`${item.to}: mounted by module '${owner}' and names no moduleKey, so the row outlives its screen`);
+      } else if (item.moduleKey !== owner) {
+        silent.push(`${item.to}: names module '${item.moduleKey}' but '${owner}' mounts it`);
+      }
+    }
+    expect(silent).toEqual([]);
   });
 });
