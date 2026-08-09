@@ -132,4 +132,43 @@ describe('the screen catalogue and the routes that mount those screens', () => {
     }
     expect(silent).toEqual([]);
   });
+
+  // The sidebar is not the only surface that offers a screen. The command
+  // palette keeps its own static page list and reaches the same routes, so the
+  // same rule has to hold there. It is checked here rather than beside the
+  // palette because this is the file that already knows which routes a module
+  // owns; the list is read out of the source because it is not exported.
+  it('lets the command palette offer no page its module has switched off', () => {
+    const source = readFileSync(
+      [
+        resolve(process.cwd(), 'src/shared/ui/CommandPalette.tsx'),
+        resolve(process.cwd(), 'frontend/src/shared/ui/CommandPalette.tsx'),
+      ].find(existsSync) ?? '',
+      'utf8',
+    );
+    const block = source.match(/const PAGE_RESULTS: SearchResult\[\] = \[([\s\S]*?)\n\];/)?.[1];
+    expect(block, 'PAGE_RESULTS not found, so this asserts nothing').toBeTruthy();
+
+    const entries = (block ?? '')
+      .split('\n')
+      .map((line) => ({
+        path: line.match(/\bpath:\s*'([^']+)'/)?.[1],
+        moduleKey: line.match(/\bmoduleKey:\s*'([^']+)'/)?.[1],
+      }))
+      .filter((entry): entry is { path: string; moduleKey: string | undefined } => Boolean(entry.path));
+    expect(entries.length).toBeGreaterThan(10);
+
+    const silent: string[] = [];
+    for (const entry of entries) {
+      const path = bare(entry.path);
+      if (staticRoutes.has(path)) continue;
+      const owner = moduleRoutes.get(path);
+      if (!owner) {
+        silent.push(`${entry.path}: the palette offers a page with no route at all`);
+      } else if (entry.moduleKey !== owner) {
+        silent.push(`${entry.path}: mounted by module '${owner}', palette says ${entry.moduleKey ? `'${entry.moduleKey}'` : 'nothing'}`);
+      }
+    }
+    expect(silent).toEqual([]);
+  });
 });
