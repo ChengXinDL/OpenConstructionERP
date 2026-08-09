@@ -94,6 +94,7 @@ async def enrich_projects(project_ids: list[uuid.UUID]) -> None:
         from app.modules.schedule_advanced.models import MasterSchedule
         from app.modules.schedule_advanced.seed import seed_schedule_advanced_demo
         from app.modules.service.seed import seed_service_demo
+        from app.modules.site_prep.seed import seed_site_prep_demo
         from app.modules.supplier_catalogs.seed import seed_supplier_catalogs
         from app.modules.takeoff.seed import seed_takeoff_demo
         from app.modules.temporary_works.seed import seed_temporary_works_demo
@@ -214,6 +215,14 @@ async def enrich_projects(project_ids: list[uuid.UUID]) -> None:
             # so it cannot run before the register exists.
             ("estimate_basis", None, lambda s: seed_estimate_basis_demo(s, _demo_pids)),
             ("temporary_works", None, lambda s: seed_temporary_works_demo(s, _demo_pids)),
+            # Mobilisation plan and readiness register. Demo-only: it records
+            # signed consents, issued certificates and closed commencement gates,
+            # which is exactly the kind of earned record that must never appear
+            # in a customer's live project. Stages each project by its position
+            # in this list, so the flagship shows a live mobilisation rather than
+            # one already closed out. Self-guards per project on an existing plan
+            # or item.
+            ("site_prep", None, lambda s: seed_site_prep_demo(s, _demo_pids)),
             ("forms", None, lambda s: seed_forms_submissions_demo(s, _demo_pids)),
             ("construction_control", None, lambda s: seed_construction_control_demo(s, _demo_pids)),
             ("commissioning", None, lambda s: seed_commissioning_demo(s, _demo_pids)),
