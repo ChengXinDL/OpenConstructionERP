@@ -80,6 +80,7 @@ import {
   Leaf,
   HelpCircle,
   Mail,
+  Inbox,
   Send,
   Camera,
   PenTool,
@@ -224,6 +225,7 @@ const EXTRA_ROUTE_ICONS: Record<string, LucideIcon> = {
   '/meetings': CalendarDays,
   '/rfi': HelpCircle,
   '/correspondence': Mail,
+  '/inbound-email': Inbox,
   '/collaboration': Users,
   // ── 15. Documents ─────────────────────────────────────────────────
   '/submittals': FileCheck,

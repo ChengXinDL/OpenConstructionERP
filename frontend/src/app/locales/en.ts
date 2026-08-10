@@ -6065,6 +6065,7 @@ const resource = {
     "nav.phone_log": "Phone Log",
     "nav.connectors": "Document Connectors",
     "nav.inbound_capture": "Inbound Capture",
+    "nav.inbound_email": "Email Delay Scan",
     "nav.find_records": "Find Records",
     "nav.risk_register": "Risk Register",
     "nav.documents": "Documents",

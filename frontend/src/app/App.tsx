@@ -530,6 +530,9 @@ const ReconciliationPage = lazy(() =>
 const InboundCapturePage = lazy(() =>
   import('@/features/inbound').then((m) => ({ default: m.InboundCapturePage })),
 );
+const InboundEmailPage = lazy(() =>
+  import('@/features/inbound-email').then((m) => ({ default: m.InboundEmailPage })),
+);
 const RetrievalPage = lazy(() => import('@/features/retrieval').then((m) => ({ default: m.RetrievalPage })));
 // v4.1 — three additional P1 Slice-1 features land behind dedicated routes
 // (Assembly Library was already eagerly imported by the assemblies feature
@@ -1522,6 +1525,10 @@ export default function App() {
             </AdminOnly>
           }
         />
+        {/* The file-import sibling of the capture gateway above: it reads one
+            exported message and keeps nothing, so it needs neither the admin
+            gate nor a project in context. */}
+        <Route path="/inbound-email" element={<P title="Email Delay Scan"><InboundEmailPage /></P>} />
         <Route path="/find" element={<P title="Find Records"><RetrievalPage /></P>} />
         <Route path="/projects/:projectId/find" element={<P title="Find Records"><RetrievalPage /></P>} />
         <Route path="/estimates" element={<Navigate to="/boq" replace />} />

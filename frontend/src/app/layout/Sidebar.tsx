@@ -226,6 +226,7 @@ const ROUTE_BACKEND_MODULE: Record<string, string> = {
   '/submittals': 'oe_submittals',
   '/transmittals': 'oe_transmittals',
   '/correspondence': 'oe_correspondence',
+  '/inbound-email': 'oe_inbound_email',
   '/collaboration': 'oe_collaboration',
   // Documentation
   '/cde': 'oe_cde',
