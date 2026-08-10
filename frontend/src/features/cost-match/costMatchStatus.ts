@@ -395,7 +395,10 @@ const COLUMN_SEPARATOR = /\t|;|\|/;
 function readQuantity(raw: string): { value: string | null; readable: boolean } {
   const trimmed = raw.trim();
   if (trimmed === '') return { value: null, readable: true };
-  const stripped = trimmed.replace(/[\s  ]/g, '');
+  // Only \s here: it already covers U+00A0 and U+202F, which used to be
+  // spelled out beside it. Naming them again read as "these are extra" and
+  // cost an eslint no-irregular-whitespace error for nothing.
+  const stripped = trimmed.replace(/\s/g, '');
   const lastComma = stripped.lastIndexOf(',');
   const lastDot = stripped.lastIndexOf('.');
   let normalised = stripped;
