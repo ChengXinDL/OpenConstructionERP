@@ -141,6 +141,28 @@ COUNTRY_REGIMES: dict[str, CountryRegime] = {
         correction_mechanism="cancellation inside the SEFAZ window, otherwise a carta de correcao",
         notes="Authorisation is per state. The chave de acesso encodes the state, the issuer and the document.",
     ),
+    "CL": CountryRegime(
+        country="CL",
+        regime=REGIME_CLEARANCE,
+        platform="DTE via SII",
+        label="Chile - DTE with a folio authorised by the SII",
+        identifier_label="folio (from the CAF range)",
+        document_format="dte_sii",
+        profile_fields=("tax_registration_id", "certificate_reference"),
+        document_fields=("rut_issuer", "rut_receiver", "tipo_dte", "caf_reference"),
+        # The SII accepts no cancellation of an issued DTE. The correction is a
+        # nota de credito, which is a document of its own with its own folio and
+        # its own accounting, so it must not be recorded as a late cancellation.
+        cancellation_window_days=None,
+        correction_mechanism="nota de credito, itself a DTE with its own folio",
+        notes=(
+            "Folios are drawn in advance: the issuer requests a range from the SII as a CAF file "
+            "and stamps each document from it, so a submission can fail for having no folios left "
+            "rather than for anything wrong with the invoice. The buyer's window to reject runs "
+            "from receipt, and an invoice that passes it becomes enforceable in its own right, "
+            "which is why the acknowledgement date matters as much as the clearance."
+        ),
+    ),
     "IT": CountryRegime(
         country="IT",
         regime=REGIME_CLEARANCE,

@@ -207,6 +207,21 @@ _APU_COMPOSITE: dict[str, list[str]] = {
     "costo_directo": ["mano_de_obra", "materiales", "maquinaria"],
 }
 
+# Chilean APU resource split. Same three buckets as the Mexican one and a
+# separate constant anyway, because the middle bucket is called equipos in
+# Chile and these keys are what an estimator reads on the sheet. Sharing the
+# Mexican constant would put "maquinaria" on a Chilean tender to save three
+# lines, and would also mean a later change for one country silently moved the
+# other.
+_APU_CL_BASE_MAPPING: dict[str, list[str]] = {
+    "mano_de_obra": ["labor"],
+    "materiales": ["material"],
+    "equipos": ["machinery", "equipment"],
+}
+_APU_CL_COMPOSITE: dict[str, list[str]] = {
+    "costo_directo": ["mano_de_obra", "materiales", "equipos"],
+}
+
 
 def _section_type_dimension() -> dict[str, Any]:
     """Flat section-type reference dimension (extensible per the design)."""
@@ -1461,6 +1476,88 @@ _MEXICO_TEMPLATE: dict[str, Any] = {
     "vat_rate": "16",
 }
 
+# Chilean APU. A Chilean public tender is submitted as an analisis de precio
+# unitario, not as one marked-up rate: the itemised costo directo carries gastos
+# generales and then utilidades, and the sum of those three is the precio
+# unitario the bid is compared on. IVA sits outside it. The flat Chile template
+# further up reaches the same total by a different road, which is fine for an
+# internal budget and is not what a public client will accept as the analysis.
+#
+# The rates here are the same starting points the flat Chile template already
+# shipped, deliberately: what a contractor needs from us is the cascade, its
+# order and each step's base, because those are what the client dictates. The
+# percentages are theirs and are meant to be edited on the first project.
+#
+# Imprevistos starts at zero. Tenders that carry a contingency put it on the
+# costo directo before utilidades, and tenders that do not carry one would have
+# to notice a line we invented and remove it, so the line exists and is empty
+# rather than absent or guessed.
+_CHILE_APU_TEMPLATE: dict[str, Any] = {
+    "slug": "chile_apu",
+    "name": "Chile (APU)",
+    "description": (
+        "Chilean analisis de precio unitario. Costo directo (mano de obra, "
+        "materiales, equipos) carries imprevistos, gastos generales and "
+        "utilidades in turn to the precio unitario, then IVA 19 percent per "
+        "Ley sobre Impuesto a las Ventas y Servicios."
+    ),
+    "country_code": "CL",
+    "industry": None,
+    "currency": "CLP",
+    # The peso has no minor unit. A cascade that displays cents on a tendered
+    # rate is reporting precision the currency does not have.
+    "decimals": 0,
+    "hierarchy_levels": _FLAT_HIERARCHY,
+    "dimensions": [_stage_dimension()],
+    "column_preset": None,
+    "base_mapping": _APU_CL_BASE_MAPPING,
+    "composites": _APU_CL_COMPOSITE,
+    "cascade_steps": [
+        {
+            "key": "imprevistos",
+            "label": "Imprevistos",
+            "category": "contingency",
+            "kind": "percentage",
+            "rate": "0",
+            "amount": "0",
+            "base": ["costo_directo"],
+        },
+        {
+            "key": "gastos_generales",
+            "label": "Gastos generales",
+            "category": "overhead",
+            "kind": "percentage",
+            "rate": "13",
+            "amount": "0",
+            "base": ["costo_directo", "imprevistos"],
+        },
+        {
+            "key": "utilidades",
+            "label": "Utilidades",
+            "category": "profit",
+            "kind": "percentage",
+            "rate": "8",
+            "amount": "0",
+            "base": ["costo_directo", "imprevistos", "gastos_generales"],
+        },
+        {
+            "key": "iva",
+            "label": "IVA",
+            "category": "tax",
+            "kind": "percentage",
+            "rate": "19",
+            "amount": "0",
+            "base": [
+                "costo_directo",
+                "imprevistos",
+                "gastos_generales",
+                "utilidades",
+            ],
+        },
+    ],
+    "vat_rate": "19",
+}
+
 # Railway-infrastructure industry template. Country-neutral (currency blank,
 # VAT a placeholder step) but ships the full railway typed hierarchy plus the
 # CBS / section-type / stage dimensions and the SMR-vs-equipment cascade, so an
@@ -1766,14 +1863,18 @@ _INDUSTRY_TEMPLATES: list[dict[str, Any]] = [
 ]
 
 
-# Ordered catalogue: international first, then countries, then UZ, MX, then the
-# industry packs (railway plus the sector methodologies).
+# Ordered catalogue: international first, then countries, then UZ, MX, CL, then
+# the industry packs (railway plus the sector methodologies). The two Latin
+# American APU templates sit after the flat countries because a country can
+# appear in both traditions: Chile is in the flat list as well, and which one a
+# project wants depends on who is going to read the estimate.
 TEMPLATES: tuple[dict[str, Any], ...] = (
     _INTERNATIONAL_TEMPLATE,
     *_COUNTRY_TEMPLATES,
     *_MORE_COUNTRY_TEMPLATES,
     _UZBEKISTAN_TEMPLATE,
     _MEXICO_TEMPLATE,
+    _CHILE_APU_TEMPLATE,
     *_INDUSTRY_TEMPLATES,
 )
 
