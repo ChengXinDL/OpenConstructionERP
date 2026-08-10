@@ -135,6 +135,17 @@ jobs:
       - name: Check for keys written beside the translation object
         run: python scripts/check_i18n_key_nesting.py
 
+  i18n-script-mixing:
+    name: Every locale value is written in that language's own script
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check for values written in someone else's alphabet
+        run: python scripts/check_i18n_script_mixing.py
+
   locale-lost-escapes:
     name: No locale value dropped an escape English still carries
     runs-on: ubuntu-latest

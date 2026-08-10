@@ -195,3 +195,19 @@ repos:
         language: system
         pass_filenames: false
         files: ^frontend/src/app/locales/.*\.ts$
+
+      # The three guards above ask whether a key is reachable, complete and
+      # correctly placed. All three pass on a value written in the wrong
+      # language, because it is present, escaped and not English. On 10.08
+      # the live site served the Korean title 종합 노무 단가 산정 on a Thai
+      # case page: 42 of th.ts's case slugs hold values copied whole out of
+      # ko.ts, and nine other locales carry one wrong-language word inside an
+      # otherwise correct sentence. Only a reader of that language could see
+      # it. This asks the one remaining question, whether the value is
+      # written in a script the language actually uses.
+      - id: i18n-script-mixing-check
+        name: Gate locale values written in someone else's alphabet
+        entry: python scripts/check_i18n_script_mixing.py
+        language: system
+        pass_filenames: false
+        files: ^(frontend/src/app/locales/.*\.ts|scripts/i18n_script_baseline\.json)$
