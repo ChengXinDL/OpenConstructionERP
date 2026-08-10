@@ -54,6 +54,10 @@ _HEADERS: tuple[str, ...] = (
 #: pipe. An open polyline encloses nothing and gets length only.
 _AREA_TYPES = frozenset({"LWPOLYLINE", "POLYLINE", "CIRCLE"})
 
+#: ezdxf names the modelspace layout ``Model`` on every document it opens,
+#: whatever the file called it. Everything else in ``doc.layouts`` is a sheet.
+_MODELSPACE = "Model"
+
 
 def is_natively_readable(extension: str) -> bool:
     """True when this extension is read in-process, with no converter binary.
@@ -124,6 +128,51 @@ def _quantity(raw: float, factor: Decimal | None) -> float | None:
     return float(Decimal(str(raw)) * factor)
 
 
+def measurable_entities(parsed: dict[str, Any]) -> list[dict[str, Any]]:
+    """The entities that stand for real, once-built work.
+
+    :func:`parse_dxf` serves a viewer, so it returns everything drawable: every
+    layout, plus the contents of every block definition an INSERT references.
+    Both are wrong to measure.
+
+    A sheet layout shows the model again inside a titleblock. Measured with the
+    model it reports a 50 m2 slab as 100 m2, and nothing about the table says so.
+
+    A block definition is a template, not a placement. Its geometry is emitted
+    once and carries ``block`` instead of ``layout``; the INSERTs that place it
+    are separate entities and are already counted. Measuring the definition adds
+    a door that was never built, whether the drawing places that block once or
+    five hundred times.
+
+    So: modelspace only, definitions dropped. The one concession is a drawing
+    that put its geometry entirely on a single sheet and left the model empty,
+    which some 2D exports do. With exactly one candidate there is nothing to
+    double, so it is measured and said out loud. With several, none is, because
+    guessing which sheet is the drawing is how the 100 m2 slab comes back.
+    """
+    placed = [entity for entity in parsed.get("entities", []) or [] if not entity.get("block")]
+    model = [entity for entity in placed if entity.get("layout") == _MODELSPACE]
+    if model:
+        return model
+
+    by_sheet: dict[str, list[dict[str, Any]]] = {}
+    for entity in placed:
+        by_sheet.setdefault(str(entity.get("layout") or ""), []).append(entity)
+    if len(by_sheet) == 1:
+        sheet, entities = next(iter(by_sheet.items()))
+        logger.info("DXF modelspace is empty; measuring its only sheet layout %r instead.", sheet)
+        return entities
+
+    if by_sheet:
+        logger.warning(
+            "DXF modelspace is empty and its geometry is spread over %d sheet layouts (%s), "
+            "so nothing was measured rather than measuring one of them twice.",
+            len(by_sheet),
+            ", ".join(sorted(by_sheet)),
+        )
+    return []
+
+
 def build_rows(parsed: dict[str, Any]) -> list[tuple[Any, ...]]:
     """Turn a :func:`parse_dxf` result into converter-shaped spreadsheet rows.
 
@@ -141,7 +190,7 @@ def build_rows(parsed: dict[str, Any]) -> list[tuple[Any, ...]]:
     units_label = str(units) if units else "unitless"
 
     rows: list[tuple[Any, ...]] = []
-    for entity in parsed.get("entities", []) or []:
+    for entity in measurable_entities(parsed):
         try:
             from app.modules.dwg_takeoff.dxf_processor import calculate_entity_measurement
 
@@ -207,10 +256,15 @@ def convert_dxf_to_excel(input_path: Path, output_dir: Path) -> Path | None:
         logger.exception("Could not write the DXF element table to %s.", output_path)
         return None
 
+    # Both counts belong on this line. A drawing that measured 40 of its 900
+    # entities produces a confident-looking table either way; the difference
+    # between a deliberate drop and a parse failure is only visible here.
     logger.info(
-        "Read %s natively: %d entities, units %r, no converter binary involved.",
+        "Read %s natively: %d of %d entities measured, %d unreadable, units %r, no converter binary involved.",
         input_path.name,
         len(rows),
+        int(parsed.get("entity_count") or 0),
+        int(parsed.get("skipped_count") or 0),
         parsed.get("units"),
     )
     return output_path

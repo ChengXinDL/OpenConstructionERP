@@ -141,3 +141,94 @@ def test_the_native_format_check_accepts_the_spellings_callers_pass(spelling: st
 def test_the_formats_that_need_a_binary_are_not_claimed(needs_binary: str) -> None:
     """Claiming a format is native would skip the converter and fail the upload."""
     assert not is_natively_readable(needs_binary)
+
+
+# ── What a drawing shows twice must still be built once ────────────────────
+#
+# ``parse_dxf`` serves the viewer, so it returns every layout and the contents
+# of every referenced block definition. Measured as delivered, a plan that also
+# appears inside a titleblock sheet reports twice the concrete that will be
+# poured, and a door template reports a door nobody placed. Neither shows up as
+# an error anywhere; the table just reads high.
+
+
+def _write_drawing_with_a_titleblock_sheet(path: Path) -> None:
+    """A 10x5 m slab in the model, shown again on a sheet, plus two doors."""
+    doc = ezdxf.new("R2010", setup=True)
+    doc.header["$INSUNITS"] = 6  # metres
+    msp = doc.modelspace()
+    msp.add_lwpolyline([(0, 0), (10, 0), (10, 5), (0, 5)], close=True, dxfattribs={"layer": "SLABS"})
+
+    block = doc.blocks.new(name="DOOR")
+    block.add_lwpolyline([(0, 0), (1, 0), (1, 2), (0, 2)], close=True, dxfattribs={"layer": "DOORS"})
+    msp.add_blockref("DOOR", (2, 2), dxfattribs={"layer": "DOORS"})
+    msp.add_blockref("DOOR", (6, 2), dxfattribs={"layer": "DOORS"})
+
+    doc.layout("Layout1").add_lwpolyline([(0, 0), (10, 0), (10, 5), (0, 5)], close=True, dxfattribs={"layer": "SLABS"})
+    doc.saveas(path)
+
+
+def test_a_plan_shown_on_a_sheet_is_measured_once(tmp_path: Path) -> None:
+    """The reported quantity is what gets built, not what gets drawn."""
+    source = tmp_path / "with_sheet.dxf"
+    _write_drawing_with_a_titleblock_sheet(source)
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+
+    written = convert_dxf_to_excel(source, out_dir)
+
+    assert written is not None
+    slabs = [row for row in parse_cad_excel(written) if row.get("category") == "SLABS"]
+    assert len(slabs) == 1, f"the sheet layout added a second slab row: {slabs}"
+    assert slabs[0]["area"] == pytest.approx(50.0), "50 m2 of slab, not the 100 m2 the drawing shows"
+
+
+def test_a_block_definition_is_not_a_placed_element(tmp_path: Path) -> None:
+    """Two doors are placed, so two doors are counted, and the template is not one."""
+    source = tmp_path / "with_blocks.dxf"
+    _write_drawing_with_a_titleblock_sheet(source)
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+
+    written = convert_dxf_to_excel(source, out_dir)
+
+    assert written is not None
+    doors = [row for row in parse_cad_excel(written) if row.get("category") == "DOORS"]
+    assert len(doors) == 2, f"expected the two INSERTs and not the definition behind them: {doors}"
+    assert {str(row.get("type name")) for row in doors} == {"INSERT"}
+
+
+def test_a_drawing_living_entirely_on_one_sheet_is_still_measured(tmp_path: Path) -> None:
+    """Some 2D exports leave the model empty. One sheet cannot double anything."""
+    source = tmp_path / "sheet_only.dxf"
+    doc = ezdxf.new("R2010", setup=True)
+    doc.header["$INSUNITS"] = 6
+    doc.layout("Layout1").add_lwpolyline([(0, 0), (8, 0), (8, 4), (0, 4)], close=True, dxfattribs={"layer": "SLABS"})
+    doc.saveas(source)
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+
+    written = convert_dxf_to_excel(source, out_dir)
+
+    assert written is not None
+    slabs = [row for row in parse_cad_excel(written) if row.get("category") == "SLABS"]
+    assert len(slabs) == 1
+    assert slabs[0]["area"] == pytest.approx(32.0)
+
+
+def test_several_sheets_and_an_empty_model_measure_nothing(tmp_path: Path) -> None:
+    """Refusing to guess is the point: picking one sheet is how the double came back.
+
+    An empty table sends the estimator back to the drawing. A table built from
+    whichever sheet happened to sort first sends them to a tender.
+    """
+    from app.modules.boq.dxf_native import measurable_entities
+
+    parsed = {
+        "entities": [
+            {"entity_type": "LWPOLYLINE", "layer": "SLABS", "layout": "Layout1"},
+            {"entity_type": "LWPOLYLINE", "layer": "SLABS", "layout": "Layout2"},
+        ]
+    }
+
+    assert measurable_entities(parsed) == []
