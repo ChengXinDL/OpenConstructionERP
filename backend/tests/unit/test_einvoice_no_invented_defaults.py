@@ -104,6 +104,16 @@ class TestTheCountryNobodyConfigured:
         assert hit[0].term == "BT-40"
         assert "e-invoice settings" in hit[0].message
 
+    def test_the_buyer_country_message_points_at_the_invoice_not_the_settings(self):
+        # The standing settings hold no buyer fields at all, so sending a user
+        # there to fix a buyer country sends them to a screen without the field.
+        found = violations_for(invoice=_without_any_country(), line_items=_lines(), profile="peppol", defaults={})
+        hit = [v for v in found if v.rule_id == "BR-11"]
+        assert hit, [v.rule_id for v in found]
+        assert hit[0].term == "BT-55"
+        assert "e-invoice settings" not in hit[0].message
+        assert "invoice" in hit[0].message
+
     def test_a_cii_export_refuses_rather_than_naming_a_country_it_was_not_given(self):
         with pytest.raises(EInvoiceError) as exc:
             render_einvoice(invoice=_without_seller_country(), line_items=_lines(), profile="xrechnung", defaults={})

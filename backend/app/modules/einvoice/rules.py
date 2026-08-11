@@ -167,19 +167,15 @@ def _check_parties(inv: EInvoice) -> list[RuleViolation]:
         out.append(RuleViolation("BR-6", FATAL, "Add the seller name in the e-invoice settings.", "BT-27"))
     if not inv.buyer.name:
         out.append(RuleViolation("BR-7", FATAL, "Add the buyer name on the invoice.", "BT-44"))
-    for who, rule_id, party, term in (
-        ("seller", "BR-9", inv.seller, "BT-40"),
-        ("buyer", "BR-11", inv.buyer, "BT-55"),
+    # Each side names the place its own country is fixed. The standing settings
+    # hold seller fields only, so sending a user there for the buyer country
+    # would name a screen that has no such field.
+    for rule_id, party, term, where in (
+        ("BR-9", inv.seller, "BT-40", "seller country code, two letters such as DE or FR, in the e-invoice settings"),
+        ("BR-11", inv.buyer, "BT-55", "buyer country code, two letters such as DE or FR, on this invoice"),
     ):
         if not party.country_code:
-            out.append(
-                RuleViolation(
-                    rule_id,
-                    FATAL,
-                    f"Add the {who} country code, two letters such as DE or FR, in the e-invoice settings.",
-                    term,
-                )
-            )
+            out.append(RuleViolation(rule_id, FATAL, f"Add the {where}.", term))
     if not (inv.seller.vat_id or inv.seller.tax_number or inv.seller.legal_id):
         out.append(
             RuleViolation(
