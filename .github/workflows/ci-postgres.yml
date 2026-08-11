@@ -485,6 +485,58 @@ jobs:
         working-directory: tools/costbase_pipeline
         run: pytest tests -q -p no:cacheprovider
 
+      # Core integration surface: background jobs, chunked uploads, and the
+      # deployment posture the in-product trust panel renders. All four files
+      # were collected by nothing in this workflow before now, which is how a
+      # real regression sat invisible for a month, pre-existing since v10.6.0 and
+      # byte-identical at the 14.8.0 release commit. Eager Celery dispatch, the
+      # documented dev and lightweight-deployment default, drives the job
+      # runner's coroutine on a thread with its own fresh event loop, but that
+      # coroutine drew its database connections from the app's one pooled engine:
+      # a connection checked out on the main loop and later reused on a
+      # dispatch's new loop makes asyncpg refuse it outright with "Task ... got
+      # Future ... attached to a different loop". Severity was worse than
+      # deterministic breakage because it depended on pool warmth. An empty pool
+      # hands the new loop a fresh connection and the job succeeds, so a cold
+      # smoke test passed and the same dispatch failed once request handling had
+      # warmed the pool, which is why it went unnoticed for a month. Every
+      # dispatch now builds its own throwaway engine inside the dedicated
+      # thread's own loop and disposes of it after, so no connection can outlive
+      # the loop that opened it. test_jobs_status_endpoint.py carried a second,
+      # unrelated gap in the same file: the fixture overrode get_current_user_id,
+      # but every route on the router is role-gated through the different
+      # get_current_user_payload dependency, so all four routes 401'd before
+      # reaching a handler and the suite had never actually exercised any of
+      # them.
+      - name: Run core integration tests (jobs, uploads, deployment posture)
+        run: >-
+          pytest tests/integration/core/test_storage_multipart.py
+          tests/integration/core/test_jobs_celery_redis.py
+          tests/integration/core/test_deployment_posture.py
+          tests/integration/core/test_jobs_status_endpoint.py
+          -q -p no:cacheprovider --timeout=300 --timeout-method=thread
+      # The rest of tests/unit/core. Job runner internals not already covered
+      # above: handler registry, progress clamping, idempotency including the
+      # cross-thread key uniqueness case, and the no-Celery fallback. The
+      # Pipeline Builder's Phase-1 spine: Kahn topological order with cycle
+      # rejection, and the side-effecting-node validation rule that backs "AI
+      # proposes, human confirms". The working-days calendar engine's multi-year
+      # holiday computation, and chunked upload streaming's temp-file spooling.
+      # Same gap as the suite above: nothing under tests/unit/core ran in a
+      # blocking lane before now, on files that carry real database and
+      # threading behaviour rather than pure functions.
+      - name: Run core unit tests (jobs, pipelines, calendar, uploads)
+        run: >-
+          pytest tests/unit/core/test_jobs_handler_registry.py
+          tests/unit/core/test_jobs_progress.py
+          tests/unit/core/test_jobs_idempotency.py
+          tests/unit/core/test_jobs_no_celery_fallback.py
+          tests/unit/core/test_pipeline_executor.py
+          tests/unit/core/test_pipeline_graph_rule.py
+          tests/unit/core/test_calendar.py
+          tests/unit/core/test_upload_streaming.py
+          -q -p no:cacheprovider --timeout=300 --timeout-method=thread
+
   # Object ownership and cross-tenant access. Of the 32 files in the repo that
   # test this, exactly one was in a blocking lane; the other 31, all 29 *_idor
   # files among them, were enforced by nothing. That is the class where a gap
