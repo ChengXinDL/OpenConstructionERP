@@ -53,7 +53,7 @@ const playbook: Playbook = {
       whyDefault:
         "If the design keeps changing while the review is open, nobody can say which remark applies to which version. Fixing the reviewed version first is what keeps the cycle honest.",
       moduleLabel: "Project Files",
-      moduleLabelKey: "documents.title",
+      moduleLabelKey: "nav.project_files",
       to: "/projects/:projectId/files",
     },
     {

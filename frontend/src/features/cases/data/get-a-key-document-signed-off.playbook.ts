@@ -53,7 +53,7 @@ const playbook: Playbook = {
       whyDefault:
         "A signature on the wrong version is worse than no signature at all, it looks final while it is not. Confirming the exact document first is what the rest of the sign-off depends on.",
       moduleLabel: "Project Files",
-      moduleLabelKey: "documents.title",
+      moduleLabelKey: "nav.project_files",
       to: "/projects/:projectId/files",
     },
     {
