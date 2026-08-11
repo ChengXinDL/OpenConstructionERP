@@ -45,7 +45,7 @@ async def session() -> AsyncIterator[AsyncSession]:
 
 
 async def _make_boq(session: AsyncSession, project_id: uuid.UUID) -> BOQ:
-    boq = BOQ(project_id=project_id, name="Bill", created_by="test")
+    boq = BOQ(project_id=project_id, name="Bill")
     session.add(boq)
     await session.flush()
     await session.refresh(boq)
