@@ -142,6 +142,39 @@ def _coerce_party(value: Party | dict | None, *, fallback_name: str = "") -> Par
     )
 
 
+def _is_empty(value: Any) -> bool:
+    """True for the shapes a stored-but-unset field arrives in."""
+    return value is None or value == "" or value == {} or value == []
+
+
+def _merge_defaults(ei: dict[str, Any], defaults: dict[str, Any] | None) -> dict[str, Any]:
+    """Fill the gaps in one invoice's e-invoice metadata from standing settings.
+
+    Field-wise, and one level into the seller and buyer parties, because an
+    invoice that renames the seller still wants the configured address rather
+    than no address at all. A whole-object fallback would look right on an
+    invoice that says nothing and silently drop the address on one that says
+    only the name.
+
+    The invoice always wins where it speaks: a value on the document is a
+    deliberate departure from the configuration, not a coincidence.
+    """
+    if not defaults:
+        return ei
+    merged = dict(ei)
+    for key, value in defaults.items():
+        if _is_empty(value):
+            continue
+        current = merged.get(key)
+        if isinstance(value, dict) and isinstance(current, dict):
+            nested = dict(value)
+            nested.update({k: v for k, v in current.items() if not _is_empty(v)})
+            merged[key] = nested
+        elif _is_empty(current):
+            merged[key] = value
+    return merged
+
+
 def build_einvoice(
     *,
     invoice: dict[str, Any],
@@ -151,6 +184,7 @@ def build_einvoice(
     buyer: Party | dict | None = None,
     seller_fallback_name: str = "",
     buyer_fallback_name: str = "",
+    defaults: dict[str, Any] | None = None,
 ) -> EInvoice:
     """Assemble an :class:`EInvoice` from finance invoice + line dicts.
 
@@ -169,7 +203,11 @@ def build_einvoice(
     amount due reconciles (BR-CO-16).
     """
     meta = dict(invoice.get("metadata") or {})
-    ei = dict(meta.get("einvoice") or {})
+    # Merged once, here, before anything reads it. The validator and both
+    # renderers reach the document through this function, so a merge anywhere
+    # further out could leave one of them judging a different document from the
+    # one that gets produced.
+    ei = _merge_defaults(dict(meta.get("einvoice") or {}), defaults)
 
     subtotal = _dec(invoice.get("amount_subtotal"))
     header_tax_total = _dec(invoice.get("tax_amount"))
@@ -283,6 +321,7 @@ def render_einvoice(
     buyer: Party | dict | None = None,
     seller_fallback_name: str = "",
     buyer_fallback_name: str = "",
+    defaults: dict[str, Any] | None = None,
     strict: bool = True,
 ) -> tuple[str, str, bytes]:
     """Return ``(filename, media_type, xml_bytes)`` for the invoice.
@@ -301,6 +340,7 @@ def render_einvoice(
         buyer=buyer,
         seller_fallback_name=seller_fallback_name,
         buyer_fallback_name=buyer_fallback_name,
+        defaults=defaults,
     )
     xml = build_ubl_xml(ei, strict=strict) if prof.syntax == "ubl" else build_cii_xml(ei, strict=strict)
     safe_num = _safe_token(ei.invoice_number)
@@ -317,6 +357,7 @@ def render_einvoice_pdf(
     buyer: Party | dict | None = None,
     seller_fallback_name: str = "",
     buyer_fallback_name: str = "",
+    defaults: dict[str, Any] | None = None,
     strict: bool = True,
 ) -> tuple[str, str, bytes]:
     """Return ``(filename, "application/pdf", pdf)`` for a Factur-X/ZUGFeRD hybrid.
@@ -343,6 +384,7 @@ def render_einvoice_pdf(
         buyer=buyer,
         seller_fallback_name=seller_fallback_name,
         buyer_fallback_name=buyer_fallback_name,
+        defaults=defaults,
     )
     pdf = build_facturx_pdf(ei, strict=strict)
     safe_num = _safe_token(ei.invoice_number)
@@ -359,6 +401,7 @@ def violations_for(
     buyer: Party | dict | None = None,
     seller_fallback_name: str = "",
     buyer_fallback_name: str = "",
+    defaults: dict[str, Any] | None = None,
 ) -> list[RuleViolation]:
     """Validate without rendering, keeping each rule's id and severity.
 
@@ -374,6 +417,7 @@ def violations_for(
         buyer=buyer,
         seller_fallback_name=seller_fallback_name,
         buyer_fallback_name=buyer_fallback_name,
+        defaults=defaults,
     )
     return validate_rules(ei)
 
@@ -387,6 +431,7 @@ def problems_for(
     buyer: Party | dict | None = None,
     seller_fallback_name: str = "",
     buyer_fallback_name: str = "",
+    defaults: dict[str, Any] | None = None,
 ) -> list[str]:
     """Validate without rendering - the fatal messages that block a render."""
     found = violations_for(
@@ -397,6 +442,7 @@ def problems_for(
         buyer=buyer,
         seller_fallback_name=seller_fallback_name,
         buyer_fallback_name=buyer_fallback_name,
+        defaults=defaults,
     )
     return [v.message for v in found if v.severity == FATAL]
 
