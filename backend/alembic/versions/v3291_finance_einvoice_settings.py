@@ -21,6 +21,11 @@ No row is inserted. An instance that never opens the screen carries no row, and
 ``einvoice_defaults`` reads that as nothing configured, which leaves every
 existing invoice rendering exactly as it does today.
 
+Ids are ``String(36)``, not native ``UUID``: the ORM's ``GUID`` type is
+``VARCHAR(36)`` on every dialect, and a native ``uuid`` column here would build
+a schema the application reads with the wrong type on one of the two install
+routes.
+
 The migration is inspector-guarded so a fresh install, whose tables env.py
 already populated through ``Base.metadata.create_all``, hits an idempotent
 no-op.
@@ -74,8 +79,6 @@ def _has_table(inspector: sa.engine.reflection.Inspector, name: str) -> bool:
 
 def upgrade() -> None:
     bind = op.get_bind()
-    is_sqlite = bind.dialect.name == "sqlite"
-    guid_type = sa.String(36) if is_sqlite else sa.dialects.postgresql.UUID(as_uuid=True)
     inspector = sa.inspect(bind)
 
     if _has_table(inspector, _TABLE):
@@ -83,7 +86,11 @@ def upgrade() -> None:
 
     op.create_table(
         _TABLE,
-        sa.Column("id", guid_type, primary_key=True),
+        # String(36), not a native UUID type. The ORM's GUID type stores a
+        # 36-character string, and a native uuid column here would produce a
+        # schema the application reads with the wrong type on one of the two
+        # install routes.
+        sa.Column("id", sa.String(36), primary_key=True, nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -105,7 +112,7 @@ def upgrade() -> None:
             )
             for name, length in _TEXT_COLUMNS
         ),
-        sa.Column("updated_by", guid_type, nullable=True),
+        sa.Column("updated_by", sa.String(36), nullable=True),
         sa.UniqueConstraint("scope", name="uq_oe_finance_einvoice_settings_scope"),
     )
     op.create_index(f"ix_{_TABLE}_scope", _TABLE, ["scope"])
