@@ -427,6 +427,21 @@ class RequirementsService:
             linked_position_id=position_id,
             status="linked",
         )
+        # The column holds the most recent position and nothing else, which is
+        # the behaviour this route has always had. The link table is what
+        # remembers the rest, so this route writes there too: linking A and then
+        # B used to drop A on the floor, and a requirement that reports it
+        # governs positions has to keep the ones it was given.
+        if await self.link_repo.get(req_id, position_id) is None:
+            await self.link_repo.create(
+                RequirementPositionLink(
+                    requirement_id=req_id,
+                    position_id=position_id,
+                    link_source="manual",
+                    confirmed_by="",
+                    notes="",
+                )
+            )
         await self.session.refresh(item)
 
         logger.info("Requirement %s linked to position %s", req_id, position_id)
