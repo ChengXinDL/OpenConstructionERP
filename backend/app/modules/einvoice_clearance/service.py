@@ -177,6 +177,14 @@ async def build_payload_from_invoice(
             "quantity": item.quantity,
             "unit_rate": item.unit_rate,
             "amount": item.amount,
+            # EN 16931 per-line VAT (BT-152 rate, BT-151 category). Without
+            # these a mixed-rate invoice clears under the single rate derived
+            # from the header, which reconciles and passes every rule while
+            # describing money the invoice does not describe. The finance
+            # export route flattens the same lines through
+            # ``_line_item_dicts``, and the two documents have to match.
+            "vat_rate": item.vat_rate,
+            "vat_category": item.vat_category,
         }
         for item in (invoice.line_items or [])
     ]
