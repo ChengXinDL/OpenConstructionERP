@@ -29977,7 +29977,7 @@ const resource = {
     "punch.select_item_to_place": "Selecione um item para colocar",
     "punch.select_row": "Selecione a linha",
     "punch.selection_count": "{{count}} selecionado(s)",
-    "punch.sheet_load_error": "Este documento não pode ser mostrado como um desenho.",
+    "punch.sheet_load_error": "Não foi possível mostrar este documento como desenho.",
     "punch.transition_note_placeholder": "Nota opcional adicionada à próxima mudança de status (ex. o que foi corrigido, ou por que está sendo reaberto)",
     "punch.verify_hint": "A verificação deve ser feita por um utilizador diferente daquele que resolveu o item.",
     "punch.view_pins": "Visualização do quadro de pinos",
