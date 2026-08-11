@@ -132,7 +132,7 @@ const playbook: Playbook = {
       whyDefault:
         "A dated photo ends an argument that words drag out. It proves progress, records the condition you inherited and captures reinforcement or services before the pour or the plasterboard hides them for good.",
       moduleLabel: "Files",
-      moduleLabelKey: "nav.documents",
+      moduleLabelKey: "nav.project_files",
       to: "/projects/:projectId/files",
     },
     {

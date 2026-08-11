@@ -44,7 +44,7 @@ const playbook: Playbook = {
       whyDefault:
         "Federating a stale structural model wastes everyone's review. Getting the current revision of each discipline first is what makes the clashes you find real and worth fixing.",
       moduleLabel: "Files",
-      moduleLabelKey: "nav.documents",
+      moduleLabelKey: "nav.project_files",
       to: "/projects/:projectId/files",
     },
     {

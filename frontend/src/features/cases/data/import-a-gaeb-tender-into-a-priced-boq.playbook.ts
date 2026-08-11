@@ -44,7 +44,7 @@ const playbook: Playbook = {
       whyDefault:
         "Tenders get reissued. Filing the exact file you worked from means a later query about which revision you priced has a one-click answer instead of an argument.",
       moduleLabel: "Files",
-      moduleLabelKey: "nav.documents",
+      moduleLabelKey: "nav.project_files",
       to: "/projects/:projectId/files",
     },
     {

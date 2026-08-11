@@ -85,7 +85,7 @@ const playbook: Playbook = {
       whyDefault:
         "A certificate that cannot be found is a certificate that does not exist as far as a lawyer or a future buyer is concerned. Filing them properly protects the client for the life of the building.",
       moduleLabel: "Files",
-      moduleLabelKey: "nav.documents",
+      moduleLabelKey: "nav.project_files",
       to: "/projects/:projectId/files",
     },
     {

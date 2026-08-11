@@ -64,7 +64,7 @@ const playbook: Playbook = {
       whyDefault:
         "You cannot reconcile a bundle. Until the issue is broken into numbered sheets the only way to answer whether A-114 arrived is for somebody to scroll, and nobody scrolls the same set twice, which is how a missing sheet survives three weeks of everybody assuming it is in there.",
       moduleLabel: "Project files",
-      moduleLabelKey: "nav.documents",
+      moduleLabelKey: "nav.project_files",
       to: "/projects/:projectId/files",
     },
     {
@@ -188,7 +188,7 @@ const playbook: Playbook = {
       whyDefault:
         "An extra sheet is usually one somebody issued without updating the index, which makes it the drawing nobody is tracking. A revision mismatch is worse, because both parties are certain they hold the current sheet and one of them is pricing or pouring to geometry that has already moved.",
       moduleLabel: "Project files",
-      moduleLabelKey: "nav.documents",
+      moduleLabelKey: "nav.project_files",
       to: "/projects/:projectId/files",
     },
   ],

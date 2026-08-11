@@ -58,7 +58,7 @@ const playbook: Playbook = {
       whyDefault:
         "Two live copies of the same drawing is how a wall gets built to last month geometry. One controlled register, with the old revision plainly retired, is what leaves no doubt which sheet is the truth.",
       moduleLabel: "Files",
-      moduleLabelKey: "nav.documents",
+      moduleLabelKey: "nav.project_files",
       to: "/projects/:projectId/files",
     },
     {

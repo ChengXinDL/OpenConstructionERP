@@ -63,7 +63,7 @@ const playbook: Playbook = {
       whyDefault:
         "The operator runs this building off your record for the next few decades. As-built has to mean what the fitters actually installed, field changes and all, not the pristine version once on the drawing.",
       moduleLabel: "Files",
-      moduleLabelKey: "nav.documents",
+      moduleLabelKey: "nav.project_files",
       to: "/projects/:projectId/files",
     },
     {

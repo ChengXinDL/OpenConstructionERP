@@ -124,7 +124,7 @@ const playbook: Playbook = {
       whyDefault:
         "The completed ITP with every point signed is what the client and the certifier accept as proof the work is right. Without it, quality already built is worth nothing you can demonstrate at handover.",
       moduleLabel: "Files",
-      moduleLabelKey: "nav.documents",
+      moduleLabelKey: "nav.project_files",
       to: "/projects/:projectId/files",
     },
   ],

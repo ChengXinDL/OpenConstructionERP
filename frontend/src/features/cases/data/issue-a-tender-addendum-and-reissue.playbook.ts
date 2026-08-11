@@ -66,7 +66,7 @@ const playbook: Playbook = {
       whyDefault:
         "A numbered addendum with the superseded documents named is what keeps the tender set unambiguous. Loose emails leave firms pricing off different revisions of the same drawing.",
       moduleLabel: "Files",
-      moduleLabelKey: "nav.documents",
+      moduleLabelKey: "nav.project_files",
       to: "/projects/:projectId/files",
     },
     {

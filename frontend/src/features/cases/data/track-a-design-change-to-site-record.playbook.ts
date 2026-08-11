@@ -59,7 +59,7 @@ const playbook: Playbook = {
       whyDefault:
         "A change that only exists as a verbal instruction on site has no paper trail behind it if the cost or the time is ever questioned.",
       moduleLabel: "Files",
-      moduleLabelKey: "nav.documents",
+      moduleLabelKey: "nav.project_files",
       to: "/projects/:projectId/files",
     },
     {

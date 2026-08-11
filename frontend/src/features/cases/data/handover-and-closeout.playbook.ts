@@ -169,7 +169,7 @@ const playbook: Playbook = {
       whyDefault:
         "The client forgets a smooth pour but remembers a messy handover for years. A complete, well ordered document set is both the last impression you leave and the first thing the facilities team actually opens.",
       moduleLabel: "Files",
-      moduleLabelKey: "nav.documents",
+      moduleLabelKey: "nav.project_files",
       to: "/projects/:projectId/files",
     },
     {
