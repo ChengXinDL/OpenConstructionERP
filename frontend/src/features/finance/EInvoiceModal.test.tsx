@@ -214,10 +214,30 @@ describe('EInvoiceModal', () => {
     expect(downloadMock.mock.calls[0]![0]).toContain('format=peppol');
   });
 
+  it('does not offer a hybrid PDF on a profile that has no hybrid form', async () => {
+    // Factur-X embeds CII inside the PDF and nothing embeds UBL, so the
+    // server refuses embed=true for Peppol. A button that can only produce
+    // that refusal is worse than no button: it reads as a supported export.
+    respond();
+    renderModal();
+
+    await screen.findAllByRole('option');
+    expect(screen.getByText('finance.einvoice.downloadPdf')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'peppol' } });
+
+    await waitFor(() =>
+      expect(screen.queryByText('finance.einvoice.downloadPdf')).toBeNull(),
+    );
+    // The XML export is the one Peppol actually uses, and it stays.
+    expect(screen.getByText('finance.einvoice.downloadXml')).toBeInTheDocument();
+  });
+
   it('asks for the XML and the hybrid PDF on the same route, one embedded', async () => {
     respond();
     renderModal();
 
+    await screen.findAllByRole('option');
     await screen.findByText('OCE-PAY-01');
 
     fireEvent.click(xmlButton());

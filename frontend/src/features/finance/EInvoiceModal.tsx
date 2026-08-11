@@ -105,6 +105,11 @@ export function EInvoiceModal({ open, onClose, invoiceId, invoiceNumber }: EInvo
 
   const canExport = Boolean(dryRun?.valid);
 
+  // Only a CII profile has a hybrid form. Read it off the registry entry
+  // rather than listing the CII profile keys here, so a country added to the
+  // registry gets the right buttons without a second edit in this file.
+  const hybridAvailable = profiles.find((p) => p.key === profile)?.syntax === 'cii';
+
   async function download(embed: boolean) {
     const kind = embed ? 'pdf' : 'xml';
     setDownloading(kind);
@@ -139,15 +144,21 @@ export function EInvoiceModal({ open, onClose, invoiceId, invoiceNumber }: EInvo
           <Button variant="ghost" onClick={onClose}>
             {t('finance.einvoice.close')}
           </Button>
-          <Button
-            variant="secondary"
-            onClick={() => download(true)}
-            disabled={!canExport}
-            loading={downloading === 'pdf'}
-          >
-            <Download size={14} className="mr-1.5" />
-            {t('finance.einvoice.downloadPdf')}
-          </Button>
+          {/* The hybrid PDF is a CII construct: the XML rides inside the PDF
+              as a Factur-X attachment, and there is no such carrier defined
+              for UBL. The server refuses it, so offering the button on a UBL
+              profile would only hand the user an error they cannot act on. */}
+          {hybridAvailable && (
+            <Button
+              variant="secondary"
+              onClick={() => download(true)}
+              disabled={!canExport}
+              loading={downloading === 'pdf'}
+            >
+              <Download size={14} className="mr-1.5" />
+              {t('finance.einvoice.downloadPdf')}
+            </Button>
+          )}
           <Button
             variant="primary"
             onClick={() => download(false)}
