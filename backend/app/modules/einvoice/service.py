@@ -29,6 +29,7 @@ from app.modules.einvoice.cii import (
     validate,
 )
 from app.modules.einvoice.profiles import get_profile
+from app.modules.einvoice.rules import money_decimals
 from app.modules.einvoice.ubl import build_ubl_xml
 
 _2P = Decimal("0.01")
@@ -81,6 +82,47 @@ def _resolve_type_code(invoice: dict[str, Any], ei: dict[str, Any]) -> str:
     return _INVOICE_TYPE_CODE
 
 
+def _clean(value: Any) -> str | None:
+    """Strip a metadata string, returning None when it holds nothing."""
+    text = str(value or "").strip()
+    return text or None
+
+
+def _group_vat(lines: list[EInvoiceLine], currency: str) -> list[TaxSubtotal]:
+    """Build the VAT breakdown (BG-23), one group per category and rate.
+
+    EN 16931 wants one group for each distinct combination of VAT category
+    code and rate, whose taxable amount is the sum of exactly the lines that
+    carry it (the BR-S-8 family) and whose VAT amount follows from that basis
+    and that rate (BR-CO-17).
+
+    Args:
+        lines: the invoice lines, each already carrying its own rate/category.
+        currency: the invoice currency, which decides how the VAT is rounded.
+
+    Returns:
+        The groups, ordered by category then descending rate for a stable
+        document.
+    """
+    basis_by_key: dict[tuple[str, Decimal], Decimal] = {}
+    for line in lines:
+        key = (line.vat_category, line.vat_rate)
+        basis_by_key[key] = basis_by_key.get(key, Decimal("0")) + line.line_net_amount
+
+    quantum = Decimal(1).scaleb(-money_decimals(currency))
+    groups = [
+        TaxSubtotal(
+            category=category,
+            rate=rate,
+            basis=basis,
+            tax_amount=(basis * rate / Decimal("100")).quantize(quantum, rounding=ROUND_HALF_UP),
+        )
+        for (category, rate), basis in basis_by_key.items()
+    ]
+    groups.sort(key=lambda g: (g.category, -g.rate))
+    return groups
+
+
 def _coerce_party(value: Party | dict | None, *, fallback_name: str = "") -> Party:
     if isinstance(value, Party):
         return value
@@ -112,35 +154,52 @@ def build_einvoice(
 ) -> EInvoice:
     """Assemble an :class:`EInvoice` from finance invoice + line dicts.
 
-    VAT handling for this first version is single-rate: the effective rate is
-    taken from ``metadata.einvoice.vat_rate`` when present, else derived from
-    ``tax_amount / amount_subtotal``. Per-line and multi-rate breakdowns are a
-    follow-up. Retention is represented as a prepaid/withheld amount (BT-113)
-    so the amount due reconciles (BR-CO-16).
+    VAT is read per line (BT-152 rate, BT-151 category) when the lines carry
+    it, which is what a construction invoice needs: standard-rated works and a
+    reverse-charged subcontract can sit on one document. The VAT breakdown
+    (BG-23) is then one group per distinct category and rate, and the VAT total
+    follows from those groups so the document reconciles (BR-CO-14, BR-CO-17).
+
+    Lines that carry no rate of their own fall back to the invoice-level rate,
+    taken from ``metadata.einvoice.vat_rate`` or derived from
+    ``tax_amount / amount_subtotal``, which is how every invoice written before
+    per-line VAT existed still renders exactly as it did.
+
+    Retention is represented as a prepaid/withheld amount (BT-113) so the
+    amount due reconciles (BR-CO-16).
     """
     meta = dict(invoice.get("metadata") or {})
     ei = dict(meta.get("einvoice") or {})
 
     subtotal = _dec(invoice.get("amount_subtotal"))
-    tax_total = _dec(invoice.get("tax_amount"))
+    header_tax_total = _dec(invoice.get("tax_amount"))
     retention = _dec(invoice.get("retention_amount"))
     currency = str(invoice.get("currency_code") or "EUR").strip() or "EUR"
+
+    # Invoice-level fallback rate, used by any line that names none.
+    if ei.get("vat_rate") not in (None, ""):
+        default_rate = _dec(ei.get("vat_rate"))
+    elif subtotal > 0:
+        default_rate = (header_tax_total / subtotal * 100).quantize(_2P, rounding=ROUND_HALF_UP)
+    else:
+        default_rate = Decimal("0")
+    default_category = str(ei.get("vat_category") or ("S" if default_rate > 0 else "Z"))
 
     # Lines. Trust line amounts as the source of the document line total so
     # BR-CO-10 holds even if the stored header subtotal drifted by a cent.
     lines: list[EInvoiceLine] = []
     line_total = Decimal("0")
-    # Effective VAT rate.
-    if ei.get("vat_rate") not in (None, ""):
-        rate = _dec(ei.get("vat_rate"))
-    elif subtotal > 0:
-        rate = (tax_total / subtotal * 100).quantize(_2P, rounding=ROUND_HALF_UP)
-    else:
-        rate = Decimal("0")
-    category = str(ei.get("vat_category") or ("S" if rate > 0 else "Z"))
+    any_line_rate = False
 
     for idx, li in enumerate(line_items, start=1):
         amount = _dec(li.get("amount"))
+        if li.get("vat_rate") not in (None, ""):
+            rate = _dec(li.get("vat_rate"))
+            any_line_rate = True
+        else:
+            rate = default_rate
+        raw_category = str(li.get("vat_category") or "").strip().upper()
+        category = raw_category or default_category
         lines.append(
             EInvoiceLine(
                 line_id=str(li.get("line_id") or idx),
@@ -158,22 +217,30 @@ def build_einvoice(
     if not lines:
         raise EInvoiceError("invoice has no line items (BR-16)")
 
+    tax_subtotals = _group_vat(lines, currency)
+    # When the lines carry their own rates the VAT total has to follow from
+    # them, or the breakdown and the total contradict each other (BR-CO-14).
+    # Otherwise the stored header amount stays authoritative, so a single-rate
+    # invoice renders exactly the figure the user approved.
+    if any_line_rate:
+        tax_total = sum((g.tax_amount for g in tax_subtotals), Decimal("0"))
+    else:
+        tax_total = header_tax_total
+        tax_subtotals = [
+            TaxSubtotal(category=default_category, rate=default_rate, basis=line_total, tax_amount=tax_total)
+        ]
+
     # Totals recomputed so the document reconciles (BR-CO-10/13/15/16).
     tax_basis_total = line_total
     grand_total = tax_basis_total + tax_total
     prepaid = retention if retention > 0 else Decimal("0")
     due_payable = grand_total - prepaid
 
-    tax_subtotals = [
-        TaxSubtotal(
-            category=category,
-            rate=rate,
-            basis=tax_basis_total,
-            tax_amount=tax_total,
-        )
-    ]
-
     type_code = _resolve_type_code(invoice, ei)
+    payee_iban = _clean(ei.get("payee_iban") or ei.get("iban"))
+    # Only claim a credit transfer once there is an account to pay into, or the
+    # document fails BR-61. An explicit code in the metadata still wins.
+    payment_means_code = _clean(ei.get("payment_means_code")) or ("30" if payee_iban else "1")
 
     return EInvoice(
         profile=profile,
@@ -196,6 +263,14 @@ def build_einvoice(
         payment_terms=(ei.get("payment_terms") or None),
         prepaid_amount=prepaid,
         note=(invoice.get("notes") or None),
+        payment_means_code=payment_means_code,
+        payee_iban=payee_iban,
+        payee_account_name=_clean(ei.get("payee_account_name") or ei.get("account_holder")),
+        payee_bic=_clean(ei.get("payee_bic") or ei.get("bic")),
+        tax_currency=_clean(ei.get("tax_currency")),
+        tax_total_in_tax_currency=(
+            _dec(ei.get("tax_total_in_tax_currency")) if ei.get("tax_total_in_tax_currency") not in (None, "") else None
+        ),
     )
 
 

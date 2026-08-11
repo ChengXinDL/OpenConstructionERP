@@ -69,7 +69,7 @@ from app.modules.finance.connector_schemas import (
 )
 from app.modules.finance.connector_service import ConnectorService
 from app.modules.finance.connectors.registry import connector_registry
-from app.modules.finance.models import EVMSnapshot, Invoice, Payment, ProjectBudget
+from app.modules.finance.models import EVMSnapshot, Invoice, InvoiceLineItem, Payment, ProjectBudget
 from app.modules.finance.retention_ledger import RetentionRollup
 from app.modules.finance.schemas import (
     BalanceSheetResponse,
@@ -113,6 +113,35 @@ logger = logging.getLogger(__name__)
 
 def _get_service(session: SessionDep) -> FinanceService:
     return FinanceService(session)
+
+
+def _line_item_dicts(line_items: Iterable[InvoiceLineItem] | None) -> list[dict[str, Any]]:
+    """Flatten invoice lines for the ORM-free document renderers.
+
+    Both document routes, the country PDF and the EN 16931 e-invoice, feed the
+    same dict shape to renderers that deliberately take no ORM objects. Built
+    inline at each route, a field added for one document is missing from the
+    other, and the export silently falls back rather than failing.
+
+    Args:
+        line_items: the invoice's persisted lines, in order.
+
+    Returns:
+        One plain dict per line.
+    """
+    return [
+        {
+            "description": li.description,
+            "unit": li.unit,
+            "quantity": li.quantity,
+            "unit_rate": li.unit_rate,
+            "amount": li.amount,
+            # EN 16931 per-line VAT (BT-152 rate, BT-151 category).
+            "vat_rate": li.vat_rate,
+            "vat_category": li.vat_category,
+        }
+        for li in (line_items or [])
+    ]
 
 
 # ── Counterparty enrichment ─────────────────────────────────────────────────
@@ -600,16 +629,7 @@ async def export_invoice_br_pdf(
         "notes": fresh.notes,
         "metadata": dict(fresh.metadata_ or {}),
     }
-    line_items: list[dict[str, Any]] = [
-        {
-            "description": li.description,
-            "unit": li.unit,
-            "quantity": li.quantity,
-            "unit_rate": li.unit_rate,
-            "amount": li.amount,
-        }
-        for li in (fresh.line_items or [])
-    ]
+    line_items: list[dict[str, Any]] = _line_item_dicts(fresh.line_items)
 
     pdf_bytes = render_br_invoice_pdf(
         invoice=invoice_dict,
@@ -717,16 +737,7 @@ async def export_invoice_einvoice(
         "notes": fresh.notes,
         "metadata": dict(fresh.metadata_ or {}),
     }
-    line_items: list[dict[str, Any]] = [
-        {
-            "description": li.description,
-            "unit": li.unit,
-            "quantity": li.quantity,
-            "unit_rate": li.unit_rate,
-            "amount": li.amount,
-        }
-        for li in (fresh.line_items or [])
-    ]
+    line_items: list[dict[str, Any]] = _line_item_dicts(fresh.line_items)
 
     if dry_run:
         problems = problems_for(

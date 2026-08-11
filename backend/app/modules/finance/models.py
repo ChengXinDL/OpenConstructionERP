@@ -105,6 +105,12 @@ class InvoiceLineItem(Base):
     amount: Mapped[Decimal] = mapped_column(MoneyType(), nullable=False, default=Decimal("0"))
     wbs_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     cost_category: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # EN 16931 per-line VAT (BT-152 rate, BT-151 category). An invoice may mix
+    # rates, for example standard-rated works beside a reverse-charged
+    # subcontract, and only the line knows which applies to it. NULL means the
+    # line predates this and the exporter falls back to the invoice-level rate.
+    vat_rate: Mapped[Decimal | None] = mapped_column(MoneyType(scale=4), nullable=True)
+    vat_category: Mapped[str | None] = mapped_column(String(4), nullable=True)
     # Gap B (Wave 6): optional link to a costmodel.CostLine so an invoice line
     # can post its paid actual straight onto the right cost-spine row. Plain
     # GUID (no cross-module FK) - the cost line may be deleted while the
