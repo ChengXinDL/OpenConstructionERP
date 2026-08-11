@@ -38,6 +38,13 @@ interface ChangelogEntry {
 // date, title and meaning intact; trim the prose, not the facts.
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '14.8.0',
+    date: '2026-08-11',
+    tag: 'NEW',
+    summary:
+      'A foreman with no signal records the day on the device and it reaches the office exactly once, because every logical day carries a key minted on the device and a redelivery returns the timesheet the first delivery produced rather than writing a second one. The seller identity, tax registration and bank account an electronic invoice cannot be issued without now have a screen, are held once for the company and merged beneath whatever an individual invoice says, and the account is checked against its own ISO 7064 check digits on the way in. An invoice no longer names Germany for a firm that never chose a country, so an invoice with no buyer country is refused under BR-11 instead of exporting a false statement about where a legal person is established. Overdue deadline notifications reach the managers again after one unresolvable row had been silencing the whole sweep on every tick, and Portuguese now reads as European Portuguese rather than Brazilian.',
+  },
+  {
     version: '14.7.0',
     date: '2026-08-11',
     tag: 'NEW',
