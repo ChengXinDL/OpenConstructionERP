@@ -29,8 +29,13 @@ _MEANS_CODE = re.compile(r"^[0-9]{1,4}$")
 _EAS_SCHEME = re.compile(r"^[0-9]{4}$")
 
 
-class EInvoiceSettingsUpdate(BaseModel):
-    """What a user may set. Every field optional: a half-filled form is normal."""
+class _StoredFields(BaseModel):
+    """The fields the row holds, carrying the lengths of their columns and nothing else.
+
+    Split out from the rules below so that reading can never be refused by a rule
+    that governs writing. The lengths stay here because a column enforces them
+    either way, so they describe the row rather than judge it.
+    """
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -51,6 +56,17 @@ class EInvoiceSettingsUpdate(BaseModel):
     payee_account_name: str = Field(default="", max_length=200)
     payment_means_code: str = Field(default="", max_length=4, examples=["30"])
     payment_terms: str = Field(default="", max_length=500)
+
+
+class EInvoiceSettingsUpdate(_StoredFields):
+    """What a user may set. Every field optional: a half-filled form is normal.
+
+    These rules run on the way in, where the user is still looking at the field
+    and can correct it. They deliberately do not run on the way out, because a
+    row that somehow holds a bad value has to stay readable: this screen is the
+    only place that value can be fixed, and a screen that refuses to open on
+    exactly the data it exists to repair is the dead end again.
+    """
 
     @field_validator("seller_country_code")
     @classmethod
@@ -113,7 +129,7 @@ class EInvoiceSettingsUpdate(BaseModel):
         return scheme
 
 
-class EInvoiceSettingsRead(EInvoiceSettingsUpdate):
+class EInvoiceSettingsRead(_StoredFields):
     """What is stored, plus what the screen needs to explain itself.
 
     ``complete`` answers the question the user actually has, which is whether
@@ -127,7 +143,7 @@ class EInvoiceSettingsRead(EInvoiceSettingsUpdate):
 
     @classmethod
     def from_row(cls, row: Any) -> EInvoiceSettingsRead:
-        stored = {name: getattr(row, name, "") or "" for name in EInvoiceSettingsUpdate.model_fields}
+        stored = {name: getattr(row, name, "") or "" for name in _StoredFields.model_fields}
         missing = [f for f in ("seller_name", "seller_country_code") if not stored.get(f)]
         # A seller must be identified for tax either way round (BR-CO-26).
         if not (stored.get("seller_vat_id") or stored.get("seller_tax_number") or stored.get("seller_legal_id")):
