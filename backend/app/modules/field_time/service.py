@@ -316,8 +316,11 @@ class FieldTimeService:
         """Approve a submitted timesheet (submitted -> approved).
 
         On approval the hours become authoritative actuals: the cost rollup is
-        computed, each daywork line is mirrored onto a signed daywork sheet, and
-        ``field_time.timesheet_approved`` is published for payroll / cost.
+        computed, each daywork line is mirrored onto a signed daywork sheet,
+        ``field_time.timesheet_approved`` is published for payroll, and the
+        labour rows go to the cost model as ``fieldreports.labour.logged`` -
+        the same pipe the field diary uses, so a day recorded both on a phone
+        and here reaches the budget once.
         """
         timesheet = await self.get_timesheet(timesheet_id)
         if timesheet.status != _SUBMITTED:
@@ -350,6 +353,7 @@ class FieldTimeService:
 
         roll = ft.rollup(line_dicts, labour_rates=labour_rates, plant_rates=plant_rates)
         self._publish_approved(timesheet, roll, currency, user_id)
+        self._publish_labour_actuals(timesheet, line_dicts, labour_rates, currency, user_id)
         logger.info("Field timesheet approved: %s by %s", timesheet_id, user_id)
         return timesheet
 
@@ -414,6 +418,11 @@ class FieldTimeService:
 
         roll = ft.rollup(self._line_dicts(reversal))
         self._publish_reversed(reversal, original, roll, user_id)
+        # Rates only matter to a cost model that has no record of what the
+        # approval posted; when it has one it credits that figure instead.
+        labour_rates = await self._labour_rates(mirrored)
+        currency = await self._project_base_currency(original.project_id)
+        self._publish_labour_credit(reversal, original, mirrored, labour_rates, currency, user_id)
         logger.info("Field timesheet %s reversed by %s (reversal=%s)", timesheet_id, user_id, reversal.id)
         return reversal
 
@@ -805,6 +814,131 @@ class FieldTimeService:
             currency=currency,
             actor_id=user_id,
         )
+
+    def _publish_labour_actuals(
+        self,
+        timesheet: FieldTimesheet,
+        line_dicts: list[dict[str, Any]],
+        labour_rates: dict[str, Decimal],
+        currency: str,
+        user_id: str | None,
+    ) -> None:
+        """Send the approved labour hours to the cost model.
+
+        ``field_time.timesheet_approved`` carries only a rollup, and nothing
+        subscribes to it, so approving a timesheet used to move no money at all
+        while its own docstring said the hours had become authoritative
+        actuals. The hours a foreman captures on a phone have reached the
+        budget through ``fieldreports.labour.logged`` since the diary shipped;
+        this sends the desktop timesheet's hours down the same pipe rather than
+        inventing a second one.
+
+        Per worker, not in aggregate. The cost model needs each row's own
+        ``resource_id`` to tell that a day already costed from the phone is the
+        same day, and an aggregate cannot say who it is made of.
+
+        Plant is not here. Machine hours are not labour and do not belong on
+        the labour budget line; they keep flowing through the rollup event.
+        """
+        rows: list[dict[str, Any]] = []
+        for line in line_dicts:
+            resource_id = str(line.get("resource_id") or "").strip()
+            if not resource_id:
+                continue  # plant, handled by the rollup event
+            hours = ft.to_decimal(line.get("hours"))
+            if hours <= 0:
+                continue
+            rows.append(
+                {
+                    "worker_type": "labour",
+                    "hours": float(hours),
+                    "headcount": 1,
+                    "resource_id": resource_id,
+                    "cost_rate": str(labour_rates.get(resource_id, Decimal("0"))),
+                    "currency": currency,
+                },
+            )
+        if not rows:
+            return
+
+        try:
+            from app.modules.fieldreports.events import publish_labour_logged
+
+            publish_labour_logged(
+                report_id=str(timesheet.id),
+                project_id=str(timesheet.project_id),
+                report_date=str(timesheet.date),
+                status="approved",
+                rows=rows,
+                actor_id=user_id,
+                source="field_time",
+            )
+        except Exception:
+            # A cost rollup must never undo an approval a manager has made.
+            logger.exception(
+                "Labour actuals publish failed for timesheet=%s - approval unaffected",
+                timesheet.id,
+            )
+
+    def _publish_labour_credit(
+        self,
+        reversal: FieldTimesheet,
+        original: FieldTimesheet,
+        mirrored: list[dict[str, Any]],
+        labour_rates: dict[str, Decimal],
+        currency: str,
+        user_id: str | None,
+    ) -> None:
+        """Take the reversed timesheet's labour actuals back off the budget.
+
+        Approval posts money and claims each worker-day. Undoing only the money
+        would leave the claim held, so the corrected sheet could never cost that
+        day and neither could the phone: a reversal would strand the worker's
+        day rather than free it. This releases both together.
+
+        The rows are the reversal's own mirrored lines, hours positive. The sign
+        is in the event name because the cost calculator skips non-positive
+        hours - a negative payload would be ignored, not subtracted.
+        """
+        rows: list[dict[str, Any]] = []
+        for line in mirrored:
+            resource_id = str(line.get("resource_id") or "").strip()
+            if not resource_id:
+                continue  # plant, never posted to the labour line
+            hours = ft.to_decimal(line.get("hours"))
+            if hours <= 0:
+                continue
+            rows.append(
+                {
+                    "worker_type": "labour",
+                    "hours": float(hours),
+                    "headcount": 1,
+                    "resource_id": resource_id,
+                    "cost_rate": str(labour_rates.get(resource_id, Decimal("0"))),
+                    "currency": currency,
+                },
+            )
+        if not rows:
+            return
+
+        try:
+            from app.modules.fieldreports.events import publish_labour_reversed
+
+            publish_labour_reversed(
+                report_id=str(reversal.id),
+                reverses_id=str(original.id),
+                project_id=str(reversal.project_id),
+                report_date=str(reversal.date),
+                rows=rows,
+                actor_id=user_id,
+                source="field_time",
+            )
+        except Exception:
+            # A cost credit must never undo a reversal a manager has made.
+            logger.exception(
+                "Labour credit publish failed for reversal=%s - the reversal is unaffected",
+                reversal.id,
+            )
 
     def _publish_reversed(
         self,
