@@ -126,6 +126,36 @@ def test_a_configured_account_makes_the_document_claim_a_credit_transfer():
     assert ei.payment_terms == "Net 30 days"
 
 
+def test_a_configured_means_code_is_not_second_guessed_by_the_account():
+    """The screen can now set both, so the inference must yield to the choice.
+
+    "30" is only a guess made when nobody said anything. A company paid by SEPA
+    transfer says 58, and coercing that back to 30 because an account happens to
+    be on file would overwrite an answer with an assumption. The pairing is not
+    checked either: EN 16931 requires an account when a transfer is claimed, not
+    a transfer when an account is given, so a card code beside an account is a
+    legitimate document and inventing a rule against it would block a real one.
+    """
+    for code in ("58", "48"):
+        settings = dict(_SETTINGS, payment_means_code=code)
+        ei = build_einvoice(invoice=_invoice(_buyer()), line_items=_lines(), profile="xrechnung", defaults=settings)
+
+        assert ei.payment_means_code == code
+        assert ei.payee_iban == "DE02120300000000202051", "the account is still carried"
+
+        fatal = [v for v in violations_for(**_case(settings)) if v.severity == FATAL]
+        assert fatal == [], [f"{v.rule_id}: {v.message}" for v in fatal]
+
+
+def _case(settings: dict) -> dict:
+    return {
+        "invoice": _invoice(_buyer()),
+        "line_items": _lines(),
+        "profile": "xrechnung",
+        "defaults": settings,
+    }
+
+
 def test_without_settings_the_document_is_exactly_what_it_was():
     """Every invoice written before this existed still renders unchanged."""
     meta = dict(_buyer())
