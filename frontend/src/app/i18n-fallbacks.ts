@@ -22,7 +22,10 @@ import de from './locales/de';
 import fr from './locales/fr';
 import es from './locales/es';
 import esMX from './locales/es-MX';
+import esCL from './locales/es-CL';
+import esCO from './locales/es-CO';
 import pt from './locales/pt';
+import ptBR from './locales/pt-BR';
 import ru from './locales/ru';
 import zh from './locales/zh';
 import ar from './locales/ar';
@@ -60,7 +63,10 @@ export const fallbackResources = {
   fr,
   es,
   'es-MX': esMX,
+  'es-CL': esCL,
+  'es-CO': esCO,
   pt,
+  'pt-BR': ptBR,
   ru,
   zh,
   ar,

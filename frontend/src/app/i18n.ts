@@ -10,7 +10,10 @@ export const SUPPORTED_LANGUAGES = [
   { code: 'fr', name: 'Français', english: 'French', flag: '🇫🇷', country: 'fr' },
   { code: 'es', name: 'Español', english: 'Spanish', flag: '🇪🇸', country: 'es' },
   { code: 'es-MX', name: 'Español (México)', english: 'Spanish (Mexico)', flag: '🇲🇽', country: 'mx' },
-  { code: 'pt', name: 'Português', english: 'Portuguese', flag: '🇧🇷', country: 'br' },
+  { code: 'es-CL', name: 'Español (Chile)', english: 'Spanish (Chile)', flag: '🇨🇱', country: 'cl' },
+  { code: 'es-CO', name: 'Español (Colombia)', english: 'Spanish (Colombia)', flag: '🇨🇴', country: 'co' },
+  { code: 'pt', name: 'Português', english: 'Portuguese', flag: '🇵🇹', country: 'pt' },
+  { code: 'pt-BR', name: 'Português (Brasil)', english: 'Portuguese (Brazil)', flag: '🇧🇷', country: 'br' },
   { code: 'ru', name: 'Русский', english: 'Russian', flag: '🇷🇺', country: 'ru' },
   { code: 'zh', name: '简体中文', english: 'Chinese (Simplified)', flag: '🇨🇳', country: 'cn' },
   { code: 'ar', name: 'العربية', english: 'Arabic', flag: '🇸🇦', country: 'sa', dir: 'rtl' },
@@ -222,10 +225,16 @@ i18n
     // flight) render in English instead of as raw key strings.
     resources: { en: enResource },
     lng: initialLanguage,
-    // ``es-MX`` (Mexican / LatAm Spanish) falls back to ``es`` first, then
-    // English, so any key not localised for Mexico shows Spanish rather than
-    // English. Every other locale falls back straight to English.
-    fallbackLng: { 'es-MX': ['es', 'en'], default: ['en'] },
+    // The regional variants fall back to their own language before English, so
+    // a key not localised for Chile shows Spanish rather than English. That is
+    // what lets those files carry only the words that actually differ.
+    fallbackLng: {
+      'es-MX': ['es', 'en'],
+      'es-CL': ['es', 'en'],
+      'es-CO': ['es', 'en'],
+      'pt-BR': ['pt', 'en'],
+      default: ['en'],
+    },
     // All translation keys are stored as flat strings with literal dots
     // (e.g. "match_elements.title"). Disable the dot-as-namespace
     // separator so lookups don't try to walk a nested object path that

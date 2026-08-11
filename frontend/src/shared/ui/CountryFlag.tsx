@@ -21,6 +21,16 @@ const FLAGS: Record<string, string> = {
   // BR — Brazil
   br: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 14"><rect width="20" height="14" fill="#009B3A"/><path d="M10 1.5l8.5 5.5L10 12.5 1.5 7z" fill="#FEDF00"/><circle cx="10" cy="7" r="3" fill="#002776"/><path d="M7.5 6.8a3 3 0 0 0 5 0" fill="none" stroke="#fff" stroke-width=".3"/></svg>`,
 
+  // PT — Portugal. Needed the moment pt stopped flying the Brazilian flag,
+  // which it did when pt-BR arrived to carry it.
+  pt: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 6 4"><rect width="6" height="4" fill="#DA291C"/><rect width="2.4" height="4" fill="#046A38"/><circle cx="2.4" cy="2" r=".78" fill="none" stroke="#FFE900" stroke-width=".26"/><rect x="2.1" y="1.66" width=".6" height=".68" rx=".1" fill="#fff" stroke="#DA291C" stroke-width=".16"/></svg>`,
+
+  // CL — Chile
+  cl: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 6"><rect width="9" height="6" fill="#fff"/><rect y="3" width="9" height="3" fill="#D52B1E"/><rect width="3" height="3" fill="#0039A6"/><path d="M1.5.65l.2.575.608.012-.485.368.177.583-.5-.348-.5.348.177-.583-.485-.368.608-.012z" fill="#fff"/></svg>`,
+
+  // CO — Colombia
+  co: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 6 4"><rect width="6" height="4" fill="#FCD116"/><rect y="2" width="6" height="1" fill="#003893"/><rect y="3" width="6" height="1" fill="#CE1126"/></svg>`,
+
   // RU — Russia
   ru: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 9 6"><rect width="9" height="2" fill="#fff"/><rect y="2" width="9" height="2" fill="#0039A6"/><rect y="4" width="9" height="2" fill="#D52B1E"/></svg>`,
 
