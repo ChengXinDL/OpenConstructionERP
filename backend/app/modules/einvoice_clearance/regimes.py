@@ -163,6 +163,31 @@ COUNTRY_REGIMES: dict[str, CountryRegime] = {
             "which is why the acknowledgement date matters as much as the clearance."
         ),
     ),
+    "CO": CountryRegime(
+        country="CO",
+        regime=REGIME_CLEARANCE,
+        platform="Facturacion electronica via DIAN",
+        label="Colombia - invoice validated by the DIAN before it is delivered",
+        identifier_label="CUFE",
+        document_format="ubl_dian",
+        profile_fields=("tax_registration_id", "certificate_reference"),
+        document_fields=("nit_issuer", "nit_receiver", "resolucion_number", "prefix"),
+        # An issued electronic invoice is not cancelled in Colombia. The
+        # correction is a nota credito, itself an electronic document with its
+        # own CUFE, so recording it as a late cancellation would lose the link
+        # between the two documents that the DIAN expects to see.
+        cancellation_window_days=None,
+        correction_mechanism="nota credito, itself an electronic document with its own CUFE",
+        notes=(
+            "Validacion previa: the invoice goes to the DIAN and comes back validated before it "
+            "reaches the buyer, so the CUFE is what makes it an invoice at all rather than a "
+            "receipt for one. Numbering is not the issuer's own - a resolucion de facturacion "
+            "grants a prefix and a range with an expiry date, and a submission fails for an "
+            "exhausted or expired range without anything being wrong with the invoice itself. "
+            "Worth pairing with the colombia_aiu methodology, where IVA falls on the utilidad "
+            "alone and the invoice has to show that split rather than one taxed total."
+        ),
+    ),
     "IT": CountryRegime(
         country="IT",
         regime=REGIME_CLEARANCE,

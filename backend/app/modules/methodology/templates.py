@@ -218,6 +218,25 @@ _APU_CL_BASE_MAPPING: dict[str, list[str]] = {
     "materiales": ["material"],
     "equipos": ["machinery", "equipment"],
 }
+_APU_CO_BASE_MAPPING: dict[str, list[str]] = {
+    "materiales": ["material"],
+    "mano_de_obra": ["labor"],
+    "equipo_y_herramienta": ["machinery", "equipment"],
+    "transporte": ["transport"],
+}
+_APU_CO_COMPOSITE: dict[str, list[str]] = {
+    "costo_directo": ["materiales", "mano_de_obra", "equipo_y_herramienta", "transporte"],
+}
+
+_BDI_BR_BASE_MAPPING: dict[str, list[str]] = {
+    "mao_de_obra": ["labor"],
+    "materiais": ["material"],
+    "equipamentos": ["machinery", "equipment"],
+}
+_BDI_BR_COMPOSITE: dict[str, list[str]] = {
+    "custo_direto": ["mao_de_obra", "materiais", "equipamentos"],
+}
+
 _APU_CL_COMPOSITE: dict[str, list[str]] = {
     "costo_directo": ["mano_de_obra", "materiales", "equipos"],
 }
@@ -1558,6 +1577,188 @@ _CHILE_APU_TEMPLATE: dict[str, Any] = {
     "vat_rate": "19",
 }
 
+# Colombian AIU. Administracion, Imprevistos, Utilidad: the three letters a
+# Colombian contract quotes its markup as, and the reason this cannot reuse the
+# Chilean shape. Each of the three is a share OF THE COSTO DIRECTO, not of the
+# running total, so nothing here compounds. "AIU 27% (A=20, I=2, U=5)" on a
+# tender means exactly that, and a cascade that compounded them would quote a
+# number the client did not ask for.
+#
+# IVA is the other half of the difference. For a construction contract on
+# immovable property the base is the utilidad alone, not the contract value, per
+# Decreto 1372 de 1992. On the figures below that is 19 percent of 5 percent
+# rather than of 127 percent, and getting it wrong is not a rounding matter.
+_COLOMBIA_AIU_TEMPLATE: dict[str, Any] = {
+    "slug": "colombia_aiu",
+    "name": "Colombia (AIU)",
+    "description": (
+        "Colombian analisis de precios unitarios with AIU. Administracion, "
+        "imprevistos and utilidad are each taken on the costo directo, and IVA "
+        "19 percent falls on the utilidad alone, as a construction contract on "
+        "immovable property is taxed."
+    ),
+    "country_code": "CO",
+    "industry": None,
+    "currency": "COP",
+    # Matches the flat Colombia template already shipped: the peso is quoted in
+    # whole units on a bill of quantities.
+    "decimals": 0,
+    "hierarchy_levels": _FLAT_HIERARCHY,
+    "dimensions": [_stage_dimension()],
+    "column_preset": None,
+    "base_mapping": _APU_CO_BASE_MAPPING,
+    "composites": _APU_CO_COMPOSITE,
+    "cascade_steps": [
+        {
+            "key": "administracion",
+            "label": "Administracion",
+            "category": "overhead",
+            "kind": "percentage",
+            "rate": "20",
+            "amount": "0",
+            "base": ["costo_directo"],
+        },
+        {
+            "key": "imprevistos",
+            "label": "Imprevistos",
+            "category": "contingency",
+            "kind": "percentage",
+            "rate": "2",
+            "amount": "0",
+            "base": ["costo_directo"],
+        },
+        {
+            "key": "utilidad",
+            "label": "Utilidad",
+            "category": "profit",
+            "kind": "percentage",
+            "rate": "5",
+            "amount": "0",
+            "base": ["costo_directo"],
+        },
+        {
+            "key": "iva",
+            "label": "IVA sobre la utilidad",
+            "category": "tax",
+            "kind": "percentage",
+            "rate": "19",
+            "amount": "0",
+            "base": ["utilidad"],
+        },
+    ],
+    "vat_rate": "19",
+}
+
+# Brazilian BDI, Beneficios e Despesas Indiretas, composed the way the federal
+# audit court sets it out in Acordao 2622/2013:
+#
+#     BDI = [(1 + AC + S + R + G)(1 + DF)(1 + L) / (1 - I)] - 1
+#
+# Three shapes in one formula, and the steps below are that formula read left to
+# right. Administracao central, seguros, garantias and riscos share a bracket,
+# so each is a share of the custo direto and none of them sees the others.
+# Despesas financeiras and lucro are their own factors, so each applies to
+# everything before it. Tributos divide rather than multiply, which is what the
+# gross_up kind exists for: PIS, COFINS and ISS are levied on the invoiced
+# amount, so the amount they are levied on already contains them.
+#
+# The tax rate is one line and not three because all of them sit in the same
+# denominator; three sequential steps would compound a thing that does not
+# compound. ISS is municipal and runs 2 to 5 percent, so the 8.65 below (PIS
+# 0.65, COFINS 3.00, ISS 5.00) is the common ceiling case and is meant to be
+# set to the city the job is in.
+_BRAZIL_BDI_TEMPLATE: dict[str, Any] = {
+    "slug": "brazil_bdi",
+    "name": "Brasil (BDI)",
+    "description": (
+        "Brazilian BDI composed per TCU Acordao 2622/2013. Administracao "
+        "central, seguros, garantias and riscos on the custo direto, then "
+        "despesas financeiras and lucro in turn, then PIS, COFINS and ISS "
+        "grossed up because they are charged on the invoiced amount."
+    ),
+    "country_code": "BR",
+    "industry": None,
+    "currency": "BRL",
+    "decimals": 2,
+    "hierarchy_levels": _FLAT_HIERARCHY,
+    "dimensions": [_stage_dimension()],
+    "column_preset": None,
+    "base_mapping": _BDI_BR_BASE_MAPPING,
+    "composites": _BDI_BR_COMPOSITE,
+    "cascade_steps": [
+        {
+            "key": "administracao_central",
+            "label": "Administracao central",
+            "category": "overhead",
+            "kind": "percentage",
+            "rate": "4",
+            "amount": "0",
+            "base": ["custo_direto"],
+        },
+        {
+            "key": "seguros_e_garantias",
+            "label": "Seguros e garantias",
+            "category": "insurance",
+            "kind": "percentage",
+            "rate": "0.8",
+            "amount": "0",
+            "base": ["custo_direto"],
+        },
+        {
+            "key": "riscos",
+            "label": "Riscos",
+            "category": "contingency",
+            "kind": "percentage",
+            "rate": "1.27",
+            "amount": "0",
+            "base": ["custo_direto"],
+        },
+        {
+            "key": "despesas_financeiras",
+            "label": "Despesas financeiras",
+            "category": "other",
+            "kind": "percentage",
+            "rate": "1.23",
+            "amount": "0",
+            "base": ["custo_direto", "administracao_central", "seguros_e_garantias", "riscos"],
+        },
+        {
+            "key": "lucro",
+            "label": "Lucro",
+            "category": "profit",
+            "kind": "percentage",
+            "rate": "7.4",
+            "amount": "0",
+            "base": [
+                "custo_direto",
+                "administracao_central",
+                "seguros_e_garantias",
+                "riscos",
+                "despesas_financeiras",
+            ],
+        },
+        {
+            "key": "tributos",
+            "label": "Tributos (PIS, COFINS, ISS)",
+            "category": "tax",
+            "kind": "gross_up",
+            "rate": "8.65",
+            "amount": "0",
+            "base": [
+                "custo_direto",
+                "administracao_central",
+                "seguros_e_garantias",
+                "riscos",
+                "despesas_financeiras",
+                "lucro",
+            ],
+        },
+    ],
+    # Brazil has no VAT. Consumption tax on a construction service is ISS,
+    # municipal, and it is already inside the tributos step above.
+    "vat_rate": "0",
+}
+
 # Railway-infrastructure industry template. Country-neutral (currency blank,
 # VAT a placeholder step) but ships the full railway typed hierarchy plus the
 # CBS / section-type / stage dimensions and the SMR-vs-equipment cascade, so an
@@ -1875,6 +2076,8 @@ TEMPLATES: tuple[dict[str, Any], ...] = (
     _UZBEKISTAN_TEMPLATE,
     _MEXICO_TEMPLATE,
     _CHILE_APU_TEMPLATE,
+    _COLOMBIA_AIU_TEMPLATE,
+    _BRAZIL_BDI_TEMPLATE,
     *_INDUSTRY_TEMPLATES,
 )
 

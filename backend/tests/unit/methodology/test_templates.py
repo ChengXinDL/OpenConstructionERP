@@ -224,7 +224,7 @@ def test_template_names_are_unique() -> None:
 # both in use there and the estimate is read by different people. Chile prices
 # an internal budget flat and submits a public tender as an APU. A country not
 # on this list appearing twice is a copied template, not a second method.
-_DUAL_METHOD_COUNTRIES = {"CL"}
+_DUAL_METHOD_COUNTRIES = {"CL", "CO", "BR"}
 
 
 def test_country_templates_have_unique_country_codes() -> None:
