@@ -32,6 +32,7 @@ import {
   Inbox,
   Scale,
   Landmark,
+  FileCode2,
 } from 'lucide-react';
 import clsx from 'clsx';
 import {
@@ -60,7 +61,7 @@ import { useConfirm } from '@/shared/hooks/useConfirm';
 import { MoneyDisplay } from '@/shared/ui/MoneyDisplay';
 import { MultiCurrencyTotal } from '@/shared/ui/MultiCurrencyTotal';
 import { DateDisplay } from '@/shared/ui/DateDisplay';
-import { apiGet, apiPost, apiPatch, triggerDownload, extractErrorMessageFromBody } from '@/shared/lib/api';
+import { apiGet, apiPost, apiPatch, downloadWithAuth, extractErrorMessageFromBody } from '@/shared/lib/api';
 import { ContactSearchInput } from '@/shared/ui/ContactSearchInput';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
@@ -72,6 +73,7 @@ import { ConnectorsTab } from './ConnectorsTab';
 import { InvoiceInboxTab } from './InvoiceInboxTab';
 import { StatementsTab } from './StatementsTab';
 import { RetentionLedgerTab } from './RetentionLedgerTab';
+import { EInvoiceModal } from './EInvoiceModal';
 import { financeGuide } from './financeGuide';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -290,27 +292,14 @@ export function invoiceStatusOptions(current: string): string[] {
 
 /* ── Export / Import helpers ──────────────────────────────────────────── */
 
+/**
+ * Kept as the name this page already calls; the body now lives in
+ * shared/lib/api so the e-invoice modal downloads through the same code
+ * rather than a second copy of it that would have to learn the same
+ * lessons about non-2xx responses independently.
+ */
 async function fetchBlobWithAuth(url: string, fallbackFilename: string): Promise<void> {
-  const token = useAuthStore.getState().accessToken;
-  const headers: Record<string, string> = { Accept: 'application/octet-stream' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
-  const response = await fetch(url, { method: 'GET', headers });
-  if (!response.ok) {
-    let detail = `Export failed (HTTP ${response.status})`;
-    try {
-      const body = await response.json();
-      detail = extractErrorMessageFromBody(body) ?? detail;
-    } catch {
-      // ignore parse error
-    }
-    throw new Error(detail);
-  }
-
-  const blob = await response.blob();
-  const disposition = response.headers.get('Content-Disposition');
-  const filename = disposition?.match(/filename="?(.+)"?/)?.[1] || fallbackFilename;
-  triggerDownload(blob, filename);
+  return downloadWithAuth(url, fallbackFilename);
 }
 
 interface BudgetImportResult {
@@ -1820,6 +1809,9 @@ function InvoicesTab({ projectId }: { projectId: string }) {
   const isEditingInvoice = editingInvoice !== null;
   const invoiceModalOpen = showCreate || isEditingInvoice;
 
+  // The invoice currently being issued as an EN 16931 e-invoice, if any.
+  const [einvoiceFor, setEinvoiceFor] = useState<Invoice | null>(null);
+
   // Prefill the form when entering edit mode — mirrors every field the
   // create form exposes (direction, counterparty, dates, amounts, notes).
   const openEditInvoice = (inv: Invoice) => {
@@ -2382,6 +2374,15 @@ function InvoicesTab({ projectId }: { projectId: string }) {
                           >
                             <Pencil size={14} />
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => setEinvoiceFor(inv)}
+                            title={t('finance.einvoice.action')}
+                            aria-label={t('finance.einvoice.action')}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-content-tertiary hover:bg-surface-secondary hover:text-oe-blue transition-colors"
+                          >
+                            <FileCode2 size={14} />
+                          </button>
                           {inv.status === 'draft' && (
                             <Button
                               variant="secondary"
@@ -2481,6 +2482,18 @@ function InvoicesTab({ projectId }: { projectId: string }) {
                       >
                         <Pencil size={14} />
                       </button>
+                      {/* The card carries the e-invoice action too, for the same
+                          reason #284 gave the status actions: an action only the
+                          desktop table offers is unreachable on a phone. */}
+                      <button
+                        type="button"
+                        onClick={() => setEinvoiceFor(inv)}
+                        title={t('finance.einvoice.action')}
+                        aria-label={t('finance.einvoice.action')}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-content-tertiary hover:bg-surface-secondary hover:text-oe-blue transition-colors"
+                      >
+                        <FileCode2 size={14} />
+                      </button>
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-xs text-content-tertiary">
@@ -2558,6 +2571,17 @@ function InvoicesTab({ projectId }: { projectId: string }) {
           </>
         )}
       </Card>
+
+      {/* EN 16931 e-invoice: pick the country profile, read what a receiver
+          would object to, then take the XML or the hybrid PDF. */}
+      {einvoiceFor && (
+        <EInvoiceModal
+          open
+          onClose={() => setEinvoiceFor(null)}
+          invoiceId={einvoiceFor.id}
+          invoiceNumber={einvoiceFor.invoice_number}
+        />
+      )}
 
       {/* New / Edit Invoice Modal — the edit form reuses this exact create
           form, prefilled via openEditInvoice(). */}

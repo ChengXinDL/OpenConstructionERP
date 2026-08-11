@@ -609,3 +609,38 @@ export function triggerDownload(blob: Blob, filename: string): void {
     URL.revokeObjectURL(url);
   }, 203);
 }
+
+/**
+ * GET a file behind the bearer token and hand it to the browser.
+ *
+ * Lives here rather than beside each caller because the failure branch is
+ * the part worth writing once: an endpoint that refuses the request answers
+ * with a JSON problem, and a caller that skips the `response.ok` check saves
+ * that JSON under a `.xml` or `.pdf` name and hands the user a file that
+ * looks like a broken export instead of a message they can act on.
+ *
+ * @param url - Absolute or API-relative URL to fetch.
+ * @param fallbackFilename - Used when the response carries no Content-Disposition.
+ * @throws Error carrying the server's message when the response is not ok.
+ */
+export async function downloadWithAuth(url: string, fallbackFilename: string): Promise<void> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = { Accept: 'application/octet-stream' };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const response = await fetch(url, { method: 'GET', headers });
+  if (!response.ok) {
+    let detail = `Download failed (HTTP ${response.status})`;
+    try {
+      detail = extractErrorMessageFromBody(await response.json()) ?? detail;
+    } catch {
+      // Body was not JSON; keep the status-based message.
+    }
+    throw new Error(detail);
+  }
+
+  const blob = await response.blob();
+  const disposition = response.headers.get('Content-Disposition');
+  const filename = disposition?.match(/filename="?(.+?)"?$/)?.[1] || fallbackFilename;
+  triggerDownload(blob, filename);
+}
