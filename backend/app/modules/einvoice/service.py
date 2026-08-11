@@ -129,7 +129,11 @@ def _coerce_party(value: Party | dict | None, *, fallback_name: str = "") -> Par
     d = dict(value or {})
     return Party(
         name=str(d.get("name") or fallback_name or "").strip(),
-        country_code=str(d.get("country_code") or d.get("country") or "DE").strip() or "DE",
+        # BT-40 / BT-55. No fallback: a country nobody typed has to stay empty
+        # so BR-9 / BR-11 can say so. Shared by seller and buyer, and the buyer
+        # is the more common gap, because the standing settings hold seller
+        # fields only.
+        country_code=str(d.get("country_code") or d.get("country") or "").strip(),
         vat_id=(d.get("vat_id") or d.get("ust_id") or None),
         tax_number=(d.get("tax_number") or d.get("steuernummer") or None),
         legal_id=(d.get("legal_id") or None),
@@ -212,7 +216,10 @@ def build_einvoice(
     subtotal = _dec(invoice.get("amount_subtotal"))
     header_tax_total = _dec(invoice.get("tax_amount"))
     retention = _dec(invoice.get("retention_amount"))
-    currency = str(invoice.get("currency_code") or "EUR").strip() or "EUR"
+    # BT-5, mandatory and the same shape as the country: finance stores an unset
+    # currency as an empty string, so substituting one here would put a figure on
+    # the document in a currency nobody chose and leave BR-5 unable to fire.
+    currency = str(invoice.get("currency_code") or "").strip()
 
     # Invoice-level fallback rate, used by any line that names none.
     if ei.get("vat_rate") not in (None, ""):

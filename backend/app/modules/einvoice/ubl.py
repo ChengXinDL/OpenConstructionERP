@@ -113,8 +113,12 @@ def _party(parent: ET.Element, wrapper_local: str, p: Party) -> None:
         _sub(addr, "cbc", "CityName", p.city)
     if p.postcode:
         _sub(addr, "cbc", "PostalZone", p.postcode)
-    country = _sub(addr, "cac", "Country")
-    _sub(country, "cbc", "IdentificationCode", (p.country_code or "DE").upper())
+    # BT-40 / BT-55, and the wrapper goes with it: an empty cac:Country reads as
+    # a malformed address rather than as an address with no country, and a
+    # substituted country would be a false statement either way.
+    if p.country_code:
+        country = _sub(addr, "cac", "Country")
+        _sub(country, "cbc", "IdentificationCode", p.country_code.upper())
     if p.vat_id:
         pts = _sub(party, "cac", "PartyTaxScheme")
         _sub(pts, "cbc", "CompanyID", p.vat_id)

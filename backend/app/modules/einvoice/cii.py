@@ -108,7 +108,12 @@ class Party:
     """A seller or buyer trade party (EN 16931 BG-4 / BG-7)."""
 
     name: str
-    country_code: str = "DE"
+    # BT-40 / BT-55, mandatory under EN 16931 and the term a receiver reads to
+    # decide which national rules apply. Empty when nobody configured it, never
+    # a guess: an invoice that names a country its seller is not established in
+    # is a false statement in a legal document, and a document refused for
+    # naming none is the cheaper failure. BR-9 / BR-11 catch it.
+    country_code: str = ""
     vat_id: str | None = None  # BT-31 / BT-48 (USt-IdNr., e.g. DE123456789)
     tax_number: str | None = None  # BT-32 (Steuernummer) when no VAT id
     legal_id: str | None = None  # BT-30 / BT-47 registration id
@@ -295,7 +300,11 @@ def _party(parent: ET.Element, tag_local: str, p: Party) -> None:
         _sub(addr, "ram", "LineOne", p.line1)
     if p.city:
         _sub(addr, "ram", "CityName", p.city)
-    _sub(addr, "ram", "CountryID", (p.country_code or "DE").upper())
+    # BT-40 / BT-55. Written only when there is one: an absent element states
+    # nothing, whereas a substituted country states something untrue. A strict
+    # render never gets here without one, because BR-9 / BR-11 refuse first.
+    if p.country_code:
+        _sub(addr, "ram", "CountryID", p.country_code.upper())
     if p.email:
         comm = _sub(tp, "ram", "URIUniversalCommunication")
         em = _sub(comm, "ram", "URIID", p.email)
