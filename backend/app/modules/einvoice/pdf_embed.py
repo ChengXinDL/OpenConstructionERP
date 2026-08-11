@@ -218,7 +218,12 @@ def _embed_cii(pdf_bytes: bytes, xml_bytes: bytes, profile_name: str) -> bytes:
     filespec[NameObject("/Type")] = NameObject("/Filespec")
     filespec[NameObject("/F")] = create_string_object(_ATTACHMENT_NAME)
     filespec[NameObject("/UF")] = create_string_object(_ATTACHMENT_NAME)
-    filespec[NameObject("/AFRelationship")] = NameObject("/Data")
+    # /Alternative, not /Data: Factur-X 1.0 and ZUGFeRD 2.1 both require it,
+    # because the XML is another rendering of the same invoice rather than a
+    # supplement to it. A receiver that selects associated files by
+    # relationship finds nothing under /Data, and the failure is silent: the
+    # attachment is still present, still named correctly, and still parses.
+    filespec[NameObject("/AFRelationship")] = NameObject("/Alternative")
     filespec[NameObject("/Desc")] = create_string_object("Factur-X/ZUGFeRD invoice")
     ef_dict = DictionaryObject()
     ef_dict[NameObject("/F")] = ef_ref
