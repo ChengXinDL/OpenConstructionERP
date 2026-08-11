@@ -27715,7 +27715,7 @@ const resource = {
     "match.wizard.laneAccepted": "{{n}} podudaranja prihvaćeno",
     "match.wizard.laneAcceptedNone": "Nema više ničega za prihvati u ovoj traci",
     "match.wizard.noGroupsReview": "Nema grupa za pregled. Pokrenite podudaranje ili se vratite i prilagodite grupiranje.",
-    "match.wizard.reviewHelpLanes": "Vaša podudaranja su podijeljena u tri trake, najgore prvo. Počnite sa \"Trebam vas\", bacite brz pogled na \"Brz pregled\" i prihvatite sigurnu grudu \"Automatski potvrđen\" jednim klikom. Otvorite bilo koju grupu da vidite zašto je svaki kandidat rangiran.",
+    "match.wizard.reviewHelpLanes": "Vaša podudaranja su podijeljena u tri trake, najgore prvo. Počnite sa \"Trebam vas\", bacite brz pogled na \"Brz pregled\" i prihvatite sigurnu gomilu \"Automatski potvrđen\" jednim klikom. Otvorite bilo koju grupu da vidite zašto je svaki kandidat rangiran.",
   "match.reason.unit_named": "Podudara se jedinica {{unit}}",
   "match.reason.prior_confirmed": "Već ste potvrdili ovo podudaranje {{count}}x",
   "match.reason.semantic": "Snažno podudaranje opisa",
