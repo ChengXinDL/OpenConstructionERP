@@ -38,6 +38,13 @@ interface ChangelogEntry {
 // date, title and meaning intact; trim the prose, not the facts.
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '14.7.0',
+    date: '2026-08-11',
+    tag: 'NEW',
+    summary:
+      'A register can be described inside the product and installed into the running server a moment later, into a module directory belonging to the instance so an upgrade cannot carry it away, with every generated file on screen before anything is written. The three statutory modules that shipped over the API with no screens now have them, along with cost matching, currencies, earned value and the inbound email reader, so every mounted module has a way in from the product. An electronic invoice is checked against the rules a receiver will actually cite and can finally be issued from a screen, carries a different VAT rate on every line, and relates its embedded XML as an alternative the way Factur-X and ZUGFeRD require. A tender in Chile, Colombia and Brazil is priced the way each country reads it, a currency with no minor unit stops printing cents on a public tender, a DXF opens without the converter binary it never needed, a worker day is costed once from whichever field surface recorded it, an upgrade started from inside the product stops reporting a failure while it is still running, and the platform reads in 40 languages, up from 29.',
+  },
+  {
     version: '14.6.0',
     date: '2026-08-06',
     tag: 'FIX',
