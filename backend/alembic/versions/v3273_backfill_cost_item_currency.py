@@ -213,6 +213,26 @@ def _open_side_connection(bind: sa.engine.Connection) -> sa.engine.Connection | 
     return conn
 
 
+def _vacuum(conn: sa.engine.Connection) -> None:
+    """Reclaim what the committed chunks made eligible. Never fatal.
+
+    ``VACUUM`` requires ownership of the table, so an install whose migration
+    role does not own ``oe_costs_item`` raises here. That must not abort a
+    backfill which is otherwise correct: without the vacuum the fill still
+    completes and still commits as it goes, it simply carries more dead tuples
+    while it runs. Losing the peak bound is worth a warning, not an upgrade.
+    """
+    try:
+        conn.execute(sa.text(f"VACUUM {_ITEM}"))  # noqa: S608 - constant
+    except Exception as exc:
+        logger.warning(
+            "could not vacuum %s between chunks (%s); the backfill continues, but "
+            "peak disk is no longer bounded by the chunk budget",
+            _ITEM,
+            exc,
+        )
+
+
 def _fill_chunked(conn: sa.engine.Connection) -> int:
     """Fill in committed chunks, vacuuming on a row budget. Returns rows filled."""
     filled = 0
@@ -238,12 +258,12 @@ def _fill_chunked(conn: sa.engine.Connection) -> int:
             filled += done
             unvacuumed += done
             if unvacuumed >= _VACUUM_EVERY_ROWS:
-                conn.execute(sa.text(f"VACUUM {_ITEM}"))  # noqa: S608 - constant
+                _vacuum(conn)
                 logger.info("cost item currency backfill: %s filled, vacuumed", filled)
                 unvacuumed = 0
 
     if unvacuumed:
-        conn.execute(sa.text(f"VACUUM {_ITEM}"))  # noqa: S608 - constant
+        _vacuum(conn)
     return filled
 
 

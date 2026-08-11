@@ -238,6 +238,25 @@ def test_running_it_twice_fills_nothing_the_second_time(sync_engine, marker) -> 
     assert sorted(filled.values()) == [_KNOWN[1]] * 3
 
 
+def test_a_vacuum_that_cannot_run_is_a_warning_rather_than_a_failed_upgrade(sync_engine) -> None:
+    """Losing the peak bound must not cost the upgrade.
+
+    ``VACUUM`` needs ownership of the table, so an install whose migration role
+    does not own ``oe_costs_item`` would raise mid-backfill and abort an upgrade
+    that was otherwise going fine. The fill is still correct without it.
+
+    The failure here is a real one rather than a mock: PostgreSQL refuses
+    ``VACUUM`` inside a transaction block, so passing a connection with an open
+    transaction exercises the same except branch a permission error would.
+    """
+    module = _load_migration()
+
+    with sync_engine.connect() as conn:
+        trans = conn.begin()
+        module._vacuum(conn)  # must not raise
+        trans.rollback()
+
+
 def test_a_table_created_in_the_open_transaction_falls_back_instead_of_hanging(sync_engine, monkeypatch) -> None:
     """The guard against the worst outcome: a wedged upgrade nobody can interrupt.
 
