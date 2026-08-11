@@ -100,6 +100,19 @@ repos:
         language: system
         stages: [commit-msg]
 
+      # Reject a shell fragment sitting where the subject line should be.
+      # Twelve commits already open with "@" before their real subject, the
+      # v14.6.0 release commit among them: a PowerShell here-string opener
+      # written on the same line as "git commit -m" is read as the start of the
+      # message. The twelve are published and one carries a tag, so they are
+      # allowlisted by SHA inside the script and everything after them is
+      # guarded. CI runs the same script across history.
+      - id: commit-subject-check
+        name: Block shell artefacts in the commit subject line
+        entry: python scripts/check_commit_subject.py
+        language: system
+        stages: [commit-msg]
+
       # Catch doubled Unicode escapes in locale values (`\\u2013` where a
       # correct value has one backslash, `–`). A doubled backslash is
       # syntactically valid TypeScript, so tsc, the build and key-count
