@@ -402,6 +402,11 @@ from app.modules.finance.connector_models import (  # noqa: E402,F401
     SyncLog,
 )
 
+# ── Standing e-invoice configuration ─────────────────────────────────────────
+# Same rationale again: re-exported so the module's models.py scan registers
+# oe_finance_einvoice_settings.
+from app.modules.finance.einvoice_settings_models import EInvoiceSettings  # noqa: E402,F401
+
 # ── Invoice-approval DMS model ───────────────────────────────────────────────
 # Same rationale: re-exported so ``Base.metadata.create_all`` registers the
 # oe_finance_captured_invoice table via the module's models.py scan.

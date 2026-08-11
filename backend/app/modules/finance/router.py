@@ -69,6 +69,10 @@ from app.modules.finance.connector_schemas import (
 )
 from app.modules.finance.connector_service import ConnectorService
 from app.modules.finance.connectors.registry import connector_registry
+from app.modules.finance.einvoice_settings_schemas import (
+    EInvoiceSettingsRead,
+    EInvoiceSettingsUpdate,
+)
 from app.modules.finance.models import EVMSnapshot, Invoice, InvoiceLineItem, Payment, ProjectBudget
 from app.modules.finance.retention_ledger import RetentionRollup
 from app.modules.finance.schemas import (
@@ -695,6 +699,53 @@ async def list_einvoice_profiles(
 
 
 @router.get(
+    "/einvoice-settings",
+    response_model=EInvoiceSettingsRead,
+    summary="Read the standing e-invoice configuration",
+    description=(
+        "Seller identity, the tax registration behind it and the account a buyer "
+        "pays into. These are the same on every invoice this instance issues, so "
+        "they are held once here and merged beneath whatever an individual "
+        "invoice says for itself."
+    ),
+)
+async def read_einvoice_settings(
+    session: SessionDep,
+    _perm: None = Depends(RequirePermission("finance.read")),
+) -> EInvoiceSettingsRead:
+    """Return the configuration, and which of its required fields are still blank."""
+    from app.modules.finance.einvoice_settings_service import get_settings
+
+    return EInvoiceSettingsRead.from_row(await get_settings(session))
+
+
+@router.put(
+    "/einvoice-settings",
+    response_model=EInvoiceSettingsRead,
+    summary="Write the standing e-invoice configuration",
+    description=(
+        "Replaces the whole configuration, so a field left blank is a field the "
+        "user means to clear. The IBAN is checked against its own check digits "
+        "here, which is the last point at which a mistyped account can be "
+        "caught: a document carrying one is perfectly valid and simply cannot be "
+        "paid."
+    ),
+)
+async def write_einvoice_settings(
+    payload: EInvoiceSettingsUpdate,
+    session: SessionDep,
+    user_id: CurrentUserId,
+    _perm: None = Depends(RequirePermission("finance.einvoice_settings")),
+) -> EInvoiceSettingsRead:
+    """Store the seller identity and payment details for every future e-invoice."""
+    from app.modules.finance.einvoice_settings_service import update_settings
+
+    row = await update_settings(session, payload, user_id=user_id)
+    await session.commit()
+    return EInvoiceSettingsRead.from_row(row)
+
+
+@router.get(
     "/invoices/{invoice_id}/einvoice",
     summary="Export invoice as an EN 16931 e-invoice (international: CII and UBL/Peppol)",
     description=(
@@ -769,6 +820,11 @@ async def export_invoice_einvoice(
         "metadata": dict(fresh.metadata_ or {}),
     }
     line_items: list[dict[str, Any]] = _line_item_dicts(fresh.line_items)
+    # Resolved once and handed to whichever of the two paths runs below, so the
+    # check and the file are judging the same document.
+    from app.modules.finance.einvoice_settings_service import einvoice_defaults
+
+    defaults = await einvoice_defaults(session)
 
     if dry_run:
         found = violations_for(
@@ -776,6 +832,7 @@ async def export_invoice_einvoice(
             line_items=line_items,
             profile=profile,
             buyer_fallback_name=buyer_fallback,
+            defaults=defaults,
         )
         # ``problems`` stays the fatal messages, which is what blocks a render.
         # ``violations`` carries the advisories too, each with the rule id a
@@ -798,14 +855,16 @@ async def export_invoice_einvoice(
             line_items=line_items,
             profile=profile,
             buyer_fallback_name=buyer_fallback,
+            defaults=defaults,
         )
     except EInvoiceError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
                 f"invoice is not EN 16931 complete for {profile}: {exc}. "
-                "Fill seller/buyer master data and the buyer reference under the "
-                "invoice metadata 'einvoice' key, or call with ?dry_run=true."
+                "Seller identity and the bank account are set once under the "
+                "e-invoice settings; the buyer and the buyer reference belong to "
+                "this invoice. Call with ?dry_run=true for the full list."
             ),
         ) from exc
 

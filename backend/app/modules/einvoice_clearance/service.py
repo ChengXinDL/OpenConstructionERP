@@ -181,17 +181,24 @@ async def build_payload_from_invoice(
         for item in (invoice.line_items or [])
     ]
 
+    # The same standing configuration the finance export path resolves. Both
+    # render the same invoice row, so resolving it in only one of them would
+    # mean a document cleared for export here and refused there, or worse, two
+    # different documents for one invoice.
+    from app.modules.finance.einvoice_settings_service import einvoice_defaults
+
     try:
         _filename, media_type, body = render_einvoice(
             invoice=invoice_dict,
             line_items=line_items,
             profile=en16931_profile,
+            defaults=await einvoice_defaults(session),
         )
     except EInvoiceError as exc:
         raise ClearanceError(
             f"The invoice is not complete enough to render as {en16931_profile}: {exc}. "
-            "Fill the seller and buyer master data and the buyer reference under the invoice "
-            "metadata 'einvoice' key."
+            "Seller identity and the bank account are set once under the e-invoice settings; "
+            "the buyer and the buyer reference belong to this invoice."
         ) from exc
     # The engine emits UTF-8 XML. Held as text from here on so the stored
     # document and the bytes that go on the wire are one thing that cannot
