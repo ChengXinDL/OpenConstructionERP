@@ -39,6 +39,7 @@ if TYPE_CHECKING:  # pragma: no cover - annotations only, avoids an import cycle
 
 __all__ = [
     "FATAL",
+    "VAT_CATEGORY_CODES",
     "WARNING",
     "RuleViolation",
     "check",
@@ -76,6 +77,11 @@ _CATEGORY_RULE_PREFIX = {
 # Categories whose VAT rate must be zero, and those whose rate must be positive.
 _ZERO_RATE_CATEGORIES = frozenset({"Z", "E", "AE", "K", "G", "O"})
 _POSITIVE_RATE_CATEGORIES = frozenset({"S", "L", "M"})
+
+# The category codes an invoice may carry, derived from the rule families above
+# so a code and the rules that police it can never drift apart. Anything that
+# accepts a category from a user validates against this.
+VAT_CATEGORY_CODES: frozenset[str] = frozenset(_CATEGORY_RULE_PREFIX)
 
 
 @dataclass(frozen=True)
