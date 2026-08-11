@@ -19711,7 +19711,7 @@ const resource = {
     "bim.layers_show_category": "{{category}} göster",
     "bim.layers_title": "Katmanlar",
     "bim.link_act_bulk": "→ {{count}} eleman",
-    "bim.link_act_title": "Bir program aktivitesi bağla",
+    "bim.link_act_title": "Bir çizelge etkinliğini bağlayın",
     "bim.link_created_new": "BOQ pozisyonu oluşturuldu ve {{count}} eleman bağlandı",
     "bim.link_created_new_title": "Pozisyon oluşturuldu",
     "bim.link_doc_bulk": "→ {{count}} eleman",
