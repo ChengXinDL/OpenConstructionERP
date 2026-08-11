@@ -1069,6 +1069,16 @@
     "note": "brand/service name, functional interop reference",
     "reason_category": "product_name"
   },
+  "settings.einvoice.field.payee_bic": {
+    "en_value": "BIC",
+    "note": "ISO 9362 business identifier code, used as the bare acronym in all 39 including ru; sits beside the IBAN field for the same reason and the same evidence",
+    "reason_category": "acronym"
+  },
+  "settings.einvoice.field.payee_iban": {
+    "en_value": "IBAN",
+    "note": "ISO 13616 account-number standard, used as the bare acronym in all 39 including ru; the rest of the field family on the same form is genuinely translated (Account holder, Payment terms, Company name), so this is the standard's own name standing alone rather than an untranslated label",
+    "reason_category": "acronym"
+  },
   "site_inventory.col_sku": {
     "en_value": "SKU",
     "note": "bare technical/business acronym or initialism",
