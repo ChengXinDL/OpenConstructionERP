@@ -30,22 +30,27 @@ from app.modules.einvoice.profiles import (
     Profile,
     get_profile,
 )
+from app.modules.einvoice.rules import FATAL, WARNING, RuleViolation
 from app.modules.einvoice.service import (
     build_einvoice,
     problems_for,
     render_einvoice,
     render_einvoice_pdf,
+    violations_for,
 )
 from app.modules.einvoice.ubl import build_ubl_xml, is_credit_note
 
 __all__ = [
+    "FATAL",
     "PROFILES",
     "SUPPORTED_PROFILES",
+    "WARNING",
     "EInvoice",
     "EInvoiceError",
     "EInvoiceLine",
     "Party",
     "Profile",
+    "RuleViolation",
     "TaxSubtotal",
     "build_cii_xml",
     "build_einvoice",
@@ -58,4 +63,5 @@ __all__ = [
     "render_einvoice_pdf",
     "validate",
     "validate_semantics",
+    "violations_for",
 ]

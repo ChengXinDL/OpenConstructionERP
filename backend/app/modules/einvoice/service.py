@@ -26,10 +26,10 @@ from app.modules.einvoice.cii import (
     Party,
     TaxSubtotal,
     build_cii_xml,
-    validate,
+    validate_rules,
 )
 from app.modules.einvoice.profiles import get_profile
-from app.modules.einvoice.rules import money_decimals
+from app.modules.einvoice.rules import FATAL, RuleViolation, money_decimals
 from app.modules.einvoice.ubl import build_ubl_xml
 
 _2P = Decimal("0.01")
@@ -350,6 +350,34 @@ def render_einvoice_pdf(
     return filename, "application/pdf", pdf
 
 
+def violations_for(
+    *,
+    invoice: dict[str, Any],
+    line_items: list[dict[str, Any]],
+    profile: str,
+    seller: Party | dict | None = None,
+    buyer: Party | dict | None = None,
+    seller_fallback_name: str = "",
+    buyer_fallback_name: str = "",
+) -> list[RuleViolation]:
+    """Validate without rendering, keeping each rule's id and severity.
+
+    This is what a screen should call. ``problems_for`` flattens the same
+    result to the fatal messages only, which cannot tell a reader that an
+    invoice exports fine but ought to name a bank account.
+    """
+    ei = build_einvoice(
+        invoice=invoice,
+        line_items=line_items,
+        profile=profile,
+        seller=seller,
+        buyer=buyer,
+        seller_fallback_name=seller_fallback_name,
+        buyer_fallback_name=buyer_fallback_name,
+    )
+    return validate_rules(ei)
+
+
 def problems_for(
     *,
     invoice: dict[str, Any],
@@ -360,8 +388,8 @@ def problems_for(
     seller_fallback_name: str = "",
     buyer_fallback_name: str = "",
 ) -> list[str]:
-    """Validate without rendering - used by a dry-run endpoint / UI check."""
-    ei = build_einvoice(
+    """Validate without rendering - the fatal messages that block a render."""
+    found = violations_for(
         invoice=invoice,
         line_items=line_items,
         profile=profile,
@@ -370,7 +398,7 @@ def problems_for(
         seller_fallback_name=seller_fallback_name,
         buyer_fallback_name=buyer_fallback_name,
     )
-    return validate(ei)
+    return [v.message for v in found if v.severity == FATAL]
 
 
 def _safe_token(raw: str) -> str:

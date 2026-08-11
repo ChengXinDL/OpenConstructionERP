@@ -12,9 +12,9 @@ from decimal import Decimal
 
 import pytest
 
-from app.modules.einvoice import build_einvoice, problems_for, render_einvoice
+from app.modules.einvoice import build_einvoice, problems_for, render_einvoice, violations_for
 from app.modules.einvoice.cii import EInvoiceError
-from app.modules.einvoice.rules import FATAL, check, violation_ids
+from app.modules.einvoice.rules import FATAL, WARNING, check, violation_ids
 
 
 def _invoice(**over: object) -> dict:
@@ -197,10 +197,66 @@ def test_without_an_iban_no_credit_transfer_is_claimed():
     assert "BR-61" not in violation_ids(check(ei))
 
 
-def test_the_missing_account_is_reported_to_the_user():
-    problems = problems_for(invoice=_invoice(), line_items=_mixed_lines(), profile="xrechnung")
-    # Fatal only, so the export is not blocked by an advisory.
-    assert problems == []
+def test_a_missing_account_advises_without_blocking_the_export():
+    """The advisory is raised, and it is not among the problems that block."""
+    ei = build_einvoice(invoice=_invoice(), line_items=_mixed_lines(), profile="xrechnung")
+    advisories = [v for v in check(ei) if v.severity != FATAL]
+    assert "OCE-PAY-01" in {v.rule_id for v in advisories}
+    assert problems_for(invoice=_invoice(), line_items=_mixed_lines(), profile="xrechnung") == []
+
+
+# ── what a screen is given to show ────────────────────────────────────────────
+
+
+def _dry_run(**over: object) -> list:
+    kwargs: dict = {"invoice": _invoice(), "line_items": _mixed_lines(), "profile": "xrechnung"}
+    kwargs.update(over)
+    return violations_for(**kwargs)
+
+
+def test_the_dry_run_keeps_the_rule_id_a_receiver_would_quote():
+    """Prose alone cannot be searched for; the identifier can."""
+    found = _dry_run()
+    assert found, "the sample invoice raises at least the missing-account advisory"
+    assert all(v.rule_id for v in found)
+    assert {v.severity for v in found} <= {FATAL, WARNING}
+
+
+def test_an_advisory_is_visible_to_a_screen_but_absent_from_the_blockers():
+    """The distinction the endpoint exists to make.
+
+    A screen that cannot tell these apart shows a red list for an invoice
+    that exports perfectly well, and the user stops believing the panel.
+    """
+    found = _dry_run()
+    advisory_ids = {v.rule_id for v in found if v.severity != FATAL}
+    fatal_messages = [v.message for v in found if v.severity == FATAL]
+
+    assert "OCE-PAY-01" in advisory_ids
+    assert fatal_messages == []
+    assert problems_for(invoice=_invoice(), line_items=_mixed_lines(), profile="xrechnung") == []
+
+
+def test_problems_for_is_exactly_the_fatal_messages_of_violations_for():
+    """One evaluation, two readings of it, so they cannot drift apart."""
+    inv = _invoice()
+    del inv["metadata"]["einvoice"]["buyer_reference"]  # BR-DE-15 for XRechnung
+
+    found = violations_for(invoice=inv, line_items=_mixed_lines(), profile="xrechnung")
+    problems = problems_for(invoice=inv, line_items=_mixed_lines(), profile="xrechnung")
+
+    assert problems == [v.message for v in found if v.severity == FATAL]
+    assert problems, "a missing buyer reference blocks an XRechnung"
+
+
+def test_a_blocked_invoice_still_reports_its_advisories():
+    """A fatal problem must not swallow the advice sitting beside it."""
+    inv = _invoice()
+    del inv["metadata"]["einvoice"]["buyer_reference"]
+
+    found = violations_for(invoice=inv, line_items=_mixed_lines(), profile="xrechnung")
+    assert any(v.severity == FATAL for v in found)
+    assert any(v.severity == WARNING for v in found)
 
 
 # ── the tax accounting currency ───────────────────────────────────────────────

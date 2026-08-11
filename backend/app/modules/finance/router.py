@@ -665,6 +665,36 @@ async def export_invoice_br_pdf(
 
 
 @router.get(
+    "/einvoice-profiles",
+    summary="List the EN 16931 country profiles this build can issue",
+    description=(
+        "The profile registry, so a picker never carries its own copy of the "
+        "list. Adding a country is one registry entry in the einvoice module, "
+        "and every caller of this endpoint follows it without a change."
+    ),
+)
+async def list_einvoice_profiles(
+    _perm: None = Depends(RequirePermission("finance.read")),
+) -> dict[str, Any]:
+    """Return the supported e-invoice profiles with their syntax and region."""
+    from app.modules.einvoice import PROFILES
+
+    return {
+        "profiles": [
+            {
+                "key": key,
+                # Standard names (XRechnung 3.0, ZUGFeRD 2.1) are proper nouns
+                # and stay untranslated, so the label ships from the registry.
+                "label": profile.label,
+                "syntax": profile.syntax,
+                "region": profile.region,
+            }
+            for key, profile in PROFILES.items()
+        ]
+    }
+
+
+@router.get(
     "/invoices/{invoice_id}/einvoice",
     summary="Export invoice as an EN 16931 e-invoice (international: CII and UBL/Peppol)",
     description=(
@@ -695,10 +725,11 @@ async def export_invoice_einvoice(
 ) -> StreamingResponse | dict[str, Any]:
     """Stream an EN 16931 e-invoice (CII/UBL XML, or a hybrid PDF) from the invoice."""
     from app.modules.einvoice import (
+        FATAL,
         SUPPORTED_PROFILES,
-        problems_for,
         render_einvoice,
         render_einvoice_pdf,
+        violations_for,
     )
     from app.modules.einvoice.cii import EInvoiceError
 
@@ -740,13 +771,25 @@ async def export_invoice_einvoice(
     line_items: list[dict[str, Any]] = _line_item_dicts(fresh.line_items)
 
     if dry_run:
-        problems = problems_for(
+        found = violations_for(
             invoice=invoice_dict,
             line_items=line_items,
             profile=profile,
             buyer_fallback_name=buyer_fallback,
         )
-        return {"format": profile, "valid": not problems, "problems": problems}
+        # ``problems`` stays the fatal messages, which is what blocks a render.
+        # ``violations`` carries the advisories too, each with the rule id a
+        # receiver would quote back, so a screen can show "this exports, and it
+        # still ought to name a bank account" instead of one undifferentiated list.
+        problems = [v.message for v in found if v.severity == FATAL]
+        return {
+            "format": profile,
+            "valid": not problems,
+            "problems": problems,
+            "violations": [
+                {"rule_id": v.rule_id, "severity": v.severity, "message": v.message, "term": v.term} for v in found
+            ],
+        }
 
     render = render_einvoice_pdf if embed else render_einvoice
     try:
