@@ -499,6 +499,11 @@
     "note": "entirely template variables/punctuation, no literal word to translate",
     "reason_category": "template_placeholder"
   },
+  "finance.einvoice.downloadXml": {
+    "en_value": "XML",
+    "note": "bare file-format name on a download button, identical in all 39 including ru; the rest of the family is genuinely translated, and the sibling button beside it reads Hybrid PDF / Гибридный PDF / Hybrides PDF, so this is the format name standing alone rather than an untranslated label",
+    "reason_category": "acronym"
+  },
   "fx.rate_line": {
     "en_value": "1 {{from}} = {{rate}} {{to}}",
     "note": "pure interpolation template, no literal text to translate (bn locale addition)",
@@ -527,6 +532,11 @@
   "hse_advanced.method_swot": {
     "en_value": "SWOT",
     "note": "bare technical/business acronym or initialism",
+    "reason_category": "abbreviation"
+  },
+  "inbound_email.field_cc": {
+    "en_value": "Cc",
+    "note": "email carbon-copy header abbreviation, kept in Latin form by 35 locales; the sibling labels field_to and field_from are translated in all 39, and field_cc is translated in exactly the four locales whose script makes a Latin pair look foreign (ar, el, fa, he), so the family was translated deliberately and this one was kept on purpose",
     "reason_category": "abbreviation"
   },
   "integrations.discord": {
