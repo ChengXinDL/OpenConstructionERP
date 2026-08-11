@@ -52,7 +52,7 @@ const playbook: Playbook = {
       whyKey: "cases.run_an_authority_design_review_cycle.step.open-document.why",
       whyDefault:
         "If the design keeps changing while the review is open, nobody can say which remark applies to which version. Fixing the reviewed version first is what keeps the cycle honest.",
-      moduleLabel: "Documents",
+      moduleLabel: "Project Files",
       moduleLabelKey: "documents.title",
       to: "/projects/:projectId/files",
     },
