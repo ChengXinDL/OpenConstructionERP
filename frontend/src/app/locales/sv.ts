@@ -18052,7 +18052,7 @@ const resource = {
     "payportal.progress_no_projects_desc": "När ett projektteam delar lägesrapporter med dig visas projektet här.",
     "payportal.progress_empty": "Inga lägesrapporter ännu",
     "payportal.progress_empty_desc": "Lägesrapporter som delats med dig för detta projekt visas här.",
-    "payportal.progress_load_failed": "Det gick inte att läsa in lägesrapporterna",
+    "payportal.progress_load_failed": "Kunde inte ladda framdriftsrapporter",
     "payportal.progress_generated": "Genererad",
     "payportal.progress_period": "Period",
     "payportal.progress_ready": "Klar",

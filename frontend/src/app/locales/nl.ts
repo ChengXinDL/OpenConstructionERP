@@ -11746,7 +11746,7 @@ const resource = {
     "boq.renumbering": "Hernummeren...",
     "boq.reorder_failed": "Herordenen van posities mislukt",
     "boq.resource_added": "Resource toegevoegd",
-    "boq.resource_added_from_catalog": "Resource toegevoegd uit catalogus",
+    "boq.resource_added_from_catalog": "Hulpbron uit catalogus toegevoegd",
     "boq.resource_catalog_code": "Cataloguscode: {{code}}",
     "boq.resource_currency": "Valuta",
     "boq.resource_currency_add_custom": "Aangepaste code toevoegen: {{code}}",

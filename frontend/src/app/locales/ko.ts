@@ -34883,7 +34883,7 @@ const resource = {
     "submittals.insights.k_avg_approve": "평균 승인 일수",
     "submittals.insights.c_by_type": "유형별 제출물",
     "submittals.insights.c_by_status": "상태별 제출물",
-    "submittals.insights.c_by_court": "다음 단계별 제출물",
+    "submittals.insights.c_by_court": "다음 조치 담당자",
     "submittals.insights.c_over_time": "기간별 제출물",
     "inspections.insights.title": "검사 통찰력",
     "inspections.insights.ds_inspections": "검사 등록부",

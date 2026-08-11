@@ -8665,7 +8665,7 @@ const resource = {
     "login.hero_highlight": "redefinirana",
     "login.hero_title": "Procjena građevinskih troškova,",
     "login.open_source_badge": "Br. 1 ERP otvorenog koda za građevinarstvo",
-    "dashboard.open_source_badge": "Vodeći otvoreni ERP za gradnju",
+    "dashboard.open_source_badge": "Br. 1 ERP otvorenog koda za građevinarstvo",
     "login.learn_more": "Saznajte više o platformi",
     "login.privacy": "Svi podaci se obrađuju i pohranjuju lokalno na vašem računalu. Ništa se ne šalje vanjskim poslužiteljima. Vi ste vlasnik svojih podataka, uvijek.",
     "login.privacy_ai": "Ako koristite ugrađene AI alate, neki podaci mogu biti poslani AI pružatelju kojeg konfigurirate (OpenAI, Anthropic itd.). Vi kontrolirate kojeg pružatelja koristiti i koje podatke dijeliti.",

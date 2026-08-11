@@ -34692,7 +34692,7 @@ const resource = {
     "rfi.insights.k_avg_age": "Ø offene Tage",
     "rfi.insights.c_by_discipline": "Mängelanzeigen nach Fachbereich",
     "rfi.insights.c_by_status": "Mängelanzeigen nach Status",
-    "rfi.insights.c_by_court": "Wer ist als Nächstes dran?",
+    "rfi.insights.c_by_court": "Wer ist am Zug",
     "rfi.insights.c_over_time": "Mängelanzeigen im Zeitverlauf",
     "ncr.insights.title": "Mängelanzeigen-Einblicke",
     "ncr.insights.ds_ncrs": "Mängelanzeigen-Register",

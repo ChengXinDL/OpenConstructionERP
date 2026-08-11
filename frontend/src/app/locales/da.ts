@@ -18840,7 +18840,7 @@ const resource = {
     "costmodel.spine.noun_contract": "Kontraktlinje",
     "costmodel.spine.noun_po": "PO-linje",
     "costmodel.spine.noun_rfq": "RFQ",
-    "costs.ask_cost_advisor": "Spørg Cost Advisor",
+    "costs.ask_cost_advisor": "Spørg omkostningsrådgiveren",
     "costs.benchmark_question": "Er {{rate}} en typisk pris for \"{{description}}\"? Hvordan er den sammenlignet på tværs af regioner?",
     "costs.benchmark_rate": "Benchmark denne pris med AI Cost Advisor",
     "costs.certainty.age_days": "for {{count}}d siden",
