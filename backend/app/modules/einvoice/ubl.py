@@ -182,17 +182,32 @@ def build_ubl_xml(inv: EInvoice, *, strict: bool = True) -> bytes:
     if inv.payment_means_code:
         pm = _sub(root, "cac", "PaymentMeans")
         _sub(pm, "cbc", "PaymentMeansCode", inv.payment_means_code)
+        # BG-17 credit transfer: BT-84 is the account to pay into, and BR-61
+        # makes it mandatory whenever the means code claims a credit transfer.
+        if inv.payee_iban:
+            acct = _sub(pm, "cac", "PayeeFinancialAccount")
+            _sub(acct, "cbc", "ID", inv.payee_iban)
+            if inv.payee_account_name:
+                _sub(acct, "cbc", "Name", inv.payee_account_name)
+            if inv.payee_bic:
+                branch = _sub(acct, "cac", "FinancialInstitutionBranch")
+                _sub(branch, "cbc", "ID", inv.payee_bic)
     if inv.payment_terms:
         pt = _sub(root, "cac", "PaymentTerms")
         _sub(pt, "cbc", "Note", inv.payment_terms)
 
     # Tax total + subtotals.
     tt = _sub(root, "cac", "TaxTotal")
-    _amt(tt, "TaxAmount", _money(inv.tax_total), cur)
+    _amt(tt, "TaxAmount", _money(inv.tax_total, cur), cur)
+    # BT-111: VAT accounted for in another currency travels as its own TaxTotal,
+    # so neither amount can be read against the wrong currency.
+    if inv.tax_currency and inv.tax_total_in_tax_currency is not None:
+        tt_tax_cur = _sub(root, "cac", "TaxTotal")
+        _amt(tt_tax_cur, "TaxAmount", _money(inv.tax_total_in_tax_currency, inv.tax_currency), inv.tax_currency)
     for grp in inv.tax_subtotals:
         sub = _sub(tt, "cac", "TaxSubtotal")
-        _amt(sub, "TaxableAmount", _money(grp.basis), cur)
-        _amt(sub, "TaxAmount", _money(grp.tax_amount), cur)
+        _amt(sub, "TaxableAmount", _money(grp.basis, cur), cur)
+        _amt(sub, "TaxAmount", _money(grp.tax_amount, cur), cur)
         cat = _sub(sub, "cac", "TaxCategory")
         _sub(cat, "cbc", "ID", grp.category)
         _sub(cat, "cbc", "Percent", _pct(grp.rate))
@@ -201,19 +216,19 @@ def build_ubl_xml(inv: EInvoice, *, strict: bool = True) -> bytes:
 
     # Monetary totals.
     lmt = _sub(root, "cac", "LegalMonetaryTotal")
-    _amt(lmt, "LineExtensionAmount", _money(inv.line_total), cur)
-    _amt(lmt, "TaxExclusiveAmount", _money(inv.tax_basis_total), cur)
-    _amt(lmt, "TaxInclusiveAmount", _money(inv.grand_total), cur)
+    _amt(lmt, "LineExtensionAmount", _money(inv.line_total, cur), cur)
+    _amt(lmt, "TaxExclusiveAmount", _money(inv.tax_basis_total, cur), cur)
+    _amt(lmt, "TaxInclusiveAmount", _money(inv.grand_total, cur), cur)
     if inv.prepaid_amount:
-        _amt(lmt, "PrepaidAmount", _money(inv.prepaid_amount), cur)
-    _amt(lmt, "PayableAmount", _money(inv.due_payable), cur)
+        _amt(lmt, "PrepaidAmount", _money(inv.prepaid_amount, cur), cur)
+    _amt(lmt, "PayableAmount", _money(inv.due_payable, cur), cur)
 
     # Lines (InvoiceLine / InvoicedQuantity, or CreditNoteLine / CreditedQuantity).
     for line in inv.lines:
         il = _sub(root, "cac", line_wrapper)
         _sub(il, "cbc", "ID", line.line_id)
         _sub(il, "cbc", qty_tag, _qty(line.quantity)).set("unitCode", unece_unit(line.unit))
-        _amt(il, "LineExtensionAmount", _money(line.line_net_amount), cur)
+        _amt(il, "LineExtensionAmount", _money(line.line_net_amount, cur), cur)
         item = _sub(il, "cac", "Item")
         _sub(item, "cbc", "Name", line.name or "-")
         cat = _sub(item, "cac", "ClassifiedTaxCategory")
