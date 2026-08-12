@@ -61,7 +61,7 @@ const playbook: Playbook = {
         "cases.manage_the_drawing_register_and_transmittals.step.register.why",
       whyDefault:
         "The register is the single source of truth for what the current drawing is. When it lags behind, two people end up certain they have the latest and only one of them is right.",
-      moduleLabel: "Project files",
+      moduleLabel: "Project Files",
       moduleLabelKey: "nav.project_files",
       to: "/projects/:projectId/files",
     },

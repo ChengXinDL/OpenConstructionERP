@@ -58,7 +58,7 @@ const playbook: Playbook = {
       whyKey: "cases.mark_up_and_compare_a_drawing_revision.step.open.why",
       whyDefault:
         "A markup on last month sheet is wasted the moment it lands, and worse, it can send the design team correcting a detail that has already moved on. Start from the controlled current revision every time.",
-      moduleLabel: "Files",
+      moduleLabel: "Project Files",
       moduleLabelKey: "nav.project_files",
       to: "/projects/:projectId/files",
     },

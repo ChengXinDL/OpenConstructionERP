@@ -147,7 +147,7 @@ const playbook: Playbook = {
         "cases.respond_to_an_invitation_to_tender_as_a_subcontractor.step.submit.why",
       whyDefault:
         "A strong price in an incomplete return still gets you disqualified. Packaging the full submission and getting it in on time is what puts your number in front of the buyer at all.",
-      moduleLabel: "Files",
+      moduleLabel: "Project Files",
       moduleLabelKey: "nav.project_files",
       to: "/projects/:projectId/files",
     },

@@ -461,7 +461,7 @@ export default function CloseoutPage() {
           defaultValue: 'Every handover document in one verified package',
         })}
         links={[
-          { label: t('nav.documents', { defaultValue: 'Documents' }), onClick: () => navigate('/documents') },
+          { label: t('nav.project_files', { defaultValue: 'Project Files' }), onClick: () => navigate('/files') },
           { label: t('nav.punchlist', { defaultValue: 'Punch list' }), onClick: () => navigate('/punchlist') },
           { label: t('nav.inspections', { defaultValue: 'Inspections' }), onClick: () => navigate('/inspections') },
         ]}

@@ -181,7 +181,7 @@ function HowApprovalsWork() {
           <ModLink to="/plan-room">
             {t('files.approvals.mod_planroom', { defaultValue: 'Plan Room' })}
           </ModLink>{' '}
-          · <ModLink to="/files">{t('files.approvals.mod_files', { defaultValue: 'Files' })}</ModLink>{' '}
+          · <ModLink to="/files">{t('nav.project_files', { defaultValue: 'Project Files' })}</ModLink>{' '}
           ·{' '}
           <ModLink to="/closeout">
             {t('files.approvals.mod_closeout', { defaultValue: 'Handover' })}
