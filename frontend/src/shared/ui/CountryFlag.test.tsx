@@ -28,9 +28,12 @@ describe('CountryFlag', () => {
   // where every other row has a flag. That is how Estonian shipped. Nothing
   // else notices - no broken image, no console warning, no type error, just an
   // empty slot - so it has to be asserted here.
-  it.each(languages)('draws something for %s (country %s)', (_code, country) => {
+  // Asserting an <img> rather than any node at all: a wrapper span with no
+  // flag inside is exactly the failure this test exists to catch, and it is
+  // a non-empty DOM element.
+  it.each(languages)('draws a flag image for %s (country %s)', (_code, country) => {
     const { container } = render(<CountryFlag code={country} />);
-    expect(container).not.toBeEmptyDOMElement();
+    expect(container.querySelector('img')).toBeTruthy();
   });
 
   it('renders nothing for a code that is not a country', () => {

@@ -35,7 +35,10 @@ export const SUPPORTED_LANGUAGES = [
   { code: 'ro', name: 'Română', english: 'Romanian', flag: '🇷🇴', country: 'ro' },
   { code: 'th', name: 'ไทย', english: 'Thai', flag: '🇹🇭', country: 'th' },
   { code: 'vi', name: 'Tiếng Việt', english: 'Vietnamese', flag: '🇻🇳', country: 'vn' },
-  { code: 'mn', name: 'Монгол', english: 'Mongolian', flag: '🇲🇳', country: 'mn' },
+  // Mongolian is deliberately not offered: five invented roots passed every
+  // gate in mn.ts and the file needs a native-speaker pass before the
+  // language returns. The locale file stays on disk so the work resumes from
+  // where it stopped, but nothing loads it while it is off this list.
   { code: 'ky', name: 'Кыргызча', english: 'Kyrgyz', flag: '🇰🇬', country: 'kg' },
   { code: 'et', name: 'Eesti', english: 'Estonian', flag: '🇪🇪', country: 'ee' },
   { code: 'bn', name: 'বাংলা', english: 'Bengali', flag: '🇧🇩', country: 'bd' },
