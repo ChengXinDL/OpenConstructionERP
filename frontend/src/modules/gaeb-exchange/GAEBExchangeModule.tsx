@@ -232,7 +232,10 @@ export default function GAEBExchangeModule() {
           addToast({
             type: 'success',
             title: t('gaeb.parsed_ok', { defaultValue: 'File parsed successfully' }),
-            message: `${positions.length} positions found`,
+            message: t('gaeb.toast_positions_found', {
+              count: positions.length,
+              defaultValue: '{{count}} positions found',
+            }),
           });
         }
       } catch {
@@ -281,7 +284,17 @@ export default function GAEBExchangeModule() {
       addToast({
         type: result.imported > 0 ? 'success' : 'warning',
         title: t('gaeb.import_complete', { defaultValue: 'GAEB import complete' }),
-        message: `${result.imported} positions imported${result.errors.length > 0 ? `, ${result.errors.length} errors` : ''}`,
+        message:
+          result.errors.length > 0
+            ? t('gaeb.toast_imported_with_errors', {
+                count: result.imported,
+                errors: result.errors.length,
+                defaultValue: '{{count}} positions imported, {{errors}} rejected',
+              })
+            : t('gaeb.toast_positions_imported', {
+                count: result.imported,
+                defaultValue: '{{count}} positions imported',
+              }),
       });
     } catch (err) {
       addToast({
@@ -375,7 +388,11 @@ export default function GAEBExchangeModule() {
         addToast({
           type: 'success',
           title: t('gaeb.export_complete', { defaultValue: 'GAEB export complete' }),
-          message: `${exportablePositions.filter((p) => !p.isSection).length} positions → ${filename}`,
+          message: t('gaeb.toast_exported_to_file', {
+            count: exportablePositions.filter((p) => !p.isSection).length,
+            file: filename,
+            defaultValue: '{{count}} positions → {{file}}',
+          }),
         });
       } else {
         const result = generateGAEBXML({
@@ -388,7 +405,12 @@ export default function GAEBExchangeModule() {
         addToast({
           type: 'success',
           title: t('gaeb.export_complete', { defaultValue: 'GAEB export complete' }),
-          message: `${result.positionCount} positions, ${result.sectionCount} sections → ${result.filename}`,
+          message: t('gaeb.toast_exported_with_sections', {
+            count: result.positionCount,
+            sections: result.sectionCount,
+            file: result.filename,
+            defaultValue: '{{count}} positions, {{sections}} sections → {{file}}',
+          }),
         });
       }
     } catch (err) {
@@ -653,7 +675,13 @@ export default function GAEBExchangeModule() {
               {importResult.imported > 0 && (
                 <Link
                   data-testid="regional-open-boq"
-                  to={importTargetBoqId ? `/boq?boq=${importTargetBoqId}` : '/boq'}
+                  // The editor is a path param (/boq/:boqId). `?boq=` was read by
+                  // nothing, so this link promised the editor and delivered the list.
+                  to={
+                    importTargetBoqId && importTargetBoqId !== NEW_BOQ_OPTION
+                      ? `/boq/${importTargetBoqId}`
+                      : '/boq'
+                  }
                   className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-oe-blue hover:underline"
                 >
                   {t('gaeb.open_boq', {

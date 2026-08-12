@@ -739,7 +739,9 @@ export default function RegionalExchangePage({ template }: RegionalExchangePageP
               {importResult.imported > 0 && (
                 <Link
                   data-testid="regional-open-boq"
-                  to={importTargetBoqId ? `/boq?boq=${importTargetBoqId}` : '/boq'}
+                  // The editor is a path param (/boq/:boqId). `?boq=` was read by
+                  // nothing, so this link promised the editor and delivered the list.
+                  to={importTargetBoqId ? `/boq/${importTargetBoqId}` : '/boq'}
                   className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-oe-blue hover:underline"
                 >
                   {t('regional.open_boq', {
