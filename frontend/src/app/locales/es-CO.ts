@@ -581,7 +581,7 @@ const resource = {
     "formwork.selectProjectDesc": "Seleccione un proyecto para valorar su formaleta.",
     "formwork.selectSystem": "Seleccione un sistema",
     "formwork.subtitle": "Valore los moldes en los que se vierte el concreto, amortizados entre las puestas que el programa permite realmente",
-    "formwork.summary.area": "Superficie encofrada",
+    "formwork.summary.area": "Superficie de formaleta",
     "formwork.summary.assignments": "{{count}} asignaciones",
     "formwork.summary.saving": "Valor de las puestas declaradas",
     "formwork.summary.savingSub": "{{pct}}% por debajo del precio sin reutilización",
