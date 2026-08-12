@@ -59,9 +59,12 @@ cares about.
 **4. No published Windows installer carries an Authenticode signature.** This
 one is measured on the bytes we actually published. Every one of the 113
 releases that ships a Windows installer had its `.exe` read on 2026-08-12, and
-none of them carries a certificate. The `.msi` on each release was not read
-separately: one signing step covers both in a single pass, so a step that
-produced no signature on the `.exe` produced none on the `.msi` either.
+none of them carries a certificate. Each of those releases carries exactly one
+`.exe` and exactly one `.msi`. The `.msi` was not read separately because one
+signing step covers both in a single pass, over the glob
+`signing/*.exe signing/*.msi`, so a step that produced no signature on the
+`.exe` produced none on the `.msi` either. That same glob is why a certificate
+will cover both formats rather than only the one we measured.
 
 The measurement matters because the argument available otherwise is weaker than
 it looks. The Azure signing step has been wired since 2026-06-09, and the secret
