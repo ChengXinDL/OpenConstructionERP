@@ -69,8 +69,8 @@ increasing order of how much has to be inferred to name it:
   show up here because this script does not model boolean expressions or
   chase every non-DML verb, not because a write went unseen.
 
-Known blind spot, deliberately not covered
--------------------------------------------
+Known blind spots, deliberately not covered
+---------------------------------------------
 An ALTER COLUMN ... TYPE change (batch or plain) can rewrite every row of a
 pre-existing table on PostgreSQL to re-encode the column, which is the same
 disk-profile class this script exists to flag - but it is a schema
@@ -79,6 +79,22 @@ statements that modify data. 7f3ab0f2d4e1_phase2e_money_numeric.py is a real
 example on the current tree. Naming it here rather than folding it into this
 rule, which would require a different detector (schema-op scan, not DML-op
 scan) and a different, harder to state safety condition.
+
+A table name arriving as a function parameter, rather than a module-level
+constant, a for-loop target, or a locally reassigned literal, is invisible
+to this script's scope model and so cannot reach ``created``. Five files on
+the current tree share an ``_create_if_not_exists(table_name, *columns,
+**kw)`` helper with exactly this shape (a1b2c3d4e5f6_add_collab_lock_table.py,
+f22fa2934807_add_bim_element_group_table.py,
+ffe3f561e2c1_add_documents_bim_link_table.py, v090_add_all_new_modules.py,
+v191_dwg_entity_groups.py) - none of them issue any DML at all, so this is
+a latent gap rather than a live false positive today, but a future revision
+that both creates a table this way and writes to it in the same upgrade()
+would be flagged as touching pre-existing data when it does not. Extending
+the scope model to bind a called function's parameters from the literal
+arguments a call site passes would close this without weakening anything
+else, and is future work rather than something this revision of the script
+attempts.
 
 Usage:
 
