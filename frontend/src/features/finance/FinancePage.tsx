@@ -4,7 +4,6 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { normalizeListResponse } from '@/shared/lib/apiHelpers';
 import {
   Wallet,
   FileText,
@@ -61,7 +60,8 @@ import { useConfirm } from '@/shared/hooks/useConfirm';
 import { MoneyDisplay } from '@/shared/ui/MoneyDisplay';
 import { MultiCurrencyTotal } from '@/shared/ui/MultiCurrencyTotal';
 import { DateDisplay } from '@/shared/ui/DateDisplay';
-import { apiGet, apiPost, apiPatch, downloadWithAuth, extractErrorMessageFromBody } from '@/shared/lib/api';
+import { apiGet, apiPost, apiPatch, downloadWithAuth, extractErrorMessageFromBody, type Page } from '@/shared/lib/api';
+import { TruncationNotice } from '@/shared/ui/TruncationNotice';
 import { ContactSearchInput } from '@/shared/ui/ContactSearchInput';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
@@ -694,12 +694,13 @@ export function FinancePage() {
   // dashboard query the summary cards already load, so it is a cache hit.
   // These hooks sit with the other top-level hooks, above any conditional
   // render, so the hook order stays stable.
-  const { data: insightInvoices = [] } = useQuery({
+  const { data: insightPage } = useQuery({
     queryKey: ['finance-invoices', projectId, 'all'],
-    queryFn: () => apiGet<InvoiceWire[]>(`/v1/finance/?project_id=${projectId}`),
-    select: (d): Invoice[] => normalizeListResponse<InvoiceWire>(d).map(normaliseInvoice),
+    queryFn: () => apiGet<Page<InvoiceWire>>(`/v1/finance/?project_id=${projectId}`),
+    select: (p): Page<Invoice> => ({ ...p, items: p.items.map(normaliseInvoice) }),
     enabled: !!projectId,
   });
+  const insightInvoices = insightPage?.items ?? [];
   const { data: insightDashboard } = useQuery({
     queryKey: ['finance', 'dashboard', projectId],
     queryFn: () =>
@@ -795,6 +796,12 @@ export function FinancePage() {
         onRemove={insights.removeCustom}
         onCollapse={() => insights.setOpen(false)}
       />
+      {/* The charts are built from the invoices this page read, and that read
+          is one page of the register. Say so, or the aggregate reads as the
+          whole project. */}
+      {insights.open && insightPage && (
+        <TruncationNotice page={insightPage} className="-mt-3" />
+      )}
 
       {/* Canonical module intro — pain-named, copy from MODULE_INTRO_COPY.
           Replaces the bespoke gradient "How it works" workflow guide. */}
@@ -1233,13 +1240,16 @@ function BudgetsTab({ projectId }: { projectId: string }) {
 
   const budgetsQuery = useQuery({
     queryKey: ['finance-budgets', projectId],
+    // The budgets route answers with the envelope but without `offset` /
+    // `limit` - it takes no paging arguments at all - so the type names only
+    // the two fields that are really on the wire.
     queryFn: () =>
-      apiGet<BudgetLine[]>(
+      apiGet<Pick<Page<BudgetLine>, 'items' | 'total'>>(
         `/v1/finance/budgets/?project_id=${projectId}`,
       ),
-    select: (d): BudgetLine[] => normalizeListResponse(d),
   });
-  const { data: budgets, isLoading, isError, error, refetch } = budgetsQuery;
+  const { data: budgetPage, isLoading, isError, error, refetch } = budgetsQuery;
+  const budgets = budgetPage?.items;
 
   const filtered = useMemo(() => {
     if (!budgets) return [];
@@ -1635,6 +1645,10 @@ function BudgetsTab({ projectId }: { projectId: string }) {
           );
         })}
       </div>
+
+      {budgetPage && (
+        <TruncationNotice page={budgetPage} className="px-4 py-3 border-t border-border-light" />
+      )}
     </Card>
 
     {/* New / Edit Budget Line Modal */}
@@ -1996,7 +2010,7 @@ function InvoicesTab({ projectId }: { projectId: string }) {
   });
 
   const {
-    data: invoices,
+    data: invoicePage,
     isLoading,
     isError,
     error,
@@ -2004,12 +2018,12 @@ function InvoicesTab({ projectId }: { projectId: string }) {
   } = useQuery({
     queryKey: ['finance-invoices', projectId, subTab],
     queryFn: () =>
-      apiGet<InvoiceWire[]>(
+      apiGet<Page<InvoiceWire>>(
         `/v1/finance/?project_id=${projectId}&direction=${subTab}`,
       ),
-    select: (d): Invoice[] =>
-      normalizeListResponse<InvoiceWire>(d).map(normaliseInvoice),
+    select: (p): Page<Invoice> => ({ ...p, items: p.items.map(normaliseInvoice) }),
   });
+  const invoices = invoicePage?.items;
 
   const filtered = useMemo(() => {
     if (!invoices) return [];
@@ -2570,6 +2584,13 @@ function InvoicesTab({ projectId }: { projectId: string }) {
             </div>
           </>
         )}
+
+        {/* Outside the branch above on purpose: a search that matches nothing
+            is exactly when the reader has to be told that only part of the
+            register was searched. */}
+        {!isLoading && !isError && invoicePage && (
+          <TruncationNotice page={invoicePage} className="px-4 py-3 border-t border-border-light" />
+        )}
       </Card>
 
       {/* EN 16931 e-invoice: pick the country profile, read what a receiver
@@ -2996,17 +3017,19 @@ function PaymentsTab({
   const { t } = useTranslation();
 
   const {
-    data: payments,
+    data: paymentPage,
     isLoading,
     isError,
     error,
     refetch,
   } = useQuery({
     queryKey: ['finance-payments', projectId],
+    // Enveloped, but this route sends `items` and `total` only - no
+    // `offset` / `limit` on the wire.
     queryFn: () =>
-      apiGet<Payment[]>(`/v1/finance/payments/?project_id=${projectId}`),
-    select: (d): Payment[] => normalizeListResponse(d),
+      apiGet<Pick<Page<Payment>, 'items' | 'total'>>(`/v1/finance/payments/?project_id=${projectId}`),
   });
+  const payments = paymentPage?.items;
 
   const paymentTotals = useMemo(() => {
     if (!payments || !payments.length) return null;
@@ -3132,6 +3155,10 @@ function PaymentsTab({
           )}
         </table>
       </div>
+
+      {paymentPage && (
+        <TruncationNotice page={paymentPage} className="px-4 py-3 border-t border-border-light" />
+      )}
     </Card>
   );
 }

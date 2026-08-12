@@ -37,7 +37,27 @@ FRONTEND = REPO / "frontend" / "src"
 MIGRATED_ENDPOINTS: dict[str, str] = {
     "/v1/schedule/schedules/": "schedule list",
     "/v1/schedule/schedules/{}/activities/": "schedule activities",
+    "/v1/finance/": "finance invoices",
+    "/v1/finance/budgets/": "finance budgets",
+    "/v1/finance/payments/": "finance payments",
+    "/v1/transmittals/": "transmittals list",
+    # Wave 2. No trailing slash on purpose: both callers write
+    # `/v1/notifications?...`, and `url_shape` cuts at the `?`, so the route
+    # this scan sees is the bare path.
+    "/v1/notifications": "notifications list",
 }
+
+# Wave 2 measured five more enveloped endpoints - file_comments,
+# file_distribution, file_references, file_saved_views, file_trash - and
+# deliberately lists none of them, because an entry for any of them would
+# report "0 call sites, 0 migrated" and pass without reading a thing. Their
+# api layers build every URL from a module-level `const BASE = '/v1/file-x'`,
+# so the only `/v1/` literal in the file sits on the BASE line, where the
+# nearest preceding verb is whatever `api*` the import statement named. The
+# same idiom hides their cache keys from the query-key scan below: those are
+# written `queryKey: [fileTrashKeys.list, ...]`, a const reference, and
+# QUERY_KEY_RE needs a quoted literal. A decorative entry is worse than no
+# entry - it reads as coverage.
 
 # React Query cache keys that must move in one commit with the endpoint they
 # read. This is a SECOND constraint, not a restatement of the one above.
@@ -60,14 +80,34 @@ SHARED_QUERY_KEYS: dict[str, str] = {
     # because the wrapper's return type happened to flow through; the URL
     # scan above never sees wrapper callers at all.
     "schedules": "/v1/schedule/schedules/",
+    # Finance reads the invoice register twice under one prefix: the Insights
+    # panel at page level with no direction filter, and the Invoices tab per
+    # sub-tab. Different third elements, so different cache entries, but one
+    # endpoint and one shape - migrating either alone leaves the other reading
+    # an envelope as an array.
+    "finance-invoices": "/v1/finance/",
+    "finance-budgets": "/v1/finance/budgets/",
+    "finance-payments": "/v1/finance/payments/",
+    "transmittals": "/v1/transmittals/",
+    # Notifications has two readers of one endpoint and no key to list: the
+    # bell caches under ['notifications-list'], the inbox page under
+    # ['notifications-page', filter, page]. Different first elements, so
+    # different cache entries that cannot hand each other a value - the
+    # ['projects-switcher'] vs ['projects'] case named above. Listing either
+    # would assert a sharing that does not exist.
 }
 
 QUERY_KEY_RE = r"queryKey:\s*\[\s*['\"`]{key}['\"`]"
 
 # A call is migrated when it names the envelope type. A call that still
-# names a bare array of the row type is not.
+# names a bare array of the row type is not, and neither is one hedging
+# between the two: `apiGet<Row[] | {items: Row[]}>` unwraps whichever shape
+# turns up and throws `total` away, which is the state this whole programme
+# exists to leave behind. So the bare hint reads the type argument up to its
+# first `>` and asks whether an array is in there at all - `Page<Row>` and
+# `Pick<Page<Row>, 'items' | 'total'>` carry none, the union carries two.
 ENVELOPE_HINT = re.compile(r"Page<|\.items\b|items:\s")
-BARE_ARRAY_HINT = re.compile(r"apiGet<\s*[A-Za-z_][A-Za-z0-9_]*\[\]\s*>")
+BARE_ARRAY_HINT = re.compile(r"apiGet<[^>]*\[\]")
 
 
 def url_shape(url: str) -> str:
@@ -111,10 +151,15 @@ def scan(root: Path) -> tuple[dict[str, list[Path]], dict[str, list[Path]]]:
             if not verbs or verbs[-1] != "Get":
                 continue
             consumers[shape].append(path)
-            # Look at the statement around the call, not the whole file: a
-            # big page can migrate one call and leave a second one bare.
-            window = text[max(0, m.start() - 400) : m.start() + 200]
-            if BARE_ARRAY_HINT.search(window) or not ENVELOPE_HINT.search(window):
+            # Judge the call this URL belongs to, not the neighbourhood it
+            # sits in. A window wide enough to hold the call is wide enough
+            # to hold the previous one's type argument, and link pickers come
+            # in runs: documents, transmittals, RFIs, one useQuery after
+            # another. The documents route is bare and the transmittals route
+            # is not, so a windowed read convicts the migrated call of its
+            # neighbour's shape and no edit to the file can clear it.
+            call = before[before.rfind("apiGet") :] + text[m.start() : m.start() + 200]
+            if BARE_ARRAY_HINT.search(call) or not ENVELOPE_HINT.search(call):
                 unmigrated[shape].append(path)
     return consumers, unmigrated
 
@@ -270,6 +315,51 @@ def self_test() -> int:
                 "SELF-TEST FAIL: a doc comment quoting the route was counted as a consumer."
             )
             return 1
+
+        # A migrated call standing next to a bare read of some OTHER route.
+        # Link pickers are written this way everywhere, and the neighbour's
+        # route may have no envelope to migrate to, so convicting on it is a
+        # failure the file cannot be edited out of.
+        for f in fake.glob("*.tsx"):
+            f.unlink()
+        (fake / "Pickers.tsx").write_text(
+            "const docs = useQuery({\n"
+            "  queryFn: () => apiGet<PickerDocument[]>(`/v1/documents/?project_id=${id}`),\n"
+            "});\n"
+            "const schedules = useQuery({\n"
+            "  queryFn: () => apiGet<Page<ScheduleRow>>(`/v1/schedule/schedules/?project_id=${id}`),\n"
+            "});\n",
+            encoding="utf-8",
+        )
+        consumers, unmigrated = scan(fake)
+        if unmigrated["/v1/schedule/schedules/"]:
+            print(
+                "SELF-TEST FAIL: a migrated call was convicted of its neighbour's bare array."
+            )
+            print(
+                "                Nothing in the file can clear that, so the guard blocks a"
+            )
+            print("                correct migration instead of an incorrect one.")
+            return 1
+
+        # The union that reads either shape is what the migration replaces, so
+        # the guard has to refuse it. It is the easiest thing to mistake for
+        # migrated: it does mention `items`.
+        (fake / "Pickers.tsx").unlink()
+        (fake / "Hedge.tsx").write_text(
+            "const rows = await apiGet<ScheduleRow[] | { items: ScheduleRow[] }>(\n"
+            "  `/v1/schedule/schedules/?project_id=${id}`,\n"
+            ");\n",
+            encoding="utf-8",
+        )
+        consumers, unmigrated = scan(fake)
+        if len(unmigrated["/v1/schedule/schedules/"]) != 1:
+            print(
+                "SELF-TEST FAIL: the guard accepted a caller hedging between array and envelope."
+            )
+            print("                That caller still throws `total` away.")
+            return 1
+        (fake / "Hedge.tsx").unlink()
 
         # The cache-key half has to be proven too, and it cannot be proven from
         # the real tree while SHARED_QUERY_KEYS is empty: an empty dict makes
