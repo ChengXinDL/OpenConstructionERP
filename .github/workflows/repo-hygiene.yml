@@ -198,3 +198,22 @@ jobs:
       # a static check and not a test.
       - name: Check permission keys against the registry
         run: python scripts/check_permission_registration.py
+
+  migration-data-rewrites:
+    name: Every migration touching pre-existing data carries an acknowledgement
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # Grew out of #126: a migration that rewrote a 1724 MB table inside the
+      # single transaction Alembic wraps a whole upgrade() in died with
+      # DiskFull on a real box. Rewriting pre-existing data is legitimate and
+      # this does not forbid it - it fails only when a flagged revision has
+      # no "# data-rewrite-ack: table=... growth=... rows=..." comment for a
+      # table it touches, so the size question gets asked before a revision
+      # ships rather than after it lands on a customer's disk. See the
+      # module docstring in the script for the acknowledgement format.
+      - name: Check migrations that rewrite pre-existing data are acknowledged
+        run: python scripts/check_migration_data_rewrites.py

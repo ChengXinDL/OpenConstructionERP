@@ -13,12 +13,16 @@ table and filling it in the same revision is a different case: the table is
 empty until this revision runs, so there is no pre-existing data to make a
 transaction-sized copy of, and that shape is not flagged.
 
-Report-only. This script is not wired into any CI workflow and always exits 0
-when the scan itself completes; it prints what it found so a human can read
-the list and decide, file by file, whether the rule should ever block a
-merge. See the summary line for scale: N revisions scanned, M flagged into
-how many statements, and how many statements this could not classify at all
-(printed separately, and never silently treated as clean).
+Blocking, in Repo hygiene (a static check over source text, not a database
+test - see .github/workflows/repo-hygiene.yml). A flagged revision ships
+only if its own file carries a ``# data-rewrite-ack:`` comment for every
+table it touches; see "Acknowledging a flagged revision" below. The 24
+revisions flagged on the tree the day this went blocking (2026-08-12)
+already carry one each. See the summary line for scale: N revisions
+scanned, M flagged into how many statements, and how many statements this
+could not classify at all (printed separately; growth in that count past
+_BASELINE_UNRESOLVED_COUNT blocks on its own terms, and neither bucket is
+ever silently treated as clean).
 
 Why AST, not grep or ScriptDirectory.walk_revisions()
 ------------------------------------------------------
@@ -67,7 +71,11 @@ increasing order of how much has to be inferred to name it:
   advances a sequence rather than writing a table row, neither a
   data-modifying statement to begin with. None of these found a write; they
   show up here because this script does not model boolean expressions or
-  chase every non-DML verb, not because a write went unseen.
+  chase every non-DML verb, not because a write went unseen. A statement
+  landing here is never required to carry an acknowledgement - there is no
+  table to name growth for until this script can name the table - but the
+  bucket's total size is still part of what blocks a run; see
+  _BASELINE_UNRESOLVED_COUNT.
 
 Known blind spots, deliberately not covered
 ---------------------------------------------
@@ -95,6 +103,65 @@ the scope model to bind a called function's parameters from the literal
 arguments a call site passes would close this without weakening anything
 else, and is future work rather than something this revision of the script
 attempts.
+
+Acknowledging a flagged revision
+---------------------------------
+A flagged revision ships only if its own source carries one line per table
+it touches, in this exact shape::
+
+    # data-rewrite-ack: table=oe_costs_item growth=tenure rows=core cost-estimation line items across every project; already 1724 MB in the field, see #126
+
+Three fields, all required. ``table=`` is the table this acknowledges - a
+finding whose table has no matching line still blocks. ``growth=`` is
+``tenure`` if the row count tracks operational history (a row per
+transaction, per day, per measurement, per entry - the table keeps growing
+for as long as a customer keeps using the product), ``bounded`` if it
+tracks a catalogue or configuration instead (it is what it is, regardless
+of how long the install has run), or ``dead-code`` for the one shape that
+is neither: a statement this script found that provably cannot execute,
+e.g. guarded by a check against a table name that has never existed - see
+v3145_demo_project_addresses.py, the only case on this tree today, and read
+its comment above ``upgrade()`` before assuming a second one is the same
+shape. ``rows=`` is a free-text estimate of row count on a mature install.
+
+Keyed on (revision, table), not on revision alone: one revision touching
+several tables needs one line per table (v3033_audit_log.py touches four -
+oe_finance_invoice, oe_ncr_ncr, oe_rfq_rfq, oe_submittals_submittal), because
+growth class is a property of the table, not of the migration, and a single
+label across all of them would hide exactly the distinction that matters.
+The comment can sit anywhere in the file - this is a plain text scan, not
+part of the ast walk above, because the requirement is that the revision
+carries an acknowledgement for each table, not that one specific line does,
+and this codebase's flagged statements are sometimes reached through a
+helper several lines from anything a line-anchored scan could find.
+
+This grew out of #126: v3273_backfill_cost_item_currency.py rewrote
+oe_costs_item, 1724 MB in the field, inside the single transaction Alembic
+wraps a whole upgrade() in, and died with DiskFull on a real box. The
+danger was never the UPDATE by itself - it was writing to a table whose
+size nobody had checked first. A megabyte figure measured on a demo
+database cannot answer whether a table will be large on a customer box
+three years in, because oe_costs_item was small on a fresh demo too, before
+years of real projects filled it; only a table's growth class can answer
+that, which is why the acknowledgement asks for growth class rather than
+for a size measured somewhere that cannot see a mature install. Five tables
+on this tree are the worked example of the shape that bites hardest:
+oe_field_diary_entry, oe_progress_entry, oe_payroll_entry /
+oe_payroll_batch, oe_takeoff_measurement (with oe_ai_takeoff_run and
+oe_takeoff_document), and oe_boq_position - each small wherever it has only
+been measured on a fresh install, and each the kind of table that
+accumulates one row per real-world event for as long as a customer keeps
+using the product, exactly the way oe_costs_item did.
+
+An acknowledgement is deliberately not a size and not a bare marker: a
+number pulled from nowhere - or measured on a demo box that cannot have
+lived through the tenure that matters - is worse than useless, and a token
+with no content is a rubber stamp within a month. Writing the three fields
+honestly is the actual review a flagged revision has to pass: a human who
+has never seen a customer's database can still say whether a table is a
+log of something that keeps happening, or a catalogue that is what it is,
+without needing to know a row count nobody watching a demo box could give
+them.
 
 Usage:
 
@@ -129,6 +196,27 @@ _DML_METHODS = {"insert", "update", "delete"}
 
 _CONFIDENCE_ORDER = {"literal": 0, "derived": 1, "unresolved": 2}
 
+# See "Acknowledging a flagged revision" in the module docstring for the
+# full shape and worked example.
+_ACK_RE = re.compile(
+    r"#\s*data-rewrite-ack:\s*table=(\S+)\s+growth=(tenure|bounded|dead-code)\s+rows=(.+?)\s*$",
+    re.IGNORECASE,
+)
+
+# The unresolved bucket the day this gate went blocking (2026-08-12): 6
+# revisions, 9 statements, every one read by hand and confirmed non-DML (a
+# CREATE INDEX CONCURRENTLY / ALTER TABLE ADD CONSTRAINT whose name does not
+# resolve, a Core select().where() read, a SELECT setval() sequence bump -
+# see the "unresolved" tier above). A statement landing here in the future
+# might be the same kind of non-finding, or might be a real rewrite this
+# script failed to parse - the two are indistinguishable from a static
+# read, so growth past this count blocks rather than staying silent. This
+# catches growth in the total, not a same-count substitution (one benign
+# statement resolved by a parser fix, replaced the same day by one new
+# unsafe one); a per-location baseline would close that gap and was not
+# built, because nothing in this corpus needed it yet.
+_BASELINE_UNRESOLVED_COUNT = 9
+
 
 @dataclass(frozen=True)
 class Resolved:
@@ -162,6 +250,23 @@ def _literal(value: str) -> Resolved:
 
 def _combine_confidence(a: str, b: str) -> str:
     return a if _CONFIDENCE_ORDER[a] >= _CONFIDENCE_ORDER[b] else b
+
+
+def _parse_acknowledgements(source: str) -> dict[str, tuple[str, str]]:
+    """table -> (growth_class, rows_estimate) for every data-rewrite-ack
+    comment in this revision's own source text.
+
+    A plain text scan, not part of the ast walk the rest of this script
+    does - comments are invisible to ast by design, and the requirement is
+    that the revision carries an acknowledgement for each table it touches,
+    not that one specific line does."""
+    acks: dict[str, tuple[str, str]] = {}
+    for line in source.splitlines():
+        m = _ACK_RE.search(line)
+        if m:
+            table, growth, rows = m.group(1), m.group(2).lower(), m.group(3).strip()
+            acks[table] = (growth, rows)
+    return acks
 
 
 def _call_func_name(func: ast.expr) -> str | None:
@@ -678,10 +783,12 @@ class Finding:
     confidence: str
 
 
-def scan_file(path: Path) -> tuple[list[Finding], list[Statement]]:
-    """Findings (touches a table this revision did not create) and
-    statements this script could not classify at all, for one revision file."""
-    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+def scan_file(path: Path) -> tuple[list[Finding], list[Statement], str]:
+    """Findings (touches a table this revision did not create), statements
+    this script could not classify at all, and the file's own source text
+    (for the acknowledgement scan below), for one revision file."""
+    source = path.read_text(encoding="utf-8")
+    tree = ast.parse(source, filename=str(path))
     created, statements = _scan_revision(tree)
 
     findings: list[Finding] = []
@@ -693,7 +800,7 @@ def scan_file(path: Path) -> tuple[list[Finding], list[Statement]]:
         for table in sorted(stmt.tables):
             if table not in created:
                 findings.append(Finding(stmt.lineno, stmt.kind, table, stmt.confidence))
-    return findings, unresolved
+    return findings, unresolved, source
 
 
 def main(argv: list[str]) -> int:
@@ -709,21 +816,32 @@ def main(argv: list[str]) -> int:
     total_unresolved = 0
     by_confidence = {"literal": 0, "derived": 0}
 
+    missing_acks: list[tuple[str, list[str]]] = []
+
     for path in paths:
         try:
-            findings, unresolved = scan_file(path)
+            findings, unresolved, source = scan_file(path)
         except SyntaxError as exc:
             parse_errors.append((path.name, str(exc)))
             continue
         if not findings and not unresolved:
             continue
 
+        acks = _parse_acknowledgements(source)
+        flagged_tables = sorted({f.table for f in findings})
+        unacked = [t for t in flagged_tables if t not in acks]
+        if unacked:
+            missing_acks.append((path.name, unacked))
+
         rows: list[tuple[int, str]] = []
         for f in findings:
+            ack = acks.get(f.table)
+            ack_note = " ack=" + ack[0] if ack else " ack=MISSING"
             rows.append(
                 (
                     f.lineno,
-                    f"  {f.kind:<12} {f.table:<42} line {f.lineno:<5} confidence={f.confidence}",
+                    f"  {f.kind:<12} {f.table:<42} line {f.lineno:<5} "
+                    f"confidence={f.confidence}{ack_note}",
                 )
             )
             by_confidence[f.confidence] = by_confidence.get(f.confidence, 0) + 1
@@ -761,11 +879,51 @@ def main(argv: list[str]) -> int:
         f"{unresolved_files} revision(s) carry {total_unresolved} statement(s) this script "
         f"could not classify at all"
     )
-    print(
-        "Report-only: not wired into any CI workflow. Exit code is always 0 when "
-        "the scan itself completes; a parse failure is the only thing that returns 1."
-    )
-    return 1 if parse_errors else 0
+
+    blocking = False
+
+    if missing_acks:
+        blocking = True
+        print()
+        print(
+            f"[FAIL] {len(missing_acks)} revision(s) flag a table with no data-rewrite-ack:"
+        )
+        for name, tables in missing_acks:
+            print(f"  {name}: {', '.join(tables)}")
+        print(
+            "  Add one comment per table, shaped like: "
+            "# data-rewrite-ack: table=... growth=tenure|bounded|dead-code rows=... "
+            "- see Acknowledging a flagged revision in this script's module docstring."
+        )
+
+    if total_unresolved > _BASELINE_UNRESOLVED_COUNT:
+        blocking = True
+        print()
+        print(
+            f"[FAIL] {total_unresolved} unresolved statement(s), baseline was "
+            f"{_BASELINE_UNRESOLVED_COUNT}. A statement this script cannot classify "
+            "might be non-DML, same as every one in the baseline, or might be a real "
+            "rewrite this script failed to parse - the two are indistinguishable "
+            "from here, so growth in this count blocks. Read the new one(s), and "
+            "either fix the parser to resolve it or confirm by hand it is not a "
+            "data-modifying statement."
+        )
+
+    if parse_errors:
+        print()
+        print(f"[WARN] {len(parse_errors)} file(s) could not be parsed:")
+        for name, msg in parse_errors:
+            print(f"  {name}: {msg}")
+
+    print()
+    if blocking or parse_errors:
+        print(
+            "Blocking: Repo hygiene fails this run. See this script's module "
+            "docstring for the acknowledgement format."
+        )
+    else:
+        print("Blocking: every flagged table carries an acknowledgement. Run is clean.")
+    return 1 if (blocking or parse_errors) else 0
 
 
 if __name__ == "__main__":

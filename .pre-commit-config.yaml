@@ -224,3 +224,17 @@ repos:
         language: system
         pass_filenames: false
         files: ^(frontend/src/app/locales/.*\.ts|scripts/i18n_script_baseline\.json)$
+
+      # Grew out of #126: a migration that rewrote a 1724 MB table inside the
+      # single transaction Alembic wraps a whole upgrade() in died with
+      # DiskFull on a real box. Rewriting pre-existing data is not forbidden -
+      # the hook fails only when a flagged revision has no
+      # "# data-rewrite-ack: table=... growth=... rows=..." comment for a
+      # table it touches, so the size question gets asked before the
+      # revision ships. CI runs the same script.
+      - id: migration-data-rewrite-ack-check
+        name: Gate migrations that rewrite pre-existing data with no acknowledgement
+        entry: python scripts/check_migration_data_rewrites.py
+        language: system
+        pass_filenames: false
+        files: ^backend/alembic/versions/.*\.py$
