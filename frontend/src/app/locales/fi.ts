@@ -46,7 +46,7 @@ const resource = {
     "modules.catalog.deadlines": "Määräajat",
     "modules.catalog.defects_liability": "Vastuunalaisuusrekisteri",
     "modules.catalog.design_options": "Suunnitteluvaihtoehdot",
-    "modules.catalog.documents": "Projektin tiedostot",
+    "modules.catalog.documents": "Dokumentit",
     "modules.catalog.dwg_takeoff": "DWG-määrälaskenta",
     "modules.catalog.enterprise_workflows": "Yritystason työnkulut",
     "modules.catalog.erp_chat": "ERP-chat",

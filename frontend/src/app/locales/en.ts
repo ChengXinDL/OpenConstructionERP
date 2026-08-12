@@ -63,7 +63,7 @@ const resource = {
     "modules.catalog.deadlines": "Deadlines",
     "modules.catalog.defects_liability": "Defects Liability Register",
     "modules.catalog.design_options": "Design Options",
-    "modules.catalog.documents": "Project Files",
+    "modules.catalog.documents": "Documents",
     "modules.catalog.dwg_takeoff": "DWG Takeoff",
     "modules.catalog.eac": "EAC v2 Engine",
     "modules.catalog.einvoice_clearance": "E-invoice clearance",

@@ -46,7 +46,7 @@ const resource = {
     "modules.catalog.deadlines": "期限",
     "modules.catalog.defects_liability": "瑕疵責任登録簿",
     "modules.catalog.design_options": "設計オプション",
-    "modules.catalog.documents": "プロジェクトファイル",
+    "modules.catalog.documents": "文書",
     "modules.catalog.dwg_takeoff": "DWG 数量拾い",
     "modules.catalog.enterprise_workflows": "エンタープライズワークフロー",
     "modules.catalog.erp_chat": "ERP チャット",

@@ -43,7 +43,7 @@ const resource = {
     "modules.catalog.deadlines": "Frister",
     "modules.catalog.defects_liability": "Register over mangler og ansvar",
     "modules.catalog.design_options": "Design optioner",
-    "modules.catalog.documents": "Projektfiler",
+    "modules.catalog.documents": "Dokumenter",
     "modules.catalog.dwg_takeoff": "DWG-opmåling",
     "modules.catalog.enterprise_workflows": "Enterprise-workflows",
     "modules.catalog.erp_chat": "ERP-chat",

@@ -45,7 +45,7 @@ const resource = {
     "modules.catalog.deadlines": "Tenggat Waktu",
     "modules.catalog.defects_liability": "Register Kewajiban Cacat",
     "modules.catalog.design_options": "Opsi Desain",
-    "modules.catalog.documents": "Berkas proyek",
+    "modules.catalog.documents": "Dokumen",
     "modules.catalog.dwg_takeoff": "Takeoff DWG",
     "modules.catalog.enterprise_workflows": "Alur Kerja Perusahaan",
     "modules.catalog.erp_chat": "Chat ERP",

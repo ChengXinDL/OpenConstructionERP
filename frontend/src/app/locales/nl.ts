@@ -40,7 +40,7 @@ const resource = {
     "modules.catalog.daily_diary": "Dagelijks bouwdagboek",
     "modules.catalog.defects_liability": "Register aansprakelijkheid gebreken",
     "modules.catalog.design_options": "Ontwerpopties",
-    "modules.catalog.documents": "Projectbestanden",
+    "modules.catalog.documents": "Documenten",
     "modules.catalog.dwg_takeoff": "DWG-uitname",
     "modules.catalog.enterprise_workflows": "Enterprise-workflows",
     "modules.catalog.erp_chat": "ERP-chat",

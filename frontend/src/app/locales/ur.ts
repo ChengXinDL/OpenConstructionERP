@@ -46,7 +46,7 @@ const resource = {
     "modules.catalog.deadlines": "آخری تاریخیں",
     "modules.catalog.defects_liability": "خرابی ذمہ داری رجسٹر",
     "modules.catalog.design_options": "ڈیزائن کے اختیارات",
-    "modules.catalog.documents": "پروجیکٹ فائلیں",
+    "modules.catalog.documents": "دستاویزات",
     "modules.catalog.dwg_takeoff": "DWG پیمائش",
     "modules.catalog.einvoice_clearance": "ای انوائس کلیئرنس",
     "modules.catalog.enterprise_workflows": "انٹرپرائز ورک فلوز",

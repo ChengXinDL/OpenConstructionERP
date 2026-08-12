@@ -46,7 +46,7 @@ const resource = {
     "modules.catalog.deadlines": "Terminy",
     "modules.catalog.defects_liability": "Rejestr wad i usterek",
     "modules.catalog.design_options": "Opcje projektowe",
-    "modules.catalog.documents": "Pliki projektu",
+    "modules.catalog.documents": "Dokumenty",
     "modules.catalog.dwg_takeoff": "Przedmiar z DWG",
     "modules.catalog.enterprise_workflows": "Przepływy pracy enterprise",
     "modules.catalog.erp_chat": "Czat ERP",

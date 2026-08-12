@@ -46,7 +46,7 @@ const resource = {
     "modules.catalog.deadlines": "Mga Deadline",
     "modules.catalog.defects_liability": "Rehistro ng Defects Liability",
     "modules.catalog.design_options": "Mga Opsyon ng Disenyo",
-    "modules.catalog.documents": "Mga File ng Proyekto",
+    "modules.catalog.documents": "Mga Dokumento",
     "modules.catalog.dwg_takeoff": "Panukat sa DWG",
     "modules.catalog.einvoice_clearance": "Pagpapatibay ng E-invoice",
     "modules.catalog.enterprise_workflows": "Daloy ng Trabaho ng Kumpanya",

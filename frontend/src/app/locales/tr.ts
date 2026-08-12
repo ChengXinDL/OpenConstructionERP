@@ -46,7 +46,7 @@ const resource = {
     "modules.catalog.deadlines": "Son tarihler",
     "modules.catalog.defects_liability": "Kusurlar Sorumluluk Kaydı",
     "modules.catalog.design_options": "Tasarım Seçenekleri",
-    "modules.catalog.documents": "Proje dosyaları",
+    "modules.catalog.documents": "Belgeler",
     "modules.catalog.dwg_takeoff": "DWG Metraj",
     "modules.catalog.enterprise_workflows": "Kurumsal İş Akışları",
     "modules.catalog.erp_chat": "ERP Sohbet",

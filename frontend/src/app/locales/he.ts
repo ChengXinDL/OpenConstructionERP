@@ -46,7 +46,7 @@ const resource = {
     "modules.catalog.deadlines": "מועדי יעד",
     "modules.catalog.defects_liability": "מרשם ליקויים ואחריות",
     "modules.catalog.design_options": "אפשרויות עיצוב",
-    "modules.catalog.documents": "קבצי פרויקט",
+    "modules.catalog.documents": "מסמכים",
     "modules.catalog.dwg_takeoff": "Takeoff מ-DWG",
     "modules.catalog.einvoice_clearance": "אישור חשבוניות אלקטרוניות",
     "modules.catalog.enterprise_workflows": "תהליכי עבודה ארגוניים",

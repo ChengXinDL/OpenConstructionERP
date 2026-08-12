@@ -46,7 +46,7 @@ const resource = {
     "modules.catalog.deadlines": "截止日期",
     "modules.catalog.defects_liability": "缺陷责任登记册",
     "modules.catalog.design_options": "设计选项",
-    "modules.catalog.documents": "项目文件",
+    "modules.catalog.documents": "文档",
     "modules.catalog.dwg_takeoff": "DWG 工程量提取",
     "modules.catalog.enterprise_workflows": "企业工作流",
     "modules.catalog.erp_chat": "ERP 聊天",

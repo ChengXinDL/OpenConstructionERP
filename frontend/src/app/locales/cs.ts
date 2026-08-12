@@ -46,7 +46,7 @@ const resource = {
     "modules.catalog.deadlines": "Termíny",
     "modules.catalog.defects_liability": "Registr vad a záruk",
     "modules.catalog.design_options": "Možnosti návrhu",
-    "modules.catalog.documents": "Soubory projektu",
+    "modules.catalog.documents": "Dokumenty",
     "modules.catalog.dwg_takeoff": "Výkaz výměr z DWG",
     "modules.catalog.enterprise_workflows": "Podnikové workflow",
     "modules.catalog.esg": "ESG výkonnost staveniště",

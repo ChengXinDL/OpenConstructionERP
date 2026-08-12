@@ -45,7 +45,7 @@ const resource = {
     "modules.catalog.deadlines": "Tidsfrister",
     "modules.catalog.defects_liability": "Register över felansvar",
     "modules.catalog.design_options": "Designalternativ",
-    "modules.catalog.documents": "Projektfiler",
+    "modules.catalog.documents": "Dokument",
     "modules.catalog.dwg_takeoff": "DWG-mängdning",
     "modules.catalog.enterprise_workflows": "Företagsarbetsflöden",
     "modules.catalog.erp_chat": "ERP-chatt",

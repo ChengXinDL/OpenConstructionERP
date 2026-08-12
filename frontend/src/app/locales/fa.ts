@@ -46,7 +46,7 @@ const resource = {
     "modules.catalog.deadlines": "مهلت‌ها",
     "modules.catalog.defects_liability": "دفتر مسئولیت نواقص",
     "modules.catalog.design_options": "گزینه‌های طراحی",
-    "modules.catalog.documents": "فایل‌های پروژه",
+    "modules.catalog.documents": "اسناد",
     "modules.catalog.dwg_takeoff": "متره DWG",
     "modules.catalog.einvoice_clearance": "تأیید فاکتور الکترونیکی",
     "modules.catalog.enterprise_workflows": "جریان‌های کاری سازمانی",

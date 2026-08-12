@@ -44,7 +44,7 @@ const resource = {
     "modules.catalog.deadlines": "Tähtajad",
     "modules.catalog.defects_liability": "Defektide vastutuse register",
     "modules.catalog.design_options": "Disainivariandid",
-    "modules.catalog.documents": "Projekti failid",
+    "modules.catalog.documents": "Dokumendid",
     "modules.catalog.dwg_takeoff": "DWG-mõõdistus",
     "modules.catalog.enterprise_workflows": "Ettevõtte töövood",
     "modules.catalog.erp_chat": "AI vestlus",

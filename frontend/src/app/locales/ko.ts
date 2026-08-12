@@ -46,7 +46,7 @@ const resource = {
     "modules.catalog.deadlines": "마감일",
     "modules.catalog.defects_liability": "하자 보증 등록부",
     "modules.catalog.design_options": "디자인 옵션",
-    "modules.catalog.documents": "프로젝트 파일",
+    "modules.catalog.documents": "문서",
     "modules.catalog.dwg_takeoff": "DWG 물량 산출",
     "modules.catalog.enterprise_workflows": "엔터프라이즈 워크플로",
     "modules.catalog.erp_chat": "ERP 채팅",

@@ -46,7 +46,7 @@ const resource = {
     "modules.catalog.deadlines": "Termene limită",
     "modules.catalog.defects_liability": "Registru de răspundere pentru defecte",
     "modules.catalog.design_options": "Opțiuni de Design",
-    "modules.catalog.documents": "Fișierele proiectului",
+    "modules.catalog.documents": "Documente",
     "modules.catalog.dwg_takeoff": "Antemăsurătoare din DWG",
     "modules.catalog.enterprise_workflows": "Fluxuri de lucru pentru organizații",
     "modules.catalog.erp_chat": "Chat ERP",

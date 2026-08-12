@@ -46,7 +46,7 @@ const resource = {
     "modules.catalog.deadlines": "المواعيد النهائية",
     "modules.catalog.defects_liability": "سجل مسؤولية العيوب",
     "modules.catalog.design_options": "خيارات التصميم",
-    "modules.catalog.documents": "ملفات المشروع",
+    "modules.catalog.documents": "المستندات",
     "modules.catalog.dwg_takeoff": "حصر كميات DWG",
     "modules.catalog.enterprise_workflows": "سير عمل المؤسسات",
     "modules.catalog.erp_chat": "محادثة ERP",

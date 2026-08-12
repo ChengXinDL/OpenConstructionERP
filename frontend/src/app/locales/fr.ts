@@ -46,7 +46,7 @@ const resource = {
     "modules.catalog.deadlines": "Échéances",
     "modules.catalog.defects_liability": "Registre de responsabilité des défauts",
     "modules.catalog.design_options": "Options de conception",
-    "modules.catalog.documents": "Fichiers du projet",
+    "modules.catalog.documents": "Documents",
     "modules.catalog.dwg_takeoff": "Métré DWG",
     "modules.catalog.enterprise_workflows": "Flux de travail d'entreprise",
     "modules.catalog.erp_chat": "Chat ERP",

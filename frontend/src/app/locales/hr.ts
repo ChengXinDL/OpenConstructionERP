@@ -46,7 +46,7 @@ const resource = {
     "modules.catalog.deadlines": "Rokovi",
     "modules.catalog.defects_liability": "Registar nedostataka i odgovornosti",
     "modules.catalog.design_options": "Mogućnosti Dizajna",
-    "modules.catalog.documents": "Datoteke projekta",
+    "modules.catalog.documents": "Dokumenti",
     "modules.catalog.dwg_takeoff": "Iskaz iz DWG-a",
     "modules.catalog.enterprise_workflows": "Korporativni tijekovi rada",
     "modules.catalog.esg": "ESG učinak gradilišta",

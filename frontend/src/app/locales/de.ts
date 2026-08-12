@@ -45,7 +45,7 @@ const resource = {
     "modules.catalog.deadlines": "Fristen",
     "modules.catalog.defects_liability": "Mängelhaftungsregister",
     "modules.catalog.design_options": "Entwurfsvarianten",
-    "modules.catalog.documents": "Projektdateien",
+    "modules.catalog.documents": "Dokumente",
     "modules.catalog.dwg_takeoff": "DWG-Aufmaß",
     "modules.catalog.enterprise_workflows": "Enterprise-Workflows",
     "modules.catalog.erp_chat": "ERP-Chat",

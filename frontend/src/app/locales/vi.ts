@@ -45,7 +45,7 @@ const resource = {
     "modules.catalog.deadlines": "Thời hạn",
     "modules.catalog.defects_liability": "Sổ đăng ký trách nhiệm bảo hành khiếm khuyết",
     "modules.catalog.design_options": "Tùy chọn thiết kế",
-    "modules.catalog.documents": "Tệp dự án",
+    "modules.catalog.documents": "Tài liệu",
     "modules.catalog.dwg_takeoff": "Bóc tách DWG",
     "modules.catalog.enterprise_workflows": "Quy trình doanh nghiệp",
     "modules.catalog.erp_chat": "Chat ERP",
