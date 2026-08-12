@@ -6124,9 +6124,9 @@ async def import_boq_gaeb(
         response header.
 
     Supports the GAEB DA XML formats used across DACH tendering:
-      - **X83 / DP 83** - Angebotsabgabe (bid submission)
-      - **X84 / DP 84** - Nebenangebote (alternative bids)
-      - **X81** - Leistungsverzeichnis (BOQ skeleton)
+      - **X81 / DP 81** - Leistungsverzeichnis (BOQ skeleton)
+      - **X83 / DP 83** - Angebotsaufforderung (call for bids, unpriced)
+      - **X84 / DP 84** - Angebotsabgabe (priced bid submission)
 
     Namespace-agnostic parser - falls back to tag-local-name matching so
     files from different GAEB toolchains (any mainstream GAEB authoring
