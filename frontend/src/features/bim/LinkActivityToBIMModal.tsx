@@ -246,10 +246,6 @@ export default function LinkActivityToBIMModal({
               <li>
                 <TruncationNotice
                   page={{ items: activities, total: activityTotal }}
-                  entity={t('bim.activities_entity', { defaultValue: 'activities' })}
-                  hint={t('bim.narrow_search_hint', {
-                    defaultValue: 'Narrow the search to reach the rest.',
-                  })}
                   className="px-2.5 pb-1"
                 />
               </li>

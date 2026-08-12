@@ -243,10 +243,6 @@ export default function LinkActivityToDwgModal({
               <li>
                 <TruncationNotice
                   page={{ items: activities, total: activityTotal }}
-                  entity={t('dwg_takeoff.activities_entity', { defaultValue: 'activities' })}
-                  hint={t('dwg_takeoff.narrow_search_hint', {
-                    defaultValue: 'Narrow the search to reach the rest.',
-                  })}
                   className="px-2.5 pb-1"
                 />
               </li>
