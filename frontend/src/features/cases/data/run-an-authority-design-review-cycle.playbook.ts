@@ -52,8 +52,8 @@ const playbook: Playbook = {
       whyKey: "cases.run_an_authority_design_review_cycle.step.open-document.why",
       whyDefault:
         "If the design keeps changing while the review is open, nobody can say which remark applies to which version. Fixing the reviewed version first is what keeps the cycle honest.",
-      moduleLabel: "Project Files",
-      moduleLabelKey: "nav.project_files",
+      moduleLabel: "Documents",
+      moduleLabelKey: "nav.documents",
       to: "/projects/:projectId/files",
     },
     {

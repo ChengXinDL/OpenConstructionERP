@@ -141,8 +141,8 @@ const playbook: Playbook = {
         "cases.set_up_the_common_data_environment.step.load-containers.why",
       whyDefault:
         "A container with no status is a trap, nobody knows if it is checked or just parked. Correct status is what lets the next person trust the file.",
-      moduleLabel: "Project Files",
-      moduleLabelKey: "nav.project_files",
+      moduleLabel: "Documents",
+      moduleLabelKey: "nav.documents",
       to: "/projects/:projectId/files",
     },
     {

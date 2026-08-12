@@ -62,8 +62,8 @@ const playbook: Playbook = {
       whyKey: "cases.as_built_and_om_handover.step.asbuilt.why",
       whyDefault:
         "The operator runs this building off your record for the next few decades. As-built has to mean what the fitters actually installed, field changes and all, not the pristine version once on the drawing.",
-      moduleLabel: "Project Files",
-      moduleLabelKey: "nav.project_files",
+      moduleLabel: "Documents",
+      moduleLabelKey: "nav.documents",
       to: "/projects/:projectId/files",
     },
     {

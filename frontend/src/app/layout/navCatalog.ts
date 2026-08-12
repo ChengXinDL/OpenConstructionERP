@@ -208,11 +208,19 @@ export const navGroups: NavGroup[] = [
       // Overview so the "learn by example" entry is discoverable from the top,
       // and above Project files so the "learn by example" entry is seen first.
       { labelKey: 'nav.cases', to: '/cases', icon: Route },
-      // Project files is back in Overview by founder request. It carries no
+      // Documents is back in Overview by founder request. It carries no
       // hideInSimple and no advancedOnly, which is what keeps it reachable in
       // Simple mode; the sheet register and the drawing surfaces stay behind
       // in Drawings & Files, which now sits below Estimating.
-      { labelKey: 'nav.project_files', to: '/files', icon: HardDrive },
+      //
+      // This module is named Documents everywhere, by founder ruling. Three
+      // keys that used to name it are now unreferenced and are kept on
+      // purpose: 'nav.project_files', 'files.title' and
+      // 'files.approvals.mod_files'. Each carries a real translated value in
+      // all 40 locales, so deleting them to satisfy an orphan sweep trades a
+      // harmless unused key for a wide blast radius. Retire them only
+      // together with a decision about the name itself.
+      { labelKey: 'nav.documents', to: '/files', icon: HardDrive },
     ],
   },
   // ── 2. TAKEOFF ─────────────────────────────────────────────────────

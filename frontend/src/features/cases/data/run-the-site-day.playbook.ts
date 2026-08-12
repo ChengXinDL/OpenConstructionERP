@@ -131,8 +131,8 @@ const playbook: Playbook = {
       whyKey: "cases.run_the_site_day.step.photos.why",
       whyDefault:
         "A dated photo ends an argument that words drag out. It proves progress, records the condition you inherited and captures reinforcement or services before the pour or the plasterboard hides them for good.",
-      moduleLabel: "Project Files",
-      moduleLabelKey: "nav.project_files",
+      moduleLabel: "Documents",
+      moduleLabelKey: "nav.documents",
       to: "/projects/:projectId/files",
     },
     {

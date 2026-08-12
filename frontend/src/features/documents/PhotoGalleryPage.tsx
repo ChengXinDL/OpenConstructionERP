@@ -1439,7 +1439,7 @@ export function PhotoGalleryPage() {
         })}
         links={[
           {
-            label: t('nav.project_files', { defaultValue: 'Files' }),
+            label: t('nav.documents', { defaultValue: 'Documents' }),
             onClick: () => navigate('/files'),
           },
           {

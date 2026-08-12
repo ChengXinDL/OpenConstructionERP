@@ -50,7 +50,9 @@ const TITLE_I18N_MAP: Record<string, string> = {
   'New Project': 'projects.new_project',
   'Project': 'nav.projects',
   'Project Settings': 'nav.settings',
-  'Project Files': 'nav.project_files',
+  // Legacy title of the module now called Documents. Kept so a page still
+  // emitting the old title resolves to the current name rather than the old one.
+  'Project Files': 'nav.documents',
   'Project Intelligence': 'nav.estimation_dashboard',
   // Estimation
   'Match Elements': 'match_elements.title',
@@ -138,9 +140,7 @@ const TITLE_I18N_MAP: Record<string, string> = {
   'CDE': 'cde.title',
   'Project Photos': 'nav.photos',
   'Markups': 'nav.markups',
-  // Legacy title of the module now called Project Files. Kept so a page still
-  // emitting the old title resolves to the current name rather than the old one.
-  'Documents': 'nav.project_files',
+  'Documents': 'nav.documents',
   // Finance
   'Finance': 'finance.title',
   'Procurement': 'procurement.title',
@@ -1033,7 +1033,7 @@ const ROUTE_COMPONENT_MAP: ReadonlyArray<readonly [string, string]> = [
   ['/tendering', 'Tendering'],
   ['/changeorders', 'Change Orders'],
   ['/photos', 'Project Photos'],
-  ['/files', 'Project Files'],
+  ['/files', 'Documents'],
   ['/risks', 'Risk Register'],
   ['/markups', 'Markups'],
   ['/punchlist', 'Punch List'],

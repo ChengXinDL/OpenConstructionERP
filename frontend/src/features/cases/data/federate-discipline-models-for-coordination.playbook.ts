@@ -43,8 +43,8 @@ const playbook: Playbook = {
       whyKey: "cases.federate_discipline_models_for_coordination.step.gather.why",
       whyDefault:
         "Federating a stale structural model wastes everyone's review. Getting the current revision of each discipline first is what makes the clashes you find real and worth fixing.",
-      moduleLabel: "Project Files",
-      moduleLabelKey: "nav.project_files",
+      moduleLabel: "Documents",
+      moduleLabelKey: "nav.documents",
       to: "/projects/:projectId/files",
     },
     {

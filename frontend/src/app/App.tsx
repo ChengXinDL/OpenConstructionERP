@@ -1212,8 +1212,8 @@ export default function App() {
         <Route path="/files/search" element={<P title="Search across projects"><GlobalSearchPage /></P>} />
         <Route path="/files/transmittals" element={<P title="Transmittals"><TransmittalLogPage /></P>} />
         <Route path="/files/approvals" element={<P title="Approvals register"><FileApprovalsRegisterPage /></P>} />
-        <Route path="/files" element={<P title="Project Files"><FileManagerPage /></P>} />
-        <Route path="/projects/:projectId/files" element={<P title="Project Files"><FileManagerPage /></P>} />
+        <Route path="/files" element={<P title="Documents"><FileManagerPage /></P>} />
+        <Route path="/projects/:projectId/files" element={<P title="Documents"><FileManagerPage /></P>} />
         {/* Drawing-sheet index. The page takes :projectId when it is there
             and otherwise falls back to the active project, so both entries
             work and the sidebar can link the bare path. */}

@@ -59,8 +59,8 @@ const playbook: Playbook = {
       whyKey: "cases.price_from_pdf.step.upload.why",
       whyDefault:
         "Every number downstream traces back to this one drawing. Filing it against the project up front keeps the measurement, the bill and the outputs locked to a single revision rather than scattered copies.",
-      moduleLabel: "Project Files",
-      moduleLabelKey: "nav.project_files",
+      moduleLabel: "Documents",
+      moduleLabelKey: "nav.documents",
       to: "/projects/:projectId/files",
     },
     {

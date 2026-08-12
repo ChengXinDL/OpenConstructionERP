@@ -52,8 +52,8 @@ const playbook: Playbook = {
       whyKey: "cases.get_a_key_document_signed_off.step.pick-document.why",
       whyDefault:
         "A signature on the wrong version is worse than no signature at all, it looks final while it is not. Confirming the exact document first is what the rest of the sign-off depends on.",
-      moduleLabel: "Project Files",
-      moduleLabelKey: "nav.project_files",
+      moduleLabel: "Documents",
+      moduleLabelKey: "nav.documents",
       to: "/projects/:projectId/files",
     },
     {

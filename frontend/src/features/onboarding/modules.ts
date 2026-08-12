@@ -148,7 +148,7 @@ export const ALL_MODULES: ModuleDef[] = [
   { key: 'notifications', labelKey: 'onboarding.mod_notifications', descriptionKey: 'onboarding.mod_notifications_desc', group: 'communication', core: true },
 
   // ── Documents ────────────────────────────────────────────────────────
-  { key: 'documents', labelKey: 'nav.project_files', descriptionKey: 'onboarding.mod_documents_desc', group: 'documents' },
+  { key: 'documents', labelKey: 'nav.documents', descriptionKey: 'onboarding.mod_documents_desc', group: 'documents' },
   { key: 'cde', labelKey: 'cde.title', descriptionKey: 'onboarding.mod_cde_desc', group: 'documents' },
   { key: 'markups', labelKey: 'nav.markups', descriptionKey: 'onboarding.mod_markups_desc', group: 'documents' },
 

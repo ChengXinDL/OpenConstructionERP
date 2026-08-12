@@ -123,8 +123,8 @@ const playbook: Playbook = {
       whyKey: "cases.build_and_run_an_itp.step.record.why",
       whyDefault:
         "The completed ITP with every point signed is what the client and the certifier accept as proof the work is right. Without it, quality already built is worth nothing you can demonstrate at handover.",
-      moduleLabel: "Project Files",
-      moduleLabelKey: "nav.project_files",
+      moduleLabel: "Documents",
+      moduleLabelKey: "nav.documents",
       to: "/projects/:projectId/files",
     },
   ],

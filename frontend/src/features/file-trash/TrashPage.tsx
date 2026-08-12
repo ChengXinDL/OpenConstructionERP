@@ -157,7 +157,7 @@ export function TrashPage() {
       <Breadcrumb
         items={[
           ...(projectName ? [{ label: projectName, to: `/projects/${projectId}` }] : []),
-          { label: t('nav.project_files'), to: '/files' },
+          { label: t('nav.documents'), to: '/files' },
           { label: t('files.trash.title', { defaultValue: 'Recycle Bin' }) },
         ]}
       />
