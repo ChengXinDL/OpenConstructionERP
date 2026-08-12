@@ -20,9 +20,9 @@ table it touches; see "Acknowledging a flagged revision" below. The 24
 revisions flagged on the tree the day this went blocking (2026-08-12)
 already carry one each. See the summary line for scale: N revisions
 scanned, M flagged into how many statements, and how many statements this
-could not classify at all (printed separately; growth in that count past
-_BASELINE_UNRESOLVED_COUNT blocks on its own terms, and neither bucket is
-ever silently treated as clean). The scan running at all gets the same
+could not classify at all (printed separately; a new one not already in
+_UNRESOLVED_BASELINE blocks on its own terms, and neither bucket is ever
+silently treated as clean). The scan running at all gets the same
 treatment: a versions/ directory that resolves but comes back near-empty
 reports "clean" for the same reason a passing test suite with zero tests
 does, so paths below _MIN_EXPECTED_REVISIONS fails loud in main() instead.
@@ -84,9 +84,11 @@ increasing order of how much has to be inferred to name it:
   show up here because this script does not model boolean expressions or
   chase every non-DML verb, not because a write went unseen. A statement
   landing here is never required to carry an acknowledgement - there is no
-  table to name growth for until this script can name the table - but the
-  bucket's total size is still part of what blocks a run; see
-  _BASELINE_UNRESOLVED_COUNT.
+  table to name growth for until this script can name the table - but its
+  identity, (filename, ast.unparse() of the call), is checked against
+  _UNRESOLVED_BASELINE and a statement whose identity is new blocks the
+  run; see that constant for the current eight and what to do about a
+  ninth.
 
 Known blind spots, deliberately not covered
 ---------------------------------------------
@@ -133,7 +135,16 @@ is neither: a statement this script found that provably cannot execute,
 e.g. guarded by a check against a table name that has never existed - see
 v3145_demo_project_addresses.py, the only case on this tree today, and read
 its comment above ``upgrade()`` before assuming a second one is the same
-shape. ``rows=`` is a free-text estimate of row count on a mature install.
+shape. ``dead-code`` is the one value that asserts something about the
+code rather than about the data, and code changes under a repair in a way
+a table's growth class does not: the day someone fixes the guard, the
+statement goes live, and an ack that still reads dead-code would be a
+live rewrite wearing a never-runs label - the worst object this gate
+could produce. So a dead-code ``rows=`` must also carry an issue
+reference (``#NNN``) naming the guard - see v3145's line - putting the
+repair and the stale claim in the same diff a future reviewer reads.
+``rows=`` is otherwise a free-text estimate of row count on a mature
+install.
 
 Keyed on (revision, table), not on revision alone: one revision touching
 several tables needs one line per table (v3033_audit_log.py touches four -
@@ -214,19 +225,68 @@ _ACK_RE = re.compile(
     re.IGNORECASE,
 )
 
-# The unresolved bucket the day this gate went blocking (2026-08-12): 6
-# revisions, 9 statements, every one read by hand and confirmed non-DML (a
-# CREATE INDEX CONCURRENTLY / ALTER TABLE ADD CONSTRAINT whose name does not
-# resolve, a Core select().where() read, a SELECT setval() sequence bump -
-# see the "unresolved" tier above). A statement landing here in the future
-# might be the same kind of non-finding, or might be a real rewrite this
-# script failed to parse - the two are indistinguishable from a static
-# read, so growth past this count blocks rather than staying silent. This
-# catches growth in the total, not a same-count substitution (one benign
-# statement resolved by a parser fix, replaced the same day by one new
-# unsafe one); a per-location baseline would close that gap and was not
-# built, because nothing in this corpus needed it yet.
-_BASELINE_UNRESOLVED_COUNT = 9
+# The unresolved bucket the day this gate went blocking (2026-08-12), keyed
+# by identity - (filename, ast.unparse() of the call) - not by a bare
+# count. A count is a one-bit hash of a set already in hand: it catches
+# growth in the total but not a same-day swap (one of these resolved by a
+# parser fix, replaced by one new unsafe statement, count unchanged).
+# Line numbers are deliberately not part of the identity - they churn on
+# any reformat that does not touch the statement itself, and
+# ast.unparse() already does not.
+#
+# Every entry below was read by hand and confirmed non-DML: a dialect-
+# conditional CREATE INDEX CONCURRENTLY or ALTER TABLE ADD CONSTRAINT
+# whose name does not resolve, a Core select().where() read, a SELECT
+# setval() sequence bump, and the ALTER COLUMN ... TYPE change named in
+# "Known blind spots" above. 9 statements resolve to 8 identities -
+# v3123_boq_fk_indexes.py has two CREATE INDEX IF NOT EXISTS statements
+# whose table/column names are loop-derived, not literal, so ast.unparse()
+# sees the same template text for both; the set collapses them to one
+# identity, and a third, unrelated statement sharing that exact text
+# would be exactly as safe as the two already here, by the same reasoning.
+#
+# Finding a ninth: read it by hand. If it is non-DML like every entry
+# here, add its (filename, ast.unparse(node)) identity below with a
+# one-line reason. If it touches a pre-existing table, that is the
+# finding this whole script exists to surface - improve resolution above
+# so it becomes a real Finding with a table name, or escalate for manual
+# review before this ships; do not add it here just to make the run pass.
+_UNRESOLVED_BASELINE: frozenset[tuple[str, str]] = frozenset(
+    {
+        (
+            "7f3ab0f2d4e1_phase2e_money_numeric.py",
+            "op.execute(f\"ALTER TABLE {table} ALTER COLUMN {column} TYPE NUMERIC({precision}, {scale}) USING NULLIF({column}, '')::NUMERIC({precision}, {scale})\")",
+        ),
+        (
+            "v261_eac_alias_catalog_seed.py",
+            "bind.execute(sa.select(alias_meta.c.id).where(alias_meta.c.scope == 'org', alias_meta.c.scope_id.is_(None), alias_meta.c.name == name))",
+        ),
+        (
+            "v3123_boq_fk_indexes.py",
+            "op.execute(f'CREATE INDEX CONCURRENTLY IF NOT EXISTS {index_name} ON {table} ({col_list})')",
+        ),
+        (
+            "v3123_boq_fk_indexes.py",
+            "op.execute(f'CREATE INDEX IF NOT EXISTS {index_name} ON {table} ({col_list})')",
+        ),
+        (
+            "v3124_propdev_analytics_indexes.py",
+            "op.execute(f'CREATE INDEX CONCURRENTLY IF NOT EXISTS {index_name} ON {table} ({col_list})')",
+        ),
+        (
+            "v3124_propdev_analytics_indexes.py",
+            "op.execute(f'CREATE INDEX IF NOT EXISTS {index_name} ON {table} ({col_list})')",
+        ),
+        (
+            "v3258_progress_entry_seq.py",
+            "op.execute(sa.text(f\"SELECT setval('{_SEQUENCE}', {int(next_value)}, false)\"))",
+        ),
+        (
+            "v3267_saved_views_team_share.py",
+            "op.execute(sa.text(f'ALTER TABLE {table} ADD CONSTRAINT \"{name}\" CHECK ({condition})'))",
+        ),
+    }
+)
 
 # 320 revisions exist on the tree the day this was written (2026-08-12).
 # This floor is well under that so ordinary growth of the migration tree
@@ -287,6 +347,21 @@ def _parse_acknowledgements(source: str) -> dict[str, tuple[str, str]]:
             table, growth, rows = m.group(1), m.group(2).lower(), m.group(3).strip()
             acks[table] = (growth, rows)
     return acks
+
+
+_ISSUE_REF_RE = re.compile(r"#\d+")
+
+
+def _ack_problem(growth: str, rows: str) -> str | None:
+    """None if this acknowledgement is well-formed, else a short reason
+    why it is not. The one rule so far: growth=dead-code must name an
+    issue in rows=. See "Acknowledging a flagged revision" above for why -
+    in short, dead-code claims something about the code, not the data,
+    and code changes under a repair in a way a table's growth class does
+    not."""
+    if growth == "dead-code" and not _ISSUE_REF_RE.search(rows):
+        return "growth=dead-code carries no issue reference (e.g. #144) in rows="
+    return None
 
 
 def _call_func_name(func: ast.expr) -> str | None:
@@ -501,6 +576,11 @@ class Statement:
     kind: str
     tables: frozenset[str]
     confidence: str
+    #: ast.unparse() of the statement's own call node. A fingerprint, not
+    #: source: it renormalises whitespace and quoting, so it is identical
+    #: before and after a reformat that does not touch this statement, and
+    #: it changes when the statement itself changes, unlike lineno.
+    text: str
 
 
 def _find_dml_chain_table(
@@ -660,12 +740,22 @@ def _handle_call(
         if resolved.values:
             statements.append(
                 Statement(
-                    node.lineno, "INSERT(bulk)", resolved.values, resolved.confidence
+                    node.lineno,
+                    "INSERT(bulk)",
+                    resolved.values,
+                    resolved.confidence,
+                    ast.unparse(node),
                 )
             )
         else:
             statements.append(
-                Statement(node.lineno, "INSERT(bulk)", frozenset(), "unresolved")
+                Statement(
+                    node.lineno,
+                    "INSERT(bulk)",
+                    frozenset(),
+                    "unresolved",
+                    ast.unparse(node),
+                )
             )
         return
 
@@ -684,7 +774,11 @@ def _handle_call(
         kind, receiver = chain
         statements.append(
             Statement(
-                node.lineno, kind, receiver.values or frozenset(), receiver.confidence
+                node.lineno,
+                kind,
+                receiver.values or frozenset(),
+                receiver.confidence,
+                ast.unparse(node),
             )
         )
         return
@@ -694,7 +788,9 @@ def _handle_call(
     if classified is not None:
         kind, tables = classified
         statements.append(
-            Statement(node.lineno, kind, tables, text_resolved.confidence)
+            Statement(
+                node.lineno, kind, tables, text_resolved.confidence, ast.unparse(node)
+            )
         )
         return
     if text_resolved.values is not None:
@@ -712,10 +808,20 @@ def _handle_call(
     )
     if prefix is not None:
         kind, table, confidence = prefix
-        statements.append(Statement(node.lineno, kind, frozenset({table}), confidence))
+        statements.append(
+            Statement(
+                node.lineno, kind, frozenset({table}), confidence, ast.unparse(node)
+            )
+        )
     else:
         statements.append(
-            Statement(node.lineno, "execute(...)", frozenset(), "unresolved")
+            Statement(
+                node.lineno,
+                "execute(...)",
+                frozenset(),
+                "unresolved",
+                ast.unparse(node),
+            )
         )
 
 
@@ -848,6 +954,7 @@ def main(argv: list[str]) -> int:
     by_confidence = {"literal": 0, "derived": 0}
 
     missing_acks: list[tuple[str, list[str]]] = []
+    new_unresolved: list[tuple[str, Statement]] = []
 
     for path in paths:
         try:
@@ -860,14 +967,28 @@ def main(argv: list[str]) -> int:
 
         acks = _parse_acknowledgements(source)
         flagged_tables = sorted({f.table for f in findings})
-        unacked = [t for t in flagged_tables if t not in acks]
-        if unacked:
-            missing_acks.append((path.name, unacked))
+        bad_acks: list[str] = []
+        for t in flagged_tables:
+            ack = acks.get(t)
+            if ack is None:
+                bad_acks.append(f"{t}: no data-rewrite-ack comment")
+                continue
+            growth, rows_text = ack
+            problem = _ack_problem(growth, rows_text)
+            if problem:
+                bad_acks.append(f"{t}: {problem}")
+        if bad_acks:
+            missing_acks.append((path.name, bad_acks))
 
         rows: list[tuple[int, str]] = []
         for f in findings:
             ack = acks.get(f.table)
-            ack_note = " ack=" + ack[0] if ack else " ack=MISSING"
+            if ack is None:
+                ack_note = " ack=MISSING"
+            else:
+                growth, rows_text = ack
+                problem = _ack_problem(growth, rows_text)
+                ack_note = f" ack={growth}(INVALID)" if problem else f" ack={growth}"
             rows.append(
                 (
                     f.lineno,
@@ -885,22 +1006,18 @@ def main(argv: list[str]) -> int:
                 )
             )
             total_unresolved += 1
+            if (path.name, u.text) not in _UNRESOLVED_BASELINE:
+                new_unresolved.append((path.name, u))
         rows.sort(key=lambda r: r[0])
 
         print(path.name)
-        for _, text in rows:
-            print(text)
+        for _, line_text in rows:
+            print(line_text)
 
         if findings:
             flagged_files += 1
         if unresolved:
             unresolved_files += 1
-
-    if parse_errors:
-        print()
-        print(f"[WARN] {len(parse_errors)} file(s) could not be parsed:")
-        for name, msg in parse_errors:
-            print(f"  {name}: {msg}")
 
     print()
     print(
@@ -917,27 +1034,36 @@ def main(argv: list[str]) -> int:
         blocking = True
         print()
         print(
-            f"[FAIL] {len(missing_acks)} revision(s) flag a table with no data-rewrite-ack:"
+            f"[FAIL] {len(missing_acks)} revision(s) flag a table with no "
+            "data-rewrite-ack, or one that is not well-formed:"
         )
-        for name, tables in missing_acks:
-            print(f"  {name}: {', '.join(tables)}")
+        for name, reasons in missing_acks:
+            print(f"  {name}: {'; '.join(reasons)}")
         print(
             "  Add one comment per table, shaped like: "
             "# data-rewrite-ack: table=... growth=tenure|bounded|dead-code rows=... "
-            "- see Acknowledging a flagged revision in this script's module docstring."
+            "- see Acknowledging a flagged revision in this script's module docstring. "
+            "growth=dead-code additionally needs an issue reference (e.g. #144) in rows=."
         )
 
-    if total_unresolved > _BASELINE_UNRESOLVED_COUNT:
+    if new_unresolved:
         blocking = True
         print()
         print(
-            f"[FAIL] {total_unresolved} unresolved statement(s), baseline was "
-            f"{_BASELINE_UNRESOLVED_COUNT}. A statement this script cannot classify "
-            "might be non-DML, same as every one in the baseline, or might be a real "
-            "rewrite this script failed to parse - the two are indistinguishable "
-            "from here, so growth in this count blocks. Read the new one(s), and "
-            "either fix the parser to resolve it or confirm by hand it is not a "
-            "data-modifying statement."
+            f"[FAIL] {len(new_unresolved)} unresolved statement(s) not in "
+            "_UNRESOLVED_BASELINE:"
+        )
+        for name, stmt in new_unresolved:
+            print(f"  {name} line {stmt.lineno}: {stmt.text}")
+        print(
+            "  Read each by hand. If it is non-DML, like every entry already in "
+            "the baseline (a read, an index/constraint/sequence statement), add "
+            "its (filename, ast.unparse(node)) identity to _UNRESOLVED_BASELINE "
+            "in this script with a one-line reason. If it touches a pre-existing "
+            "table, that is the finding this whole script exists to surface - "
+            "improve resolution above so it becomes a real Finding with a table "
+            "name, or escalate for manual review; do not add it to the baseline "
+            "just to make this run pass."
         )
 
     if parse_errors:
