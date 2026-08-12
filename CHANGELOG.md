@@ -5,6 +5,20 @@ All notable changes to OpenConstructionERP are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [14.8.1] - 2026-08-12
+
+The file module is called Documents everywhere the product names it. It had drifted into three names across the sidebar, the case chips and the module catalog, and the catalog key had gone out translated into none of the forty languages. The rename is now finished in every locale, and a module can say its own name in the reader's language, so an installed register introduces itself the way the rest of the product speaks.
+
+An electronic invoice reads the buyer's address from the contact the invoice already names instead of asking for it a second time, and findings about that buyer are raised on the screen that now holds the buyer rather than the one that used to. The German profile checks follow the published rules to the letter, an address that is only a country is refused rather than exported, and clearance clears the invoice the customer was billed, not a flattened copy of it.
+
+Every desktop release answers for its own signature. A backfill can sign bytes that already shipped without minting a new component list, the workflow reads the signature back off the release rather than inferring it from its own configuration, an unsigned Windows build says so, and a failed build leg can no longer silence the signing job behind it.
+
+A list that could not fit on one screen used to look complete. The schedule reports how many rows exist rather than how many fit, list totals stop being dropped behind the page envelope in the modules that carry one, the truncation notice speaks the showing count line every locale already has, and a guard runs at commit time and in the hygiene lane so a new list cannot ship silently truncated again.
+
+The product serves its own typefaces and no longer claims a script the bundled fonts cannot draw. Mongolian is withdrawn from the language picker until it gets a native pass: the file stays, the offer goes. The four Spanish locales got back the diacritics they had been carrying as bare letters, Portuguese and Brazilian Portuguese got theirs, es-CO and es-CL ran the substitutions their own headers had documented but never executed, and the ten newest case playbooks got their English copy written.
+
+Deferred background work no longer borrows the app's database connections into a rival event loop, an interrupted currency backfill keeps what it already filled, and the migration lane refuses a data rewrite that carries no acknowledgement of the table it grows.
+
 ## [14.8.0] - 2026-08-11
 
 A foreman in a basement or a lift shaft has no signal, and the hours still have to reach the office. The device keeps the day in a local queue and replays it when there is one. Replay is at least once by construction, because a reconnect can fire twice and a request whose response was lost is indistinguishable from one that never arrived, so every logical day carries a key minted on the device and a redelivery returns the timesheet the first delivery produced instead of writing a second one. An operation carries the entry's whole state rather than a difference against what the server holds, which is what makes a replayed correction safe without a revision counter to compare it against.

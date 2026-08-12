@@ -38,6 +38,13 @@ interface ChangelogEntry {
 // date, title and meaning intact; trim the prose, not the facts.
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '14.8.1',
+    date: '2026-08-12',
+    tag: 'NEW',
+    summary:
+      'The file module is called Documents in all forty languages, and a module can introduce itself in the reader\'s own language. An electronic invoice reads the buyer address from the contact it already names, raises its buyer findings on the screen that now holds the buyer, follows the German profile rules to the letter, and refuses an address that is only a country. Desktop releases answer for their own signatures: a backfill can sign bytes that already shipped, and an unsigned Windows build says so. Lists stop looking complete when they are merely full, totals survive the page envelope, the product serves its own typefaces, and the Spanish and Portuguese locales got their diacritics and their own documented wording back.',
+  },
+  {
     version: '14.8.0',
     date: '2026-08-11',
     tag: 'NEW',
