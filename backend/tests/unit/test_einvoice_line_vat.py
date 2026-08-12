@@ -26,12 +26,22 @@ def _invoice(**over: object) -> dict:
         "tax_amount": Decimal("225.00"),
         "metadata": {
             "einvoice": {
+                # City and post code on both sides because these render under
+                # the German profile, and XRechnung makes them mandatory
+                # (BR-DE-3/4 on the seller, BR-DE-8/9 on the buyer).
                 "seller": {
                     "name": "Hochbau Nord GmbH",
                     "vat_id": "DE123456789",
                     "country_code": "DE",
+                    "postcode": "24103",
+                    "city": "Kiel",
                 },
-                "buyer": {"name": "Stadtwerke Kiel", "country_code": "DE"},
+                "buyer": {
+                    "name": "Stadtwerke Kiel",
+                    "country_code": "DE",
+                    "postcode": "24143",
+                    "city": "Kiel",
+                },
                 "buyer_reference": "991-01234-56",
             }
         },

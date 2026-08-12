@@ -60,9 +60,14 @@ def _lines() -> list[dict]:
 
 
 def _buyer() -> dict:
-    """What stays on the document itself: who is being invoiced, and their reference."""
+    """What stays on the document itself: who is being invoiced, and their reference.
+
+    The buyer address is here rather than in ``_SETTINGS`` because the settings
+    row holds seller columns only, and XRechnung wants the buyer city and post
+    code too (BR-DE-8, BR-DE-9).
+    """
     return {
-        "buyer": {"name": "Stadtwerke Kiel", "country_code": "DE"},
+        "buyer": {"name": "Stadtwerke Kiel", "country_code": "DE", "postcode": "24103", "city": "Kiel"},
         "buyer_reference": "991-01234-56",
     }
 
@@ -159,7 +164,15 @@ def _case(settings: dict) -> dict:
 def test_without_settings_the_document_is_exactly_what_it_was():
     """Every invoice written before this existed still renders unchanged."""
     meta = dict(_buyer())
-    meta["seller"] = {"name": "Hochbau Nord GmbH", "vat_id": "DE123456789", "country_code": "DE"}
+    # Nothing is configured in this test, so the seller address has to be on the
+    # document or the German profile refuses to render it at all (BR-DE-3/4).
+    meta["seller"] = {
+        "name": "Hochbau Nord GmbH",
+        "vat_id": "DE123456789",
+        "country_code": "DE",
+        "postcode": "24143",
+        "city": "Kiel",
+    }
     invoice = _invoice(meta)
 
     _n1, _m1, before = render_einvoice(invoice=invoice, line_items=_lines(), profile="xrechnung")

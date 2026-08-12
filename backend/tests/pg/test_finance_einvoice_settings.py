@@ -84,7 +84,15 @@ async def test_the_configuration_alone_clears_the_seller_violations(pg_session):
         "tax_amount": "190.00",
         "metadata": {
             "einvoice": {
-                "buyer": {"name": "Stadtwerke Kiel", "country_code": "DE"},
+                # The buyer address stays on the document: the settings row is
+                # seller-only, and XRechnung wants the buyer city and post code
+                # as well (BR-DE-8, BR-DE-9).
+                "buyer": {
+                    "name": "Stadtwerke Kiel",
+                    "country_code": "DE",
+                    "postcode": "24103",
+                    "city": "Kiel",
+                },
                 "buyer_reference": "991-01234-56",
             }
         },

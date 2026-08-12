@@ -404,9 +404,67 @@ def _check_tax_currency(inv: EInvoice) -> list[RuleViolation]:
     return []
 
 
+# Where each side's address is edited, in the words the country findings
+# already use. The standing settings hold seller columns only, so pointing a
+# buyer finding at them would name a screen with no such field on it.
+_SELLER_ADDRESS_HOME = "in the e-invoice settings"
+_BUYER_ADDRESS_HOME = "on this invoice"
+
+# BR-DE-3, BR-DE-4, BR-DE-8, BR-DE-9: the postal address content XRechnung
+# requires beyond EN 16931, as (rule id, business term, Party attribute, label).
+# Verified against itplr-kosit/xrechnung-schematron v2.5.0 (XRechnung 3.0.2),
+# src/validation/schematron/cii/XRechnung-CII-validation.sch, where each is a
+# fatal assert on a non-blank value in the party's PostalTradeAddress.
+_DE_SELLER_ADDRESS_RULES = (
+    ("BR-DE-3", "BT-37", "city", "seller city"),
+    ("BR-DE-4", "BT-38", "postcode", "seller post code"),
+)
+_DE_BUYER_ADDRESS_RULES = (
+    ("BR-DE-8", "BT-52", "city", "buyer city"),
+    ("BR-DE-9", "BT-53", "postcode", "buyer post code"),
+)
+
+
+def _check_de_postal_address(inv: EInvoice) -> list[RuleViolation]:
+    """City and post code on both parties, which XRechnung requires.
+
+    EN 16931 is satisfied by a postal address that names only its country, so a
+    document can be EN 16931 complete and still be rejected in Germany. KoSIT
+    asserts these against a non-blank value, which is why a field holding only
+    spaces fails exactly as an absent one does.
+
+    Args:
+        inv: the assembled invoice.
+
+    Returns:
+        One fatal finding per missing field, seller before buyer.
+    """
+    out: list[RuleViolation] = []
+    for address_rules, party, where in (
+        (_DE_SELLER_ADDRESS_RULES, inv.seller, _SELLER_ADDRESS_HOME),
+        (_DE_BUYER_ADDRESS_RULES, inv.buyer, _BUYER_ADDRESS_HOME),
+    ):
+        for rule_id, term, attribute, label in address_rules:
+            if not (getattr(party, attribute) or "").strip():
+                out.append(
+                    RuleViolation(
+                        rule_id,
+                        FATAL,
+                        f"Add the {label} ({term}) {where}; XRechnung requires it.",
+                        term,
+                    )
+                )
+    return out
+
+
 def check_profile(inv: EInvoice, profile: Profile) -> list[RuleViolation]:
     """Rules a country or network flavour adds on top of EN 16931."""
     out: list[RuleViolation] = []
+    # The BR-DE family is the German national CIUS, so it applies to the German
+    # profile and to nothing else: a receiver in another country validates
+    # against its own specification and would never cite these identifiers.
+    if profile.name == "xrechnung":
+        out += _check_de_postal_address(inv)
     if not profile.buyer_ref_required:
         return out
     has_buyer_ref = bool((inv.buyer_reference or "").strip())
