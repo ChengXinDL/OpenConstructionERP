@@ -474,6 +474,22 @@ def notified_sum(
             ),
         }
 
+    if deadline is None and regime.no_notice_effect == "none":
+        # The EU Directive and the German regimes have no notice sequence at
+        # all, so there is no window to call open: no notice could ever fix the
+        # sum, and saying "the window is still open" would promise a settling
+        # event that will never arrive.
+        return {
+            "amount": None,
+            "currency": currency,
+            "source": "undetermined",
+            "explanation": (
+                f"{regime.statute} provides no payment notice sequence: it fixes the period for payment "
+                "and the interest that runs when it is missed, and no notice can settle the sum payable. "
+                "The sum applied for stands unless the payer disputes it."
+            ),
+        }
+
     if deadline is None or today <= deadline:
         return {
             "amount": None,

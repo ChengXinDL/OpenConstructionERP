@@ -10538,6 +10538,22 @@ async def _seed_module_data(
     except Exception:
         logger.debug("Full EVM module not loaded, skipping demo forecasts", exc_info=True)
 
+    # ── Statutory payment clocks (Germany: § 16 VOB/B deadlines) ──────
+    # German projects only. The regimes elsewhere in the catalogue have no
+    # hand-authored demo chain yet, and a clock seeded under the wrong
+    # jurisdiction would state statutory dates that do not apply to the
+    # project. Dates are anchored to the installation day inside the seeder:
+    # a payment clock is about deadlines relative to now.
+    try:
+        if _country_code_for(template) == "DE":
+            from app.modules.payment_clock.demo import seed_demo_payment_clocks
+
+            clock_count = await seed_demo_payment_clocks(session, project_id=project_id, created_by=owner_str)
+            if clock_count:
+                results["payment_clock_applications"] = clock_count
+    except Exception:
+        logger.debug("Payment clock module not loaded, skipping demo clocks", exc_info=True)
+
     # ── Project photos ──────────────────────────────────────────────────
     # Real construction photos are seeded centrally by
     # ``app.modules.documents.photos_seed.seed_photos`` (wired into the demo
