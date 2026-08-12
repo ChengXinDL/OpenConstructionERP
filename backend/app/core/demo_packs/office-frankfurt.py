@@ -334,6 +334,7 @@ TEMPLATE = DemoTemplate(
     project_metadata={
         "address": "Europa-Allee 90, 60486 Frankfurt am Main",
         "client": "Nordkranz Projekt GmbH & Co. KG",
+        "main_contractor": "Herwaldt Bau Frankfurt GmbH",
         "architect": "brandhoff+lenzen Architekten, Frankfurt",
         "structural_engineer": "Trautvend+Kastner Ingenieure",
         "mep_engineer": "VKT Ingenieur-AG",
@@ -424,4 +425,64 @@ TEMPLATE = DemoTemplate(
             ],
         ),
     ],
+    # E-Rechnung showcase: one receivable interim invoice from the main
+    # contractor to the client, complete enough to pass an XRechnung 3.0
+    # dry-run on a fresh install. All parties are fictional companies.
+    einvoice_showcase={
+        # Buyer master data merged onto the generated client contact
+        # (Nordkranz Projekt GmbH & Co. KG, from project_metadata["client"]).
+        # The e-invoice engine reads BG-8 / BR-DE-8/9 / BR-11 off this record.
+        "buyer_contact": {
+            "legal_name": "Nordkranz Projekt GmbH & Co. KG",
+            "vat_number": "DE297543861",
+            "address": {
+                "street": "Mainzer Landstraße 178",
+                "city": "Frankfurt am Main",
+                "postcode": "60327",
+            },
+        },
+        # The receivable invoice row itself.
+        "invoice": {
+            "invoice_number": "AR-2026-014",
+            "notes": "3. Abschlagsrechnung Rohbau gem. Leistungsstand (interim application no. 3, structural works)",
+            "line_items": [
+                {
+                    "description": "Rohbauarbeiten UG2-UG1 gem. Aufmaß (structural works, basement levels)",
+                    "quantity": "1",
+                    "unit": "lsum",
+                    "unit_rate": "1240000.00",
+                    "amount": "1240000.00",
+                },
+                {
+                    "description": "Rohbauarbeiten EG-3.OG gem. Aufmaß (structural works, ground to 3rd floor)",
+                    "quantity": "1",
+                    "unit": "lsum",
+                    "unit_rate": "610000.00",
+                    "amount": "610000.00",
+                },
+            ],
+        },
+        # Stored under Invoice.metadata["einvoice"]: the Leitweg-ID (BT-10,
+        # BR-DE-15), the seller party (BG-4 with the BG-6 contact XRechnung
+        # wants) and the payment details (BG-16/BG-17). The IBAN is the
+        # standard demonstration IBAN, not a live account.
+        "einvoice": {
+            "leitweg_id": "06-4300251-83",
+            "vat_rate": "19",
+            "seller": {
+                "name": "Herwaldt Bau Frankfurt GmbH",
+                "vat_id": "DE164819273",
+                "country_code": "DE",
+                "line1": "Hanauer Landstraße 210",
+                "postcode": "60314",
+                "city": "Frankfurt am Main",
+                "contact_name": "Sabine Herwaldt",
+                "contact_phone": "+49 69 4089210",
+                "contact_email": "rechnung@herwaldt-bau.example",
+            },
+            "payee_iban": "DE89370400440532013000",
+            "payee_account_name": "Herwaldt Bau Frankfurt GmbH",
+            "payment_terms": "Zahlbar innerhalb von 30 Tagen netto gem. § 16 VOB/B",
+        },
+    },
 )

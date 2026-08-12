@@ -240,6 +240,20 @@ class DemoTemplate:
     actual_spend_ratio: float = 0.0
     spi_override: float = 0.0
     cpi_override: float = 0.0
+    # Optional: e-invoice showcase. Three keys, all optional:
+    #   "buyer_contact" - extra master data (legal_name, vat_number, address)
+    #     merged onto the generated client contact, so the buyer side of an
+    #     EN 16931 document (BG-8 postal address, BR-DE-8/9 city + post code,
+    #     BR-9/11 country) can be answered from the linked contact;
+    #   "invoice" - overrides for the seeded receivable invoice row itself
+    #     (invoice_number, notes, line_items);
+    #   "einvoice" - the payload stored under metadata["einvoice"], where the
+    #     e-invoice engine reads the Leitweg-ID / buyer reference (BT-10),
+    #     the seller party and the payment details.
+    # When set, the generic seed adds ONE receivable invoice linked to the
+    # client contact, complete enough to pass an XRechnung dry-run out of
+    # the box.
+    einvoice_showcase: dict | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -2003,12 +2017,13 @@ DEFAULT_DEMO_IDS: tuple[str, ...] = (
     "medical-us",  # international healthcare - US MasterFormat, USD
 )
 
-# Rich generic-install showcase: the nine non-flagship country projects that a
+# Rich generic-install showcase: the twelve non-flagship country projects that a
 # normal (no pack) install seeds alongside the flagship reference project so the
 # fresh workspace lands a fully worked-out, globe-spanning portfolio. Ordered to
 # read residential -> industrial -> education -> healthcare -> commercial across
-# DACH, Gulf, FR, US, China, Brazil, India and Canada, closed by the German food
-# retail showcase. Each id resolves to a DemoTemplate (built-in or pack-authored,
+# DACH, Gulf, FR, US, China, Brazil, India and Canada, closed by the German
+# showcase quartet (Heilbronn, Frankfurt, Heidelberg, Karlsruhe). Each id
+# resolves to a DemoTemplate (built-in or pack-authored,
 # auto-registered from demo_packs/) so install_demo_project materializes the
 # full module set per project. The retail showcase is additionally backfilled
 # flagship-style on every boot (main.py) so existing installs pick it up.
@@ -2022,6 +2037,12 @@ SHOWCASE_DEMO_IDS: tuple[str, ...] = (
     "govt-building-delhi",  # India - CPWD, INR
     "condo-toronto",  # Canada - residential, CAD
     "retail-market-heilbronn",  # Germany - food retail, DIN 276 + GAEB, EUR
+    # The German showcase quartet: the three pack-authored siblings of the
+    # Heilbronn flagship, so a fresh install seeds all four German projects
+    # out of the box instead of leaving three behind POST /api/demo/install.
+    "office-frankfurt",  # Germany - BIM office, DIN 276 + HOAI, EUR
+    "retail-market-heidelberg",  # Germany - food retail, DIN 276, EUR
+    "retail-market-karlsruhe",  # Germany - food retail, DIN 276, EUR
 )
 
 # Catalog info for the marketplace / frontend
@@ -4354,6 +4375,14 @@ def _generate_module_data(
             "notes": "Structural engineer",
         },
     ]
+    # E-invoice showcase: the client contact doubles as the buyer of the
+    # seeded receivable invoice, and EN 16931 reads the buyer's postal
+    # address, VAT id and legal name off that contact (einvoice_parties).
+    # Merged here so the master data lives on the directory record once
+    # instead of being retyped onto the invoice.
+    buyer_extra = (template.einvoice_showcase or {}).get("buyer_contact")
+    if isinstance(buyer_extra, dict):
+        contacts[0].update({k: v for k, v in buyer_extra.items() if v})
     # Add MEP + QS consultants only when the template names them, so demos
     # without metadata keep the original 3-consultant shape.
     if mep_name:
@@ -4728,6 +4757,10 @@ def _generate_module_data(
                 "currency_code": cur,
                 "status": status,
                 "notes": f"{firm} - interim valuation, {trade}",
+                # The issuing firm, so the insert can link the invoice to the
+                # subcontractor contact seeded from the same tender list
+                # instead of leaving contact_id empty.
+                "counterparty_company": firm,
                 "line_items": [
                     {
                         "description": f"{item or trade} - works to date",
@@ -4737,6 +4770,44 @@ def _generate_module_data(
                         "amount": f"{amount:.2f}",
                     }
                 ],
+            }
+        )
+
+    # ── E-invoice showcase invoice (one receivable, XRechnung-ready) ─────
+    # Only when the template asks for it: a receivable invoice is billed TO
+    # the client contact, which is the one direction where the linked
+    # contact is the buyer of the document (einvoice_parties), and its
+    # metadata carries what EN 16931 cannot read from anywhere else - the
+    # Leitweg-ID / buyer reference (BT-10), the seller party and the
+    # payment details.
+    ei_showcase = template.einvoice_showcase or {}
+    if ei_showcase.get("einvoice"):
+        ei_row = dict(ei_showcase.get("invoice") or {})
+        first_amount = float(str(invoices[0]["line_items"][0]["amount"])) if invoices else 100000.0
+        invoices.append(
+            {
+                "invoice_number": ei_row.get("invoice_number") or f"AR-{base.year}-001",
+                "invoice_direction": "receivable",
+                "invoice_date": _d(120),
+                "due_date": _d(150),
+                "currency_code": cur,
+                "status": "submitted",
+                "notes": ei_row.get("notes"),
+                "counterparty_company": contacts[0].get("company_name"),
+                "contact_ref": "client",
+                "metadata": {"einvoice": dict(ei_showcase["einvoice"])},
+                "line_items": list(
+                    ei_row.get("line_items")
+                    or [
+                        {
+                            "description": "Interim application for works executed to date",
+                            "quantity": "1",
+                            "unit": "lsum",
+                            "unit_rate": f"{first_amount:.2f}",
+                            "amount": f"{first_amount:.2f}",
+                        }
+                    ]
+                ),
             }
         )
 
@@ -6261,17 +6332,27 @@ async def _seed_module_data(
     # fail-soft: when the module is not loaded this stays empty and the later
     # writers simply seed no link, rather than failing on a missing name.
     contact_ids_by_type: dict[str, list[str]] = {}
+    # Company name -> contact id, so the invoice seed below can link each
+    # invoice to the counterparty it already names in prose. Same fail-soft
+    # contract as contact_ids_by_type.
+    contact_id_by_company: dict[str, str] = {}
 
     try:
         contact_list = _contacts_for_project(_CONTACTS.get(demo_id), generated.get("contacts", []))
         for c in contact_list:
             contact_id = _id()
             contact_ids_by_type.setdefault(c["contact_type"], []).append(str(contact_id))
+            company = str(c.get("company_name") or "").strip()
+            if company:
+                contact_id_by_company.setdefault(company, str(contact_id))
             session.add(
                 Contact(
                     id=contact_id,
                     contact_type=c["contact_type"],
                     company_name=c.get("company_name"),
+                    legal_name=c.get("legal_name"),
+                    vat_number=c.get("vat_number"),
+                    address=c.get("address"),
                     first_name=c.get("first_name"),
                     last_name=c.get("last_name"),
                     primary_email=c.get("primary_email"),
@@ -8582,6 +8663,16 @@ async def _seed_module_data(
                 else (0.20 if template.currency == "GBP" else (0.05 if template.currency == "AED" else 0.0))
             )
             tax = round(subtotal * tax_rate, 2)
+            # Link the invoice to its counterparty: an explicit role reference
+            # ("contact_ref", used by the e-invoice showcase to bill the
+            # client) wins, else the company the row names. Both resolve to
+            # None when the contacts block did not run, which is the same
+            # fail-soft the rest of this seed lives by.
+            contact_ref = str(inv.get("contact_ref") or "").strip()
+            linked_contact_id = (contact_ids_by_type.get(contact_ref) or [None])[0] if contact_ref else None
+            if linked_contact_id is None:
+                linked_contact_id = contact_id_by_company.get(str(inv.get("counterparty_company") or "").strip())
+            extra_meta = inv.get("metadata") if isinstance(inv.get("metadata"), dict) else {}
             inv_obj = Invoice(
                 id=_id(),
                 project_id=project_id,
@@ -8596,8 +8687,9 @@ async def _seed_module_data(
                 amount_total=str(round(subtotal + tax, 2)),
                 status=inv["status"],
                 notes=inv.get("notes"),
+                contact_id=linked_contact_id,
                 created_by=owner_id,
-                metadata_={"demo_id": demo_id},
+                metadata_={**extra_meta, "demo_id": demo_id},
             )
             session.add(inv_obj)
             await session.flush()
