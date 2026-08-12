@@ -39,6 +39,31 @@ MIGRATED_ENDPOINTS: dict[str, str] = {
     "/v1/schedule/schedules/{}/activities/": "schedule activities",
 }
 
+# React Query cache keys that must move in one commit with the endpoint they
+# read. This is a SECOND constraint, not a restatement of the one above.
+#
+#   * the endpoint's response type binds every caller of the endpoint, and
+#     TypeScript enforces that for us,
+#   * a shared cache key binds every caller holding that key, and NOTHING
+#     enforces that. The key is a string. React Query will hand a value
+#     cached by a migrated file straight to an unmigrated one, at runtime,
+#     with tsc and the build both green.
+#
+# So a key listed here is asserted to be wholly migrated the moment its
+# endpoint appears in MIGRATED_ENDPOINTS. Keys that merely look related do
+# NOT belong here: ['projects-switcher'] and ['projects'] are different
+# cache entries and share nothing.
+SHARED_QUERY_KEYS: dict[str, str] = {
+    # "projects": "/v1/projects/",   # W1, 107 call sites across 81 files
+    # Two readers (SchedulePage, ProjectDetailPage) cache Schedule rows under
+    # this key. tsc caught SchedulePage consuming the raw Page envelope only
+    # because the wrapper's return type happened to flow through; the URL
+    # scan above never sees wrapper callers at all.
+    "schedules": "/v1/schedule/schedules/",
+}
+
+QUERY_KEY_RE = r"queryKey:\s*\[\s*['\"`]{key}['\"`]"
+
 # A call is migrated when it names the envelope type. A call that still
 # names a bare array of the row type is not.
 ENVELOPE_HINT = re.compile(r"Page<|\.items\b|items:\s")
@@ -94,6 +119,46 @@ def scan(root: Path) -> tuple[dict[str, list[Path]], dict[str, list[Path]]]:
     return consumers, unmigrated
 
 
+def scan_query_keys(root: Path) -> dict[str, tuple[list[Path], list[Path]]]:
+    """Return {key: (reading call sites, unmigrated call sites)}.
+
+    Only reads count. ``invalidateQueries({queryKey: ['projects']})`` names
+    the key without consuming the value, so it cannot be handed the wrong
+    shape and must not be counted; a ``queryFn`` in the window is what
+    separates the two. Requiring ``apiGet`` instead would miss readers that
+    fetch through an api wrapper (``scheduleApi.listSchedules(...)``), and a
+    wrapper caller was exactly the consumer tsc caught unmigrated while this
+    scan reported the key clean.
+    """
+    out: dict[str, tuple[list[Path], list[Path]]] = {
+        k: ([], []) for k in SHARED_QUERY_KEYS
+    }
+    if not SHARED_QUERY_KEYS:
+        return out
+    patterns = {
+        k: re.compile(QUERY_KEY_RE.format(key=re.escape(k))) for k in SHARED_QUERY_KEYS
+    }
+
+    for path in root.rglob("*.ts*"):
+        if "node_modules" in path.parts:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for key, pat in patterns.items():
+            for m in pat.finditer(text):
+                # The queryFn follows the key, so look forward from it.
+                window = text[m.start() : m.start() + 600]
+                if "queryFn" not in window:
+                    continue
+                reads, bad = out[key]
+                reads.append(path)
+                if BARE_ARRAY_HINT.search(window) or not ENVELOPE_HINT.search(window):
+                    bad.append(path)
+    return out
+
+
 def report(root: Path) -> int:
     consumers, unmigrated = scan(root)
     total_consumers = sum(len(v) for v in consumers.values())
@@ -110,11 +175,28 @@ def report(root: Path) -> int:
         for p in sorted(set(bad)):
             print(f"  UNMIGRATED  {p.relative_to(REPO)}")
             failed = True
+    for key, endpoint in SHARED_QUERY_KEYS.items():
+        if endpoint not in MIGRATED_ENDPOINTS:
+            continue
+        reads, bad = scan_query_keys(root)[key]
+        print(
+            f"queryKey ['{key}']: {len(reads)} reading call sites, {len(reads) - len(bad)} migrated"
+        )
+        for p in sorted(set(bad)):
+            print(f"  UNMIGRATED  {p.relative_to(REPO)}")
+            failed = True
+
     if failed:
         print()
-        print("FAIL: an endpoint returns the envelope but some callers still read a bare array.")
-        print("      Migrate every consumer in this commit. A shared React Query key means")
-        print("      a partial migration breaks at runtime and the build cannot see it.")
+        print(
+            "FAIL: an endpoint returns the envelope but some callers still read a bare array."
+        )
+        print(
+            "      Migrate every consumer in this commit. A shared React Query key means"
+        )
+        print(
+            "      a partial migration breaks at runtime and the build cannot see it."
+        )
         return 1
     print("\nOK: every migrated endpoint has every consumer migrated.")
     return 0
@@ -135,7 +217,10 @@ def self_test() -> int:
             encoding="utf-8",
         )
         consumers, unmigrated = scan(fake)
-        if len(consumers["/v1/schedule/schedules/"]) != 1 or unmigrated["/v1/schedule/schedules/"]:
+        if (
+            len(consumers["/v1/schedule/schedules/"]) != 1
+            or unmigrated["/v1/schedule/schedules/"]
+        ):
             print("SELF-TEST FAIL: a correctly migrated consumer was not accepted.")
             return 1
 
@@ -146,8 +231,12 @@ def self_test() -> int:
         )
         consumers, unmigrated = scan(fake)
         if len(unmigrated["/v1/schedule/schedules/"]) != 1:
-            print("SELF-TEST FAIL: the guard accepted a consumer still reading a bare array.")
-            print("                It cannot refuse, so a green run from it means nothing.")
+            print(
+                "SELF-TEST FAIL: the guard accepted a consumer still reading a bare array."
+            )
+            print(
+                "                It cannot refuse, so a green run from it means nothing."
+            )
             return 1
 
         # The narrowings have to be proven too, or a later tightening could
@@ -172,20 +261,77 @@ def self_test() -> int:
         )
         consumers, unmigrated = scan(fake)
         if unmigrated["/v1/schedule/schedules/{}/activities/"]:
-            print("SELF-TEST FAIL: a POST/DELETE on the route was counted as a truncated read.")
+            print(
+                "SELF-TEST FAIL: a POST/DELETE on the route was counted as a truncated read."
+            )
             return 1
         if len(consumers["/v1/schedule/schedules/"]) != 1:
-            print("SELF-TEST FAIL: a doc comment quoting the route was counted as a consumer.")
+            print(
+                "SELF-TEST FAIL: a doc comment quoting the route was counted as a consumer."
+            )
             return 1
 
+        # The cache-key half has to be proven too, and it cannot be proven from
+        # the real tree while SHARED_QUERY_KEYS is empty: an empty dict makes
+        # the check vacuously pass, which is the shape this whole script exists
+        # to reject. So declare a key just for the fixture.
+        global SHARED_QUERY_KEYS
+        saved = SHARED_QUERY_KEYS
+        try:
+            SHARED_QUERY_KEYS = {"widgets": "/v1/widgets/"}
+            for f in fake.glob("*.tsx"):
+                f.unlink()
+            (fake / "Reader.tsx").write_text(
+                "useQuery({\n"
+                "  queryKey: ['widgets'],\n"
+                "  queryFn: () => apiGet<Page<Widget>>('/v1/widgets/').then((p) => p.items),\n"
+                "});\n",
+                encoding="utf-8",
+            )
+            (fake / "Stale.tsx").write_text(
+                "useQuery({\n"
+                "  queryKey: ['widgets'],\n"
+                "  queryFn: () => apiGet<Widget[]>('/v1/widgets/'),\n"
+                "});\n",
+                encoding="utf-8",
+            )
+            # Naming a key to invalidate it never reads the value, so it can
+            # never be handed the wrong shape and must not be counted.
+            (fake / "Invalidate.tsx").write_text(
+                "qc.invalidateQueries({ queryKey: ['widgets'] });\n",
+                encoding="utf-8",
+            )
+            reads, bad = scan_query_keys(fake)["widgets"]
+            if len(reads) != 2:
+                print(
+                    f"SELF-TEST FAIL: expected 2 reading call sites on the key, saw {len(reads)}."
+                )
+                print(
+                    "                An invalidateQueries call was probably miscounted as a read."
+                )
+                return 1
+            if [p.name for p in bad] != ["Stale.tsx"]:
+                print(
+                    "SELF-TEST FAIL: the cache-key check did not single out the unmigrated reader."
+                )
+                print(
+                    "                It cannot refuse, so it cannot guard the runtime failure."
+                )
+                return 1
+        finally:
+            SHARED_QUERY_KEYS = saved
+
     print("SELF-TEST OK: accepts a migrated consumer, refuses an unmigrated one,")
-    print("              and ignores writers and doc comments on the same route.")
+    print("              ignores writers and doc comments on the same route, and")
+    print("              refuses a shared cache key whose readers disagree.")
     return 0
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--self-test", action="store_true", help="prove the guard can fail, then exit")
+    ap.add_argument(
+        "--self-test", action="store_true", help="prove the guard can fail, then exit"
+    )
     args = ap.parse_args()
     if args.self_test:
         return self_test()
@@ -194,7 +340,9 @@ def main() -> int:
     # seeing anything at all, and a guard that cannot refuse reports the same
     # clean run as a tree with nothing wrong in it. Costs one temp directory.
     if self_test() != 0:
-        print("FAIL: the guard could not prove it still refuses, so its verdict means nothing.")
+        print(
+            "FAIL: the guard could not prove it still refuses, so its verdict means nothing."
+        )
         return 2
     print()
     return report(FRONTEND)
