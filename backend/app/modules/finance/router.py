@@ -152,11 +152,16 @@ def _line_item_dicts(line_items: Iterable[InvoiceLineItem] | None) -> list[dict[
 
 
 def _contact_display_name(c: Contact) -> str:
-    """Return the human-readable contact label (company > "first last" > email)."""
-    if c.company_name:
-        return c.company_name
-    full = f"{c.first_name or ''} {c.last_name or ''}".strip()
-    return full or c.email or ""
+    """Return the human-readable contact label (company > "first last" > email).
+
+    Delegates so that the name shown beside an invoice and the name written into
+    its e-invoice as BT-44 are the same string. They were resolved separately
+    before, and the copy here read ``c.email``, which is not a column on
+    ``Contact`` and raised on any record with neither a company nor a person.
+    """
+    from app.modules.finance.einvoice_parties import contact_display_name
+
+    return contact_display_name(c)
 
 
 async def _fetch_counterparty_names(session: AsyncSession, contact_ids: Iterable[str | None]) -> dict[str, str]:
@@ -794,18 +799,6 @@ async def export_invoice_einvoice(
     await _require_invoice_access(session, invoice_id, user_id)
     fresh = await service.get_invoice(invoice_id)
 
-    # Best-effort buyer name fallback from the linked contact (never block on it).
-    buyer_fallback = ""
-    if fresh.contact_id:
-        try:
-            from app.modules.contacts.repository import ContactRepository
-
-            contact = await ContactRepository(session).get_by_id(fresh.contact_id)
-            if contact is not None:
-                buyer_fallback = str(getattr(contact, "name", "") or "").strip()
-        except Exception:  # noqa: BLE001 - fallback only
-            logger.debug("e-invoice: contact lookup failed", exc_info=True)
-
     invoice_dict: dict[str, Any] = {
         "invoice_number": fresh.invoice_number,
         "invoice_direction": fresh.invoice_direction,
@@ -821,17 +814,22 @@ async def export_invoice_einvoice(
     }
     line_items: list[dict[str, Any]] = _line_item_dicts(fresh.line_items)
     # Resolved once and handed to whichever of the two paths runs below, so the
-    # check and the file are judging the same document.
-    from app.modules.finance.einvoice_settings_service import einvoice_defaults
+    # check and the file are judging the same document. Carries the buyer read
+    # off the linked contact, so the address EN 16931 demands does not have to be
+    # retyped onto every invoice sent to a customer we already know.
+    from app.modules.finance.einvoice_parties import einvoice_defaults_for_invoice
 
-    defaults = await einvoice_defaults(session)
+    defaults = await einvoice_defaults_for_invoice(
+        session,
+        contact_id=fresh.contact_id,
+        invoice_direction=fresh.invoice_direction,
+    )
 
     if dry_run:
         found = violations_for(
             invoice=invoice_dict,
             line_items=line_items,
             profile=profile,
-            buyer_fallback_name=buyer_fallback,
             defaults=defaults,
         )
         # ``problems`` stays the fatal messages, which is what blocks a render.
@@ -854,7 +852,6 @@ async def export_invoice_einvoice(
             invoice=invoice_dict,
             line_items=line_items,
             profile=profile,
-            buyer_fallback_name=buyer_fallback,
             defaults=defaults,
         )
     except EInvoiceError as exc:
@@ -863,8 +860,9 @@ async def export_invoice_einvoice(
             detail=(
                 f"invoice is not EN 16931 complete for {profile}: {exc}. "
                 "Seller identity and the bank account are set once under the "
-                "e-invoice settings; the buyer and the buyer reference belong to "
-                "this invoice. Call with ?dry_run=true for the full list."
+                "e-invoice settings; the buyer address is read from the linked "
+                "contact and the buyer reference belongs to this invoice. Call "
+                "with ?dry_run=true for the full list."
             ),
         ) from exc
 
