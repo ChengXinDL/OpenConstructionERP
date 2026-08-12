@@ -301,7 +301,7 @@ export function AboutPage() {
               { value: String(SUPPORTED_LANGUAGES.length), label: t('about.stat_langs', { defaultValue: 'Languages' }) },
               { value: '47', label: t('about.stat_regions', { defaultValue: 'Countries covered' }) },
               { value: '6', label: t('about.stat_cad_formats', { defaultValue: 'CAD/BIM formats supported' }) },
-              { value: '180', label: t('about.stat_modules', { defaultValue: 'Backend modules' }) },
+              { value: '180+', label: t('about.stat_modules', { defaultValue: 'Backend modules' }) },
               { value: '28', label: t('about.stat_sections', { defaultValue: 'Menu sections' }) },
             ].map((s, i) => (
               <div key={i} className="text-center rounded-xl bg-surface-secondary/50 px-2 py-3">
@@ -984,7 +984,7 @@ export function AboutPage() {
                 {[
                   { value: String(SUPPORTED_LANGUAGES.length), label: t('about.support_kpi_langs', { defaultValue: 'Languages translated' }) },
                   { value: '47', label: t('about.support_kpi_regions', { defaultValue: 'Countries covered' }) },
-                  { value: '180', label: t('about.support_kpi_modules', { defaultValue: 'Backend modules' }) },
+                  { value: '180+', label: t('about.support_kpi_modules', { defaultValue: 'Backend modules' }) },
                   { value: '55K+', label: t('about.support_kpi_cwicr', { defaultValue: 'CWICR positions' }) },
                 ].map((kpi, i) => (
                   <div key={i} className="rounded-lg bg-surface-primary/60 backdrop-blur-sm border border-border-light px-3 py-2.5">

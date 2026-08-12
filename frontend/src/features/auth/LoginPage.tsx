@@ -538,7 +538,7 @@ export function LoginPage() {
             { value: String(SUPPORTED_LANGUAGES.length), label: t('login.stat_langs', { defaultValue: 'languages' }) },
             { value: '47', label: t('login.stat_regions', { defaultValue: 'countries' }) },
             { value: '6', label: t('login.stat_cad', { defaultValue: 'CAD formats' }) },
-            { value: '180', label: t('login.stat_modules', { defaultValue: 'modules' }) },
+            { value: '180+', label: t('login.stat_modules', { defaultValue: 'modules' }) },
             { value: '28', label: t('login.stat_sections', { defaultValue: 'sections' }) },
           ].map((s) => (
             <div key={s.label} className="text-center">
