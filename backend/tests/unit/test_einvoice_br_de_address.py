@@ -142,15 +142,21 @@ def test_each_finding_carries_the_business_term_a_receiver_would_quote():
     assert terms == {"BR-DE-3": "BT-37", "BR-DE-4": "BT-38", "BR-DE-8": "BT-52", "BR-DE-9": "BT-53"}
 
 
-def test_the_seller_findings_name_the_settings_and_the_buyer_findings_name_the_invoice():
-    """The two sides are fixed in different places, so they cannot share a sentence."""
+def test_the_seller_findings_name_the_settings_and_the_buyer_findings_name_the_contact():
+    """Each side names the editor that holds it, because that is where the user goes.
+
+    A finding is a remedy, not a label. The seller lives in the standing
+    settings and the buyer is read from the contact the invoice bills, so a
+    buyer finding pointing at the invoice would send the user to the one
+    screen with no such field on it.
+    """
     inv = _invoice(seller=_party(city=None, postcode=None), buyer=_party(city=None, postcode=None))
     where = {v.rule_id: v.message for v in check(inv) if v.severity == FATAL}
     for rule_id in ("BR-DE-3", "BR-DE-4"):
         assert "e-invoice settings" in where[rule_id]
     for rule_id in ("BR-DE-8", "BR-DE-9"):
         assert "e-invoice settings" not in where[rule_id]
-        assert "on this invoice" in where[rule_id]
+        assert "on the contact this invoice bills" in where[rule_id]
 
 
 # ── the rules are German, and only German ────────────────────────────────────

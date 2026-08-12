@@ -160,19 +160,26 @@ def _check_header(inv: EInvoice) -> list[RuleViolation]:
     return out
 
 
+# Where each side is edited. A finding that names a screen holding no such
+# field is a dead end, so these follow the editors rather than the document:
+# the standing settings hold seller columns only, and the buyer is read from
+# the contact the invoice is billed to. The engine sees an assembled document
+# and not its direction, so the buyer sentence is written for the receivable
+# case, which is the one that maps a contact onto the buyer at all.
+_SELLER_PARTY_HOME = "in the e-invoice settings"
+_BUYER_PARTY_HOME = "on the contact this invoice bills"
+
+
 def _check_parties(inv: EInvoice) -> list[RuleViolation]:
     """Seller and buyer identity and address (BR-6 .. BR-11, BR-CO-9, BR-CO-26)."""
     out: list[RuleViolation] = []
     if not inv.seller.name:
-        out.append(RuleViolation("BR-6", FATAL, "Add the seller name in the e-invoice settings.", "BT-27"))
+        out.append(RuleViolation("BR-6", FATAL, f"Add the seller name {_SELLER_PARTY_HOME}.", "BT-27"))
     if not inv.buyer.name:
-        out.append(RuleViolation("BR-7", FATAL, "Add the buyer name on the invoice.", "BT-44"))
-    # Each side names the place its own country is fixed. The standing settings
-    # hold seller fields only, so sending a user there for the buyer country
-    # would name a screen that has no such field.
+        out.append(RuleViolation("BR-7", FATAL, f"Add the buyer name {_BUYER_PARTY_HOME}.", "BT-44"))
     for rule_id, party, term, where in (
-        ("BR-9", inv.seller, "BT-40", "seller country code, two letters such as DE or FR, in the e-invoice settings"),
-        ("BR-11", inv.buyer, "BT-55", "buyer country code, two letters such as DE or FR, on this invoice"),
+        ("BR-9", inv.seller, "BT-40", f"seller country code, two letters such as DE or FR, {_SELLER_PARTY_HOME}"),
+        ("BR-11", inv.buyer, "BT-55", f"buyer country code, two letters such as DE or FR, {_BUYER_PARTY_HOME}"),
     ):
         if not party.country_code:
             out.append(RuleViolation(rule_id, FATAL, f"Add the {where}.", term))
@@ -404,12 +411,6 @@ def _check_tax_currency(inv: EInvoice) -> list[RuleViolation]:
     return []
 
 
-# Where each side's address is edited, in the words the country findings
-# already use. The standing settings hold seller columns only, so pointing a
-# buyer finding at them would name a screen with no such field on it.
-_SELLER_ADDRESS_HOME = "in the e-invoice settings"
-_BUYER_ADDRESS_HOME = "on this invoice"
-
 # BR-DE-3, BR-DE-4, BR-DE-8, BR-DE-9: the postal address content XRechnung
 # requires beyond EN 16931, as (rule id, business term, Party attribute, label).
 # Verified against itplr-kosit/xrechnung-schematron v2.5.0 (XRechnung 3.0.2),
@@ -441,8 +442,8 @@ def _check_de_postal_address(inv: EInvoice) -> list[RuleViolation]:
     """
     out: list[RuleViolation] = []
     for address_rules, party, where in (
-        (_DE_SELLER_ADDRESS_RULES, inv.seller, _SELLER_ADDRESS_HOME),
-        (_DE_BUYER_ADDRESS_RULES, inv.buyer, _BUYER_ADDRESS_HOME),
+        (_DE_SELLER_ADDRESS_RULES, inv.seller, _SELLER_PARTY_HOME),
+        (_DE_BUYER_ADDRESS_RULES, inv.buyer, _BUYER_PARTY_HOME),
     ):
         for rule_id, term, attribute, label in address_rules:
             if not (getattr(party, attribute) or "").strip():

@@ -203,6 +203,34 @@ def test_the_contact_is_a_floor_and_the_invoice_overrides_it():
     assert ei.buyer.country_code == "DE"
 
 
+def test_every_buyer_party_finding_sends_the_user_to_the_contact():
+    """A finding is a remedy, and it is only a remedy if the screen it names has the field.
+
+    All four used to say the invoice, which was true of the data model and
+    useless to the user: the panel is read-only and no screen wrote a buyer.
+    Moving the buyer to the contact without moving these sentences would have
+    relocated the dead end rather than closing it.
+
+    The buyer reference is deliberately not in this set. BT-10 identifies the
+    recipient's routing on this one document and belongs on the invoice, so a
+    later edit sweeping every message containing the word buyer would be wrong.
+    """
+    invoice = _invoice({"buyer_reference": "991-01234-56"})
+
+    messages = {
+        v.rule_id: v.message
+        for v in violations_for(invoice=invoice, line_items=_lines(), profile="xrechnung", defaults=dict(_SELLER))
+        if v.severity == FATAL
+    }
+
+    # Also proves the set is closed: a fifth buyer rule would land here and fail
+    # rather than ship pointing at a screen nobody checked.
+    assert set(messages) == {"BR-7", "BR-11", "BR-DE-8", "BR-DE-9"}, messages
+    for rule_id, message in messages.items():
+        assert "on the contact this invoice bills" in message, f"{rule_id}: {message}"
+        assert "on this invoice" not in message, f"{rule_id}: {message}"
+
+
 def test_a_contact_missing_the_city_still_fails_the_german_rules():
     """The rules are not weakened by having a contact behind them."""
     contact = _contact(address={"text": "Werftstrasse 14"})
