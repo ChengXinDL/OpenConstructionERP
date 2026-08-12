@@ -265,7 +265,7 @@ function RegionTabBar({
   totalItemCount: number;
   isLoadingRegions: boolean;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -403,7 +403,7 @@ function RegionTabBar({
             {t('costs.all_regions', { defaultValue: 'All' })}
           </span>
           <span className={`text-2xs tabular-nums ${activeRegion === '' ? 'text-oe-blue' : 'text-content-quaternary'}`}>
-            {totalItems > 0 ? totalItems.toLocaleString() : ''}
+            {totalItems > 0 ? totalItems.toLocaleString(i18n.language) : ''}
           </span>
         </button>
 
@@ -434,7 +434,7 @@ function RegionTabBar({
               <MiniFlag code={info.flag} size={13} />
               <span className="text-sm font-medium whitespace-nowrap">{info.name}</span>
               <span className={`text-2xs tabular-nums ${isActive ? 'text-oe-blue' : 'text-content-quaternary'}`}>
-                {count > 0 ? count.toLocaleString() : ''}
+                {count > 0 ? count.toLocaleString(i18n.language) : ''}
               </span>
             </button>
           );
@@ -1168,10 +1168,10 @@ export function CostsPage() {
                     : isFetching && tabCount != null
                       ? tabCount
                       : 0;
-                return `${regionInfo.name}, ${display.toLocaleString()} ${t('costs.items', 'items')}`;
+                return `${regionInfo.name}, ${display.toLocaleString(i18n.language)} ${t('costs.items', 'items')}`;
               })()
             : total > 0
-              ? `${total.toLocaleString()} ${t('costs.results_found', 'results found')}`
+              ? `${total.toLocaleString(i18n.language)} ${t('costs.results_found', 'results found')}`
               : t('costs.search_hint', 'Search cost items by description or code')
         }
         actions={
@@ -1684,7 +1684,7 @@ export function CostsPage() {
                     defaultValue: '{{from}}-{{to}} of {{total}}',
                     from: offset + 1,
                     to: Math.min(offset + PAGE_SIZE, total),
-                    total: total.toLocaleString(),
+                    total: total.toLocaleString(i18n.language),
                   })}
                 </p>
                 {totalPages > 1 && (
@@ -3180,6 +3180,9 @@ function CostVariantDetail({
   fmt: (n: number) => string;
   t: ReturnType<typeof import('react-i18next').useTranslation>['t'];
 }) {
+  // `t` arrives as a prop from the row, but the count below is grouped by the
+  // active app language, so this reads the language off the hook directly.
+  const { i18n } = useTranslation();
   const COLLAPSED_LIMIT = 8;
 
   // Stable sort by price ascending; ties keep original order.
@@ -3266,7 +3269,7 @@ function CostVariantDetail({
           <>
             <span className="text-content-tertiary">·</span>
             <span className="rounded bg-surface-primary/70 px-1.5 py-0.5">
-              <span className="font-semibold text-content-primary">{stats.position_count.toLocaleString()}</span>
+              <span className="font-semibold text-content-primary">{stats.position_count.toLocaleString(i18n.language)}</span>
               <span className="ml-1 text-content-tertiary">
                 {t('costs.variant_position_count_label', { defaultValue: 'Estimates' })}
               </span>
