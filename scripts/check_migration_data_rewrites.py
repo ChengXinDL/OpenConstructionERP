@@ -35,6 +35,24 @@ success, indistinguishable there from a job that signed anything. This
 script's own summary line is read by whatever reads a conclusion field,
 so it does not get to make that same substitution about its own input.
 
+Known gap in that floor: it catches zero and near-zero, not a
+proportional shrink. A reorganisation that splits versions/ into
+subfolders and moves, say, half the files would leave the flat glob
+below counting only the half left behind - comfortably above 100,
+reporting clean over a scan that covered less than the whole tree. A
+fixed floor also decays by construction: 100 was chosen against a tree
+of 320 files, so it currently requires seeing at least 31% of them, and
+against 600 files next year the same constant requires seeing only 17%.
+Cross-checking the glob's count against a second, independent
+enumeration of the same directory was considered and rejected - Alembic's
+own ScriptDirectory discovers revisions by walking that same versions/
+path under the same single-directory assumption, so a subfolder split
+that fools the glob below would fool Alembic's own view of its
+migration tree the same way, and by then CI would presumably be red on
+far more than this one script. Naming the gap here is the honest
+alternative to a cross-check that could not actually be independent of
+the failure mode it exists to catch.
+
 Why AST, not grep or ScriptDirectory.walk_revisions()
 ------------------------------------------------------
 Grep looks for a literal table name next to a literal verb and this codebase
