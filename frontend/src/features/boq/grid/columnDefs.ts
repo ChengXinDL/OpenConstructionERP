@@ -475,9 +475,14 @@ export function getColumnDefs(context: BOQColumnContext): ColDef[] {
         if (params.data?._isFooter) return false;
         return true;
       },
+      // The grid is singleClickEdit for data-entry columns (qty, rate), but
+      // the Ordnungszahl is the client-issued identity of the line - a stray
+      // click must never open an invisible editor over it. Double-click or
+      // F2 only; a single click merely selects the cell.
+      singleClickEdit: false,
       headerTooltip: t('boq.ordinal_edit_hint', {
         defaultValue:
-          'Click any position number to type your own. Use Renumber to apply a scheme to all.',
+          'Double-click a position number (or press F2) to type your own. Escape cancels. Use Renumber to apply a scheme to all.',
       }),
       cellClass: (params) => {
         const base = 'font-mono text-xs text-right !pr-2';

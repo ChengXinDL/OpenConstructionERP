@@ -464,13 +464,16 @@ function RiskDriversTable({
 export function CostRiskPanel({ boqId, locale = 'de-DE' }: { boqId: string; locale?: string }) {
   const { t } = useTranslation();
   const fmt = useMemo(() => createCRFormatter(locale), [locale]);
-  const [collapsed, setCollapsed] = useState(false);
+  // Collapsed by default and simulated on expand: the Monte Carlo run is a
+  // heavy call consumed only inside this panel, so it must not be part of
+  // the editor's first-paint request burst (see SensitivityChart).
+  const [collapsed, setCollapsed] = useState(true);
   const [correlation, setCorrelation] = useState(0.2);
 
   const { data, isLoading, isError, isFetching } = useQuery({
     queryKey: ['boq-cost-risk', boqId, correlation],
     queryFn: () => boqApi.getCostRisk(boqId, correlation),
-    enabled: !!boqId,
+    enabled: !!boqId && !collapsed,
     placeholderData: keepPreviousData,
   });
 

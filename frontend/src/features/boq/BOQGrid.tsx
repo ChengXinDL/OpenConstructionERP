@@ -804,6 +804,10 @@ const BOQGrid = forwardRef<BOQGridHandle, BOQGridProps>(function BOQGrid({
   /* ── Expanded resource positions ─────────────────────────────────── */
   const [expandedPositions, setExpandedPositions] = useState<Set<string>>(new Set());
 
+  /** True while an invalid ordinal edit is being reverted in place, so the
+   *  re-entrant cellValueChanged event is ignored (not persisted/undoable). */
+  const revertingOrdinalRef = useRef(false);
+
   const toggleResources = useCallback((positionId: string) => {
     // Stop any active cell editing to prevent ordinal cell staying in edit mode
     gridApiRef.current?.stopEditing();
@@ -2037,6 +2041,9 @@ const BOQGrid = forwardRef<BOQGridHandle, BOQGridProps>(function BOQGrid({
   /* ── Cell value changed → dispatch update ─────────────────────── */
   const onCellValueChanged = useCallback(
     (event: CellValueChangedEvent) => {
+      // Re-entrant event from the ordinal revert below — the value is being
+      // restored, not changed, so it must not be persisted or made undoable.
+      if (revertingOrdinalRef.current) return;
       const { data, colDef, oldValue } = event;
       let { newValue } = event;
       if (!data?.id || data._isFooter) return;
@@ -2095,6 +2102,35 @@ const BOQGrid = forwardRef<BOQGridHandle, BOQGridProps>(function BOQGrid({
 
       if (oldValue === newValue) return;
 
+      // ── Ordnungszahl format guard ─────────────────────────────────
+      // The OZ is the client-issued identity of the line ("Positionsnummern
+      // bleiben Byte für Byte ..."), so an accidental paste of free text
+      // must never reach the server. Accept dot-separated alphanumeric
+      // segments starting with a digit (01.02.0010, 300.1, 0010A); anything
+      // else reverts in place with a toast.
+      if (field === 'ordinal' && !data._isSection) {
+        const raw = String(newValue ?? '').trim();
+        const isValidOz = /^\d[\dA-Za-z]*(\.[\dA-Za-z]+)*$/.test(raw) && raw.length <= 32;
+        if (!isValidOz) {
+          revertingOrdinalRef.current = true;
+          try {
+            event.node.setDataValue('ordinal', oldValue);
+          } finally {
+            revertingOrdinalRef.current = false;
+          }
+          addToast({
+            type: 'warning',
+            title: t('boq.ordinal_invalid_title', { defaultValue: 'Position number not changed' }),
+            message: t('boq.ordinal_invalid', {
+              defaultValue:
+                'Position numbers use digits, dots and letters (e.g. 01.02.0010). The previous value was kept.',
+            }),
+          });
+          return;
+        }
+        newValue = raw;
+      }
+
       const update: UpdatePositionData = { [field]: newValue };
       const old: UpdatePositionData = { [field]: oldValue };
 
@@ -2112,7 +2148,7 @@ const BOQGrid = forwardRef<BOQGridHandle, BOQGridProps>(function BOQGrid({
 
       onUpdatePosition(data.id, update, old);
     },
-    [onUpdatePosition, onUpdateResourceCustomField],
+    [onUpdatePosition, onUpdateResourceCustomField, addToast, t],
   );
 
   /* ── Row drag end → reorder sections or positions ────────────── */

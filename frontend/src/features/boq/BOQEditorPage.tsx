@@ -182,12 +182,24 @@ export function BOQEditorPage() {
     enabled: !!boq?.project_id,
   });
 
+  /* ── Deferred warm-up for non-critical queries ─────────────────────
+     The editor's first paint used to fire seven heavy requests at once
+     (sensitivity, cost-risk, resource rollup, BIM models, AACE class ...)
+     which queued on the connection pool and held the page at ~4s. The
+     analysis panels now fetch on expand; the remaining nice-to-haves
+     below wait one breath after mount so the grid data wins the race. */
+  const [deferredReady, setDeferredReady] = useState(false);
+  useEffect(() => {
+    const id = window.setTimeout(() => setDeferredReady(true), 1500);
+    return () => window.clearTimeout(id);
+  }, []);
+
   /* ── Fetch BIM models for the project (used for mini 3D preview) ─── */
 
   const { data: bimModelsData } = useQuery({
     queryKey: ['bim-models', boq?.project_id],
     queryFn: () => fetchBIMModels(boq!.project_id),
-    enabled: !!boq?.project_id,
+    enabled: !!boq?.project_id && deferredReady,
     staleTime: 10 * 60_000,
   });
 
@@ -5022,7 +5034,9 @@ export function BOQEditorPage() {
       {boqId && hasPositions && <div className="mt-6"><CostBreakdownPanel boqId={boqId} locale={locale} /></div>}
 
       {/* ── AACE Estimate Classification ──────────────────────────────── */}
-      {boqId && hasPositions && <div className="mt-6"><EstimateClassification boqId={boqId} /></div>}
+      {/* Mounted after the deferred warm-up so its request stays out of the
+          first-paint burst; the strip appears a moment later below the fold. */}
+      {boqId && hasPositions && deferredReady && <div className="mt-6"><EstimateClassification boqId={boqId} /></div>}
 
       {/* ── Sensitivity Analysis (Tornado Chart) ──────────────────────── */}
       {boqId && hasPositions && <div className="mt-6"><SensitivityChart boqId={boqId} locale={locale} /></div>}

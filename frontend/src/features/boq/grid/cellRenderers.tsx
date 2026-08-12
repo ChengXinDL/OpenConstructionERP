@@ -43,7 +43,7 @@ import {
   hasContributingResources,
   saveCustomUnit,
 } from '../boqHelpers';
-import { RESOURCE_TYPES, getResourceTypeLabel } from '../boqResourceTypes';
+import { RESOURCE_TYPES, getResourceTypeLabel, getResourceTypeShortCode } from '../boqResourceTypes';
 import { countComments } from '../CommentDrawer';
 import { BIMQuantityPicker } from './BIMQuantityPicker';
 import { resolveRowModelId } from './resolveRowModelId';
@@ -51,6 +51,7 @@ import { MiniGeometryPreview } from '@/shared/ui/MiniGeometryPreview';
 import { fetchBIMElementsByIds, fetchBIMElementProperties } from '@/features/bim/api';
 import type { BIMElementData } from '@/shared/ui/BIMViewer/ElementManager';
 import { getIntlLocale } from '@/shared/lib/formatters';
+import { localizedUnitCode } from '@/shared/lib/unitLabels';
 import type { DisplayQuantityApi } from '@/shared/hooks/useDisplayQuantity';
 import { useFxRatesStore, getFxRate } from '@/stores/useFxRatesStore';
 import { isFormula, evaluateFormula } from './cellEditors';
@@ -1129,9 +1130,11 @@ export function DescriptionCellRenderer(params: ICellRendererParams) {
         })}
         data-testid="boq-resource-breakdown-pill"
       >
+        {/* Localised driver codes (de: MAT/LOH/GER) so the pill matches the
+            resource-split toolbar toggle's vocabulary on the same screen. */}
         {breakdownEntries
           .slice(0, 3)
-          .map((e) => `${e.pct}% ${e.rt.slice(0, 3).toUpperCase()}`)
+          .map((e) => `${e.pct}% ${getResourceTypeShortCode(e.rt, t)}`)
           .join(' · ')}
       </span>
     ) : null;
@@ -5446,6 +5449,7 @@ export function UnitRateCellRenderer(params: ICellRendererParams) {
 
 export function UnitCellRenderer(params: ICellRendererParams) {
   const { data, value, context } = params;
+  const { i18n } = useTranslation();
   // Bug 9: render the raw unit code (e.g. "m2") with NO casing transform — must match
   // the agSelectCellEditor dropdown which lists lowercase values.
   if (!data || data._isSection || data._isFooter) {
@@ -5458,8 +5462,11 @@ export function UnitCellRenderer(params: ICellRendererParams) {
   // editor / valueSetter keep writing the metric token, never 'ft'.
   // ``unitFor`` is identity for metric and for any unit with no imperial
   // mapping (pcs, %, hr ...), so a plain code passes straight through.
+  // On top of the system seam, apply the locale trade spelling (de:
+  // "lsum" -> "psch") — display-only, storage keeps the canonical token.
   const rawUnit = value == null ? '' : String(value);
-  const displayUnit = ctx?.displayQuantity ? ctx.displayQuantity.unitFor(rawUnit) : rawUnit;
+  const systemUnit = ctx?.displayQuantity ? ctx.displayQuantity.unitFor(rawUnit) : rawUnit;
+  const displayUnit = localizedUnitCode(systemUnit, i18n.language);
 
   const meta = (data.metadata ?? {}) as Record<string, unknown>;
   const bimSource = meta.bim_qty_source as string | undefined;

@@ -74,7 +74,9 @@ function toNum(value: number | string | null | undefined): number {
 export function ResourceSummary({ boqId, locale = 'de-DE' }: { boqId: string; locale?: string }) {
   const { t } = useTranslation();
   const fmt = useMemo(() => createRSFormatter(locale), [locale]);
-  const [collapsed, setCollapsed] = useState(false);
+  // Collapsed by default - the rollup request fires on first expand (see
+  // the query below), keeping it out of the editor's first-paint burst.
+  const [collapsed, setCollapsed] = useState(true);
   const [expanded, setExpanded] = useState(false);
   const [typeFilter, setTypeFilter] = useState<ResourceTypeFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -192,10 +194,13 @@ export function ResourceSummary({ boqId, locale = 'de-DE' }: { boqId: string; lo
     [addToast, boqId, queryClient, t],
   );
 
+  // Fetched on expand only: the resource rollup is one of the heavy calls
+  // that used to fire in the editor's first-paint request burst, and its
+  // figures are consumed only inside this panel.
   const { data, isLoading, isError } = useQuery({
     queryKey: ['boq-resource-summary', boqId],
     queryFn: () => boqApi.getResourceSummary(boqId),
-    enabled: !!boqId,
+    enabled: !!boqId && !collapsed,
   });
 
   const summary: ResourceSummaryResponse = data ?? {
@@ -233,7 +238,10 @@ export function ResourceSummary({ boqId, locale = 'de-DE' }: { boqId: string; lo
     return items;
   }, [summary.resources, typeFilter, searchQuery, sortBy, locale]);
 
-  if (summary.total_resources === 0 && !isLoading && !isError) {
+  // Hide only when the server confirmed there is nothing to show. While the
+  // panel is collapsed the query has not run yet (lazy fetch), and returning
+  // null then would remove the header the user needs to click to load it.
+  if (data && summary.total_resources === 0 && !isLoading && !isError) {
     return null;
   }
 
@@ -281,9 +289,11 @@ export function ResourceSummary({ boqId, locale = 'de-DE' }: { boqId: string; lo
           <span className="text-xs font-semibold text-content-primary">
             {t('boq.resource_summary', { defaultValue: 'Resource Summary' })}
           </span>
-          <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-oe-blue/10 px-1.5 text-2xs font-medium text-oe-blue tabular-nums">
-            {summary.total_resources}
-          </span>
+          {data != null && (
+            <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-oe-blue/10 px-1.5 text-2xs font-medium text-oe-blue tabular-nums">
+              {summary.total_resources}
+            </span>
+          )}
 
           {/* Inline type badges */}
           {!collapsed && summary.total_resources > 0 && (

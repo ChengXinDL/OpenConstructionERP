@@ -364,6 +364,40 @@ export function parseGAEBXML(xmlString: string): GAEBPosition[] {
 }
 
 /**
+ * Truncate a human-facing finding/error text to a screen-safe length.
+ *
+ * Import findings must never reprint raw payloads (Langtext bodies, base64
+ * blobs); they identify a position and state what went wrong. Anything
+ * longer than `max` characters is cut and terminated with an ellipsis.
+ */
+export function truncateFinding(text: string, max = 300): string {
+  const t = text ?? '';
+  return t.length > max ? `${t.slice(0, max)}…` : t;
+}
+
+/**
+ * Extract the project name (PrjInfo > NamePrj) from a GAEB DA XML string.
+ *
+ * Used to propose a name when the import target is a freshly created BOQ:
+ * a Kalkulator answering someone else's Ausschreibung wants the new LV named
+ * after the tender, not after an existing estimate.
+ *
+ * @param xmlString Raw XML content of the GAEB file.
+ * @returns         The trimmed project name, or '' when absent/unparseable.
+ */
+export function parseGAEBProjectName(xmlString: string): string {
+  if (!xmlString || !xmlString.trim()) return '';
+  try {
+    const doc = new DOMParser().parseFromString(xmlString, 'application/xml');
+    if (doc.querySelector('parsererror')) return '';
+    const namePrj = doc.querySelector('PrjInfo > NamePrj') ?? doc.querySelector('NamePrj');
+    return namePrj?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+  } catch {
+    return '';
+  }
+}
+
+/**
  * Read a GAEB XML File, parse it, and POST all positions to the BOQ API.
  *
  * Positions are created sequentially to preserve ordinal ordering.
@@ -403,8 +437,13 @@ export async function importGAEBToBOQ(file: File, boqId: string): Promise<GAEBIm
       await boqApi.addPosition(payload);
       imported++;
     } catch (err) {
-      const label = pos.ordinal ? `${pos.ordinal} - ${pos.description}` : pos.description;
-      const message = err instanceof Error ? err.message : String(err);
+      // Keep findings screen-sized: a GAEB Langtext can carry tens of
+      // thousands of characters (embedded graphics arrive as base64), and
+      // echoing it into the error list once blew the layout to a
+      // 337,468px scrollWidth. Identify the position, don't reprint it.
+      const shortDesc = truncateFinding(pos.description, 120);
+      const label = pos.ordinal ? `${pos.ordinal} - ${shortDesc}` : shortDesc;
+      const message = truncateFinding(err instanceof Error ? err.message : String(err), 300);
       errors.push(`Failed to import position "${label}": ${message}`);
     }
   }

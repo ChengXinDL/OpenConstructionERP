@@ -31,6 +31,7 @@ import { apiGet, apiPost } from '@/shared/lib/api';
 import { getIntlLocale } from '@/shared/lib/formatters';
 import { useToastStore } from '@/stores/useToastStore';
 import { REGION_MAP } from '@/stores/useCostDatabaseStore';
+import { localizedUnitCode } from '@/shared/lib/unitLabels';
 import { highlightMatch } from './highlightMatch';
 import { VariantPicker } from '@/features/costs/VariantPicker';
 import {
@@ -358,7 +359,7 @@ export function CostDatabaseSearchModal({
    *  rate / variant marker are persisted by the caller on the resource entry. */
   onSelectForResources?: (item: CostSearchItem, picked?: VariantResolution) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [query, setQuery] = useState('');
@@ -1654,7 +1655,12 @@ export function CostDatabaseSearchModal({
         <div className="px-6 py-2 border-b border-border-light flex items-center gap-1.5 overflow-x-auto scrollbar-none shrink-0">
           {regions.map((r) => {
             const info = REGION_MAP[r];
-            const label = info?.name || r;
+            // DE_BERLIN has a localized display name (a German reader expects
+            // "Deutschland / DACH", not the English country name).
+            const label =
+              r === 'DE_BERLIN'
+                ? t('costdb.region_de_berlin', { defaultValue: info?.name || r })
+                : info?.name || r;
             const flag = info?.flag;
             const isActive = region === r;
             return (
@@ -1994,7 +2000,9 @@ export function CostDatabaseSearchModal({
                             })()}
                           </td>
                           <td className="px-3 py-2.5 text-center">
-                            <Badge variant="neutral" size="sm">{item.unit}</Badge>
+                            {/* Superscript glyphs (m² / m³) to match the LV
+                                grid, plus locale trade codes (de: psch). */}
+                            <Badge variant="neutral" size="sm">{localizedUnitCode(item.unit, i18n.language)}</Badge>
                           </td>
                           <td
                             className="px-3 py-2.5 text-end"

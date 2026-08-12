@@ -7,13 +7,20 @@ import { getIntlLocale } from '../lib/formatters';
 
 export interface DateDisplayProps {
   value: string | Date | null | undefined;
-  format?: 'date' | 'datetime' | 'relative' | 'time';
+  format?: 'date' | 'numeric' | 'datetime' | 'relative' | 'time';
   className?: string;
 }
 
 const DATE_OPTIONS: Intl.DateTimeFormatOptions = {
   day: '2-digit',
   month: 'short',
+  year: 'numeric',
+};
+
+/** All-numeric date (de-DE: 14.03.2026) for dense cards and list rows. */
+const NUMERIC_DATE_OPTIONS: Intl.DateTimeFormatOptions = {
+  day: '2-digit',
+  month: '2-digit',
   year: 'numeric',
 };
 
@@ -66,6 +73,13 @@ export function DateDisplay({ value, format = 'date', className }: DateDisplayPr
         break;
       case 'time':
         formatted = new Intl.DateTimeFormat(locale, TIME_OPTIONS).format(dateObj);
+        break;
+      case 'numeric':
+        // Same UTC pinning rationale as 'date' below.
+        formatted = new Intl.DateTimeFormat(
+          locale,
+          isDateOnly ? { ...NUMERIC_DATE_OPTIONS, timeZone: 'UTC' } : NUMERIC_DATE_OPTIONS,
+        ).format(dateObj);
         break;
       case 'date':
       default:

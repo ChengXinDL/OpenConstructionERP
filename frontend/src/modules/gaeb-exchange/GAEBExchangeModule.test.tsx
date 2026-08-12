@@ -7,7 +7,7 @@ import {
   type ExportPosition,
   type GAEBExportOptions,
 } from './data/gaebExport';
-import { parseGAEBXML } from '@/features/boq/gaebImport';
+import { parseGAEBXML, parseGAEBProjectName, truncateFinding } from '@/features/boq/gaebImport';
 
 // ---------------------------------------------------------------------------
 // Test data
@@ -342,5 +342,51 @@ describe('generateGAEBXML', () => {
   it('uses DA81 namespace for X81 export', () => {
     const result = generateGAEBXML(makeOptions({ format: 'X81' }));
     expect(result.xml).toContain('http://www.gaeb.de/GAEB_DA_XML/DA81/3.3');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Import findings must stay screen-sized (a GAEB Langtext can carry a
+// base64 graphics blob of tens of thousands of characters).
+// ---------------------------------------------------------------------------
+
+describe('truncateFinding', () => {
+  it('leaves short findings untouched', () => {
+    expect(truncateFinding('Position 01.001 failed', 300)).toBe('Position 01.001 failed');
+  });
+
+  it('cuts a payload-sized finding to the cap plus an ellipsis', () => {
+    const blob = 'A'.repeat(56_492); // size of the BVBS Prüfdatei Langtext
+    const out = truncateFinding(blob, 300);
+    expect(out.length).toBe(301);
+    expect(out.endsWith('…')).toBe(true);
+  });
+
+  it('defaults the cap to 300 characters', () => {
+    expect(truncateFinding('B'.repeat(1000)).length).toBe(301);
+  });
+
+  it('never throws on empty input', () => {
+    expect(truncateFinding('')).toBe('');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// New-BOQ import target: the proposed name comes from PrjInfo/NamePrj.
+// ---------------------------------------------------------------------------
+
+describe('parseGAEBProjectName', () => {
+  it('reads PrjInfo/NamePrj from a generated document', () => {
+    const result = generateGAEBXML(makeOptions());
+    expect(parseGAEBProjectName(result.xml)).toBe('Testprojekt Berlin');
+  });
+
+  it('returns an empty string when NamePrj is absent', () => {
+    expect(parseGAEBProjectName('<GAEB><Award></Award></GAEB>')).toBe('');
+  });
+
+  it('returns an empty string for unparseable input', () => {
+    expect(parseGAEBProjectName('not xml at all <')).toBe('');
+    expect(parseGAEBProjectName('')).toBe('');
   });
 });

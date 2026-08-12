@@ -1885,12 +1885,11 @@ function SidebarItem({
         ) : (
           <Icon size={compact ? 14 : 16} strokeWidth={isActive ? 2 : 1.75} className="shrink-0" />
         )}
-        {/* Hover-tooltip via title falls back to the full label even when
-            CSS truncates with an ellipsis. The visible width is now
-            264px (was 232) so most labels render in full at default
-            zoom; this is the safety net for narrow sidebars / dense
-            translations / large-text accessibility settings. */}
-        <span className="truncate" title={label}>
+        {/* German compound words (Leistungsverzeichnisse, Element-Abnahme)
+            overflow a single 264px line, so labels may wrap onto a second
+            line instead of clipping mid-word. The title tooltip stays as
+            the safety net for labels that exceed even two lines. */}
+        <span className="min-w-0 line-clamp-2 break-words leading-snug" title={label}>
           {label}
         </span>
         {/* Right-edge cluster — kbd hint first, badges last, so the
@@ -2143,7 +2142,7 @@ function AdminGrid({
                 'focus:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40',
                 isActive && !editMode
                   ? 'border-transparent bg-oe-blue/[0.14] text-oe-blue shadow-[inset_0_0_0_1px_rgba(0,122,255,0.18)] dark:bg-oe-blue/25'
-                  : 'border-border-light/60 bg-surface-primary text-content-secondary hover:bg-surface-secondary hover:text-content-primary hover:border-border-medium',
+                  : 'border-border-light/60 bg-surface-primary text-content-secondary hover:bg-surface-secondary hover:text-content-primary hover:border-border-medium dark:border-border-light/40 dark:bg-transparent dark:hover:bg-surface-secondary/60',
                 isHidden && 'opacity-50',
               )}
             >

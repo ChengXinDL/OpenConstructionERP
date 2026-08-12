@@ -194,7 +194,10 @@ function TreeNodeRow({
             )
           ) : null}
         </button>
-        <span className="flex-1 truncate" title={displayName}>
+        {/* Two-line clamp instead of a single-line ellipsis: German category
+            names (Abdichtungsarbeiten in Wasserbauwerken ...) clipped so hard
+            the list was unreadable. The title keeps the full text on hover. */}
+        <span className="flex-1 min-w-0 line-clamp-2 break-words leading-snug" title={displayName}>
           {displayName}
         </span>
         <span
