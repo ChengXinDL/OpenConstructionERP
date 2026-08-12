@@ -658,6 +658,21 @@ jobs:
   sign-windows:
     name: Sign Windows installers
     needs: build-tauri
+    # `needs` alone would run this job only when build-tauri succeeded, and a
+    # skipped job says nothing at all: no preflight, no annotation, no summary
+    # block, just a grey tile. That matters because build-tauri is a matrix
+    # with fail-fast disabled, so one leg failing marks the whole job failed
+    # while the other legs still attach their installers to the release. A
+    # macOS leg that failed after the Windows leg had already uploaded its
+    # .exe and .msi would therefore leave signed-looking Windows installers on
+    # a release that this job never looked at, and WINDOWS_SIGNING_REQUIRED
+    # could not fire because nothing ran to read it. That is the same silence
+    # this job just removed from the inside, relocated to its own boundary.
+    #
+    # So: run whenever build-tauri reached a conclusion, and stay out of the
+    # way only when it was skipped, which is the sidecar-only dispatch where
+    # there is no release to sign against.
+    if: ${{ !cancelled() && needs.build-tauri.result != 'skipped' }}
     runs-on: windows-latest
     # Measured at 0.3 to 0.6 min, because there are no signing secrets and the
     # job downloads nothing. The cap is deliberately far above that: if the
