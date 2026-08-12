@@ -1542,20 +1542,25 @@ def create_app() -> FastAPI:
             logger.warning("Alembic head check failed: %s", _exc)
             result["alembic_head_matches"] = None
 
-        # Frontend dist presence - the wheel ships ``app/_frontend_dist/``,
-        # a repo checkout serves ``frontend/dist``; a missing ``index.html``
-        # in BOTH locations means the SPA shell will 404 and users see a
-        # blank page even though /api endpoints work. Mirror the lookup
-        # order of ``cli_static.get_frontend_dir`` so dev mode is not
-        # falsely reported as degraded.
+        # Frontend dist presence. The flag must describe what THIS process
+        # serves, not what the disk holds right now: a process that started
+        # while dist was mid-rebuild mounted nothing and 404s every UI route
+        # even after the rebuild lands, and a mounted tree can lose its
+        # index.html to a later rebuild while a live directory probe still
+        # looks green. Fall back to the on-disk probe only in API-only mode,
+        # where "present" can only mean "a servable build exists for the
+        # next start".
         try:
-            from app.cli_static import get_frontend_dir
+            from app.cli_static import get_frontend_dir, mounted_frontend_intact
 
-            try:
-                get_frontend_dir()
-                result["frontend_dist_present"] = True
-            except FileNotFoundError:
-                result["frontend_dist_present"] = False
+            _intact = mounted_frontend_intact()
+            if _intact is None:
+                try:
+                    get_frontend_dir()
+                    _intact = True
+                except FileNotFoundError:
+                    _intact = False
+            result["frontend_dist_present"] = _intact
             if not result["frontend_dist_present"]:
                 result["status"] = "degraded"
         except Exception:
