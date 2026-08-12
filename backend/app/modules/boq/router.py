@@ -87,6 +87,7 @@ from fastapi import (
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.core.content_disposition import attachment_disposition
 from app.core.csv_safety import neutralise_formula
 from app.core.file_signature import detect as detect_signature
 from app.core.i18n import get_locale
@@ -4535,15 +4536,14 @@ async def export_boq_gaeb(
         bid_type=bid_type,
     )
 
-    safe_name = boq_data.name.encode("ascii", errors="replace").decode("ascii").replace('"', "'")
     ext = "X84" if gaeb_format == "x84" else "X83"
-    filename = f"{safe_name}.{ext}"
+    filename = f"{boq_data.name}.{ext}"
 
     return StreamingResponse(
         iter([xml_content]),
         media_type="application/xml; charset=utf-8",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Disposition": attachment_disposition(filename),
         },
     )
 
