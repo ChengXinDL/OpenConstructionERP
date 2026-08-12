@@ -22,7 +22,18 @@ already carry one each. See the summary line for scale: N revisions
 scanned, M flagged into how many statements, and how many statements this
 could not classify at all (printed separately; growth in that count past
 _BASELINE_UNRESOLVED_COUNT blocks on its own terms, and neither bucket is
-ever silently treated as clean).
+ever silently treated as clean). The scan running at all gets the same
+treatment: a versions/ directory that resolves but comes back near-empty
+reports "clean" for the same reason a passing test suite with zero tests
+does, so paths below _MIN_EXPECTED_REVISIONS fails loud in main() instead.
+That check exists because of a sibling instrument making the opposite
+mistake: .github/workflows/desktop-release.yml's Windows signing job
+exits 0 and writes a $GITHUB_STEP_SUMMARY line plus a ::warning when
+AZURE_KV_CLIENT_SECRET is unset, so every release so far has shipped
+unsigned installers under a job the run's conclusion field reports as
+success, indistinguishable there from a job that signed anything. This
+script's own summary line is read by whatever reads a conclusion field,
+so it does not get to make that same substitution about its own input.
 
 Why AST, not grep or ScriptDirectory.walk_revisions()
 ------------------------------------------------------
@@ -216,6 +227,15 @@ _ACK_RE = re.compile(
 # unsafe one); a per-location baseline would close that gap and was not
 # built, because nothing in this corpus needed it yet.
 _BASELINE_UNRESOLVED_COUNT = 9
+
+# 320 revisions exist on the tree the day this was written (2026-08-12).
+# This floor is well under that so ordinary growth of the migration tree
+# never trips it, and well over what a shallow checkout, a moved
+# directory, or a future refactor into subfolders the glob below stops
+# matching would leave behind - see the module docstring for why that
+# failure mode gets its own check rather than being left to read as
+# "nothing to flag".
+_MIN_EXPECTED_REVISIONS = 100
 
 
 @dataclass(frozen=True)
@@ -809,6 +829,17 @@ def main(argv: list[str]) -> int:
         return 1
 
     paths = sorted(VERSIONS_DIR.glob("*.py"))
+    if len(paths) < _MIN_EXPECTED_REVISIONS:
+        print(
+            f"[FAIL] only {len(paths)} revision(s) found under {VERSIONS_DIR}, "
+            f"expected at least {_MIN_EXPECTED_REVISIONS}. Either the migration "
+            "tree really did shrink, or this scan is not seeing the real "
+            "directory (shallow checkout, moved path, a future layout change) "
+            "- either way, a clean summary over this few files would be a "
+            "false clean, so this fails instead of reporting one."
+        )
+        return 1
+
     parse_errors: list[tuple[str, str]] = []
     flagged_files = 0
     unresolved_files = 0
