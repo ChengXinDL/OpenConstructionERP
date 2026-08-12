@@ -8319,7 +8319,7 @@ const resource = {
     "photos.grid": "Grade",
     "photos.timeline": "Linha do tempo",
     "photos.empty": "Nenhuma foto ainda",
-    "photos.empty_desc": "Envie fotos do canteiro de obras para documentar o progresso",
+    "photos.empty_desc": "Envie fotos do estaleiro para documentar o progresso",
     "photos.delete_confirm": "Excluir esta foto?",
     "photos.edit": "Editar Foto",
     "photos.date_auto": "Data EXIF",
