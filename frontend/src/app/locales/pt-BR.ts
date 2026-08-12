@@ -10201,7 +10201,7 @@ const resource = {
     "onboarding.mod_i18n_foundation": "Base i18n",
     "onboarding.mod_i18n_foundation_desc": "Runtime i18n de 27 idiomas com chunks de locale lazy",
     "onboarding.mod_collaboration_locks": "Bloqueios de colaboração",
-    "onboarding.mod_collaboration_locks_desc": "Bloqueio otimista e pessimista para edição multiutilizador",
+    "onboarding.mod_collaboration_locks_desc": "Bloqueio otimista e pessimista para edição multiusuário",
     "onboarding.mod_architecture_map": "Mapa de arquitetura",
     "onboarding.mod_architecture_map_desc": "Mapa visual interativo da arquitetura do sistema",
     "onboarding.mod_dashboards": "Painéis",
