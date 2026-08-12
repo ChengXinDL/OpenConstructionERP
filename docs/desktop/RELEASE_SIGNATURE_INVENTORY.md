@@ -22,30 +22,55 @@ release can carry any subset of them.
 
 ## Where we stand, as of 2026-08-12
 
-**1. No git tag in this repository is signed.** Not one, across 325 tags. Tag
-protection on GitHub restricts who may push a tag, which is a different thing:
-it is an access control, not an attestation, and it leaves no artifact you can
-check afterwards.
+**1. No git tag in this repository is signed.** Not one, across 325 tags, read
+off the tag objects in a full clone. Tag protection on GitHub restricts who may
+push a tag, which is a different thing: it is an access control, not an
+attestation, and it leaves no artifact you can check afterwards. Worth stating
+alongside it that `PYPI_API_TOKEN` is the only Actions secret configured, so
+what tag protection currently guards is one publishing path, and nothing about
+it attests to anything.
 
-**2. Sigstore signatures exist from v14.5.0 onward.** Every release from v14.5.0
-carries `SHA256SUMS`, `SHA256SUMS.sig` and `SHA256SUMS.pem`. Earlier history is
-patchy: the signing workflow triggered on an event it could not actually
-receive, so it worked in bursts and then not at all for a long stretch. Of the
-239 releases before v14.5.0, 26 carry the three files. Treat a missing
-signature on an older release as ordinary, not as a sign that something went
-wrong with that release.
+**2. Every release from v14.5.0 through v14.8.0 carries a Sigstore signature.**
+That is what was measured on 2026-08-12, and it is deliberately not phrased as
+"from v14.5.0 onward". Nothing gates a release on carrying one. The signing
+workflow has silently stopped producing them before, for a long stretch that
+nobody noticed at the time, so a rule stated forward would quietly become false
+the next time it happens rather than showing up as the gap it is. Earlier
+history is patchy for that same reason: of the 239 releases before v14.5.0, 26
+carry the three files. Treat a missing signature on an older release as
+ordinary, not as a sign that something went wrong with that release.
 
 **3. No macOS build has ever been signed with a Developer ID certificate or
-notarised by Apple.** The `.dmg` and `.app` are ad-hoc signed. An ad-hoc
-signature seals the bundle, so its contents cannot be altered without breaking
-the seal, and that part is real and is worth having. It does not identify a
-publisher and Gatekeeper does not accept it. That is why the release notes ask
-you to clear the quarantine attribute by hand: the app is not broken, it is
-unsigned in the sense macOS cares about.
+notarised by Apple.** The "ever" is established from the workflow history, not
+from today's configuration: no file under `.github/` has ever contained an
+`APPLE_` credential reference in any commit on any branch, apart from the status
+step added on 2026-08-12 whose whole purpose is to report their absence. A
+credential that never reaches the build cannot sign anything, whether or not it
+existed as a secret, so this covers the entire history rather than the present.
+Check it with `git log --all -S'APPLE_' -- .github/`.
 
-**4. No Windows installer has ever been Authenticode signed.** The `.exe` and
-`.msi` carry no certificate, and SmartScreen warns about them. The pipeline is
-ready and will sign them as soon as a certificate exists; see
+The `.dmg` and `.app` are ad-hoc signed. An ad-hoc signature seals the bundle,
+so its contents cannot be altered without breaking the seal, and that part is
+real and is worth having. It does not identify a publisher and Gatekeeper does
+not accept it. That is why the release notes ask you to clear the quarantine
+attribute by hand: the app is not broken, it is unsigned in the sense macOS
+cares about.
+
+**4. No published Windows installer carries an Authenticode signature.** This
+one is measured on the bytes we actually published. Every one of the 113
+releases that ships a Windows installer had its `.exe` read on 2026-08-12, and
+none of them carries a certificate. The `.msi` on each release was not read
+separately: one signing step covers both in a single pass, so a step that
+produced no signature on the `.exe` produced none on the `.msi` either.
+
+The measurement matters because the argument available otherwise is weaker than
+it looks. The Azure signing step has been wired since 2026-06-09, and the secret
+list can only be read as it stands today, so "the secrets are not configured"
+cannot by itself rule out a release signed while a credential existed and was
+later removed. Reading the installers does rule it out.
+
+SmartScreen warns about these installers, and that warning is correct. The
+pipeline is ready and will sign them as soon as a certificate exists; see
 [WINDOWS_SIGNING.md](WINDOWS_SIGNING.md) for exactly what has to be created. The
 missing piece is the certificate, not the automation.
 
@@ -61,10 +86,12 @@ a certificate that identifies us. We do not claim any release is notarised. If
 you see a page of ours saying otherwise, that page is wrong and we would like to
 know about it.
 
-We do claim, for releases from v14.5.0 onward, that the Sigstore signature over
-`SHA256SUMS` was produced by our release workflow and covers the bytes we
-published. That signature is made over the artifacts as they were uploaded, not
-over a rebuild, so verifying a download against it is meaningful.
+We do claim, for a release that actually carries the three files, that the
+Sigstore signature over `SHA256SUMS` was produced by our release workflow and
+covers the bytes we published. That signature is made over the artifacts as they
+were uploaded, not over a rebuild, so verifying a download against it is
+meaningful. Check whether the release you are holding carries them rather than
+inferring it from its version number.
 
 ## Verifying a download yourself
 
@@ -104,18 +131,29 @@ result, not a failed download.
 ## Regenerating this
 
 ```
-python scripts/release_signature_inventory.py          # summary
-python scripts/release_signature_inventory.py --all    # every release
+python scripts/release_signature_inventory.py                    # summary
+python scripts/release_signature_inventory.py --all              # every release
+python scripts/release_signature_inventory.py --check-artifacts  # read the bytes
 ```
 
 The script reads the release list from the GitHub API, the tag objects from your
 clone, and the credential wiring from the workflow files, and it labels every
 answer with how it was obtained. It refuses to print an inventory if the API
 page comes back short, because a truncated fetch looks exactly like a healthy
-repository with fewer releases.
+repository with fewer releases, and for the same reason it refuses to say "no
+tag is signed" from a clone that is missing tags.
 
-Two things it cannot do, stated so that a clean run is not over-read. It cannot
-see a macOS or Windows signature on an individual published artifact, only
-whether the pipeline could have produced one, so it argues from the cause and
-says so. And it cannot read tag signatures from the API at all, only from a
-local clone, so run it inside a checkout with `git fetch --tags` already done.
+`--check-artifacts` is what turns claim 4 from an argument into an observation.
+It fetches the first 8 KB of every published Windows installer and reads the
+certificate table out of the PE header, which is where the pointer to an
+Authenticode signature lives, so it settles the question without downloading any
+payload. Before judging anything it checks that the reader can recognise a
+signature it was handed, because a reader that could only ever answer "unsigned"
+would produce this exact report and look like a finding.
+
+What it still cannot do, stated so that a clean run is not over-read. There is
+no equivalent for macOS from a machine that is not a Mac: notarisation lives in
+a stapled ticket, so mechanism 3 is answered from the workflow history and the
+credential wiring rather than from the artifact. And tag signatures are
+invisible to the GitHub API, so run it inside a checkout with `git fetch --tags`
+already done.

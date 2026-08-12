@@ -34,20 +34,34 @@ whole point:
     either exist on the release or they do not.
 
     Mechanisms 3 and 4 are NOT derivable from an asset list. A .dmg is a .dmg
-    whether or not it is notarised, and nothing in its name or size says. So
-    they are answered from the credentials: no Developer ID certificate and no
-    notarisation credentials means no build could have been notarised, and no
-    AZURE_KV_* secrets means no installer could have been Authenticode signed.
-    That is an argument from the cause rather than an observation of the
-    effect, and it is labelled as such everywhere it appears. To observe the
-    effect you must download an artifact and run `codesign -dv --verbose=4` or
-    `signtool verify /pa` against it.
+    whether or not it is notarised, and nothing in its name or size says. So by
+    default they are answered from the credentials: no Developer ID certificate
+    and no notarisation credentials means no build could have been notarised,
+    and no AZURE_KV_* secrets means no installer could have been Authenticode
+    signed. That is an argument from the cause rather than an observation of
+    the effect, and it is labelled as such everywhere it appears.
+
+    An argument from the cause has one weakness worth naming, because it is the
+    weakness that matters for a claim about the past: the secret list is read
+    NOW. A credential that is absent today may have existed a month ago and
+    been deleted since, and nothing in the current configuration would show it.
+    So "no release has ever carried this" does not follow from "the secret is
+    not configured" on its own.
+
+    --check-artifacts closes that for Windows by measuring the published bytes.
+    An Authenticode signature is appended to a PE file, but the pointer to it
+    sits in the optional header's data directory, entry 4, so an 8 KB range
+    request per installer settles the question without downloading any payload.
+    Size zero there means unsigned. There is no equivalent for macOS from a
+    non-Mac host, so mechanism 3 remains an argument from the cause and says so.
 
 Usage::
 
     python scripts/release_signature_inventory.py            # summary
     python scripts/release_signature_inventory.py --all      # every release
     python scripts/release_signature_inventory.py --json     # machine readable
+    python scripts/release_signature_inventory.py --check-artifacts   # read the
+                                                             # published bytes
 
 Needs the `gh` CLI, authenticated. Run from anywhere inside a clone.
 
@@ -62,8 +76,10 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+import struct
 import subprocess
 import sys
+import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -372,8 +388,117 @@ def bar(count: int, total: int, width: int = 28) -> str:
     return "#" * filled + "." * (width - filled)
 
 
-def report(releases: list[Release], tag_states: dict[str, str] | None, show_all: bool, strict: bool) -> int:
-    unmeasured: list[str] = []
+def certificate_table(buf: bytes) -> tuple[int, int] | None:
+    """Offset and size of a PE file's certificate table, or None if not a PE.
+
+    Size zero means the file carries no embedded Authenticode signature. The
+    signature itself is appended to the end of the file, but this pointer lives
+    in the optional header, so the first few kilobytes answer the question and
+    the payload never has to be downloaded.
+    """
+    if len(buf) < 0x40 or buf[:2] != b"MZ":
+        return None
+    e_lfanew = struct.unpack_from("<I", buf, 0x3C)[0]
+    if len(buf) < e_lfanew + 26 or buf[e_lfanew : e_lfanew + 4] != b"PE\0\0":
+        return None
+    optional = e_lfanew + 24
+    magic = struct.unpack_from("<H", buf, optional)[0]
+    if magic == 0x10B:  # PE32
+        directory = optional + 96
+    elif magic == 0x20B:  # PE32+
+        directory = optional + 112
+    else:
+        return None
+    entry = directory + 4 * 8  # IMAGE_DIRECTORY_ENTRY_SECURITY
+    if len(buf) < entry + 8:
+        return None
+    return struct.unpack_from("<II", buf, entry)
+
+
+def _synthetic_pe(cert_size: int) -> bytes:
+    """A minimal PE header carrying the given certificate table size."""
+    buf = bytearray(0x200)
+    buf[0:2] = b"MZ"
+    struct.pack_into("<I", buf, 0x3C, 0x80)
+    buf[0x80:0x84] = b"PE\0\0"
+    struct.pack_into("<H", buf, 0x98, 0x20B)
+    struct.pack_into("<II", buf, 0x98 + 112 + 32, 0x1000, cert_size)
+    return bytes(buf)
+
+
+def reader_self_check() -> str | None:
+    """Refuse to report zero signatures from a reader that cannot report one.
+
+    Every installer coming back "unsigned" is the expected result AND the
+    signature of a broken parser, and the two are indistinguishable from the
+    output. So the reader is made to answer a known-signed input and a known
+    unsigned one before any real artifact is judged.
+
+    The offsets were also checked against files whose status Windows itself
+    states: git-bash.exe, git.exe, bash.exe and python.exe all read as signed
+    here and all report Valid/Authenticode to Get-AuthenticodeSignature.
+    """
+    signed = certificate_table(_synthetic_pe(13056))
+    unsigned = certificate_table(_synthetic_pe(0))
+    if signed is None or signed[1] != 13056:
+        return f"the certificate table reader did not see a signature it was handed: {signed}"
+    if unsigned is None or unsigned[1] != 0:
+        return f"the certificate table reader did not see an absent signature as absent: {unsigned}"
+    return None
+
+
+def check_windows_artifacts(releases: list[Release]) -> dict[str, str] | None:
+    """Read the published Windows installers and say which carry a signature.
+
+    This is the only answer here that is an observation of the effect rather
+    than an argument from the cause, and it is the one that can speak about the
+    past. The configured secret list is read now; a credential absent today may
+    have existed when an older release was cut. The bytes cannot change their
+    minds.
+    """
+    broken = reader_self_check()
+    if broken:
+        print(f"    NOT MEASURED: {broken}")
+        return None
+
+    states: dict[str, str] = {}
+    targets = [
+        (r.tag, name) for r in releases for name in sorted(a for a in r.assets if a.lower().endswith(".exe"))[:1]
+    ]
+    print(f"    reading the first 8 KB of {len(targets)} Windows installers, one range request each")
+    for tag, name in targets:
+        url = f"https://github.com/{REPO}/releases/download/{tag}/{name}"
+        try:
+            request = urllib.request.Request(
+                url, headers={"Range": "bytes=0-8191", "User-Agent": "release-signature-inventory"}
+            )
+            with urllib.request.urlopen(request, timeout=180) as response:
+                table = certificate_table(response.read())
+        except Exception as exc:  # noqa: BLE001 - any failure is "not measured", never "unsigned"
+            states[tag] = f"unreadable: {type(exc).__name__}"
+            continue
+        if table is None:
+            states[tag] = "unreadable: not a PE file"
+        else:
+            states[tag] = "unsigned" if table[1] == 0 else f"SIGNED ({table[1]} bytes)"
+    return states
+
+
+def report(
+    releases: list[Release],
+    tag_states: dict[str, str] | None,
+    show_all: bool,
+    strict: bool,
+    artifact_states: dict[str, str] | None = None,
+) -> int:
+    # Two different things get called "not measured" and only one of them is a
+    # problem with this run. A boundary is permanent: no host without a Mac can
+    # inspect a notarisation ticket, and saying so on every run is honest rather
+    # than degraded. A gap is this run failing to measure something it normally
+    # can, which is what --strict is for. Merging them makes --strict either
+    # always fire or never fire, and it was always firing.
+    boundaries: list[str] = []
+    gaps: list[str] = []
     desktop = [r for r in releases if r.has_desktop]
     print("=" * 100)
     print(f"RELEASE SIGNATURE INVENTORY  {REPO}")
@@ -383,20 +508,31 @@ def report(releases: list[Release], tag_states: dict[str, str] | None, show_all:
     # ---------------------------------------------------------------- 1
     print("\n[1] GIT TAG OBJECT SIGNATURE      measured locally, from the tag objects in this clone")
     if tag_states is None:
-        unmeasured.append("git tag signatures")
+        gaps.append("git tag signatures (no clone)")
         print("    NOT MEASURED. No usable clone was found, and this mechanism is invisible to the")
         print("    GitHub API, so nothing here should be read as 'none missing'.")
     else:
         signed = sorted(n for n, s in tag_states.items() if s == "signed")
         annotated = [n for n, s in tag_states.items() if s == "annotated, unsigned"]
         lightweight = [n for n, s in tag_states.items() if s.startswith("lightweight")]
-        if len(tag_states) < MIN_TAGS:
-            print(f"    WARNING: only {len(tag_states)} tags are present locally, expected at least {MIN_TAGS}.")
-            print("    Run `git fetch --tags` first, or these counts are of a partial clone.")
+        short = len(tag_states) < MIN_TAGS
         print(f"    signed                      {len(signed):>4}  {bar(len(signed), len(tag_states))}")
         print(f"    annotated, unsigned         {len(annotated):>4}  {bar(len(annotated), len(tag_states))}")
         print(f"    lightweight, cannot sign    {len(lightweight):>4}  {bar(len(lightweight), len(tag_states))}")
-        print(f"    RULE: {'no tag in this repository is signed' if not signed else 'signed: ' + ', '.join(signed)}")
+        if signed:
+            # Existence survives a partial clone: a tag that is signed is signed.
+            print(f"    RULE: signed: {', '.join(signed)}")
+        elif short:
+            # "None of them" does not survive a partial clone, and the shape of
+            # the two failures is identical from here. The release-count guard
+            # refuses to print an inventory for exactly this reason, so the tag
+            # count must not print a universal claim where it would only warn.
+            gaps.append("git tag signatures (partial clone)")
+            print(f"    NO RULE. Only {len(tag_states)} tags are present locally and at least {MIN_TAGS}")
+            print("    were expected, so 'none are signed' would be a claim about tags this clone")
+            print("    does not have. Run `git fetch --tags` and re-run.")
+        else:
+            print("    RULE: no tag in this repository is signed")
 
     # ---------------------------------------------------------------- 2
     print("\n[2] SIGSTORE / COSIGN             measured from the published asset list")
@@ -447,7 +583,7 @@ def report(releases: list[Release], tag_states: dict[str, str] | None, show_all:
 
     secret_names = fetch_secret_names()
     if secret_names is None:
-        unmeasured.append("which secrets are configured")
+        gaps.append("which secrets are configured")
         print("\n    CONFIGURED SECRETS: not readable with this token. Read nothing into that;")
         print("    it is a permission answer, not a count of zero.")
     else:
@@ -462,7 +598,7 @@ def report(releases: list[Release], tag_states: dict[str, str] | None, show_all:
         print(f"\n    {label}")
         if not found.get("parsed"):
             print("      NOT MEASURED: PyYAML is not installed, so the workflows could not be parsed.")
-            unmeasured.append(f"{label} wiring")
+            gaps.append(f"{label} wiring")
             continue
         if "file" not in found:
             print(f"      no step in any workflow runs {uses_prefix or command}, so nothing produces this.")
@@ -477,8 +613,11 @@ def report(releases: list[Release], tag_states: dict[str, str] | None, show_all:
             absent = [n for n in found["receives"] if n not in secret_names]
             if absent:
                 print(f"      RULE: wired, but {len(absent)} of its credentials are not configured secrets")
-                print(f"      ({', '.join(absent)}), so no release has ever carried this. The pipeline is")
-                print("      ready and the certificate is the missing piece.")
+                print(f"      ({', '.join(absent)}), so nothing built today can carry this. The pipeline")
+                print("      is ready and the certificate is the missing piece. Note the tense: the")
+                print("      secret list is read now, so this says nothing about a release cut while")
+                print("      some credential existed and was later deleted. Only reading the artifacts")
+                print("      settles that.")
             else:
                 print("      RULE: wired and configured. Confirm on an artifact before claiming it: this")
                 print("      says the inputs exist, not that a signature came out.")
@@ -496,7 +635,30 @@ def report(releases: list[Release], tag_states: dict[str, str] | None, show_all:
         if mentions:
             named = ", ".join(f"{n} in {', '.join(f)}" for n, f in mentions.items())
             print(f"      named elsewhere without reaching the tool: {named}")
-    unmeasured.append("macOS and Windows signatures on the individual published artifacts")
+    # ------------------------------------------------- the effect, not the cause
+    print("\n    WINDOWS AUTHENTICODE, READ OFF THE PUBLISHED BYTES")
+    if artifact_states is None:
+        boundaries.append("Windows signatures on the published artifacts (pass --check-artifacts)")
+        print("      not requested. The verdict above argues from the credentials, and the secret")
+        print("      list is read now, so on its own it cannot speak about releases cut earlier.")
+        print("      Pass --check-artifacts to settle it against the artifacts themselves.")
+    else:
+        signed_now = sorted(t for t, s in artifact_states.items() if s.startswith("SIGNED"))
+        unreadable = sorted(t for t, s in artifact_states.items() if s.startswith("unreadable"))
+        measured = len(artifact_states) - len(unreadable)
+        print(f"      installers read {measured:>4}  of {len(artifact_states)} releases carrying a .exe")
+        print(f"      carrying a signature {len(signed_now):>4}")
+        if unreadable:
+            gaps.append(f"{len(unreadable)} installers could not be read")
+            print(f"      NOT READ {len(unreadable)}: {', '.join(unreadable[:8])}")
+            print("      Those are not evidence of anything. A failed fetch is not an unsigned file.")
+        if signed_now:
+            print(f"      RULE: signed installers exist: {', '.join(signed_now)}")
+        elif not unreadable:
+            print("      RULE: no published Windows installer carries an Authenticode signature. This")
+            print("      one is an observation, not an inference, and it covers the whole history")
+            print("      rather than the present configuration.")
+    boundaries.append("macOS signatures and notarisation on the published artifacts, which needs a Mac")
 
     # ---------------------------------------------------------------- detail
     if show_all:
@@ -511,25 +673,35 @@ def report(releases: list[Release], tag_states: dict[str, str] | None, show_all:
                 "win" if r.has_windows else "-",
                 "mac" if r.has_macos else "-",
             ]
-            print(f"  {r.tag:<14} {r.published_at:<12} {'  '.join(f'{f:<8}' for f in flags)} tag: {tagsig}")
+            line = f"  {r.tag:<14} {r.published_at:<12} {'  '.join(f'{f:<8}' for f in flags)} tag: {tagsig}"
+            if artifact_states is not None and r.tag in artifact_states:
+                line += f"  authenticode: {artifact_states[r.tag]}"
+            print(line)
 
     print("\n" + "-" * 100)
-    print("Regenerate this with:  python scripts/release_signature_inventory.py")
+    print("Regenerate this with:  python scripts/release_signature_inventory.py --check-artifacts")
     print("Do not copy the numbers above into a document. Copy the command.")
-    if unmeasured:
-        print(f"Not measured here: {'; '.join(unmeasured)}.")
+    if boundaries:
+        print(f"Outside what any run from here can see: {'; '.join(boundaries)}.")
+    if gaps:
+        print(f"This run could not measure: {'; '.join(gaps)}.")
     print("-" * 100)
 
-    if strict and tag_states is None:
-        die("--strict was given and at least one mechanism could not be measured")
+    if strict and gaps:
+        die(f"--strict was given and this run could not measure: {'; '.join(gaps)}")
     return 0
 
 
-def emit_json(releases: list[Release], tag_states: dict[str, str] | None) -> int:
+def emit_json(
+    releases: list[Release],
+    tag_states: dict[str, str] | None,
+    artifact_states: dict[str, str] | None,
+) -> int:
     payload = {
         "repo": REPO,
         "releases": len(releases),
         "tag_signatures_measured": tag_states is not None,
+        "authenticode_measured": artifact_states is not None,
         "wiring": {label: find_consumer(*spec) for label, spec in ((k, v) for k, v in CONSUMERS.items())},
         "detail": [
             {
@@ -541,6 +713,7 @@ def emit_json(releases: list[Release], tag_states: dict[str, str] | None) -> int
                 "windows": r.has_windows,
                 "macos": r.has_macos,
                 "tag_signature": (tag_states or {}).get(r.tag),
+                "authenticode": (artifact_states or {}).get(r.tag),
             }
             for r in releases
         ],
@@ -553,14 +726,26 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--all", action="store_true", help="print every release, not just the summary")
     parser.add_argument("--json", action="store_true", help="machine readable output")
-    parser.add_argument("--strict", action="store_true", help="fail if any mechanism could not be measured")
+    parser.add_argument("--strict", action="store_true", help="fail if this run could not measure something")
+    parser.add_argument(
+        "--check-artifacts",
+        action="store_true",
+        help="read the published Windows installers instead of arguing from the credentials",
+    )
     args = parser.parse_args()
 
     releases = fetch_releases()
     tag_states = fetch_tag_signatures()
+    artifact_states = check_windows_artifacts(releases) if args.check_artifacts else None
     if args.json:
-        return emit_json(releases, tag_states)
-    return report(releases, tag_states, show_all=args.all, strict=args.strict)
+        return emit_json(releases, tag_states, artifact_states)
+    return report(
+        releases,
+        tag_states,
+        show_all=args.all,
+        strict=args.strict,
+        artifact_states=artifact_states,
+    )
 
 
 if __name__ == "__main__":
