@@ -15,6 +15,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.modules.einvoice.bank import InvalidBankDetail, normalise_bic, normalise_iban
+from app.modules.einvoice.rules import DIRECT_DEBIT_CODES, PAYMENT_CARD_CODES, UNTDID_4461_CODES
 
 __all__ = ["EInvoiceSettingsRead", "EInvoiceSettingsUpdate"]
 
@@ -23,8 +24,6 @@ _COUNTRY = re.compile(r"^[A-Z]{2}$")
 # formats differ too much to check further without a table per country, and a
 # table that is wrong refuses a valid registration.
 _VAT_ID = re.compile(r"^[A-Z]{2}[A-Z0-9 .\-]{2,18}$")
-# UNTDID 4461. Numeric, and 30 (credit transfer) or 58 (SEPA) in practice.
-_MEANS_CODE = re.compile(r"^[0-9]{1,4}$")
 # ISO 6523 scheme identifier for BT-34, e.g. 0204 for the German Leitweg-ID.
 _EAS_SCHEME = re.compile(r"^[0-9]{4}$")
 
@@ -48,6 +47,9 @@ class _StoredFields(BaseModel):
     seller_postcode: str = Field(default="", max_length=20)
     seller_city: str = Field(default="", max_length=100)
     seller_email: str = Field(default="", max_length=200)
+    seller_contact_name: str = Field(default="", max_length=200)
+    seller_contact_phone: str = Field(default="", max_length=50, examples=["+49 30 123456"])
+    seller_contact_email: str = Field(default="", max_length=200)
     seller_electronic_address: str = Field(default="", max_length=200)
     seller_electronic_address_scheme: str = Field(default="", max_length=20, examples=["0204"])
 
@@ -111,11 +113,24 @@ class EInvoiceSettingsUpdate(_StoredFields):
     @field_validator("payment_means_code")
     @classmethod
     def _check_means_code(cls, v: str) -> str:
+        """BT-81, checked against the code list and against what we can write.
+
+        Two separate refusals, because they fail for different reasons. A value
+        outside UNTDID 4461 is not a payment means at all. A card or direct-debit
+        code is a real one, but it obliges the document to carry BG-18 or BG-19,
+        and this platform writes neither, so accepting it here would store a
+        setting whose only effect is a rejected invoice (BR-DE-24-a, BR-DE-25-a).
+        """
         if not v:
             return ""
-        code = v.strip()
-        if not _MEANS_CODE.match(code):
-            raise ValueError(f"a payment means code is a UNTDID 4461 number such as 30 or 58, got {v!r}")
+        code = v.strip().upper()
+        if code not in UNTDID_4461_CODES:
+            raise ValueError(f"a payment means code is a UNTDID 4461 value such as 30 or 58, got {v!r}")
+        if code in PAYMENT_CARD_CODES or code in DIRECT_DEBIT_CODES:
+            raise ValueError(
+                f"payment means {code} needs card or direct-debit details this platform cannot write yet; "
+                "use a credit transfer code such as 30 or 58"
+            )
         return code
 
     @field_validator("seller_electronic_address_scheme")
@@ -148,4 +163,34 @@ class EInvoiceSettingsRead(_StoredFields):
         # A seller must be identified for tax either way round (BR-CO-26).
         if not (stored.get("seller_vat_id") or stored.get("seller_tax_number") or stored.get("seller_legal_id")):
             missing.append("seller_vat_id")
+        missing += _german_gaps(stored)
         return cls(**stored, complete=not missing, missing=missing)
+
+
+#: Fields XRechnung needs that EN 16931 does not, reported on the settings screen
+#: rather than only on a finished invoice. The configuration cannot know which
+#: profile a future document will use, so this advises on the country it is
+#: filed under, which is the one signal it does have.
+_DE_REQUIRED_CONTACT_FIELDS = ("seller_contact_name", "seller_contact_phone", "seller_contact_email")
+
+
+def _german_gaps(stored: dict[str, str]) -> list[str]:
+    """The XRechnung-only gaps in a German seller's configuration.
+
+    Advice, not a verdict: an invoice is judged by the rules engine against the
+    profile it is actually exported as. This exists so the four fatal findings
+    BR-DE-2/5/6/7 and BR-DE-16 would raise are visible on the one screen that
+    can clear them, before anybody has tried to send anything.
+    """
+    if (stored.get("seller_country_code") or "").upper() != "DE":
+        return []
+    gaps = [
+        f
+        for f in _DE_REQUIRED_CONTACT_FIELDS
+        if not stored.get(f) and not (f.endswith("email") and stored.get("seller_email"))
+    ]
+    # BR-DE-16 is stricter than BR-CO-26: a company registration number is not a
+    # tax registration, so it does not answer this one.
+    if not (stored.get("seller_vat_id") or stored.get("seller_tax_number")):
+        gaps.append("seller_tax_number")
+    return gaps

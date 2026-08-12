@@ -67,6 +67,10 @@ def _metadata() -> dict:
                 "line1": "Dock Road 1",
                 "postcode": "20457",
                 "city": "Hamburg",
+                # BG-6, mandatory on the seller under XRechnung (BR-DE-2).
+                "contact_name": "Anke Reimann",
+                "contact_phone": "+49 40 1234560",
+                "contact_email": "rechnung@harbour-civils.example",
             },
             "buyer": {
                 "name": "City Works Department",

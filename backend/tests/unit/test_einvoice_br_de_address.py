@@ -51,6 +51,12 @@ def _party(**over: object) -> Party:
         "line1": "Baustrasse 1",
         "postcode": "10115",
         "city": "Berlin",
+        # BG-6, mandatory on the seller under BR-DE-2 and BR-DE-5..7. Present in
+        # the baseline for the same reason the address is: a test that breaks one
+        # field can only produce a one-rule answer if everything else is clean.
+        "contact_name": "Anke Reimann",
+        "contact_phone": "+49 30 1234560",
+        "contact_email": "rechnung@nordbau.example",
     }
     base.update(over)
     return Party(**base)  # type: ignore[arg-type]
@@ -166,16 +172,33 @@ def test_the_seller_findings_name_the_settings_and_the_buyer_findings_name_the_c
 def test_no_other_profile_cites_a_br_de_rule_for_the_same_missing_address(profile: str):
     """A receiver outside Germany validates against its own CIUS.
 
-    The same document, missing every address detail XRechnung demands, must
-    raise nothing under any other flavour. Profiles that require a Buyer
-    reference get one, so the only difference under test is the address.
+    The same document, missing everything XRechnung demands beyond EN 16931,
+    must raise nothing under any other flavour: the address (BR-DE-3/4/8/9), the
+    seller contact group (BR-DE-2 and BR-DE-5..7) and the tax registration on
+    German terms (BR-DE-16, where a register number alone is fine in Europe).
+    Profiles that require a Buyer reference get one, so the only difference
+    under test is the German surplus.
     """
+    stripped = {
+        "city": None,
+        "postcode": None,
+        "contact_name": None,
+        "contact_phone": None,
+        "contact_email": None,
+    }
     inv = _invoice(
         profile=profile,
-        seller=_party(city=None, postcode=None),
-        buyer=_party(city=None, postcode=None),
+        seller=_party(vat_id=None, tax_number=None, legal_id="HRB 12345", **stripped),
+        buyer=_party(**stripped),
     )
     assert _fatal(inv) == set()
+
+
+@pytest.mark.parametrize("profile", ["en16931", "zugferd", "facturx", "peppol", "ubl", "nlcius", "ehf"])
+def test_no_other_profile_warns_about_a_german_only_advisory(profile: str):
+    """The advisory half of the family is just as national as the fatal half."""
+    inv = _invoice(profile=profile, type_code="999", seller=_party(contact_phone="n/a"))
+    assert {v.rule_id for v in check(inv) if v.rule_id.startswith("BR-DE")} == set()
 
 
 # ── the same thing through the dict path every caller actually uses ──────────
@@ -195,6 +218,9 @@ def _invoice_dict(**einvoice_overrides: object) -> dict:
             "country_code": "DE",
             "postcode": "10115",
             "city": "Berlin",
+            "contact_name": "Anke Reimann",
+            "contact_phone": "+49 30 1234560",
+            "contact_email": "rechnung@nordbau.example",
         },
         "buyer": {
             "name": "Stadtwerke Muenster AG",

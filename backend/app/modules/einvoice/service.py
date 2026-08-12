@@ -29,7 +29,7 @@ from app.modules.einvoice.cii import (
     validate_rules,
 )
 from app.modules.einvoice.profiles import get_profile
-from app.modules.einvoice.rules import FATAL, RuleViolation, money_decimals
+from app.modules.einvoice.rules import DE_INVOICE_TYPE_CODES, FATAL, RuleViolation, money_decimals
 from app.modules.einvoice.ubl import build_ubl_xml
 
 _2P = Decimal("0.01")
@@ -57,12 +57,21 @@ def _is_true(value: Any) -> bool:
 _INVOICE_TYPE_CODE = "380"
 _CREDIT_NOTE_TYPE_CODE = "381"
 
+#: The BT-3 values a user may choose, code to name. Re-exported from the rules
+#: module so the catalogue a screen offers and the catalogue BR-DE-17 judges
+#: against are the same object, and a construction invoice can actually be
+#: called one (875, 876, 877) instead of being filed as an ordinary 380.
+INVOICE_TYPE_CODES = DE_INVOICE_TYPE_CODES
+
 
 def _resolve_type_code(invoice: dict[str, Any], ei: dict[str, Any]) -> str:
     """Decide the BT-3 document type code from the invoice data.
 
     An explicit ``metadata.einvoice.type_code`` (or top-level ``type_code``)
-    wins. Otherwise a credit flag (``credit_note`` / ``is_credit_note`` /
+    wins, and is passed through even when it is not in
+    :data:`INVOICE_TYPE_CODES`: BR-DE-17 is advisory in the CIUS, so an unusual
+    code is reported as a warning by the rules and never silently rewritten
+    here. Otherwise a credit flag (``credit_note`` / ``is_credit_note`` /
     ``invoice_direction == "credit_note"``) selects the credit note code 381,
     and everything else is a commercial invoice (380).
     """
@@ -140,7 +149,12 @@ def _coerce_party(value: Party | dict | None, *, fallback_name: str = "") -> Par
         line1=(d.get("line1") or d.get("address") or None),
         postcode=(d.get("postcode") or d.get("zip") or None),
         city=(d.get("city") or None),
-        email=(d.get("email") or None),
+        contact_name=(d.get("contact_name") or None),
+        contact_phone=(d.get("contact_phone") or None),
+        # ``email`` is the older spelling, and it always meant the address a
+        # person reads rather than a network endpoint. It is BT-43, so it is read
+        # here rather than left pointing at a field that no longer exists.
+        contact_email=(d.get("contact_email") or d.get("email") or None),
         contact_id_scheme=(d.get("electronic_address_scheme") or None),
         electronic_address=(d.get("electronic_address") or None),
     )

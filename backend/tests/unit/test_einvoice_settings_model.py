@@ -30,15 +30,38 @@ def _filled() -> EInvoiceSettings:
     return row
 
 
+#: ``seller_email`` predates the SELLER CONTACT group and holds the same
+#: business term as ``seller_contact_email`` (BT-43). It reaches the document
+#: under the newer name, and only when the newer column is empty, so it is an
+#: alias rather than a column of its own.
+_LEGACY_ALIASES = {"seller_email": "seller_contact_email"}
+
+
 def test_every_stored_field_reaches_the_document():
     """A column the document never sees is a field the user fills for nothing."""
     defaults = _filled().as_defaults()
     flat = dict(defaults)
     seller = flat.pop("seller", {})
-    reached = {f"seller_{k}" for k in seller} | set(flat)
+    reached = {f"seller_{k}" for k in seller} | set(flat) | set(_LEGACY_ALIASES)
 
     missing = _stored_columns() - reached
     assert missing == set(), f"columns that never reach an invoice: {sorted(missing)}"
+
+
+def test_the_older_email_column_still_reaches_the_document_as_the_contact_email():
+    """An instance that filled in ``seller_email`` before BG-6 existed keeps it.
+
+    The column was never migrated, because a migration would have to guess. It
+    is read as BT-43 instead, which is the term it always held, and the newer
+    column wins wherever both are set.
+    """
+    row = EInvoiceSettings()
+    row.seller_name = "Hochbau Nord GmbH"
+    row.seller_email = "alt@hochbau-nord.example"
+    assert row.as_defaults()["seller"]["contact_email"] == "alt@hochbau-nord.example"
+
+    row.seller_contact_email = "rechnung@hochbau-nord.example"
+    assert row.as_defaults()["seller"]["contact_email"] == "rechnung@hochbau-nord.example"
 
 
 def test_every_field_the_document_receives_is_one_a_document_reads():
@@ -107,7 +130,11 @@ def test_a_row_holding_a_value_the_form_would_refuse_can_still_be_read_back():
     assert read.seller_vat_id == "not a vat id!"
     assert read.payee_iban == "DE00000000000000000000"
     assert read.seller_country_code == "de"
-    assert read.missing == [], "a seller with a VAT identifier on file is not missing one"
+    assert "seller_vat_id" not in read.missing, "a seller with a VAT identifier on file is not missing one"
+    # This row is filed under DE and carries no contact, so the XRechnung-only
+    # advice does appear. That is the screen doing its job, not this row failing
+    # to read back, which is what the assertions above are about.
+    assert set(read.missing) == {"seller_contact_name", "seller_contact_phone", "seller_contact_email"}
 
 
 def test_a_partly_filled_configuration_offers_only_what_it_holds():

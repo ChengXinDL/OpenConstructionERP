@@ -36,6 +36,11 @@ def _payload(**over: str) -> EInvoiceSettingsUpdate:
         "seller_line1": "Werftstrasse 14",
         "seller_postcode": "24143",
         "seller_city": "Kiel",
+        # BG-6, which XRechnung requires on the seller (BR-DE-2, BR-DE-5..7) and
+        # which this row is the only home for.
+        "seller_contact_name": "Anke Reimann",
+        "seller_contact_phone": "+49 431 1234560",
+        "seller_contact_email": "rechnung@hochbau-nord.example",
         "payee_iban": "DE02 1203 0000 0000 2020 51",
         "payee_account_name": "Hochbau Nord GmbH",
         "payment_terms": "Net 30 days",

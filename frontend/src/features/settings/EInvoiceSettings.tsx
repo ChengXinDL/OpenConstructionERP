@@ -33,6 +33,11 @@ const SELLER_FIELDS = [
   'seller_line1',
   'seller_postcode',
   'seller_city',
+  // BG-6 SELLER CONTACT. XRechnung makes all three mandatory (BR-DE-2 and
+  // BR-DE-5..7), and this screen is the only place they can be filled in.
+  'seller_contact_name',
+  'seller_contact_phone',
+  'seller_contact_email',
   'seller_email',
   'seller_electronic_address',
   'seller_electronic_address_scheme',
@@ -63,6 +68,7 @@ const EMPTY: FormState = ALL_FIELDS.reduce((acc, f) => ({ ...acc, [f]: '' }), {}
 const EXAMPLES: Partial<Record<FieldName, string>> = {
   seller_vat_id: 'DE123456789',
   seller_country_code: 'DE',
+  seller_contact_phone: '+49 30 1234560',
   seller_electronic_address_scheme: '0204',
   payee_iban: 'DE02 1203 0000 0000 2020 51',
   payee_bic: 'COBADEFFXXX',
@@ -79,6 +85,13 @@ const CODE_FIELDS = new Set<FieldName>([
   'payment_means_code',
   'seller_electronic_address_scheme',
 ]);
+
+// Carried in the payload but not drawn. `seller_email` predates the contact
+// group and holds the same business term as `seller_contact_email` (BT-43); the
+// server reads it only when the newer column is empty. It stays in the request
+// because a save writes the whole row, so dropping it here would blank an
+// address the instance still relies on.
+const HIDDEN_FIELDS = new Set<FieldName>(['seller_email']);
 
 export function EInvoiceSettings() {
   const { t } = useTranslation();
@@ -187,7 +200,9 @@ export function EInvoiceSettings() {
               <p className="text-xs text-content-secondary">{t('settings.einvoice.ready')}</p>
             </div>
           )}
-          <div className="grid gap-4 sm:grid-cols-2">{SELLER_FIELDS.map(renderField)}</div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {SELLER_FIELDS.filter((f) => !HIDDEN_FIELDS.has(f)).map(renderField)}
+          </div>
         </CardContent>
       </Card>
 

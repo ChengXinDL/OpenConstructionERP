@@ -162,6 +162,11 @@ _SELLER: dict = {
         "line1": "Werftstrasse 14",
         "postcode": "24103",
         "city": "Kiel",
+        # BG-6, mandatory on the seller under XRechnung (BR-DE-2, BR-DE-5..7).
+        # The seller half has to be clean for a test about the buyer half.
+        "contact_name": "Anke Reimann",
+        "contact_phone": "+49 431 1234560",
+        "contact_email": "rechnung@hochbau-nord.example",
     }
 }
 

@@ -120,7 +120,13 @@ class Party:
     line1: str | None = None  # BT-35 / BT-50
     postcode: str | None = None  # BT-38 / BT-53
     city: str | None = None  # BT-37 / BT-52
-    email: str | None = None
+    # BG-6 CONTACT and its three fields. EN 16931 asks for none of them;
+    # XRechnung makes the group and all three mandatory on the seller (BR-DE-2,
+    # BR-DE-5, BR-DE-6, BR-DE-7), which is why a German invoice needs a person
+    # to call and not only a company to address.
+    contact_name: str | None = None  # BT-41 / BT-56
+    contact_phone: str | None = None  # BT-42 / BT-57
+    contact_email: str | None = None  # BT-43 / BT-58
     contact_id_scheme: str | None = None  # e.g. Leitweg endpoint scheme
     electronic_address: str | None = None  # BT-34 / BT-49 (Peppol endpoint)
 
@@ -288,11 +294,19 @@ def _party(parent: ET.Element, tag_local: str, p: Party) -> None:
     if p.legal_id:
         org = _sub(tp, "ram", "SpecifiedLegalOrganization")
         _sub(org, "ram", "ID", p.legal_id)
-    if p.electronic_address:
-        comm = _sub(tp, "ram", "URIUniversalCommunication")
-        uri = _sub(comm, "ram", "URIID", p.electronic_address)
-        if p.contact_id_scheme:
-            uri.set("schemeID", p.contact_id_scheme)
+    # BG-6, written exactly when one of its three fields carries a value, which
+    # is the condition the BR-DE-2 check in ``rules`` reads. An empty group would
+    # turn one honest finding into three misleading ones at the receiver.
+    if p.contact_name or p.contact_phone or p.contact_email:
+        contact = _sub(tp, "ram", "DefinedTradeContact")
+        if p.contact_name:
+            _sub(contact, "ram", "PersonName", p.contact_name)
+        if p.contact_phone:
+            phone = _sub(contact, "ram", "TelephoneUniversalCommunication")
+            _sub(phone, "ram", "CompleteNumber", p.contact_phone)
+        if p.contact_email:
+            mail = _sub(contact, "ram", "EmailURIUniversalCommunication")
+            _sub(mail, "ram", "URIID", p.contact_email)
     addr = _sub(tp, "ram", "PostalTradeAddress")
     if p.postcode:
         _sub(addr, "ram", "PostcodeCode", p.postcode)
@@ -305,10 +319,13 @@ def _party(parent: ET.Element, tag_local: str, p: Party) -> None:
     # render never gets here without one, because BR-9 / BR-11 refuse first.
     if p.country_code:
         _sub(addr, "ram", "CountryID", p.country_code.upper())
-    if p.email:
+    # BT-34 / BT-49, and only once. The contact email is BT-43 and now lives in
+    # the group above; writing it here as well produced a second
+    # URIUniversalCommunication on a party where the term is 0..1.
+    if p.electronic_address:
         comm = _sub(tp, "ram", "URIUniversalCommunication")
-        em = _sub(comm, "ram", "URIID", p.email)
-        em.set("schemeID", "EM")
+        uri = _sub(comm, "ram", "URIID", p.electronic_address)
+        uri.set("schemeID", p.contact_id_scheme or "EM")
     if p.vat_id:
         reg = _sub(tp, "ram", "SpecifiedTaxRegistration")
         _sub(reg, "ram", "ID", p.vat_id).set("schemeID", "VA")

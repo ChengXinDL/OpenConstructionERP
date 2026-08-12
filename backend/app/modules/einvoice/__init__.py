@@ -30,7 +30,15 @@ from app.modules.einvoice.profiles import (
     Profile,
     get_profile,
 )
-from app.modules.einvoice.rules import FATAL, WARNING, RuleViolation
+from app.modules.einvoice.rules import (
+    DE_INVOICE_TYPE_CODES,
+    DIRECT_DEBIT_CODES,
+    FATAL,
+    PAYMENT_CARD_CODES,
+    UNTDID_4461_CODES,
+    WARNING,
+    RuleViolation,
+)
 from app.modules.einvoice.service import (
     build_einvoice,
     problems_for,
@@ -41,9 +49,13 @@ from app.modules.einvoice.service import (
 from app.modules.einvoice.ubl import build_ubl_xml, is_credit_note
 
 __all__ = [
+    "DE_INVOICE_TYPE_CODES",
+    "DIRECT_DEBIT_CODES",
     "FATAL",
+    "PAYMENT_CARD_CODES",
     "PROFILES",
     "SUPPORTED_PROFILES",
+    "UNTDID_4461_CODES",
     "WARNING",
     "EInvoice",
     "EInvoiceError",

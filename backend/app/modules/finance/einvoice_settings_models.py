@@ -39,10 +39,19 @@ _SELLER_FIELDS = (
     "line1",
     "postcode",
     "city",
-    "email",
+    "contact_name",
+    "contact_phone",
+    "contact_email",
     "electronic_address",
     "electronic_address_scheme",
 )
+
+#: ``seller_email`` predates the contact group and always held the address a
+#: person reads, which is BT-43. It is not in ``_SELLER_FIELDS`` because the
+#: party field it feeds is now named ``contact_email``, and it is not dropped
+#: because instances have real addresses stored in it. The newer column wins
+#: where both are set.
+_LEGACY_CONTACT_EMAIL_COLUMN = "seller_email"
 
 # Settlement fields, named as ``build_einvoice`` reads them out of
 # ``metadata.einvoice`` for the same reason: the column, the business term and
@@ -86,6 +95,12 @@ class EInvoiceSettings(Base):
     seller_postcode: Mapped[str] = mapped_column(String(20), nullable=False, default="", server_default="")
     seller_city: Mapped[str] = mapped_column(String(100), nullable=False, default="", server_default="")
     seller_email: Mapped[str] = mapped_column(String(200), nullable=False, default="", server_default="")
+    # BG-6 SELLER CONTACT. XRechnung makes the group and all three of its fields
+    # mandatory (BR-DE-2, BR-DE-5, BR-DE-6, BR-DE-7), and none of them is invoice
+    # data: they name the person a buyer rings about this company's invoices.
+    seller_contact_name: Mapped[str] = mapped_column(String(200), nullable=False, default="", server_default="")
+    seller_contact_phone: Mapped[str] = mapped_column(String(50), nullable=False, default="", server_default="")
+    seller_contact_email: Mapped[str] = mapped_column(String(200), nullable=False, default="", server_default="")
     # BT-34, the address a network delivers to, and the scheme that reads it.
     seller_electronic_address: Mapped[str] = mapped_column(String(200), nullable=False, default="", server_default="")
     seller_electronic_address_scheme: Mapped[str] = mapped_column(
@@ -111,6 +126,9 @@ class EInvoiceSettings(Base):
         unset field must leave the invoice's own value alone.
         """
         seller = {f: getattr(self, f"seller_{f}") for f in _SELLER_FIELDS if getattr(self, f"seller_{f}")}
+        legacy_email = getattr(self, _LEGACY_CONTACT_EMAIL_COLUMN, "")
+        if legacy_email and not seller.get("contact_email"):
+            seller["contact_email"] = legacy_email
         result: dict[str, Any] = {"seller": seller} if seller else {}
         result.update({f: getattr(self, f) for f in _PAYMENT_FIELDS if getattr(self, f)})
         return result

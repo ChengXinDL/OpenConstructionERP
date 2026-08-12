@@ -38,7 +38,11 @@ if TYPE_CHECKING:  # pragma: no cover - annotations only, avoids an import cycle
     from app.modules.einvoice.cii import EInvoice
 
 __all__ = [
+    "DE_INVOICE_TYPE_CODES",
+    "DIRECT_DEBIT_CODES",
     "FATAL",
+    "PAYMENT_CARD_CODES",
+    "UNTDID_4461_CODES",
     "VAT_CATEGORY_CODES",
     "WARNING",
     "RuleViolation",
@@ -60,6 +64,37 @@ _EN16931_MAX_DECIMALS = 2
 # UNTDID 4461 payment means that assert a credit transfer, which is what makes
 # the payment account identifier (BT-84) mandatory under BR-61.
 CREDIT_TRANSFER_CODES = frozenset({"30", "58"})
+
+# The other two payment-means families XRechnung knows. Each obliges the document
+# to carry its own group, and this writer emits neither BG-18 (payment card) nor
+# BG-19 (direct debit), so naming one of these codes can only produce a document
+# that fails BR-DE-24-a or BR-DE-25-a at the receiver.
+PAYMENT_CARD_CODES = frozenset({"48", "54", "55"})
+DIRECT_DEBIT_CODES = frozenset({"59"})
+
+# UNTDID 4461 as EN 16931 publishes it (BT-81). Kept whole rather than trimmed to
+# the codes this writer emits: the list says which values are a payment means at
+# all, and the profile rules below say which of them this writer can express.
+UNTDID_4461_CODES: frozenset[str] = frozenset(
+    {str(n) for n in range(1, 71)} | {"74", "75", "76", "77", "78", "91", "92", "93", "94", "95", "96", "97", "ZZZ"}
+)
+
+# BT-3 document type codes XRechnung expects (UNTDID 1001), with the name each
+# carries, so a screen can offer them instead of asking for a number. 875, 876
+# and 877 are the German construction sequence (Abschlagsrechnung,
+# Teilschlussrechnung, Schlussrechnung) and are the reason this list matters to
+# this platform at all: a construction invoice that calls itself 380 is filed as
+# an ordinary commercial invoice.
+DE_INVOICE_TYPE_CODES: dict[str, str] = {
+    "326": "Partial invoice",
+    "380": "Commercial invoice",
+    "381": "Credit note",
+    "384": "Corrected invoice",
+    "389": "Self-billed invoice",
+    "875": "Partial construction invoice",
+    "876": "Partial final construction invoice",
+    "877": "Final construction invoice",
+}
 
 # VAT category code (BT-151/BT-118, UNTDID 5305) -> its rule family prefix.
 _CATEGORY_RULE_PREFIX = {
@@ -425,6 +460,22 @@ _DE_BUYER_ADDRESS_RULES = (
     ("BR-DE-9", "BT-53", "postcode", "buyer post code"),
 )
 
+# BR-DE-5, BR-DE-6, BR-DE-7: the seller contact XRechnung requires inside the
+# SELLER CONTACT group (BG-6), same shape as the address rules above. In the
+# schematron these three sit on the context
+# ``SellerTradeParty/ram:DefinedTradeContact``, so they fire only once that group
+# exists; a seller with no contact at all is BR-DE-2 and nothing else, which is
+# what :func:`_check_de_seller_contact` reproduces.
+_DE_SELLER_CONTACT_RULES = (
+    ("BR-DE-5", "BT-41", "contact_name", "seller contact point"),
+    ("BR-DE-6", "BT-42", "contact_phone", "seller contact telephone number"),
+    ("BR-DE-7", "BT-43", "contact_email", "seller contact email address"),
+)
+
+# BR-DE-16 applies to an invoice using any of these VAT categories, which is
+# every category except O (outside the scope of VAT).
+_DE_TAX_REGISTRATION_CATEGORIES = frozenset({"S", "Z", "E", "AE", "K", "G", "L", "M"})
+
 
 def _check_de_postal_address(inv: EInvoice) -> list[RuleViolation]:
     """City and post code on both parties, which XRechnung requires.
@@ -458,6 +509,223 @@ def _check_de_postal_address(inv: EInvoice) -> list[RuleViolation]:
     return out
 
 
+def _check_de_seller_contact(inv: EInvoice) -> list[RuleViolation]:
+    """The SELLER CONTACT group (BG-6) and its three fields.
+
+    KoSIT asserts the group on the seller party (BR-DE-2) and each field on the
+    group itself (BR-DE-5, BR-DE-6, BR-DE-7). A schematron rule whose context is
+    absent does not fire, so a seller carrying no contact detail at all produces
+    one finding and not four. That is reproduced here rather than smoothed over:
+    the writer emits ``DefinedTradeContact`` exactly when one of the three fields
+    has a value, so the engine and the document agree on when the group exists.
+
+    BR-DE-5 accepts either a person name or a department name. This platform
+    stores one contact point and writes it as the person name, which satisfies
+    the assert; a department-only contact is simply not expressible here, and
+    that is a gap in what a user can say rather than a stricter reading.
+
+    Args:
+        inv: the assembled invoice.
+
+    Returns:
+        BR-DE-2 alone when the group is empty, otherwise one fatal finding per
+        missing field.
+    """
+    values = {
+        attribute: (getattr(inv.seller, attribute) or "").strip() for _, _, attribute, _ in _DE_SELLER_CONTACT_RULES
+    }
+    if not any(values.values()):
+        return [
+            RuleViolation(
+                "BR-DE-2",
+                FATAL,
+                f"Add the seller contact, a name, a telephone number and an email address, "
+                f"{_SELLER_PARTY_HOME}; XRechnung requires it.",
+                "BG-6",
+            )
+        ]
+    return [
+        RuleViolation(
+            rule_id,
+            FATAL,
+            f"Add the {label} ({term}) {_SELLER_PARTY_HOME}; XRechnung requires it.",
+            term,
+        )
+        for rule_id, term, attribute, label in _DE_SELLER_CONTACT_RULES
+        if not values[attribute]
+    ]
+
+
+def _check_de_seller_tax_registration(inv: EInvoice) -> list[RuleViolation]:
+    """BR-DE-16: the seller's tax registration, on stricter terms than EN 16931.
+
+    BR-CO-26 is satisfied by a seller registration identifier (BT-30), so a
+    company that configured only its commercial-register number passes the
+    European rule. KoSIT asserts a tax registration carrying scheme ``VA``
+    (BT-31) or ``FC`` (BT-32), or a tax representative party (BG-11), and a
+    register number is none of those. Checking the same two fields the writer
+    turns into those scheme identifiers keeps this a statement about the
+    document rather than about our storage.
+
+    Applies only when the invoice uses a VAT category other than O.
+    """
+    categories = {ln.vat_category for ln in inv.lines} | {g.category for g in inv.tax_subtotals}
+    if not (categories & _DE_TAX_REGISTRATION_CATEGORIES):
+        return []
+    if (inv.seller.vat_id or "").strip() or (inv.seller.tax_number or "").strip():
+        return []
+    return [
+        RuleViolation(
+            "BR-DE-16",
+            FATAL,
+            "Add the seller VAT identifier (BT-31) or, if there is none, the seller tax number (BT-32) "
+            f"{_SELLER_PARTY_HOME}. XRechnung does not accept a company registration number here.",
+            "BT-31",
+        )
+    ]
+
+
+def _check_de_payment_means(inv: EInvoice) -> list[RuleViolation]:
+    """BR-DE-23-a, BR-DE-24-a, BR-DE-25-a: the code and its group must agree.
+
+    Each payment-means family obliges the document to carry its own group. This
+    writer emits BG-17 (credit transfer) and neither BG-18 nor BG-19, so a card
+    or direct-debit code cannot produce a document a receiver will take. Saying
+    so here, with the identifier that receiver would report, is the whole point:
+    the alternative is an export that succeeds and is rejected on arrival.
+    """
+    code = (inv.payment_means_code or "").strip()
+    if code in CREDIT_TRANSFER_CODES and not (inv.payee_iban or "").strip():
+        return [
+            RuleViolation(
+                "BR-DE-23-a",
+                FATAL,
+                "This invoice is paid by credit transfer, so it must carry the account to pay into "
+                f"(BG-17). Add the IBAN {_SELLER_PARTY_HOME}.",
+                "BT-84",
+            )
+        ]
+    if code in PAYMENT_CARD_CODES:
+        return [
+            RuleViolation(
+                "BR-DE-24-a",
+                FATAL,
+                f"Payment means {code} is a card payment, which has to carry the card details (BG-18). "
+                "This platform cannot write that group, so choose a credit transfer code (30 or 58) "
+                f"{_SELLER_PARTY_HOME}.",
+                "BT-81",
+            )
+        ]
+    if code in DIRECT_DEBIT_CODES:
+        return [
+            RuleViolation(
+                "BR-DE-25-a",
+                FATAL,
+                f"Payment means {code} is a direct debit, which has to carry the mandate details (BG-19). "
+                "This platform cannot write that group, so choose a credit transfer code (30 or 58) "
+                f"{_SELLER_PARTY_HOME}.",
+                "BT-81",
+            )
+        ]
+    return []
+
+
+def _digits(value: str) -> int:
+    return sum(1 for ch in value if ch.isdigit())
+
+
+def _email_shape_is_plausible(value: str) -> bool:
+    """BR-DE-28's reading of an email address, which is not a full grammar.
+
+    Exactly one ``@``, at least two characters either side of it, neither side
+    touching the ``@`` with a space or a dot, and no leading or trailing dot.
+    """
+    if value.count("@") != 1:
+        return False
+    local, _, domain = value.partition("@")
+    if len(local) < 2 or len(domain) < 2:
+        return False
+    if local[-1] in " ." or domain[0] in " .":
+        return False
+    return not (value.startswith(".") or value.endswith("."))
+
+
+def _check_de_contact_shape(inv: EInvoice) -> list[RuleViolation]:
+    """BR-DE-27 and BR-DE-28, both advisory in the CIUS ("sollen").
+
+    Warnings on purpose. A receiver accepts a document that trips these, so
+    raising them to fatal would block an export KoSIT would have taken, which is
+    as much a departure from the rule text as ignoring it.
+    """
+    out: list[RuleViolation] = []
+    phone = (inv.seller.contact_phone or "").strip()
+    if phone and _digits(phone) < 3:
+        out.append(
+            RuleViolation(
+                "BR-DE-27",
+                WARNING,
+                f"The seller telephone number (BT-42) should hold at least three digits, and {phone!r} does not.",
+                "BT-42",
+            )
+        )
+    email = (inv.seller.contact_email or "").strip()
+    if email and not _email_shape_is_plausible(email):
+        out.append(
+            RuleViolation(
+                "BR-DE-28",
+                WARNING,
+                f"The seller email address (BT-43) should hold exactly one @ with at least two characters "
+                f"either side of it, and {email!r} does not.",
+                "BT-43",
+            )
+        )
+    return out
+
+
+def _check_de_type_code(inv: EInvoice) -> list[RuleViolation]:
+    """BR-DE-17: the document type code, advisory in the CIUS ("sollen")."""
+    code = (inv.type_code or "").strip()
+    if not code or code in DE_INVOICE_TYPE_CODES:
+        return []
+    known = ", ".join(f"{c} ({name})" for c, name in DE_INVOICE_TYPE_CODES.items())
+    return [
+        RuleViolation(
+            "BR-DE-17",
+            WARNING,
+            f"XRechnung expects the invoice type code (BT-3) to be one of {known}, and this document says {code}.",
+            "BT-3",
+        )
+    ]
+
+
+# Rules of the BR-DE family this evaluator deliberately does not carry, because
+# the document shapes they judge are ones the writer never produces. Recorded so
+# that a later change adding one of those shapes knows it also owes a rule, and
+# so that nobody reads the silence as coverage:
+#
+#   BR-DE-1     BG-16 is always written; ``build_einvoice`` never leaves the
+#               payment means code empty, so the group cannot be absent.
+#   BR-DE-10/11 deliver-to city and post code, conditional on BG-15, which this
+#               writer does not emit.
+#   BR-DE-14    BT-119 in every VAT breakdown group, already fatal here as the
+#               EN 16931 rule BR-48; a German receiver reports the same defect
+#               under this identifier.
+#   BR-DE-21    the CustomizationID is a constant in ``profiles.py`` and is the
+#               value this rule asks for.
+#   BR-DE-22    unique attachment filenames; no attachments are embedded.
+#   BR-DE-23-b  BG-18 and BG-19 must be absent under a credit transfer, and
+#   BR-DE-24-b  neither group is ever written, so each of these holds by
+#   BR-DE-25-b  construction rather than by a check.
+#   BR-DE-30/31 direct-debit creditor and debited account, inside BG-19.
+#
+# Out of scope for a different reason: BR-DE-CVD-* apply only to a document
+# whose CustomizationID is the Clean Vehicles Directive one, which this platform
+# does not issue. BR-DE-12, BR-DE-13 and BR-DE-29 no longer exist in the
+# artefact. BR-DE-18 (Skonto notation in BT-20), BR-DE-19/20 (IBAN check digits),
+# BR-DE-26 (BG-3 behind a corrected invoice) and BR-DE-TMP-32 (delivery date)
+# are real gaps, not vacuous ones, and are tracked separately.
+
+
 def check_profile(inv: EInvoice, profile: Profile) -> list[RuleViolation]:
     """Rules a country or network flavour adds on top of EN 16931."""
     out: list[RuleViolation] = []
@@ -466,6 +734,11 @@ def check_profile(inv: EInvoice, profile: Profile) -> list[RuleViolation]:
     # against its own specification and would never cite these identifiers.
     if profile.name == "xrechnung":
         out += _check_de_postal_address(inv)
+        out += _check_de_seller_contact(inv)
+        out += _check_de_seller_tax_registration(inv)
+        out += _check_de_payment_means(inv)
+        out += _check_de_type_code(inv)
+        out += _check_de_contact_shape(inv)
     if not profile.buyer_ref_required:
         return out
     has_buyer_ref = bool((inv.buyer_reference or "").strip())

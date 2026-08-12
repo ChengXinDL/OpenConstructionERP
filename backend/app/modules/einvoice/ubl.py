@@ -128,9 +128,16 @@ def _party(parent: ET.Element, wrapper_local: str, p: Party) -> None:
     _sub(legal, "cbc", "RegistrationName", p.name)
     if p.legal_id:
         _sub(legal, "cbc", "CompanyID", p.legal_id)
-    if p.email:
+    # BG-6, the UBL spelling of the group the CII writer calls
+    # DefinedTradeContact: BT-41 name, BT-42 telephone, BT-43 email.
+    if p.contact_name or p.contact_phone or p.contact_email:
         contact = _sub(party, "cac", "Contact")
-        _sub(contact, "cbc", "ElectronicMail", p.email)
+        if p.contact_name:
+            _sub(contact, "cbc", "Name", p.contact_name)
+        if p.contact_phone:
+            _sub(contact, "cbc", "Telephone", p.contact_phone)
+        if p.contact_email:
+            _sub(contact, "cbc", "ElectronicMail", p.contact_email)
 
 
 def build_ubl_xml(inv: EInvoice, *, strict: bool = True) -> bytes:

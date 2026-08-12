@@ -44,6 +44,10 @@ const BLANK = {
   seller_line1: '',
   seller_postcode: '',
   seller_city: '',
+  // BG-6, the seller contact XRechnung requires (BR-DE-2, BR-DE-5..7).
+  seller_contact_name: '',
+  seller_contact_phone: '',
+  seller_contact_email: '',
   seller_email: '',
   seller_electronic_address: '',
   seller_electronic_address_scheme: '',

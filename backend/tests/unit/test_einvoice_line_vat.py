@@ -35,6 +35,10 @@ def _invoice(**over: object) -> dict:
                     "country_code": "DE",
                     "postcode": "24103",
                     "city": "Kiel",
+                    # BG-6, mandatory on the seller under XRechnung (BR-DE-2).
+                    "contact_name": "Anke Reimann",
+                    "contact_phone": "+49 431 1234560",
+                    "contact_email": "rechnung@hochbau-nord.example",
                 },
                 "buyer": {
                     "name": "Stadtwerke Kiel",

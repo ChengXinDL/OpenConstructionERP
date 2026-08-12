@@ -28,6 +28,10 @@ _SETTINGS: dict = {
         "line1": "Werftstrasse 14",
         "postcode": "24143",
         "city": "Kiel",
+        # BG-6, mandatory on the seller under XRechnung (BR-DE-2, BR-DE-5..7).
+        "contact_name": "Anke Reimann",
+        "contact_phone": "+49 431 1234560",
+        "contact_email": "rechnung@hochbau-nord.example",
     },
     "payee_iban": "DE02120300000000202051",
     "payee_account_name": "Hochbau Nord GmbH",
@@ -138,10 +142,18 @@ def test_a_configured_means_code_is_not_second_guessed_by_the_account():
     transfer says 58, and coercing that back to 30 because an account happens to
     be on file would overwrite an answer with an assumption. The pairing is not
     checked either: EN 16931 requires an account when a transfer is claimed, not
-    a transfer when an account is given, so a card code beside an account is a
-    legitimate document and inventing a rule against it would block a real one.
+    a transfer when an account is given, so an unrelated code beside an account
+    is a legitimate document and inventing a rule against it would block a real
+    one.
+
+    This used to make the same point with the card code 48, which EN 16931 is
+    indeed silent about. XRechnung is not: BR-DE-24-a requires the card group
+    BG-18 alongside that code, and this writer cannot produce it. The code is
+    therefore refused under the German profile now, and the case lives in
+    ``test_einvoice_br_de_address`` with the rule it belongs to. 31 keeps the
+    original point intact, being a code no BR-DE rule constrains.
     """
-    for code in ("58", "48"):
+    for code in ("58", "31"):
         settings = dict(_SETTINGS, payment_means_code=code)
         ei = build_einvoice(invoice=_invoice(_buyer()), line_items=_lines(), profile="xrechnung", defaults=settings)
 
@@ -164,14 +176,18 @@ def _case(settings: dict) -> dict:
 def test_without_settings_the_document_is_exactly_what_it_was():
     """Every invoice written before this existed still renders unchanged."""
     meta = dict(_buyer())
-    # Nothing is configured in this test, so the seller address has to be on the
-    # document or the German profile refuses to render it at all (BR-DE-3/4).
+    # Nothing is configured in this test, so the seller address and contact have
+    # to be on the document or the German profile refuses to render it at all
+    # (BR-DE-3/4 for the address, BR-DE-2 and BR-DE-5..7 for the contact).
     meta["seller"] = {
         "name": "Hochbau Nord GmbH",
         "vat_id": "DE123456789",
         "country_code": "DE",
         "postcode": "24143",
         "city": "Kiel",
+        "contact_name": "Anke Reimann",
+        "contact_phone": "+49 431 1234560",
+        "contact_email": "rechnung@hochbau-nord.example",
     }
     invoice = _invoice(meta)
 
@@ -196,6 +212,9 @@ def test_settings_never_overwrite_what_the_document_already_says():
         "line1": "Bahnhofstrasse 3",
         "postcode": "80331",
         "city": "Muenchen",
+        "contact_name": "Bernd Kohl",
+        "contact_phone": "+49 89 7654320",
+        "contact_email": "rechnung@tiefbau-sued.example",
     }
     meta["payee_iban"] = "DE89370400440532013000"
     meta["payee_account_name"] = "Tiefbau Sued GmbH"
