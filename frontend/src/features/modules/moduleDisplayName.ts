@@ -62,7 +62,7 @@ function fromManifest(
   const exact = dict[language];
   if (exact && exact.trim()) return exact;
   const base = language.split('-')[0];
-  const wide = base === language ? undefined : dict[base];
+  const wide = !base || base === language ? undefined : dict[base];
   return wide && wide.trim() ? wide : undefined;
 }
 

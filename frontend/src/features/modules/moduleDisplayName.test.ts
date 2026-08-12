@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import de from '../../app/locales/de';
+import en from '../../app/locales/en';
+import ru from '../../app/locales/ru';
 import {
   moduleDisplayNameKey,
   resolveModuleDisplayName,
@@ -98,5 +101,64 @@ describe('resolveModuleDisplayName', () => {
   it('returns English for an English reader', () => {
     const t = translator({ 'modules.catalog.boq': 'Bill of Quantities' });
     expect(resolveModuleDisplayName(boq, t, 'en')).toBe('Bill of Quantities');
+  });
+});
+
+/**
+ * The tests above prove the resolver's logic against a fake dictionary, which
+ * cannot fail if the key it derives is not the key the locale files actually
+ * carry: the fake answers whatever key it is handed. So these run the same
+ * resolver against the real shipped locale data and ask what a reader would
+ * see, which is the question that matters and the one nobody was asking when
+ * 185 names rendered English for years.
+ */
+describe('resolveModuleDisplayName against the shipped locale files', () => {
+  const real = (dict: Record<string, string>) => (key: string, options: { defaultValue: string }) =>
+    dict[key] ?? options.defaultValue;
+
+  it('derives keys that exist in en.ts, for every module en.ts knows about', () => {
+    const keys = Object.keys(en.translation).filter((k) => k.startsWith('modules.catalog.'));
+    // The Python gate asserts the other direction, that every manifest has a
+    // key. This asserts the derivation itself round-trips, so the two sides
+    // cannot agree on a key shape the page never asks for.
+    expect(keys.length).toBeGreaterThan(150);
+    for (const key of keys) {
+      expect(moduleDisplayNameKey(`oe_${key.slice('modules.catalog.'.length)}`)).toBe(key);
+    }
+  });
+
+  it('shows a German reader German, not English', () => {
+    const mod: TranslatableModule = { name: 'oe_boq', display_name: en.translation['modules.catalog.boq']! };
+    const shown = resolveModuleDisplayName(mod, real(de.translation), 'de');
+    expect(shown).toBe(de.translation['modules.catalog.boq']);
+    expect(shown).not.toBe(mod.display_name);
+  });
+
+  it('shows a Russian reader Cyrillic for a mined name', () => {
+    const mod: TranslatableModule = { name: 'oe_boq', display_name: en.translation['modules.catalog.boq']! };
+    expect(resolveModuleDisplayName(mod, real(ru.translation), 'ru')).toMatch(/[Ѐ-ӿ]/);
+  });
+
+  it('reaches the manifest German for a regional pack the locales do not cover', () => {
+    // us_pack is one of the eleven manifests carrying a hand-written de/ru
+    // name. Whether the locale files have caught up or not, a German reader
+    // must not end up with the English string while that German exists.
+    const mod: TranslatableModule = {
+      name: 'oe_us_pack',
+      display_name: en.translation['modules.catalog.us_pack']!,
+      display_name_i18n: { de: 'Regionalpaket - Vereinigte Staaten' },
+    };
+    expect(resolveModuleDisplayName(mod, real(de.translation), 'de')).not.toBe(mod.display_name);
+  });
+
+  it('leaves a module no language attests showing its English name', () => {
+    // The 62 with no attested carrier are deliberately untranslated. This
+    // pins that as an expected state rather than an accident, so filling them
+    // later is a visible change and not a silent one.
+    const key = 'modules.catalog.client_errors';
+    const mod: TranslatableModule = { name: 'oe_client_errors', display_name: en.translation[key]! };
+    expect(en.translation[key]).toBeDefined();
+    expect(de.translation[key]).toBeUndefined();
+    expect(resolveModuleDisplayName(mod, real(de.translation), 'de')).toBe(mod.display_name);
   });
 });
