@@ -1,5 +1,5 @@
 // Brazilian Portuguese (pt-BR). Derived from the pt.ts base, which is mixed:
-// it already said arquivo and usuario in most places while keeping concreto,
+// it already said arquivo and usuario in most places while keeping betao,
 // cofragem and estaleiro. This file finishes the job - concreto, forma,
 // arquivo, usuario, tela, canteiro de obras, equipe - so a Brazilian reader
 // gets one consistent variety rather than two halves.
