@@ -6,6 +6,8 @@ This is a developer and maintainer document. If you are a user trying to install
 
 The equivalent document for the other platform is `docs/desktop/MACOS_NOTARIZATION.md`. The two are separate mechanisms with separate credentials, and turning one on does nothing for the other.
 
+For where every published release actually stands across all four signature mechanisms, and how to check a download yourself, see `docs/desktop/RELEASE_SIGNATURE_INVENTORY.md`.
+
 ## What is unsigned today, and how you can tell
 
 Every Windows installer this project has published is unsigned. There is no partial state and no historical exception.

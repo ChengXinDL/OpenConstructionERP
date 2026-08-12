@@ -628,6 +628,67 @@ jobs:
             exit 0
           fi
 
+      # What the macOS leg publishes is ad-hoc signed and has never been
+      # notarised by Apple, and until now nothing in the run said so. That
+      # silence is how the seal integrity fix in 0c94892b0 came to be recorded
+      # as "macOS signing resolved": a real fix to a real bug, filed as a
+      # different guarantee than the one it delivers. The two claims are
+      # separate. An ad-hoc signature seals the bundle so its contents cannot
+      # be changed without breaking the seal, and only that claim is true here.
+      # It does not identify a publisher, Gatekeeper does not accept it, and it
+      # is why the release body asks people to clear the quarantine attribute
+      # by hand.
+      #
+      # This step decides which of the two the run produced by reading whether
+      # the Developer ID and notarisation credentials exist, rather than by
+      # stating a fixed answer, so it starts reporting the other outcome on its
+      # own the day someone configures them. A hardcoded "not notarised" line
+      # would become the next thing that is true until it quietly is not. Only
+      # emptiness is read; no secret value is printed or tested for content.
+      - name: State the macOS signing status
+        if: ${{ runner.os == 'macOS' && !cancelled() }}
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # The explanatory note is chosen per branch, not printed after them.
+          # A fixed paragraph reading "only the seal holds" would keep being
+          # printed under a Developer ID build and would then be exactly the
+          # kind of confidently wrong line this step was added to remove.
+          if [ -n "${APPLE_CERTIFICATE:-}" ] && [ -n "${APPLE_SIGNING_IDENTITY:-}" ]; then
+            identity="Developer ID credentials are configured"
+            note="Developer ID credentials are present, so this build is no longer ad-hoc by configuration. Read the codesign output in this job's log before repeating that anywhere: what is measured below is which credentials exist, and a credential is a precondition for a signature rather than evidence of one."
+          else
+            identity="**ad-hoc**, not Developer ID (\`signingIdentity\` is \`\"-\"\` in \`tauri.conf.json\`)"
+            note="An ad-hoc signature seals the bundle so its contents cannot be changed without breaking the seal. It does not identify a publisher and Gatekeeper does not accept it, which is why the release body asks people to clear the quarantine attribute by hand. Those are two separate claims and only the first one holds here."
+          fi
+
+          if [ -n "${APPLE_ID:-}" ] || [ -n "${APPLE_API_KEY:-}" ]; then
+            notarisation="notarisation credentials are configured"
+          else
+            notarisation="**none**, no notarisation credentials are configured"
+          fi
+
+          echo "macOS signature: ${identity}"
+          echo "macOS notarisation: ${notarisation}"
+          {
+            echo "### macOS signing status for this build"
+            echo
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| Signature | ${identity} |"
+            echo "| Notarisation | ${notarisation} |"
+            echo
+            echo "${note}"
+            echo
+            echo "See \`docs/desktop/MACOS_NOTARIZATION.md\` and \`docs/desktop/RELEASE_SIGNATURE_INVENTORY.md\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # Authenticode code signing for the Windows installers.
   #
   # The tauri-action above uploads the Windows .exe (NSIS) and .msi to the
@@ -691,6 +752,16 @@ jobs:
       # -kvt "", to fail minutes later with a message about the vault instead
       # of about the secret nobody set.
       #
+      # The three outcomes below have the shape they have for one reason: the
+      # dangerous state is not "unsigned", it is "believed signed". An unsigned
+      # installer that says so is honest, and the person downloading it can
+      # decide what to do about it. A half configured pipeline that emits
+      # something signature shaped, without ever verifying that a signature
+      # came out, is the state where everyone downstream assumes a guarantee
+      # that does not exist and nothing in the run contradicts them. So absence
+      # is loud and green, anything partial or unverified is red, and no path
+      # through this job may end green having produced no verified signature.
+      #
       # Three outcomes, deliberately three different colours.
       #
       #   none of the five set, WINDOWS_SIGNING_REQUIRED not true
@@ -721,6 +792,7 @@ jobs:
           AZURE_KV_CLIENT_SECRET: ${{ secrets.AZURE_KV_CLIENT_SECRET }}
           AZURE_KV_TENANT_ID: ${{ secrets.AZURE_KV_TENANT_ID }}
           SIGNING_REQUIRED: ${{ vars.WINDOWS_SIGNING_REQUIRED }}
+          TAG: ${{ github.ref_name }}
         shell: bash
         run: |
           set -euo pipefail
@@ -745,16 +817,38 @@ jobs:
           if [ ${#missing[@]} -eq 5 ]; then
             if [ "${SIGNING_REQUIRED:-}" = "true" ]; then
               echo "::error title=Windows signing is required and not configured::WINDOWS_SIGNING_REQUIRED is true, which says this repository has been configured to sign, but none of the five AZURE_KV_* secrets are set. Refusing to publish unsigned installers from a repository that declares it signs them." >&2
-              echo "Windows code signing: FAILED, required but no secrets are set." >> "$GITHUB_STEP_SUMMARY"
+              {
+              echo "# WINDOWS CODE SIGNING FAILED: REQUIRED AND NOT CONFIGURED"
+              echo
+              echo "\`WINDOWS_SIGNING_REQUIRED\` is \`true\` and none of the five \`AZURE_KV_*\` secrets are set."
+              echo "A secret that expired or was deleted looks exactly like a repository that never signed,"
+              echo "so this refuses to publish rather than silently going back to unsigned installers."
+            } >> "$GITHUB_STEP_SUMMARY"
               exit 1
             fi
             echo "::warning title=Windows installers are not code signed::None of the five AZURE_KV_* secrets are set, so the .exe and .msi on this release are unsigned. Windows SmartScreen will warn every person who runs them. See docs/desktop/WINDOWS_SIGNING.md."
+            # A heading rather than a line, because this is the one branch
+            # that ships an unsigned artifact and stays green. It has to be
+            # the first thing read on the run page, not something found by
+            # someone who already suspected it.
             {
-              echo "### Windows code signing: SKIPPED"
+              echo "---"
               echo
-              echo "The \`.exe\` and \`.msi\` published by this run are **unsigned**. SmartScreen will warn every person who runs them."
+              echo "# WINDOWS INSTALLERS ON THIS RELEASE ARE NOT CODE SIGNED"
               echo
-              echo "None of the five \`AZURE_KV_*\` secrets are set. See \`docs/desktop/WINDOWS_SIGNING.md\` for what to create and where."
+              echo "> The \`.exe\` and \`.msi\` this run attached to \`${TAG:-this tag}\` carry **no Authenticode signature**."
+              echo "> Windows SmartScreen will warn every person who runs them, and nothing in the files"
+              echo "> identifies who published them. Every release of this project so far has shipped in"
+              echo "> this state. It is written here so that it reads as a decision and not as a silence."
+              echo
+              echo "| | |"
+              echo "| --- | --- |"
+              echo "| Signature | **absent, deliberately** |"
+              echo "| Cause | none of the five \`AZURE_KV_*\` secrets are set |"
+              echo "| To sign | create the secrets listed in \`docs/desktop/WINDOWS_SIGNING.md\` |"
+              echo "| To make this a hard failure instead | set the repository variable \`WINDOWS_SIGNING_REQUIRED\` to \`true\` |"
+              echo
+              echo "---"
             } >> "$GITHUB_STEP_SUMMARY"
             echo "mode=skip" >> "$GITHUB_OUTPUT"
             exit 0
@@ -762,9 +856,12 @@ jobs:
 
           echo "::error title=Windows signing is half configured::${#missing[@]} of the 5 AZURE_KV_* secrets are missing: ${missing[*]}. AzureSignTool needs all five, and calling it with some of them empty fails with a message about the vault rather than about the secret. Set the missing ones, or clear all five to go back to shipping unsigned installers deliberately." >&2
           {
-            echo "### Windows code signing: FAILED"
+            echo "# WINDOWS CODE SIGNING FAILED: HALF CONFIGURED"
             echo
-            echo "Half configured. Missing: \`${missing[*]}\`."
+            echo "Missing: \`${missing[*]}\`."
+            echo
+            echo "AzureSignTool needs all five. Set the missing ones, or clear all five to go back to"
+            echo "shipping unsigned installers deliberately."
           } >> "$GITHUB_STEP_SUMMARY"
           exit 1
 

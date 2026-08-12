@@ -4,6 +4,8 @@ This guide explains how to turn on Apple notarization for the OpenConstructionER
 
 This is a developer and maintainer document. If you are a user trying to open the app, read `docs/desktop/INSTALL.md` instead.
 
+For where every published release actually stands across all four signature mechanisms, and how to check a download yourself, see `docs/desktop/RELEASE_SIGNATURE_INVENTORY.md`.
+
 ## Why notarization matters
 
 When you download a `.dmg` from the web, macOS attaches a quarantine flag to it. Gatekeeper then inspects the app before it will run. An app that Apple has notarized passes that inspection silently and opens with a normal double-click. An app that is only ad-hoc signed does not, and on Apple Silicon a download with a broken or missing notarization ticket is often reported as "damaged and can't be opened" rather than the milder "unidentified developer". That is the friction we want to remove.
