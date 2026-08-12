@@ -8,7 +8,7 @@ quantity surveyor will ask about a computed date is which provision produced
 it. Nothing here is a house rule.
 
 Two modelling decisions run through the whole table and are worth stating once
-rather than eight times.
+rather than once per regime.
 
 **The due date and the final date for payment are different dates, and only the
 UK Act genuinely splits them.** The UK Act makes a sum fall due, then gives a
@@ -21,9 +21,9 @@ imposes - a last day to pay - and which keeps the final date after the due date
 in every regime shipped.
 
 **A null deadline means the statute is silent, which is not the same as zero.**
-Malaysia leaves the payment period to the contract and the EU Late Payment
-Directive has no notice sequence at all. The rules skip what the regime does
-not set rather than treating it as an instant deadline.
+Malaysia leaves the payment period to the contract, and the EU Late Payment
+Directive and the German regimes have no notice sequence at all. The rules skip
+what the regime does not set rather than treating it as an instant deadline.
 
 Seed data lives here and not in a migration on purpose: a migration is a
 schema change that runs once per deployment, and this table is content that
@@ -301,6 +301,140 @@ PAYMENT_REGIMES: tuple[dict[str, Any], ...] = (
             "that only where the term is not grossly unfair to the creditor. Use this regime where a "
             "member state has no construction-specific payment statute, and the national regime where it "
             "has one."
+        ),
+    },
+    # The three German regimes below carry the statutory deadlines of § 16
+    # VOB/B (2016) and §§ 632a, 641, 650g BGB. The German contract-type and
+    # invoice-template vocabulary (VOB_B_EINHEITSPREIS, ABSCHLAGSRECHNUNG,
+    # SCHLUSSRECHNUNG, "per § 632a BGB / § 16 VOB/B") lives in
+    # ``app.modules.dach_pack.config``; that module carries no deadline
+    # arithmetic, so the numbers are written down here, sourced from the
+    # provisions each entry names, and the wording follows dach_pack's. VOB/B
+    # gives an Abschlagsrechnung and a Schlussrechnung two different clocks (21
+    # and 30 days), and a regime in this table is one clock, so they are two
+    # entries rather than one entry with a footnote a calculation cannot read.
+    {
+        "code": "de_vob_b_abschlag",
+        "jurisdiction": "Germany",
+        "country_code": "DE",
+        "statute": "VOB/B § 16 Abs. 1 (Abschlagszahlungen)",
+        "statute_reference": (
+            "§ 16 Abs. 1 Nr. 3 VOB/B (2016); Nachfrist and default interest under § 16 Abs. 5 Nr. 3 "
+            "VOB/B with § 288 Abs. 2 BGB"
+        ),
+        "due_date_basis": "application_date",
+        "due_date_days": 0,
+        "due_date_day_basis": "calendar",
+        "payment_notice_basis": "due_date",
+        "payment_notice_days": None,
+        "payment_notice_day_basis": "calendar",
+        "final_date_basis": "application_date",
+        "final_date_days": 21,
+        "final_date_day_basis": "calendar",
+        "pay_less_days": None,
+        "pay_less_day_basis": "calendar",
+        "no_notice_effect": "none",
+        "interest_basis": "reference_rate_plus_margin",
+        "interest_reference_rate": "Deutsche Bundesbank base rate (Basiszinssatz, § 247 BGB)",
+        "interest_margin_percent": Decimal("9.000"),
+        "interest_fixed_percent": None,
+        "interest_statute": "§ 288 Abs. 2 BGB, applied by § 16 Abs. 5 Nr. 3 VOB/B",
+        "notes": (
+            "The clock for an interim payment invoice (Abschlagsrechnung) under a VOB/B contract. The claim "
+            "falls due within 21 calendar days of the client receiving the verifiable statement of work "
+            "(Zugang der Aufstellung), so enter that date of receipt as the application date; following the "
+            "convention used for the other single-date regimes, the application date is taken as the due "
+            "date and the 21-day limit as the final date for payment. VOB/B has no statutory payment or "
+            "pay-less notice: an objection to the statement is informal and silence has no preclusive "
+            "effect. If the client has not paid when the claim is due, § 16 Abs. 5 Nr. 3 VOB/B lets the "
+            "contractor set a reasonable grace period (angemessene Nachfrist - two weeks is the customary "
+            "yardstick), from whose expiry default interest under § 288 Abs. 2 BGB runs and the "
+            "contractor may suspend the works until payment; at the latest, the client is in default 30 "
+            "days after receipt of the invoice or statement. This module has no grace-period step, so the "
+            "interest warning runs from the final date for payment and the Nachfrist has to be minded by "
+            "hand."
+        ),
+    },
+    {
+        "code": "de_vob_b_schluss",
+        "jurisdiction": "Germany",
+        "country_code": "DE",
+        "statute": "VOB/B § 16 Abs. 3 (Schlusszahlung)",
+        "statute_reference": (
+            "§ 16 Abs. 3 Nr. 1 VOB/B (2016); reservation of claims under § 16 Abs. 3 Nr. 2 and Nr. 5 "
+            "VOB/B; Nachfrist and default interest under § 16 Abs. 5 Nr. 3 VOB/B with § 288 Abs. 2 BGB"
+        ),
+        "due_date_basis": "application_date",
+        "due_date_days": 0,
+        "due_date_day_basis": "calendar",
+        "payment_notice_basis": "due_date",
+        "payment_notice_days": None,
+        "payment_notice_day_basis": "calendar",
+        "final_date_basis": "application_date",
+        "final_date_days": 30,
+        "final_date_day_basis": "calendar",
+        "pay_less_days": None,
+        "pay_less_day_basis": "calendar",
+        "no_notice_effect": "none",
+        "interest_basis": "reference_rate_plus_margin",
+        "interest_reference_rate": "Deutsche Bundesbank base rate (Basiszinssatz, § 247 BGB)",
+        "interest_margin_percent": Decimal("9.000"),
+        "interest_fixed_percent": None,
+        "interest_statute": "§ 288 Abs. 2 BGB, applied by § 16 Abs. 5 Nr. 3 VOB/B",
+        "notes": (
+            "The clock for the final invoice (Schlussrechnung) under a VOB/B contract. The final payment "
+            "falls due promptly after examination and determination of the invoice, and at the latest "
+            "within 30 calendar days of the client receiving it, so enter the date of receipt (Zugang der "
+            "Schlussrechnung) as the application date. The period extends to at most 60 days only where "
+            "that is objectively justified by the particular nature or features of the agreement and was "
+            "expressly agreed (§ 16 Abs. 3 Nr. 1 sentence 2 VOB/B); record such a contract by stating "
+            "the agreed final date on the application, which marks the dates as overridden. Accepting the "
+            "final payment without reservation excludes further claims where the client gave written "
+            "notice of the payment and of that preclusive effect; the contractor's reservation (Vorbehalt) "
+            "must be declared within 28 calendar days of that notice and substantiated within a further 28 "
+            "(§ 16 Abs. 3 Nr. 2 and Nr. 5 VOB/B) - a payee-side sequence this clock does not compute. "
+            "Late payment carries the same Nachfrist and interest mechanics as the interim regime."
+        ),
+    },
+    {
+        "code": "de_bgb_632a",
+        "jurisdiction": "Germany",
+        "country_code": "DE",
+        "statute": "BGB § 632a (Abschlagszahlungen)",
+        "statute_reference": (
+            "§ 632a Abs. 1 BGB; default without a reminder under § 286 Abs. 3 BGB; interest under "
+            "§ 288 Abs. 2 BGB; final payment due on acceptance with a verifiable final invoice under "
+            "§ 641 Abs. 1 and § 650g Abs. 4 BGB"
+        ),
+        "due_date_basis": "application_date",
+        "due_date_days": 0,
+        "due_date_day_basis": "calendar",
+        "payment_notice_basis": "due_date",
+        "payment_notice_days": None,
+        "payment_notice_day_basis": "calendar",
+        "final_date_basis": "application_date",
+        "final_date_days": 30,
+        "final_date_day_basis": "calendar",
+        "pay_less_days": None,
+        "pay_less_day_basis": "calendar",
+        "no_notice_effect": "none",
+        "interest_basis": "reference_rate_plus_margin",
+        "interest_reference_rate": "Deutsche Bundesbank base rate (Basiszinssatz, § 247 BGB)",
+        "interest_margin_percent": Decimal("9.000"),
+        "interest_fixed_percent": None,
+        "interest_statute": "§ 288 Abs. 2 BGB",
+        "notes": (
+            "The clock for interim payments under a plain BGB construction contract, where the parties did "
+            "not agree the VOB/B. § 632a Abs. 1 BGB entitles the contractor to interim payments in the "
+            "amount of the value of the work performed and owed. The BGB sets no payment period - the "
+            "claim is due on demand with a verifiable statement (§ 271 BGB) - so the 30 days written "
+            "here are § 286 Abs. 3 BGB: the client is in default at the latest 30 days after receiving "
+            "the invoice, without any reminder, and that outer limit is taken as the final date for "
+            "payment. Between businesses it applies of itself; against a consumer only where the invoice "
+            "said so. Interest runs at nine percentage points over the base rate for commercial debts "
+            "(§ 288 Abs. 2 BGB). The final payment is a different clock: it falls due on acceptance of "
+            "the works plus a verifiable final invoice (§ 641 Abs. 1, § 650g Abs. 4 BGB), which is a "
+            "condition this module cannot compute from a date alone."
         ),
     },
 )

@@ -299,7 +299,7 @@ def _after_phrase(days: int, day_basis: str, basis: str, from_date: date) -> str
     """Render an offset: 5 days after the due date 2026-03-06, or on that date.
 
     A statute that makes the sum due on the day the claim is served is a real
-    case - four of the shipped regimes do exactly that - and "0 days after"
+    case - most of the shipped regimes do exactly that - and "0 days after"
     reads like arithmetic that failed rather than a rule that says "on".
     """
     where = f"{_basis_phrase(basis)} {from_date.isoformat()}"
