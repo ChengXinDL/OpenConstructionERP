@@ -105,6 +105,20 @@ def _column_exists(bind: sa.engine.Connection, table: str, column: str) -> bool:
     return any(c["name"] == column for c in inspector.get_columns(table))
 
 
+# Dead guard, tracked as #144: no migration has ever created a table named
+# "oe_projects" (the model's __tablename__ has been "oe_projects_project"
+# since it was introduced), so _table_exists(bind, _TABLE) below is always
+# False and the backfill below it has never executed on any database. Do
+# not "fix" this by changing the literal - this revision is applied history
+# on every install that reached it, and an edited v3145 never re-runs there
+# (a fresh install has no pre-3.2.0 demo projects to repair either). Any
+# real fix has to be a new forward revision at head, targeting
+# oe_projects_project - and it needs its own reference addresses, not the
+# ones hardcoded below: read against the live demo box (2026-08-12) showed
+# the current demo_projects.py seed no longer agrees with _DEMO_ADDRESSES
+# (e.g. medical-us is Houston in the live seed, Cleveland here). No affected
+# rows were found on that box, so no such revision has been written yet.
+# data-rewrite-ack: table=oe_projects growth=dead-code rows=guard above is always False (table never existed), statement has never executed on any known database
 def upgrade() -> None:
     bind = op.get_bind()
     if not _table_exists(bind, _TABLE):

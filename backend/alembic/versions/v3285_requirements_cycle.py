@@ -121,6 +121,7 @@ def _foreign_keys(table: str) -> set[str]:
     return {name for fk in inspector.get_foreign_keys(table) if (name := fk.get("name"))}
 
 
+# data-rewrite-ack: table=oe_requirement_deliverable growth=bounded rows=one row per requirement-deliverable pairing, states updated in place, bounded by requirement count
 def upgrade() -> None:
     # ── The five questions ──────────────────────────────────────────────────
     if _table_exists(_ITEM):

@@ -282,6 +282,7 @@ def _fill_in_transaction(conn: sa.engine.Connection) -> int:
     return filled
 
 
+# data-rewrite-ack: table=oe_costs_item growth=tenure rows=core cost-estimation line items across every project; already 1724 MB in the field, see #126
 def upgrade() -> None:
     """Fill blank cost-item currencies from the region code. Never overwrite."""
     bind = op.get_bind()

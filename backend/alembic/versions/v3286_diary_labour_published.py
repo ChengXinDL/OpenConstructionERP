@@ -57,6 +57,7 @@ def _columns(table: str) -> set[str]:
     return {col["name"] for col in inspector.get_columns(table)}
 
 
+# data-rewrite-ack: table=oe_field_diary_entry growth=tenure rows=one row per field diary entry, accumulates daily across every project
 def upgrade() -> None:
     present = _columns(_ENTRY)
     if not present or _COLUMN in present:
