@@ -16487,7 +16487,7 @@ const resource = {
     "costmodel.spine.col_budget": "Presupuesto",
     "costmodel.spine.col_committed": "Comprometido (OC)",
     "costmodel.spine.col_contracted": "Contratado",
-    "costmodel.spine.col_estimate": "Presupuesto",
+    "costmodel.spine.col_estimate": "Estimación",
     "costmodel.spine.col_line": "Partida de coste",
     "costmodel.spine.col_variance": "Desviación",
     "costmodel.spine.empty_desc": "Genera la estructura de costes a partir de un BOQ para crear las cuentas de control y las partidas de coste, y luego vincula presupuesto, órdenes de compra y contratos para comparar estimación con coste real.",
