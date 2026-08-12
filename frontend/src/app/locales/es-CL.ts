@@ -6056,7 +6056,7 @@ const resource = {
     "takeoff_viewer.legend": "Leyenda",
     "takeoff_viewer.load_new_pdf": "Cargar nuevo PDF",
     "takeoff_viewer.markup_tools": "Herramientas de marcado",
-    "takeoff_viewer.measure_tools": "Herramientas de cubicación",
+    "takeoff_viewer.measure_tools": "Herramientas de medición",
     "takeoff_viewer.next_page": "Página siguiente",
     "takeoff_viewer.not_calibrated": "Sin calibrar",
     "takeoff_viewer.page_label": "Página",
