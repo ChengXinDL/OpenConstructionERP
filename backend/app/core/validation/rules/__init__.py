@@ -176,8 +176,8 @@ def _is_provisional_position(pos: dict[str, Any]) -> bool:
 
 # GAEB exchange phases that carry NO bidder prices. In these the unit rate is
 # legitimately 0 / absent for every position, so a zero Einheitspreis must not
-# be flagged (FA-STD-045). X81 (Kostenanschlag) and X83 (Angebotsaufforderung)
-# are the unpriced request phases.
+# be flagged (FA-STD-045). X81 (Leistungsverzeichnis), X82 (Kostenanschlag)
+# and X83 (Angebotsaufforderung) are the unpriced request phases.
 _UNPRICED_DA_KINDS: frozenset[str] = frozenset({"x80", "x81", "x82", "x83"})
 
 

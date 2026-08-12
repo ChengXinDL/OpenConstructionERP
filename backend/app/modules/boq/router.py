@@ -4453,7 +4453,7 @@ async def export_boq_pdf(
 )
 @router.get(
     "/boqs/{boq_id}/export/gaeb/",
-    summary="Export BOQ as GAEB XML 3.3 (X83 default, ?format=x84 for Nebenangebot)",
+    summary="Export BOQ as GAEB XML 3.3 (X83 Angebotsaufforderung default, ?format=x84 for Angebotsabgabe)",
     dependencies=[Depends(RequirePermission("boq.read"))],
 )
 async def export_boq_gaeb(
@@ -4469,10 +4469,20 @@ async def export_boq_gaeb(
         "x83",
         alias="format",
         description=(
-            "GAEB DA phase to emit. ``x83`` = Angebotsabgabe (main bid, DP 83). "
-            "``x84`` = Nebenangebot (alternate bid, DP 84) - adds per-position "
-            "BoQBkUp / BoQBkUpRef alternate markers and an Award/Recommendation "
-            "element listing positions flagged as recommended."
+            "GAEB DA phase to emit. ``x83`` = Angebotsaufforderung (call for "
+            "bids, DP 83, unpriced). ``x84`` = Angebotsabgabe (bid "
+            "submission, DP 84, priced). An X84 is a plain Hauptangebot "
+            "unless ``bid_type=alternate`` is also passed."
+        ),
+    ),
+    bid_type: Literal["main", "alternate"] = Query(
+        "main",
+        description=(
+            "X84 only. ``main`` (default) writes a plain Hauptangebot. "
+            "``alternate`` marks the bid as a Nebenangebot: positions "
+            "carrying ``alt_parent_ref`` / ``alt_markup_reason`` metadata "
+            "get their rationale written as a schema-valid ``BidComm`` "
+            "(Bieter Kommentar). Ignored for X83."
         ),
     ),
 ) -> StreamingResponse:
@@ -4487,7 +4497,9 @@ async def export_boq_gaeb(
     - **DP 83 - Angebotsaufforderung / Request for bid** (default,
       ``?format=x83``). A priced LV is valid in DP 83 (the Einheitspreis is
       optional in the schema, so carrying it does not break conformance).
-    - **DP 84 - Angebotsabgabe / Bid submission** (``?format=x84``).
+    - **DP 84 - Angebotsabgabe / Bid submission** (``?format=x84``). A plain
+      Hauptangebot by default; ``bid_type=alternate`` additionally writes the
+      Nebenangebot rationale of flagged positions as ``BidComm`` elements.
 
     Money: each ``Item`` carries ``UP`` (Einheitspreis, 3 dp) and ``IT``
     (Gesamtbetrag, 2 dp) reconstructed so a consumer recomputing ``Qty x UP``
@@ -4520,6 +4532,7 @@ async def export_boq_gaeb(
         project_name=project_name,
         project_currency=project_currency,
         gaeb_format=gaeb_format,
+        bid_type=bid_type,
     )
 
     safe_name = boq_data.name.encode("ascii", errors="replace").decode("ascii").replace('"', "'")
@@ -4607,14 +4620,21 @@ def build_gaeb_xml(
     project_name: str,
     project_currency: str,
     gaeb_format: str,
+    bid_type: str = "main",
 ) -> str:
     """Build a schema-valid GAEB DA XML 3.3 document string.
 
     Pure function (no I/O) so it is unit-testable against the official GAEB
     XSD without booting the app. ``boq_data`` is a ``BOQWithSections`` (or any
     object exposing ``name``, ``sections``, ``positions``, ``markups``,
-    ``direct_cost`` and ``net_total``). ``gaeb_format`` is ``"x83"`` or
-    ``"x84"``.
+    ``direct_cost`` and ``net_total``). ``gaeb_format`` is ``"x83"``
+    (Angebotsaufforderung, unpriced) or ``"x84"`` (Angebotsabgabe, priced).
+
+    ``bid_type`` applies to X84 only: ``"main"`` (default) emits a plain
+    Hauptangebot; ``"alternate"`` marks the bid as a Nebenangebot - positions
+    flagged with ``alt_parent_ref`` / ``alt_markup_reason`` metadata get their
+    rationale written as a ``BidComm`` (Bieter Kommentar), the schema element
+    the X84 Item provides for bidder-side remarks.
     """
     import xml.etree.ElementTree as ET
     from datetime import date
@@ -4947,31 +4967,29 @@ def build_gaeb_xml(
             return mapped
         return unit.strip()
 
-    # ── X84 alternate-bid rationale ────────────────────────────────────────
+    # ── X84 Nebenangebot (alternate-bid) rationale ─────────────────────────
     # The GAEB 3.3 schema has no <BoQBkUp>/<Recommendation> elements - the
     # previous code invented them, which fails XSD validation and silently
-    # drops the data on any conformant re-import. For an X84 alternate we
-    # instead fold the rationale into the (schema-valid) long text as an
-    # extra paragraph, so the information survives a round-trip in a real
-    # GAEB field rather than an invented one.
-    def _description_with_alt(pos: Any) -> str:
-        base = str(getattr(pos, "description", "") or "")
-        if gaeb_format != "x84":
-            return base
+    # drops the data on any conformant re-import. A plain X84 is a
+    # Hauptangebot (Angebotsabgabe per GAEB DA84) and carries NO alternate
+    # markers; only an explicit ``bid_type="alternate"`` writes the rationale
+    # of flagged positions, as a schema-valid <BidComm> (Bieter Kommentar) -
+    # the element the X84 Item provides for bidder-side remarks, so the
+    # information survives a round-trip in a real GAEB field.
+    is_alternate_bid = is_priced and bid_type == "alternate"
+
+    def _alt_rationale_lines(pos: Any) -> list[str]:
         meta = getattr(pos, "metadata", None) or {}
-        reason = ""
-        parent_ref = ""
-        if isinstance(meta, dict):
-            reason = str(meta.get("alt_markup_reason") or "").strip()
-            parent_ref = str(meta.get("alt_parent_ref") or "").strip()
-        extra: list[str] = []
+        if not isinstance(meta, dict):
+            return []
+        reason = str(meta.get("alt_markup_reason") or "").strip()
+        parent_ref = str(meta.get("alt_parent_ref") or "").strip()
+        lines: list[str] = []
         if parent_ref:
-            extra.append(f"Nebenangebot zu Position {parent_ref}")
+            lines.append(f"Nebenangebot zu Position {parent_ref}")
         if reason:
-            extra.append(reason)
-        if extra:
-            return "\n".join([base, *extra]) if base else "\n".join(extra)
-        return base
+            lines.append(reason)
+        return lines
 
     def _emit_item(parent_list: ET.Element, pos: Any, parent_ordinal: str) -> None:
         """Write one schema-valid ``Item`` into an ``Itemlist``.
@@ -4999,7 +5017,12 @@ def build_gaeb_xml(
             ET.SubElement(item, "IT").text = it_s
         else:
             ET.SubElement(item, "QU").text = _gaeb_unit(pos.unit)[:4]
-        _set_description(item, _description_with_alt(pos))
+        _set_description(item, str(getattr(pos, "description", "") or ""))
+        # Schema order: BidComm follows Description in the X84 Item.
+        if is_alternate_bid:
+            rationale = _alt_rationale_lines(pos)
+            if rationale:
+                _set_ml_text(item, "BidComm", "\n".join(rationale))
 
     def _emit_markup_item(parent_list: ET.Element, m: Any, idx: int, base: Decimal) -> None:
         """Write one priced ``MarkupItem`` (Zuschlagsposition) into an Itemlist.
@@ -6101,9 +6124,9 @@ async def import_boq_gaeb(
         response header.
 
     Supports the GAEB DA XML formats used across DACH tendering:
-      - **X83 / DP 83** - Angebotsabgabe (bid submission)
-      - **X84 / DP 84** - Nebenangebote (alternative bids)
-      - **X81** - Leistungsverzeichnis (BOQ skeleton)
+      - **X81 / DP 81** - Leistungsverzeichnis (BOQ skeleton)
+      - **X83 / DP 83** - Angebotsaufforderung (call for bids, unpriced)
+      - **X84 / DP 84** - Angebotsabgabe (priced bid submission)
 
     Namespace-agnostic parser - falls back to tag-local-name matching so
     files from different GAEB toolchains (any mainstream GAEB authoring
@@ -6530,7 +6553,11 @@ async def _persist_imported_markups(
         the subtotal (the unpriced X83 fallback where the file carries a
         Zuschlag percent but no ``<IT>``); clamped to the schema's 0..100 range.
       * a markup that maps to neither (no usable percentage or amount) is
-        skipped with a warning rather than persisted as a zero no-op.
+        skipped SILENTLY here: an unpriced X83 legitimately ships its
+        Zuschlagspositionen as empty placeholders the bidder prices later,
+        and the importer already surfaces every parsed markup as a parse-time
+        warning - repeating it as an import ERROR made the official
+        certification file look broken.
 
     Failures here never abort the import (positions are already committed);
     each is appended to ``errors`` so the caller surfaces it.
@@ -6607,12 +6634,10 @@ async def _persist_imported_markups(
                     },
                 )
             else:
-                errors.append(
-                    {
-                        "ordinal": ordinal,
-                        "error": "GAEB markup carried no usable percentage or amount; skipped.",
-                    }
-                )
+                # No percentage and no amount: an unpriced placeholder
+                # Zuschlagsposition (normal in an X83 Angebotsaufforderung).
+                # The importer's parse-time warning already surfaces it; an
+                # error entry here would flag a conformant file as broken.
                 continue
             await service.add_markup(boq_id, data)
         except Exception as exc:  # noqa: BLE001 - never abort an import on a markup
