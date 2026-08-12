@@ -151,7 +151,13 @@ describe('#200 counted keys carry every plural form their own language uses', ()
     // were being checked by every assertion below while this one line called
     // them absent.
     expect(declaredCodes.length).toBeGreaterThan(25);
-    expect([...localeFiles.map(([code]) => code)].sort()).toEqual([...declaredCodes].sort());
+    // Mongolian is on disk but deliberately not in SUPPORTED_LANGUAGES: five
+    // invented roots passed every gate, so the language is withheld until the
+    // file is retranslated. The file stays covered by every assertion below;
+    // only the registry comparison must expect its absence.
+    const undeclaredOnPurpose = ['mn'];
+    expect([...localeFiles.map(([code]) => code)].filter((code) => !undeclaredOnPurpose.includes(code)).sort())
+      .toEqual([...declaredCodes].sort());
   });
 
   it('gets the plural categories it expects out of this runtime', () => {
