@@ -144,6 +144,15 @@ even by accident.
 gh workflow run release-signing.yml -f tag=v14.3.0 -f backfill=true
 ```
 
+The run ends by reading the three files back off the release and goes red if
+they are not there, so a green run means the signature arrived rather than that
+every step reported success. Those are not the same thing: the job that signs
+depends on the job that skips, and a run in which the signing job never starts
+has nothing to report a failure. This checks the release, not the run. It does
+not, and cannot, tell you about a release nobody dispatched, which is the other
+way a release ends up unsigned and the reason claim 2 above is dated rather than
+stated as a rule.
+
 `backfill=true` skips the SBOM job, and that is the part worth understanding
 before running it. The SBOM is generated when the workflow runs, from whatever
 the dependency ranges resolve to that day. On a current release that is

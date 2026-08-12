@@ -96,6 +96,14 @@ jobs:
     # installers alone is what every release since v8.0.0 would have had, and
     # withholding signatures because a licence list broke helps nobody. The run
     # still goes red, so the failure is not hidden.
+    #
+    # It has to survive `sbom` being skipped as well as failing, which is the
+    # backfill path and is a different upstream state reaching the same
+    # condition. A dependant of a skipped job is skipped too, unless its own
+    # `if` is a status expression, which this is. That is the documented
+    # behaviour and it is not restated here as a fact, because if it is ever
+    # wrong this job silently does not run. The `confirm` job below settles it
+    # by observation instead.
     if: ${{ !cancelled() && needs.resolve.result == 'success' }}
     runs-on: ubuntu-latest
     # Observed at 2.8 and 0.6 minutes, the difference being how much of the
@@ -230,3 +238,87 @@ jobs:
             sha256sum -c SHA256SUMS
 
           EOF
+
+  # Whether a signature reached the release is a fact about the release, not
+  # about this run, so it is read back off the release rather than inferred
+  # from the jobs above. Every guard before this one is an argument about what
+  # should happen; this is the only one that looks.
+  #
+  # The failure it exists for is the one this workflow has already had once, in
+  # the form described above the upload step: a run where every job is green
+  # and nothing was published. It can be reached again from any wiring change
+  # that stops `sign` from starting, because a job that never starts reports no
+  # failure. Skip propagation from `sbom` on a backfill is the specific way in,
+  # and the reasoning that says it cannot happen is exactly the reasoning that
+  # would be wrong. Reading the assets does not depend on that reasoning being
+  # right.
+  confirm:
+    name: Confirm the release carries a signature
+    needs: [resolve, sign]
+    if: ${{ always() && needs.resolve.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Read the three files back off the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          SIGN_RESULT: ${{ needs.sign.result }}
+        run: |
+          # Bounded retry against read-after-write lag on the assets API, not
+          # against a missing upload. Three misses over twenty seconds is not a
+          # slow API, it is an absent file.
+          for attempt in 1 2 3; do
+            if assets=$(gh release view "$TAG" --repo "${{ github.repository }}" \
+                 --json assets --jq '.assets[].name' 2>fetch.err); then
+              fetch_error=""
+            else
+              fetch_error=$(tr '\n' ' ' < fetch.err)
+              assets=""
+            fi
+            missing=""
+            for f in SHA256SUMS SHA256SUMS.sig SHA256SUMS.pem; do
+              if ! printf '%s\n' "$assets" | grep -qxF "$f"; then
+                missing="$missing $f"
+              fi
+            done
+            if [ -z "$missing" ]; then break; fi
+            if [ "$attempt" != 3 ]; then sleep 10; fi
+          done
+
+          # A release that could not be read is not a release without a
+          # signature. Both end this job red, because neither confirms
+          # anything, but they are different problems and saying "unsigned"
+          # for the first one would be a guess wearing the clothes of a
+          # measurement.
+          if [ -n "$fetch_error" ]; then
+            echo "::error::Could not read the assets on ${TAG}, so this run cannot say whether it is signed: ${fetch_error}"
+            {
+              echo "### \`${TAG}\`: not measured"
+              echo
+              echo "Reading the release failed, so this run makes no claim either way."
+              echo "It is not evidence the release is unsigned."
+              echo
+              echo "\`\`\`"
+              echo "${fetch_error}"
+              echo "\`\`\`"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          if [ -n "$missing" ]; then
+            echo "::error::${TAG} is missing:${missing}. The signing job reported '${SIGN_RESULT}'."
+            {
+              echo "### \`${TAG}\` was not signed by this run"
+              echo
+              echo "Missing from the release:${missing}"
+              echo
+              echo "The signing job reported \`${SIGN_RESULT}\`. If that reads \`skipped\` while"
+              echo "the rest of the run is green, look at the job graph before looking at"
+              echo "cosign: \`sign\` needs \`sbom\`, a backfill skips \`sbom\`, and a skipped"
+              echo "dependency skips its dependants unless the \`if\` on \`sign\` overrides it."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          echo "${TAG} carries SHA256SUMS, SHA256SUMS.sig and SHA256SUMS.pem."
