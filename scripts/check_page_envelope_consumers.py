@@ -189,6 +189,14 @@ def main() -> int:
     args = ap.parse_args()
     if args.self_test:
         return self_test()
+    # The self test runs before every real scan, not only on demand. The
+    # matching here is narrow enough that a later tightening could stop it
+    # seeing anything at all, and a guard that cannot refuse reports the same
+    # clean run as a tree with nothing wrong in it. Costs one temp directory.
+    if self_test() != 0:
+        print("FAIL: the guard could not prove it still refuses, so its verdict means nothing.")
+        return 2
+    print()
     return report(FRONTEND)
 
 

@@ -225,6 +225,24 @@ repos:
         pass_filenames: false
         files: ^(frontend/src/app/locales/.*\.ts|scripts/i18n_script_baseline\.json)$
 
+      # A collection endpoint that starts returning {items, total, offset,
+      # limit} breaks every caller still reading a bare array. TypeScript
+      # catches most of that, but not the case this exists for: React Query
+      # caches by key and the key is a string, so when two files share
+      # queryKey: ['schedules'] and only one is migrated, the cache hands the
+      # wrong shape to the other at runtime with the build green. The unit of
+      # migration is therefore one endpoint plus every consumer of it, in one
+      # commit, and this counts both sides. It self-tests before every scan
+      # because the matching is narrow enough that a later tightening could
+      # silence it, and a guard that cannot refuse looks exactly like a clean
+      # tree.
+      - id: page-envelope-consumer-check
+        name: Gate half-migrated collection endpoints
+        entry: python scripts/check_page_envelope_consumers.py
+        language: system
+        pass_filenames: false
+        files: ^(frontend/src/.*\.tsx?|scripts/check_page_envelope_consumers\.py)$
+
       # Grew out of #126: a migration that rewrote a 1724 MB table inside the
       # single transaction Alembic wraps a whole upgrade() in died with
       # DiskFull on a real box. Rewriting pre-existing data is not forbidden -

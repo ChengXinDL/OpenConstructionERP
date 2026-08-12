@@ -199,6 +199,24 @@ jobs:
       - name: Check permission keys against the registry
         run: python scripts/check_permission_registration.py
 
+  page-envelope-consumers:
+    name: Every consumer of a paged endpoint reads the page
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # A collection endpoint moving from a bare array to {items, total,
+      # offset, limit} breaks every caller left behind. The build catches most
+      # of it and structurally cannot catch the case this guards: React Query
+      # caches by key, the key is a string, so a file sharing queryKey with a
+      # migrated one gets handed the wrong shape at runtime while tsc is
+      # green. The script self-tests before it scans, so a run that passes has
+      # also just demonstrated it can fail.
+      - name: Check every consumer of a migrated endpoint moved with it
+        run: python scripts/check_page_envelope_consumers.py
+
   migration-data-rewrites:
     name: Every migration touching pre-existing data carries an acknowledgement
     runs-on: ubuntu-latest
