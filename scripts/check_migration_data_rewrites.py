@@ -57,11 +57,17 @@ increasing order of how much has to be inferred to name it:
   determine the table a resolved statement targets, at all. Listed
   separately from confirmed findings rather than dropped, because a
   statement this script cannot read is not evidence of anything either way.
-  In the corpus this scan was built against, the only recurring source is a
-  Core select(...).where(...) read built from more than one comparison,
-  which is not a data-modifying statement to begin with; it shows up here
-  because this script does not model boolean expressions, not because it
-  found a write.
+  In the corpus this scan was built against, most of these are DDL - a
+  dialect-conditional CREATE INDEX CONCURRENTLY or an ALTER TABLE ADD
+  CONSTRAINT whose index or constraint name comes from a value this script
+  cannot pin down - where the verb itself is plainly not UPDATE/INSERT/
+  DELETE/MERGE but the rest of the statement never resolves far enough to
+  say so on the record; the remainder is a Core select(...).where(...) read
+  built from more than one comparison and a bare SELECT setval(...) that
+  advances a sequence rather than writing a table row, neither a
+  data-modifying statement to begin with. None of these found a write; they
+  show up here because this script does not model boolean expressions or
+  chase every non-DML verb, not because a write went unseen.
 
 Known blind spot, deliberately not covered
 -------------------------------------------
@@ -121,11 +127,14 @@ class Resolved:
     values: frozenset[str] | None
     confidence: str  # "literal" | "derived" | "unresolved"
     #: Set only when full resolution failed but the value's own source
-    #: expression had a leading literal segment that alone completed a DML
-    #: verb + table (see ``_classify_prefix``). Lets a later ``Name`` lookup
-    #: (``sql = sa.text(f"...")`` then ``conn.execute(sql, ...)``) recover a
-    #: finding that a bare scope lookup on the Name would otherwise lose.
-    prefix: tuple[str, str] | None = None
+    #: expression had a leading segment - literal text, optionally followed
+    #: by a placeholder that itself resolves to exactly one string, e.g. the
+    #: table name in ``f"UPDATE {_TABLE} SET {expr}"`` - that alone
+    #: completed a DML verb + table (see ``_classify_prefix``). Lets a later
+    #: ``Name`` lookup (``sql = sa.text(f"...")`` then
+    #: ``conn.execute(sql, ...)``) recover a finding that a bare scope
+    #: lookup on the Name would otherwise lose.
+    prefix: tuple[str, str, str] | None = None
 
 
 UNRESOLVED = Resolved(None, "unresolved")
@@ -415,35 +424,56 @@ def _unwrap_to_string_node(node: ast.expr) -> ast.expr:
     return node
 
 
-def _classify_prefix(node: ast.expr) -> tuple[str, str] | None:
-    """Classify using only a SQL string's leading literal segment.
+def _classify_prefix(
+    node: ast.expr, scope: dict[str, Resolved]
+) -> tuple[str, str, str] | None:
+    """Classify using a SQL string's leading, fully-pinned-down segment.
 
     Fallback for when full resolution fails because some placeholder later
     in a long f-string cannot be resolved - typically an INSERT ... SELECT
     whose SELECT list builds derived column expressions this script does
-    not model, while the INSERT INTO and the table name it names are both
-    plain literal text before the first placeholder. SQL syntax puts the
-    verb and the table right after it, so a leading literal segment either
-    contains both complete or does not contain a full identifier at all;
-    there is no way for this to see a verb+table pair that is not really
-    there. Only applies to a bare string or an f-string's own first
-    segment - a table name straddling a placeholder boundary is not
-    something this looks for, since real SQL is never written that way.
+    not model, or a WHERE clause built from a module constant this script
+    does not evaluate (e.g. ``_quoted(SOME_TUPLE)`` for an IN-list). Builds
+    up a prefix by concatenating literal text and any placeholder that
+    itself resolves to exactly one string - covering both the table name
+    sitting directly in the literal text (``f"UPDATE {table} SET ..."``
+    where ``table`` fails to resolve later) and the table name arriving as
+    its own placeholder right after the verb (``f"UPDATE {_TABLE} SET
+    {expr}"`` where ``_TABLE`` is a resolvable module constant and ``expr``
+    is not) - and stops at the first segment it cannot pin down to exactly
+    one value. SQL syntax puts the verb and the table right after it, so
+    whatever prefix this accumulates either contains a complete verb+table
+    pair or does not contain a full identifier at all; there is no way for
+    this to see a verb+table pair that is not really there.
     """
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         leading = node.value
-    elif isinstance(node, ast.JoinedStr) and node.values:
-        first = node.values[0]
-        if not (isinstance(first, ast.Constant) and isinstance(first.value, str)):
+        confidence = "literal"
+    elif isinstance(node, ast.JoinedStr):
+        leading = ""
+        confidence = "literal"
+        for value_node in node.values:
+            if isinstance(value_node, ast.Constant) and isinstance(
+                value_node.value, str
+            ):
+                leading += value_node.value
+                continue
+            if isinstance(value_node, ast.FormattedValue):
+                resolved = resolve_expr(value_node.value, scope)
+                if resolved.values is not None and len(resolved.values) == 1:
+                    leading += next(iter(resolved.values))
+                    confidence = _combine_confidence(confidence, resolved.confidence)
+                    continue
+            break
+        if not leading:
             return None
-        leading = first.value
     else:
         return None
     m = _DML_RE.match(leading)
     if not m:
         return None
     verb = re.sub(r"\s+", " ", m.group(1).upper())
-    return _VERB_TO_KIND[verb], m.group(2)
+    return _VERB_TO_KIND[verb], m.group(2), confidence
 
 
 def _statement_own_exprs(stmt: ast.stmt) -> list[ast.expr]:
@@ -532,13 +562,16 @@ def _handle_call(
 
     # Full resolution failed - a placeholder somewhere in the string could
     # not be pinned down, often a derived column expression later in an
-    # INSERT ... SELECT. Try the leading literal segment alone: SQL syntax
-    # puts the verb and table right after it, so if that much is already
-    # complete and literal, this is still a real finding.
-    prefix = _classify_prefix(_unwrap_to_string_node(arg)) or text_resolved.prefix
+    # INSERT ... SELECT. Try the leading prefix alone: SQL syntax puts the
+    # verb and table right after it, so if that much is already pinned
+    # down - literal text, or literal text plus one placeholder that
+    # resolves to a single value - this is still a real finding.
+    prefix = (
+        _classify_prefix(_unwrap_to_string_node(arg), scope) or text_resolved.prefix
+    )
     if prefix is not None:
-        kind, table = prefix
-        statements.append(Statement(node.lineno, kind, frozenset({table}), "literal"))
+        kind, table, confidence = prefix
+        statements.append(Statement(node.lineno, kind, frozenset({table}), confidence))
     else:
         statements.append(
             Statement(node.lineno, "execute(...)", frozenset(), "unresolved")
@@ -604,7 +637,7 @@ def _scan_body(
         ):
             resolved = resolve_expr(stmt.value, scope)
             if resolved.values is None:
-                prefix = _classify_prefix(_unwrap_to_string_node(stmt.value))
+                prefix = _classify_prefix(_unwrap_to_string_node(stmt.value), scope)
                 if prefix is not None:
                     resolved = Resolved(None, "unresolved", prefix=prefix)
             _merge(scope, stmt.targets[0].id, resolved)
