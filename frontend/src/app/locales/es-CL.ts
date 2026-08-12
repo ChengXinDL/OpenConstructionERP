@@ -4,6 +4,8 @@
 // bill modules only, because a Chilean bill is cubicado. Hormigon,
 // presupuesto, partida and IVA are left alone: Chile uses them already,
 // and changing a word the reader knows is a defect, not a localisation.
+// One exception: takeoff_viewer.measure_tools keeps medicion, it names
+// the act of measuring rather than a recorded quantity.
 //
 // Locale source. Edit this file directly: nothing generates it.
 // ../i18n-fallbacks.ts reads these files for tests, it does not produce them.

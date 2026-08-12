@@ -3,6 +3,12 @@
 // medicion->cantidad de obra inside the takeoff and bill modules, which is
 // what a Colombian bill of quantities is called. The markup scheme that
 // goes with this language is AIU, carried by the colombia_aiu methodology.
+// Two exceptions to the pattern above, both intentional: encofrado also
+// stays where it names the labor of installing and removing formwork
+// (encofrado y desencofrado - desencofrado only pairs with encofrado,
+// there is no desformaleta), and takeoff_viewer.measure_tools keeps
+// medicion because it names the act of measuring, not a recorded
+// quantity.
 //
 // Locale source. Edit this file directly: nothing generates it.
 // ../i18n-fallbacks.ts reads these files for tests, it does not produce them.
