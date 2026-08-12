@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query
 from fastapi.responses import StreamingResponse
 
 from app.core.file_signature import (
@@ -33,6 +34,7 @@ from app.dependencies import (
     SessionDep,
     verify_project_access,
 )
+from app.modules.daily_diary.pdf_translations import diary_pdf_filename, resolve_pdf_locale
 from app.modules.daily_diary.schemas import (
     BeforeAfterResponse,
     DailyDiaryCreate,
@@ -294,6 +296,11 @@ async def immutable_payload_hash(
 async def diary_pdf(
     diary_id: uuid.UUID,
     session: SessionDep,
+    locale: Annotated[
+        str | None,
+        Query(max_length=10, description="Force the PDF language (e.g. 'de'). Overrides Accept-Language."),
+    ] = None,
+    accept_language: Annotated[str | None, Header(alias="accept-language")] = None,
     user_id: CurrentUserId = None,  # type: ignore[assignment]
     _perm: None = Depends(RequirePermission("daily_diary.read")),
     service: DailyDiaryService = Depends(_get_service),
@@ -302,12 +309,19 @@ async def diary_pdf(
 
     Renders the diary header, its entries, the day's weather, the
     project and supervisor names, and the notes into a single PDF and
-    streams it back as an attachment named ``diary-<date>.pdf``.
+    streams it back as an attachment named ``diary-<date>.pdf``
+    (``bautagebuch-<date>.pdf`` for German).
+
+    The document language follows the ``?locale=`` query parameter when
+    given, otherwise the ``Accept-Language`` header (primary subtag
+    match), otherwise English - the same resolution the cost endpoints
+    use.
     """
     diary = await service.get_diary(diary_id)
     await verify_project_access(diary.project_id, user_id, session)
-    pdf_bytes, diary_date = await service.generate_diary_pdf(diary_id)
-    filename = f"diary-{diary_date or diary_id}.pdf"
+    pdf_locale = resolve_pdf_locale(locale, accept_language)
+    pdf_bytes, diary_date = await service.generate_diary_pdf(diary_id, locale=pdf_locale)
+    filename = diary_pdf_filename(str(diary_date or diary_id), pdf_locale)
     return StreamingResponse(
         iter([pdf_bytes]),
         media_type="application/pdf",
