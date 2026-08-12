@@ -265,7 +265,7 @@ function RegionTabBar({
   totalItemCount: number;
   isLoadingRegions: boolean;
 }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -3186,9 +3186,6 @@ function CostVariantDetail({
   fmt: (n: number) => string;
   t: ReturnType<typeof import('react-i18next').useTranslation>['t'];
 }) {
-  // `t` arrives as a prop from the row, but the count below is grouped by the
-  // active app language, so this reads the language off the hook directly.
-  const { i18n } = useTranslation();
   const COLLAPSED_LIMIT = 8;
 
   // Stable sort by price ascending; ties keep original order.
