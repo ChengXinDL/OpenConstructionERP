@@ -131,6 +131,33 @@ signtool verify /pa /v OpenConstructionERP_x64-setup.exe
 Today both of those report the absence described above. That is the expected
 result, not a failed download.
 
+## Backfilling a signature onto an older release
+
+A release published without a Sigstore signature can be given one afterwards.
+The signature is made over the assets already on the release, so it attests to
+the bytes people have been downloading rather than to a rebuild. That holds
+structurally rather than by intention: the signing job contains no
+`actions/checkout`, so it has no source tree and could not rebuild an installer
+even by accident.
+
+```
+gh workflow run release-signing.yml -f tag=v14.3.0 -f backfill=true
+```
+
+`backfill=true` skips the SBOM job, and that is the part worth understanding
+before running it. The SBOM is generated when the workflow runs, from whatever
+the dependency ranges resolve to that day. On a current release that is
+accurate. On a release from six weeks ago it would describe software that
+release never contained, and since the manifest covers every asset, the
+signature would then attest to that description too. A release with no component
+list is missing something. A release with a signed and incorrect one is worse,
+because a signature is precisely the thing that stops people checking.
+
+Backfilling is not reversible in any tidy way, so it is worth being deliberate
+about scope. Signing the supported line only keeps the claim per release
+unambiguous and avoids older release pages quietly gaining assets they never
+had, which is a visible change to public pages that nobody asked for.
+
 ## Regenerating this
 
 ```
