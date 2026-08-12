@@ -80,6 +80,7 @@ import { RoleAvatar } from "./RoleAvatar";
 import { RoleArt } from "./RoleArt";
 import { CaseArt } from "./CaseArt";
 import { CompanyArt } from "./CompanyArt";
+import { dealCaseFaces } from "./caseFaces";
 import {
   STAGE_META,
   STAGE_BY_ID,
@@ -235,6 +236,12 @@ function CasesList() {
         : PLAYBOOKS,
     [authoredPlaybooks],
   );
+
+  // The person on each card, dealt over the WHOLE catalogue rather than over
+  // the narrowed or windowed list: a case wears its face because of where it
+  // sits among the cases for its company type, and clicking a filter must not
+  // re-cast the cards that survive it.
+  const facesByPlaybook = useMemo(() => dealCaseFaces(allPlaybooks), [allPlaybooks]);
 
   // Best progress for a card = the furthest a user got on this case across any
   // run (unscoped or scoped to a sample project).
@@ -1207,6 +1214,7 @@ function CasesList() {
                   totalCases={caseNumbers.size}
                   stage={stageId ? STAGE_BY_ID[stageId] : undefined}
                   roles={rolesByPlaybook.get(pb.id) ?? []}
+                  face={facesByPlaybook.get(pb.id) ?? null}
                   done={bestDoneFor(pb)}
                   pinProjectId={pinProjectId}
                   pinned={pinProjectId ? pinnedIds.includes(pb.id) : false}
@@ -1268,6 +1276,10 @@ interface CaseCardProps {
   stage: StageMeta | undefined;
   /** Professional roles that run this case (already resolved). */
   roles: ProfessionalRole[];
+  /** Photograph of the person this case is written for, dealt by `dealCaseFaces`
+   *  over the whole catalogue, or null for a case whose company types have no
+   *  cast - those cards keep the illustration alone. */
+  face: string | null;
   /** Furthest step reached across any run of this case. */
   done: number;
   /** The project the pin picker is scoped to ('' = none, hides the pin). */
@@ -1295,6 +1307,7 @@ function CaseCard({
   totalCases,
   stage,
   roles,
+  face,
   done,
   pinProjectId,
   pinned,
@@ -1352,15 +1365,49 @@ function CaseCard({
           tint.accent,
         )}
       />
-      {/* Line-art illustration banner: the picture carries the card, on an
-          always-light tile so the slate linework reads in both themes. The tile
-          keeps its 16/9 size whether the art or a placeholder sits inside, so
-          gating the art on `near` never shifts the layout. */}
+      {/* Illustration banner: the picture carries the card, on an always-light
+          tile so the slate linework reads in both themes. The tile keeps its
+          16/9 size whether the art or a placeholder sits inside, so gating the
+          art on `near` never shifts the layout.
+
+          A case that has a face is banded: the person this case is written for
+          on the left, the diagram of the work on the right, the two meeting
+          through a soft mask rather than butting together - the treatment the
+          marketing site already uses on the cards these cases came from. The
+          photograph is decorative (alt=""); the role it stands for is named in
+          the card text below, so nothing is said only in a picture. Both halves
+          are absolutely positioned inside the tile the layout has already
+          reserved, so the band cannot shift anything, and both mount together
+          on `near` so a card off screen still costs nothing. */}
       <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden border-b border-border-light bg-gradient-to-b from-white to-slate-50 ring-1 ring-inset ring-slate-900/[0.04]">
-        {near ? (
-          <CaseArt id={pb.id} category={pb.category} fallbackIcon={Icon} fallbackClass={tint.text} />
-        ) : (
+        {!near ? (
           <div className="h-full w-full" aria-hidden="true" />
+        ) : face ? (
+          <>
+            <img
+              src={face}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              width={340}
+              height={480}
+              draggable={false}
+              className={clsx(
+                "absolute inset-y-0 start-0 w-[38%] object-cover object-[50%_22%]",
+                // The mask is what makes this a band rather than an inset
+                // photo: opaque through most of its width, then out, so the
+                // diagram beside it starts before the picture has finished.
+                // Mirrored under rtl, where the band sits on the other side.
+                "[mask-image:linear-gradient(to_right,#000_58%,transparent)]",
+                "rtl:[mask-image:linear-gradient(to_left,#000_58%,transparent)]",
+              )}
+            />
+            <div className="absolute inset-y-0 end-0 w-[62%]">
+              <CaseArt id={pb.id} category={pb.category} fallbackIcon={Icon} fallbackClass={tint.text} />
+            </div>
+          </>
+        ) : (
+          <CaseArt id={pb.id} category={pb.category} fallbackIcon={Icon} fallbackClass={tint.text} />
         )}
         {(num != null || authored) && (
           <div className="absolute left-3 top-3 flex items-center gap-1.5">

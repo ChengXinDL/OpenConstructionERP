@@ -68,6 +68,7 @@ import { useViewModeStore } from '@/stores/useViewModeStore';
 import { useBrandingStore } from '@/stores/useBrandingStore';
 import { BrandingEditorModal } from '@/app/layout/CustomBranding';
 import { aiApi, type AIProvider } from '@/features/ai/api';
+import { companyThumbFor } from '@/features/cases/caseFaces';
 import { apiGet, apiPost, extractErrorMessageFromBody } from '@/shared/lib/api';
 import { useBaseCatalog } from '@/features/costs/baseCatalog';
 import { BaseCatalogBrowser } from '@/features/costs/BaseCatalogBrowser';
@@ -2091,6 +2092,52 @@ function StepCompanySize({
   );
 }
 
+/**
+ * The mark on a company-profile card: a photograph of the kind of site this
+ * profile works on when one exists for the preset key (the same picture the
+ * Cases hub puts on its "My company" tiles, so a user meets the same image
+ * twice), and the preset's glyph when it does not. Decorative either way -
+ * the profile is named in words directly beside it - so the image is alt=""
+ * and adds no string to translate.
+ */
+function ProfileMark({
+  presetKey,
+  icon: Icon,
+  selected,
+}: {
+  presetKey: string;
+  icon: LucideIcon;
+  selected: boolean;
+}) {
+  const thumb = companyThumbFor(presetKey);
+  return (
+    <div
+      className={clsx(
+        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all duration-300',
+        thumb && 'overflow-hidden',
+        selected
+          ? 'bg-oe-blue text-white shadow-lg shadow-oe-blue/20'
+          : 'bg-surface-secondary text-content-secondary group-hover:bg-surface-tertiary',
+      )}
+    >
+      {thumb ? (
+        <img
+          src={thumb}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          width={128}
+          height={128}
+          draggable={false}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <Icon size={20} />
+      )}
+    </div>
+  );
+}
+
 function StepCompanyProfile({
   onNext,
   onBack,
@@ -2150,16 +2197,7 @@ function StepCompanyProfile({
               )}
             >
               <div className="flex items-center gap-2 mb-3">
-                <div
-                  className={clsx(
-                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all duration-300',
-                    isSelected
-                      ? 'bg-oe-blue text-white shadow-lg shadow-oe-blue/20'
-                      : 'bg-surface-secondary text-content-secondary group-hover:bg-surface-tertiary',
-                  )}
-                >
-                  <Icon size={20} />
-                </div>
+                <ProfileMark presetKey={preset.key} icon={Icon} selected={isSelected} />
                 {preset.key === 'general_contractor' && (
                   <Badge variant="blue" size="sm">
                     {t('onboarding.popular', { defaultValue: 'Popular' })}
@@ -2221,16 +2259,7 @@ function StepCompanyProfile({
                 : 'bg-surface-elevated shadow-sm shadow-black/[0.04] hover:bg-oe-blue-subtle/15 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.99]',
             )}
           >
-            <div
-              className={clsx(
-                'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all duration-300',
-                isSelected
-                  ? 'bg-oe-blue text-white shadow-lg shadow-oe-blue/20'
-                  : 'bg-surface-secondary text-content-secondary group-hover:bg-surface-tertiary',
-              )}
-            >
-              <Icon size={20} />
-            </div>
+            <ProfileMark presetKey="full_enterprise" icon={Icon} selected={isSelected} />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <h3
