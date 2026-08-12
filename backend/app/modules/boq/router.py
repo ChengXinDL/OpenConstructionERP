@@ -6553,7 +6553,11 @@ async def _persist_imported_markups(
         the subtotal (the unpriced X83 fallback where the file carries a
         Zuschlag percent but no ``<IT>``); clamped to the schema's 0..100 range.
       * a markup that maps to neither (no usable percentage or amount) is
-        skipped with a warning rather than persisted as a zero no-op.
+        skipped SILENTLY here: an unpriced X83 legitimately ships its
+        Zuschlagspositionen as empty placeholders the bidder prices later,
+        and the importer already surfaces every parsed markup as a parse-time
+        warning - repeating it as an import ERROR made the official
+        certification file look broken.
 
     Failures here never abort the import (positions are already committed);
     each is appended to ``errors`` so the caller surfaces it.
@@ -6630,12 +6634,10 @@ async def _persist_imported_markups(
                     },
                 )
             else:
-                errors.append(
-                    {
-                        "ordinal": ordinal,
-                        "error": "GAEB markup carried no usable percentage or amount; skipped.",
-                    }
-                )
+                # No percentage and no amount: an unpriced placeholder
+                # Zuschlagsposition (normal in an X83 Angebotsaufforderung).
+                # The importer's parse-time warning already surfaces it; an
+                # error entry here would flag a conformant file as broken.
                 continue
             await service.add_markup(boq_id, data)
         except Exception as exc:  # noqa: BLE001 - never abort an import on a markup
