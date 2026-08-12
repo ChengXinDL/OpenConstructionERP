@@ -51,6 +51,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 
+from app.core.content_disposition import attachment_disposition
 from app.core.csv_safety import neutralise_formula
 from app.core.i18n import get_locale
 from app.core.rate_limiter import ai_limiter, upload_limiter
@@ -3240,7 +3241,7 @@ async def export_cad_group(
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{download_name}"'},
+        headers={"Content-Disposition": attachment_disposition(download_name)},
     )
 
 

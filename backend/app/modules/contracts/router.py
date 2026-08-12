@@ -30,6 +30,7 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 
+from app.core.content_disposition import attachment_disposition
 from app.core.i18n import get_locale
 from app.core.json_merge import merge_metadata
 from app.core.validation.messages import translate
@@ -1420,7 +1421,7 @@ async def export_aia_application_pdf(
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": attachment_disposition(filename)},
     )
 
 

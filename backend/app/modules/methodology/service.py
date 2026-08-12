@@ -835,10 +835,14 @@ class MethodologyService:
 
     @staticmethod
     def export_filename(data: dict[str, Any], ext: str) -> str:
-        """ASCII-safe download filename derived from the methodology name."""
+        """Download filename derived from the methodology name.
+
+        Returns the real (possibly non-ASCII) name; the router wraps it in
+        :func:`app.core.content_disposition.attachment_disposition`, which
+        derives the RFC 6266 ASCII fallback and UTF-8 ``filename*`` pair.
+        """
         raw = str(data.get("methodology_name") or "methodology")
-        safe = raw.encode("ascii", errors="replace").decode("ascii").replace('"', "'")
-        safe = safe.strip() or "methodology"
+        safe = raw.strip() or "methodology"
         return f"{safe}.{ext}"
 
     def generate_excel_export(self, data: dict[str, Any]) -> bytes:

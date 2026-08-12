@@ -39,6 +39,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.content_disposition import attachment_disposition
 from app.core.file_signature import (
     SIGNATURE_BYTES_REQUIRED,
     FileSignatureMismatch,
@@ -646,30 +647,22 @@ async def export_invoice_br_pdf(
         project=project_dict or None,
     )
 
-    # Sanitise invoice_number before embedding in a quoted Content-Disposition
-    # header.  invoice_number is a user-controlled DB value - it can contain
-    # characters that would break the RFC 6266 quoted-string or inject
-    # additional headers (CRLF injection).  Strip every character that is not
-    # ASCII printable, remove double-quotes (which terminate the quoted-string
-    # token) and forward-slashes (already done historically), and cap length.
+    # Normalise invoice_number before embedding it in the download filename.
+    # invoice_number is a user-controlled DB value - it can contain characters
+    # that would break the RFC 6266 quoted-string or inject additional headers
+    # (CRLF injection). Strip CR/LF, swap double-quotes and forward-slashes
+    # (as historically), and cap length. Non-ASCII stays: the header is built
+    # by attachment_disposition, which emits the RFC 6266 ASCII fallback plus
+    # UTF-8 ``filename*`` pair so accented invoice numbers survive intact.
     _raw_num = invoice.invoice_number or "invoice"
-    _safe_num = (
-        (
-            _raw_num.encode("ascii", errors="replace")  # non-ASCII → b'?'
-            .decode("ascii")
-            .replace("\r", "")
-            .replace("\n", "")
-            .replace('"', "'")
-            .replace("/", "-")
-            .strip()
-        )[:80]
-        or "invoice"
-    )
+    _safe_num = (_raw_num.replace("\r", "").replace("\n", "").replace('"', "'").replace("/", "-").strip())[
+        :80
+    ] or "invoice"
     filename = f"RPS_{_safe_num}.pdf"
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": attachment_disposition(filename)},
     )
 
 
@@ -866,11 +859,12 @@ async def export_invoice_einvoice(
             ),
         ) from exc
 
-    # ``filename`` is already ASCII-sanitised by the service (_safe_token).
+    # ``filename`` is single-line-sanitised by the service (_safe_token) and
+    # may carry non-ASCII; attachment_disposition derives the RFC 6266 pair.
     return StreamingResponse(
         io.BytesIO(body),
         media_type=media_type,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": attachment_disposition(filename)},
     )
 
 

@@ -832,20 +832,19 @@ def export_report(
 
 
 def _safe_filename(title: str) -> str:
-    """ASCII-safe, quote-free base filename derived from the report title.
+    """Quote-free, single-line base filename derived from the report title.
 
-    Mirrors the BOQ export filename handling: non-ASCII is replaced and
-    double quotes are swapped for single quotes so the value is safe inside
-    a ``Content-Disposition: attachment; filename="..."`` header. Falls back
-    to ``report`` when the title reduces to nothing.
+    Keeps the title's real characters (umlauts, Cyrillic, CJK): the router
+    builds the header with
+    :func:`app.core.content_disposition.attachment_disposition`, which emits
+    the RFC 6266 ASCII fallback plus UTF-8 ``filename*`` pair. What must go
+    here is anything that would break the header line itself: double quotes
+    are swapped for single quotes and control characters (CR/LF/tab) are
+    stripped - a CR/LF in a header value is HTTP response splitting. Falls
+    back to ``report`` when the title reduces to nothing.
     """
-    base = (title or "").encode("ascii", errors="replace").decode("ascii").replace('"', "'")
-    # Strip control characters before anything else. CR/LF/tab are ASCII, so
-    # they survive the round-trip above and would otherwise land verbatim in the
-    # ``Content-Disposition: attachment; filename="..."`` header - a CR/LF there
-    # is HTTP header injection (response splitting) and also breaks the download
-    # in most clients. Keep only printable ASCII (0x20-0x7e).
-    base = "".join(ch for ch in base if " " <= ch <= "~").strip()
+    base = (title or "").replace('"', "'")
+    base = "".join(ch for ch in base if ch >= " " and ch != "\x7f").strip()
     # Collapse path separators that would confuse some download clients.
     base = base.replace("/", "-").replace("\\", "-")
     return base or "report"

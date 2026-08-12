@@ -3888,14 +3888,13 @@ async def export_boq_csv(
     content = output.getvalue()
     output.close()
 
-    safe_name = structured.name.encode("ascii", errors="replace").decode("ascii").replace('"', "'")
-    filename = f"{safe_name}.csv"
+    filename = f"{structured.name}.csv"
 
     return StreamingResponse(
         iter([content]),
         media_type="text/csv; charset=utf-8",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Disposition": attachment_disposition(filename),
         },
     )
 
@@ -4300,14 +4299,13 @@ async def export_boq_excel(
     wb.save(buffer)
     buffer.seek(0)
 
-    safe_name = boq_data.name.encode("ascii", errors="replace").decode("ascii").replace('"', "'")
-    filename = f"{safe_name}.xlsx"
+    filename = f"{boq_data.name}.xlsx"
 
     return StreamingResponse(
         buffer,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Disposition": attachment_disposition(filename),
         },
     )
 
@@ -4425,8 +4423,7 @@ async def export_boq_pdf(
             "invalid data. Please try exporting as Excel or CSV instead.",
         )
 
-    safe_name = boq_data.name.encode("ascii", errors="replace").decode("ascii").replace('"', "'")
-    filename = f"{safe_name}.pdf"
+    filename = f"{boq_data.name}.pdf"
 
     def _iter_pdf_chunks() -> Iterator[bytes]:
         """Yield PDF bytes in chunks to enable true streaming."""
@@ -4440,7 +4437,7 @@ async def export_boq_pdf(
         _iter_pdf_chunks(),
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Disposition": attachment_disposition(filename),
             "Content-Length": str(len(pdf_bytes)),
         },
     )
@@ -4602,14 +4599,13 @@ async def export_boq_bc3(
         program_version=getattr(get_settings(), "app_version", "") or "",
     )
 
-    safe_name = boq_data.name.encode("ascii", errors="replace").decode("ascii").replace('"', "'")
-    filename = f"{safe_name}.bc3"
+    filename = f"{boq_data.name}.bc3"
 
     return StreamingResponse(
         iter([data]),
         media_type=f"text/plain; charset={http_charset}",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Disposition": attachment_disposition(filename),
         },
     )
 
@@ -8258,7 +8254,7 @@ async def get_position_price_analysis(
         return StreamingResponse(
             io.BytesIO(text.encode("utf-8")),
             media_type="text/markdown",
-            headers={"Content-Disposition": f'attachment; filename="price_analysis_{safe}.md"'},
+            headers={"Content-Disposition": attachment_disposition(f"price_analysis_{safe}.md")},
         )
 
     result = breakdown.to_dict()
@@ -8277,14 +8273,14 @@ def _measurement_stream(sheet: Any, fmt: str, preset: str, item_ref: str) -> Str
         return StreamingResponse(
             io.BytesIO(body.encode("utf-8")),
             media_type="text/markdown",
-            headers={"Content-Disposition": f'attachment; filename="measurement_{safe}.md"'},
+            headers={"Content-Disposition": attachment_disposition(f"measurement_{safe}.md")},
         )
     if fmt == "csv":
         body = render_csv(sheet, preset=preset)
         return StreamingResponse(
             io.BytesIO(body.encode("utf-8")),
             media_type="text/csv",
-            headers={"Content-Disposition": f'attachment; filename="measurement_{safe}.csv"'},
+            headers={"Content-Disposition": attachment_disposition(f"measurement_{safe}.csv")},
         )
     return None
 

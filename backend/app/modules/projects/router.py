@@ -20,6 +20,7 @@ from fastapi.responses import Response
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.content_disposition import attachment_disposition
 from app.dependencies import CurrentUserId, CurrentUserPayload, RequireRole, SessionDep, SettingsDep
 from app.modules.projects import profile_service
 from app.modules.projects.bundle_export import (
@@ -2774,7 +2775,7 @@ async def post_export_bundle(
         content=raw,
         media_type="application/zip",
         headers={
-            "Content-Disposition": f'attachment; filename="{fname}"',
+            "Content-Disposition": attachment_disposition(fname),
             "X-Bundle-Format": "ocep",
             "X-Bundle-Scope": options.scope,
         },

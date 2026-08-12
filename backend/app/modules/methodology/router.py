@@ -40,6 +40,7 @@ from collections.abc import Iterator
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 
+from app.core.content_disposition import attachment_disposition
 from app.dependencies import (
     CurrentUserId,
     RequirePermission,
@@ -450,7 +451,7 @@ async def export_methodology_excel(
     return StreamingResponse(
         iter([content]),
         media_type=("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": attachment_disposition(filename)},
     )
 
 
@@ -499,7 +500,7 @@ async def export_methodology_pdf(
         _iter_pdf_chunks(),
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Disposition": attachment_disposition(filename),
             "Content-Length": str(len(pdf_bytes)),
         },
     )

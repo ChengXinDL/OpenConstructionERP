@@ -25,6 +25,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import HTMLResponse, Response
 
+from app.core.content_disposition import attachment_disposition
 from app.dependencies import CurrentUserId, RequirePermission, SessionDep, verify_project_access
 from app.modules.reporting.schemas import (
     GeneratedReportResponse,
@@ -441,7 +442,7 @@ async def download_report(
         content=blob,
         media_type=media_type,
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Disposition": attachment_disposition(filename),
             "Content-Length": str(len(blob)),
         },
     )
@@ -483,7 +484,7 @@ async def download_cobie(
         content=blob,
         media_type=media_type,
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Disposition": attachment_disposition(filename),
             "Content-Length": str(len(blob)),
         },
     )

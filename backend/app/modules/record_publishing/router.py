@@ -20,6 +20,8 @@ import uuid
 from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 
+from app.core.content_disposition import attachment_disposition
+from app.core.http_headers import content_disposition_attachment
 from app.dependencies import CurrentUserId, RequirePermission, SessionDep
 from app.modules.record_publishing.schemas import (
     PublishRecordRequest,
@@ -79,7 +81,7 @@ async def download_record_public(
     return Response(
         content=data,
         media_type=media_type,
-        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+        headers={"Content-Disposition": content_disposition_attachment(filename, inline=True)},
     )
 
 
@@ -97,5 +99,5 @@ async def download_record(
     return Response(
         content=data,
         media_type=media_type,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": attachment_disposition(filename)},
     )

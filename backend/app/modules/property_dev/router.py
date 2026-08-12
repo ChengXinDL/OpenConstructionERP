@@ -27,6 +27,7 @@ from fastapi import (
     status,
 )
 
+from app.core.content_disposition import attachment_disposition
 from app.core.email import EmailAttachment, get_email_service
 from app.core.file_signature import (
     ALLOWED_PHOTO_TYPES,
@@ -5373,7 +5374,7 @@ async def download_custom_document_template(
         content=data,
         media_type=row.content_type or "application/octet-stream",
         headers={
-            "Content-Disposition": (f'attachment; filename="{row.filename}"'),
+            "Content-Disposition": attachment_disposition(row.filename),
         },
     )
 

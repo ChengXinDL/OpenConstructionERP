@@ -25,6 +25,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.content_disposition import attachment_disposition
 from app.dependencies import (
     CurrentUserId,
     RequirePermission,
@@ -152,5 +153,5 @@ async def export_document(
     return StreamingResponse(
         io.BytesIO(text.encode("utf-8")),
         media_type="text/markdown",
-        headers={"Content-Disposition": f'attachment; filename="basis_of_estimate_{safe}.md"'},
+        headers={"Content-Disposition": attachment_disposition(f"basis_of_estimate_{safe}.md")},
     )

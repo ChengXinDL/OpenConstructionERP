@@ -30,6 +30,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import select
 
+from app.core.content_disposition import attachment_disposition
 from app.dependencies import CurrentUserId, RequirePermission, SessionDep, verify_project_access
 from app.modules.requirements.intl import PRIORITY_ORDER, priority_label
 from app.modules.requirements.lifecycle import (
@@ -430,7 +431,7 @@ async def _export_dispatch(
         return JSONResponse(
             content=rows,
             headers={
-                "Content-Disposition": f'attachment; filename="{safe_name}.json"',
+                "Content-Disposition": attachment_disposition(f"{safe_name}.json"),
             },
         )
 
@@ -442,7 +443,7 @@ async def _export_dispatch(
             content=payload,
             media_type=("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
             headers={
-                "Content-Disposition": f'attachment; filename="{safe_name}.xlsx"',
+                "Content-Disposition": attachment_disposition(f"{safe_name}.xlsx"),
             },
         )
 
@@ -457,7 +458,7 @@ async def _export_dispatch(
         iter([buf.getvalue()]),
         media_type="text/csv",
         headers={
-            "Content-Disposition": f'attachment; filename="{safe_name}.csv"',
+            "Content-Disposition": attachment_disposition(f"{safe_name}.csv"),
         },
     )
 

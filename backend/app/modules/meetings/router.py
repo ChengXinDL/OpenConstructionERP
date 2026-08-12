@@ -23,6 +23,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import Response, StreamingResponse
 
+from app.core.content_disposition import attachment_disposition
 from app.dependencies import CurrentUserId, RequirePermission, SessionDep, verify_project_access
 from app.modules.meetings import ics as ics_builder
 from app.modules.meetings.schemas import (
@@ -1254,7 +1255,7 @@ async def export_meeting_ics(
     return Response(
         content=ics_text,
         media_type=ics_builder.MEDIA_TYPE,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": attachment_disposition(filename)},
     )
 
 
@@ -1278,7 +1279,7 @@ async def export_meeting_ics_alias(
     return Response(
         content=ics_text,
         media_type=ics_builder.MEDIA_TYPE,
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": attachment_disposition(filename)},
     )
 
 
@@ -1945,7 +1946,7 @@ async def export_meeting_pdf(
     return StreamingResponse(
         buf,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": attachment_disposition(filename)},
     )
 
 
@@ -1985,5 +1986,5 @@ async def export_minutes_pdf(
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": attachment_disposition(filename)},
     )

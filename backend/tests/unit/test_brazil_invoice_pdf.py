@@ -206,24 +206,18 @@ def test_render_br_invoice_pdf_escapes_html_in_description() -> None:
 
 # ── Content-Disposition filename sanitisation ────────────────────────────
 # These tests cover the inline sanitisation applied in finance/router.py
-# *before* the invoice_number is embedded in the quoted Content-Disposition
-# header.  We replicate the exact transformation here so a future router
-# refactor can't quietly re-introduce the injection surface without a red
-# test.
+# *before* the invoice_number is embedded in the download filename.  We
+# replicate the exact transformation here so a future router refactor can't
+# quietly re-introduce the injection surface without a red test.  The header
+# itself is built by app.core.content_disposition.attachment_disposition,
+# which emits the RFC 6266 pair, so non-ASCII invoice numbers survive to the
+# browser instead of becoming question marks.
 
 
 def _sanitise_invoice_number(raw: str | None) -> str:
     """Mirror of the sanitisation logic in ``finance/router.py``."""
     _raw_num = raw or "invoice"
-    _safe = (
-        _raw_num.encode("ascii", errors="replace")
-        .decode("ascii")
-        .replace("\r", "")
-        .replace("\n", "")
-        .replace('"', "'")
-        .replace("/", "-")
-        .strip()
-    )[:80] or "invoice"
+    _safe = (_raw_num.replace("\r", "").replace("\n", "").replace('"', "'").replace("/", "-").strip())[:80] or "invoice"
     return _safe
 
 
@@ -258,3 +252,24 @@ def test_invoice_number_fallback_on_empty() -> None:
 def test_invoice_number_caps_at_80_chars() -> None:
     long_num = "A" * 120
     assert len(_sanitise_invoice_number(long_num)) == 80
+
+
+def test_invoice_number_keeps_accents_for_the_rfc6266_header() -> None:
+    """Brazilian series names carry accents; they must reach filename* intact.
+
+    The old code turned every non-ASCII character into ``?`` before the name
+    hit the header. Now the sanitiser keeps the real characters and the
+    header helper carries them in the RFC 5987 parameter, with a readable
+    ASCII fallback beside it.
+    """
+    from urllib.parse import unquote
+
+    from app.core.content_disposition import attachment_disposition
+
+    number = _sanitise_invoice_number("NF-São-Paulo/0042")
+    assert number == "NF-São-Paulo-0042"
+
+    header = attachment_disposition(f"RPS_{number}.pdf")
+    fallback = header.split('filename="', 1)[1].split('"', 1)[0]
+    assert fallback == "RPS_NF-Sao-Paulo-0042.pdf"
+    assert unquote(header.split("filename*=UTF-8''", 1)[1]) == "RPS_NF-São-Paulo-0042.pdf"

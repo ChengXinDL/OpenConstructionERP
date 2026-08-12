@@ -469,11 +469,17 @@ def problems_for(
 
 
 def _safe_token(raw: str) -> str:
-    """ASCII-safe token for a Content-Disposition filename."""
+    """Single-line token for a Content-Disposition filename.
+
+    Keeps the invoice number's real characters (umlauts included); the header
+    site wraps the finished filename in
+    :func:`app.core.content_disposition.attachment_disposition`, which derives
+    the RFC 6266 ASCII fallback and UTF-8 ``filename*`` pair. Only the
+    characters that would break the header or the filename are normalised
+    here, exactly as before.
+    """
     cleaned = (
         (raw or "invoice")
-        .encode("ascii", errors="replace")
-        .decode("ascii")
         .replace("\r", "")
         .replace("\n", "")
         .replace('"', "'")
