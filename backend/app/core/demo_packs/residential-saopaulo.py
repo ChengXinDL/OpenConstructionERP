@@ -17,7 +17,7 @@ from app.core.demo_projects import DemoTemplate
 
 TEMPLATE = DemoTemplate(
     demo_id="residential-saopaulo",
-    project_name="Edificio Residencial Jardins - Sao Paulo",
+    project_name="Edifício Residencial Jardins - São Paulo",
     project_description=(
         "Construção de edificio residencial multifamiliar em concreto armado, "
         "1 torre com 18 pavimentos-tipo + terreo (pilotis) + 2 subsolos de "

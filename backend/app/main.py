@@ -812,10 +812,10 @@ async def _seed_demo_account() -> None:
         #     project(s) so the workspace reflects the partner's region,
         #     currency and classification - nothing else.
         #
-        #   GENERIC MODE (no pack): seed the rich nine-project showcase - the
-        #     eight country projects in SHOWCASE_DEMO_IDS plus the flagship
-        #     reference project installed further below - so a fresh, vanilla
-        #     install lands a fully worked-out, globe-spanning portfolio.
+        #   GENERIC MODE (no pack): seed the rich showcase - the country
+        #     projects in SHOWCASE_DEMO_IDS plus the flagship reference
+        #     project installed further below - so a fresh, vanilla install
+        #     lands a fully worked-out, globe-spanning portfolio.
         #
         # Both paths install each project in its own try/except so one failure
         # never aborts the rest of the seed.
@@ -874,8 +874,8 @@ async def _seed_demo_account() -> None:
             else:
                 # GENERIC MODE - seed the rich showcase by default. Tests ask for
                 # a fast startup (OE_TEST_FAST_STARTUP), and operators can opt out
-                # with OE_SKIP_SHOWCASE=1; both skip the eight-project loop. The
-                # flagship below still installs and provides the ninth project.
+                # with OE_SKIP_SHOWCASE=1; both skip the showcase loop. The
+                # flagship below still installs alongside it.
                 _fast_startup = os.environ.get("OE_TEST_FAST_STARTUP", "").lower() in (
                     "1",
                     "true",
