@@ -63,7 +63,10 @@ const TITLE_I18N_MAP: Record<string, string> = {
   'BOQ Templates': 'nav.templates',
   // Catalogues
   'Cost Database': 'nav.costs',
+  'Cost Explorer': 'nav.cost_explorer',
   'Import Cost Database': 'costs.import_title',
+  // Regional exchange modules (route titles come from module manifests)
+  'GAEB Exchange': 'nav.gaeb_exchange',
   'Resource Catalog': 'nav.resource_catalog',
   'Assemblies': 'nav.assemblies',
   'New Assembly': 'assemblies.new',

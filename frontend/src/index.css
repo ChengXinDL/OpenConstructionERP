@@ -603,6 +603,19 @@ h4 {
   flex: 1 1 auto;
 }
 
+/* ── Visible inline-edit affordance ─────────────────────────────────────
+   Entering cell-edit mode must be unmistakable: without this, an inline
+   editor opened by a stray click is indistinguishable from a selected
+   cell, and typing silently rewrites the value (an Ordnungszahl was once
+   overwritten exactly this way). The editing cell gets a solid accent
+   outline and a shadow so "you are now editing" is visible at a glance. */
+.ag-theme-quartz .ag-cell.ag-cell-inline-editing {
+  outline: 2px solid var(--oe-blue);
+  outline-offset: -2px;
+  border-radius: 4px;
+  box-shadow: 0 1px 6px rgb(0 0 0 / 0.18);
+}
+
 /* ── AG Grid drag handle column ───────────────────────────────────────── */
 
 .oe-drag-handle-cell {

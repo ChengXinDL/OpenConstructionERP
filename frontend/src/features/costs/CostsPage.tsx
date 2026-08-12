@@ -403,7 +403,7 @@ function RegionTabBar({
             {t('costs.all_regions', { defaultValue: 'All' })}
           </span>
           <span className={`text-2xs tabular-nums ${activeRegion === '' ? 'text-oe-blue' : 'text-content-quaternary'}`}>
-            {totalItems > 0 ? totalItems.toLocaleString(i18n.language) : ''}
+            {totalItems > 0 ? totalItems.toLocaleString(getIntlLocale()) : ''}
           </span>
         </button>
 
@@ -432,9 +432,15 @@ function RegionTabBar({
               `}
             >
               <MiniFlag code={info.flag} size={13} />
-              <span className="text-sm font-medium whitespace-nowrap">{info.name}</span>
+              <span className="text-sm font-medium whitespace-nowrap">
+                {/* REGION_MAP names are English; the DACH tab is the one region
+                    whose label must localise (Deutschland / DACH under de). */}
+                {regionId === 'DE_BERLIN'
+                  ? t('costdb.region_de_berlin', { defaultValue: info.name })
+                  : info.name}
+              </span>
               <span className={`text-2xs tabular-nums ${isActive ? 'text-oe-blue' : 'text-content-quaternary'}`}>
-                {count > 0 ? count.toLocaleString(i18n.language) : ''}
+                {count > 0 ? count.toLocaleString(getIntlLocale()) : ''}
               </span>
             </button>
           );
@@ -1168,10 +1174,10 @@ export function CostsPage() {
                     : isFetching && tabCount != null
                       ? tabCount
                       : 0;
-                return `${regionInfo.name}, ${display.toLocaleString(i18n.language)} ${t('costs.items', 'items')}`;
+                return `${regionInfo.name}, ${display.toLocaleString(getIntlLocale())} ${t('costs.items', 'items')}`;
               })()
             : total > 0
-              ? `${total.toLocaleString(i18n.language)} ${t('costs.results_found', 'results found')}`
+              ? `${total.toLocaleString(getIntlLocale())} ${t('costs.results_found', 'results found')}`
               : t('costs.search_hint', 'Search cost items by description or code')
         }
         actions={
@@ -1684,7 +1690,7 @@ export function CostsPage() {
                     defaultValue: '{{from}}-{{to}} of {{total}}',
                     from: offset + 1,
                     to: Math.min(offset + PAGE_SIZE, total),
-                    total: total.toLocaleString(i18n.language),
+                    total: total.toLocaleString(getIntlLocale()),
                   })}
                 </p>
                 {totalPages > 1 && (
@@ -3269,7 +3275,7 @@ function CostVariantDetail({
           <>
             <span className="text-content-tertiary">·</span>
             <span className="rounded bg-surface-primary/70 px-1.5 py-0.5">
-              <span className="font-semibold text-content-primary">{stats.position_count.toLocaleString(i18n.language)}</span>
+              <span className="font-semibold text-content-primary">{stats.position_count.toLocaleString(getIntlLocale())}</span>
               <span className="ml-1 text-content-tertiary">
                 {t('costs.variant_position_count_label', { defaultValue: 'Estimates' })}
               </span>

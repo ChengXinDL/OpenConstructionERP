@@ -13,7 +13,7 @@ import { Card, Badge, EmptyState, Skeleton, Button, Breadcrumb, FileTypeChips, D
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { DateDisplay } from '@/shared/ui/DateDisplay';
 import { apiGet } from '@/shared/lib/api';
-import { getIntlLocale } from '@/shared/lib/formatters';
+import { getIntlLocale, fmtCompact } from '@/shared/lib/formatters';
 import { boqApi, type BOQWithPositions, groupPositionsIntoSections, type SectionGroup } from './api';
 import { resourceAwareTotalInBase, getCurrencyCode } from './boqHelpers';
 import { projectsApi, type ProjectFxRate } from '@/features/projects/api';
@@ -61,13 +61,13 @@ const currencyFmt = new Intl.NumberFormat(getIntlLocale(), {
 });
 
 /**
- * Compact money for the stat cards: 1.2M / 340K / 9,500 — always paired
- * with its ISO currency code by the caller (money rule: a figure is never
- * shown without its currency).
+ * Compact money for the stat cards — always paired with its ISO currency
+ * code by the caller (money rule: a figure is never shown without its
+ * currency). Locale-aware: "22.1M" under en, "22,1 Mio." under de, so the
+ * tile agrees with the row-level money formatting on the same screen.
  */
 function compactMoney(value: number): string {
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `${(value / 1_000).toFixed(0)}K`;
+  if (value >= 1_000) return fmtCompact(value);
   return currencyFmt.format(value);
 }
 
@@ -938,7 +938,7 @@ export function BOQListPage() {
                   aria-label={t('a11y.boq.project_filter', {
                     defaultValue: 'Filter estimates by project',
                   })}
-                  className="h-10 appearance-none rounded-lg border border-border bg-surface-primary pl-3 pr-9 text-sm text-content-primary focus:outline-none focus:ring-2 focus:ring-oe-blue sm:w-44"
+                  className="h-10 max-w-full appearance-none rounded-lg border border-border bg-surface-primary pl-3 pr-9 text-sm text-content-primary focus:outline-none focus:ring-2 focus:ring-oe-blue sm:min-w-44 sm:max-w-80"
                 >
                   <option value="">{t('boq.all_projects', { defaultValue: 'All projects' })}</option>
                   {uniqueProjects.map((p) => (
@@ -1103,7 +1103,9 @@ export function BOQListPage() {
                   <span aria-hidden>·</span>
                   <span className="inline-flex items-center gap-1">
                     <CalendarDays size={11} />
-                    <DateDisplay value={boq.created_at} />
+                    {/* All-numeric so a de-DE reader sees 14.03.2026, matching
+                        the tendering cards (PLAN fixes the numeric form). */}
+                    <DateDisplay value={boq.created_at} format="numeric" />
                   </span>
                   {isCollabEnabled && (
                     <span className="ml-auto"><PresenceAvatars boqId={boq.id} /></span>
