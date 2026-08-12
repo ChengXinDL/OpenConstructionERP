@@ -524,6 +524,30 @@ async function request<TResponse>(
 // ---------------------------------------------------------------------------
 
 /**
+ * One page of a collection endpoint, plus the size of the whole set.
+ *
+ * Mirrors the `{items, total, offset, limit}` envelope the backend returns
+ * from list endpoints. `total` is the count matching the filter, NOT
+ * `items.length` — that distinction is the whole point of the shape. A
+ * surface that renders `items` and never compares it to `total` shows a
+ * truncated list and cannot tell the user that it did.
+ *
+ * Use `isTruncated` rather than writing the comparison at each call site,
+ * so "did I get everything" has one answer everywhere.
+ */
+export interface Page<T> {
+  items: T[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+/** True when the page holds fewer rows than exist behind it. */
+export function isTruncated(page: Pick<Page<unknown>, 'items' | 'total'>): boolean {
+  return page.total > page.items.length;
+}
+
+/**
  * Typed GET request.
  *
  * @example
