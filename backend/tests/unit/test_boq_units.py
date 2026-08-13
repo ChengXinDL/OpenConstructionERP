@@ -53,6 +53,8 @@ def test_canonical_units_round_trip(unit: str) -> None:
         ("sf", "ft2"),
         ("SF", "ft2"),
         ("cum", "m3"),
+        ("cf", "ft3"),
+        ("CF", "ft3"),
         ("each", "ea"),
         ("piece", "pcs"),
         ("nr", "no"),

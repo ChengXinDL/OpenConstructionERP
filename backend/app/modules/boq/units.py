@@ -119,6 +119,9 @@ _UNIT_ALIASES: Final[dict[str, str]] = {
     "cu.m": "m3",
     "cuft": "ft3",
     "cu.ft": "ft3",
+    # "cf" is the volume half of the same story - the us_pack volume default,
+    # which the normaliser passed through verbatim next to canonical ft3.
+    "cf": "ft3",
     # US trade units - GitHub #320
     "cuyd": "cy",
     "cu.yd": "cy",
