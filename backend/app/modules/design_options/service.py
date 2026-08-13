@@ -68,36 +68,39 @@ _DIN276_GROUPS: dict[str, str] = {
     "800": "Financing",
 }
 
-# MasterFormat divisions (common subset; unknown divisions fall back to a
-# "Division NN" label so nothing is dropped).
+# Division scope descriptions (common subset; unknown divisions fall back
+# to a "Division NN" label so nothing is dropped). Numbers are
+# interoperability facts; the wording is our own and matches
+# us_pack/config.py - the proprietary division titles must never be
+# bundled (licensing denylist).
 _MASTERFORMAT_DIVISIONS: dict[str, str] = {
-    "00": "Procurement and contracting",
-    "01": "General requirements",
-    "02": "Existing conditions",
-    "03": "Concrete",
-    "04": "Masonry",
-    "05": "Metals",
-    "06": "Wood, plastics and composites",
-    "07": "Thermal and moisture protection",
-    "08": "Openings",
-    "09": "Finishes",
-    "10": "Specialties",
-    "11": "Equipment",
-    "12": "Furnishings",
-    "13": "Special construction",
-    "14": "Conveying equipment",
-    "21": "Fire suppression",
-    "22": "Plumbing",
-    "23": "Heating, ventilating and air conditioning",
-    "25": "Integrated automation",
-    "26": "Electrical",
-    "27": "Communications",
-    "28": "Electronic safety and security",
-    "31": "Earthwork",
-    "32": "Exterior improvements",
-    "33": "Utilities",
-    "34": "Transportation",
-    "35": "Waterway and marine construction",
+    "00": "Bidding and contract-formation documents",
+    "01": "General project requirements and temporary provisions",
+    "02": "Demolition, site assessment and existing structures",
+    "03": "Cast-in-place and precast concrete work",
+    "04": "Brick, block and stone work",
+    "05": "Structural and miscellaneous metal work",
+    "06": "Carpentry, millwork and composite framing",
+    "07": "Roofing, waterproofing and insulation",
+    "08": "Doors, windows and glazed assemblies",
+    "09": "Interior finishing: drywall, flooring, painting",
+    "10": "Built-in specialty items and signage",
+    "11": "Fixed building equipment",
+    "12": "Furniture, casework and window treatments",
+    "13": "Pre-engineered and special-purpose structures",
+    "14": "Elevators, escalators and lifts",
+    "21": "Sprinkler and fire-suppression systems",
+    "22": "Piping systems and sanitary fixtures",
+    "23": "Heating, cooling and ventilation systems",
+    "25": "Building automation and controls integration",
+    "26": "Power distribution and lighting systems",
+    "27": "Voice, data and network cabling",
+    "28": "Fire alarm, access control and surveillance",
+    "31": "Excavation, grading and earth support",
+    "32": "Paving, landscaping and site amenities",
+    "33": "Site water, sewer, storm and power services",
+    "34": "Rail, transit and transportation infrastructure",
+    "35": "Marine, dredging and waterfront work",
 }
 
 

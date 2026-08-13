@@ -63,8 +63,8 @@ PACK_CONFIG: dict[str, Any] = {
         },
         {
             "code": "US_ELEMENTAL",
-            "name": "Elemental classification (UNIFORMAT II per NIST SP 841)",
-            "description": "Elemental classification for preliminary estimates",
+            "name": "US elemental classification",
+            "description": "Elemental classification for preliminary estimates (element names per NIST SP 841)",
         },
     ],
     # ── Contract types ───────────────────────────────────────────────────────

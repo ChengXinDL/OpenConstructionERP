@@ -789,7 +789,7 @@ This is the primary classification standard for US construction cost data: 50 di
 
 ### 9.2 Elemental classification (UNIFORMAT II)
 
-An assembly-level classification aimed at early-stage estimating, built from letter-based elements with numeric subdivisions. Element codes and names below follow the public-domain UNIFORMAT II tables published by NIST (SP 841, 1992), not any proprietary edition.
+An assembly-level classification aimed at early-stage estimating, built from letter-based elements with numeric subdivisions. Element names below follow the public-domain elemental classification published by NIST (SP 841, 1992); the letter designators (G10-G40) follow the later federal publication NISTIR 6389. No proprietary edition is reproduced.
 
 **The sitework elements you will use:**
 

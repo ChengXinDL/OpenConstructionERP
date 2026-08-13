@@ -2681,13 +2681,15 @@ class MasterFormatCompleteness(ValidationRule):
     standard = "masterformat"
     severity = Severity.WARNING
     category = RuleCategory.COMPLETENESS
-    description = "Core divisions (03 Concrete, 05 Metals, 26 Electrical) should be present"
+    description = "Core divisions (03, 05, 26) should be present"
 
     REQUIRED_DIVISIONS = {"03", "05", "26"}
+    # Our own scope wording, not the proprietary division titles
+    # (licensing denylist) - these feed user-facing rule messages.
     DIV_NAMES = {
-        "03": "Concrete",
-        "05": "Metals",
-        "26": "Electrical",
+        "03": "concrete work",
+        "05": "metal work",
+        "26": "electrical systems",
     }
 
     async def validate(self, context: ValidationContext) -> list[RuleResult]:
