@@ -27,7 +27,7 @@ Identifier namespaces used here:
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 from typing import TYPE_CHECKING
 
@@ -140,12 +140,20 @@ class RuleViolation:
             :data:`WARNING` (it will be accepted but something is missing).
         message: what the user has to do about it, in plain language.
         term: the EN 16931 business term at fault, e.g. ``BT-84``.
+        params: the values ``message`` interpolates, under the names a
+            translation of this rule uses for them. A screen that renders the
+            finding in another language looks the rule id up in its catalogue
+            and feeds these in, so the German sentence still names line 3 and
+            still quotes the amount the receiver will expect. Without them a
+            translated catalogue could only carry rules whose wording is
+            constant, which is most of the calculation family gone.
     """
 
     rule_id: str
     severity: str
     message: str
     term: str | None = None
+    params: dict[str, str] = field(default_factory=dict)
 
     def __str__(self) -> str:
         return f"{self.rule_id}: {self.message}"
@@ -253,6 +261,10 @@ def _check_parties(inv: EInvoice) -> list[RuleViolation]:
                     FATAL,
                     f"The {who} VAT identifier must start with its country code, for example DE{vat_id}.",
                     term,
+                    # ``party`` is an enumerated value, not prose: a screen
+                    # renders it through its own catalogue rather than printing
+                    # the English word into a translated sentence.
+                    {"party": who, "example": f"DE{vat_id}"},
                 )
             )
     return out
@@ -272,11 +284,21 @@ def _check_lines(inv: EInvoice) -> list[RuleViolation]:
         if not line.line_id:
             out.append(RuleViolation("BR-21", FATAL, "Every invoice line needs a line number.", "BT-126"))
         if not line.name:
-            out.append(RuleViolation("BR-25", FATAL, f"Line {where} needs an item name or description.", "BT-153"))
+            out.append(
+                RuleViolation(
+                    "BR-25", FATAL, f"Line {where} needs an item name or description.", "BT-153", {"line": where}
+                )
+            )
         if not line.unit:
-            out.append(RuleViolation("BR-23", FATAL, f"Line {where} needs a unit of measure.", "BT-130"))
+            out.append(
+                RuleViolation("BR-23", FATAL, f"Line {where} needs a unit of measure.", "BT-130", {"line": where})
+            )
         if line.net_unit_price is None or line.net_unit_price < 0:
-            out.append(RuleViolation("BR-27", FATAL, f"The unit price on line {where} cannot be negative.", "BT-146"))
+            out.append(
+                RuleViolation(
+                    "BR-27", FATAL, f"The unit price on line {where} cannot be negative.", "BT-146", {"line": where}
+                )
+            )
     return out
 
 
@@ -333,6 +355,7 @@ def _check_vat_breakdown(inv: EInvoice) -> list[RuleViolation]:
                     FATAL,
                     f"The VAT for the {grp.rate}% group must be {expected}, which is {grp.basis} times {grp.rate}%.",
                     "BT-117",
+                    {"rate": str(grp.rate), "expected": str(expected), "basis": str(grp.basis)},
                 )
             )
 
@@ -346,6 +369,7 @@ def _check_vat_breakdown(inv: EInvoice) -> list[RuleViolation]:
                     FATAL,
                     f"Line {line.line_id} has VAT category {line.vat_category!r}, which is not a known code.",
                     "BT-151",
+                    {"line": str(line.line_id), "category": str(line.vat_category)},
                 )
             )
             continue
@@ -525,6 +549,7 @@ def _check_tax_currency(inv: EInvoice) -> list[RuleViolation]:
                 f"The invoice accounts for VAT in {tax_currency}, so it must also state the VAT "
                 f"total in {tax_currency}.",
                 "BT-111",
+                {"currency": tax_currency},
             )
         ]
     return []
@@ -698,6 +723,7 @@ def _check_de_payment_means(inv: EInvoice) -> list[RuleViolation]:
                 "This platform cannot write that group, so choose a credit transfer code (30 or 58) "
                 f"{_SELLER_PARTY_HOME}.",
                 "BT-81",
+                {"code": code},
             )
         ]
     if code in DIRECT_DEBIT_CODES:
@@ -709,6 +735,7 @@ def _check_de_payment_means(inv: EInvoice) -> list[RuleViolation]:
                 "This platform cannot write that group, so choose a credit transfer code (30 or 58) "
                 f"{_SELLER_PARTY_HOME}.",
                 "BT-81",
+                {"code": code},
             )
         ]
     return []
@@ -750,6 +777,7 @@ def _check_de_contact_shape(inv: EInvoice) -> list[RuleViolation]:
                 WARNING,
                 f"The seller telephone number (BT-42) should hold at least three digits, and {phone!r} does not.",
                 "BT-42",
+                {"phone": phone},
             )
         )
     email = (inv.seller.contact_email or "").strip()
@@ -761,6 +789,7 @@ def _check_de_contact_shape(inv: EInvoice) -> list[RuleViolation]:
                 f"The seller email address (BT-43) should hold exactly one @ with at least two characters "
                 f"either side of it, and {email!r} does not.",
                 "BT-43",
+                {"email": email},
             )
         )
     return out
@@ -778,6 +807,10 @@ def _check_de_type_code(inv: EInvoice) -> list[RuleViolation]:
             WARNING,
             f"XRechnung expects the invoice type code (BT-3) to be one of {known}, and this document says {code}.",
             "BT-3",
+            # The bare codes travel beside the annotated list because the names
+            # in ``known`` are English: a translated sentence can name the
+            # permitted codes without importing that English into itself.
+            {"code": code, "codes": ", ".join(DE_INVOICE_TYPE_CODES)},
         )
     ]
 
@@ -892,6 +925,7 @@ def check(inv: EInvoice) -> list[RuleViolation]:
                 FATAL,
                 f"Unknown e-invoice format {inv.profile!r}.",
                 "BT-24",
+                {"profile": str(inv.profile)},
             )
         )
     else:

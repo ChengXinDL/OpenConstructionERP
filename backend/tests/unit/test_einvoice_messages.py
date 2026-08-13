@@ -5,11 +5,29 @@ and where. These tests pin that the guidance stays actionable (says "Add ...")
 and free of the typographic characters the house style forbids.
 """
 
+import re
 from decimal import Decimal
+from pathlib import Path
+
+import pytest
 
 from app.modules.einvoice import problems_for, violations_for
 from app.modules.einvoice.cii import EInvoice, EInvoiceLine, Party, TaxSubtotal, validate_semantics
-from app.modules.einvoice.rules import _INVOICE_HOME, FATAL
+from app.modules.einvoice.rules import (
+    _CATEGORY_RULE_PREFIX,
+    _INVOICE_HOME,
+    _REASON_FORBIDDEN_CATEGORIES,
+    _REASON_REQUIRED_CATEGORIES,
+    FATAL,
+)
+
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_LOCALES = _REPO_ROOT / "frontend" / "src" / "app" / "locales"
+_RULES_SOURCE = _REPO_ROOT / "backend" / "app" / "modules" / "einvoice" / "rules.py"
+
+# Rule ids the screen supplies context for that the engine never raises: the
+# picker's own profile name rides in on {{label}}.
+_SCREEN_SUPPLIED_PLACEHOLDERS = frozenset({"label"})
 
 
 def _base_invoice() -> dict:
@@ -142,6 +160,62 @@ def test_missing_country_message_explains_the_format():
     assert hit, problems
     assert "two letters" in hit[0]
     assert _no_typographic_dashes(hit[0])
+
+
+def _emitted_rule_ids() -> set[str]:
+    """Every rule identifier the engine can put on a screen.
+
+    Read off the source rather than listed here, so a rule added tomorrow is in
+    the set the moment it is written. Two shapes have to be handled: most ids
+    are string literals at the construction site, while the per VAT-category
+    families are assembled as ``f"{prefix}-10"`` from the prefix table. The
+    reachable half of that table is derived from the two category frozensets
+    that decide which families are evaluated at all, which is why BR-IG-10 and
+    BR-IP-10 stay out: the module deliberately does not carry them.
+    """
+    source = _RULES_SOURCE.read_text(encoding="utf-8")
+    literals = set(re.findall(r'"((?:BR|PEPPOL|OCE)-[A-Za-z0-9._-]+)"', source))
+    prefixes = set(_CATEGORY_RULE_PREFIX.values())
+    reachable = {f"{_CATEGORY_RULE_PREFIX[c]}-10" for c in _REASON_REQUIRED_CATEGORIES | _REASON_FORBIDDEN_CATEGORIES}
+    return (literals - prefixes) | reachable
+
+
+def _rule_catalogue(locale: str) -> dict[str, str]:
+    """The ``einvoice.rule.*`` entries of one locale file, id -> sentence."""
+    text = (_LOCALES / f"{locale}.ts").read_text(encoding="utf-8")
+    return dict(re.findall(r'"einvoice\.rule\.([^"]+)":\s*"((?:[^"\\]|\\.)*)"', text))
+
+
+@pytest.mark.parametrize("locale", ["en", "de"])
+def test_every_emitted_rule_has_a_translated_sentence(locale: str):
+    """A finding with no catalogue entry prints English onto a translated screen.
+
+    The screen falls back to the engine's own sentence, so the failure is silent
+    - nothing goes blank, nothing throws, and the German dialog simply says an
+    English thing in its most important frame. Nothing else catches this: the
+    key is absent from every locale including English, so neither the orphan
+    scan nor the locale gap report has anything to compare.
+    """
+    catalogue = _rule_catalogue(locale)
+    missing = sorted(rid for rid in _emitted_rule_ids() if rid not in catalogue)
+    assert not missing, f"{locale}.ts has no einvoice.rule entry for: {missing}"
+
+
+def test_translated_sentences_keep_every_value_the_english_one_names():
+    """A translation may reword freely but may not drop a value.
+
+    "Position 3 braucht eine Mengeneinheit" is a translation; "eine Position
+    braucht eine Mengeneinheit" is a different, weaker finding, and on an
+    invoice with twenty lines it is unactionable. Compared against English
+    rather than against the engine because both catalogues are written from the
+    same message, so the English entry is the one that says which values the
+    sentence is supposed to carry.
+    """
+    en, de = _rule_catalogue("en"), _rule_catalogue("de")
+    for rule_id, english in en.items():
+        expected = set(re.findall(r"\{\{(\w+)\}\}", english)) - _SCREEN_SUPPLIED_PLACEHOLDERS
+        actual = set(re.findall(r"\{\{(\w+)\}\}", de.get(rule_id, ""))) - _SCREEN_SUPPLIED_PLACEHOLDERS
+        assert expected == actual, f"de {rule_id} interpolates {sorted(actual)}, English names {sorted(expected)}"
 
 
 def test_all_semantic_messages_are_clean_prose():

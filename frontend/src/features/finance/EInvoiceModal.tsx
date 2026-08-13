@@ -49,6 +49,8 @@ interface EInvoiceViolation {
   severity: string;
   message: string;
   term: string | null;
+  /** Values the engine's sentence interpolates, named as the catalogue uses them. */
+  params?: Record<string, string>;
 }
 
 interface EInvoiceDryRun {
@@ -115,12 +117,20 @@ export function EInvoiceModal({ open, onClose, invoiceId, invoiceNumber }: EInvo
   // argument of the panel - but the sentence beside it is guidance and must
   // speak the UI language. One key per rule id; a rule the locale has no key
   // for keeps the engine's English sentence, so nothing ever goes blank.
-  // {{label}} feeds the one message that names the selected profile.
-  const ruleText = (v: EInvoiceViolation) =>
-    t(`einvoice.rule.${v.rule_id}`, {
+  // {{label}} feeds the one message that names the selected profile, and the
+  // engine's own params carry the rest: which line, which amount, which code.
+  // A param naming an enumerated value (party) is itself translated, because
+  // printing the engine's "seller" into a German sentence is the very defect
+  // the catalogue exists to remove.
+  const ruleText = (v: EInvoiceViolation) => {
+    const params = { ...(v.params ?? {}) };
+    if (params.party) params.party = t(`einvoice.party.${params.party}`, { defaultValue: params.party });
+    return t(`einvoice.rule.${v.rule_id}`, {
+      ...params,
       defaultValue: v.message,
       label: activeProfile?.label ?? profile,
     });
+  };
 
   async function download(embed: boolean) {
     const kind = embed ? 'pdf' : 'xml';

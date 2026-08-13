@@ -843,7 +843,18 @@ async def export_invoice_einvoice(
             "valid": not problems,
             "problems": problems,
             "violations": [
-                {"rule_id": v.rule_id, "severity": v.severity, "message": v.message, "term": v.term} for v in found
+                {
+                    "rule_id": v.rule_id,
+                    "severity": v.severity,
+                    "message": v.message,
+                    "term": v.term,
+                    # The values the message interpolates, so a screen showing
+                    # the finding in another language can name the same line
+                    # and quote the same amount instead of falling back to the
+                    # English sentence to keep them.
+                    "params": v.params,
+                }
+                for v in found
             ],
         }
 
