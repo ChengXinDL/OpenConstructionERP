@@ -31,13 +31,15 @@ import {
   typeGrandTotals,
   uniqueFilterOptions,
   withOrdinals,
+  type GroupSubtotal,
   type LedgerFilter,
   type LedgerSortColumn,
   type SortDirection,
 } from '../lib/takeoff-ledger';
 import { usePreferencesStore } from '@/stores/usePreferencesStore';
 import { convertQuantity } from '../lib/takeoff-display-units';
-import { formatQuantity } from '../lib/measurement-format';
+import { formatCountQuantity, formatQuantity } from '../lib/measurement-format';
+import { localizedUnitCode } from '@/shared/lib/unitLabels';
 import { effectiveQuantity, quantityAdjustmentLabel } from '../lib/takeoff-quantity';
 
 export interface MeasurementLedgerProps {
@@ -105,7 +107,7 @@ export function MeasurementLedger({
   onAddAllToBoq,
   onCreateRfi,
 }: MeasurementLedgerProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // Display the canonical-metric quantities in the user's preferred system.
   // Storage stays metric (D-TKC-016); this only converts at the view +
   // CSV-export boundary, matching how QuantityDisplay reads the preference.
@@ -458,9 +460,14 @@ export function MeasurementLedger({
                     </td>
                     <td className="px-1.5 py-1" />
                     <td className="px-1.5 py-1 text-right font-semibold text-content-primary">
-                      {formatQuantity(disp.value)}
+                      {/* Count totals are whole pieces (K-14). */}
+                      {gt.type === 'count'
+                        ? formatCountQuantity(disp.value)
+                        : formatQuantity(disp.value)}
                     </td>
-                    <td className="px-1.5 py-1 text-content-secondary">{disp.unit}</td>
+                    <td className="px-1.5 py-1 text-content-secondary">
+                      {localizedUnitCode(disp.unit, i18n.language)}
+                    </td>
                     <td className="px-1.5 py-1" />
                     {hasActionColumn && <td className="px-1.5 py-1" />}
                   </tr>
@@ -490,14 +497,14 @@ function GroupRows({
   group: string;
   groupRows: { ordinal: number; measurement: Measurement }[];
   color: string;
-  subtotal?: { totals: Record<string, number>; count: number };
+  subtotal?: GroupSubtotal;
   selectedId: string | null;
   onRowClick?: (m: Measurement) => void;
   onAddToBoq?: (m: Measurement) => void;
   onCreateRfi?: (m: Measurement) => void;
   measurementSystem: import('@/stores/usePreferencesStore').MeasurementSystem;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const hasRowActions = Boolean(onAddToBoq) || Boolean(onCreateRfi);
   return (
     <>
@@ -580,10 +587,15 @@ function GroupRows({
             >
               {/* Voids display as a negative so the column reconciles with the
                   net subtotal below (gross - openings). Value is shown in the
-                  user's measurement system (stored metric, D-TKC-016). */}
-              {formatQuantity(disp.value)}
+                  user's measurement system (stored metric, D-TKC-016). Counts
+                  are whole pieces, never "17,00" (K-14). */}
+              {measurement.type === 'count'
+                ? formatCountQuantity(disp.value)
+                : formatQuantity(disp.value)}
             </td>
-            <td className="px-1.5 py-1 text-content-secondary">{disp.unit}</td>
+            <td className="px-1.5 py-1 text-content-secondary">
+              {localizedUnitCode(disp.unit, i18n.language)}
+            </td>
             <td className="px-1.5 py-1 text-right text-content-tertiary">{measurement.page}</td>
             {hasRowActions && (
               <td className="px-1 py-1 text-end">
@@ -654,6 +666,7 @@ function GroupRows({
         <>
           {Object.entries(subtotal.totals).map(([unit, total]) => {
             const disp = convertQuantity(total, unit, measurementSystem);
+            const isCount = subtotal.countOnly[unit] === true;
             return (
             <tr
               key={`${group}-subtotal-${unit}`}
@@ -671,9 +684,11 @@ function GroupRows({
               </td>
               <td />
               <td className="px-1.5 py-1 text-right font-semibold text-content-primary">
-                {formatQuantity(disp.value)}
+                {isCount ? formatCountQuantity(disp.value) : formatQuantity(disp.value)}
               </td>
-              <td className="px-1.5 py-1 text-content-secondary">{disp.unit}</td>
+              <td className="px-1.5 py-1 text-content-secondary">
+                {localizedUnitCode(disp.unit, i18n.language)}
+              </td>
               <td />
               {hasRowActions && <td />}
             </tr>

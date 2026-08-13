@@ -155,10 +155,16 @@ import {
   type TextMatch,
 } from '../../features/takeoff/lib/takeoff-textsearch';
 import {
+  ANNOTATION_TYPES,
   computeGroupSummaries,
   formatGroupTotal,
 } from '../../features/takeoff/lib/takeoff-groups';
-import { formatFixedDigits } from '../../features/takeoff/lib/measurement-format';
+import {
+  formatCountQuantity,
+  formatFixedDigits,
+  formatMaxDigits,
+} from '../../features/takeoff/lib/measurement-format';
+import { localizedUnitCode } from '@/shared/lib/unitLabels';
 import {
   groupColorCommit,
   groupColorIdentity,
@@ -626,7 +632,7 @@ export default function TakeoffViewerModule({
   recentDocuments,
   onOpenRecentDocument,
 }: TakeoffViewerModuleProps = {}) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   // PDF state
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
@@ -3738,12 +3744,14 @@ export default function TakeoffViewerModule({
       // Prefer the user's own entry/unit; fall back to derived metres.
       const badge = entry ?? { realLength: meters, unit: 'm' as const };
       setLastCalibrationByPage((prev) => ({ ...prev, [page]: badge }));
+      // Locale-aware digits (K-15): the raw JS number printed "2.74" into
+      // German text, where a dot reads as a thousands separator.
       const metricSuffix =
-        badge.unit === 'm' ? '' : ` (${meters.toFixed(2)} m)`;
+        badge.unit === 'm' ? '' : ` (${formatFixedDigits(meters, 2)} m)`;
       addToast({
         type: 'success',
         title: t('takeoff_viewer.calibrated', { defaultValue: 'Scale calibrated' }),
-        message: `${formatScaleRatio(nextScale)} · ${badge.realLength} ${badge.unit}${metricSuffix} · ${t('takeoff_viewer.calibrated_page', { defaultValue: 'page {{page}}', page })}`,
+        message: `${formatScaleRatio(nextScale)} · ${formatMaxDigits(badge.realLength, 3)} ${badge.unit}${metricSuffix} · ${t('takeoff_viewer.calibrated_page', { defaultValue: 'page {{page}}', page })}`,
       });
     },
     [addToast, t, calibrationPixels, currentPage, setScale],
@@ -8255,7 +8263,7 @@ export default function TakeoffViewerModule({
                       const allGroupsOnPage = new Set<string>();
                       for (const m of pageMeasurements) allGroupsOnPage.add(m.group || 'General');
                       const visible = new Map(legendSummaries.map((s) => [s.name, s]));
-                      const rows: Array<{ name: string; color: string; count: number; total: number; unit: string; hidden: boolean }> = [];
+                      const rows: Array<{ name: string; color: string; count: number; total: number; unit: string; isCount: boolean; hidden: boolean }> = [];
                       for (const name of Array.from(allGroupsOnPage).sort()) {
                         // Derive hidden from hiddenGroups directly, never from a
                         // group's absence in the summaries: a visible group whose
@@ -8279,12 +8287,16 @@ export default function TakeoffViewerModule({
                               (m.group || 'General') === name &&
                               (groupHidden || !hiddenMeasurements.has(m.id)),
                           );
+                          const quantifiable = items.filter((it) => !ANNOTATION_TYPES.has(it.type));
                           rows.push({
                             name,
                             color: groupColorMap[name] || '#3B82F6',
                             count: items.length,
                             total: items.reduce((s, it) => s + it.value, 0),
                             unit: items.find((it) => it.unit)?.unit ?? '',
+                            isCount:
+                              quantifiable.length > 0 &&
+                              quantifiable.every((it) => it.type === 'count'),
                             hidden: groupHidden,
                           });
                         }
@@ -8319,7 +8331,14 @@ export default function TakeoffViewerModule({
                           <span className="text-[10px] font-mono text-content-secondary tabular-nums min-w-0">
                             {(() => {
                               const d = convertQuantity(row.total, row.unit, measurementSystem);
-                              return formatGroupTotal(d.value, d.unit);
+                              // Count-only groups render whole pieces (K-14);
+                              // the unit takes the locale's trade code (de: Stk).
+                              return formatGroupTotal(
+                                d.value,
+                                localizedUnitCode(d.unit, i18n.language),
+                                undefined,
+                                row.isCount,
+                              );
                             })()}
                           </span>
                           {row.hidden
@@ -9032,11 +9051,18 @@ export default function TakeoffViewerModule({
                       data-testid="prop-value"
                     >
                       {selectedMeasurement.value
-                        ? convertQuantity(
-                            selectedMeasurement.value,
-                            selectedMeasurement.unit || '',
-                            measurementSystem,
-                          ).value.toFixed(3)
+                        ? (() => {
+                            const v = convertQuantity(
+                              selectedMeasurement.value,
+                              selectedMeasurement.unit || '',
+                              measurementSystem,
+                            ).value;
+                            // Counts are whole pieces (K-14); measured values
+                            // keep 3 digits, locale-rendered (K-15).
+                            return selectedMeasurement.type === 'count'
+                              ? formatCountQuantity(v)
+                              : formatFixedDigits(v, 3);
+                          })()
                         : '—'}
                     </div>
                   </div>
@@ -9048,7 +9074,10 @@ export default function TakeoffViewerModule({
                       className="min-w-[44px] rounded border border-border/60 bg-surface-secondary/60 px-2 py-1 text-xs text-content-primary text-center"
                       data-testid="prop-unit"
                     >
-                      {displayUnitFor(selectedMeasurement.unit || '', measurementSystem) || '—'}
+                      {localizedUnitCode(
+                        displayUnitFor(selectedMeasurement.unit || '', measurementSystem),
+                        i18n.language,
+                      ) || '—'}
                     </div>
                   </div>
                 </div>
@@ -9263,7 +9292,7 @@ export default function TakeoffViewerModule({
                               selectedMeasurement.unit || '',
                               measurementSystem,
                             );
-                            return `${eff.value.toFixed(3)} ${eff.unit}`;
+                            return `${formatFixedDigits(eff.value, 3)} ${localizedUnitCode(eff.unit, i18n.language)}`;
                           })()}
                         </span>
                       </div>

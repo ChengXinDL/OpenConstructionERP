@@ -33,6 +33,14 @@ describe('localizedUnitCode', () => {
     expect(localizedUnitCode('lsum', 'fr')).toBe('lsum');
   });
 
+  // Audit case-2 K-14: a raw "pcs" next to German labels reads as
+  // untranslated UI; the app's own German strings promise "Stk".
+  it('shows the German trade code Stk for piece tokens under de', () => {
+    expect(localizedUnitCode('pcs', 'de')).toBe('Stk');
+    expect(localizedUnitCode('ea', 'de')).toBe('Stk');
+    expect(localizedUnitCode('pcs', 'en')).toBe('pcs');
+  });
+
   it('localizes the unit part of compound trade units (DACH cost bases)', () => {
     expect(localizedUnitCode('100 m2', 'de')).toBe('100 m²');
     expect(localizedUnitCode('100 m3', 'de')).toBe('100 m³');

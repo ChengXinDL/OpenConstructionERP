@@ -25,6 +25,7 @@ import {
 } from '../../../modules/pdf-takeoff/data/scale-helpers';
 import { WideModal } from '@/shared/ui/WideModal';
 import { Button } from '@/shared/ui';
+import { formatFixedDigits } from '../lib/measurement-format';
 
 /** What the user actually typed, for honest badge display.
  *
@@ -172,7 +173,9 @@ export function CalibrationDialog({
                 '{{value}} {{unit}} = {{meters}} m - measurements display in metres (metric-canonical).',
               value: parsed,
               unit,
-              meters: toMeters(parsed, unit).toFixed(3),
+              // Locale digits (K-15): "2740 mm = 2.740 m" read as two
+              // thousand seven hundred forty metres in German.
+              meters: formatFixedDigits(toMeters(parsed, unit), 3),
             })}
           </p>
         )}

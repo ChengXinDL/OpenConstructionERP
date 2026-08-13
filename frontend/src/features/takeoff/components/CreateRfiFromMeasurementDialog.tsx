@@ -24,7 +24,8 @@ import { openLink } from '@/shared/lib/desktop';
 import { useToastStore } from '@/stores/useToastStore';
 import { createRFI, type RFI, type RFIPriority } from '@/features/rfi/api';
 import { useCreateReference } from '@/features/file-references/hooks';
-import { formatQuantity } from '../lib/measurement-format';
+import { formatCountQuantity, formatQuantity } from '../lib/measurement-format';
+import { localizedUnitCode } from '@/shared/lib/unitLabels';
 import type { Measurement } from '../lib/takeoff-types';
 
 export interface CreateRfiFromMeasurementDialogProps {
@@ -62,7 +63,7 @@ export function CreateRfiFromMeasurementDialog({
   onClose,
   onCreated,
 }: CreateRfiFromMeasurementDialogProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const addToast = useToastStore((s) => s.addToast);
 
   // Durable server id - the "file" side of the reference. The host only
@@ -90,8 +91,13 @@ export function CreateRfiFromMeasurementDialog({
       defaultValue:
         'Please confirm the measured {{type}} of {{value}} {{unit}} ({{annotation}}) on page {{page}} of {{doc}}.',
       type: measurement.type,
-      value: formatQty(measurement.value),
-      unit: measurement.unit || '',
+      // Counts prefill as whole pieces with the locale's trade unit
+      // code (K-14: the question read "17,00 pcs" in German).
+      value:
+        measurement.type === 'count'
+          ? formatCountQuantity(measurement.value)
+          : formatQty(measurement.value),
+      unit: localizedUnitCode(measurement.unit || '', i18n.language),
       annotation,
       page: measurement.page,
       doc,

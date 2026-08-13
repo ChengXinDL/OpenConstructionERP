@@ -63,3 +63,23 @@ export function formatQuantity(value: number, locale?: string): string {
   if (!Number.isFinite(value) || value === 0) return '0';
   return formatFixedDigits(value, quantityDigits(value), locale);
 }
+
+/** Count quantities are whole pieces: no decimal ladder, locale grouping
+ *  only ("17", never "17,00"). Shared by every surface that prints a
+ *  count-type measurement (K-14) so pieces cannot regain a fraction on
+ *  one surface while another renders them whole. */
+export function formatCountQuantity(value: number, locale?: string): string {
+  if (!Number.isFinite(value)) return '0';
+  return formatFixedDigits(value, 0, locale);
+}
+
+/** Render with UP TO `maxDigits` fraction digits: whole numbers stay
+ *  whole ("2740"), fractions keep their precision ("2,74" in de). For
+ *  echoing back a user-entered number in the user's locale (K-15: the
+ *  calibration toast printed the raw JS number). */
+export function formatMaxDigits(value: number, maxDigits: number, locale?: string): string {
+  const loc = locale || i18n.language || 'en';
+  return cachedFormat(loc, `m${maxDigits}`, {
+    maximumFractionDigits: maxDigits,
+  }).format(value);
+}

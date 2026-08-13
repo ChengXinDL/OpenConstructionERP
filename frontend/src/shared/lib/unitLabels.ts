@@ -63,7 +63,10 @@ export function unitGlyph(token: string): string {
  * to a Kalkulator. Only display changes: storage stays canonical.
  */
 const LOCALE_UNIT_CODES: Record<string, Record<string, string>> = {
-  de: { lsum: 'psch', ls: 'psch', lump_sum: 'psch' },
+  // "Stk" is the trade short form the app's own German strings promise
+  // ("Standard-m, m², m³, kg, Stk"); a raw "pcs" next to German labels
+  // reads as untranslated UI (audit case-2 K-14).
+  de: { lsum: 'psch', ls: 'psch', lump_sum: 'psch', pcs: 'Stk', ea: 'Stk' },
 };
 
 /**
