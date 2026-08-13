@@ -4390,7 +4390,7 @@ const resource = {
     "cases.takeoff_quantities_from_a_pdf_plan.step.organise.out.groups": "Nach Gewerken gruppiert",
     "cases.takeoff_quantities_from_a_pdf_plan.step.organise.out.ledger": "Benannte Aufmaßliste",
     "cases.takeoff_quantities_from_a_pdf_plan.step.organise.title": "Jede Messung benennen und gruppieren",
-    "cases.takeoff_quantities_from_a_pdf_plan.step.organise.what": "Geben Sie in der Aufmaßliste jedem Eintrag eine Bezeichnung, die auch ein Dritter wiedererkennt, dazu das Geschoss oder den Raum und eine Gruppe je Gewerk. Die Liste hält jeden Eintrag neben seiner Kontur auf dem Blatt, sodass ein Klick auf die Zeile zurück zur Zeichnung führt.",
+    "cases.takeoff_quantities_from_a_pdf_plan.step.organise.what": "Geben Sie in der Aufmaßliste jedem Eintrag eine Bezeichnung, die auch ein Dritter wiedererkennt, mit Geschoss oder Raum direkt im Namen, und eine Gruppe je Gewerk. Die Liste hält jeden Eintrag neben seiner Kontur auf dem Blatt, sodass ein Klick auf die Zeile zurück zur Zeichnung führt.",
     "cases.takeoff_quantities_from_a_pdf_plan.step.organise.why": "Prüfbar ist ein Aufmaß dann, wenn eine Zahl zu einer benannten Messung auf einem benannten Blatt zurückführt. Das Benennen kostet Sekunden und spart den Nachmittag, an dem der Auftraggeber fragt, woher eine Zahl stammt.",
     "cases.takeoff_quantities_from_a_pdf_plan.step.positions.in.bill": "Ziel-Leistungsverzeichnis",
     "cases.takeoff_quantities_from_a_pdf_plan.step.positions.in.confirmed": "Bestätigte Messungen",
