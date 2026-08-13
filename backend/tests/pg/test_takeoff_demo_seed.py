@@ -341,6 +341,10 @@ async def test_unpriced_tender_rows_and_headings_lose_to_priced_positions(pg_ses
         frankfurt,
         "Kostenberechnung (bepreist)",
         [
+            # Priced lump-sum decoy: matches "%Innentüren%" by text, sorts
+            # first by ordinal, carries a unit and a price - only the unit
+            # compatibility rule can reject it (a count cannot feed LS).
+            ("09.01", "LV 09 - Innenausbau: Trockenbau, Bodenbeläge, Innentüren", "LS", "260000.00"),
             ("320.2", "Bodenplatte WU-Beton C30/37 XC4, d=80cm", "m3", "215.00"),
             ("340.8", "Innentüren Holz / Stahlzargen", "pcs", "720.00"),
         ],
@@ -362,6 +366,60 @@ async def test_unpriced_tender_rows_and_headings_lose_to_priced_positions(pg_ses
     ).scalar_one()
     assert slab_position.description.startswith("Bodenplatte WU-Beton"), slab_position.description
     assert doors_position.description.startswith("Innentüren Holz"), doors_position.description
+
+
+async def test_no_compatible_unit_leaves_the_measurement_unlinked(pg_session) -> None:
+    """A lump-sum-only pack must not capture a piece count (unit reachability).
+
+    When the only text match carries a unit the measured quantity cannot
+    feed (10 doors into an LS position priced at a quarter million), the
+    honest outcome is no link at all - the incompatible link would render
+    a money figure the takeoff cannot justify.
+    """
+    owner_id = await _make_user(pg_session)
+    frankfurt = await _make_project(pg_session, _FRANKFURT, owner_id)
+    await _add_boq(
+        pg_session,
+        frankfurt,
+        "Kostenberechnung (nur Pauschalen)",
+        [("09.01", "LV 09 - Innenausbau: Trockenbau, Bodenbeläge, Innentüren", "LS", "260000.00")],
+    )
+
+    await seed_takeoff_demo(pg_session, [frankfurt])
+    await pg_session.flush()
+
+    rows = await _measurements(pg_session, frankfurt)
+    doors = next(m for m in rows if m.group_name == "Türen")
+    assert doors.linked_boq_position_id is None, "a count must not link into a lump-sum position"
+
+
+async def test_wall_length_carries_the_height_that_reaches_the_m2_position(pg_session) -> None:
+    """The drywall run stores depth (wall height) so length x height = m2.
+
+    The wall polyline measures metres while the drywall position sells m2;
+    without the height the link's quantity is unreachable - the same shape
+    as the slab's area x depth = m3, mirrored.
+    """
+    ids = await _build_stand(pg_session)
+    await seed_takeoff_demo(pg_session, [ids["frankfurt"], ids["heilbronn"]])
+    await pg_session.flush()
+
+    for key, wall_name in (
+        ("frankfurt", "Trennwand Trockenbau Flur, Achse C (Länge)"),
+        ("heilbronn", "Trockenbauwand Sozialtrakt, Achse C (Länge)"),
+    ):
+        rows = await _measurements(pg_session, ids[key])
+        wall = next(m for m in rows if m.annotation == wall_name)
+        assert wall.depth is not None, f"{key}: wall height missing"
+        assert float(wall.depth) == 2.75
+        assert wall.volume is not None, f"{key}: face area (length x height) missing"
+        assert wall.measurement_value is not None, f"{key}: wall length missing"
+        assert abs(float(wall.volume) - float(wall.measurement_value) * 2.75) < 1e-6
+        assert wall.linked_boq_position_id, f"{key}: wall must link to the drywall position"
+        position = (
+            await pg_session.execute(select(Position).where(Position.id == uuid.UUID(wall.linked_boq_position_id)))
+        ).scalar_one()
+        assert position.unit.lower().replace("²", "2") == "m2", f"{key}: expected an m2 target, got {position.unit}"
 
 
 async def test_seed_is_idempotent_per_project(pg_session) -> None:

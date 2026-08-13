@@ -83,6 +83,11 @@ class _Spec:
     depth: Decimal | None = None
     count: int | None = None
     link_patterns: tuple[str, ...] = field(default=())
+    #: Normalized position units this measurement's quantity can actually
+    #: reach (m + depth -> m2, m2 + depth -> m3, count -> pieces). A text
+    #: pattern alone can hit a lump-sum or mismatched-unit line whose
+    #: quantity the takeoff figure cannot feed; empty = any unit.
+    link_units: tuple[str, ...] = field(default=())
 
 
 def _ring_perimeter_m(points: list[dict[str, float]], scale: float) -> Decimal | None:
@@ -233,6 +238,7 @@ def _specs_frankfurt() -> list[_Spec]:
             "m2",
             depth=Decimal("0.800000"),
             link_patterns=("Bodenplatte%",),
+            link_units=("m3",),
         ),
         _Spec(
             "area",
@@ -242,6 +248,7 @@ def _specs_frankfurt() -> list[_Spec]:
             plan.viewer_points(plan.room_polygon_m("1.11")),
             "m2",
             link_patterns=("%Estrich%",),
+            link_units=("m2",),
         ),
         _Spec(
             "area",
@@ -251,6 +258,7 @@ def _specs_frankfurt() -> list[_Spec]:
             plan.viewer_points(plan.room_polygon_m("1.01")),
             "m2",
             link_patterns=("%Estrich%",),
+            link_units=("m2",),
         ),
         _Spec(
             "polyline",
@@ -260,6 +268,7 @@ def _specs_frankfurt() -> list[_Spec]:
             _skirting_ring_1_06(),
             "m",
             link_patterns=("%Sockelleisten%",),
+            link_units=("m", "lfm"),
         ),
         _Spec(
             "distance",
@@ -269,6 +278,7 @@ def _specs_frankfurt() -> list[_Spec]:
             _corridor_line(flur.y),
             "m",
             link_patterns=("%Sockelleisten%",),
+            link_units=("m", "lfm"),
         ),
         _Spec(
             "polyline",
@@ -277,7 +287,12 @@ def _specs_frankfurt() -> list[_Spec]:
             "Trennwand Trockenbau Flur, Achse C (Länge)",
             _corridor_line(plan.CORRIDOR_Y1_M + plan.INT_WALL_M / 2.0),
             "m",
+            # Wall length reaches the m2 drywall position only through the
+            # wall height: depth carries it (length x height = face area),
+            # exactly like the slab's area x depth = volume.
+            depth=Decimal("2.750000"),
             link_patterns=("Trennwand Trockenbau%", "%Trockenbau%"),
+            link_units=("m2",),
         ),
         _Spec(
             "polyline",
@@ -287,6 +302,7 @@ def _specs_frankfurt() -> list[_Spec]:
             plan.viewer_points([(1.2, 6.995), (26.8, 6.995), (26.8, 3.0)]),
             "m",
             link_patterns=("Dämmung Rohrleitungen%",),
+            link_units=("m", "lfm"),
         ),
         _Spec(
             "count",
@@ -297,6 +313,7 @@ def _specs_frankfurt() -> list[_Spec]:
             "pcs",
             count=len(plan.DOORS),
             link_patterns=("%Innentüren%",),
+            link_units=_COUNT_UNITS,
         ),
         _Spec(
             "count",
@@ -322,6 +339,7 @@ def _specs_heilbronn() -> list[_Spec]:
             "m2",
             depth=Decimal("0.200000"),
             link_patterns=("Bodenplatte%",),
+            link_units=("m3",),
         ),
         _Spec(
             "area",
@@ -331,6 +349,7 @@ def _specs_heilbronn() -> list[_Spec]:
             plan.viewer_points(plan.building_outline_m(inset=0.17)),
             "m2",
             link_patterns=("XPS-Dämmung%",),
+            link_units=("m2",),
         ),
         _Spec(
             "area",
@@ -340,6 +359,7 @@ def _specs_heilbronn() -> list[_Spec]:
             plan.viewer_points(plan.room_polygon_m("1.11")),
             "m2",
             link_patterns=("%Estrich%",),
+            link_units=("m2",),
         ),
         _Spec(
             "distance",
@@ -349,6 +369,7 @@ def _specs_heilbronn() -> list[_Spec]:
             _corridor_line(flur.y),
             "m",
             link_patterns=("%Sockelleisten%",),
+            link_units=("m", "lfm"),
         ),
         _Spec(
             "polyline",
@@ -357,7 +378,9 @@ def _specs_heilbronn() -> list[_Spec]:
             "Trockenbauwand Sozialtrakt, Achse C (Länge)",
             _corridor_line(plan.CORRIDOR_Y1_M + plan.INT_WALL_M / 2.0),
             "m",
+            depth=Decimal("2.750000"),
             link_patterns=("Trockenbauwände%", "%Trockenbau%"),
+            link_units=("m2",),
         ),
         _Spec(
             "count",
@@ -368,6 +391,7 @@ def _specs_heilbronn() -> list[_Spec]:
             "pcs",
             count=sum(1 for d in plan.DOORS if d.t30),
             link_patterns=("T30%",),
+            link_units=_COUNT_UNITS,
         ),
         _Spec(
             "count",
@@ -378,6 +402,7 @@ def _specs_heilbronn() -> list[_Spec]:
             "pcs",
             count=len(plan.DOORS),
             link_patterns=("%Innentüren%",),
+            link_units=_COUNT_UNITS,
         ),
     ]
 
@@ -394,6 +419,7 @@ def _specs_heidelberg() -> list[_Spec]:
             "m2",
             depth=Decimal("0.200000"),
             link_patterns=("Bodenplatte%",),
+            link_units=("m3",),
         ),
         _Spec(
             "area",
@@ -403,6 +429,7 @@ def _specs_heidelberg() -> list[_Spec]:
             plan.viewer_points(plan.building_outline_m(inset=0.17)),
             "m2",
             link_patterns=("XPS-Dämmung%",),
+            link_units=("m2",),
         ),
         _Spec(
             "area",
@@ -412,6 +439,7 @@ def _specs_heidelberg() -> list[_Spec]:
             plan.viewer_points(plan.room_polygon_m("1.11")),
             "m2",
             link_patterns=("%Estrich%",),
+            link_units=("m2",),
         ),
         _Spec(
             "distance",
@@ -421,6 +449,7 @@ def _specs_heidelberg() -> list[_Spec]:
             _corridor_line(flur.y),
             "m",
             link_patterns=("%Sockelleisten%",),
+            link_units=("m", "lfm"),
         ),
         _Spec(
             "count",
@@ -431,6 +460,7 @@ def _specs_heidelberg() -> list[_Spec]:
             "pcs",
             count=len(plan.DOORS),
             link_patterns=("%Innentüren%",),
+            link_units=_COUNT_UNITS,
         ),
     ]
 
@@ -512,7 +542,22 @@ def _position_is_priced(unit: str | None, unit_rate: str | None) -> bool:
         return False
 
 
-async def _resolve_position_id(session: AsyncSession, project_id: uuid.UUID, patterns: tuple[str, ...]) -> str | None:
+def _normalize_unit(unit: str | None) -> str:
+    """Canonical lowercase unit token for compatibility checks (m² -> m2)."""
+    return (unit or "").strip().lower().replace("²", "2").replace("³", "3")
+
+
+#: Normalized piece-count unit spellings across the demo packs (German LVs
+#: write "St"/"Stk"/"Stück", international packs "pcs").
+_COUNT_UNITS = ("pcs", "st", "stk", "stück")
+
+
+async def _resolve_position_id(
+    session: AsyncSession,
+    project_id: uuid.UUID,
+    patterns: tuple[str, ...],
+    link_units: tuple[str, ...] = (),
+) -> str | None:
     """Find a really-seeded BOQ position of this project matching a pattern.
 
     Patterns are tried in order (most specific first); within a pattern the
@@ -523,8 +568,12 @@ async def _resolve_position_id(session: AsyncSession, project_id: uuid.UUID, pat
     before "320.2" and an unpriced tender row would shadow the priced position
     the showcase hands its quantity to. A heading (empty unit) never wins; an
     unpriced-but-real position is kept only as a fallback within its pattern.
-    Returns None when nothing matches, so a measurement is left unlinked
-    rather than pointing at a position that does not exist.
+
+    ``link_units`` (normalized) restricts candidates to positions whose unit
+    the measurement's quantity can actually reach: a doors count matched a
+    priced lump-sum line ("Innenausbau ... Innentüren", unit LS) by text, and
+    a piece count cannot feed a lump sum. An incompatible unit is worse than
+    no link, so with no compatible candidate the measurement stays unlinked.
     """
     for pattern in patterns:
         stmt = (
@@ -536,6 +585,8 @@ async def _resolve_position_id(session: AsyncSession, project_id: uuid.UUID, pat
         rows = (await session.execute(stmt)).all()
         fallback: str | None = None
         for position_id, unit, unit_rate in rows:
+            if link_units and _normalize_unit(unit) not in link_units:
+                continue
             if _position_is_priced(unit, unit_rate):
                 return str(position_id)
             if fallback is None and (unit or "").strip():
@@ -652,7 +703,7 @@ async def _seed_project_document(
 
         linked_position_id = None
         if spec.link_patterns:
-            linked_position_id = await _resolve_position_id(session, project_id, spec.link_patterns)
+            linked_position_id = await _resolve_position_id(session, project_id, spec.link_patterns, spec.link_units)
             if linked_position_id is not None:
                 counts["linked"] += 1
 
