@@ -112,6 +112,9 @@ _UNIT_ALIASES: Final[dict[str, str]] = {
     "sq.m": "m2",
     "sqft": "ft2",
     "sq.ft": "ft2",
+    # "sf" is the everyday US abbreviation and the area default declared by
+    # us_pack - without this alias that default never resolved.
+    "sf": "ft2",
     "cum": "m3",
     "cu.m": "m3",
     "cuft": "ft3",

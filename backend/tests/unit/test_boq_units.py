@@ -50,6 +50,8 @@ def test_canonical_units_round_trip(unit: str) -> None:
         ("Meters", "m"),
         ("sqm", "m2"),
         ("sqft", "ft2"),
+        ("sf", "ft2"),
+        ("SF", "ft2"),
         ("cum", "m3"),
         ("each", "ea"),
         ("piece", "pcs"),
