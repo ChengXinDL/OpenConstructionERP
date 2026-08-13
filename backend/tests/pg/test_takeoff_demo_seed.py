@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import math
 import uuid
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -129,6 +130,29 @@ async def _add_positions(session, project_id: uuid.UUID, rows: list[tuple[str, s
     await session.flush()
 
 
+async def _add_boq(session, project_id: uuid.UUID, name: str, rows: list[tuple[str, str, str, str]]) -> None:
+    """Add one BOQ with fully specified positions: (ordinal, description, unit, unit_rate)."""
+    boq_id = uuid.uuid4()
+    session.add(BOQ(id=boq_id, project_id=project_id, name=name, description="", status="draft", metadata_={}))
+    await session.flush()
+    for ordinal, description, unit, unit_rate in rows:
+        session.add(
+            Position(
+                id=uuid.uuid4(),
+                boq_id=boq_id,
+                ordinal=ordinal,
+                reference_code=ordinal,
+                description=description,
+                unit=unit,
+                quantity="100",
+                unit_rate=unit_rate,
+                total="1000",
+                metadata_={},
+            )
+        )
+    await session.flush()
+
+
 async def _build_stand(session) -> dict[str, uuid.UUID]:
     """Flagship + two German projects with their packs' own BOQ positions."""
     owner_id = await _make_user(session)
@@ -204,6 +228,12 @@ async def test_every_seeded_measurement_recomputes_from_its_own_geometry(pg_sess
         scales = document.page_scales or {}
         assert scales.get("defaultScale", {}).get("unitLabel") == "m", f"{key}: metric page scale expected"
         assert float(scales["defaultScale"]["pixelsPerUnit"]) > 0
+        # The frontend's pageIsCalibrated() looks only at byPage; without a
+        # page-1 entry the viewer greets the seeded document with a
+        # "Not calibrated" badge right next to its working scale.
+        by_page = scales.get("byPage") or {}
+        assert "1" in by_page, f"{key}: page 1 must carry its own calibration entry"
+        assert float(by_page["1"]["pixelsPerUnit"]) == float(scales["defaultScale"]["pixelsPerUnit"])
 
         rows = await _measurements(pg_session, project_id)
         assert rows, f"{key}: measurements expected"
@@ -264,6 +294,11 @@ async def test_links_point_only_at_really_seeded_positions(pg_session) -> None:
         ).first()
         assert position is not None, f"{m.annotation}: linked position does not exist"
         assert position[1] == m.project_id, f"{m.annotation}: linked position belongs to another project"
+        # The showcase hands its quantity to the money chain: a section
+        # heading (empty unit) or an unpriced row must never win the link
+        # when a priced position exists (the fixtures price every row).
+        assert position[0].unit.strip(), f"{m.annotation}: linked position is a section heading"
+        assert Decimal(position[0].unit_rate) > 0, f"{m.annotation}: linked position carries no price"
 
     # Fixture positions cover: Frankfurt slab, 2x skirting, drywall, pipe run;
     # Heilbronn slab, XPS, skirting, drywall, T30 doors, interior doors.
@@ -277,6 +312,56 @@ async def test_links_point_only_at_really_seeded_positions(pg_session) -> None:
         await pg_session.execute(select(Position).where(Position.id == uuid.UUID(slab.linked_boq_position_id)))
     ).scalar_one()
     assert slab_position.description.startswith("Bodenplatte WU-Beton")
+
+
+async def test_unpriced_tender_rows_and_headings_lose_to_priced_positions(pg_session) -> None:
+    """The link resolver must pick the priced line item across a project's BOQs.
+
+    A demo project carries several BOQs: the priced works LV plus an unpriced
+    tender LV and cost plans whose section headings reuse the same German trade
+    vocabulary. ``Position.ordinal`` is a string, so the tender LV's
+    "01.03.0020" sorts before the works LV's "320.2" - without the priced
+    filter the unpriced tender row (and the heading whose description mentions
+    the trade) wins the link and the money chain renders zeros.
+    """
+    owner_id = await _make_user(pg_session)
+    frankfurt = await _make_project(pg_session, _FRANKFURT, owner_id)
+    # Both decoys sort FIRST by ordinal; the heading also matches "%Innentüren%".
+    await _add_boq(
+        pg_session,
+        frankfurt,
+        "Ausschreibungs-LV Rohbau (unbepreist)",
+        [
+            ("01.03.0020", "Bodenplatte aus Ortbeton C25/30, Expositionsklasse XC2", "m3", "0"),
+            ("09", "LV 09 - Innenausbau: Trockenbau, Bodenbeläge, Innentüren", "", "0"),
+        ],
+    )
+    await _add_boq(
+        pg_session,
+        frankfurt,
+        "Kostenberechnung (bepreist)",
+        [
+            ("320.2", "Bodenplatte WU-Beton C30/37 XC4, d=80cm", "m3", "215.00"),
+            ("340.8", "Innentüren Holz / Stahlzargen", "pcs", "720.00"),
+        ],
+    )
+
+    await seed_takeoff_demo(pg_session, [frankfurt])
+    await pg_session.flush()
+
+    rows = await _measurements(pg_session, frankfurt)
+    slab = next(m for m in rows if m.group_name == "Bodenplatten")
+    doors = next(m for m in rows if m.group_name == "Türen")
+    assert slab.linked_boq_position_id, "slab measurement must be linked"
+    assert doors.linked_boq_position_id, "doors measurement must be linked"
+    slab_position = (
+        await pg_session.execute(select(Position).where(Position.id == uuid.UUID(slab.linked_boq_position_id)))
+    ).scalar_one()
+    doors_position = (
+        await pg_session.execute(select(Position).where(Position.id == uuid.UUID(doors.linked_boq_position_id)))
+    ).scalar_one()
+    assert slab_position.description.startswith("Bodenplatte WU-Beton"), slab_position.description
+    assert doors_position.description.startswith("Innentüren Holz"), doors_position.description
 
 
 async def test_seed_is_idempotent_per_project(pg_session) -> None:

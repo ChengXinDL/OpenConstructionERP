@@ -37,7 +37,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from sqlalchemy import delete, select
@@ -502,24 +502,46 @@ async def _resolve_owner_id(session: AsyncSession, project_id: uuid.UUID) -> uui
     return (await session.execute(select(User.id).limit(1))).scalar_one_or_none()
 
 
+def _position_is_priced(unit: str | None, unit_rate: str | None) -> bool:
+    """True for a real, priced line item (vs. a section heading or unpriced tender row)."""
+    if not (unit or "").strip():
+        return False
+    try:
+        return Decimal(str(unit_rate)) > 0
+    except (InvalidOperation, TypeError, ValueError):
+        return False
+
+
 async def _resolve_position_id(session: AsyncSession, project_id: uuid.UUID, patterns: tuple[str, ...]) -> str | None:
     """Find a really-seeded BOQ position of this project matching a pattern.
 
-    Patterns are tried in order; the first hit wins (deterministic via the
-    position ordinal). Returns None when nothing matches, so a measurement is
-    left unlinked rather than pointing at a position that does not exist.
+    Patterns are tried in order (most specific first); within a pattern the
+    first PRICED line item wins, deterministically via (ordinal, id). A demo
+    project can carry several BOQs - the priced works LV plus unpriced tender
+    LVs and cost plans whose section headings reuse the same German trade
+    vocabulary - and ``Position.ordinal`` is a string, so "01.03.0020" sorts
+    before "320.2" and an unpriced tender row would shadow the priced position
+    the showcase hands its quantity to. A heading (empty unit) never wins; an
+    unpriced-but-real position is kept only as a fallback within its pattern.
+    Returns None when nothing matches, so a measurement is left unlinked
+    rather than pointing at a position that does not exist.
     """
     for pattern in patterns:
         stmt = (
-            select(Position.id)
+            select(Position.id, Position.unit, Position.unit_rate)
             .join(BOQ, Position.boq_id == BOQ.id)
             .where(BOQ.project_id == project_id, Position.description.ilike(pattern))
-            .order_by(Position.ordinal)
-            .limit(1)
+            .order_by(Position.ordinal, Position.id)
         )
-        position_id = (await session.execute(stmt)).scalars().first()
-        if position_id is not None:
-            return str(position_id)
+        rows = (await session.execute(stmt)).all()
+        fallback: str | None = None
+        for position_id, unit, unit_rate in rows:
+            if _position_is_priced(unit, unit_rate):
+                return str(position_id)
+            if fallback is None and (unit or "").strip():
+                fallback = str(position_id)
+        if fallback is not None:
+            return fallback
     return None
 
 
@@ -594,7 +616,14 @@ async def _seed_project_document(
         extracted_text=doc_plan.extracted_text,
         page_data=[{"page": n, "text": doc_plan.filename, "tables": []} for n in range(1, pages + 1)],
         analysis={"summary": doc_plan.summary, "trades": ["concrete", "drywall", "flooring", "doors", "windows"]},
-        page_scales={"defaultScale": {"pixelsPerUnit": doc_plan.scale, "unitLabel": "m"}, "byPage": {}},
+        # The frontend counts only pages present in ``byPage`` as calibrated
+        # (``pageIsCalibrated`` in pdf-takeoff/data/page-scales.ts); a seeded
+        # document presented as analyzed and measured must not greet the user
+        # with a "Not calibrated" badge, so page 1 carries its own entry.
+        page_scales={
+            "defaultScale": {"pixelsPerUnit": doc_plan.scale, "unitLabel": "m"},
+            "byPage": {"1": {"pixelsPerUnit": doc_plan.scale, "unitLabel": "m"}},
+        },
         metadata_={"seed": True, "demo": True, "scale": "1:100"},
     )
     session.add(document)
