@@ -2256,7 +2256,7 @@ function InvoicesTab({ projectId }: { projectId: string }) {
             size="sm"
             icon={<Plus size={14} />}
             onClick={() => {
-              setInvoiceForm({ direction: subTab, counterparty: '', contact_id: '', invoice_date: todayStr, due_date: '', subtotal: '', tax: '', amount: '', currency: projectCurrency, description: '', status: 'draft' });
+              setInvoiceForm({ direction: subTab, counterparty: '', contact_id: '', invoice_date: todayStr, due_date: '', subtotal: '', tax: '', amount: '', currency: projectCurrency, description: '', buyer_reference: '', status: 'draft' });
               setInvoiceErrors({});
               setAmountEditedManually(false);
               setShowCreate(true);
@@ -2330,7 +2330,7 @@ function InvoicesTab({ projectId }: { projectId: string }) {
                   ? {
                       label: t('finance.new_invoice', { defaultValue: 'New Invoice' }),
                       onClick: () => {
-                        setInvoiceForm({ direction: subTab, counterparty: '', contact_id: '', invoice_date: todayStr, due_date: '', subtotal: '', tax: '', amount: '', currency: projectCurrency, description: '', status: 'draft' });
+                        setInvoiceForm({ direction: subTab, counterparty: '', contact_id: '', invoice_date: todayStr, due_date: '', subtotal: '', tax: '', amount: '', currency: projectCurrency, description: '', buyer_reference: '', status: 'draft' });
                         setInvoiceErrors({});
                         setAmountEditedManually(false);
                         setShowCreate(true);
