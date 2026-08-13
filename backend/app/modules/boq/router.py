@@ -5475,10 +5475,21 @@ def _dec4(value: Any) -> Decimal | None:
         return None
 
 
-def _prepared_row_to_create(boq_id: uuid.UUID, pr: Mapping[str, Any]) -> PositionCreate:
-    """Map a validated round-trip row to a ``PositionCreate`` (new position)."""
+def _prepared_row_to_create(
+    boq_id: uuid.UUID,
+    pr: Mapping[str, Any],
+    parent_id: uuid.UUID | None = None,
+) -> PositionCreate:
+    """Map a validated round-trip row to a ``PositionCreate`` (new position).
+
+    ``parent_id`` carries the section link resolved by the create loop -
+    without it every imported row landed flat (parent NULL), so an imported
+    GAEB LV kept its section rows but they had zero children and every real
+    item fell into the ungrouped bucket.
+    """
     return PositionCreate(
         boq_id=boq_id,
+        parent_id=parent_id,
         ordinal=pr["ordinal"],
         description=pr.get("description", "") or "",
         unit=pr["unit"],
@@ -5488,6 +5499,51 @@ def _prepared_row_to_create(boq_id: uuid.UUID, pr: Mapping[str, Any]) -> Positio
         source=pr.get("source", "excel_import"),
         metadata=dict(pr.get("metadata") or {}),
     )
+
+
+# Sentinel distinguishing "row carries no section signal at all" (flat Excel /
+# BC3 sheets) from "row explicitly says it is top-level" (a GAEB item outside
+# any BoQCtgy carries ``gaeb_section: ""``).
+_NO_SECTION_SIGNAL: Any = object()
+
+
+def _resolve_import_parent(
+    pr: Mapping[str, Any],
+    section_id_by_ordinal: Mapping[str, uuid.UUID],
+    last_section_id: uuid.UUID | None,
+) -> uuid.UUID | None:
+    """Pick the parent for a freshly imported row from the sections before it.
+
+    Importers emit hierarchy top-down (a section row precedes its children),
+    so by the time a row is created every ancestor it can name already has an
+    id. Three rules, most explicit first:
+
+    * a SECTION nests under the deepest previously created section whose
+      dotted ordinal is a proper prefix of its own ("01.02" under "01");
+      no such ancestor means top-level;
+    * an ITEM that names its enclosing section (the GAEB importer stamps
+      ``gaeb_section`` into metadata/classification) attaches to that
+      section's row; an explicitly empty name means top-level;
+    * an ITEM with no signal at all (flat Excel / BC3 sheets) attaches to
+      the nearest section row above it - exactly how the sheet reads. With
+      no section rows in the upload this stays ``None``, so flat imports
+      keep their historic behaviour.
+    """
+    if pr.get("is_section"):
+        parts = [p for p in str(pr.get("ordinal") or "").strip().split(".") if p]
+        for cut in range(len(parts) - 1, 0, -1):
+            parent = section_id_by_ordinal.get(".".join(parts[:cut]))
+            if parent is not None:
+                return parent
+        return None
+
+    meta = pr.get("metadata") or {}
+    cls = pr.get("classification") or {}
+    explicit = meta.get("gaeb_section", cls.get("gaeb_section", _NO_SECTION_SIGNAL))
+    if explicit is not _NO_SECTION_SIGNAL:
+        key = str(explicit or "").strip()
+        return section_id_by_ordinal.get(key) if key else None
+    return last_section_id
 
 
 def _prepared_row_to_update(pr: Mapping[str, Any], stored: Any) -> PositionUpdate | None:
@@ -5601,10 +5657,27 @@ async def _apply_boq_roundtrip(
         except Exception as exc:  # noqa: BLE001 - surface, never abort
             apply_errors.append({"row": action.row.row_index, "position_id": pid, "error": str(exc)})
 
+    # Section identity threading: ``plan.creates`` preserves document order
+    # and importers emit a section row before its children, so each created
+    # section is remembered by ordinal and every following row can resolve
+    # its parent (see ``_resolve_import_parent``). Without this the entire
+    # imported hierarchy flattened to parent_id NULL.
+    section_id_by_ordinal: dict[str, uuid.UUID] = {}
+    last_section_id: uuid.UUID | None = None
+
     for action in plan.creates:
+        row_payload = action.row.payload
+        parent_id = _resolve_import_parent(row_payload, section_id_by_ordinal, last_section_id)
         try:
-            await service.add_position(_prepared_row_to_create(boq_id, action.row.payload))
+            created_row = await service.add_position(_prepared_row_to_create(boq_id, row_payload, parent_id=parent_id))
             created += 1
+            if row_payload.get("is_section"):
+                created_id = getattr(created_row, "id", None)
+                if created_id is not None:
+                    ordinal_key = str(row_payload.get("ordinal") or "").strip()
+                    if ordinal_key:
+                        section_id_by_ordinal[ordinal_key] = created_id
+                    last_section_id = created_id
         except HTTPException as exc:
             apply_errors.append({"row": action.row.row_index, "error": str(exc.detail)})
         except Exception as exc:  # noqa: BLE001 - surface, never abort

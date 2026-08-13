@@ -1294,7 +1294,15 @@ const BOQGrid = forwardRef<BOQGridHandle, BOQGridProps>(function BOQGrid({
 
   /* ── Column defs (standard + custom) ─────────────────────────────── */
   const columnDefs = useMemo(() => {
-    const defs = getColumnDefs({ currencySymbol, currencyCode, locale, fmt, t: tRef.current, displayCurrency: displayCurrency ?? null, showResourceSplit, displayQuantity });
+    // Longest ordinal in the loaded rows drives the "Pos." column width so a
+    // full German GAEB OZ ("01.01.0010") is never ellipsised in the default
+    // layout. `positions` is already a dependency of this memo.
+    let maxOrdinalChars = 0;
+    for (const p of positions) {
+      const len = (p.ordinal ?? '').length;
+      if (len > maxOrdinalChars) maxOrdinalChars = len;
+    }
+    const defs = getColumnDefs({ currencySymbol, currencyCode, locale, fmt, t: tRef.current, displayCurrency: displayCurrency ?? null, showResourceSplit, displayQuantity, maxOrdinalChars });
     // Override ordinal column with custom renderer
     const ordinalCol = defs.find((c) => c.field === 'ordinal');
     if (ordinalCol) {

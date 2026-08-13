@@ -22,10 +22,11 @@ import { apiGet, getAuthToken, triggerDownload } from '@/shared/lib/api';
 import { fmtNumber } from '@/shared/lib/formatters';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
-import { boqApi } from '@/features/boq/api';
+import { boqApi, isSection as isSectionRow } from '@/features/boq/api';
 import {
   parseGAEBXML,
   parseGAEBProjectName,
+  detectGAEBPhase,
   importGAEBToBOQ,
   truncateFinding,
   decodeXmlBuffer,
@@ -34,6 +35,7 @@ import {
 import {
   generateGAEBXML,
   downloadGAEBXML,
+  hasPricedPositions,
   type GAEBExportFormat,
   type ExportPosition,
 } from './data/gaebExport';
@@ -157,6 +159,9 @@ export default function GAEBExchangeModule() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [parsedPositions, setParsedPositions] = useState<GAEBPosition[] | null>(null);
   const [gaebProjectName, setGaebProjectName] = useState('');
+  // Exchange phase (X81/X83/X84…) read from the file's own DP element, not
+  // guessed from price presence - an unpriced X83 is NOT an X81.
+  const [gaebPhase, setGaebPhase] = useState('');
   const [parseError, setParseError] = useState<string | null>(null);
   const [importTargetBoqId, setImportTargetBoqId] = useState('');
   const [isImporting, setIsImporting] = useState(false);
@@ -213,6 +218,7 @@ export default function GAEBExchangeModule() {
       setImportFile(file);
       setParsedPositions(null);
       setGaebProjectName('');
+      setGaebPhase('');
       setParseError(null);
       setImportResult(null);
 
@@ -224,6 +230,7 @@ export default function GAEBExchangeModule() {
         const xmlString = decodeXmlBuffer(buffer);
         const positions = parseGAEBXML(xmlString);
         setGaebProjectName(parseGAEBProjectName(xmlString));
+        setGaebPhase(detectGAEBPhase(xmlString));
 
         if (positions.length === 0) {
           setParseError(t('gaeb.parse_error', { defaultValue: 'No positions found in the GAEB XML file. Ensure the file is valid GAEB DA XML 3.3 (X81, X83 or X84).' }));
@@ -311,6 +318,7 @@ export default function GAEBExchangeModule() {
     setImportFile(null);
     setParsedPositions(null);
     setGaebProjectName('');
+    setGaebPhase('');
     setParseError(null);
     setImportResult(null);
   }, []);
@@ -353,7 +361,11 @@ export default function GAEBExchangeModule() {
             : (Number(p.quantity) || 0) * (Number(p.unit_rate) || 0),
         section: p.section,
         parentId: p.parent_id,
-        isSection: p.is_section,
+        // The positions endpoint serves no `is_section` flag — deriving it
+        // here from the shared unit rule is what makes the summary's section
+        // count and the X81/X83 hierarchy export see the BOQ's sections at
+        // all (an explicit server flag, if one ever appears, still wins).
+        isSection: p.is_section ?? isSectionRow(p),
       })),
     [exportPositions],
   );
@@ -522,11 +534,16 @@ export default function GAEBExchangeModule() {
                   <div className="flex items-center justify-center gap-1.5 text-xs text-emerald-600">
                     <CheckCircle2 size={14} />
                     {parsedPositions.length} {t('gaeb.positions_found', { defaultValue: 'positions found' })}
-                    {parsedPositions.some((p) => p.unitRate > 0) && (
-                      <Badge variant="blue" className="ml-2">X83</Badge>
-                    )}
-                    {parsedPositions.every((p) => p.unitRate === 0) && (
-                      <Badge variant="neutral" className="ml-2">X81</Badge>
+                    {/* Phase read from the file's DP element - the old price
+                        heuristic labelled every unpriced X83 as "X81" and a
+                        priced X84 as "X83". Blue marks the priced phases. */}
+                    {gaebPhase && (
+                      <Badge
+                        variant={gaebPhase === 'X84' || gaebPhase === 'X86' ? 'blue' : 'neutral'}
+                        className="ml-2"
+                      >
+                        {gaebPhase}
+                      </Badge>
                     )}
                   </div>
                 )}
@@ -786,9 +803,13 @@ export default function GAEBExchangeModule() {
                 <div className="rounded-lg bg-surface-secondary/50 p-3 text-center">
                   <div className="text-2xs text-content-tertiary uppercase">{t('gaeb.prices', { defaultValue: 'Prices' })}</div>
                   <div className="text-lg font-bold text-content-primary">
-                    {exportFormat === 'X81'
-                      ? t('common.no', { defaultValue: 'No' })
-                      : t('common.yes', { defaultValue: 'Yes' })}
+                    {/* Answer from the data, not the format: X81 never carries
+                        prices; for X83/X84 "Yes" requires at least one priced
+                        line, otherwise an unpriced LV would be exported under
+                        a summary claiming a priced bid. */}
+                    {exportFormat !== 'X81' && hasPricedPositions(exportablePositions)
+                      ? t('common.yes', { defaultValue: 'Yes' })
+                      : t('common.no', { defaultValue: 'No' })}
                   </div>
                 </div>
               </div>

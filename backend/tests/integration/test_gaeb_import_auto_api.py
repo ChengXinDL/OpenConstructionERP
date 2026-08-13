@@ -232,3 +232,19 @@ async def test_frankfurt_rohbau_imports_all_positions(http_client, auth_headers,
     blob = "\n".join(p["description"] for p in items)
     assert "Ortbeton C25/30" in blob
     assert "Bewehrung" in blob
+
+    # The hierarchy must PERSIST, not only parse: sections used to land with
+    # zero children (parent_id NULL everywhere), which the editor showed as
+    # "0 Abschnitte" right after a preview full of section labels. Pin the
+    # full chain: Gewerk 01 top-level, its five sub-sections under it, and
+    # every item under exactly its own sub-section.
+    sections = {p["ordinal"]: p for p in positions if p["unit"] == "section"}
+    assert set(sections) == {"01", "01.01", "01.02", "01.03", "01.04", "01.05"}
+    assert sections["01"]["parent_id"] is None
+    for sub in ("01.01", "01.02", "01.03", "01.04", "01.05"):
+        assert sections[sub]["parent_id"] == sections["01"]["id"], f"{sub} not nested under the Gewerk"
+    for item in items:
+        section_oz = item["ordinal"].rsplit(".", 1)[0]
+        assert item["parent_id"] == sections[section_oz]["id"], (
+            f"item {item['ordinal']} persisted without its section link"
+        )

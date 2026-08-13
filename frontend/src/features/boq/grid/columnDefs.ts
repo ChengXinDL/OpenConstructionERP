@@ -140,6 +140,32 @@ export interface BOQColumnContext {
    * callers can use them unconditionally once present).
    */
   displayQuantity?: DisplayQuantityApi;
+  /**
+   * Length (characters) of the longest position ordinal in the grid.
+   * BOQGrid derives it from the loaded positions so the "Pos." column can
+   * be sized to show the FULL Ordnungszahl: a German GAEB OZ like
+   * "01.01.0010" was ellipsised to "01.01.0…" by the old fixed 88px.
+   * Omitted / 0 keeps the compact default width.
+   */
+  maxOrdinalChars?: number;
+}
+
+/**
+ * Pixel width for the ordinal ("Pos.") column that fits the longest ordinal
+ * currently in the grid without truncation.
+ *
+ * The cell renders the OZ in ``font-mono text-xs`` (12px, ~7.5px advance per
+ * character, upper bound across the mono stacks we ship) plus fixed chrome:
+ * 8px cell padding each side and the 10px validation dot with its 4px gap.
+ * Clamped to [88, 180] so short ordinals keep the historic compact column
+ * and a pathological ordinal cannot eat the viewport - the column stays
+ * user-resizable either way.
+ */
+export function ordinalColumnWidth(maxOrdinalChars: number): number {
+  const CHAR_PX = 7.5;
+  const CHROME_PX = 30; // 2 x 8px padding + 10px status dot + 4px gap
+  const fitted = Math.ceil(maxOrdinalChars * CHAR_PX) + CHROME_PX;
+  return Math.max(88, Math.min(180, fitted));
 }
 
 // Note: `currencyFormatter` was previously applied to the unit_rate column
@@ -506,7 +532,10 @@ export function getColumnDefs(context: BOQColumnContext): ColDef[] {
     {
       headerName: t('boq.ordinal', { defaultValue: 'Pos.' }),
       field: 'ordinal',
-      width: 88,
+      // Sized to the data so the full Ordnungszahl is readable: the fixed
+      // 88px default truncated a standard German GAEB OZ ("01.01.0010")
+      // exactly where the column exists to show it.
+      width: ordinalColumnWidth(context.maxOrdinalChars ?? 0),
       minWidth: 70,
       // The grid is singleClickEdit for data-entry columns (qty, rate), but
       // the Ordnungszahl is the client-issued identity of the line - a stray

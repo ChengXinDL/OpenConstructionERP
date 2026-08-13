@@ -5,6 +5,7 @@ import {
   getColumnDefs,
   needsPrice,
   nextResourceSplitMode,
+  ordinalColumnWidth,
   resourceSplitFraction,
   resourceSplitMoneyTotals,
   resourceSplitPct,
@@ -156,6 +157,52 @@ describe('resourceSplitMoneyTotals', () => {
 
   it('returns null when no position carries a split', () => {
     expect(resourceSplitMoneyTotals([position({}), position({ metadata: {} })])).toBeNull();
+  });
+});
+
+/* ── Ordinal ("Pos.") column width (K-2 in the German pilot QA) ──────────
+ * The fixed 88px column ellipsised a standard German GAEB OZ ("01.01.0010")
+ * to "01.01.0…" exactly where the narration pointed at the Ordnungszahl.
+ * The width now derives from the longest ordinal in the grid: ~7.5px per
+ * monospace character plus 30px cell chrome (padding + validation dot),
+ * clamped so short ordinals keep the compact default.
+ */
+describe('ordinal column width', () => {
+  const makeCtx = (maxOrdinalChars?: number): BOQColumnContext => ({
+    currencySymbol: '€',
+    currencyCode: 'EUR',
+    locale: 'de-DE',
+    fmt: new Intl.NumberFormat('de-DE'),
+    t: (key: string, opts?: Record<string, string>) => (opts?.defaultValue as string) ?? key,
+    ...(maxOrdinalChars !== undefined ? { maxOrdinalChars } : {}),
+  });
+
+  const ordinalWidth = (maxOrdinalChars?: number): number => {
+    const col = getColumnDefs(makeCtx(maxOrdinalChars)).find((c) => c.field === 'ordinal');
+    if (!col) throw new Error('ordinal column not found');
+    return col.width as number;
+  };
+
+  it('fits a full German GAEB OZ like 01.01.0010 (10 chars) without truncation', () => {
+    // 10 chars need >= ceil(10 * 7.5) + 30 = 105px of column.
+    expect(ordinalColumnWidth(10)).toBeGreaterThanOrEqual(105);
+    expect(ordinalWidth(10)).toBe(ordinalColumnWidth(10));
+  });
+
+  it('keeps the compact default when ordinals are short or unknown', () => {
+    expect(ordinalWidth(undefined)).toBe(88);
+    expect(ordinalWidth(0)).toBe(88);
+    expect(ordinalWidth(5)).toBe(88);
+  });
+
+  it('grows monotonically with deeper OZ schemes and stays user-shrinkable', () => {
+    expect(ordinalColumnWidth(13)).toBeGreaterThan(ordinalColumnWidth(10));
+    const col = getColumnDefs(makeCtx(13)).find((c) => c.field === 'ordinal');
+    expect(col?.minWidth).toBe(70);
+  });
+
+  it('caps the width for pathological ordinals', () => {
+    expect(ordinalColumnWidth(60)).toBe(180);
   });
 });
 

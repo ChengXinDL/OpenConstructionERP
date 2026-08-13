@@ -432,8 +432,15 @@ export function normalizePositions(positions: Position[]): Position[] {
 
 /* ── Section helpers (used on the frontend to group positions) ────── */
 
-/** A section is a position with no unit (acts as a group header). */
-export function isSection(pos: Position): boolean {
+/** A section is a position with no unit (acts as a group header).
+ *
+ * Accepts anything carrying a `unit` so row shapes outside this feature
+ * (e.g. the GAEB exchange module's export rows) can apply the SAME rule
+ * instead of re-deriving it — the API never serves an `is_section` flag,
+ * and a re-derived rule is how the export summary ended up counting zero
+ * sections for every BOQ.
+ */
+export function isSection(pos: Pick<Position, 'unit'>): boolean {
   return !pos.unit || pos.unit.trim() === '' || pos.unit.trim().toLowerCase() === 'section';
 }
 

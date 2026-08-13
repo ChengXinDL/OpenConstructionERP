@@ -2,12 +2,14 @@
 import { describe, it, expect } from 'vitest';
 import {
   generateGAEBXML,
+  hasPricedPositions,
   toGaebUnitCode,
   fromGaebUnitCode,
   type ExportPosition,
   type GAEBExportOptions,
 } from './data/gaebExport';
 import { parseGAEBXML, parseGAEBProjectName, truncateFinding } from '@/features/boq/gaebImport';
+import { isSection as isSectionRow } from '@/features/boq/api';
 
 // ---------------------------------------------------------------------------
 // Test data
@@ -388,5 +390,55 @@ describe('parseGAEBProjectName', () => {
   it('returns an empty string for unparseable input', () => {
     expect(parseGAEBProjectName('not xml at all <')).toBe('');
     expect(parseGAEBProjectName('')).toBe('');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Export summary truthfulness (B-2: "PREISE: Ja" over an all-zero LV)
+// ---------------------------------------------------------------------------
+
+describe('hasPricedPositions', () => {
+  it('is false for an LV whose every line is unpriced', () => {
+    const unpriced = samplePositions.map((p) => ({ ...p, unitRate: 0, total: 0 }));
+    expect(hasPricedPositions(unpriced)).toBe(false);
+  });
+
+  it('is true as soon as one line item carries a rate', () => {
+    const unpriced = samplePositions.map((p) => ({ ...p, unitRate: 0, total: 0 }));
+    unpriced[1] = { ...unpriced[1], unitRate: 18.5 };
+    expect(hasPricedPositions(unpriced)).toBe(true);
+  });
+
+  it('ignores section header rows entirely', () => {
+    // A degenerate section row carrying a rate must not make an unpriced
+    // LV claim prices — sections never carry money.
+    const rows = samplePositions.map((p) => ({ ...p, unitRate: 0, total: 0 }));
+    rows[0] = { ...rows[0], unitRate: 99 };
+    expect(hasPricedPositions(rows)).toBe(false);
+  });
+
+  it('is true for the priced sample LV', () => {
+    expect(hasPricedPositions(samplePositions)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Section derivation for API rows (K-3: ABSCHNITTE tile always read 0)
+// ---------------------------------------------------------------------------
+
+describe('section derivation from API rows', () => {
+  // The positions endpoint serves no `is_section` flag, so the export tab
+  // derives it from the SHARED unit rule. These pin the shapes the API
+  // actually serves: sections arrive with unit "section" (sections endpoint,
+  // server GAEB/Excel imports) or an empty unit (legacy rows).
+  it('recognises server-created section rows by their unit', () => {
+    expect(isSectionRow({ unit: 'section' })).toBe(true);
+    expect(isSectionRow({ unit: '' })).toBe(true);
+    expect(isSectionRow({ unit: '  Section ' })).toBe(true);
+  });
+
+  it('never claims a real line item is a section', () => {
+    expect(isSectionRow({ unit: 'm2' })).toBe(false);
+    expect(isSectionRow({ unit: 'psch' })).toBe(false);
   });
 });

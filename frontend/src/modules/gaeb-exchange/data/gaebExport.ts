@@ -135,6 +135,19 @@ export interface ExportPosition {
   isSection?: boolean;
 }
 
+/**
+ * True when at least one exportable line item carries a non-zero unit rate.
+ *
+ * The export summary's "Prices" tile must answer from the DATA, not from the
+ * chosen format: an X84 (priced bid) built from an unpriced LV used to claim
+ * "Prices: Yes" while every Einheitspreis in the editor read 0,00 — a false
+ * statement standing on the last frame the user sees. Section header rows
+ * never carry money and are excluded.
+ */
+export function hasPricedPositions(positions: ExportPosition[]): boolean {
+  return positions.some((p) => !p.isSection && Number(p.unitRate) > 0);
+}
+
 export interface GAEBExportOptions {
   /** Document format: X81 (no prices) or X83 (with prices) */
   format: GAEBExportFormat;
