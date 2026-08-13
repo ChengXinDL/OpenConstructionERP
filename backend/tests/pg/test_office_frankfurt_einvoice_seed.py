@@ -20,6 +20,8 @@ actually get, not a hand-built lookalike.
 
 from __future__ import annotations
 
+from decimal import ROUND_HALF_UP, Decimal
+
 import pytest
 from sqlalchemy import select
 
@@ -133,3 +135,55 @@ async def test_the_seeded_invoice_passes_an_xrechnung_dry_run(pg_session) -> Non
     )
     fatal = [v for v in found if v.severity == FATAL]
     assert fatal == [], "fatal findings on a fresh seed: " + "; ".join(f"{v.rule_id}: {v.message}" for v in fatal)
+
+
+async def test_the_seeded_amounts_are_measured_figures_that_still_reconcile(pg_session) -> None:
+    """Non-round line amounts, and a header that follows from them exactly.
+
+    Two properties, and they pull against each other, which is why they are
+    pinned together. A progress invoice is billed off an Aufmaß, so amounts
+    ending in six zeros read as placeholders to anybody who has priced one - but
+    the installer derives the header from the lines in float while the EN 16931
+    engine recomputes the VAT group in Decimal, and any drift between the two
+    makes BR-CO-17 fatal and the whole walkthrough stops.
+
+    Asserted as properties rather than as literals: whether this showcase keeps
+    these particular figures is a decision about the case, while "not round" and
+    "the arithmetic is exact" are the contract that must survive it.
+    """
+    invoice = await _seeded_receivable(pg_session)
+    line_items = (
+        (
+            await pg_session.execute(
+                select(InvoiceLineItem)
+                .where(InvoiceLineItem.invoice_id == invoice.id)
+                .order_by(InvoiceLineItem.sort_order)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert line_items, "the showcase invoice seeded no line items"
+
+    amounts = [Decimal(str(item.amount)) for item in line_items]
+    for item, amount in zip(line_items, amounts, strict=True):
+        assert amount > 0, f"{item.description}: a billed line needs an amount"
+        # A round ten-thousand is the shape of a made-up number. Real measured
+        # progress does not land there, and the case audit rejected the seed for
+        # exactly that.
+        assert amount % Decimal("10000") != 0, f"{item.description}: {amount} is a round figure, not a measured one"
+        # The screen shows quantity x unit rate = amount; a lump sum that
+        # disagrees with its own multiplication is visible on the invoice.
+        assert Decimal(str(item.quantity)) * Decimal(str(item.unit_rate)) == amount, item.description
+
+    subtotal = sum(amounts, Decimal("0"))
+    assert Decimal(str(invoice.amount_subtotal)) == subtotal, "the net total is not the sum of the lines (BR-CO-10)"
+
+    # The engine derives the VAT group from the lines and the declared rate, so
+    # the stored tax has to be exactly that or BR-CO-17 refuses the document.
+    vat_rate = Decimal(str(((invoice.metadata_ or {}).get("einvoice") or {}).get("vat_rate")))
+    assert vat_rate == Decimal("19"), "the German showcase is a standard-rated invoice"
+    expected_tax = (subtotal * vat_rate / Decimal("100")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    assert Decimal(str(invoice.tax_amount)) == expected_tax, "the stored VAT is not 19% of the net total (BR-CO-17)"
+    assert Decimal(str(invoice.amount_total)) == subtotal + expected_tax, "gross is not net plus VAT (BR-CO-15)"
+    assert (subtotal + expected_tax) % Decimal("10000") != 0, "the gross total landed on a round figure"

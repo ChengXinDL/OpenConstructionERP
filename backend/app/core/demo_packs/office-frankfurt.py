@@ -442,6 +442,18 @@ TEMPLATE = DemoTemplate(
             },
         },
         # The receivable invoice row itself.
+        #
+        # The line amounts are measured progress values, not round numbers: a
+        # Abschlagsrechnung is billed off an Aufmaß, so a figure ending in six
+        # zeros reads as a placeholder to anybody who has priced one.
+        #
+        # They are whole euros on purpose. The installer derives the header from
+        # these lines (subtotal = sum, tax = 19% of subtotal, total = the two
+        # added) in float, while the EN 16931 engine recomputes the VAT group in
+        # Decimal; on a whole-euro basis 19% lands exactly on a cent, so the two
+        # arithmetics cannot disagree and BR-CO-17 cannot fire on a rounding
+        # difference nobody can see. Cents here would make the invoice depend on
+        # two rounding modes agreeing.
         "invoice": {
             "invoice_number": "AR-2026-014",
             "notes": "3. Abschlagsrechnung Rohbau gem. Leistungsstand",
@@ -450,15 +462,15 @@ TEMPLATE = DemoTemplate(
                     "description": "Rohbauarbeiten UG2-UG1 gem. Aufmaß",
                     "quantity": "1",
                     "unit": "lsum",
-                    "unit_rate": "1240000.00",
-                    "amount": "1240000.00",
+                    "unit_rate": "1287413.00",
+                    "amount": "1287413.00",
                 },
                 {
                     "description": "Rohbauarbeiten EG-3.OG gem. Aufmaß",
                     "quantity": "1",
                     "unit": "lsum",
-                    "unit_rate": "610000.00",
-                    "amount": "610000.00",
+                    "unit_rate": "638945.00",
+                    "amount": "638945.00",
                 },
             ],
         },
