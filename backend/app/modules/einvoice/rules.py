@@ -113,6 +113,17 @@ _CATEGORY_RULE_PREFIX = {
 _ZERO_RATE_CATEGORIES = frozenset({"Z", "E", "AE", "K", "G", "O"})
 _POSITIVE_RATE_CATEGORIES = frozenset({"S", "L", "M"})
 
+# The exemption-reason obligations of the BR-x-10 slot, straight from the
+# EN 16931-1 rule list. A breakdown group in an exempting category must say why
+# no VAT is charged (BT-120 reason text or BT-121 reason code), and a standard
+# or zero-rated group must not carry a reason at all - zero rated is a
+# statement, not an exemption. BR-IG-10 / BR-IP-10 (the Canary Islands and
+# Ceuta/Melilla families) are deliberately not carried: their -10 wording is
+# not verified against the artefact here, and a wrong obligation is worse than
+# a missing one.
+_REASON_REQUIRED_CATEGORIES = frozenset({"E", "AE", "K", "G", "O"})
+_REASON_FORBIDDEN_CATEGORIES = frozenset({"S", "Z"})
+
 # The category codes an invoice may carry, derived from the rule families above
 # so a code and the rules that police it can never drift apart. Anything that
 # accepts a category from a user validates against this.
@@ -201,8 +212,15 @@ def _check_header(inv: EInvoice) -> list[RuleViolation]:
 # the contact the invoice is billed to. The engine sees an assembled document
 # and not its direction, so the buyer sentence is written for the receivable
 # case, which is the one that maps a contact onto the buyer at all.
+# ``_INVOICE_HOME`` is the third editor: fields that identify one document
+# (the buyer reference / Leitweg-ID, the VAT declaration) live under
+# ``metadata.einvoice`` on the invoice itself and are edited on the invoice
+# form, never in the settings - the settings model has no such columns by
+# construction (``EInvoiceSettings.as_defaults`` returns seller and payment
+# fields only).
 _SELLER_PARTY_HOME = "in the e-invoice settings"
 _BUYER_PARTY_HOME = "on the contact this invoice bills"
+_INVOICE_HOME = "on this invoice"
 
 
 def _check_parties(inv: EInvoice) -> list[RuleViolation]:
@@ -365,7 +383,73 @@ def _check_vat_breakdown(inv: EInvoice) -> list[RuleViolation]:
             )
 
     out += _check_breakdown_basis(inv)
+    out += _check_exemption_reasons(inv)
     return out
+
+
+def _check_exemption_reasons(inv: EInvoice) -> list[RuleViolation]:
+    """The BR-x-10 slot: an exemption must be justified, a rating must not be.
+
+    One finding per breakdown group, under the identifier of that group's own
+    family, so the sender reads exactly what a receiver's validator would
+    report. The reason is invoice data (``metadata.einvoice``), which is why
+    the remedy names the invoice and not the settings.
+    """
+    out: list[RuleViolation] = []
+    for grp in inv.tax_subtotals:
+        prefix = _CATEGORY_RULE_PREFIX.get(grp.category)
+        if prefix is None:
+            continue  # unknown category is BR-CL-18 territory, reported above
+        has_reason = bool((grp.exemption_reason or "").strip() or (grp.exemption_reason_code or "").strip())
+        if grp.category in _REASON_REQUIRED_CATEGORIES and not has_reason:
+            out.append(
+                RuleViolation(
+                    f"{prefix}-10",
+                    FATAL,
+                    f"The invoice uses VAT category {grp.category}, so it must state the VAT exemption "
+                    f"reason (BT-120) or reason code (BT-121) {_INVOICE_HOME}.",
+                    "BT-120",
+                )
+            )
+        elif grp.category in _REASON_FORBIDDEN_CATEGORIES and has_reason:
+            out.append(
+                RuleViolation(
+                    f"{prefix}-10",
+                    FATAL,
+                    f"VAT category {grp.category} must not carry a VAT exemption reason. Remove the "
+                    f"reason {_INVOICE_HOME}, or use an exempting category such as E.",
+                    "BT-120",
+                )
+            )
+    return out
+
+
+def _check_vat_declared(inv: EInvoice) -> list[RuleViolation]:
+    """OCE-VAT-01: zero-rating that nobody declared is worth a word.
+
+    When an invoice carries no VAT information anywhere - no explicit rate or
+    category, no line-level VAT, a zero tax amount - the builder can only fall
+    back to a 0% rate and category Z, and every zero-rate rule then holds by
+    construction. The document is formally valid and a receiver will accept
+    it, which is exactly why this is a warning and not a fatal: blocking it
+    would refuse an export the receiver takes. But a document that zero-rates
+    real money because a field was left empty is usually a mistake, so the
+    check says so instead of staying green and silent.
+    """
+    if inv.vat_declared or inv.tax_basis_total == 0:
+        return []
+    if not any(ln.vat_category == "Z" for ln in inv.lines):
+        return []
+    return [
+        RuleViolation(
+            "OCE-VAT-01",
+            WARNING,
+            "This invoice carries no VAT information, so it would be issued as zero rated "
+            f"(category Z). Enter the VAT amount or rate {_INVOICE_HOME}, or declare the zero "
+            "rating or an exemption explicitly.",
+            "BT-118",
+        )
+    ]
 
 
 def _check_breakdown_basis(inv: EInvoice) -> list[RuleViolation]:
@@ -751,7 +835,7 @@ def check_profile(inv: EInvoice, profile: Profile) -> list[RuleViolation]:
             RuleViolation(
                 "BR-DE-15",
                 FATAL,
-                "Add the Buyer reference / Leitweg-ID (BT-10) in the e-invoice settings; XRechnung requires it.",
+                f"Add the Buyer reference / Leitweg-ID (BT-10) {_INVOICE_HOME}; XRechnung requires it.",
                 "BT-10",
             )
         )
@@ -760,8 +844,8 @@ def check_profile(inv: EInvoice, profile: Profile) -> list[RuleViolation]:
             RuleViolation(
                 "PEPPOL-EN16931-R003",
                 FATAL,
-                f"Add a Buyer reference (BT-10) or an Order reference (BT-13) in the e-invoice "
-                f"settings; {label} requires one of them.",
+                f"Add a Buyer reference (BT-10) or an Order reference (BT-13) {_INVOICE_HOME}; "
+                f"{label} requires one of them.",
                 "BT-10",
             )
         )
@@ -770,7 +854,7 @@ def check_profile(inv: EInvoice, profile: Profile) -> list[RuleViolation]:
             RuleViolation(
                 "BR-DE-15",
                 FATAL,
-                f"Add a Buyer reference (BT-10) in the e-invoice settings; {label} requires it.",
+                f"Add a Buyer reference (BT-10) {_INVOICE_HOME}; {label} requires it.",
                 "BT-10",
             )
         )
@@ -796,6 +880,7 @@ def check(inv: EInvoice) -> list[RuleViolation]:
     out += _check_lines(inv)
     out += _check_totals(inv)
     out += _check_vat_breakdown(inv)
+    out += _check_vat_declared(inv)
     out += _check_payment(inv)
     out += _check_tax_currency(inv)
 

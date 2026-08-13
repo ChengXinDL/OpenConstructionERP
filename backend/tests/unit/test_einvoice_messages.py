@@ -7,8 +7,9 @@ and free of the typographic characters the house style forbids.
 
 from decimal import Decimal
 
-from app.modules.einvoice import problems_for
+from app.modules.einvoice import problems_for, violations_for
 from app.modules.einvoice.cii import EInvoice, EInvoiceLine, Party, TaxSubtotal, validate_semantics
+from app.modules.einvoice.rules import _INVOICE_HOME, FATAL
 
 
 def _base_invoice() -> dict:
@@ -71,8 +72,31 @@ def test_missing_buyer_reference_message_names_the_field_and_place():
     msg = hit[0]
     assert msg.startswith("Add")
     assert "BT-10" in msg  # keeps the technical anchor for experts
-    assert "e-invoice settings" in msg  # tells a non-expert where to go
+    assert _INVOICE_HOME in msg  # tells a non-expert where to go
     assert _no_typographic_dashes(msg)
+
+
+def test_every_bt10_finding_names_the_invoice_editor():
+    """BT-10 is invoice data, and the finding must send the user to its editor.
+
+    The buyer reference lives under ``metadata.einvoice`` on the invoice and is
+    edited on the invoice form; the standing settings hold seller columns only,
+    so a message pointing there names a screen without the field. Asserted as a
+    class over every BT-10 rule the engine can raise, and as a closed set of
+    identifiers, so a later BT-10 rule cannot ship pointing at a screen nobody
+    checked and the editor phrase cannot quietly drift per rule.
+    """
+    seen: dict[str, str] = {}
+    for profile in ("xrechnung", "peppol", "nlcius", "ehf", "peppol_aunz", "peppol_sg"):
+        inv = _base_invoice()
+        inv["metadata"]["einvoice"].pop("buyer_reference")
+        found = violations_for(invoice=inv, line_items=_lines(), profile=profile)
+        for v in found:
+            if v.term == "BT-10" and v.severity == FATAL:
+                seen[v.rule_id] = v.message
+                assert _INVOICE_HOME in v.message, f"{profile} {v.rule_id}: {v.message}"
+                assert "e-invoice settings" not in v.message, f"{profile} {v.rule_id}: {v.message}"
+    assert set(seen) == {"BR-DE-15", "PEPPOL-EN16931-R003"}, seen
 
 
 def test_xrechnung_message_mentions_leitweg():

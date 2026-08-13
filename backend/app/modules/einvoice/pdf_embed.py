@@ -40,7 +40,15 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 
-from app.modules.einvoice.cii import EInvoice, _money, build_cii_xml
+from app.modules.einvoice.cii import EInvoice, build_cii_xml
+from app.modules.einvoice.pdf_translations import (
+    DEFAULT_PDF_LOCALE,
+    fmt_date,
+    fmt_money,
+    fmt_number,
+    normalize_pdf_locale,
+    tr,
+)
 from app.modules.einvoice.profiles import get_profile
 
 # Factur-X / ZUGFeRD attachment filename (2.1 uses factur-x.xml for both).
@@ -55,8 +63,13 @@ _CONFORMANCE = {
 }
 
 
-def _readable_pdf(inv: EInvoice) -> bytes:
-    """Render a compact one-page, international invoice PDF (reportlab)."""
+def _readable_pdf(inv: EInvoice, locale: str = DEFAULT_PDF_LOCALE) -> bytes:
+    """Render the compact one-page invoice PDF (reportlab) in ``locale``.
+
+    Only the page is localised - labels, date shape, decimal separators and
+    thousands grouping. The embedded CII is standard-prescribed and never
+    changes with the reader's language.
+    """
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     width, height = A4
@@ -71,41 +84,41 @@ def _readable_pdf(inv: EInvoice) -> bytes:
         c.setFont("Helvetica-Bold" if bold else "Helvetica", size)
         c.drawRightString(width - 20 * mm, y, text)
 
-    line(top, "INVOICE", size=16, bold=True)
+    line(top, tr(locale, "doc_title"), size=16, bold=True)
     right(top, f"{inv.invoice_number}", size=12, bold=True)
     y = top - 8 * mm
-    right(y, f"Date: {inv.issue_date}")
+    right(y, tr(locale, "date", value=fmt_date(inv.issue_date, locale)))
     if inv.due_date:
-        right(y - 5 * mm, f"Due: {inv.due_date}")
+        right(y - 5 * mm, tr(locale, "due", value=fmt_date(inv.due_date, locale)))
 
     # Parties
     y = top - 20 * mm
-    line(y, "From", bold=True)
+    line(y, tr(locale, "from"), bold=True)
     line(y - 5 * mm, inv.seller.name)
     seller_loc = " ".join(x for x in (inv.seller.postcode, inv.seller.city) if x)
     if seller_loc:
         line(y - 10 * mm, seller_loc)
     if inv.seller.vat_id:
-        line(y - 15 * mm, f"VAT: {inv.seller.vat_id}")
+        line(y - 15 * mm, tr(locale, "vat_id", value=inv.seller.vat_id))
 
     c.setFont("Helvetica-Bold", 9)
-    c.drawString(left + 90 * mm, y, "Bill to")
+    c.drawString(left + 90 * mm, y, tr(locale, "bill_to"))
     c.setFont("Helvetica", 9)
     c.drawString(left + 90 * mm, y - 5 * mm, inv.buyer.name)
     buyer_loc = " ".join(x for x in (inv.buyer.postcode, inv.buyer.city) if x)
     if buyer_loc:
         c.drawString(left + 90 * mm, y - 10 * mm, buyer_loc)
     if inv.buyer_reference:
-        c.drawString(left + 90 * mm, y - 15 * mm, f"Ref: {inv.buyer_reference}")
+        c.drawString(left + 90 * mm, y - 15 * mm, tr(locale, "ref", value=inv.buyer_reference))
 
     # Line table header
     ty = y - 30 * mm
     c.setFont("Helvetica-Bold", 8)
-    c.drawString(left, ty, "Description")
-    c.drawRightString(left + 95 * mm, ty, "Qty")
-    c.drawString(left + 100 * mm, ty, "Unit")
-    c.drawRightString(left + 140 * mm, ty, "Unit price")
-    c.drawRightString(width - 20 * mm, ty, f"Net ({inv.currency})")
+    c.drawString(left, ty, tr(locale, "th_description"))
+    c.drawRightString(left + 95 * mm, ty, tr(locale, "th_qty"))
+    c.drawString(left + 100 * mm, ty, tr(locale, "th_unit"))
+    c.drawRightString(left + 140 * mm, ty, tr(locale, "th_unit_price"))
+    c.drawRightString(width - 20 * mm, ty, tr(locale, "th_net", currency=inv.currency))
     c.setLineWidth(0.4)
     c.line(left, ty - 2 * mm, width - 20 * mm, ty - 2 * mm)
 
@@ -113,10 +126,10 @@ def _readable_pdf(inv: EInvoice) -> bytes:
     ry = ty - 7 * mm
     for ln in inv.lines:
         c.drawString(left, ry, (ln.name or "-")[:60])
-        c.drawRightString(left + 95 * mm, ry, _num(ln.quantity))
+        c.drawRightString(left + 95 * mm, ry, fmt_number(ln.quantity, locale))
         c.drawString(left + 100 * mm, ry, (ln.unit or "")[:8])
-        c.drawRightString(left + 140 * mm, ry, _money(ln.net_unit_price, inv.currency))
-        c.drawRightString(width - 20 * mm, ry, _money(ln.line_net_amount, inv.currency))
+        c.drawRightString(left + 140 * mm, ry, fmt_money(ln.net_unit_price, inv.currency, locale))
+        c.drawRightString(width - 20 * mm, ry, fmt_money(ln.line_net_amount, inv.currency, locale))
         ry -= 5 * mm
         if ry < 40 * mm:  # keep it one page for the v1 layout
             break
@@ -130,47 +143,37 @@ def _readable_pdf(inv: EInvoice) -> bytes:
         nonlocal ry
         c.setFont("Helvetica-Bold" if bold else "Helvetica", 9)
         c.drawRightString(left + 140 * mm, ry, label)
-        c.drawRightString(width - 20 * mm, ry, f"{_money(amount, inv.currency)} {inv.currency}")
+        c.drawRightString(width - 20 * mm, ry, f"{fmt_money(amount, inv.currency, locale)} {inv.currency}")
         ry -= 5 * mm
 
-    total_row("Net total", inv.tax_basis_total)
-    total_row("VAT", inv.tax_total)
-    total_row("Grand total", inv.grand_total, bold=True)
+    total_row(tr(locale, "net_total"), inv.tax_basis_total)
+    total_row(tr(locale, "vat_total"), inv.tax_total)
+    total_row(tr(locale, "grand_total"), inv.grand_total, bold=True)
     if inv.prepaid_amount:
-        total_row("Retention / prepaid", inv.prepaid_amount)
-    total_row("Amount due", inv.due_payable, bold=True)
+        total_row(tr(locale, "retention_prepaid"), inv.prepaid_amount)
+    total_row(tr(locale, "amount_due"), inv.due_payable, bold=True)
 
     # Where to pay. The embedded XML carries BT-84 for the buyer's software;
     # a person reading the page needs to see the same account.
     if inv.payee_iban:
         ry -= 4 * mm
         c.setFont("Helvetica-Bold", 8)
-        c.drawString(left, ry, "Payment")
+        c.drawString(left, ry, tr(locale, "payment"))
         c.setFont("Helvetica", 8)
         ry -= 5 * mm
-        c.drawString(left, ry, f"IBAN: {inv.payee_iban}")
+        c.drawString(left, ry, tr(locale, "iban", value=inv.payee_iban))
         if inv.payee_bic:
-            c.drawString(left + 70 * mm, ry, f"BIC: {inv.payee_bic}")
+            c.drawString(left + 70 * mm, ry, tr(locale, "bic", value=inv.payee_bic))
         if inv.payee_account_name:
             ry -= 5 * mm
-            c.drawString(left, ry, f"Account holder: {inv.payee_account_name}")
+            c.drawString(left, ry, tr(locale, "account_holder", value=inv.payee_account_name))
 
     c.setFont("Helvetica-Oblique", 7)
     c.setFillColor(colors.grey)
-    c.drawString(
-        left,
-        20 * mm,
-        "This PDF carries an embedded EN 16931 e-invoice (Factur-X / ZUGFeRD). "
-        "The embedded XML is the operative document.",
-    )
+    c.drawString(left, 20 * mm, tr(locale, "footer"))
     c.showPage()
     c.save()
     return buf.getvalue()
-
-
-def _num(value: Decimal) -> str:
-    q = value.normalize()
-    return f"{q:f}"
 
 
 def _xmp(profile_name: str) -> bytes:
@@ -253,13 +256,20 @@ def _embed_cii(pdf_bytes: bytes, xml_bytes: bytes, profile_name: str) -> bytes:
     return out.getvalue()
 
 
-def build_facturx_pdf(inv: EInvoice, *, strict: bool = True) -> bytes:
-    """Build a Factur-X / ZUGFeRD hybrid PDF for a CII-profile invoice."""
+def build_facturx_pdf(inv: EInvoice, *, strict: bool = True, locale: str = DEFAULT_PDF_LOCALE) -> bytes:
+    """Build a Factur-X / ZUGFeRD hybrid PDF for a CII-profile invoice.
+
+    Args:
+        inv: the fully populated invoice.
+        strict: refuse to render an invoice that fails validation.
+        locale: language of the readable page (``"en"`` or ``"de"``); the
+            embedded CII XML is locale-independent by design.
+    """
     profile = get_profile(inv.profile)
     if profile is None or profile.syntax != "cii":
         from app.modules.einvoice.cii import EInvoiceError
 
         raise EInvoiceError(f"hybrid PDF needs a CII profile (zugferd/facturx/xrechnung/en16931), got {inv.profile!r}")
     xml_bytes = build_cii_xml(inv, strict=strict)
-    pdf_bytes = _readable_pdf(inv)
+    pdf_bytes = _readable_pdf(inv, normalize_pdf_locale(locale))
     return _embed_cii(pdf_bytes, xml_bytes, inv.profile)

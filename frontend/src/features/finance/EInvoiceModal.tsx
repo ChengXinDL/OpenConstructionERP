@@ -63,7 +63,7 @@ const selectCls =
   'text-content-primary focus:outline-none focus:ring-2 focus:ring-oe-blue';
 
 export function EInvoiceModal({ open, onClose, invoiceId, invoiceNumber }: EInvoiceModalProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const [profile, setProfile] = useState('xrechnung');
   const [downloading, setDownloading] = useState<'xml' | 'pdf' | null>(null);
@@ -108,16 +108,31 @@ export function EInvoiceModal({ open, onClose, invoiceId, invoiceNumber }: EInvo
   // Only a CII profile has a hybrid form. Read it off the registry entry
   // rather than listing the CII profile keys here, so a country added to the
   // registry gets the right buttons without a second edit in this file.
-  const hybridAvailable = profiles.find((p) => p.key === profile)?.syntax === 'cii';
+  const activeProfile = profiles.find((p) => p.key === profile);
+  const hybridAvailable = activeProfile?.syntax === 'cii';
+
+  // A finding's identifier (BR-DE-15) is quoted verbatim - that is the
+  // argument of the panel - but the sentence beside it is guidance and must
+  // speak the UI language. One key per rule id; a rule the locale has no key
+  // for keeps the engine's English sentence, so nothing ever goes blank.
+  // {{label}} feeds the one message that names the selected profile.
+  const ruleText = (v: EInvoiceViolation) =>
+    t(`einvoice.rule.${v.rule_id}`, {
+      defaultValue: v.message,
+      label: activeProfile?.label ?? profile,
+    });
 
   async function download(embed: boolean) {
     const kind = embed ? 'pdf' : 'xml';
     setDownloading(kind);
     setDownloadError(null);
     try {
+      // The hybrid PDF's readable page follows the UI language; the XML (and
+      // the XML inside the hybrid) is locale-independent by the standard.
+      const localeParam = embed ? `&locale=${encodeURIComponent(i18n.language)}` : '';
       await downloadWithAuth(
         `/api/v1/finance/invoices/${encodeURIComponent(invoiceId)}/einvoice` +
-          `?format=${encodeURIComponent(profile)}&embed=${embed ? 'true' : 'false'}`,
+          `?format=${encodeURIComponent(profile)}&embed=${embed ? 'true' : 'false'}${localeParam}`,
         `einvoice_${invoiceNumber}_${profile}.${kind}`,
       );
     } catch (e: unknown) {
@@ -229,7 +244,7 @@ export function EInvoiceModal({ open, onClose, invoiceId, invoiceNumber }: EInvo
                   className="flex flex-wrap items-baseline gap-2 rounded-lg border border-semantic-error bg-semantic-error-bg p-3"
                 >
                   <code className="font-mono text-xs font-semibold text-semantic-error">{v.rule_id}</code>
-                  <span className="text-sm text-content-primary">{v.message}</span>
+                  <span className="text-sm text-content-primary">{ruleText(v)}</span>
                   {v.term && (
                     <code className="font-mono text-[11px] text-content-tertiary">{v.term}</code>
                   )}
@@ -258,7 +273,7 @@ export function EInvoiceModal({ open, onClose, invoiceId, invoiceNumber }: EInvo
                   className="flex flex-wrap items-baseline gap-2 rounded-lg border border-border bg-surface-secondary p-3"
                 >
                   <code className="font-mono text-xs font-semibold text-semantic-warning">{v.rule_id}</code>
-                  <span className="text-sm text-content-primary">{v.message}</span>
+                  <span className="text-sm text-content-primary">{ruleText(v)}</span>
                 </li>
               ))}
             </ul>

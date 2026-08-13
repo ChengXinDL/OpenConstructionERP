@@ -130,6 +130,11 @@ interface Invoice {
   // to that claim. NULL on every non-claim invoice.
   source_claim_id?: string | null;
   line_items?: InvoiceLineItem[];
+  // Serialized InvoiceResponse.metadata. The e-invoice engine reads
+  // document-level fields (buyer reference / Leitweg-ID, VAT declaration,
+  // seller overrides) from metadata.einvoice, so the edit form has to carry
+  // the object through a PATCH instead of wiping it.
+  metadata?: Record<string, unknown> | null;
   // Raw wire fields from InvoiceResponse — the API uses these names
   // (invoice_date / currency_code / amount_total / amount_subtotal /
   // tax_amount / notes / contact_id) rather than the legacy display
@@ -179,6 +184,44 @@ function normaliseInvoice(i: InvoiceWire): Invoice {
     amount: amountRaw != null ? Number(amountRaw) : 0,
     currency: i.currency_code ?? i.currency ?? '',
   } as Invoice;
+}
+
+/** The stored BT-10 (buyer reference / Leitweg-ID), whichever spelling wrote it. */
+function readBuyerReference(metadata: Record<string, unknown> | null | undefined): string {
+  const einvoice =
+    metadata && typeof metadata === 'object' && metadata.einvoice && typeof metadata.einvoice === 'object'
+      ? (metadata.einvoice as Record<string, unknown>)
+      : {};
+  const value = einvoice.buyer_reference ?? einvoice.leitweg_id;
+  return typeof value === 'string' ? value : '';
+}
+
+/**
+ * Merge the form's buyer reference into a copy of the invoice's stored
+ * metadata. A PATCH replaces the whole metadata object server-side, so the
+ * form must carry every key it does not edit (the seed's seller block, VAT
+ * declaration, claim provenance) or editing one field would wipe the rest.
+ */
+function invoiceMetadataWithBuyerReference(
+  base: Record<string, unknown> | null | undefined,
+  buyerReference: string,
+): Record<string, unknown> {
+  const meta: Record<string, unknown> = { ...(base && typeof base === 'object' ? base : {}) };
+  const einvoice: Record<string, unknown> = {
+    ...(meta.einvoice && typeof meta.einvoice === 'object' ? (meta.einvoice as Record<string, unknown>) : {}),
+  };
+  const ref = buyerReference.trim();
+  if (ref) {
+    einvoice.buyer_reference = ref;
+    // The engine reads either spelling; keep one so they cannot diverge.
+    delete einvoice.leitweg_id;
+  } else {
+    delete einvoice.buyer_reference;
+    delete einvoice.leitweg_id;
+  }
+  if (Object.keys(einvoice).length > 0) meta.einvoice = einvoice;
+  else delete meta.einvoice;
+  return meta;
 }
 
 interface Payment {
@@ -1768,7 +1811,7 @@ function BudgetsTab({ projectId }: { projectId: string }) {
 /* ── Invoices Tab ─────────────────────────────────────────────────────── */
 
 function InvoicesTab({ projectId }: { projectId: string }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const addToast = useToastStore((s) => s.addToast);
   const { confirm, ...confirmProps } = useConfirm();
@@ -1803,6 +1846,11 @@ function InvoicesTab({ projectId }: { projectId: string }) {
     amount: '',
     currency: '',
     description: '',
+    // BT-10, the Buyer reference / Leitweg-ID. Invoice data by the standard:
+    // it routes this one document, so it lives under metadata.einvoice here
+    // and deliberately not in the e-invoice settings (which hold seller
+    // columns only). XRechnung refuses without it (BR-DE-15).
+    buyer_reference: '',
     // Lifecycle status of the invoice. Only meaningful in edit mode (a new
     // invoice is always created as 'draft'); surfaced as a dropdown so opening
     // an invoice lets a user advance its status, which is otherwise only
@@ -1860,6 +1908,7 @@ function InvoicesTab({ projectId }: { projectId: string }) {
       // an editor on a BRL/USD/etc. project keeps that currency (task #217).
       currency: inv.currency_code || inv.currency || projectCurrency || '',
       description: inv.notes ?? inv.description ?? '',
+      buyer_reference: readBuyerReference(inv.metadata),
       // The backend serialises the canonical 'sent' node; normalise it to the
       // 'approved' label the UI uses so the dropdown shows the right option.
       status: inv.status === 'sent' ? 'approved' : inv.status || 'draft',
@@ -1917,6 +1966,26 @@ function InvoicesTab({ projectId }: { projectId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invoiceModalOpen]);
 
+  // The e-invoice engine derives the document from its lines (BR-16 refuses
+  // an invoice without any), and this simple form bills one figure - so that
+  // figure travels as one lump-sum line. The unit token follows the UI
+  // language ('psch' is the German schedule word, 'lsum' the neutral one);
+  // both map to UNECE LS in the export.
+  const singleFormLine = (form: typeof invoiceForm, lineAmount: number) => {
+    if (!(lineAmount > 0)) return [];
+    return [
+      {
+        description:
+          form.description.trim() ||
+          t('finance.invoice_line_default', { defaultValue: 'Contract works for the billing period' }),
+        quantity: '1',
+        unit: i18n.language.toLowerCase().startsWith('de') ? 'psch' : 'lsum',
+        unit_rate: lineAmount.toFixed(2),
+        amount: lineAmount.toFixed(2),
+      },
+    ];
+  };
+
   const createInvoiceMut = useMutation({
     mutationFn: (data: typeof invoiceForm) => {
       const sub = parseFloat(data.subtotal || '0');
@@ -1936,13 +2005,18 @@ function InvoicesTab({ projectId }: { projectId: string }) {
         currency_code: data.currency || projectCurrency || '',
         notes: data.description || undefined,
         status: 'draft',
+        // One net line for the billed figure (falls back to the total when
+        // only a total was typed), and the BT-10 routing id under
+        // metadata.einvoice - both read by the e-invoice check and export.
+        line_items: singleFormLine(data, sub > 0 ? sub : total),
+        metadata: invoiceMetadataWithBuyerReference(null, data.buyer_reference),
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['finance-invoices', projectId] });
       queryClient.invalidateQueries({ queryKey: ['finance', 'dashboard', projectId] });
       setShowCreate(false);
-      setInvoiceForm({ direction: 'payable', counterparty: '', contact_id: '', invoice_date: todayStr, due_date: '', subtotal: '', tax: '', amount: '', currency: projectCurrency, description: '', status: 'draft' });
+      setInvoiceForm({ direction: 'payable', counterparty: '', contact_id: '', invoice_date: todayStr, due_date: '', subtotal: '', tax: '', amount: '', currency: projectCurrency, description: '', buyer_reference: '', status: 'draft' });
       setAmountEditedManually(false);
       addToast({ type: 'success', title: t('finance.invoice_created', { defaultValue: 'Invoice created successfully' }) });
     },
@@ -1967,6 +2041,13 @@ function InvoicesTab({ projectId }: { projectId: string }) {
       // doesn't look like a no-op transition (approved -> sent).
       const prev = data.prevStatus === 'sent' ? 'approved' : data.prevStatus;
       const statusChanged = data.form.status !== prev;
+      // A claim-born or imported invoice carries a real line breakdown;
+      // replacing it with this form's single figure would destroy it. Only
+      // the simple shape (no lines yet, or the one line this form wrote) is
+      // kept in sync with the edited amounts.
+      const existingLines = editingInvoice?.line_items ?? [];
+      const lineItemsPatch =
+        existingLines.length <= 1 ? { line_items: singleFormLine(data.form, sub > 0 ? sub : total) } : {};
       return apiPatch(`/v1/finance/${data.id}`, {
         contact_id: data.form.contact_id || null,
         invoice_direction: data.form.direction,
@@ -1977,6 +2058,10 @@ function InvoicesTab({ projectId }: { projectId: string }) {
         amount_total: String(total),
         currency_code: data.form.currency || projectCurrency || '',
         notes: data.form.description || null,
+        // Merged over the stored object: PATCH replaces metadata wholesale,
+        // and only the buyer reference is edited here.
+        metadata: invoiceMetadataWithBuyerReference(editingInvoice?.metadata, data.form.buyer_reference),
+        ...lineItemsPatch,
         ...(statusChanged ? { status: data.form.status } : {}),
       });
     },
@@ -2775,6 +2860,38 @@ function InvoicesTab({ projectId }: { projectId: string }) {
                 className={clsx(inputCls, invoiceErrors.invoice_date && 'border-semantic-error focus:ring-red-300 focus:border-semantic-error')}
               />
             </WideModalField>
+
+            {/* BT-10 Buyer reference / Leitweg-ID - outgoing invoices only.
+                It routes this one document through the recipient's systems
+                (German public buyers hand a Leitweg-ID over for exactly this),
+                so it is invoice data and the e-invoice check (BR-DE-15)
+                points here. The seller side lives in Settings, E-invoice;
+                this field is deliberately not there. */}
+            {invoiceForm.direction === 'receivable' && (
+              <WideModalField
+                label={t('finance.einvoice.buyerReferenceLabel', {
+                  defaultValue: 'Buyer reference / Leitweg-ID',
+                })}
+                span={2}
+                hint={t('finance.einvoice.buyerReferenceHint', {
+                  defaultValue:
+                    'BT-10 on the e-invoice. Public-sector buyers in Germany supply a Leitweg-ID and reject an XRechnung without it; other buyers may give a PO or routing reference.',
+                })}
+              >
+                <input
+                  type="text"
+                  value={invoiceForm.buyer_reference}
+                  onChange={(e) =>
+                    setInvoiceForm((f) => ({ ...f, buyer_reference: e.target.value }))
+                  }
+                  className={inputCls}
+                  placeholder="04011000-1234512345-06"
+                  aria-label={t('finance.einvoice.buyerReferenceLabel', {
+                    defaultValue: 'Buyer reference / Leitweg-ID',
+                  })}
+                />
+              </WideModalField>
+            )}
 
             {/* Status - edit mode only. A new invoice is always created as
                 'draft', and before #284 a draft had no control to move forward

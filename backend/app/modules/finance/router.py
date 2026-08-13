@@ -34,7 +34,7 @@ from collections.abc import Iterable
 from decimal import Decimal
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -768,6 +768,13 @@ async def export_invoice_einvoice(
     fmt: str = Query(default="xrechnung", alias="format"),
     dry_run: bool = Query(default=False),
     embed: bool = Query(default=False),
+    locale: str | None = Query(
+        default=None,
+        max_length=10,
+        description="Language of the readable page in the hybrid PDF (e.g. 'de'). "
+        "Overrides Accept-Language. The XML is locale-independent.",
+    ),
+    accept_language: str | None = Header(default=None, alias="accept-language"),
     user_id: CurrentUserId = None,  # type: ignore[assignment]
     _perm: None = Depends(RequirePermission("finance.read")),
     service: FinanceService = Depends(_get_service),
@@ -781,6 +788,7 @@ async def export_invoice_einvoice(
         violations_for,
     )
     from app.modules.einvoice.cii import EInvoiceError
+    from app.modules.einvoice.pdf_translations import resolve_pdf_locale
 
     profile = (fmt or "xrechnung").strip().lower()
     if profile not in SUPPORTED_PROFILES:
@@ -839,14 +847,24 @@ async def export_invoice_einvoice(
             ],
         }
 
-    render = render_einvoice_pdf if embed else render_einvoice
     try:
-        filename, media_type, body = render(
-            invoice=invoice_dict,
-            line_items=line_items,
-            profile=profile,
-            defaults=defaults,
-        )
+        if embed:
+            # The readable page follows the reader's language, the same
+            # resolution the daily-diary PDF uses; the embedded XML does not.
+            filename, media_type, body = render_einvoice_pdf(
+                invoice=invoice_dict,
+                line_items=line_items,
+                profile=profile,
+                defaults=defaults,
+                locale=resolve_pdf_locale(locale, accept_language),
+            )
+        else:
+            filename, media_type, body = render_einvoice(
+                invoice=invoice_dict,
+                line_items=line_items,
+                profile=profile,
+                defaults=defaults,
+            )
     except EInvoiceError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
