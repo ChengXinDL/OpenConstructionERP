@@ -80,6 +80,7 @@ async def enrich_projects(project_ids: list[uuid.UUID]) -> None:
         from app.modules.dwg_takeoff.seed import seed_dwg_takeoff_demo
         from app.modules.estimate_basis.seed import seed_estimate_basis_demo
         from app.modules.field_time.seed import seed_field_time_demo
+        from app.modules.finance.einvoice_settings_seed import seed_einvoice_settings_demo
         from app.modules.forms.submissions_seed import seed_forms_submissions_demo
         from app.modules.hse_advanced.seed import seed_hse_advanced_demo
         from app.modules.interface_management.seed import seed_interface_management_demo
@@ -222,6 +223,12 @@ async def enrich_projects(project_ids: list[uuid.UUID]) -> None:
             # so it stays on the demo estate. Self-guards per contract on an
             # existing claim.
             ("contracts", None, lambda s: seed_contracts_demo(s, _demo_pids)),
+            # Seller identity and bank account for the E-Rechnung screen, copied
+            # out of the showcase invoice that already carries them, so the
+            # settings form is not empty on an install whose invoice exports
+            # green. Instance-wide configuration, hence the demo estate only,
+            # and it fills empty fields only - a value a user typed wins.
+            ("einvoice_settings", None, lambda s: seed_einvoice_settings_demo(s, _demo_pids)),
             # German showcase Nachtrag chains: notices, requests and orders in
             # German with contract-clause anchors, custody hand-offs and dated
             # trails, so the claims-evidence panel can grade at least one chain
