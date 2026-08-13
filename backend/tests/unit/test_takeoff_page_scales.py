@@ -127,3 +127,49 @@ def test_document_response_exposes_owning_project() -> None:
 
     row.project_id = None
     assert TakeoffDocumentResponse.model_validate(row).project_id is None
+
+
+def test_get_document_route_payload_carries_owning_project(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The GET /documents/{id} handler itself returns ``project_id``.
+
+    The endpoint declares no ``response_model`` and hand-builds its payload,
+    so a field added to ``TakeoffDocumentResponse`` never reaches the wire on
+    its own - this pins the handler dict, not the schema.
+    """
+    import asyncio
+    from types import SimpleNamespace
+    from typing import cast
+
+    from app.modules.takeoff import router as takeoff_router
+    from app.modules.takeoff.service import TakeoffService
+
+    doc = SimpleNamespace(
+        id="doc-1",
+        filename="A-201 Floor Plan.pdf",
+        pages=1,
+        size_bytes=1024,
+        status="analyzed",
+        extracted_text="",
+        page_data=None,
+        analysis=None,
+        created_at=None,
+        page_scales=None,
+        project_id="0d55dd4e-7d1c-4a4a-9d4e-2f6a3b8c9e01",
+    )
+
+    class _Service:
+        async def get_document(self, doc_id: str) -> SimpleNamespace:
+            return doc
+
+    async def _allow(*_args: object) -> None:
+        return None
+
+    monkeypatch.setattr(takeoff_router, "_verify_takeoff_doc_access", _allow)
+    service = cast(TakeoffService, _Service())
+
+    payload = asyncio.run(takeoff_router.get_document("doc-1", service=service))
+    assert payload["project_id"] == "0d55dd4e-7d1c-4a4a-9d4e-2f6a3b8c9e01"
+
+    doc.project_id = None
+    payload = asyncio.run(takeoff_router.get_document("doc-1", service=service))
+    assert payload["project_id"] is None

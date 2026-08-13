@@ -4576,6 +4576,8 @@ async def upload_document(
         "pages": doc.pages,
         "size_bytes": doc.size_bytes,
         "status": doc.status,
+        # The owning project (audit case-2 B-7); None for standalone uploads.
+        "project_id": doc.project_id or None,
         # Per-page text-layer audit (8.2.0). Tells the client how many pages
         # came back with no text layer (likely scanned drawings needing OCR)
         # so a partly-scanned upload is not silently treated as empty.
@@ -4695,6 +4697,8 @@ async def create_takeoff_from_source(
         "pages": doc.pages,
         "size_bytes": doc.size_bytes,
         "status": doc.status,
+        # The owning project (audit case-2 B-7); mirrors the detail response.
+        "project_id": doc.project_id or None,
         "source_document_id": doc.source_document_id,
         "pages_without_text": no_text_count,
         "pages_without_text_list": no_text_pages,
@@ -4836,6 +4840,12 @@ async def get_document(
         "pages": doc.pages,
         "size_bytes": doc.size_bytes,
         "status": doc.status,
+        # The owning project (audit case-2 B-7): the viewer falls back to this
+        # for measurement identity when no project is active in the app header.
+        # ``None`` for legacy standalone uploads. Must live in this dict - the
+        # endpoint declares no response_model, so a field added only to
+        # ``TakeoffDocumentResponse`` never reaches the wire.
+        "project_id": doc.project_id or None,
         "extracted_text": doc.extracted_text[:2000] if doc.extracted_text else "",
         "page_data": doc.page_data,
         "analysis": doc.analysis,
