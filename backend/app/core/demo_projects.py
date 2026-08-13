@@ -5333,57 +5333,12 @@ def _generate_module_data(
             )
     progress: list[dict] = progress_entries  # primary key the block consumes
 
-    # ── Takeoff measurements (2-4 derived from real priced BOQ items) ────
-    # Map the section item's unit onto a takeoff measurement type so /takeoff
-    # is never blank: m2 -> area, m -> distance, pcs/Stk -> count, m3 -> volume.
-    def _measure_type(unit: str) -> tuple[str, str] | None:
-        u = (unit or "").strip().lower()
-        if u in {"m2", "m²", "sqm"}:
-            return "area", "m2"
-        if u in {"m3", "m³", "cum"}:
-            return "volume", "m3"
-        if u in {"m", "lm", "rm", "lfm"}:
-            return "distance", "m"
-        if u in {"pcs", "pc", "stk", "st", "nr", "no", "ea", "each", "unit"}:
-            return "count", "pcs"
-        return None
-
-    takeoff: list[dict] = []
-    take_colors = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444"]
-    for code, trade, _item in trades:
-        if len(takeoff) >= 4:
-            break
-        section = next((s for s in template.sections if str(s[0]) == code), None)
-        if not section:
-            continue
-        sec_items = section[3] if len(section) > 3 else []
-        for it in sec_items:
-            try:
-                desc = str(it[1]).split("(")[0].strip()
-                unit = str(it[2])
-                qty = float(it[3])
-            except (IndexError, TypeError, ValueError):
-                continue
-            mapped = _measure_type(unit)
-            if not mapped or qty <= 0:
-                continue
-            mtype, munit = mapped
-            idx = len(takeoff)
-            row: dict = {
-                "type": mtype,
-                "group_name": trade[:100] or "General",
-                "group_color": take_colors[idx % len(take_colors)],
-                "annotation": f"{desc} ({trade})",
-                "measurement_unit": munit,
-                "page": 1,
-            }
-            if mtype == "count":
-                row["count_value"] = int(round(qty))
-                row["measurement_value"] = float(round(qty))
-            else:
-                row["measurement_value"] = float(round(qty, 3))
-            takeoff.append(row)
-            break  # one measurement per trade keeps the spread varied
+    # Takeoff measurements are NOT generated here any more. The old block
+    # minted rows straight from BOQ items with no document, no points and no
+    # scale - list entries that broke the moment they were opened on a sheet.
+    # Real takeoff documents + geometry-backed measurements are seeded by
+    # app.modules.takeoff.seed.seed_takeoff_demo (demo enrichment), which also
+    # prunes any legacy document-less rows from earlier installs.
 
     # ── Documents (6-8 realistic project docs derived from the template) ─
     # Every entry is a PDF so the demo workspace never ships a byte-less
@@ -5668,7 +5623,6 @@ def _generate_module_data(
         "documents": documents,
         "risks": risks,
         "change_orders": change_orders,
-        "takeoff": takeoff,
     }
 
 
@@ -10292,34 +10246,11 @@ async def _seed_module_data(
     except Exception:
         logger.debug("Progress module not loaded, skipping demo progress")
 
-    # ── Takeoff measurements (so /takeoff is non-empty on every demo) ─────
-    try:
-        from app.modules.takeoff.models import TakeoffMeasurement
-
-        take_list = generated.get("takeoff", [])
-        for t in take_list:
-            mv = t.get("measurement_value")
-            session.add(
-                TakeoffMeasurement(
-                    id=_id(),
-                    project_id=project_id,
-                    document_id=None,
-                    page=t.get("page", 1),
-                    type=t["type"],
-                    group_name=t.get("group_name", "General"),
-                    group_color=t.get("group_color", "#3B82F6"),
-                    annotation=t.get("annotation"),
-                    points=[],
-                    measurement_value=(Decimal(str(mv)) if mv is not None else None),
-                    measurement_unit=t.get("measurement_unit", "m"),
-                    count_value=t.get("count_value"),
-                    created_by=owner_str,
-                    metadata_={"project_id": str(project_id), "demo_id": demo_id, "source": "boq_derived"},
-                )
-            )
-        results["takeoff"] = len(take_list)
-    except Exception:
-        logger.debug("Takeoff module not loaded, skipping demo takeoff measurements")
+    # Takeoff rows are intentionally NOT inserted per demo install: measurements
+    # without a document, points or scale cannot be shown on any sheet. The
+    # takeoff demo enrichment seeder (app.modules.takeoff.seed) creates real
+    # documents with geometry-backed measurements and prunes the legacy
+    # document-less rows earlier installs may have left behind.
 
     # Shared inputs for the gap-module blocks below: real trades / firms from
     # the template, the project's currency, and an approximate project value.
