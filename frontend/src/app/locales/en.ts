@@ -3400,6 +3400,8 @@ const resource = {
     "boq.ordinal_edit_hint": "Double-click a position number (or press F2) to type your own. Escape cancels. Use Renumber to apply a scheme to all.",
     "boq.ordinal_invalid_title": "Position number not changed",
     "boq.ordinal_invalid": "Position numbers use digits, dots and letters (e.g. 01.02.0010). The previous value was kept.",
+    "boq.number_invalid_title": "Value not changed",
+    "boq.number_invalid": "This is not a number the field can read - use a format like 48,60 or 48.60 or 1.234,56. The previous value was kept.",
     "boq.pending": "Pending",
     "boq.position": "Position",
     "boq.position_added": "Position added",

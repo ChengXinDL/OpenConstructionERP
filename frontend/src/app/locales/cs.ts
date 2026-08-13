@@ -1213,6 +1213,8 @@ const resource = {
     "boq.ordinal_edit_hint": "Dvojklikem na číslo položky (nebo klávesou F2) zadáte vlastní. Escape zruší. Pomocí Přečíslovat použijete schéma na všechny.",
     "boq.ordinal_invalid_title": "Číslo položky nebylo změněno",
     "boq.ordinal_invalid": "Čísla položek používají číslice, tečky a písmena (např. 01.02.0010). Zachovala se předchozí hodnota.",
+    "boq.number_invalid_title": "Hodnota nebyla změněna",
+    "boq.number_invalid": "Toto není platné číslo, které pole dokáže přečíst - použijte formát jako 48,60 nebo 48.60 nebo 1.234,56. Zachovala se předchozí hodnota.",
     "boq.renumber_custom_start": "Počáteční číslo",
     "boq.renumber_custom_step": "Krok",
     "boq.renumber_scheme_custom": "Vlastní",

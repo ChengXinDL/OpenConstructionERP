@@ -1159,6 +1159,8 @@ const resource = {
     "boq.ordinal_edit_hint": "項目番号をダブルクリック（またはF2キー）すると自由に入力できます。Escでキャンセルします。すべてに採番方式を適用するには「再採番」を使用してください。",
     "boq.ordinal_invalid_title": "項目番号は変更されませんでした",
     "boq.ordinal_invalid": "項目番号には数字、ピリオド、文字を使用します（例：01.02.0010）。以前の値が保持されました。",
+    "boq.number_invalid_title": "値は変更されませんでした",
+    "boq.number_invalid": "このフィールドで読み取れる有効な数値ではありません。48,60、48.60、1.234,56 のような形式を使用してください。以前の値が保持されました。",
     "boq.renumber_custom_start": "開始番号",
     "boq.renumber_custom_step": "増分",
     "boq.renumber_scheme_custom": "カスタム",

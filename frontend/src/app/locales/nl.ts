@@ -1170,6 +1170,8 @@ const resource = {
     "boq.ordinal_edit_hint": "Dubbelklik op een positienummer (of druk op F2) om zelf een nummer te typen. Escape annuleert. Gebruik Hernummeren om een schema op alles toe te passen.",
     "boq.ordinal_invalid_title": "Positienummer niet gewijzigd",
     "boq.ordinal_invalid": "Positienummers bestaan uit cijfers, punten en letters (bijv. 01.02.0010). De vorige waarde is behouden.",
+    "boq.number_invalid_title": "Waarde niet gewijzigd",
+    "boq.number_invalid": "Dit is geen geldig getal dat het veld kan lezen - gebruik een notatie zoals 48,60 of 48.60 of 1.234,56. De vorige waarde is behouden.",
     "boq.renumber_custom_start": "Startnummer",
     "boq.renumber_custom_step": "Stap",
     "boq.renumber_scheme_custom": "Aangepast",

@@ -1159,6 +1159,8 @@ const resource = {
     "boq.ordinal_edit_hint": "Klik dua kali nomor posisi (atau tekan F2) untuk mengetik nomor sendiri. Escape membatalkan. Gunakan Nomori Ulang untuk menerapkan skema ke semua.",
     "boq.ordinal_invalid_title": "Nomor posisi tidak diubah",
     "boq.ordinal_invalid": "Nomor posisi menggunakan angka, titik, dan huruf (mis. 01.02.0010). Nilai sebelumnya dipertahankan.",
+    "boq.number_invalid_title": "Nilai tidak diubah",
+    "boq.number_invalid": "Ini bukan angka valid yang dapat dibaca bidang ini - gunakan format seperti 48,60 atau 48.60 atau 1.234,56. Nilai sebelumnya dipertahankan.",
     "boq.renumber_custom_start": "Nomor awal",
     "boq.renumber_custom_step": "Langkah",
     "boq.renumber_scheme_custom": "Kustom",

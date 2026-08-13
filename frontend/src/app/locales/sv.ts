@@ -1178,6 +1178,8 @@ const resource = {
     "boq.ordinal_edit_hint": "Dubbelklicka på ett positionsnummer (eller tryck F2) för att skriva ett eget. Escape avbryter. Använd Omnumrera för att tillämpa ett schema på alla.",
     "boq.ordinal_invalid_title": "Positionsnumret ändrades inte",
     "boq.ordinal_invalid": "Positionsnummer består av siffror, punkter och bokstäver (t.ex. 01.02.0010). Det tidigare värdet behölls.",
+    "boq.number_invalid_title": "Värdet ändrades inte",
+    "boq.number_invalid": "Detta är inte ett giltigt tal som fältet kan läsa - använd ett format som 48,60 eller 48.60 eller 1.234,56. Det tidigare värdet behölls.",
     "boq.renumber_custom_start": "Startnummer",
     "boq.renumber_custom_step": "Steg",
     "boq.renumber_scheme_custom": "Anpassad",

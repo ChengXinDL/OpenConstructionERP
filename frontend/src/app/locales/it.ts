@@ -1198,6 +1198,8 @@ const resource = {
     "boq.ordinal_edit_hint": "Fai doppio clic su un numero di posizione (o premi F2) per digitarne uno personalizzato. Esc annulla. Usa Rinumera per applicare uno schema a tutte.",
     "boq.ordinal_invalid_title": "Numero di posizione non modificato",
     "boq.ordinal_invalid": "I numeri di posizione usano cifre, punti e lettere (es. 01.02.0010). È stato mantenuto il valore precedente.",
+    "boq.number_invalid_title": "Valore non modificato",
+    "boq.number_invalid": "Questo non è un numero valido che il campo possa leggere - usa un formato come 48,60 o 48.60 o 1.234,56. È stato mantenuto il valore precedente.",
     "boq.renumber_custom_start": "Numero iniziale",
     "boq.renumber_custom_step": "Incremento",
     "boq.renumber_scheme_custom": "Personalizzato",

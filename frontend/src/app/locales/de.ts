@@ -1176,6 +1176,8 @@ const resource = {
     "boq.ordinal_edit_hint": "Doppelklicken Sie auf eine Positionsnummer (oder drücken Sie F2), um Ihre eigene einzugeben. Escape bricht ab. Mit „Neu nummerieren\" wenden Sie ein Schema auf alle an.",
     "boq.ordinal_invalid_title": "Ordnungszahl nicht geändert",
     "boq.ordinal_invalid": "Ordnungszahlen bestehen aus Ziffern, Punkten und Buchstaben (z. B. 01.02.0010). Der vorherige Wert wurde beibehalten.",
+    "boq.number_invalid_title": "Wert nicht geändert",
+    "boq.number_invalid": "Das ist keine gültige Zahl für dieses Feld - verwenden Sie ein Format wie 48,60 oder 48.60 oder 1.234,56. Der vorherige Wert wurde beibehalten.",
     "boq.renumber_custom_start": "Startnummer",
     "boq.renumber_custom_step": "Schrittweite",
     "boq.renumber_scheme_custom": "Benutzerdefiniert",

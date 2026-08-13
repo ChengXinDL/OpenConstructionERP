@@ -711,6 +711,8 @@ const resource = {
     "boq.ordinal_edit_hint": "לחצו לחיצה כפולה על מספר סעיף (או הקישו F2) כדי להקליד מספר משלכם. Escape מבטל. השתמשו במיספור מחדש כדי להחיל תבנית על הכול.",
     "boq.ordinal_invalid_title": "מספר הסעיף לא השתנה",
     "boq.ordinal_invalid": "מספרי סעיפים משתמשים בספרות, נקודות ואותיות (למשל 01.02.0010). הערך הקודם נשמר.",
+    "boq.number_invalid_title": "הערך לא השתנה",
+    "boq.number_invalid": "זה אינו מספר תקין שהשדה יכול לקרוא - השתמשו בתבנית כמו 48,60 או 48.60 או 1.234,56. הערך הקודם נשמר.",
     "boq.renumber_custom_start": "מספר התחלה",
     "boq.renumber_custom_step": "צעד",
     "boq.renumber_scheme_custom": "מותאם אישית",

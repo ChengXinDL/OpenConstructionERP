@@ -1197,6 +1197,8 @@ const resource = {
     "boq.ordinal_edit_hint": "Faça duplo clique num número de posição (ou prima F2) para escrever o seu. Escape cancela. Use Renumerar para aplicar um esquema a todos.",
     "boq.ordinal_invalid_title": "Número de posição não alterado",
     "boq.ordinal_invalid": "Os números de posição usam dígitos, pontos e letras (ex.: 01.02.0010). O valor anterior foi mantido.",
+    "boq.number_invalid_title": "Valor não alterado",
+    "boq.number_invalid": "Este não é um número válido que o campo consiga ler - use um formato como 48,60 ou 48.60 ou 1.234,56. O valor anterior foi mantido.",
     "boq.renumber_custom_start": "Número inicial",
     "boq.renumber_custom_step": "Incremento",
     "boq.renumber_scheme_custom": "Personalizado",

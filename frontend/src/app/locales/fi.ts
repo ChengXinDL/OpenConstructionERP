@@ -1179,6 +1179,8 @@ const resource = {
     "boq.ordinal_edit_hint": "Kaksoisnapsauta nimikenumeroa (tai paina F2) kirjoittaaksesi oman. Escape peruuttaa. Käytä Uudelleennumerointia soveltaaksesi kaavan kaikkiin.",
     "boq.ordinal_invalid_title": "Nimikenumeroa ei muutettu",
     "boq.ordinal_invalid": "Nimikenumerot käyttävät numeroita, pisteitä ja kirjaimia (esim. 01.02.0010). Edellinen arvo säilytettiin.",
+    "boq.number_invalid_title": "Arvoa ei muutettu",
+    "boq.number_invalid": "Tämä ei ole kelvollinen luku, jonka kenttä voi lukea - käytä muotoa kuten 48,60 tai 48.60 tai 1.234,56. Edellinen arvo säilytettiin.",
     "boq.renumber_custom_start": "Aloitusnumero",
     "boq.renumber_custom_step": "Askel",
     "boq.renumber_scheme_custom": "Mukautettu",

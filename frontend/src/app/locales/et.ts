@@ -1176,6 +1176,8 @@ const resource = {
     "boq.ordinal_edit_hint": "Topeltklõpsa positsiooni numbril (või vajuta F2), et sisestada oma number. Escape tühistab. Kasuta funktsiooni Nummerda uuesti, et rakendada skeemi kõigile.",
     "boq.ordinal_invalid_title": "Positsiooni numbrit ei muudetud",
     "boq.ordinal_invalid": "Positsiooninumbrid kasutavad numbreid, punkte ja tähti (nt 01.02.0010). Eelmine väärtus säilitati.",
+    "boq.number_invalid_title": "Väärtust ei muudetud",
+    "boq.number_invalid": "See ei ole kehtiv number, mida väli suudab lugeda - kasutage vormingut nagu 48,60 või 48.60 või 1.234,56. Eelmine väärtus säilitati.",
     "boq.renumber_custom_start": "Algnumber",
     "boq.renumber_custom_step": "Samm",
     "boq.renumber_scheme_custom": "Kohandatud",

@@ -1176,6 +1176,8 @@ const resource = {
     "boq.ordinal_edit_hint": "Dobbeltklik på et positionsnummer (eller tryk F2) for at indtaste dit eget. Escape annullerer. Brug Omnummerer for at anvende en nummereringsplan på alle.",
     "boq.ordinal_invalid_title": "Positionsnummer ikke ændret",
     "boq.ordinal_invalid": "Positionsnumre bruger cifre, punktummer og bogstaver (f.eks. 01.02.0010). Den tidligere værdi blev bevaret.",
+    "boq.number_invalid_title": "Værdien blev ikke ændret",
+    "boq.number_invalid": "Dette er ikke et gyldigt tal, feltet kan læse - brug et format som 48,60 eller 48.60 eller 1.234,56. Den tidligere værdi blev bevaret.",
     "boq.renumber_custom_start": "Startnummer",
     "boq.renumber_custom_step": "Trin",
     "boq.renumber_scheme_custom": "Brugerdefineret",

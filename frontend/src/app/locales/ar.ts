@@ -1255,6 +1255,8 @@ const resource = {
     "boq.ordinal_edit_hint": "انقر نقرًا مزدوجًا على رقم أي بند (أو اضغط F2) لكتابة رقم خاص بك. Escape للإلغاء. استخدم إعادة الترقيم لتطبيق نظام على الكل.",
     "boq.ordinal_invalid_title": "لم يتغيّر رقم البند",
     "boq.ordinal_invalid": "تستخدم أرقام البنود الأرقام والنقاط والحروف (مثال: 01.02.0010). تم الاحتفاظ بالقيمة السابقة.",
+    "boq.number_invalid_title": "لم تتغيّر القيمة",
+    "boq.number_invalid": "هذا ليس رقمًا صالحًا يمكن للحقل قراءته - استخدم صيغة مثل 48,60 أو 48.60 أو 1.234,56. تم الاحتفاظ بالقيمة السابقة.",
     "boq.renumber_custom_start": "رقم البداية",
     "boq.renumber_custom_step": "الخطوة",
     "boq.renumber_scheme_custom": "مخصص",

@@ -1196,6 +1196,8 @@ const resource = {
     "boq.ordinal_edit_hint": "Dvaput kliknite broj stavke (ili pritisnite F2) da unesete vlastiti. Escape otkazuje. Koristite Ponovno numeriranje za primjenu sheme na sve.",
     "boq.ordinal_invalid_title": "Broj stavke nije promijenjen",
     "boq.ordinal_invalid": "Brojevi stavki koriste znamenke, točke i slova (npr. 01.02.0010). Prethodna vrijednost je zadržana.",
+    "boq.number_invalid_title": "Vrijednost nije promijenjena",
+    "boq.number_invalid": "Ovo nije valjani broj koji polje može pročitati - koristite format poput 48,60 ili 48.60 ili 1.234,56. Prethodna vrijednost je zadržana.",
     "boq.renumber_custom_start": "Početni broj",
     "boq.renumber_custom_step": "Korak",
     "boq.renumber_scheme_custom": "Prilagođeno",

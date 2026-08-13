@@ -1159,6 +1159,8 @@ const resource = {
     "boq.ordinal_edit_hint": "Nhấp đôi vào số thứ tự (hoặc nhấn F2) để tự nhập. Escape để hủy. Dùng Đánh lại số để áp dụng một sơ đồ cho tất cả.",
     "boq.ordinal_invalid_title": "Số thứ tự chưa thay đổi",
     "boq.ordinal_invalid": "Số thứ tự dùng chữ số, dấu chấm và chữ cái (vd. 01.02.0010). Giá trị trước đó đã được giữ nguyên.",
+    "boq.number_invalid_title": "Giá trị chưa thay đổi",
+    "boq.number_invalid": "Đây không phải là số hợp lệ mà trường này có thể đọc - hãy dùng định dạng như 48,60 hoặc 48.60 hoặc 1.234,56. Giá trị trước đó đã được giữ nguyên.",
     "boq.renumber_custom_start": "Số bắt đầu",
     "boq.renumber_custom_step": "Bước nhảy",
     "boq.renumber_scheme_custom": "Tùy chỉnh",

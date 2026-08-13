@@ -1159,6 +1159,8 @@ const resource = {
     "boq.ordinal_edit_hint": "双击一个编号（或按 F2）可手动输入。Escape 取消。使用“重新编号”将方案应用到全部项目。",
     "boq.ordinal_invalid_title": "编号未更改",
     "boq.ordinal_invalid": "编号使用数字、点和字母（例如 01.02.0010）。已保留之前的值。",
+    "boq.number_invalid_title": "值未更改",
+    "boq.number_invalid": "这不是该字段可读取的有效数字 - 请使用如 48,60、48.60 或 1.234,56 的格式。已保留之前的值。",
     "boq.renumber_custom_start": "起始编号",
     "boq.renumber_custom_step": "步长",
     "boq.renumber_scheme_custom": "自定义",

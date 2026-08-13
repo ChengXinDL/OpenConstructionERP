@@ -1159,6 +1159,8 @@ const resource = {
     "boq.ordinal_edit_hint": "항목 번호를 두 번 클릭(또는 F2)하면 직접 입력할 수 있습니다. Esc를 누르면 취소됩니다. 전체에 적용하려면 번호 재부여를 사용하세요.",
     "boq.ordinal_invalid_title": "항목 번호가 변경되지 않았습니다",
     "boq.ordinal_invalid": "항목 번호에는 숫자, 점, 문자를 사용합니다(예: 01.02.0010). 이전 값이 유지되었습니다.",
+    "boq.number_invalid_title": "값이 변경되지 않았습니다",
+    "boq.number_invalid": "이 필드가 읽을 수 있는 유효한 숫자가 아닙니다. 48,60, 48.60, 1.234,56 같은 형식을 사용하세요. 이전 값이 유지되었습니다.",
     "boq.renumber_custom_start": "시작 번호",
     "boq.renumber_custom_step": "간격",
     "boq.renumber_scheme_custom": "사용자 지정",

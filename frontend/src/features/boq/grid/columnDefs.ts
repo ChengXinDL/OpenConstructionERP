@@ -15,6 +15,7 @@ import {
 } from '../boqHelpers';
 import type { DisplayQuantityApi } from '@/shared/hooks/useDisplayQuantity';
 import { unitColumnValueSetter } from './cellEditors';
+import { parseDecimalInput } from './parseDecimal';
 import {
   buildFormulaContext,
   evaluateFormulaStrict,
@@ -35,6 +36,44 @@ import type { Position } from '../api';
  *  - `off`     neither pill nor columns.
  */
 export type ResourceSplitMode = 'pill' | 'columns' | 'off';
+
+/* ── Ordinal edit gesture arming ─────────────────────────────────────
+ * The grid runs with grid-level ``singleClickEdit`` so data-entry columns
+ * (qty, rate, unit) edit on one click. AG Grid combines that option with the
+ * column one as an OR (``gos.get('singleClickEdit') || colDef.singleClickEdit``),
+ * so a column-level ``singleClickEdit: false`` can NEVER opt back out - the
+ * previous attempt to make the Ordnungszahl double-click-only was a no-op
+ * and a stray single click kept opening an invisible editor over the OZ.
+ *
+ * Instead the ordinal column is editable only while "armed", and only the
+ * gestures we bless arm it: double-click, F2, Enter. The arm is a SELF-
+ * EXPIRING timestamp, not a boolean anyone has to remember to clear - it
+ * survives exactly the synchronous ``startRowOrCellEdit`` that follows the
+ * gesture, then dies on its own. No close path (Escape, blur, commit,
+ * invalid revert, thrown editor) can leak it into a stuck state, and no
+ * later single click can reuse it.
+ */
+let ordinalEditArmedUntil = 0;
+
+/** Bless the next (synchronous) edit start on the ordinal column. */
+function armOrdinalEdit(): void {
+  ordinalEditArmedUntil = Date.now() + 250;
+}
+
+/** True while a blessed gesture's edit start is in flight. */
+function isOrdinalEditArmed(): boolean {
+  return Date.now() < ordinalEditArmedUntil;
+}
+
+/** Test seam: report/clear the arm without waiting out the timestamp. */
+export function __ordinalEditArmState(): { armed: boolean; reset: () => void } {
+  return {
+    armed: isOrdinalEditArmed(),
+    reset: () => {
+      ordinalEditArmedUntil = 0;
+    },
+  };
+}
 
 /** Toolbar cycle order: pill -> columns -> off -> pill. */
 export function nextResourceSplitMode(mode: ResourceSplitMode): ResourceSplitMode {
@@ -469,17 +508,40 @@ export function getColumnDefs(context: BOQColumnContext): ColDef[] {
       field: 'ordinal',
       width: 88,
       minWidth: 70,
-      editable: (params) => {
-        // Any position number is user-editable (sections included); only the
-        // totals footer stays locked, so users can type whatever ordinal they want.
-        if (params.data?._isFooter) return false;
-        return true;
-      },
       // The grid is singleClickEdit for data-entry columns (qty, rate), but
       // the Ordnungszahl is the client-issued identity of the line - a stray
-      // click must never open an invisible editor over it. Double-click or
-      // F2 only; a single click merely selects the cell.
-      singleClickEdit: false,
+      // click must never open an invisible editor over it. Column-level
+      // ``singleClickEdit: false`` cannot override the grid-level option
+      // (AG Grid ORs them), so the column is instead editable only while a
+      // blessed gesture (double-click / F2 / Enter, below) has armed it.
+      editable: (params) => {
+        // Only the totals footer stays permanently locked; any position
+        // number (sections included) is editable through the gestures.
+        if (params.data?._isFooter) return false;
+        return isOrdinalEditArmed();
+      },
+      // Double-click is otherwise DEAD in a singleClickEdit grid (AG Grid
+      // only starts dblclick-editing when singleClickEdit is off), so the
+      // gesture is wired explicitly: arm, then start the edit ourselves.
+      onCellDoubleClicked: (params) => {
+        if (params.data?._isFooter) return;
+        const rowIndex = params.node?.rowIndex;
+        if (typeof rowIndex !== 'number' || rowIndex < 0) return;
+        armOrdinalEdit();
+        params.api.startEditingCell({ rowIndex, colKey: 'ordinal' });
+      },
+      // F2 on the focused cell runs AG Grid's own start-edit path; arming
+      // just before letting it through makes ``editable`` say yes for
+      // exactly that start. (Enter is not an edit key here - the grid has
+      // ``enterNavigatesVertically``, so Enter moves down instead.)
+      // Printable keys stay unarmed on purpose - type-to-replace on a
+      // mis-focused cell is exactly the stray-rewrite accident.
+      suppressKeyboardEvent: (params) => {
+        if (!params.editing && params.event.key === 'F2') {
+          armOrdinalEdit();
+        }
+        return false;
+      },
       headerTooltip: t('boq.ordinal_edit_hint', {
         defaultValue:
           'Double-click a position number (or press F2) to type your own. Escape cancels. Use Renumber to apply a scheme to all.',
@@ -652,8 +714,14 @@ export function getColumnDefs(context: BOQColumnContext): ColDef[] {
       // with no imperial mapping (pcs, %, hr ...), so this is a no-op
       // unless the user is in imperial AND the unit is convertible.
       valueParser: (params) => {
-        const val = parseFloat(params.newValue);
-        if (isNaN(val)) return params.oldValue;
+        // Cold path (editor bypassed / programmatic string commit): parse
+        // locale-aware and strict - parseFloat('48,60') is 48, a silent
+        // near-100x error for a German entry.
+        const val =
+          typeof params.newValue === 'number'
+            ? params.newValue
+            : parseDecimalInput(String(params.newValue ?? ''));
+        if (val === null || !isFinite(val)) return params.oldValue;
         const ctx = params.context as BOQColumnContext | undefined;
         const unit = (params.data?.unit as string | undefined) ?? '';
         return ctx?.displayQuantity ? ctx.displayQuantity.toMetric(val, unit) : val;
@@ -718,8 +786,13 @@ export function getColumnDefs(context: BOQColumnContext): ColDef[] {
       // unit; convert it back to the metric-canonical per-unit rate before
       // storing. ``toMetricRate`` is identity for metric / unmapped units.
       valueParser: (params) => {
-        const val = parseFloat(params.newValue);
-        if (isNaN(val)) return params.oldValue;
+        // Same locale-aware strict parse as the quantity column - the rate
+        // is the cell a German estimator types `48,60` into most often.
+        const val =
+          typeof params.newValue === 'number'
+            ? params.newValue
+            : parseDecimalInput(String(params.newValue ?? ''));
+        if (val === null || !isFinite(val)) return params.oldValue;
         const ctx = params.context as BOQColumnContext | undefined;
         const unit = (params.data?.unit as string | undefined) ?? '';
         return ctx?.displayQuantity ? ctx.displayQuantity.toMetricRate(val, unit) : val;
@@ -1312,10 +1385,18 @@ export function getCustomColumnDefs(
       };
 
       if (colType === 'number') {
-        base.cellEditor = 'agNumberCellEditor';
+        // Text editor, not agNumberCellEditor: the stock number editor is an
+        // <input type=number> which drops a German decimal comma at the
+        // keystroke level (48,60 -> 4860). The strict locale-aware parser
+        // below reads the text instead; clearing the cell still stores ''.
+        base.cellEditor = 'agTextCellEditor';
         base.valueParser = (params) => {
-          const val = parseFloat(params.newValue);
-          return isNaN(val) ? '' : val;
+          const raw = String(params.newValue ?? '').trim();
+          if (raw === '') return '';
+          const val = parseDecimalInput(raw);
+          // Unparseable input keeps the previous value - the old parseFloat
+          // fallback silently CLEARED the cell on a typo.
+          return val === null ? params.oldValue : val;
         };
       } else if (colType === 'select' && col.options?.length) {
         base.cellEditor = 'agSelectCellEditor';

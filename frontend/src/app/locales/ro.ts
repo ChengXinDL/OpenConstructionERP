@@ -1198,6 +1198,8 @@ const resource = {
     "boq.ordinal_edit_hint": "Faceți dublu clic pe un număr de poziție (sau apăsați F2) pentru a introduce unul propriu. Escape anulează. Folosiți Renumerotare pentru a aplica o schemă tuturor.",
     "boq.ordinal_invalid_title": "Numărul de poziție nu a fost modificat",
     "boq.ordinal_invalid": "Numerele de poziție folosesc cifre, puncte și litere (de ex. 01.02.0010). Valoarea anterioară a fost păstrată.",
+    "boq.number_invalid_title": "Valoarea nu a fost modificată",
+    "boq.number_invalid": "Acesta nu este un număr valid pe care câmpul îl poate citi - folosiți un format precum 48,60 sau 48.60 sau 1.234,56. Valoarea anterioară a fost păstrată.",
     "boq.renumber_custom_start": "Număr de start",
     "boq.renumber_custom_step": "Pas",
     "boq.renumber_scheme_custom": "Personalizat",

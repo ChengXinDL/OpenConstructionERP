@@ -1197,6 +1197,8 @@ const resource = {
     "boq.ordinal_edit_hint": "Double-cliquez sur un numéro de position (ou appuyez sur F2) pour saisir le vôtre. Échap annule. Utilisez Renuméroter pour appliquer un schéma à tout.",
     "boq.ordinal_invalid_title": "Numéro de position inchangé",
     "boq.ordinal_invalid": "Les numéros de position utilisent chiffres, points et lettres (ex. 01.02.0010). La valeur précédente a été conservée.",
+    "boq.number_invalid_title": "Valeur inchangée",
+    "boq.number_invalid": "Ce n'est pas un nombre valide pour ce champ - utilisez un format comme 48,60 ou 48.60 ou 1.234,56. La valeur précédente a été conservée.",
     "boq.renumber_custom_start": "Numéro de départ",
     "boq.renumber_custom_step": "Pas",
     "boq.renumber_scheme_custom": "Personnalisé",

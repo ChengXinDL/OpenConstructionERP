@@ -1178,6 +1178,8 @@ const resource = {
     "boq.ordinal_edit_hint": "Kendi numaranızı yazmak için bir pozisyon numarasına çift tıklayın (veya F2'ye basın). Escape iptal eder. Tümüne bir şema uygulamak için Yeniden Numarala'yı kullanın.",
     "boq.ordinal_invalid_title": "Pozisyon numarası değiştirilmedi",
     "boq.ordinal_invalid": "Pozisyon numaraları rakam, nokta ve harf kullanır (örn. 01.02.0010). Önceki değer korundu.",
+    "boq.number_invalid_title": "Değer değiştirilmedi",
+    "boq.number_invalid": "Bu, alanın okuyabileceği geçerli bir sayı değil - 48,60 veya 48.60 veya 1.234,56 gibi bir biçim kullanın. Önceki değer korundu.",
     "boq.renumber_custom_start": "Başlangıç numarası",
     "boq.renumber_custom_step": "Adım",
     "boq.renumber_scheme_custom": "Özel",

@@ -711,6 +711,8 @@ const resource = {
     "boq.ordinal_edit_hint": "I-double-click ang numero ng posisyon (o pindutin ang F2) para mag-type ng sarili mo. Kinakansela ng Escape. Gamitin ang Renumber para mag-apply ng scheme sa lahat.",
     "boq.ordinal_invalid_title": "Hindi binago ang numero ng posisyon",
     "boq.ordinal_invalid": "Ang mga numero ng posisyon ay gumagamit ng mga digit, tuldok, at letra (hal. 01.02.0010). Napanatili ang naunang value.",
+    "boq.number_invalid_title": "Hindi binago ang value",
+    "boq.number_invalid": "Hindi ito valid na numero na mababasa ng field - gumamit ng format tulad ng 48,60 o 48.60 o 1.234,56. Napanatili ang naunang value.",
     "boq.renumber_custom_start": "Panimulang Numero",
     "boq.renumber_custom_step": "Hakbang",
     "boq.renumber_scheme_custom": "Pasadya",

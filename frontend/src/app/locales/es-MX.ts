@@ -1203,6 +1203,8 @@ const resource = {
     "boq.ordinal_edit_hint": "Haga doble clic en un número de partida (o pulse F2) para escribir el suyo. Escape cancela. Use Renumerar para aplicar un esquema a todas.",
     "boq.ordinal_invalid_title": "Número de partida sin cambios",
     "boq.ordinal_invalid": "Los números de partida usan dígitos, puntos y letras (por ejemplo, 01.02.0010). Se conservó el valor anterior.",
+    "boq.number_invalid_title": "Valor sin cambios",
+    "boq.number_invalid": "No es un número válido que el campo pueda leer - use un formato como 48,60 o 48.60 o 1.234,56. Se conservó el valor anterior.",
     "boq.renumber_custom_start": "Número inicial",
     "boq.renumber_custom_step": "Paso",
     "boq.renumber_scheme_custom": "Personalizado",

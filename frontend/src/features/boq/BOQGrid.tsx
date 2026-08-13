@@ -1955,10 +1955,12 @@ const BOQGrid = forwardRef<BOQGridHandle, BOQGridProps>(function BOQGrid({
     return BOQ_DESC_ROW_HEIGHT[descDensityRef.current] ?? 32;
   }, []);
 
-  /* ── Cancel accidental ordinal edits from chevron clicks ─────── */
+  /* ── Editing started: acquire the collaboration row lock ─────── */
   const onCellEditingStarted = useCallback(
     (event: CellEditingStartedEvent) => {
-      // Ordinal column is editable:false — editing triggered via onCellDoubleClicked.
+      // (The ordinal column gates its own edit start: it is editable only
+      // while a blessed gesture - double-click or F2 - has armed it. See
+      // the self-expiring arm in columnDefs.ts.)
 
       // ── Layer-1 collaboration lock ──────────────────────────────
       // Acquire a soft lock on the row (not the cell) the first
@@ -2953,7 +2955,14 @@ const BOQGrid = forwardRef<BOQGridHandle, BOQGridProps>(function BOQGrid({
           enableCellTextSelection
           suppressCellFocus={false}
           tooltipShowDelay={400}
-          tooltipInteraction
+          // NO tooltipInteraction. An interactive tooltip is pointer-active
+          // (AG Grid's own CSS gives pointer-events only to
+          // .ag-tooltip-interactive) and it opens UNDER the cursor, covering
+          // its cell and the row below. Because hovering it keeps it alive,
+          // it then swallowed every following click / F2 in that area - the
+          // editor would "open once and never again" while pricing line
+          // after line. Plain tooltips are pointer-transparent and dismiss
+          // on mouse-leave, so they can never shield a cell.
         />
       </div>
 

@@ -1217,6 +1217,8 @@ const resource = {
     "boq.ordinal_edit_hint": "Kliknij dwukrotnie numer pozycji (lub naciśnij F2), aby wpisać własny. Escape anuluje. Użyj Przenumeruj, aby zastosować schemat do wszystkich.",
     "boq.ordinal_invalid_title": "Numer pozycji nie został zmieniony",
     "boq.ordinal_invalid": "Numery pozycji składają się z cyfr, kropek i liter (np. 01.02.0010). Poprzednia wartość została zachowana.",
+    "boq.number_invalid_title": "Wartość nie została zmieniona",
+    "boq.number_invalid": "To nie jest prawidłowa liczba, którą pole może odczytać - użyj formatu takiego jak 48,60 lub 48.60 lub 1.234,56. Poprzednia wartość została zachowana.",
     "boq.renumber_custom_start": "Numer początkowy",
     "boq.renumber_custom_step": "Krok",
     "boq.renumber_scheme_custom": "Niestandardowy",
