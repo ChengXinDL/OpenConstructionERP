@@ -4278,6 +4278,8 @@ const resource = {
     "cases.stage_selector.heading": "Cykl życia projektu",
     "cases.stage_selector.subtitle": "Scenariusze ułożone w kolejności realizacji projektu, od początku do końca.",
     "cases.stage_selector.all": "Wszystkie etapy",
+    "cases.region_selector.heading": "Rynek",
+    "cases.region_selector.all": "Wszystkie rynki",
     "cases.stage.define": "Definiowanie i założenia",
     "cases.stage.design": "Projektowanie i BIM",
     "cases.stage.estimate": "Kosztorys i plan kosztów",

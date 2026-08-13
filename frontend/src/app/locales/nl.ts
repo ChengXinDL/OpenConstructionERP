@@ -4231,6 +4231,8 @@ const resource = {
     "cases.stage_selector.heading": "Projectlevenscyclus",
     "cases.stage_selector.subtitle": "Cases geordend zoals een project verloopt, van begin tot eind.",
     "cases.stage_selector.all": "Alle fasen",
+    "cases.region_selector.heading": "Markt",
+    "cases.region_selector.all": "Alle markten",
     "cases.stage.define": "Definiëren en briefen",
     "cases.stage.design": "Ontwerpen en BIM",
     "cases.stage.estimate": "Ramen en kostenplan",

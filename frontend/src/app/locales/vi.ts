@@ -4220,6 +4220,8 @@ const resource = {
     "cases.stage_selector.heading": "Vòng đời dự án",
     "cases.stage_selector.subtitle": "Các tình huống sắp xếp theo trình tự dự án diễn ra, từ đầu đến cuối.",
     "cases.stage_selector.all": "Tất cả giai đoạn",
+    "cases.region_selector.heading": "Thị trường",
+    "cases.region_selector.all": "Tất cả thị trường",
     "cases.stage.define": "Xác định & yêu cầu",
     "cases.stage.design": "Thiết kế & BIM",
     "cases.stage.estimate": "Dự toán & kế hoạch chi phí",

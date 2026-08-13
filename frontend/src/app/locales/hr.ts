@@ -4257,6 +4257,8 @@ const resource = {
     "cases.stage_selector.heading": "Životni ciklus projekta",
     "cases.stage_selector.subtitle": "Slučajevi poredani redoslijedom odvijanja projekta, od početka do kraja.",
     "cases.stage_selector.all": "Sve faze",
+    "cases.region_selector.heading": "Tržište",
+    "cases.region_selector.all": "Sva tržišta",
     "cases.stage.define": "Definiranje i zadatak",
     "cases.stage.design": "Projektiranje i BIM",
     "cases.stage.estimate": "Procjena i plan troškova",

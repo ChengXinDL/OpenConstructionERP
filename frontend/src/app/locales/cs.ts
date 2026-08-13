@@ -4274,6 +4274,8 @@ const resource = {
     "cases.stage_selector.heading": "Životní cyklus projektu",
     "cases.stage_selector.subtitle": "Případy seřazené podle toho, jak projekt probíhá, od začátku do konce.",
     "cases.stage_selector.all": "Všechny fáze",
+    "cases.region_selector.heading": "Trh",
+    "cases.region_selector.all": "Všechny trhy",
     "cases.stage.define": "Definice a zadání",
     "cases.stage.design": "Návrh a BIM",
     "cases.stage.estimate": "Rozpočet a plán nákladů",

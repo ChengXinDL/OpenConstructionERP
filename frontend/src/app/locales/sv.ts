@@ -4239,6 +4239,8 @@ const resource = {
     "cases.stage_selector.heading": "Projektets livscykel",
     "cases.stage_selector.subtitle": "Fall ordnade i den ordning ett projekt löper, från start till slut.",
     "cases.stage_selector.all": "Alla skeden",
+    "cases.region_selector.heading": "Marknad",
+    "cases.region_selector.all": "Alla marknader",
     "cases.stage.define": "Definiera och program",
     "cases.stage.design": "Projektering och BIM",
     "cases.stage.estimate": "Kalkyl och kostnadsplan",

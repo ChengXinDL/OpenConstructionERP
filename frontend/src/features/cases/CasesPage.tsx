@@ -53,7 +53,7 @@ import {
   ChevronDown,
   type LucideProps,
 } from "lucide-react";
-import { Badge, Button, EmptyState } from "@/shared/ui";
+import { Badge, Button, CountryFlag, EmptyState } from "@/shared/ui";
 import { useNearViewport } from "@/shared/hooks/useNearViewport";
 import { useActiveProjectId } from "@/shared/hooks/useActiveProjectId";
 import { useProjectContextStore } from "@/stores/useProjectContextStore";
@@ -104,6 +104,18 @@ import type {
   ProfessionalRole,
   LifecycleStage,
 } from "./types";
+
+/** Localized display name for an ISO region code ("DE" reads as Deutschland
+ *  in a German UI) straight from Intl, so a new market never needs a locale
+ *  key of its own. Falls back to the raw code where DisplayNames is missing
+ *  (older WebKit, JSDOM). */
+function regionDisplayName(code: string, lang: string): string {
+  try {
+    return new Intl.DisplayNames([lang], { type: "region" }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
 
 export function CasesPage() {
   const { playbookId } = useParams<{ playbookId?: string }>();
@@ -172,7 +184,7 @@ export function CasesPage() {
 }
 
 function CasesList() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const runs = useCasesStore((s) => s.runs);
   // Each of the three "who/what" filters holds a list, not one id: a user can
@@ -205,6 +217,10 @@ function CasesList() {
   const togglePin = useCasesStore((s) => s.togglePin);
   const [query, setQuery] = useState("");
   const [activeStage, setActiveStage] = useState<LifecycleStage | "all">("all");
+  // Market filter: narrows to the cases authored for one market's standards
+  // (Playbook.region). Local state like the stage - it describes this visit,
+  // not the user.
+  const [activeRegion, setActiveRegion] = useState<string | "all">("all");
   const [showOnlyPinned, setShowOnlyPinned] = useState(false);
 
   const { data: projects } = useQuery({
@@ -306,29 +322,65 @@ function CasesList() {
       activeCategories.length === 0 || activeCategories.includes(p.category),
     [activeCategories],
   );
+  // The market row only exists when at least one case carries a region, so a
+  // catalogue without market-specific cases keeps exactly the layout it had.
+  const regions = useMemo(
+    () =>
+      [
+        ...new Set(
+          allPlaybooks
+            .map((p) => p.region)
+            .filter((r): r is string => Boolean(r)),
+        ),
+      ].sort(),
+    [allPlaybooks],
+  );
+  const inRegion = useCallback(
+    (p: Playbook) => activeRegion === "all" || p.region === activeRegion,
+    [activeRegion],
+  );
 
   // Only surface a selector option that actually has a matching case, and scope
   // each option's availability + count by the OTHER two active filters, so a
   // count always describes what clicking it would really show.
   const byCategoryRole = useMemo(
-    () => allPlaybooks.filter((p) => inCategory(p) && inRole(p) && inStage(p)),
-    [allPlaybooks, inCategory, inRole, inStage],
+    () =>
+      allPlaybooks.filter(
+        (p) => inCategory(p) && inRole(p) && inStage(p) && inRegion(p),
+      ),
+    [allPlaybooks, inCategory, inRole, inStage, inRegion],
   );
   const byCompanyRole = useMemo(
-    () => allPlaybooks.filter((p) => inCompany(p) && inRole(p) && inStage(p)),
-    [allPlaybooks, inCompany, inRole, inStage],
+    () =>
+      allPlaybooks.filter(
+        (p) => inCompany(p) && inRole(p) && inStage(p) && inRegion(p),
+      ),
+    [allPlaybooks, inCompany, inRole, inStage, inRegion],
   );
   const byCompanyCategory = useMemo(
     () =>
-      allPlaybooks.filter((p) => inCompany(p) && inCategory(p) && inStage(p)),
-    [allPlaybooks, inCompany, inCategory, inStage],
+      allPlaybooks.filter(
+        (p) => inCompany(p) && inCategory(p) && inStage(p) && inRegion(p),
+      ),
+    [allPlaybooks, inCompany, inCategory, inStage, inRegion],
   );
   // Stage availability + counts are scoped by the who/discipline filters but
   // NOT by the active stage itself (so every reachable stage stays clickable).
   const byCompanyRoleCategory = useMemo(
     () =>
-      allPlaybooks.filter((p) => inCompany(p) && inRole(p) && inCategory(p)),
-    [allPlaybooks, inCompany, inRole, inCategory],
+      allPlaybooks.filter(
+        (p) => inCompany(p) && inRole(p) && inCategory(p) && inRegion(p),
+      ),
+    [allPlaybooks, inCompany, inRole, inCategory, inRegion],
+  );
+  // Market counts mirror the stage rule: scoped by every other filter, never
+  // by the market itself, so a picked market can always be unpicked.
+  const byAllButRegion = useMemo(
+    () =>
+      allPlaybooks.filter(
+        (p) => inCompany(p) && inRole(p) && inCategory(p) && inStage(p),
+      ),
+    [allPlaybooks, inCompany, inRole, inCategory, inStage],
   );
   // An option the user has picked stays in its own row even when the other
   // filters leave it with no matching case. Dropping it would take away the
@@ -408,6 +460,7 @@ function CasesList() {
       if (activeStage !== "all" && stageByPlaybook.get(pb.id) !== activeStage)
         return false;
       if (!inCategory(pb)) return false;
+      if (!inRegion(pb)) return false;
       if (showOnlyPinned && !pinnedIds.includes(pb.id)) return false;
       if (!q) return true;
       const haystack =
@@ -426,6 +479,7 @@ function CasesList() {
     inCompany,
     inRole,
     inCategory,
+    inRegion,
     showOnlyPinned,
     pinnedIds,
     caseNumbers,
@@ -755,6 +809,58 @@ function CasesList() {
                     </button>
                   )}
                 </div>
+
+                {/* ── Market standards: cases written for one market's rules ── */}
+                {regions.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <h3 className="text-2xs font-semibold uppercase tracking-wide text-content-secondary">
+                      {t("cases.region_selector.heading", {
+                        defaultValue: "Market",
+                      })}
+                    </h3>
+                    {regions.map((r) => {
+                      const active = activeRegion === r;
+                      const count = byAllButRegion.filter(
+                        (p) => p.region === r,
+                      ).length;
+                      return (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => setActiveRegion(active ? "all" : r)}
+                          aria-pressed={active}
+                          className={clsx(
+                            "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-2xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-oe-blue/40",
+                            active
+                              ? "border-oe-blue bg-oe-blue/10 text-oe-blue"
+                              : "border-border-light bg-surface-primary text-content-secondary hover:border-oe-blue/30",
+                          )}
+                        >
+                          <CountryFlag
+                            code={r.toLowerCase()}
+                            size={18}
+                            className="ring-1 ring-inset ring-black/10"
+                          />
+                          {regionDisplayName(r, i18n.language)}
+                          <span className="tabular-nums text-content-tertiary">
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                    {activeRegion !== "all" && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveRegion("all")}
+                        className="text-2xs font-medium text-oe-blue hover:underline"
+                      >
+                        {t("cases.region_selector.all", {
+                          defaultValue: "All markets",
+                        })}
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {/* Company and role side by side on a wide screen. They answer
                     the same question, "who is asking", and stacking them cost a
@@ -1315,7 +1421,7 @@ function CaseCard({
   onTogglePin,
   onEdit,
 }: CaseCardProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { ref, near } = useNearViewport<HTMLDivElement>("400px");
   const Icon = iconFor(pb.icon);
   const tint = tintFor(pb.category);
@@ -1409,7 +1515,7 @@ function CaseCard({
         ) : (
           <CaseArt id={pb.id} category={pb.category} fallbackIcon={Icon} fallbackClass={tint.text} />
         )}
-        {(num != null || authored) && (
+        {(num != null || authored || pb.region) && (
           <div className="absolute left-3 top-3 flex items-center gap-1.5">
             {num != null && (
               <span
@@ -1431,6 +1537,23 @@ function CaseCard({
               <Badge variant="blue" size="sm">
                 {t("cases.card.custom_badge", { defaultValue: "Custom" })}
               </Badge>
+            )}
+            {/* Market flag: says at rest that this case is written for one
+                market's standards. The full market name is the tooltip and
+                the accessible name; the picture alone never carries it. */}
+            {pb.region && (
+              <span
+                className="inline-flex h-6 items-center gap-1 rounded-md bg-white/90 px-1.5 text-2xs font-semibold text-slate-900 shadow-sm ring-1 ring-inset ring-slate-900/10"
+                title={regionDisplayName(pb.region, i18n.language)}
+                aria-label={regionDisplayName(pb.region, i18n.language)}
+              >
+                <CountryFlag
+                  code={pb.region.toLowerCase()}
+                  size={18}
+                  className="ring-1 ring-inset ring-black/10"
+                />
+                {pb.region}
+              </span>
             )}
           </div>
         )}
@@ -1620,6 +1743,15 @@ function CaseCard({
                 count: pb.estMinutes,
               })}
             </span>
+            {pb.region && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-medium text-white ring-1 ring-inset ring-white/20">
+                <CountryFlag
+                  code={pb.region.toLowerCase()}
+                  size={15}
+                />
+                {regionDisplayName(pb.region, i18n.language)}
+              </span>
+            )}
           </div>
           {roles.length > 0 && (
             <div

@@ -4220,6 +4220,8 @@ const resource = {
     "cases.stage_selector.heading": "プロジェクトライフサイクル",
     "cases.stage_selector.subtitle": "プロジェクトの進行順に、最初から最後までケースを並べています。",
     "cases.stage_selector.all": "すべての段階",
+    "cases.region_selector.heading": "市場",
+    "cases.region_selector.all": "すべての市場",
     "cases.stage.define": "定義・要件整理",
     "cases.stage.design": "設計・BIM",
     "cases.stage.estimate": "見積・コスト計画",

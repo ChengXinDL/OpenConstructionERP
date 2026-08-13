@@ -3772,6 +3772,8 @@ const resource = {
     "cases.stage_selector.heading": "چرخه عمر پروژه",
     "cases.stage_selector.subtitle": "سناریوها به همان ترتیبی که یک پروژه اجرا می‌شود، از شروع تا پایان، چیده شده‌اند.",
     "cases.stage_selector.all": "همه مراحل",
+    "cases.region_selector.heading": "بازار",
+    "cases.region_selector.all": "همه بازارها",
     "cases.stage.define": "تعریف و شرح خواسته",
     "cases.stage.design": "طراحی و BIM",
     "cases.stage.estimate": "برآورد و برنامه هزینه",

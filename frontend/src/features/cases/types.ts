@@ -213,6 +213,11 @@ export interface Playbook {
   /** Company types this case is built for (one or more). Drives the primary
    *  "I work as..." selector on the Cases hub; see `companyTypes.ts`. */
   companyTypes: CompanyType[];
+  /** Optional ISO 3166-1 alpha-2 country code when the case is authored for one
+   *  market's standards and law (e.g. "DE" for a VOB/B, GAEB or XRechnung
+   *  workflow). Renders a flag chip on the case card and feeds the region
+   *  filter on the Cases hub. Omit for the universal cases. */
+  region?: string;
   /** Optional explicit professional roles this case is built for. When omitted
    *  the roles are derived from `category` + `companyTypes` (see
    *  `rolesForPlaybook` in `roles.ts`), so most cases never set this. Set it

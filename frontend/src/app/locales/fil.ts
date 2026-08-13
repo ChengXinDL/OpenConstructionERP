@@ -3772,6 +3772,8 @@ const resource = {
     "cases.stage_selector.heading": "Lifecycle ng Proyekto",
     "cases.stage_selector.subtitle": "Mga kasong nakalatag sa pagkakasunod-sunod ng takbo ng proyekto, mula simula hanggang katapusan.",
     "cases.stage_selector.all": "Lahat ng Yugto",
+    "cases.region_selector.heading": "Merkado",
+    "cases.region_selector.all": "Lahat ng Merkado",
     "cases.stage.define": "Tukuyin at I-brief",
     "cases.stage.design": "Disenyo at BIM",
     "cases.stage.estimate": "Estimate at Cost Plan",

@@ -4258,6 +4258,8 @@ const resource = {
     "cases.stage_selector.heading": "Ciclo de vida do projeto",
     "cases.stage_selector.subtitle": "Casos organizados pela ordem em que um projeto decorre, do início ao fim.",
     "cases.stage_selector.all": "Todas as fases",
+    "cases.region_selector.heading": "Mercado",
+    "cases.region_selector.all": "Todos os mercados",
     "cases.stage.define": "Definição e programa",
     "cases.stage.design": "Projeto e BIM",
     "cases.stage.estimate": "Estimativa e plano de custos",

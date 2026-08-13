@@ -3772,6 +3772,8 @@ const resource = {
     "cases.stage_selector.heading": "پروجیکٹ لائف سائیکل",
     "cases.stage_selector.subtitle": "کیسز اسی ترتیب میں دیے گئے ہیں جس میں پروجیکٹ چلتا ہے، شروع سے آخر تک۔",
     "cases.stage_selector.all": "تمام مراحل",
+    "cases.region_selector.heading": "مارکیٹ",
+    "cases.region_selector.all": "تمام مارکیٹس",
     "cases.stage.define": "طے کریں اور بریف کریں",
     "cases.stage.design": "ڈیزائن اور BIM",
     "cases.stage.estimate": "اسٹیمیٹ اور کاسٹ پلان",

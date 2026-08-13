@@ -4220,6 +4220,8 @@ const resource = {
     "cases.stage_selector.heading": "프로젝트 생애주기",
     "cases.stage_selector.subtitle": "프로젝트가 시작부터 끝까지 진행되는 순서로 사례를 배치했습니다.",
     "cases.stage_selector.all": "모든 단계",
+    "cases.region_selector.heading": "시장",
+    "cases.region_selector.all": "모든 시장",
     "cases.stage.define": "정의 및 기획",
     "cases.stage.design": "설계 및 BIM",
     "cases.stage.estimate": "견적 및 원가 계획",

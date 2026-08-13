@@ -4237,6 +4237,8 @@ const resource = {
     "cases.stage_selector.heading": "Projekti elutsükkel",
     "cases.stage_selector.subtitle": "Juhtumid järjestatuna nii, nagu projekt kulgeb, algusest lõpuni.",
     "cases.stage_selector.all": "Kõik etapid",
+    "cases.region_selector.heading": "Turg",
+    "cases.region_selector.all": "Kõik turud",
     "cases.stage.define": "Määratlemine ja lähteülesanne",
     "cases.stage.design": "Projekteerimine ja BIM",
     "cases.stage.estimate": "Hinnapakkumine ja kuluplaan",

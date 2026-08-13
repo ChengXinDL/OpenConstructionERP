@@ -4237,6 +4237,8 @@ const resource = {
     "cases.stage_selector.heading": "Projektets livscyklus",
     "cases.stage_selector.subtitle": "Cases opstillet i den rækkefølge, et projekt forløber, fra start til slut.",
     "cases.stage_selector.all": "Alle faser",
+    "cases.region_selector.heading": "Marked",
+    "cases.region_selector.all": "Alle markeder",
     "cases.stage.define": "Definér og program",
     "cases.stage.design": "Projektering og BIM",
     "cases.stage.estimate": "Overslag og omkostningsplan",

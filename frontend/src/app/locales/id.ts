@@ -4220,6 +4220,8 @@ const resource = {
     "cases.stage_selector.heading": "Siklus hidup proyek",
     "cases.stage_selector.subtitle": "Kasus disusun sesuai urutan berjalannya proyek, dari awal hingga akhir.",
     "cases.stage_selector.all": "Semua tahap",
+    "cases.region_selector.heading": "Pasar",
+    "cases.region_selector.all": "Semua pasar",
     "cases.stage.define": "Definisi & briefing",
     "cases.stage.design": "Desain & BIM",
     "cases.stage.estimate": "Estimasi & rencana biaya",

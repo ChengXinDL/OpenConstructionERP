@@ -3772,6 +3772,8 @@ const resource = {
     "cases.stage_selector.heading": "מחזור חיי הפרויקט",
     "cases.stage_selector.subtitle": "תרחישים בסדר שבו פרויקט מתנהל, מהתחלה ועד סוף.",
     "cases.stage_selector.all": "כל השלבים",
+    "cases.region_selector.heading": "שוק",
+    "cases.region_selector.all": "כל השווקים",
     "cases.stage.define": "הגדרה ותדריך",
     "cases.stage.design": "תכנון ו-BIM",
     "cases.stage.estimate": "אומדן ותוכנית עלות",

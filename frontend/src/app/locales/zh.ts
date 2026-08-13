@@ -4220,6 +4220,8 @@ const resource = {
     "cases.stage_selector.heading": "项目生命周期",
     "cases.stage_selector.subtitle": "按项目从开始到结束的运行顺序排列的案例。",
     "cases.stage_selector.all": "所有阶段",
+    "cases.region_selector.heading": "市场",
+    "cases.region_selector.all": "所有市场",
     "cases.stage.define": "定义与任务书",
     "cases.stage.design": "设计与 BIM",
     "cases.stage.estimate": "估算与成本计划",

@@ -4240,6 +4240,8 @@ const resource = {
     "cases.stage_selector.heading": "Projektin elinkaari",
     "cases.stage_selector.subtitle": "Tapaukset esitettynä siinä järjestyksessä, jossa projekti etenee alusta loppuun.",
     "cases.stage_selector.all": "Kaikki vaiheet",
+    "cases.region_selector.heading": "Markkina",
+    "cases.region_selector.all": "Kaikki markkinat",
     "cases.stage.define": "Määrittely ja tehtävänanto",
     "cases.stage.design": "Suunnittelu ja BIM",
     "cases.stage.estimate": "Kustannusarvio ja kustannussuunnitelma",

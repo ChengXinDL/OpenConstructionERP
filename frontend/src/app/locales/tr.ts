@@ -4239,6 +4239,8 @@ const resource = {
     "cases.stage_selector.heading": "Proje yaşam döngüsü",
     "cases.stage_selector.subtitle": "Senaryolar, bir projenin baştan sona ilerleyiş sırasına göre düzenlendi.",
     "cases.stage_selector.all": "Tüm aşamalar",
+    "cases.region_selector.heading": "Pazar",
+    "cases.region_selector.all": "Tüm pazarlar",
     "cases.stage.define": "Tanımlama ve brifing",
     "cases.stage.design": "Tasarım ve BIM",
     "cases.stage.estimate": "Keşif ve maliyet planı",

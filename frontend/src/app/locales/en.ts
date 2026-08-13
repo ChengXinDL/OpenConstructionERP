@@ -5646,6 +5646,8 @@ const resource = {
     "cases.stage_selector.heading": "Project lifecycle",
     "cases.stage_selector.subtitle": "Cases laid out in the order a project runs, start to finish.",
     "cases.stage_selector.all": "All stages",
+    "cases.region_selector.heading": "Market",
+    "cases.region_selector.all": "All markets",
     "cases.stage.define": "Define & brief",
     "cases.stage.design": "Design & BIM",
     "cases.stage.estimate": "Estimate & cost plan",

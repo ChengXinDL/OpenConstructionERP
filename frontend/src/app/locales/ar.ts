@@ -4316,6 +4316,8 @@ const resource = {
     "cases.stage_selector.heading": "دورة حياة المشروع",
     "cases.stage_selector.subtitle": "حالات مرتّبة حسب تسلسل سير المشروع من البداية إلى النهاية.",
     "cases.stage_selector.all": "جميع المراحل",
+    "cases.region_selector.heading": "السوق",
+    "cases.region_selector.all": "جميع الأسواق",
     "cases.stage.define": "التعريف والتوجيه",
     "cases.stage.design": "التصميم و BIM",
     "cases.stage.estimate": "التقدير وخطة التكلفة",

@@ -4259,6 +4259,8 @@ const resource = {
     "cases.stage_selector.heading": "Ciclul de viață al proiectului",
     "cases.stage_selector.subtitle": "Cazuri dispuse în ordinea derulării unui proiect, de la început până la sfârșit.",
     "cases.stage_selector.all": "Toate etapele",
+    "cases.region_selector.heading": "Piață",
+    "cases.region_selector.all": "Toate piețele",
     "cases.stage.define": "Definire și temă",
     "cases.stage.design": "Proiectare și BIM",
     "cases.stage.estimate": "Estimare și plan de costuri",
