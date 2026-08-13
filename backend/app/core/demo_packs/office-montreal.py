@@ -51,13 +51,13 @@ TEMPLATE = DemoTemplate(
         "lng": -73.5610,
     },
     validation_rule_sets=["masterformat", "boq_quality"],
-    boq_name="Estimation détaillée - MasterFormat 2020",
+    boq_name="Estimation détaillée - par divisions normalisées",
     boq_description=(
         "Estimation détaillée de classe B (devis préliminaire) selon "
-        "MasterFormat 2020, divisions 03 à 32. Coûts directs en CAD."
+        "Divisions normalisées 03 à 32. Coûts directs en CAD."
     ),
     boq_metadata={
-        "standard": "MasterFormat 2020",
+        "standard": "Classification par divisions normalisées",
         "phase": "Estimation classe B / Documents préliminaires (DD)",
         "base_date": "2026-Q1",
         "price_level": "Montréal 2026",

@@ -966,10 +966,10 @@ _US_MEDICAL = DemoTemplate(
     validation_rule_sets=["masterformat", "boq_quality"],
     project_metadata={"building_type": "hospital", "area_m2": 25000, "stories": 5},
     boq_name="Downtown Medical Center \u2014 Full Estimate",
-    boq_description="Detailed cost estimate for 200-bed medical center, MasterFormat divisions",
+    boq_description="Detailed cost estimate for 200-bed medical center, standard divisions",
     budget_boq_name="Downtown Medical Center - Budget Estimate",
     boq_metadata={
-        "standard": "CSI MasterFormat 2018",
+        "standard": "Division-based work-results classification",
         "phase": "Detailed Estimate",
         "base_date": "2025-Q2",
         "price_level": "US National Average 2025",
@@ -1197,7 +1197,7 @@ _DUBAI = DemoTemplate(
     boq_name="Cost Estimate \u2014 Logistics Warehouse",
     boq_description="Detailed cost estimate for Jebel Ali logistics facility",
     boq_metadata={
-        "standard": "CSI MasterFormat 2018",
+        "standard": "Division-based work-results classification",
         "phase": "Detailed Estimate",
         "base_date": "2026-Q2",
         "price_level": "Dubai 2026",
@@ -2074,7 +2074,7 @@ DEMO_CATALOG: list[dict] = [
         "name": "Downtown Medical Center",
         "description": (
             "200-bed hospital with ED, surgical suites, diagnostic imaging."
-            " 5-story steel frame. MasterFormat classification with full MEP systems."
+            " 5-story steel frame. Division-based classification with full MEP systems."
         ),
         "country": "US",
         "currency": "USD",
@@ -4235,7 +4235,7 @@ def _clean_trade(section_title: str) -> str:
     """Extract a short, human trade label from a section title.
 
     Section titles look like ``"KG 330 - Außenwände"`` or
-    ``"Division 03 - Concrete"`` or ``"2.1 Structural Steel"``. Strip a
+    ``"Division 03 - Cast-in-place concrete"`` or ``"2.1 Structural Steel"``. Strip a
     leading code token + separator so we keep the readable trade name.
     """
     title = " ".join(str(section_title or "").split())

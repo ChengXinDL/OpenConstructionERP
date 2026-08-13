@@ -57,6 +57,7 @@ PACK_CONFIG: dict[str, Any] = {
                 {"number": "42", "scope": "Industrial process thermal equipment"},
                 {"number": "43", "scope": "Industrial gas and liquid handling plant"},
                 {"number": "44", "scope": "Emissions, effluent and waste treatment plant"},
+                {"number": "45", "scope": "Manufacturing plant for specific industries"},
                 {"number": "46", "scope": "Water and wastewater treatment plant"},
                 {"number": "48", "scope": "On-site power generation plant"},
             ],

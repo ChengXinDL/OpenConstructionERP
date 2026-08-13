@@ -77,13 +77,13 @@ TEMPLATE = DemoTemplate(
         "(BOQ - General Hospital, SBC 2018 & MOH Standards)"
     ),
     boq_description=(
-        "جدول كميات تفصيلي وفق تصنيف MasterFormat مع مراجع كود البناء السعودي "
+        "جدول كميات تفصيلي وفق تصنيف الأقسام مع مراجع كود البناء السعودي "
         "ومتطلبات وزارة الصحة لتصميم المستشفيات. "
-        "(Detailed BOQ per MasterFormat with Saudi Building Code references and "
+        "(Detailed BOQ by standard divisions with Saudi Building Code references and "
         "Ministry of Health hospital design requirements.)"
     ),
     boq_metadata={
-        "standard": "CSI MasterFormat 2018 + SBC 2018 (SBC 201/301/304/501/601/801) + MOH",
+        "standard": "Division-based classification + SBC 2018 (SBC 201/301/304/501/601/801) + MOH",
         "phase": "Detailed Estimate (Tender Documents)",
         "base_date": "2026-Q1",
         "price_level": "Jeddah 2026 (SAR, excl. VAT)",
@@ -160,10 +160,10 @@ TEMPLATE = DemoTemplate(
                 ("07.10", "معالجة مقاومة الحريق للفتحات (Firestopping to penetrations)", "lsum", 1, 620000.00, {"masterformat": "07 84 00", "sbc": "SBC 801"}),
             ],
         ),
-        # ── 08 - Openings: Doors & Glazing (الأبواب والزجاج) ─────────────
+        # ── 08 - Doors and glazing (الأبواب والزجاج) ─────────────────────
         (
             "08",
-            "08 - الأبواب والزجاج الداخلي (Openings - Doors & Interior Glazing)",
+            "08 - الأبواب والزجاج الداخلي (Doors and interior glazing)",
             {"masterformat": "08", "sbc": "SBC 801"},
             [
                 ("08.01", "أبواب أوتوماتيكية منزلقة هرمسية للعمليات (Hermetic sliding OT doors)", "pcs", 22, 38000.00, {"masterformat": "08 34 16", "sbc": "SBC 501"}),
