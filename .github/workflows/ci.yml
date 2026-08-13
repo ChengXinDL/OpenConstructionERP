@@ -48,6 +48,16 @@ jobs:
         # interop names via scripts/brand_token_allowlist.txt.
         run: python scripts/check_no_brand_tokens.py
 
+      - name: Verify no proprietary classification content leaked in
+        # Division numbers are interoperability facts and stay; the
+        # official division titles are the licensor's expression and
+        # must never ship. The script pairs codes with hashed official
+        # titles (never the literal strings) and also catches the
+        # standard's display name used as a description of our own
+        # content, with location-scoped allowances for pickers,
+        # presets and validation rules that legitimately name it.
+        run: python scripts/check_no_proprietary_classification.py
+
   backend:
     name: Backend CI (shard ${{ matrix.shard }}/6)
     runs-on: ubuntu-latest
