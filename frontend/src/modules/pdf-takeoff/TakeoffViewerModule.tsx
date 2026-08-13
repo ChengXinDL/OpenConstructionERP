@@ -1118,6 +1118,12 @@ export default function TakeoffViewerModule({
   // not applicable (e.g. a freshly dropped local file).
   const [noTextLayer, setNoTextLayer] = useState<{ count: number; pages: number[] } | null>(null);
   const [noTextBannerDismissed, setNoTextBannerDismissed] = useState(false);
+  // The server document's own project (from the metadata fetch below). Fallback
+  // identity for measurement persistence when no project is active in the app
+  // header: without it a document opened from /markups or the documents tab on
+  // a clean profile never fetches its measurements - the screen does not ask,
+  // it just renders an empty ledger. The header project, when set, still wins.
+  const [docProjectId, setDocProjectId] = useState<string | null>(null);
   const activeProjectId = useProjectContextStore((s) => s.activeProjectId);
   const activeProjectName = useProjectContextStore((s) => s.activeProjectName);
 
@@ -1147,7 +1153,9 @@ export default function TakeoffViewerModule({
     // (scale_pixels_per_unit) so the server-side B8 recompute uses the same
     // ratio the row was drawn at.
     scale,
-    projectId: activeProjectId,
+    // The header project wins; the document's own project fills in when no
+    // project is active so a server document still loads its measurements.
+    projectId: activeProjectId || docProjectId,
   });
 
   /* ── Seed default-label counters from hydrated measurements (issue #384) ─
@@ -1370,6 +1378,7 @@ export default function TakeoffViewerModule({
   // failure leaves the banner hidden rather than blocking the drawing.
   useEffect(() => {
     setNoTextLayer(null);
+    setDocProjectId(null);
     const docId = documentId;
     if (!docId) {
       setNoTextBannerDismissed(false);
@@ -1391,6 +1400,7 @@ export default function TakeoffViewerModule({
       try {
         const meta = await takeoffApi.getDocument(docId);
         if (cancelled || !meta) return;
+        setDocProjectId(meta.project_id ?? null);
         const count = meta.pages_without_text ?? 0;
         if (count > 0) {
           setNoTextLayer({ count, pages: meta.pages_without_text_list ?? [] });

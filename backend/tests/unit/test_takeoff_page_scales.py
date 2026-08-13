@@ -94,3 +94,36 @@ def test_document_page_scales_update_rejects_oversized_bypage() -> None:
     big = {str(i): {"pixelsPerUnit": 100, "unitLabel": "m"} for i in range(5001)}
     with pytest.raises(ValidationError):
         DocumentPageScalesUpdate(page_scales={"byPage": big})
+
+
+def test_document_response_exposes_owning_project() -> None:
+    """The document response carries the document's own ``project_id``.
+
+    The viewer uses it as the fallback identity for measurement persistence
+    when no project is active in the app header - without the field a server
+    document opened from /markups on a clean profile never fetches its
+    measurements. Nullable: a legacy direct upload without a project still
+    serialises (as ``None``) instead of failing validation.
+    """
+    from types import SimpleNamespace
+
+    from app.modules.takeoff.schemas import TakeoffDocumentResponse
+
+    project_id = uuid.uuid4()
+    row = SimpleNamespace(
+        id="doc-1",
+        filename="A-201 Floor Plan.pdf",
+        pages=3,
+        size_bytes=1024,
+        status="analyzed",
+        content_type="application/pdf",
+        created_at=None,
+        pages_without_text=0,
+        pages_without_text_list=[],
+        page_scales=None,
+        project_id=project_id,
+    )
+    assert TakeoffDocumentResponse.model_validate(row).project_id == project_id
+
+    row.project_id = None
+    assert TakeoffDocumentResponse.model_validate(row).project_id is None
