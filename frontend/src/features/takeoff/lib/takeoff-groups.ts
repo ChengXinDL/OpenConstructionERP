@@ -9,6 +9,7 @@
 
 import type { Measurement } from './takeoff-types';
 import { effectiveQuantity } from './takeoff-quantity';
+import { formatQuantity } from './measurement-format';
 
 /** Tool types that shouldn't be counted in legend totals. */
 export const ANNOTATION_TYPES = new Set([
@@ -88,9 +89,11 @@ export function computeGroupSummaries(
   return summaries;
 }
 
-/** Format a group total for the legend row. */
-export function formatGroupTotal(total: number, unit: string): string {
-  const precision = total >= 100 ? 1 : total >= 1 ? 2 : 3;
-  const rounded = Number(total.toFixed(precision));
-  return unit ? `${rounded} ${unit}` : `${rounded}`;
+/** Format a group total for the legend row. Renders through the shared
+ *  quantity formatter so the total and the measurement rows it sums use
+ *  one decimal separator (K-12: the legend read "485.3" directly above
+ *  the "248,5" rows it summed). */
+export function formatGroupTotal(total: number, unit: string, locale?: string): string {
+  const rendered = formatQuantity(total, locale);
+  return unit ? `${rendered} ${unit}` : rendered;
 }

@@ -36,8 +36,8 @@ import {
   type SortDirection,
 } from '../lib/takeoff-ledger';
 import { usePreferencesStore } from '@/stores/usePreferencesStore';
-import i18n from '@/app/i18n';
 import { convertQuantity } from '../lib/takeoff-display-units';
+import { formatQuantity } from '../lib/measurement-format';
 import { effectiveQuantity, quantityAdjustmentLabel } from '../lib/takeoff-quantity';
 
 export interface MeasurementLedgerProps {
@@ -458,7 +458,7 @@ export function MeasurementLedger({
                     </td>
                     <td className="px-1.5 py-1" />
                     <td className="px-1.5 py-1 text-right font-semibold text-content-primary">
-                      {formatNum(disp.value)}
+                      {formatQuantity(disp.value)}
                     </td>
                     <td className="px-1.5 py-1 text-content-secondary">{disp.unit}</td>
                     <td className="px-1.5 py-1" />
@@ -581,7 +581,7 @@ function GroupRows({
               {/* Voids display as a negative so the column reconciles with the
                   net subtotal below (gross - openings). Value is shown in the
                   user's measurement system (stored metric, D-TKC-016). */}
-              {formatNum(disp.value)}
+              {formatQuantity(disp.value)}
             </td>
             <td className="px-1.5 py-1 text-content-secondary">{disp.unit}</td>
             <td className="px-1.5 py-1 text-right text-content-tertiary">{measurement.page}</td>
@@ -671,7 +671,7 @@ function GroupRows({
               </td>
               <td />
               <td className="px-1.5 py-1 text-right font-semibold text-content-primary">
-                {formatNum(disp.value)}
+                {formatQuantity(disp.value)}
               </td>
               <td className="px-1.5 py-1 text-content-secondary">{disp.unit}</td>
               <td />
@@ -731,18 +731,6 @@ function FilterChipGroup<T extends string | number>({
       </div>
     </div>
   );
-}
-
-function formatNum(value: number): string {
-  if (value === 0) return '0';
-  const abs = Math.abs(value);
-  // Same precision tiers as the historic toFixed rules; Intl renders the
-  // digits in the app language (audit case-2 K-12: decimal comma for de).
-  const digits = abs < 1 ? 3 : abs < 100 ? 2 : 1;
-  return new Intl.NumberFormat(i18n.language || 'en', {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  }).format(value);
 }
 
 export default MeasurementLedger;

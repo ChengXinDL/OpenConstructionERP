@@ -158,6 +158,7 @@ import {
   computeGroupSummaries,
   formatGroupTotal,
 } from '../../features/takeoff/lib/takeoff-groups';
+import { formatFixedDigits } from '../../features/takeoff/lib/measurement-format';
 import {
   groupColorCommit,
   groupColorIdentity,
@@ -8354,7 +8355,7 @@ export default function TakeoffViewerModule({
                     scale.unitLabel,
                     measurementSystem,
                   );
-                  return `1px = ${perPixel.value.toFixed(4)} ${perPixel.unit}`;
+                  return `1px = ${formatFixedDigits(perPixel.value, 4)} ${perPixel.unit}`;
                 })()}
               </p>
               <div className="mt-2 flex gap-1 flex-wrap">

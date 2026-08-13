@@ -3,6 +3,7 @@
 /** Pixel-to-real-world scale conversion helpers */
 
 import i18n from '@/app/i18n';
+import { formatFixedDigits, formatSignificantDigits } from '@/features/takeoff/lib/measurement-format';
 
 export interface ScaleConfig {
   /** Pixels per real-world unit (e.g. pixels per meter).
@@ -126,37 +127,17 @@ export function polygonPerimeterPixels(
   return perimeter;
 }
 
-/** Locale-aware number rendering for measurement readouts (audit case-2
+/** Locale-aware number rendering for viewer readouts (audit case-2
  *  K-12): `toFixed` always prints "248.5" while a German viewer expects
  *  "248,5". Precision tiers are unchanged from the historic `toFixed`
- *  rules; only the digit rendering is localised. Formatters are cached per
- *  locale+tier because the canvas layer formats every label on every
- *  redraw. */
-const _numberFormats = new Map<string, Intl.NumberFormat>();
-
+ *  rules; the digit rendering goes through the shared cached formatters
+ *  in `measurement-format.ts` so every takeoff surface renders numbers
+ *  the same way. */
 function measurementNumber(value: number, locale: string): string {
-  let tier: string;
-  let opts: Intl.NumberFormatOptions;
-  if (value < 0.001) {
-    tier = 'sig2';
-    opts = { minimumSignificantDigits: 2, maximumSignificantDigits: 2 };
-  } else if (value < 1) {
-    tier = 'f4';
-    opts = { minimumFractionDigits: 4, maximumFractionDigits: 4 };
-  } else if (value < 100) {
-    tier = 'f2';
-    opts = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
-  } else {
-    tier = 'f1';
-    opts = { minimumFractionDigits: 1, maximumFractionDigits: 1 };
-  }
-  const cacheKey = `${locale}|${tier}`;
-  let fmt = _numberFormats.get(cacheKey);
-  if (!fmt) {
-    fmt = new Intl.NumberFormat(locale, opts);
-    _numberFormats.set(cacheKey, fmt);
-  }
-  return fmt.format(value);
+  if (value < 0.001) return formatSignificantDigits(value, 2, locale);
+  if (value < 1) return formatFixedDigits(value, 4, locale);
+  if (value < 100) return formatFixedDigits(value, 2, locale);
+  return formatFixedDigits(value, 1, locale);
 }
 
 /** Format a measurement value with appropriate precision.

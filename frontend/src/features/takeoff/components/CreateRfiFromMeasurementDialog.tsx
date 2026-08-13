@@ -24,6 +24,7 @@ import { openLink } from '@/shared/lib/desktop';
 import { useToastStore } from '@/stores/useToastStore';
 import { createRFI, type RFI, type RFIPriority } from '@/features/rfi/api';
 import { useCreateReference } from '@/features/file-references/hooks';
+import { formatQuantity } from '../lib/measurement-format';
 import type { Measurement } from '../lib/takeoff-types';
 
 export interface CreateRfiFromMeasurementDialogProps {
@@ -43,13 +44,11 @@ export interface CreateRfiFromMeasurementDialogProps {
 const PRIORITIES: readonly RFIPriority[] = ['low', 'normal', 'high'];
 
 /** Compact quantity formatter mirroring the ledger so the prefilled text
- *  reads naturally (metric, as stored). */
+ *  reads naturally (metric, as stored). Shares the ledger ladder and
+ *  locale rendering (K-12): the prefill is editable human text, so it
+ *  speaks the app language like the ledger it mirrors. */
 function formatQty(value: number): string {
-  if (!Number.isFinite(value) || value === 0) return '0';
-  const abs = Math.abs(value);
-  if (abs < 1) return value.toFixed(3);
-  if (abs < 100) return value.toFixed(2);
-  return value.toFixed(1);
+  return formatQuantity(value);
 }
 
 const INPUT_CLASS =
