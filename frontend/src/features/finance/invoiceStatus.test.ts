@@ -3,6 +3,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   invoiceStatusOptions,
+  isReceivable,
   INVOICE_SELF_SERVICE_TRANSITIONS,
   INVOICE_STATUS_ORDER,
 } from './FinancePage';
@@ -57,6 +58,18 @@ describe('invoice status dropdown options', () => {
         expect(INVOICE_STATUS_ORDER).toContain(to);
       }
     }
+  });
+
+  it('reads the invoice direction from either field shape the table is fed with', () => {
+    // The e-invoice action hangs off this: offered on a payable, the dialog
+    // reports our own missing seller details on a document the supplier
+    // issued. The rows arrive with the wire name from the API and with the
+    // display alias from the legacy shape, so both have to answer.
+    expect(isReceivable({ invoice_direction: 'receivable' } as never)).toBe(true);
+    expect(isReceivable({ direction: 'receivable' } as never)).toBe(true);
+    expect(isReceivable({ invoice_direction: 'payable', direction: 'receivable' } as never)).toBe(true);
+    expect(isReceivable({ direction: 'payable' } as never)).toBe(false);
+    expect(isReceivable({} as never)).toBe(false);
   });
 
   it('preserves the canonical display order in the option list', () => {

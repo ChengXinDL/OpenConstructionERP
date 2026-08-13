@@ -56,7 +56,11 @@ interface EInvoiceViolation {
 interface EInvoiceDryRun {
   format: string;
   valid: boolean;
-  problems: string[];
+  // The response also carries ``problems``, the fatal messages as bare strings.
+  // It is not read here: those same findings arrive in ``violations`` with the
+  // rule id and severity this panel is built around, and ``valid`` is already
+  // defined as "no fatal finding", so declaring it would only invite a second
+  // rendering of the same list without the identifiers.
   violations: EInvoiceViolation[];
 }
 
@@ -131,6 +135,20 @@ export function EInvoiceModal({ open, onClose, invoiceId, invoiceNumber }: EInvo
       label: activeProfile?.label ?? profile,
     });
   };
+
+  // The standard's name is a proper noun and stays as the registry writes it,
+  // but four entries append a country in English (Netherlands, Norway,
+  // Australia / New Zealand, Singapore), and one region reads "international".
+  // Those are ordinary words sitting under a translated heading, so they go
+  // through the catalogue while the proper noun rides along inside the value.
+  const profileName = (p: EInvoiceProfile) => t(`einvoice.profile.${p.key}`, { defaultValue: p.label });
+
+  // Every other region is an ISO country code, correct unchanged in every
+  // language, so the fallback here is the right answer rather than a gap: only
+  // a region that is a word needs an entry at all. The key is normalised
+  // because a region can name two countries ("DE/FR").
+  const regionName = (p: EInvoiceProfile) =>
+    t(`einvoice.region.${p.region.replace(/[^A-Za-z0-9]+/g, '_')}`, { defaultValue: p.region });
 
   async function download(embed: boolean) {
     const kind = embed ? 'pdf' : 'xml';
@@ -208,7 +226,7 @@ export function EInvoiceModal({ open, onClose, invoiceId, invoiceNumber }: EInvo
           >
             {profiles.map((p) => (
               <option key={p.key} value={p.key}>
-                {`${p.label} - ${p.region} - ${p.syntax.toUpperCase()}`}
+                {`${profileName(p)} - ${regionName(p)} - ${p.syntax.toUpperCase()}`}
               </option>
             ))}
           </select>

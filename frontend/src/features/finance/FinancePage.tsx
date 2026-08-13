@@ -342,6 +342,21 @@ export const INVOICE_STATUS_ORDER = [
 ];
 
 /**
+ * True when this invoice is one we issue rather than one we received.
+ *
+ * The e-invoice action only belongs on a receivable: the buyer is resolved from
+ * the linked contact for that direction alone, and a payable carries no seller
+ * identity of ours at all. Offered on a supplier's invoice it opened a
+ * compliance report listing our own missing details on a document we are not
+ * issuing. Reads the wire field with the display alias as a fallback, the same
+ * pair the edit form resolves, because the table is fed from both shapes.
+ */
+export function isReceivable(inv: Pick<Invoice, 'direction'>): boolean {
+  const wire = inv as { invoice_direction?: string };
+  return wire.invoice_direction === 'receivable' || inv.direction === 'receivable';
+}
+
+/**
  * Options shown in the invoice edit-modal status dropdown: the current status
  * plus only the editor-safe next states. Exported (and pure) so the security
  * invariant - approve / pay are NEVER reachable via the plain PATCH dropdown,
@@ -2468,10 +2483,10 @@ function InvoicesTab({ projectId }: { projectId: string }) {
                         )}
                       </td>
                       <td className="px-4 py-3 text-content-secondary">
-                        <DateDisplay value={inv.issue_date} />
+                        <DateDisplay value={inv.issue_date} format="numeric" />
                       </td>
                       <td className="px-4 py-3 text-content-secondary">
-                        <DateDisplay value={inv.due_date} />
+                        <DateDisplay value={inv.due_date} format="numeric" />
                       </td>
                       <td className="px-4 py-3 text-right">
                         <MoneyDisplay amount={inv.amount} currency={inv.currency} />
@@ -2497,15 +2512,17 @@ function InvoicesTab({ projectId }: { projectId: string }) {
                           >
                             <Pencil size={14} />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setEinvoiceFor(inv)}
-                            title={t('finance.einvoice.action')}
-                            aria-label={t('finance.einvoice.action')}
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-content-tertiary hover:bg-surface-secondary hover:text-oe-blue transition-colors"
-                          >
-                            <FileCode2 size={14} />
-                          </button>
+                          {isReceivable(inv) && (
+                            <button
+                              type="button"
+                              onClick={() => setEinvoiceFor(inv)}
+                              title={t('finance.einvoice.action')}
+                              aria-label={t('finance.einvoice.action')}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-content-tertiary hover:bg-surface-secondary hover:text-oe-blue transition-colors"
+                            >
+                              <FileCode2 size={14} />
+                            </button>
+                          )}
                           {inv.status === 'draft' && (
                             <Button
                               variant="secondary"
@@ -2608,26 +2625,28 @@ function InvoicesTab({ projectId }: { projectId: string }) {
                       {/* The card carries the e-invoice action too, for the same
                           reason #284 gave the status actions: an action only the
                           desktop table offers is unreachable on a phone. */}
-                      <button
-                        type="button"
-                        onClick={() => setEinvoiceFor(inv)}
-                        title={t('finance.einvoice.action')}
-                        aria-label={t('finance.einvoice.action')}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-content-tertiary hover:bg-surface-secondary hover:text-oe-blue transition-colors"
-                      >
-                        <FileCode2 size={14} />
-                      </button>
+                      {isReceivable(inv) && (
+                        <button
+                          type="button"
+                          onClick={() => setEinvoiceFor(inv)}
+                          title={t('finance.einvoice.action')}
+                          aria-label={t('finance.einvoice.action')}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-content-tertiary hover:bg-surface-secondary hover:text-oe-blue transition-colors"
+                        >
+                          <FileCode2 size={14} />
+                        </button>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-xs text-content-tertiary">
-                    <span><DateDisplay value={inv.issue_date} /></span>
+                    <span><DateDisplay value={inv.issue_date} format="numeric" /></span>
                     <span className="font-semibold text-content-primary">
                       <MoneyDisplay amount={inv.amount} currency={inv.currency} />
                     </span>
                   </div>
                   {inv.due_date && (
                     <div className="text-xs text-content-tertiary mt-1">
-                      {t('finance.due_date', { defaultValue: 'Due' })}: <DateDisplay value={inv.due_date} />
+                      {t('finance.due_date', { defaultValue: 'Due' })}: <DateDisplay value={inv.due_date} format="numeric" />
                     </div>
                   )}
                   {/* Status actions mirror the desktop row so a draft invoice
@@ -3257,7 +3276,7 @@ function PaymentsTab({
                   {p.invoice_number || '\u2014'}
                 </td>
                 <td className="px-4 py-3 text-content-secondary">
-                  <DateDisplay value={p.payment_date} />
+                  <DateDisplay value={p.payment_date} format="numeric" />
                 </td>
                 <td className="px-4 py-3 text-right">
                   <MoneyDisplay amount={p.amount} currency={p.currency_code || p.currency} />

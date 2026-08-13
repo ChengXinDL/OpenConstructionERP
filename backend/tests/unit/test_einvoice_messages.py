@@ -13,6 +13,7 @@ import pytest
 
 from app.modules.einvoice import problems_for, violations_for
 from app.modules.einvoice.cii import EInvoice, EInvoiceLine, Party, TaxSubtotal, validate_semantics
+from app.modules.einvoice.profiles import PROFILES
 from app.modules.einvoice.rules import (
     _CATEGORY_RULE_PREFIX,
     _INVOICE_HOME,
@@ -199,6 +200,23 @@ def test_every_emitted_rule_has_a_translated_sentence(locale: str):
     catalogue = _rule_catalogue(locale)
     missing = sorted(rid for rid in _emitted_rule_ids() if rid not in catalogue)
     assert not missing, f"{locale}.ts has no einvoice.rule entry for: {missing}"
+
+
+@pytest.mark.parametrize("locale", ["en", "de"])
+def test_every_published_profile_has_a_translated_name(locale: str):
+    """The picker shows the registry's label, and four of them name a country.
+
+    "NLCIUS (Netherlands)", "EHF Billing 3.0 (Norway)" and the two Peppol
+    country flavours append an ordinary English word to a proper noun, and the
+    region of three others reads "international". The standard's name is not
+    translated and must not be, so the catalogue carries the whole display name
+    per profile: the proper noun rides along inside the value while the country
+    beside it is free to be German.
+    """
+    text = (_LOCALES / f"{locale}.ts").read_text(encoding="utf-8")
+    keys = set(re.findall(r'"einvoice\.profile\.(\w+)"', text))
+    missing = sorted(k for k in PROFILES if k not in keys)
+    assert not missing, f"{locale}.ts has no einvoice.profile entry for: {missing}"
 
 
 def test_translated_sentences_keep_every_value_the_english_one_names():
