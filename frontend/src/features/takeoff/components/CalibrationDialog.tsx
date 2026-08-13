@@ -25,7 +25,7 @@ import {
 } from '../../../modules/pdf-takeoff/data/scale-helpers';
 import { WideModal } from '@/shared/ui/WideModal';
 import { Button } from '@/shared/ui';
-import { formatFixedDigits } from '../lib/measurement-format';
+import { formatFixedDigits, formatMaxDigits } from '../lib/measurement-format';
 
 /** What the user actually typed, for honest badge display.
  *
@@ -171,10 +171,11 @@ export function CalibrationDialog({
             {t('takeoff_viewer.calibrate_metric_note', {
               defaultValue:
                 '{{value}} {{unit}} = {{meters}} m - measurements display in metres (metric-canonical).',
-              value: parsed,
+              // Both sides of the equation carry locale digits: a raw
+              // "12000 mm" next to a grouped "12,000 m" reads as two
+              // different numbers in German.
+              value: formatMaxDigits(parsed, 3),
               unit,
-              // Locale digits (K-15): "2740 mm = 2.740 m" read as two
-              // thousand seven hundred forty metres in German.
               meters: formatFixedDigits(toMeters(parsed, unit), 3),
             })}
           </p>
