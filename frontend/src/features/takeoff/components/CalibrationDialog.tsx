@@ -58,11 +58,13 @@ export interface CalibrationDialogProps {
   initialUnit?: CalibrationUnit;
 }
 
-const UNIT_OPTIONS: { value: CalibrationUnit; label: string }[] = [
-  { value: 'm', label: 'm (meters)' },
-  { value: 'mm', label: 'mm (millimeters)' },
-  { value: 'ft', label: 'ft (feet)' },
-  { value: 'in', label: 'in (inches)' },
+// Labels resolve through i18n inside the component (the dialog is otherwise
+// fully localised; hardcoded English words here leaked into every locale).
+const UNIT_OPTIONS: { value: CalibrationUnit; labelKey: string; labelDefault: string }[] = [
+  { value: 'm', labelKey: 'takeoff_viewer.calibrate_unit_m', labelDefault: 'm (meters)' },
+  { value: 'mm', labelKey: 'takeoff_viewer.calibrate_unit_mm', labelDefault: 'mm (millimeters)' },
+  { value: 'ft', labelKey: 'takeoff_viewer.calibrate_unit_ft', labelDefault: 'ft (feet)' },
+  { value: 'in', labelKey: 'takeoff_viewer.calibrate_unit_in', labelDefault: 'in (inches)' },
 ];
 
 export function CalibrationDialog({
@@ -155,7 +157,7 @@ export function CalibrationDialog({
           >
             {UNIT_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
-                {opt.label}
+                {t(opt.labelKey, { defaultValue: opt.labelDefault })}
               </option>
             ))}
           </select>
