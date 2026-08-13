@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
 /** Pixel-to-real-world scale conversion helpers */
 
+import i18n from '@/app/i18n';
+
 export interface ScaleConfig {
   /** Pixels per real-world unit (e.g. pixels per meter).
    *  ``0`` denotes an *un-derivable* calibration (bad / missing
@@ -124,6 +126,39 @@ export function polygonPerimeterPixels(
   return perimeter;
 }
 
+/** Locale-aware number rendering for measurement readouts (audit case-2
+ *  K-12): `toFixed` always prints "248.5" while a German viewer expects
+ *  "248,5". Precision tiers are unchanged from the historic `toFixed`
+ *  rules; only the digit rendering is localised. Formatters are cached per
+ *  locale+tier because the canvas layer formats every label on every
+ *  redraw. */
+const _numberFormats = new Map<string, Intl.NumberFormat>();
+
+function measurementNumber(value: number, locale: string): string {
+  let tier: string;
+  let opts: Intl.NumberFormatOptions;
+  if (value < 0.001) {
+    tier = 'sig2';
+    opts = { minimumSignificantDigits: 2, maximumSignificantDigits: 2 };
+  } else if (value < 1) {
+    tier = 'f4';
+    opts = { minimumFractionDigits: 4, maximumFractionDigits: 4 };
+  } else if (value < 100) {
+    tier = 'f2';
+    opts = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+  } else {
+    tier = 'f1';
+    opts = { minimumFractionDigits: 1, maximumFractionDigits: 1 };
+  }
+  const cacheKey = `${locale}|${tier}`;
+  let fmt = _numberFormats.get(cacheKey);
+  if (!fmt) {
+    fmt = new Intl.NumberFormat(locale, opts);
+    _numberFormats.set(cacheKey, fmt);
+  }
+  return fmt.format(value);
+}
+
 /** Format a measurement value with appropriate precision.
  *
  *  Only genuinely degenerate values (non-finite, zero, negative) render
@@ -132,13 +167,14 @@ export function polygonPerimeterPixels(
  *  misleading "0 m²".  Real but *small* quantities (a 9 mm joint, an
  *  80 cm² patch) must stay visible with enough significant digits
  *  rather than being collapsed to zero or hidden (D-TKC-007): an
- *  estimator measuring small details still needs to read the number. */
-export function formatMeasurement(value: number, unit: string): string {
+ *  estimator measuring small details still needs to read the number.
+ *
+ *  Numbers render in the app language (decimal comma for de, dot for en);
+ *  pass `locale` explicitly only where the app language must not apply
+ *  (tests, fixed-format exports). */
+export function formatMeasurement(value: number, unit: string, locale?: string): string {
   if (!Number.isFinite(value) || value <= 0) return '';
-  if (value < 0.001) return `${value.toPrecision(2)} ${unit}`;
-  if (value < 1) return `${value.toFixed(4)} ${unit}`;
-  if (value < 100) return `${value.toFixed(2)} ${unit}`;
-  return `${value.toFixed(1)} ${unit}`;
+  return `${measurementNumber(value, locale || i18n.language || 'en')} ${unit}`;
 }
 
 /** Derive scale from a known reference measurement.

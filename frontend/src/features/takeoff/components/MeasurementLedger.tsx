@@ -36,6 +36,7 @@ import {
   type SortDirection,
 } from '../lib/takeoff-ledger';
 import { usePreferencesStore } from '@/stores/usePreferencesStore';
+import i18n from '@/app/i18n';
 import { convertQuantity } from '../lib/takeoff-display-units';
 import { effectiveQuantity, quantityAdjustmentLabel } from '../lib/takeoff-quantity';
 
@@ -735,9 +736,13 @@ function FilterChipGroup<T extends string | number>({
 function formatNum(value: number): string {
   if (value === 0) return '0';
   const abs = Math.abs(value);
-  if (abs < 1) return value.toFixed(3);
-  if (abs < 100) return value.toFixed(2);
-  return value.toFixed(1);
+  // Same precision tiers as the historic toFixed rules; Intl renders the
+  // digits in the app language (audit case-2 K-12: decimal comma for de).
+  const digits = abs < 1 ? 3 : abs < 100 ? 2 : 1;
+  return new Intl.NumberFormat(i18n.language || 'en', {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(value);
 }
 
 export default MeasurementLedger;

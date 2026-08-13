@@ -9742,7 +9742,11 @@ export default function TakeoffViewerModule({
                                       <Pencil size={10} className="shrink-0 opacity-0 group-hover/item:opacity-60 transition-opacity" />
                                     </button>
                                   )}
-                                  <span className="text-2xs text-content-tertiary capitalize truncate shrink">
+                                  {/* No `capitalize` here (audit case-2 K-11): the label
+                                      carries SI units, and "m²" must not render as "M²".
+                                      The sibling type badge keeps it - "distance" ->
+                                      "Distance" is a word, not a unit. */}
+                                  <span className="text-2xs text-content-tertiary truncate shrink">
                                     {/* Issue #287: show the measurement label in the
                                         user's system (m -> ft); identity for metric. */}
                                     {measurementLabel(m, scale, measurementSystem)}
