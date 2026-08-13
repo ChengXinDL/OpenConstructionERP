@@ -467,11 +467,8 @@ async def test_the_shoot_project_carries_both_issues_of_the_sheet(pg_session) ->
     assert index_a.owner_id == index_b.owner_id, "the document list is owner-filtered"
 
     # Different drawings, not the same file filed twice.
-    digests = {Path(doc.file_path).read_bytes() for doc in (index_a, index_b)}
+    digests = {hashlib.sha256(Path(doc.file_path).read_bytes()).hexdigest() for doc in (index_a, index_b)}
     assert len(digests) == 2, "the two issues must be different PDFs"
-    assert hashlib.sha256(Path(index_a.file_path).read_bytes()).hexdigest() != (
-        hashlib.sha256(Path(index_b.file_path).read_bytes()).hexdigest()
-    )
     # ... and the newer one says so in its own text layer.
     assert "Index B" in (index_b.extracted_text or "")
     assert "2,50 m" in (index_b.extracted_text or ""), "the index B text must carry its change note"

@@ -336,6 +336,8 @@ def _specs_frankfurt(rev: plan.Revision) -> list[_Spec]:
         # come down first. Measured as its own item because it is new work,
         # which is also why it shows up as an ADDED row in a revision compare
         # instead of quietly changing the length of the wall that stays.
+        # Demolition is priced by face area, so depth carries the wall height
+        # the same way the drywall run above does.
         specs.append(
             _Spec(
                 "distance",
@@ -680,9 +682,15 @@ async def _resolve_position_id(
 
 
 def _is_seeded_document(document: TakeoffDocument) -> bool:
-    """True for a document this seeder wrote (never for a user's upload)."""
+    """True for a document this seeder wrote (never for a user's upload).
+
+    A row opened from Project Files is excluded on its source id as well as on
+    the marker: adoption re-copies the fixture over the file it names, so a row
+    whose bytes came from somewhere else must never qualify, even if a future
+    change lets the upload path carry a source document's metadata across.
+    """
     meta = document.metadata_
-    return isinstance(meta, dict) and meta.get("seed") is True
+    return isinstance(meta, dict) and meta.get("seed") is True and document.source_document_id is None
 
 
 def _seed_key_of(document: TakeoffDocument) -> str | None:
