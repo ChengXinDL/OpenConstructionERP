@@ -78,6 +78,7 @@ async def enrich_projects(project_ids: list[uuid.UUID]) -> None:
         from app.modules.documents.documents_seed import seed_documents_demo
         from app.modules.documents.photos_seed import seed_photos
         from app.modules.dwg_takeoff.seed import seed_dwg_takeoff_demo
+        from app.modules.einvoice_clearance.seed import seed_einvoice_clearance_demo
         from app.modules.estimate_basis.seed import seed_estimate_basis_demo
         from app.modules.field_time.seed import seed_field_time_demo
         from app.modules.finance.einvoice_settings_seed import seed_einvoice_settings_demo
@@ -229,6 +230,11 @@ async def enrich_projects(project_ids: list[uuid.UUID]) -> None:
             # green. Instance-wide configuration, hence the demo estate only,
             # and it fills empty fields only - a value a user typed wins.
             ("einvoice_settings", None, lambda s: seed_einvoice_settings_demo(s, _demo_pids)),
+            # The country registration and one submitted document behind it, so
+            # the clearance screen opens on a real trail rather than on an empty
+            # state. Runs after the settings above, so the XRechnung it renders
+            # and stores carries the seller a visitor then finds on /settings.
+            ("einvoice_clearance", None, lambda s: seed_einvoice_clearance_demo(s, _demo_pids)),
             # German showcase Nachtrag chains: notices, requests and orders in
             # German with contract-clause anchors, custody hand-offs and dated
             # trails, so the claims-evidence panel can grade at least one chain

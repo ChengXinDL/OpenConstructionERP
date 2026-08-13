@@ -17,12 +17,14 @@ is missing gets a log line instead of a half-filled configuration.
 
 from __future__ import annotations
 
+import inspect
 import logging
 import uuid
 
 import pytest
 from sqlalchemy import select
 
+from app.core import demo_enrichment
 from app.core.demo_projects import install_demo_project
 from app.modules.finance.einvoice_settings_models import DEFAULT_SCOPE, EInvoiceSettings
 from app.modules.finance.einvoice_settings_schemas import EInvoiceSettingsRead
@@ -47,6 +49,21 @@ async def _settings_row(session) -> EInvoiceSettings | None:
     return (
         await session.execute(select(EInvoiceSettings).where(EInvoiceSettings.scope == DEFAULT_SCOPE))
     ).scalar_one_or_none()
+
+
+async def test_the_seeder_is_wired_into_the_boot_backfill() -> None:
+    """A seeder nobody calls leaves the screen exactly as empty as before.
+
+    Read from the source of the function that owns the list, because the list is
+    built inside it from local imports and cannot be inspected as a value.
+    """
+    source = inspect.getsource(demo_enrichment.enrich_projects)
+    assert "seed_einvoice_settings_demo" in source, "the settings seeder is not called from the boot backfill"
+    assert '"einvoice_settings"' in source, "the seeder runs but is not named, so its counters log as unknown"
+    # The configuration is instance-wide, so it is filled from the demo estate
+    # only: a fictional VAT id in a customer's e-invoice settings is worse than
+    # an empty form.
+    assert "seed_einvoice_settings_demo(s, _demo_pids)" in source, "the settings seeder is not demo-gated"
 
 
 async def test_the_settings_hold_the_seller_the_showcase_invoice_names(pg_session) -> None:
