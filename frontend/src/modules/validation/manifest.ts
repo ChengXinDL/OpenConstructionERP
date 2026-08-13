@@ -14,4 +14,14 @@ export const manifest: ModuleManifest = {
   defaultEnabled: true,
   routes: [],
   navItems: [],
+  translations: {
+    en: {
+      'modules.validation_desc':
+        'Check BOQs and imported data against rule packs before the numbers travel any further.',
+    },
+    de: {
+      'modules.validation_desc':
+        'Leistungsverzeichnisse und importierte Daten gegen Regelwerke prüfen, bevor die Zahlen weiterwandern.',
+    },
+  },
 };

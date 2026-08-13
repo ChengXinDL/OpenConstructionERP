@@ -22,9 +22,8 @@ import type { ModuleManifest } from '../_types';
  */
 export const manifest: ModuleManifest = {
   id: 'pipelines',
-  name: 'Pipeline Builder',
-  description:
-    'Visually compose construction automations: triggers, data sources, transforms, validation gates and outputs as a node graph.',
+  name: 'nav.pipelines',
+  description: 'modules.pipelines.description',
   version: '0.1.0',
   icon: Workflow,
   category: 'tools',
@@ -41,7 +40,7 @@ export const manifest: ModuleManifest = {
   routes: [
     {
       path: '/pipelines',
-      title: 'Pipeline Builder',
+      title: 'nav.pipelines',
       component: lazy(() => import('@/features/pipelines/PipelinesPage')),
     },
   ],
@@ -54,31 +53,19 @@ export const manifest: ModuleManifest = {
       advancedOnly: true,
     },
   ],
-  searchEntries: [
-    {
-      label: 'Pipeline Builder',
-      path: '/pipelines',
-      keywords: [
-        'pipeline',
-        'automation',
-        'workflow',
-        'node graph',
-        'flow',
-        'trigger',
-        'no-code',
-        'orchestration',
-      ],
-    },
-  ],
   translations: {
     en: {
       'nav.pipelines': 'Pipeline Builder',
+      'modules.pipelines.description':
+        'Visually compose construction automations: triggers, data sources, transforms, validation gates and outputs as a node graph.',
     },
     es: {
       'nav.pipelines': 'Constructor de pipelines',
     },
     de: {
       'nav.pipelines': 'Pipeline-Builder',
+      'modules.pipelines.description':
+        'Bauabläufe visuell automatisieren: Auslöser, Datenquellen, Transformationen, Prüfregeln und Ausgaben als Knotengraph.',
     },
     fr: {
       'nav.pipelines': 'Générateur de pipelines',

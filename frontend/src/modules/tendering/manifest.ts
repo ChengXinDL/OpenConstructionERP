@@ -14,4 +14,14 @@ export const manifest: ModuleManifest = {
   defaultEnabled: true,
   routes: [],
   navItems: [],
+  translations: {
+    en: {
+      'modules.tendering_desc':
+        'Run a tender from invitation to award: packages, bidders, bid comparison and the award decision.',
+    },
+    de: {
+      'modules.tendering_desc':
+        'Ausschreibungen von der Aufforderung bis zur Vergabe führen: Pakete, Bieter, Preisspiegel und Vergabeentscheidung.',
+    },
+  },
 };

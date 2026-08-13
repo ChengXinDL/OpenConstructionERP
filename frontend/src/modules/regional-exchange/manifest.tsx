@@ -50,13 +50,19 @@ function makeBoundComponent(templateId: string): ComponentType<unknown> {
 }
 
 /**
- * Build per-country routes + search entries from the registry. One
- * source of truth: add a new entry to COUNTRY_TEMPLATES and the route,
- * the sidebar search hit, and the i18n bundle pick it up automatically.
+ * Build the per-country routes from the registry. One source of truth: add an
+ * entry to COUNTRY_TEMPLATES and the route and the i18n bundle pick it up
+ * automatically.
  *
  * Each per-country route mounts the SAME polymorphic page, but each
  * goes through its own `React.lazy(...)` boundary so the route has a
  * stable component identity in DevTools and React Router cache.
+ *
+ * `title` stays a literal here, unlike every other manifest string. A country
+ * label is the name of a measurement standard carrying its country
+ * ("United Kingdom NRM 1/2", "Russia ГЭСН / ФЕР / ТЕР"), and the standard half
+ * is not translated in any language. Keying all 20 would translate the country
+ * word alone and split one recognisable name across two sources.
  */
 const routes = COUNTRY_TEMPLATES.map((tpl) => ({
   path: `/${tpl.routeSlug}`,
@@ -66,26 +72,10 @@ const routes = COUNTRY_TEMPLATES.map((tpl) => ({
   })),
 }));
 
-const searchEntries = COUNTRY_TEMPLATES.map((tpl) => ({
-  label: `${tpl.label} - Import / Export`,
-  path: `/${tpl.routeSlug}`,
-  keywords: [
-    tpl.countryCode.toLowerCase(),
-    tpl.id,
-    tpl.label.toLowerCase(),
-    tpl.excelTemplate.classification.toLowerCase(),
-    'boq',
-    'import',
-    'export',
-    'regional',
-  ],
-}));
-
 export const manifest: ModuleManifest = {
   id: 'regional-exchange',
-  name: 'Regional BOQ Exchange',
-  description:
-    'Polymorphic BOQ import / export across 20 regional cost standards (NRM, MasterFormat, DIN 276, PBC, GESN, …).',
+  name: 'nav.regional_exchange',
+  description: 'modules.regional_exchange.description',
   version: '1.0.0',
   icon: Globe2,
   category: 'regional',
@@ -94,10 +84,11 @@ export const manifest: ModuleManifest = {
   routes,
   // Reached from /boq (regional import/export) — no per-country sidebar items.
   navItems: [],
-  searchEntries,
   translations: {
     en: {
       'nav.regional_exchange': 'Regional BOQ Exchange',
+      'modules.regional_exchange.description':
+        'Polymorphic BOQ import / export across 20 regional cost standards (NRM, MasterFormat, DIN 276, PBC, GESN, …).',
       'regional.intro_title': "Speak your country's tender format",
       'regional.intro_body':
         "Import and export BOQ data in your region's native structure (NRM in the UK, MasterFormat in the US, DPGF in France and others), with the right trade-section breakdown applied. The data lands in or comes from a normal BOQ, so the same estimate moves across markets without re-keying.",
@@ -150,6 +141,8 @@ export const manifest: ModuleManifest = {
     },
     de: {
       'nav.regional_exchange': 'Regionaler LV-Austausch',
+      'modules.regional_exchange.description':
+        'Ein Import / Export für 20 regionale Kostenstandards (NRM, MasterFormat, DIN 276, PBC, GESN, …).',
       'regional.tab_import': 'Importieren',
       'regional.tab_export': 'Exportieren',
       'regional.import_complete': 'Import abgeschlossen',

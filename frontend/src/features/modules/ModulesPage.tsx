@@ -62,6 +62,7 @@ import { useToastStore } from '@/stores/useToastStore';
 import { useModuleStore } from '@/stores/useModuleStore';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { getModulesByCategory } from '@/modules/_registry';
+import { translateManifestText } from '@/modules/_i18n';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 
@@ -225,10 +226,6 @@ const ICON_MAP: Record<string, LucideIcon> = {
 
 function getModuleIcon(iconName: string): LucideIcon {
   return ICON_MAP[iconName] ?? Package;
-}
-
-function formatModuleId(id: string): string {
-  return id.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 }
 
 function formatSize(sizeMb: number): string {
@@ -1330,7 +1327,7 @@ interface ModuleTogglesSectionProps {
   getEnabledDependents: (key: string) => string[];
 }
 
-function ModuleTogglesSection({
+export function ModuleTogglesSection({
   isModuleEnabled,
   setModuleEnabled,
   canDisable,
@@ -1364,13 +1361,6 @@ function ModuleTogglesSection({
         : t('modules.disabled', { defaultValue: '{{name}} disabled', name }),
     });
   }
-
-  const isI18nKey = (s: string) =>
-    s.startsWith('modules.') ||
-    s.startsWith('nav.') ||
-    s.startsWith('validation.') ||
-    s.startsWith('schedule.') ||
-    s.startsWith('tendering.');
 
   const totalActive = MODULE_CATEGORY_ORDER.reduce((sum, cat) => {
     const mods = grouped[cat];
@@ -1424,12 +1414,8 @@ function ModuleTogglesSection({
                   const enabled = isModuleEnabled(mod.id);
                   const deps = mod.depends ?? [];
                   const dependents = getEnabledDependents(mod.id);
-                  const displayName = isI18nKey(mod.name)
-                    ? t(mod.name, { defaultValue: formatModuleId(mod.id) })
-                    : mod.name;
-                  const displayDesc = isI18nKey(mod.description)
-                    ? t(mod.description, { defaultValue: '' })
-                    : mod.description;
+                  const displayName = translateManifestText(t, mod.name);
+                  const displayDesc = translateManifestText(t, mod.description);
 
                   return (
                     <ModuleToggleCard

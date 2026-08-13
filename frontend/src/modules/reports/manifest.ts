@@ -14,4 +14,14 @@ export const manifest: ModuleManifest = {
   defaultEnabled: true,
   routes: [],
   navItems: [],
+  translations: {
+    en: {
+      'modules.reports_desc':
+        'Cost reports and exports for the client, the bank and the site meeting.',
+    },
+    de: {
+      'modules.reports_desc':
+        'Kostenberichte und Auswertungen für Bauherr, Bank und Baubesprechung.',
+    },
+  },
 };

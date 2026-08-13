@@ -14,8 +14,8 @@ const TakeoffViewerModule = lazy(
 // internal build lineage: ddc-lineage:a17f93c4-takeoff-02
 export const manifest: ModuleManifest = {
   id: 'pdf-takeoff',
-  name: 'PDF Takeoff Viewer',
-  description: 'View PDFs and take measurements directly on drawings',
+  name: 'modules.pdf_takeoff.name',
+  description: 'modules.pdf_takeoff.description',
   version: '1.0.0',
   icon: Ruler,
   category: 'tools',
@@ -23,16 +23,19 @@ export const manifest: ModuleManifest = {
   routes: [
     {
       path: '/takeoff-viewer',
-      title: 'PDF Takeoff',
+      title: 'nav.takeoff',
       component: TakeoffViewerModule,
     },
   ],
   navItems: [],
-  searchEntries: [
-    {
-      label: 'Measurements',
-      path: '/takeoff-viewer',
-      keywords: ['pdf', 'takeoff', 'measure', 'measurements', 'drawing', 'distance', 'area', 'count', 'ruler'],
+  translations: {
+    en: {
+      'modules.pdf_takeoff.name': 'PDF Takeoff Viewer',
+      'modules.pdf_takeoff.description': 'View PDFs and take measurements directly on drawings',
     },
-  ],
+    de: {
+      'modules.pdf_takeoff.name': 'PDF-Aufmaß-Viewer',
+      'modules.pdf_takeoff.description': 'PDF-Pläne ansehen und Mengen direkt in der Zeichnung aufmessen',
+    },
+  },
 };

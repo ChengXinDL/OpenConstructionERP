@@ -14,4 +14,14 @@ export const manifest: ModuleManifest = {
   defaultEnabled: true,
   routes: [],
   navItems: [],
+  translations: {
+    en: {
+      'modules.schedule_desc':
+        '4D schedule linking BOQ positions to activities, with progress rolled up per period.',
+    },
+    de: {
+      'modules.schedule_desc':
+        '4D-Terminplan, der LV-Positionen mit Vorgängen verknüpft und den Fortschritt je Periode fortschreibt.',
+    },
+  },
 };

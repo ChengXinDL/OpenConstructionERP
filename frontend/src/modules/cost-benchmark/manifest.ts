@@ -8,7 +8,10 @@ const BenchmarkModule = lazy(() => import('./BenchmarkModule'));
 
 export const manifest: ModuleManifest = {
   id: 'cost-benchmark',
-  name: 'modules.cost_benchmark.name',
+  // `nav.benchmarks` rather than a key of this module's own: the locale files
+  // already carry it in every language, and it names the same destination as
+  // the sidebar row and the page heading.
+  name: 'nav.benchmarks',
   description: 'modules.cost_benchmark.description',
   version: '1.0.0',
   icon: BarChart3,
@@ -18,7 +21,7 @@ export const manifest: ModuleManifest = {
   routes: [
     {
       path: '/benchmarks',
-      title: 'Cost Benchmarks',
+      title: 'nav.benchmarks',
       component: BenchmarkModule,
     },
   ],
@@ -29,11 +32,14 @@ export const manifest: ModuleManifest = {
   // for the legacy 'tools' group string a manifest would declare here, so an
   // entry would either render nowhere or duplicate the existing nav source.
   navItems: [],
-  searchEntries: [
-    {
-      label: 'Cost Benchmarks',
-      path: '/benchmarks',
-      keywords: ['benchmark', 'bcis', 'cost per m2', 'percentile', 'comparison'],
+  translations: {
+    en: {
+      'modules.cost_benchmark.description':
+        'Compare cost per square metre against reference projects and percentile bands.',
     },
-  ],
+    de: {
+      'modules.cost_benchmark.description':
+        'Kosten je Quadratmeter mit Referenzprojekten und Perzentilbändern vergleichen.',
+    },
+  },
 };

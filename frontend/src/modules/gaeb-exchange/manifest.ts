@@ -9,8 +9,8 @@ const GAEBExchangeModule = lazy(() => import('./GAEBExchangeModule'));
 // schema ref: ddc-lineage:a17f93c4-gaeb-01
 export const manifest: ModuleManifest = {
   id: 'gaeb-exchange',
-  name: 'GAEB XML 3.3 Import / Export',
-  description: 'Exchange BOQ data in GAEB DA XML 3.3 format - import X81/X83/X84 files and export tender/bid documents',
+  name: 'gaeb.title',
+  description: 'modules.gaeb_exchange.description',
   version: '1.0.0',
   icon: FileText,
   category: 'regional',
@@ -19,23 +19,18 @@ export const manifest: ModuleManifest = {
   routes: [
     {
       path: '/gaeb-exchange',
-      title: 'GAEB Exchange',
+      title: 'nav.gaeb_exchange',
       component: GAEBExchangeModule,
     },
   ],
   // Issue #217 — reached from /boq (regional import/export); no duplicate sidebar entry.
   navItems: [],
-  searchEntries: [
-    {
-      label: 'GAEB XML Import / Export',
-      path: '/gaeb-exchange',
-      keywords: ['gaeb', 'xml', 'x81', 'x83', 'x84', 'tender', 'bid', 'lv', 'leistungsverzeichnis', 'ava', 'din', 'dach'],
-    },
-  ],
   translations: {
     en: {
       'nav.gaeb_exchange': 'GAEB Exchange',
       'gaeb.title': 'GAEB XML 3.3 Import / Export',
+      'modules.gaeb_exchange.description':
+        'Exchange BOQ data in GAEB DA XML 3.3 format - import X81/X83/X84 files and export tender/bid documents',
       'gaeb.subtitle': 'Exchange BOQ data in GAEB DA XML format (X81 / X83 / X84)',
       'gaeb.intro_title': 'Trade tender data the DACH way',
       'gaeb.intro_body':
@@ -48,6 +43,8 @@ export const manifest: ModuleManifest = {
     de: {
       'nav.gaeb_exchange': 'GAEB-Austausch',
       'gaeb.title': 'GAEB DA XML 3.3 Import / Export',
+      'modules.gaeb_exchange.description':
+        'Leistungsverzeichnisse im Format GAEB DA XML 3.3 austauschen - X81/X83/X84 einlesen sowie Ausschreibungen und Angebote ausgeben',
       'gaeb.subtitle': 'Leistungsverzeichnisse im GAEB DA XML-Format austauschen (X81 / X83 / X84)',
       'gaeb.tab_import': 'Importieren',
       'gaeb.tab_export': 'Exportieren',

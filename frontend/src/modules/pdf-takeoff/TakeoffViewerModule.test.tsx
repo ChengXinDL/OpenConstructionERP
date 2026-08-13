@@ -210,7 +210,9 @@ describe('TakeoffViewerModule', () => {
     const { MODULE_REGISTRY } = await import('../_registry');
     const mod = MODULE_REGISTRY.find((m) => m.id === 'pdf-takeoff');
     expect(mod).toBeDefined();
-    expect(mod!.name).toBe('PDF Takeoff Viewer');
+    // The manifest names itself with an i18n key; the module carries the
+    // English and German wording in its own translations block.
+    expect(mod!.name).toBe('modules.pdf_takeoff.name');
     expect(mod!.routes[0].path).toBe('/takeoff-viewer');
   }, 15000);
 });

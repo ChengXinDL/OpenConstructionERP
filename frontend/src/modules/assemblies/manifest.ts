@@ -14,4 +14,14 @@ export const manifest: ModuleManifest = {
   defaultEnabled: true,
   routes: [],
   navItems: [],
+  translations: {
+    en: {
+      'modules.assemblies_desc':
+        'Compose reusable assemblies from labour, material and equipment, and price a BOQ position from one line.',
+    },
+    de: {
+      'modules.assemblies_desc':
+        'Wiederverwendbare Positionen aus Lohn, Material und Geräten zusammenstellen und LV-Positionen daraus kalkulieren.',
+    },
+  },
 };

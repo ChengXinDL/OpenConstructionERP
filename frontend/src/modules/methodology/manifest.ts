@@ -41,42 +41,27 @@ export const manifest: ModuleManifest = {
   routes: [
     {
       path: '/methodologies',
-      title: 'Estimating methodologies',
+      title: 'methodology.title',
       component: MethodologiesPage,
     },
     {
       path: '/methodologies/:methodologyId',
-      title: 'Methodology editor',
+      title: 'methodology.editor_title',
       component: MethodologyEditorPage,
     },
   ],
   navItems: [],
-  searchEntries: [
-    {
-      label: 'Estimating methodologies',
-      path: '/methodologies',
-      keywords: [
-        'methodology',
-        'methodologies',
-        'markup',
-        'cascade',
-        'overhead',
-        'profit',
-        'vat',
-        'smr',
-        'template',
-        'estimate',
-        'estimating',
-        'funding source',
-        'dimension',
-      ],
-    },
-  ],
   translations: {
     en: {
       'nav.methodologies': 'Methodologies',
+      'methodology.editor_title': 'Methodology editor',
       'modules.methodology_desc':
         'Data-driven estimating: install or build a markup cascade (works vs equipment split, base sets, sequential percentage steps and VAT), with analytical dimensions and funding sources.',
+    },
+    de: {
+      'methodology.editor_title': 'Methodik-Editor',
+      'modules.methodology_desc':
+        'Datenbasierte Kalkulation: Zuschlagskaskaden installieren oder selbst aufbauen (Trennung von Bauleistung und Geräten, Basismengen, aufeinanderfolgende Prozentstufen und Umsatzsteuer), mit analytischen Dimensionen und Finanzierungsquellen.',
     },
   },
 };

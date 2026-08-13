@@ -32,6 +32,7 @@ import { SupportUsButton } from './SupportUsButton';
 import { SubscribeButton } from './SubscribeButton';
 import { ProjectJourneyButton } from './ProjectJourney';
 import { getRouteIcon } from './routeIcons';
+import { isModuleI18nKey } from '@/modules/_i18n';
 
 /**
  * Map the English page titles passed from App.tsx routes to i18n keys.
@@ -65,7 +66,8 @@ const TITLE_I18N_MAP: Record<string, string> = {
   'Cost Database': 'nav.costs',
   'Cost Explorer': 'nav.cost_explorer',
   'Import Cost Database': 'costs.import_title',
-  // Regional exchange modules (route titles come from module manifests)
+  // First-party module routes now state their title as a key, so these entries
+  // only catch a module that still ships the English literal.
   'GAEB Exchange': 'nav.gaeb_exchange',
   'Resource Catalog': 'nav.resource_catalog',
   'Assemblies': 'nav.assemblies',
@@ -170,10 +172,15 @@ const TITLE_I18N_MAP: Record<string, string> = {
  * Resolve the i18n key for a page title (or `null` when there is no mapping).
  * Shared with AppLayout so the browser-tab `document.title` translates the
  * same way the on-screen heading does.
+ *
+ * A module route states its title as a key already (`ModuleRoute.title`), so
+ * such a title is its own answer. Without this the map would miss it, the tab
+ * would print the raw key, and the heading and the tab would disagree about
+ * the same page.
  */
 export function resolvePageTitleKey(title: string | undefined): string | null {
   if (!title) return null;
-  return TITLE_I18N_MAP[title] ?? null;
+  return TITLE_I18N_MAP[title] ?? (isModuleI18nKey(title) ? title : null);
 }
 
 interface HeaderProps {
@@ -199,7 +206,7 @@ export function Header({ title, onMenuClick }: HeaderProps) {
   const packActive = usePartnerPack().data?.active === true;
   const location = useLocation();
   const translatedTitle = title
-    ? t(TITLE_I18N_MAP[title] ?? title, { defaultValue: title })
+    ? t(resolvePageTitleKey(title) ?? title, { defaultValue: title })
     : undefined;
   // Icon for the active module, mirroring the matching sidebar row. Shown as
   // a small chip before the top-bar title so each module is identifiable at

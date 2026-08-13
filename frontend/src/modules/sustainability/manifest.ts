@@ -13,7 +13,10 @@ const SustainabilityPage = lazy(() =>
 // build ref: ddc-lineage:a17f93c4-sustain-01
 export const manifest: ModuleManifest = {
   id: 'sustainability',
-  name: 'modules.sustainability.name',
+  // `nav.sustainability` rather than a key of this module's own: the locale
+  // files already carry it in every language, and it is the same word the
+  // sidebar row uses for the same destination.
+  name: 'nav.sustainability',
   description: 'modules.sustainability.description',
   version: '1.0.0',
   icon: Leaf,
@@ -23,7 +26,7 @@ export const manifest: ModuleManifest = {
   routes: [
     {
       path: '/sustainability',
-      title: 'Sustainability',
+      title: 'nav.sustainability',
       component: SustainabilityPage,
     },
   ],
@@ -36,20 +39,17 @@ export const manifest: ModuleManifest = {
       advancedOnly: true,
     },
   ],
-  searchEntries: [
-    {
-      label: 'Sustainability / EPD',
-      path: '/sustainability',
-      keywords: ['carbon', 'co2', 'epd', 'gwp', 'embodied', 'green', 'environment'],
-    },
-  ],
   translations: {
     en: {
+      'modules.sustainability.description':
+        'Carbon and EPD data on BOQ positions, with a life-cycle view of the estimate.',
       'sustainability.epd_data': 'EPD Data',
       'sustainability.carbon_budget': 'Carbon Budget',
       'sustainability.lifecycle_phase': 'Life Cycle Phase',
     },
     de: {
+      'modules.sustainability.description':
+        'CO₂- und EPD-Daten an den LV-Positionen, mit Lebenszyklussicht auf die Kalkulation.',
       'sustainability.epd_data': 'EPD-Daten',
       'sustainability.carbon_budget': 'CO₂-Budget',
       'sustainability.lifecycle_phase': 'Lebenszyklusphase',

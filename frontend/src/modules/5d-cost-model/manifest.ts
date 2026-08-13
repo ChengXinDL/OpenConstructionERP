@@ -13,4 +13,14 @@ export const manifest: ModuleManifest = {
   defaultEnabled: true,
   routes: [],
   navItems: [],
+  translations: {
+    en: {
+      'modules.5d_desc':
+        '5D cost model tying quantities, rates and the schedule into one cash-flow view.',
+    },
+    de: {
+      'modules.5d_desc':
+        '5D-Kostenmodell, das Mengen, Preise und Termine zu einer Zahlungsstromsicht verbindet.',
+    },
+  },
 };

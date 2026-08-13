@@ -7,8 +7,8 @@ import type { ModuleManifest } from '../_types';
 // internal-id ddc-lineage:a17f93c4-collab-01
 export const manifest: ModuleManifest = {
   id: 'collaboration',
-  name: 'Real-time Collaboration',
-  description: 'Collaborate on estimates with your team in real-time using Yjs CRDT',
+  name: 'collab.title',
+  description: 'modules.collaboration.description',
   version: '1.0.0',
   icon: Users,
   category: 'tools',
@@ -17,20 +17,15 @@ export const manifest: ModuleManifest = {
   routes: [
     {
       path: '/collaboration',
-      title: 'Collaboration',
+      title: 'nav.collaboration',
       component: lazy(() => import('./CollaborationModule')),
     },
   ],
   navItems: [],
-  searchEntries: [
-    {
-      label: 'Real-time Collaboration',
-      path: '/collaboration',
-      keywords: ['collaboration', 'realtime', 'yjs', 'multiplayer', 'share', 'team', 'crdt'],
-    },
-  ],
   translations: {
     en: {
+      'modules.collaboration.description':
+        'Collaborate on estimates with your team in real-time using Yjs CRDT',
       'collab.peers_connected': '{{count}} peer(s) connected',
       'collab.share_link': 'Share collaboration link',
       'collab.conflict_detected': 'Conflict detected',
@@ -40,6 +35,8 @@ export const manifest: ModuleManifest = {
       'collab.no_conflicts': 'No conflicts',
     },
     de: {
+      'modules.collaboration.description':
+        'Kalkulationen gemeinsam im Team in Echtzeit bearbeiten, auf Basis von Yjs CRDT',
       'collab.peers_connected': '{{count}} Teilnehmer verbunden',
       'collab.share_link': 'Kollaborations-Link teilen',
       'collab.conflict_detected': 'Konflikt erkannt',

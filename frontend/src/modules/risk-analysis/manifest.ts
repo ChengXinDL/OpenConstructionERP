@@ -5,8 +5,8 @@ import type { ModuleManifest } from '../_types';
 
 export const manifest: ModuleManifest = {
   id: 'risk-analysis',
-  name: 'Risk Analysis (Monte Carlo)',
-  description: 'Probabilistic cost estimation with Monte Carlo simulation, sensitivity analysis, and contingency recommendations',
+  name: 'risk.title',
+  description: 'modules.risk_analysis.description',
   version: '1.0.0',
   icon: Dices,
   category: 'tools',
@@ -22,17 +22,12 @@ export const manifest: ModuleManifest = {
   // (internal cache lineage: ddc-lineage:a17f93c4-risk-01)
   routes: [],
   navItems: [],
-  searchEntries: [
-    {
-      label: 'Monte Carlo simulation',
-      path: '/risks?tab=montecarlo',
-      keywords: ['monte carlo', 'risk', 'probability', 'contingency', 'simulation', 'p80', 'percentile', 'uncertainty'],
-    },
-  ],
   translations: {
     en: {
       'nav.risk_analysis': 'Risk Analysis',
       'risk.title': 'Risk Analysis (Monte Carlo)',
+      'modules.risk_analysis.description':
+        'Probabilistic cost estimation with Monte Carlo simulation, sensitivity analysis, and contingency recommendations',
       'risk.subtitle': 'Probabilistic cost estimation with Monte Carlo simulation',
       'risk.run': 'Run Monte Carlo Simulation',
       'risk.running': 'Running simulation...',
@@ -44,6 +39,8 @@ export const manifest: ModuleManifest = {
     de: {
       'nav.risk_analysis': 'Risikoanalyse',
       'risk.title': 'Risikoanalyse (Monte Carlo)',
+      'modules.risk_analysis.description':
+        'Probabilistische Kostenermittlung mit Monte-Carlo-Simulation, Sensitivitätsanalyse und Empfehlungen zur Risikovorsorge',
       'risk.subtitle': 'Probabilistische Kostenermittlung mit Monte-Carlo-Simulation',
       'risk.run': 'Monte-Carlo-Simulation starten',
       'risk.running': 'Simulation läuft...',
