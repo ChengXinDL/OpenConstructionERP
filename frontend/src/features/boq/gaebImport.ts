@@ -435,8 +435,8 @@ export function detectGAEBPhase(xmlString: string): string {
     const num = dp?.textContent?.trim().toLowerCase().replace(/^x/, '') ?? '';
     if (num && DP_TO_PHASE[num]) return DP_TO_PHASE[num];
     const ns = doc.documentElement?.namespaceURI ?? '';
-    const match = ns.match(/\/DA(\d{2})\//);
-    if (match && DP_TO_PHASE[match[1]]) return DP_TO_PHASE[match[1]];
+    const dann = ns.match(/\/DA(\d{2})\//)?.[1] ?? '';
+    if (dann && DP_TO_PHASE[dann]) return DP_TO_PHASE[dann];
     return '';
   } catch {
     return '';
