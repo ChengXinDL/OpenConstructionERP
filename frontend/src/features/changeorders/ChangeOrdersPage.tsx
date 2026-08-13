@@ -37,7 +37,7 @@ import {
 } from '@/shared/ui/WideModal';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { apiGet, apiPost, apiDelete } from '@/shared/lib/api';
-import { getIntlLocale } from '@/shared/lib/formatters';
+import { fmtDate, getIntlLocale } from '@/shared/lib/formatters';
 import { formatCurrency as fmtMoney } from '@/shared/lib/money';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
@@ -224,11 +224,9 @@ function formatQuantity(value: string | number): string {
 function formatDate(iso: string | null): string {
   if (!iso) return '-';
   try {
-    return new Date(iso).toLocaleDateString(getIntlLocale(), {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+    // The app-wide date formatter, so this register renders dates exactly like
+    // the variations and claims-evidence screens next to it.
+    return fmtDate(iso);
   } catch {
     return iso;
   }

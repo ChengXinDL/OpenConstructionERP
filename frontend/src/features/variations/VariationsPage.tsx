@@ -109,7 +109,7 @@ import {
 } from './api';
 import { variationsGuide } from './variationsGuide';
 import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
-import { buildVariationsInsights } from './variationsInsights';
+import { buildVariationsInsights, classLabel, statusLabel, urgencyLabel } from './variationsInsights';
 
 const VARIATIONS_TAB_IDS = ['notices', 'requests', 'orders', 'daywork', 'eot'] as const;
 type Tab = (typeof VARIATIONS_TAB_IDS)[number];
@@ -862,7 +862,7 @@ export function VariationsPage() {
           <option value="">{t('common.all_statuses', { defaultValue: 'All statuses' })}</option>
           {statusOptions[tab].map((s) => (
             <option key={s} value={s}>
-              {s}
+              {statusLabel(s, t)}
             </option>
           ))}
         </select>
@@ -1041,7 +1041,7 @@ function NoticeTable({
               </td>
               <td className="px-4 py-2">
                 <Badge variant={NOTICE_VARIANT[r.status]} dot>
-                  {r.status}
+                  {statusLabel(r.status, t)}
                 </Badge>
               </td>
               <td className="px-4 py-2">
@@ -1124,7 +1124,7 @@ function RequestTable({
             >
               <td className="px-4 py-2 font-mono text-xs text-content-secondary">{r.code}</td>
               <td className="px-4 py-2 font-medium truncate max-w-[360px]">{r.title || '—'}</td>
-              <td className="px-4 py-2 text-xs text-content-secondary">{r.classification}</td>
+              <td className="px-4 py-2 text-xs text-content-secondary">{classLabel(r.classification, t)}</td>
               <td className="px-4 py-2 text-right tabular-nums">
                 <MoneyDisplay
                   amount={Number(r.estimated_cost_impact) || 0}
@@ -1134,7 +1134,7 @@ function RequestTable({
               <td className="px-4 py-2 text-right tabular-nums">{r.estimated_schedule_days}</td>
               <td className="px-4 py-2">
                 <Badge variant={VR_VARIANT[r.status]} dot>
-                  {r.status}
+                  {statusLabel(r.status, t)}
                 </Badge>
               </td>
               <td className="px-4 py-2">
@@ -1229,7 +1229,7 @@ function OrderTable({
               </td>
               <td className="px-4 py-2">
                 <Badge variant={VO_VARIANT[r.status]} dot>
-                  {r.status}
+                  {statusLabel(r.status, t)}
                 </Badge>
               </td>
               <td className="px-4 py-2">
@@ -1329,7 +1329,7 @@ function DayworkTable({
               </td>
               <td className="px-4 py-2">
                 <Badge variant={DAYWORK_VARIANT[r.status]} dot>
-                  {r.status}
+                  {statusLabel(r.status, t)}
                 </Badge>
               </td>
               <td className="px-4 py-2">
@@ -1425,7 +1425,7 @@ function EoTTable({
               </td>
               <td className="px-4 py-2">
                 <Badge variant={EOT_VARIANT[r.status]} dot>
-                  {r.status}
+                  {statusLabel(r.status, t)}
                 </Badge>
               </td>
               <td className="px-4 py-2">
@@ -1484,7 +1484,7 @@ function WorkflowStepper({
             )}
           >
             {s.label}
-            {s.status ? ` · ${s.status}` : ''}
+            {s.status ? ` · ${statusLabel(s.status, t)}` : ''}
           </span>
           {idx < steps.length - 1 && <ChevronRight size={12} className="text-content-tertiary" />}
         </div>
@@ -1775,7 +1775,7 @@ function DetailDrawer({
                   label={t('variations.status')}
                   value={
                     <Badge variant={NOTICE_VARIANT[notice.status]} dot>
-                      {notice.status}
+                      {statusLabel(notice.status, t)}
                     </Badge>
                   }
                 />
@@ -1850,11 +1850,11 @@ function DetailDrawer({
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <Field
                   label={t('variations.classification')}
-                  value={request.classification}
+                  value={classLabel(request.classification, t)}
                 />
                 <Field
                   label={t('variations.urgency', { defaultValue: 'Urgency' })}
-                  value={request.urgency}
+                  value={urgencyLabel(request.urgency, t)}
                 />
                 <Field
                   label={t('variations.cost_impact')}
@@ -1873,7 +1873,7 @@ function DetailDrawer({
                   label={t('variations.status')}
                   value={
                     <Badge variant={VR_VARIANT[request.status]} dot>
-                      {request.status}
+                      {statusLabel(request.status, t)}
                     </Badge>
                   }
                 />
@@ -1974,7 +1974,7 @@ function DetailDrawer({
                   label={t('variations.status')}
                   value={
                     <Badge variant={VO_VARIANT[order.status]} dot>
-                      {order.status}
+                      {statusLabel(order.status, t)}
                     </Badge>
                   }
                 />
@@ -2093,7 +2093,7 @@ function DetailDrawer({
                   label={t('variations.status')}
                   value={
                     <Badge variant={DAYWORK_VARIANT[sheet.status]} dot>
-                      {sheet.status}
+                      {statusLabel(sheet.status, t)}
                     </Badge>
                   }
                 />
@@ -2153,7 +2153,7 @@ function DetailDrawer({
                   label={t('variations.status')}
                   value={
                     <Badge variant={EOT_VARIANT[claim.status]} dot>
-                      {claim.status}
+                      {statusLabel(claim.status, t)}
                     </Badge>
                   }
                 />
@@ -2764,7 +2764,7 @@ function CreateModal({
                   ] as const
                 ).map((c) => (
                   <option key={c} value={c}>
-                    {c}
+                    {classLabel(c, t)}
                   </option>
                 ))}
               </select>
@@ -2779,7 +2779,7 @@ function CreateModal({
               >
                 {(['low', 'med', 'high'] as const).map((u) => (
                   <option key={u} value={u}>
-                    {u}
+                    {urgencyLabel(u, t)}
                   </option>
                 ))}
               </select>

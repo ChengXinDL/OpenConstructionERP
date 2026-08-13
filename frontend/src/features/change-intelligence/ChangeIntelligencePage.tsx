@@ -317,20 +317,33 @@ function CoordinationTab({ projectId }: { projectId: string }) {
           {plan?.steps.map((s) => (
             <Card key={s.ref_id} className="p-3">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={URGENCY_VARIANT[s.urgency]}>{humanize(s.urgency)}</Badge>
-                <span className="text-xs text-content-tertiary">{humanize(s.kind)}</span>
+                {/* Urgency / kind / action / reason arrive as stable engine
+                    tokens (the reason 1:1 per urgency), so each is translated
+                    by token with the wire text as the unknown-token fallback. */}
+                <Badge variant={URGENCY_VARIANT[s.urgency]}>
+                  {t(`change_intelligence.coordination.urgency.${s.urgency}`, { defaultValue: humanize(s.urgency) })}
+                </Badge>
+                <span className="text-xs text-content-tertiary">
+                  {t(`claims_evidence.kind.${s.kind}`, { defaultValue: humanize(s.kind) })}
+                </span>
                 <span className="font-medium text-content-primary">
                   {s.title || t('change_intelligence.common.untitled', { defaultValue: '(untitled)' })}
                 </span>
                 <span className="ml-auto inline-flex items-center gap-1 text-sm font-medium text-oe-blue">
-                  {humanize(s.recommended_action)}
+                  {t(`change_intelligence.coordination.action.${s.recommended_action}`, {
+                    defaultValue: humanize(s.recommended_action),
+                  })}
                   <ArrowRight className="h-3.5 w-3.5" />
                 </span>
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-content-secondary">
                 <span>
                   {t('change_intelligence.coordination.ball_in_court', { defaultValue: 'Ball in court:' })}{' '}
-                  <span className="font-medium">{s.ball_in_court}</span>
+                  <span className="font-medium">
+                    {s.ball_in_court === 'unassigned'
+                      ? t('change_intelligence.coordination.unassigned', { defaultValue: 'Unassigned' })
+                      : s.ball_in_court}
+                  </span>
                 </span>
                 {s.days_to_due != null && (
                   <span>
@@ -345,7 +358,9 @@ function CoordinationTab({ projectId }: { projectId: string }) {
                         })}
                   </span>
                 )}
-                <span className="text-content-tertiary">{s.reason}</span>
+                <span className="text-content-tertiary">
+                  {t(`change_intelligence.coordination.reason.${s.urgency}`, { defaultValue: s.reason })}
+                </span>
               </div>
             </Card>
           ))}
@@ -1747,16 +1762,26 @@ function DisputeRiskTab({ projectId }: { projectId: string }) {
                     <ArrowRight
                       className={`h-3.5 w-3.5 shrink-0 text-content-tertiary transition-transform ${expanded ? 'rotate-90' : ''}`}
                     />
-                    <Badge variant={EXPOSURE_VARIANT[it.band]}>{humanize(it.band)}</Badge>
+                    {/* The band shares its vocabulary (and translation) with the
+                        summary tiles above; driver and cure are stable engine
+                        tokens (cure text is 1:1 per driver), translated by token
+                        with the wire text as the unknown-token fallback. */}
+                    <Badge variant={EXPOSURE_VARIANT[it.band]}>
+                      {t(`change_intelligence.dispute.tile.${it.band}`, { defaultValue: humanize(it.band) })}
+                    </Badge>
                     <span className="text-sm font-semibold text-content-primary">{it.exposure_score}</span>
-                    <span className="text-xs text-content-tertiary">{humanize(it.kind)}</span>
+                    <span className="text-xs text-content-tertiary">
+                      {t(`claims_evidence.kind.${it.kind}`, { defaultValue: humanize(it.kind) })}
+                    </span>
                     <span className="font-medium text-content-primary">
                       {it.change_ref ? `${it.change_ref}: ` : ''}
                       {it.title || t('change_intelligence.common.untitled', { defaultValue: '(untitled)' })}
                     </span>
                     <span className="ml-auto inline-flex items-center gap-1 text-xs text-content-tertiary">
                       <ShieldAlert className="h-3.5 w-3.5" />
-                      {humanize(it.dominant_driver)}
+                      {t(`change_intelligence.dispute.driver.${it.dominant_driver}`, {
+                        defaultValue: humanize(it.dominant_driver),
+                      })}
                     </span>
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 pl-5 text-sm text-content-secondary">
@@ -1766,7 +1791,11 @@ function DisputeRiskTab({ projectId }: { projectId: string }) {
                         <MoneyDisplay amount={it.money_basis} currency={it.currency} showCode />
                       </span>
                     ) : null}
-                    <span className="text-content-tertiary">{it.recommended_cure}</span>
+                    <span className="text-content-tertiary">
+                      {t(`change_intelligence.dispute.cure.${it.dominant_driver}`, {
+                        defaultValue: it.recommended_cure,
+                      })}
+                    </span>
                   </div>
                 </button>
                 {expanded && (
