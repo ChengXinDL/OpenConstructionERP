@@ -222,6 +222,12 @@ const initialLanguage = resolveInitialLanguage();
 i18n
   .use(initReactI18next)
   .init({
+    // Initialize synchronously: every resource this init needs is already in
+    // memory (the bundled EN object), so deferring init to a timer only opens
+    // a boot window where ``t()`` echoes raw keys. With sync init the store
+    // is ready the moment this module finishes evaluating, which the
+    // ``initialLocaleReady`` mount gate below relies on.
+    initImmediate: false,
     // Only English is bundled synchronously — every other locale is
     // lazy-loaded by ``loadLocaleResource`` below. ``fallbackLng: 'en'``
     // means missing keys (e.g. while the locale chunk is still in
@@ -285,11 +291,25 @@ i18n.on('languageChanged', (lng) => {
   void loadLocaleResource(lng);
 });
 
-// If the user's resolved language isn't English, kick off the lazy-load
-// straight away so the UI doesn't sit in English longer than necessary.
-if (initialLanguage !== 'en') {
-  void loadLocaleResource(initialLanguage);
-}
+/**
+ * Resolves once the resources of the *initial* language are in the store,
+ * or ``null`` when there is nothing to wait for (English boot).
+ *
+ * i18next starts with only the bundled English resource; the active locale
+ * arrives in a lazy chunk. Merely kicking that fetch off (`void load...`)
+ * loses the race against React's first paint every single time — the first
+ * frame of every non-English session rendered in English, whatever the cache
+ * state, because the paint is synchronous and the chunk resolve never is.
+ * ``main.tsx`` therefore awaits this promise (with a hard time cap so a
+ * stalled fetch cannot hold the mount hostage) before mounting the app, so
+ * the first frame already speaks the saved language.
+ *
+ * ``loadLocaleResource`` swallows its own failures (English fallback), so
+ * this promise always resolves; it never rejects and never blocks forever.
+ * The English path stays fully synchronous: no promise, no waiting.
+ */
+export const initialLocaleReady: Promise<void> | null =
+  initialLanguage !== 'en' ? loadLocaleResource(initialLanguage) : null;
 
 // Merge module-bundled translations (nav keys for regional modules, etc.)
 import { getModuleTranslations } from '@/modules/_registry';

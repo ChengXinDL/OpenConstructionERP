@@ -48,6 +48,7 @@ import { APP_VERSION } from '@/shared/lib/version';
 import { useSidebarBadges } from '@/shared/hooks/useSidebarBadges';
 import { useHiddenModules } from '@/shared/hooks/useHiddenModules';
 import { useIsRTL } from '@/shared/hooks/useIsRTL';
+import { useI18nReady } from '@/shared/lib/useI18nReady';
 import {
   useSidebarCollapseStore,
   SIDEBAR_WIDTH_FULL,
@@ -407,6 +408,13 @@ function pickActiveRoute(
 
 export function Sidebar({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
+  // The sidebar mounts at app boot, outside any Suspense boundary, exactly
+  // like the Header. Under StrictMode's double-mount, `useTranslation`'s own
+  // store subscription can be churned away and miss the bundle-added event
+  // when a lazy locale chunk lands, freezing the nav on the English fallback.
+  // This external-store subscription survives the remount and forces a
+  // re-render whenever a bundle is merged; the returned value is unused.
+  useI18nReady();
   const navigate = useNavigate();
   const location = useLocation();
   const { isModuleEnabled } = useModuleStore();
