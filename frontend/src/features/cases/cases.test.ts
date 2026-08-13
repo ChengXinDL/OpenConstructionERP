@@ -24,6 +24,7 @@ import { PLAYBOOKS, getPlaybook } from './playbooks';
 import { CATEGORY_META } from './categories';
 import { ICON_MAP } from './icons';
 import { COMPANY_TYPE_META } from './companyTypes';
+import { moreCasesFor } from './relatedness';
 import type { Playbook, PlaybookProgress } from './types';
 
 /** A small synthetic playbook so the helper tests do not depend on shipped content. */
@@ -396,5 +397,38 @@ describe('shipped cases integrity', () => {
         ).toBe(true);
       }
     }
+  });
+});
+
+describe('moreCasesFor - the "Other cases" strip on the detail page', () => {
+  it('never lists the current case, an excluded case, or a duplicate', () => {
+    const pb = PLAYBOOKS[0]!;
+    const excluded = PLAYBOOKS[1]!;
+    const out = moreCasesFor(pb, PLAYBOOKS, new Set([excluded.id]), PLAYBOOKS.length);
+    expect(out.some((c) => c.id === pb.id)).toBe(false);
+    expect(out.some((c) => c.id === excluded.id)).toBe(false);
+    expect(new Set(out.map((c) => c.id)).size).toBe(out.length);
+  });
+
+  it('puts every same-market case ahead of every other case', () => {
+    // Behaviour-class assertion over the real catalogue: whichever markets
+    // ship, a market-specific case must lead with its own market whole.
+    const regional = PLAYBOOKS.find((p) => p.region);
+    expect(regional, 'catalogue carries at least one market-specific case').toBeDefined();
+    const pb = regional!;
+    const out = moreCasesFor(pb, PLAYBOOKS, new Set(), PLAYBOOKS.length);
+    const sameCount = PLAYBOOKS.filter(
+      (c) => c.region === pb.region && c.id !== pb.id,
+    ).length;
+    expect(out.slice(0, sameCount).every((c) => c.region === pb.region)).toBe(true);
+    expect(out.slice(sameCount).some((c) => c.region === pb.region)).toBe(false);
+  });
+
+  it('keeps catalogue order inside each group and respects the limit', () => {
+    const pb = PLAYBOOKS[0]!;
+    const limited = moreCasesFor(pb, PLAYBOOKS, new Set(), 5);
+    expect(limited.length).toBeLessThanOrEqual(5);
+    const full = moreCasesFor(pb, PLAYBOOKS, new Set(), PLAYBOOKS.length);
+    expect(limited.map((c) => c.id)).toEqual(full.slice(0, limited.length).map((c) => c.id));
   });
 });

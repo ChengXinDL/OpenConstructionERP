@@ -105,17 +105,7 @@ import type {
   LifecycleStage,
 } from "./types";
 
-/** Localized display name for an ISO region code ("DE" reads as Deutschland
- *  in a German UI) straight from Intl, so a new market never needs a locale
- *  key of its own. Falls back to the raw code where DisplayNames is missing
- *  (older WebKit, JSDOM). */
-function regionDisplayName(code: string, lang: string): string {
-  try {
-    return new Intl.DisplayNames([lang], { type: "region" }).of(code) ?? code;
-  } catch {
-    return code;
-  }
-}
+import { regionDisplayName } from "./regions";
 
 export function CasesPage() {
   const { playbookId } = useParams<{ playbookId?: string }>();
