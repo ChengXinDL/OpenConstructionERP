@@ -19,7 +19,7 @@ PACK_CONFIG: dict[str, Any] = {
         {
             "code": "CSI_MasterFormat",
             "name": "CSI MasterFormat 2018",
-            "description": "34 assigned divisions (of the 00-49 numbering space) for commercial/institutional construction",
+            "description": "Division numbering for commercial/institutional construction",
             "divisions": [
                 {"number": "00", "title": "Procurement and Contracting Requirements"},
                 {"number": "01", "title": "General Requirements"},
