@@ -71,6 +71,7 @@ async def enrich_projects(project_ids: list[uuid.UUID]) -> None:
         from app.modules.closeout.seed import seed_closeout_demo
         from app.modules.commissioning.seed import seed_commissioning_demo
         from app.modules.construction_control.seed import seed_construction_control_demo
+        from app.modules.contracts.seed import seed_contracts_demo
         from app.modules.costmodel.seed import seed_costmodel
         from app.modules.crm.seed import seed_crm_demo
         from app.modules.daily_diary.seed import seed_daily_diary_demo
@@ -102,7 +103,7 @@ async def enrich_projects(project_ids: list[uuid.UUID]) -> None:
         from app.modules.validation.seed import seed_validation_demo
         from app.modules.value.seed import seed_value_demo
         from app.modules.variations.models import Notice
-        from app.modules.variations.seed import seed_variations_demo
+        from app.modules.variations.seed import seed_variations_demo, seed_variations_showcase_de
 
         # Keep the flagship reference project first so seeders that cap at a
         # few projects (advanced scheduling, QMS, supplier catalog) always
@@ -214,6 +215,21 @@ async def enrich_projects(project_ids: list[uuid.UUID]) -> None:
             # The basis of estimate quotes the allowances register line by line,
             # so it cannot run before the register exists.
             ("estimate_basis", None, lambda s: seed_estimate_basis_demo(s, _demo_pids)),
+            # Progress-claim backfill for the authored demo contracts (the
+            # installer writes contracts but no payment history), plus the
+            # generic contract catalog for any demo project that has no
+            # contracts at all. A claim run is money a real project has earned,
+            # so it stays on the demo estate. Self-guards per contract on an
+            # existing claim.
+            ("contracts", None, lambda s: seed_contracts_demo(s, _demo_pids)),
+            # German showcase Nachtrag chains: notices, requests and orders in
+            # German with contract-clause anchors, custody hand-offs and dated
+            # trails, so the claims-evidence panel can grade at least one chain
+            # per German project as provable. Runs after the generic variations
+            # sprinkle above (which skips these projects) and before the
+            # reconciliation correlator at the end of this list. Self-guards
+            # per project on its own seeded notice codes.
+            ("variations_showcase_de", None, lambda s: seed_variations_showcase_de(s, _demo_pids)),
             ("temporary_works", None, lambda s: seed_temporary_works_demo(s, _demo_pids)),
             # Mobilisation plan and readiness register. Demo-only: it records
             # signed consents, issued certificates and closed commencement gates,

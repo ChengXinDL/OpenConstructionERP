@@ -1227,6 +1227,9 @@ class FieldTimeService:
             return
         try:
             async with self.session.begin_nested():
+                from sqlalchemy import select
+
+                from app.modules.variations.models import VariationOrder
                 from app.modules.variations.schemas import DayworkSheetCreate, DayworkSheetLineCreate
                 from app.modules.variations.service import VariationsService
 
@@ -1238,20 +1241,36 @@ class FieldTimeService:
                     by_variation.setdefault(str(line.get("variation_id") or ""), []).append(line)
 
                 for variation_id, group in by_variation.items():
+                    # The sheet is what a reviewer reads in the variations
+                    # register, so it must name the work and the variation's
+                    # human code - not a raw UUID, which is what this string
+                    # carried before.
+                    variation_code: str | None = None
+                    if variation_id:
+                        try:
+                            variation_code = (
+                                await self.session.execute(
+                                    select(VariationOrder.code).where(VariationOrder.id == uuid.UUID(variation_id))
+                                )
+                            ).scalar_one_or_none()
+                        except (ValueError, TypeError):
+                            variation_code = None
+                    drafts = ft.daywork_line_drafts(group, labour_rates=labour_rates, plant_rates=plant_rates)
+                    work_summary = next((d.description for d in drafts if d.description), None)
+                    description = work_summary or "Instructed daywork recorded on site"
+                    if variation_code:
+                        description += f" - variation {variation_code}"
+                    description += f" (timesheet {timesheet.reference})"
                     sheet = await variations.create_daywork_sheet(
                         DayworkSheetCreate(
                             project_id=timesheet.project_id,
                             work_date=str(timesheet.date),
-                            description=(
-                                f"Field timesheet {timesheet.reference} daywork"
-                                + (f" (variation {variation_id})" if variation_id else "")
-                            ),
+                            description=description,
                             currency=currency,
                             status="draft",
                         ),
                         user_id,
                     )
-                    drafts = ft.daywork_line_drafts(group, labour_rates=labour_rates, plant_rates=plant_rates)
                     for draft in drafts:
                         await variations.add_daywork_line(
                             DayworkSheetLineCreate(

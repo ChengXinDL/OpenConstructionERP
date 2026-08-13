@@ -2,17 +2,26 @@
 # Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
 """Deterministic seed data for the contracts module.
 
-Generates 10 contracts spanning all primary types:
-    * 3 lump-sum
-    * 2 GMP
-    * 1 cost-plus
-    * 2 T&M
-    * 1 unit-price
-    * 1 design-build
+Two jobs, both idempotent:
 
-Each contract gets 5-15 SoV lines, roughly 4 progress claims, and 2 of
-them are closed with a FinalAccount. All decisions are seeded from a
-fixed random.Random(seed=42) so output is reproducible.
+1. **Catalog fabrication** - 10 contracts spanning all primary types
+   (3 lump-sum, 2 GMP, 1 cost-plus, 2 T&M, 1 unit-price, 1 design-build),
+   each with 5-15 SoV lines, 4 progress claims and 2 closed with a
+   FinalAccount. Fabricated only into projects that hold no contract at
+   all: the demo installer authors each demo project's own head contract
+   and trade subcontracts, and stacking a generic catalog on top of those
+   would bury the authored register under filler.
+
+2. **Progress-claim backfill** - every authored contract shipped without a
+   single progress claim, so the payment side of the register was empty on
+   every install. For each live contract that has no claims yet, a staged
+   claim run is written along the contract's own calendar: earlier periods
+   paid, then one under approval, the latest submitted, the current period
+   still a draft. German-market projects number their claims AZ-nn
+   (Abschlagszahlung); everything else keeps PC-nnnn.
+
+All decisions are seeded from fixed ``random.Random`` instances so output
+is reproducible.
 """
 
 from __future__ import annotations
@@ -20,6 +29,7 @@ from __future__ import annotations
 import logging
 import random
 import uuid
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import select
@@ -141,11 +151,205 @@ async def seed_type_configurations(session: AsyncSession) -> int:
     return inserted
 
 
+def _parse_seed_date(value: str | None) -> date | None:
+    """Parse a contract date column (bare date or ISO datetime) to a date."""
+    if not value:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text).date()
+    except ValueError:
+        return None
+
+
+def _month_starts(first: date, last: date) -> list[date]:
+    """First-of-month dates from ``first``'s month through ``last``'s month."""
+    out: list[date] = []
+    cursor = first.replace(day=1)
+    stop = last.replace(day=1)
+    while cursor <= stop:
+        out.append(cursor)
+        cursor = (cursor + timedelta(days=32)).replace(day=1)
+    return out
+
+
+def _stamp(day: date, hour: int) -> str:
+    """A business-hours ISO timestamp on ``day``."""
+    return datetime(day.year, day.month, day.day, hour, 0, 0, tzinfo=UTC).isoformat()
+
+
+#: How many claim periods a single contract materializes at most. Enough to
+#: show the full lifecycle ladder without flooding an old contract's register.
+_MAX_CLAIM_PERIODS = 6
+
+
+async def seed_progress_claims_demo(
+    session: AsyncSession,
+    project_ids: list[uuid.UUID],
+) -> dict[str, int]:
+    """Backfill a staged progress-claim run onto claim-less live contracts.
+
+    The demo installer authors each project's head contract and trade
+    subcontracts but no payment history, so every register opened on an empty
+    claims tab. For each ``active`` / ``completed`` contract of the given
+    projects that still has no claims, this writes one claim per elapsed
+    calendar month (capped at :data:`_MAX_CLAIM_PERIODS`, anchored on the
+    contract's own start date): the oldest periods are paid, one sits at
+    approval / certification, the latest full period is submitted and the
+    running period is still a draft. Amounts are a plausible monthly slice of
+    the contract value with the contract's own retention held, and the
+    cumulative ``prior_claims_total`` re-adds exactly.
+
+    Self-guarding and demo-safe by construction: a contract that already has
+    any claim (seeded or user-written) is left alone, and the caller passes
+    demo projects only. German-market projects (``country_code == "DE"``)
+    number claims AZ-nn, the Abschlagszahlung convention their users expect;
+    other markets keep PC-nnnn.
+
+    Args:
+        session: Open async DB session (the caller commits).
+        project_ids: Projects whose contracts are eligible. Empty list is a
+            no-op.
+
+    Returns:
+        Dict with ``claims_backfilled`` / ``contracts_backfilled`` counts.
+    """
+    if not project_ids:
+        return {"claims_backfilled": 0, "contracts_backfilled": 0}
+
+    from app.modules.projects.models import Project
+
+    contracts = (
+        (
+            await session.execute(
+                select(Contract)
+                .where(Contract.project_id.in_(project_ids))
+                .where(Contract.status.in_(("active", "completed")))
+                .order_by(Contract.code)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not contracts:
+        return {"claims_backfilled": 0, "contracts_backfilled": 0}
+
+    claimed_ids = set(
+        (
+            await session.execute(
+                select(ProgressClaim.contract_id.distinct()).where(
+                    ProgressClaim.contract_id.in_([c.id for c in contracts])
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    german_rows = await session.execute(
+        select(Project.id).where(Project.id.in_(project_ids)).where(Project.country_code == "DE")
+    )
+    german_projects = set(german_rows.scalars().all())
+
+    today = datetime.now(UTC).date()
+    claims_written = 0
+    contracts_touched = 0
+
+    for contract in contracts:
+        if contract.id in claimed_ids:
+            continue
+        total_value = contract.total_value or Decimal("0")
+        start = _parse_seed_date(contract.start_date)
+        if total_value <= 0 or start is None or start >= today:
+            continue
+
+        end = _parse_seed_date(contract.end_date)
+        contract_months = max(len(_month_starts(start, end)) if end and end > start else 12, 1)
+        periods = _month_starts(start, today)[-_MAX_CLAIM_PERIODS:]
+        if not periods:
+            continue
+
+        rng = random.Random(f"progress-claims:{contract.code}")
+        retention_pct = (contract.retention_percent or Decimal("0")) / Decimal("100")
+        monthly_base = total_value / Decimal(contract_months)
+
+        # Lifecycle ladder, newest period first: the running month is still in
+        # draft, the last full month is submitted, one is under approval or
+        # certification, everything older is paid.
+        ladder = ["draft", "submitted", rng.choice(("approved", "certified"))]
+        statuses: list[str] = []
+        for idx_from_end in range(len(periods)):
+            statuses.append(ladder[idx_from_end] if idx_from_end < len(ladder) else "paid")
+        statuses.reverse()
+        if statuses[-1] == "draft" and len(statuses) == 1:
+            # A register whose only claim is an untouched draft reads dead.
+            statuses[-1] = "submitted"
+
+        prior_total = Decimal("0.00")
+        for seq, (period_start, status) in enumerate(zip(periods, statuses, strict=True), start=1):
+            period_end = (period_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+            wobble = Decimal(str(rng.uniform(0.72, 1.28)))
+            gross = (monthly_base * wobble).quantize(Decimal("1")) + Decimal("0.00")
+            if gross <= 0:
+                gross = Decimal("100.00")
+            retention = (gross * retention_pct).quantize(Decimal("0.01"))
+
+            # Never stamp a submission in the future: a contract young enough
+            # to have only its running period gets "submitted today".
+            submitted_day = min(period_end + timedelta(days=3), today)
+            approved_day = submitted_day + timedelta(days=14)
+            paid_day = approved_day + timedelta(days=12)
+            is_submitted = status != "draft"
+            is_approved = status in ("approved", "certified", "paid")
+
+            number = f"AZ-{seq:02d}" if contract.project_id in german_projects else f"PC-{seq:04d}"
+            session.add(
+                ProgressClaim(
+                    contract_id=contract.id,
+                    claim_number=number,
+                    period_start=period_start.isoformat(),
+                    period_end=min(period_end, today).isoformat(),
+                    claim_date=submitted_day.isoformat() if is_submitted else None,
+                    gross_amount=gross,
+                    retention_amount=retention,
+                    prior_claims_total=prior_total,
+                    net_due=gross - retention,
+                    status=status,
+                    submitted_at=_stamp(submitted_day, 10) if is_submitted else None,
+                    approved_at=_stamp(approved_day, 14) if is_approved else None,
+                    paid_at=_stamp(paid_day, 11) if status == "paid" else None,
+                    currency=contract.currency or "",
+                    metadata_=dict((contract.metadata_ or {}), seeded=True),
+                )
+            )
+            prior_total += gross
+            claims_written += 1
+        contracts_touched += 1
+
+    if claims_written:
+        await session.flush()
+        logger.info(
+            "seed_progress_claims_demo: %d claims across %d contracts",
+            claims_written,
+            contracts_touched,
+        )
+    return {"claims_backfilled": claims_written, "contracts_backfilled": contracts_touched}
+
+
 async def seed_contracts_demo(
     session: AsyncSession,
     project_ids: list[uuid.UUID],
 ) -> dict[str, int]:
-    """Generate 10 demo contracts across all primary types.
+    """Generate demo contracts and backfill claim runs onto authored ones.
+
+    The 10-type catalog is fabricated round-robin, but only into projects
+    that hold no contract yet: demo projects arrive with an authored head
+    contract plus trade subcontracts, and those registers must not be
+    diluted with generic filler. Afterwards
+    :func:`seed_progress_claims_demo` gives every claim-less live contract
+    of the given projects its staged payment history.
 
     Args:
         session: Open async DB session (the caller commits).
@@ -154,7 +358,8 @@ async def seed_contracts_demo(
 
     Returns:
         Dict with counts: contracts, lines, claims, final_accounts,
-        type_configs, fee_structures, gainshare_configs.
+        type_configs, fee_structures, gainshare_configs, claims_backfilled,
+        contracts_backfilled.
     """
     if not project_ids:
         logger.info("seed_contracts_demo: no project_ids → skipping")
@@ -166,6 +371,8 @@ async def seed_contracts_demo(
             "type_configs": 0,
             "fee_structures": 0,
             "gainshare_configs": 0,
+            "claims_backfilled": 0,
+            "contracts_backfilled": 0,
         }
 
     rng = random.Random(42)
@@ -177,6 +384,17 @@ async def seed_contracts_demo(
     # existing codes are read once instead of probed per contract.
     existing_codes = set((await session.execute(select(Contract.code))).scalars().all())
 
+    # Fabricate the catalog only into projects that own no contract at all.
+    # The demo installer authors each demo project's own head contract and
+    # subcontracts; those projects need the claim backfill below, not ten
+    # more generic agreements on top of the authored register.
+    occupied = set(
+        (await session.execute(select(Contract.project_id.distinct()).where(Contract.project_id.in_(project_ids))))
+        .scalars()
+        .all()
+    )
+    empty_projects = [pid for pid in project_ids if pid not in occupied]
+
     contracts_count = 0
     lines_count = 0
     claims_count = 0
@@ -185,7 +403,9 @@ async def seed_contracts_demo(
     gainshare_count = 0
 
     for idx, c_type in enumerate(_TYPE_DISTRIBUTION):
-        project_id = project_ids[idx % len(project_ids)]
+        if not empty_projects:
+            break
+        project_id = empty_projects[idx % len(empty_projects)]
         code = f"CT-{idx + 1:03d}-{c_type.upper()[:3]}"
         if code in existing_codes:
             continue
@@ -332,13 +552,22 @@ async def seed_contracts_demo(
             final_account_count += 1
 
     await session.flush()
+
+    # Backfill staged claim runs onto every claim-less live contract of the
+    # given projects - the authored demo contracts above all, which is what
+    # makes the payment-application registers non-empty out of the box.
+    backfill = await seed_progress_claims_demo(session, project_ids)
+
     logger.info(
-        "seed_contracts_demo: %d contracts, %d lines, %d claims, %d final_accounts, %d type_configs",
+        "seed_contracts_demo: %d contracts, %d lines, %d claims, %d final_accounts, %d type_configs, "
+        "%d claims backfilled onto %d contracts",
         contracts_count,
         lines_count,
         claims_count,
         final_account_count,
         type_configs,
+        backfill["claims_backfilled"],
+        backfill["contracts_backfilled"],
     )
     return {
         "contracts": contracts_count,
@@ -348,4 +577,6 @@ async def seed_contracts_demo(
         "type_configs": type_configs,
         "fee_structures": fee_count,
         "gainshare_configs": gainshare_count,
+        "claims_backfilled": backfill["claims_backfilled"],
+        "contracts_backfilled": backfill["contracts_backfilled"],
     }

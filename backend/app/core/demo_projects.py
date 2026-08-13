@@ -4998,15 +4998,22 @@ def _generate_module_data(
 
     # ── GAP MODULES (no hand data anywhere today) ────────────────────────
     # variations - issued variation orders derived from the first trades.
+    # German-market projects read their register in German: the section
+    # titles the trades come from are already German, so an English prefix
+    # in front of them is what stands out on screen.
     variations: list[dict] = []
     var_n = min(max(len(trades), 3), 5)
     for i in range(var_n):
         code, trade, item = trades[i % len(trades)] if trades else ("", "General works", "")
         amount = round(8000.0 + i * 6500.0, 2)
+        if cc == "DE":
+            var_title = f"Nachtrag - {trade}: {item or 'zusätzliche Leistungen'}"
+        else:
+            var_title = f"Variation - {trade}: {item or 'additional works'}"
         variations.append(
             {
                 "code": f"VO-{i + 1:03d}",
-                "title": f"Variation - {trade}: {item or 'additional works'}",
+                "title": var_title,
                 "final_cost_impact": f"{amount}",
                 "final_schedule_days": 2 + (i % 4),
                 "currency": cur,
@@ -5565,7 +5572,21 @@ def _generate_module_data(
     # it raw and the change order cannot be updated through its own schema.
     # "site_condition" was such a code: it is the same cause as "unforeseen".
     co_reasons = ["client_request", "design_change", "unforeseen", "value_engineering", "regulatory"]
-    co_statuses = ["approved", "pending", "approved", "implemented", "pending"]
+    # Must come from the changeorders module's own vocabulary
+    # (VALID_TRANSITIONS in modules/changeorders/service.py). "pending" and
+    # "implemented" read naturally but are not in it, so three of every five
+    # demo orders carried a status the register printed raw, the status
+    # filter could not select and the card's stepper mapped to step zero.
+    co_statuses = ["approved", "submitted", "approved", "executed", "submitted"]
+    # What each machine reason is called on a German cover sheet, for the
+    # generated German descriptions below.
+    co_reason_labels_de = {
+        "client_request": "Auftraggeberwunsch",
+        "design_change": "Planungsänderung",
+        "unforeseen": "Unvorhergesehene Bedingungen",
+        "value_engineering": "Wertanalyse",
+        "regulatory": "Behördliche Auflage",
+    }
     change_orders: list[dict] = []
     co_n = min(max(len(trades), 3), 5)
     for i in range(co_n):
@@ -5585,21 +5606,27 @@ def _generate_module_data(
                     unit, rate = "lsum", 12000.0
         add_qty = float(5 + i * 3)
         cost_impact = round(add_qty * rate, 2)
+        co_reason = co_reasons[i % len(co_reasons)]
+        if cc == "DE":
+            co_title = f"Nachtrag - {trade}: {item or 'zusätzliche Leistungen'}"
+            co_desc = f"{co_reason_labels_de[co_reason]}: Auswirkung auf {trade} - {proj}."
+            co_item_desc = f"{item or trade} - Mehrmenge"
+        else:
+            co_title = f"Change order - {trade}: {item or 'additional works'}"
+            co_desc = f"{co_reason.replace('_', ' ').capitalize()} affecting {trade.lower()} on {proj}."
+            co_item_desc = f"{item or trade} - additional quantity"
         change_orders.append(
             (
                 f"CO-{i + 1:03d}",
-                f"Change order - {trade}: {item or 'additional works'}",
-                (
-                    f"{co_reasons[i % len(co_reasons)].replace('_', ' ').capitalize()} "
-                    f"affecting {trade.lower()} on {proj}."
-                ),
-                co_reasons[i % len(co_reasons)],
+                co_title,
+                co_desc,
+                co_reason,
                 co_statuses[i % len(co_statuses)],
                 cost_impact,
                 2 + (i % 4),
                 [
                     (
-                        f"{item or trade} - additional quantity",
+                        co_item_desc,
                         "added",
                         "0",
                         f"{add_qty:g}",
@@ -9946,6 +9973,14 @@ async def _seed_module_data(
 
         var_list = generated.get("variations", [])
         for v in var_list:
+            # Date the row by the day the order was agreed, so downstream
+            # readers of created_at (evidence packs, timelines) see the
+            # business chronology instead of the seeding minute.
+            agreed_dt = None
+            try:
+                agreed_dt = datetime.fromisoformat(str(v.get("agreed_at"))).replace(hour=11, tzinfo=UTC)
+            except (TypeError, ValueError):
+                agreed_dt = None
             session.add(
                 VariationOrder(
                     id=_id(),
@@ -9958,6 +9993,7 @@ async def _seed_module_data(
                     status=v.get("status", "issued"),
                     agreed_at=v.get("agreed_at"),
                     metadata_={"project_id": str(project_id), "demo_id": demo_id},
+                    **({"created_at": agreed_dt, "updated_at": agreed_dt} if agreed_dt else {}),
                 )
             )
         results["variations"] = len(var_list)
@@ -11662,7 +11698,7 @@ async def install_demo_project(
                 "Enhanced security lobby",
                 "Revised security requirements post-design freeze",
                 "regulatory",
-                "pending",
+                "submitted",
                 125000,
                 8,
                 [
@@ -11693,7 +11729,7 @@ async def install_demo_project(
                 "Emergency department expansion",
                 "County health board required 4 additional ED bays",
                 "regulatory",
-                "pending",
+                "submitted",
                 520000,
                 30,
                 [
@@ -11765,7 +11801,7 @@ async def install_demo_project(
                 "Solar panel installation",
                 "Client added rooftop PV system for sustainability",
                 "client_request",
-                "pending",
+                "submitted",
                 285000,
                 10,
                 [
@@ -11780,7 +11816,7 @@ async def install_demo_project(
         "retail-market-heilbronn": [
             (
                 "N-01",
-                "Soil replacement for fill, northern building area",
+                "Bodenaustausch Auffüllungen Baufeld Nord",
                 "Baugrundnachtrag D05: organische Auffüllungen unter Gründungsniveau, von der GU-Pauschale nicht erfasst (1.450 m3 Mehrmengen Bodenaustausch). Linked to risk R01 and activity T05.",
                 "unforeseen",
                 "approved",
@@ -11800,7 +11836,7 @@ async def install_demo_project(
             ),
             (
                 "N-02",
-                "Relocation of transformer station, longer MV route",
+                "Umverlegung Trafostation, längere Mittelspannungstrasse",
                 "Netzbetreiber-Vorgabe: Stationsstandort an die öffentliche Zuwegung verschoben, längere Mittelspannungstrasse. Linked to risk R05 and activity T21.",
                 "regulatory",
                 "approved",
@@ -11820,7 +11856,7 @@ async def install_demo_project(
             ),
             (
                 "N-03",
-                "Additional 60 m3 retention trench per drainage permit condition",
+                "Zusätzliche Retentionsrigole 60 m3 gemäß Entwässerungsauflage",
                 "Auflage aus D04/D06: Drosselabfluss 12 l/s, ursprünglicher Versickerungsnachweis nicht ausreichend. Linked to risk R04 and activity T27 (to be ordered with VP-09).",
                 "regulatory",
                 "submitted",
@@ -11840,7 +11876,7 @@ async def install_demo_project(
             ),
             (
                 "N-04",
-                "Deposit-return room redesign and bake-off extension (tenant request)",
+                "Umplanung Pfandraum und Erweiterung Backstation (Mieterwunsch)",
                 "Betreiberstandard aktualisiert: 2. Rücknahmeautomat, größerer Backofenblock; Planindex D der LP5 in Arbeit (D14). Linked to activity T31.",
                 "client_request",
                 "approved",
@@ -11863,7 +11899,22 @@ async def install_demo_project(
 
     co_count = 0
     co_data = _DEMO_CHANGE_ORDERS.get(demo_id) or _generated.get("change_orders", [])
-    for co_code, co_title, co_desc, co_reason, co_status, co_cost, co_days, co_items_data in co_data:
+    for co_idx, (co_code, co_title, co_desc, co_reason, co_status, co_cost, co_days, co_items_data) in enumerate(
+        co_data
+    ):
+        # Spread the change orders along the programme instead of stamping
+        # them all with the seeding minute: submitted a few weeks apart from
+        # the schedule start, approval a review period later, never in the
+        # future. Before this, every order showed today's date and its
+        # approval matched its submission to the microsecond, so the register
+        # had no history to tell.
+        co_now = datetime.now(UTC)
+        co_submitted = datetime(start.year, start.month, start.day, 10, 30, tzinfo=UTC) + timedelta(
+            days=38 + co_idx * 16
+        )
+        co_submitted = min(co_submitted, co_now - timedelta(days=1))
+        co_approved = min(co_submitted + timedelta(days=12), co_now - timedelta(hours=1))
+        is_approved = co_status in ("approved", "executed")
         co = ChangeOrder(
             id=_id(),
             project_id=project.id,
@@ -11873,13 +11924,17 @@ async def install_demo_project(
             reason_category=co_reason,
             status=co_status,
             submitted_by=str(owner_id),
-            approved_by=str(owner_id) if co_status == "approved" else None,
-            submitted_at=datetime.now(UTC).isoformat(),
-            approved_at=datetime.now(UTC).isoformat() if co_status == "approved" else None,
+            approved_by=str(owner_id) if is_approved else None,
+            submitted_at=co_submitted.isoformat(),
+            approved_at=co_approved.isoformat() if is_approved else None,
             cost_impact=str(round(co_cost, 2)),
             schedule_impact_days=co_days,
             currency=template.currency,
             metadata_={},
+            # Backdated so evidence packs date the order by its business day,
+            # not by the minute the demo estate was written.
+            created_at=co_submitted,
+            updated_at=co_approved if is_approved else co_submitted,
         )
         session.add(co)
         await session.flush()
