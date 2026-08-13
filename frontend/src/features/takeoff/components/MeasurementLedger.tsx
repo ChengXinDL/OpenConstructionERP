@@ -39,6 +39,7 @@ import {
 import { usePreferencesStore } from '@/stores/usePreferencesStore';
 import { convertQuantity } from '../lib/takeoff-display-units';
 import { formatCountQuantity, formatQuantity } from '../lib/measurement-format';
+import { displayGroupName } from '../lib/group-labels';
 import { localizedUnitCode } from '@/shared/lib/unitLabels';
 import { effectiveQuantity, quantityAdjustmentLabel } from '../lib/takeoff-quantity';
 
@@ -576,7 +577,7 @@ function GroupRows({
                   className="h-2 w-2 rounded-full shrink-0"
                   style={{ backgroundColor: color }}
                 />
-                {group}
+                {displayGroupName(group)}
               </span>
             </td>
             <td
@@ -680,7 +681,7 @@ function GroupRows({
                 {t('takeoff_viewer.subtotal', { defaultValue: 'subtotal' })}
               </td>
               <td className="px-1.5 py-1 text-content-secondary">
-                {group} · {subtotal.count}
+                {displayGroupName(group)} · {subtotal.count}
               </td>
               <td />
               <td className="px-1.5 py-1 text-right font-semibold text-content-primary">

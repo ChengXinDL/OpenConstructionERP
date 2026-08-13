@@ -72,7 +72,7 @@ const playbook: Playbook = {
         "A plan that has been through a plotter or a scanner is rarely at the scale printed on it. Calibrating against a stated dimension costs a minute, while a scale two percent out multiplies quietly through every area on the sheet and only surfaces at Abrechnung.",
       moduleLabel: "PDF Measurements",
       moduleLabelKey: "nav.pdf_measurements",
-      to: "/takeoff?tab=measurements",
+      to: "/takeoff?tab=measurements&name=A-2.01%20Grundriss%20Erdgeschoss.pdf",
     },
     {
       id: "measure",
@@ -95,7 +95,7 @@ const playbook: Playbook = {
         "The rate you are pricing is a rate per the quantity the contract measures, and VOB/C sets those rules trade by trade. Measuring the way the trade is settled keeps the figure in your offer and the figure in the final account the same figure.",
       moduleLabel: "PDF Measurements",
       moduleLabelKey: "nav.pdf_measurements",
-      to: "/takeoff?tab=measurements",
+      to: "/takeoff?tab=measurements&name=A-2.01%20Grundriss%20Erdgeschoss.pdf",
     },
     {
       id: "organise",
@@ -118,7 +118,7 @@ const playbook: Playbook = {
         "A checkable Aufmass is one where a number leads back to a named measurement on a named sheet. Naming costs seconds now and saves the afternoon when the client asks where a figure came from.",
       moduleLabel: "PDF Measurements",
       moduleLabelKey: "nav.pdf_measurements",
-      to: "/takeoff?tab=measurements",
+      to: "/takeoff?tab=measurements&name=A-2.01%20Grundriss%20Erdgeschoss.pdf",
     },
     {
       id: "review",

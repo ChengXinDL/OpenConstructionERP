@@ -186,6 +186,7 @@ import {
   planMeasurementDrop,
 } from '../../features/takeoff/lib/takeoff-order';
 import { seedAnnotationCounters } from '../../features/takeoff/lib/takeoff-labels';
+import { displayGroupName } from '../../features/takeoff/lib/group-labels';
 import {
   effectiveQuantity,
   hasQuantityFactor,
@@ -8009,7 +8010,7 @@ export default function TakeoffViewerModule({
                     <span className="uppercase tracking-wide text-[10px]">
                       {t('takeoff_viewer.tooltip_group', { defaultValue: 'Group' })}
                     </span>
-                    <span>{hoverMeasurement.group || 'General'}</span>
+                    <span>{displayGroupName(hoverMeasurement.group || 'General')}</span>
                   </div>
                   <div className="mt-0.5 text-[10px]">
                     {hoverMeasurement.linkedPositionOrdinal ? (
@@ -8323,7 +8324,7 @@ export default function TakeoffViewerModule({
                             style={{ backgroundColor: row.color }}
                           />
                           <span className="flex-1 text-[11px] font-semibold text-content-primary truncate">
-                            {row.name}
+                            {displayGroupName(row.name)}
                           </span>
                           <span className="text-[10px] font-mono text-content-tertiary tabular-nums">
                             {row.count}
@@ -8429,7 +8430,7 @@ export default function TakeoffViewerModule({
                   data-testid="active-group-select"
                 >
                   {Array.from(new Set([...availableGroups, activeGroup])).map((g) => (
-                    <option key={g} value={g}>{g}</option>
+                    <option key={g} value={g}>{displayGroupName(g)}</option>
                   ))}
                   <option value="__new__">
                     {t('takeoff_viewer.new_group', { defaultValue: '+ New group' })}
@@ -8701,7 +8702,7 @@ export default function TakeoffViewerModule({
                     data-testid="prop-group-select"
                   >
                     {availableGroups.map((g) => (
-                      <option key={g} value={g}>{g}</option>
+                      <option key={g} value={g}>{displayGroupName(g)}</option>
                     ))}
                     <option value="__new__">{t('takeoff_viewer.new_group', { defaultValue: '+ New group' })}</option>
                   </select>
