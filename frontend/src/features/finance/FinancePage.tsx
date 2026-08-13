@@ -297,7 +297,12 @@ const INVOICE_STATUS_COLORS: Record<
   approved: 'blue',
   // Issued to the client and waiting to be paid. Without an entry here it
   // arrived as 'neutral', so the invoice the client is holding looked exactly
-  // like a draft nobody has sent and like one that was cancelled.
+  // like a draft nobody has sent and like one that was cancelled. It shares
+  // 'blue' with approved on purpose: the palette carries five variants for
+  // seven states, and these two are the pair that means the same thing to the
+  // eye scanning a column, in flight and not yet money. The label separates
+  // them. The collisions worth avoiding are the ones that cross that line,
+  // which is why neither of them is 'success' or 'warning'.
   sent: 'blue',
   paid: 'success',
   disputed: 'error',
