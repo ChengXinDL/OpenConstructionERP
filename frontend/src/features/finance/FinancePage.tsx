@@ -295,9 +295,14 @@ const INVOICE_STATUS_COLORS: Record<
   draft: 'neutral',
   pending: 'warning',
   approved: 'blue',
+  // Issued to the client and waiting to be paid. Without an entry here it
+  // arrived as 'neutral', so the invoice the client is holding looked exactly
+  // like a draft nobody has sent and like one that was cancelled.
+  sent: 'blue',
   paid: 'success',
   disputed: 'error',
   cancelled: 'neutral',
+  credit_note_issued: 'neutral',
 };
 
 // Editor-safe invoice status transitions offered by the edit-modal status
@@ -314,12 +319,27 @@ export const INVOICE_SELF_SERVICE_TRANSITIONS: Record<string, string[]> = {
   draft: ['pending', 'cancelled'],
   pending: ['draft', 'cancelled'],
   approved: [],
+  sent: [],
   paid: [],
   cancelled: ['draft'],
+  credit_note_issued: [],
 };
 
-// Display order for the status options so the dropdown reads predictably.
-export const INVOICE_STATUS_ORDER = ['draft', 'pending', 'approved', 'paid', 'cancelled'];
+// Display order for the status options so the dropdown reads predictably. This
+// is the whole lifecycle the backend FSM knows, not the part the dropdown may
+// move an invoice into: a status missing here has no label and renders as the
+// raw database word, which is what 'sent' used to do. Which of them an editor
+// may actually select stays governed by the transition map above, and both of
+// those are empty for the states only a privileged endpoint can reach.
+export const INVOICE_STATUS_ORDER = [
+  'draft',
+  'pending',
+  'approved',
+  'sent',
+  'paid',
+  'cancelled',
+  'credit_note_issued',
+];
 
 /**
  * Options shown in the invoice edit-modal status dropdown: the current status
@@ -2296,8 +2316,12 @@ function InvoicesTab({ projectId }: { projectId: string }) {
               <option value="draft">{t('finance.status_draft', { defaultValue: 'Draft' })}</option>
               <option value="pending">{t('finance.status_pending', { defaultValue: 'Pending' })}</option>
               <option value="approved">{t('finance.status_approved', { defaultValue: 'Approved' })}</option>
+              <option value="sent">{t('finance.status_sent', { defaultValue: 'Sent' })}</option>
               <option value="paid">{t('finance.status_paid', { defaultValue: 'Paid' })}</option>
               <option value="cancelled">{t('finance.status_cancelled', { defaultValue: 'Cancelled' })}</option>
+              <option value="credit_note_issued">
+                {t('finance.status_credit_note_issued', { defaultValue: 'Credit note issued' })}
+              </option>
             </select>
             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-content-tertiary">
               <ChevronDown size={14} />

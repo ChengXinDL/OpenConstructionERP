@@ -4747,7 +4747,7 @@ def _generate_module_data(
         if amount <= 0:
             amount = 25000.0 + i * 5000.0
         amount = round(amount, 2)
-        status = ("paid", "approved", "submitted")[i % 3]
+        status = ("paid", "approved", "sent")[i % 3]
         invoices.append(
             {
                 "invoice_number": f"INV-{base.year}-{i + 1:03d}",
@@ -4791,7 +4791,7 @@ def _generate_module_data(
                 "invoice_date": _d(120),
                 "due_date": _d(150),
                 "currency_code": cur,
-                "status": "submitted",
+                "status": "sent",
                 "notes": ei_row.get("notes"),
                 "counterparty_company": contacts[0].get("company_name"),
                 "contact_ref": "client",
@@ -8377,7 +8377,7 @@ async def _seed_module_data(
                 "invoice_date": (base + timedelta(days=90)).strftime("%Y-%m-%d"),
                 "due_date": (base + timedelta(days=120)).strftime("%Y-%m-%d"),
                 "currency_code": "EUR",
-                "status": "submitted",
+                "status": "sent",
                 "notes": "Sanverth - 1. Abschlagsrechnung Fassade WDVS",
                 "line_items": [
                     {
@@ -8510,7 +8510,7 @@ async def _seed_module_data(
                 "invoice_date": (base + timedelta(days=90)).strftime("%Y-%m-%d"),
                 "due_date": (base + timedelta(days=120)).strftime("%Y-%m-%d"),
                 "currency_code": "USD",
-                "status": "submitted",
+                "status": "sent",
                 "notes": "Corvale Medical Imaging - 3T MRI equipment deposit",
                 "line_items": [
                     {
@@ -8618,7 +8618,7 @@ async def _seed_module_data(
                 "invoice_date": (base + timedelta(days=90)).strftime("%Y-%m-%d"),
                 "due_date": (base + timedelta(days=120)).strftime("%Y-%m-%d"),
                 "currency_code": "AED",
-                "status": "submitted",
+                "status": "sent",
                 "notes": "EFFE - Fire protection system advance",
                 "line_items": [
                     {
