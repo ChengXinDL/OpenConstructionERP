@@ -163,6 +163,7 @@ const TITLE_I18N_MAP: Record<string, string> = {
   'Audit Log': 'sidebar.admin_grid.audit',
   'Governance': 'sidebar.admin_grid.governance',
   'Modules': 'nav.modules',
+  'E-invoice Clearance': 'nav.einvoice_clearance',
   'Settings': 'nav.settings',
   'About': 'nav.about',
   'Not Found': 'error.not_found',
@@ -1464,7 +1465,7 @@ function ProjectSwitcher() {
           )}
           title={activeProjectId
             ? t('projects.open_current', { defaultValue: 'Open this project' })
-            : t('schedule.select_project', { defaultValue: 'Select Project' })}
+            : t('projects.select_active', { defaultValue: 'Select Project' })}
         >
           {/* Leading icon square — colored tile in active mode; pulsing
               dot in CTA mode so the eye is drawn to "act here". */}
@@ -1484,7 +1485,7 @@ function ProjectSwitcher() {
             'truncate',
             activeProjectId ? 'font-semibold' : 'font-medium',
           )}>
-            {activeProjectName || t('schedule.select_project', { defaultValue: 'Select Project' })}
+            {activeProjectName || t('projects.select_active', { defaultValue: 'Select Project' })}
           </span>
         </button>
         <button
