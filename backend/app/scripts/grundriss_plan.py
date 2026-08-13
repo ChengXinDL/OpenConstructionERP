@@ -2,16 +2,24 @@
 """Single source of truth for the demo German floor plan (Grundriss Erdgeschoss).
 
 This module owns the GEOMETRY of the vector reference plan that ships as
-``flagship_assets/grundriss_erdgeschoss.pdf``:
+``flagship_assets/grundriss_erdgeschoss.pdf`` (index A) and
+``flagship_assets/grundriss_erdgeschoss_index_b.pdf`` (index B):
 
-* :mod:`app.scripts.generate_grundriss_pdf` renders the PDF from these numbers
-  (run it to regenerate the fixture deterministically), and
+* :mod:`app.scripts.generate_grundriss_pdf` renders the PDFs from these numbers
+  (run it to regenerate the fixtures deterministically), and
 * :mod:`app.modules.takeoff.seed` derives measurement polygons / polylines /
   count markers from the same numbers, so a seeded measurement always encloses
   exactly the room it names and its value recomputes from its own points.
 
 Keeping both consumers on one dataclass table is deliberate: a copied
 coordinate that drifts stays green in every gate, a shared one cannot drift.
+
+The sheet exists in two issues (:data:`REVISION_A`, :data:`REVISION_B`), which
+is what a revision compare needs: index B widens the corridor from 2.00 m to
+2.50 m for the escape route and adds a second door to the meeting room, so a
+handful of quantities really move while the rest stay put. Both issues are the
+SAME :class:`Revision` shape, so no revision can carry a number the other
+computed differently.
 
 Coordinate systems
 ------------------
@@ -92,27 +100,46 @@ class Room:
         return f"{self.name} {self.number}"
 
 
-#: Rooms keyed by room number. South row / corridor / north row layout;
-#: widths + partitions sum exactly to the inner envelope on both rows.
-ROOMS: dict[str, Room] = {
-    r.number: r
-    for r in (
-        # south row (between exterior wall and corridor south wall)
-        Room("1.01", "Büro", 0.365, 0.365, 5.39, 5.515),
-        Room("1.02", "Büro", 5.870, 0.365, 5.38, 5.515),
-        Room("1.03", "Besprechung", 11.365, 0.365, 6.59, 5.515),
-        Room("1.04", "Teeküche", 18.070, 0.365, 3.98, 5.515),
-        Room("1.05", "Technik", 22.165, 0.365, 5.71, 5.515),
-        # north row (between corridor north wall and exterior wall)
-        Room("1.06", "Großraumbüro", 0.365, 8.110, 10.89, 5.885),
-        Room("1.07", "WC Herren", 11.370, 8.110, 3.19, 5.885),
-        Room("1.08", "WC Damen", 14.675, 8.110, 3.21, 5.885),
-        Room("1.09", "Kopierraum", 18.000, 8.110, 4.05, 5.885),
-        Room("1.10", "Lager", 22.165, 8.110, 5.71, 5.885),
-        # corridor
-        Room("1.11", "Flur", 0.365, CORRIDOR_Y0_M, 27.51, CORRIDOR_Y1_M - CORRIDOR_Y0_M),
+#: South row, north row: (number, name, x, width). Widths + partitions sum
+#: exactly to the inner envelope on both rows. Only the corridor's NORTH wall
+#: ever moves between issues, so the rows' y and depth are derived from it
+#: rather than written down twice.
+_SOUTH_ROW: tuple[tuple[str, str, float, float], ...] = (
+    ("1.01", "Büro", 0.365, 5.39),
+    ("1.02", "Büro", 5.870, 5.38),
+    ("1.03", "Besprechung", 11.365, 6.59),
+    ("1.04", "Teeküche", 18.070, 3.98),
+    ("1.05", "Technik", 22.165, 5.71),
+)
+_NORTH_ROW: tuple[tuple[str, str, float, float], ...] = (
+    ("1.06", "Großraumbüro", 0.365, 10.89),
+    ("1.07", "WC Herren", 11.370, 3.19),
+    ("1.08", "WC Damen", 14.675, 3.21),
+    ("1.09", "Kopierraum", 18.000, 4.05),
+    ("1.10", "Lager", 22.165, 5.71),
+)
+
+
+def rooms_for_corridor(corridor_y1_m: float) -> dict[str, Room]:
+    """Room table for a corridor whose north wall's clear face sits at ``y``.
+
+    The south row and the corridor's south face never move; the north row
+    starts behind the corridor's north partition and runs to the exterior
+    wall, so widening the corridor takes that depth off the north rooms.
+    """
+    south_d = CORRIDOR_Y0_M - INT_WALL_M - INNER_Y0_M
+    north_y = corridor_y1_m + INT_WALL_M
+    north_d = INNER_Y1_M - north_y
+    rooms = [Room(number, name, x, INNER_Y0_M, w, south_d) for number, name, x, w in _SOUTH_ROW]
+    rooms += [Room(number, name, x, north_y, w, north_d) for number, name, x, w in _NORTH_ROW]
+    rooms.append(
+        Room("1.11", "Flur", INNER_X0_M, CORRIDOR_Y0_M, INNER_X1_M - INNER_X0_M, corridor_y1_m - CORRIDOR_Y0_M)
     )
-}
+    return {r.number: r for r in rooms}
+
+
+#: Rooms of the first issue, keyed by room number.
+ROOMS: dict[str, Room] = rooms_for_corridor(CORRIDOR_Y1_M)
 
 
 @dataclass(frozen=True)
@@ -124,15 +151,12 @@ class Door:
     south_wall: bool  #: True = corridor SOUTH wall, False = corridor NORTH wall
     t30: bool = False  #: fire-rated door (T30), labelled on the plan
 
-    @property
-    def wall_center_y(self) -> float:
-        if self.south_wall:
-            return CORRIDOR_Y0_M - INT_WALL_M / 2.0
-        return CORRIDOR_Y1_M + INT_WALL_M / 2.0
-
 
 #: One door per room, opening off the corridor. Technik and Lager get T30
-#: fire doors (referenced by the retail demo's T30 BOQ position).
+#: fire doors (referenced by the retail demo's T30 BOQ position). A door in
+#: the corridor's north wall travels with that wall, so its centre line is
+#: read off the issue it belongs to (:meth:`Revision.door_center_y`) and
+#: never off the module constants.
 DOORS: list[Door] = [
     Door("1.01", 5.00, south_wall=True),
     Door("1.02", 6.70, south_wall=True),
@@ -202,10 +226,14 @@ def viewer_points(points_m: list[tuple[float, float]]) -> list[dict[str, float]]
     return out
 
 
-def room_polygon_m(number: str) -> list[tuple[float, float]]:
+def room_polygon(room: Room) -> list[tuple[float, float]]:
     """Clear-face rectangle of a room as a closed-ring vertex list (metres)."""
-    r = ROOMS[number]
-    return [(r.x, r.y), (r.x + r.w, r.y), (r.x + r.w, r.y + r.d), (r.x, r.y + r.d)]
+    return [
+        (room.x, room.y),
+        (room.x + room.w, room.y),
+        (room.x + room.w, room.y + room.d),
+        (room.x, room.y + room.d),
+    ]
 
 
 def building_outline_m(inset: float = 0.0) -> list[tuple[float, float]]:
@@ -232,3 +260,79 @@ def format_len_de(value_m: float) -> str:
     if abs(value_m - round(value_m, 2)) < 5e-4:
         return f"{value_m:.2f}".replace(".", ",")
     return f"{value_m:.3f}".replace(".", ",")
+
+
+# --- issues of the sheet (Index A / Index B) -------------------------------
+
+
+@dataclass(frozen=True)
+class Revision:
+    """One issue of sheet A-2.01: its geometry plus what the index table says.
+
+    Every consumer reads rooms and doors THROUGH the issue it renders or
+    measures. A door in the corridor's north wall, for instance, travels with
+    that wall, and reading its centre line off the module constants instead
+    would leave index B's markers standing in index A's wall.
+    """
+
+    index: str  #: revision index letter as printed in the title block
+    issued: str  #: issue date as printed, e.g. "07/2026"
+    corridor_y1: float  #: clear face of the corridor's north wall, metres
+    rooms: dict[str, Room]
+    doors: tuple[Door, ...]
+    #: Index table, newest issue first: (index, change note, date).
+    history: tuple[tuple[str, str, str], ...]
+    #: Revision cloud around the changed area, as a plan-metre bounding box
+    #: (x0, y0, x1, y1). None on the first issue, which changed nothing.
+    cloud: tuple[float, float, float, float] | None = None
+    #: Centre line of the wall this issue moved away from, drawn dashed and
+    #: labelled "Rückbau" so the sheet shows what leaves as well as what comes.
+    demolished_wall_y: float | None = None
+
+    def door_center_y(self, door: Door) -> float:
+        """Centre-line y of the corridor wall a door sits in, metres."""
+        if door.south_wall:
+            return CORRIDOR_Y0_M - INT_WALL_M / 2.0
+        return self.corridor_y1 + INT_WALL_M / 2.0
+
+    def room_polygon_m(self, number: str) -> list[tuple[float, float]]:
+        """Clear-face rectangle of one of this issue's rooms (metres)."""
+        return room_polygon(self.rooms[number])
+
+    def doors_for(self, room_number: str) -> list[Door]:
+        """This issue's doors opening into one room, west to east."""
+        return sorted((d for d in self.doors if d.room_number == room_number), key=lambda d: d.cx)
+
+
+#: Corridor clear width of the second issue: the escape route was taken from
+#: 2,00 m to 2,50 m, which is why the north row lost 50 cm of depth.
+CORRIDOR_Y1_B_M: float = CORRIDOR_Y1_M + 0.5
+
+#: Second door into Besprechung 1.03, required as a second exit once the
+#: meeting room is used at full occupancy.
+_SECOND_MEETING_DOOR = Door("1.03", 16.50, south_wall=True)
+
+REVISION_A = Revision(
+    index="A",
+    issued="07/2026",
+    corridor_y1=CORRIDOR_Y1_M,
+    rooms=ROOMS,
+    doors=tuple(DOORS),
+    history=(("A", "Erstausgabe", "07.2026"),),
+)
+
+REVISION_B = Revision(
+    index="B",
+    issued="08/2026",
+    corridor_y1=CORRIDOR_Y1_B_M,
+    rooms=rooms_for_corridor(CORRIDOR_Y1_B_M),
+    doors=(*DOORS, _SECOND_MEETING_DOOR),
+    history=(
+        ("B", "Flur 1.11 auf 2,50 m verbreitert (Rettungsweg), 2. Tür Besprechung 1.03", "08.2026"),
+        ("A", "Erstausgabe", "07.2026"),
+    ),
+    # The cloud spans the corridor band across the full width plus the swing
+    # of the new door, which is where every change of this issue sits.
+    cloud=(-0.35, CORRIDOR_Y0_M - 1.45, BUILDING_W_M + 0.35, CORRIDOR_Y1_B_M + 0.45),
+    demolished_wall_y=CORRIDOR_Y1_M + INT_WALL_M / 2.0,
+)

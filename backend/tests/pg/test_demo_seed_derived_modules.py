@@ -439,6 +439,58 @@ async def test_documents_revision_chain_is_internally_consistent(pg_session, upl
             assert ok, f"{doc.name}: {reason}"
 
 
+async def test_documents_revision_chain_shows_two_different_sheets(pg_session, upload_store) -> None:
+    """The two issues of the chain must not be the same file filed twice.
+
+    A chain is only evidence of a revision if opening both issues shows a
+    difference. The German showcase register therefore carries index A and
+    index B of the same drawing, which are rendered from one geometry module
+    and really differ - the corridor is wider on index B.
+    """
+    project_id = await _make_project(pg_session, "Bürogebäude Frankfurt Europaviertel", demo=True)
+    await seed_documents_demo(pg_session, [project_id])
+    await pg_session.flush()
+
+    docs = await _seeded_documents(pg_session, project_id)
+    chain = sorted(
+        (doc for doc in docs if doc.drawing_number == "A-2.01"),
+        key=lambda doc: doc.revision_code or "",
+    )
+    assert [doc.revision_code for doc in chain] == ["A", "B"], f"chain: {[d.name for d in chain]}"
+    assert chain[1].parent_document_id == chain[0].id, "index B must supersede index A"
+
+    bytes_a = Path(chain[0].file_path).read_bytes()
+    bytes_b = Path(chain[1].file_path).read_bytes()
+    assert bytes_a != bytes_b, "the archived and the current issue serve the same PDF"
+
+    # Only one chain: the English general-arrangement pair would be a second
+    # one, and it is the pair that shares a single asset.
+    assert [doc for doc in docs if doc.parent_document_id is not None] == [chain[1]]
+
+
+async def test_documents_top_up_reaches_a_register_seeded_before_the_chain(pg_session, upload_store) -> None:
+    """An install seeded earlier still receives the revision chain, once."""
+    project_id = await _make_project(pg_session, "Lebensmittelmarkt Heilbronn", demo=True)
+    await seed_documents_demo(pg_session, [project_id])
+    await pg_session.flush()
+
+    chain = [doc for doc in await _seeded_documents(pg_session, project_id) if doc.drawing_number == "A-2.01"]
+    assert len(chain) == 2
+    before = len(await _seeded_documents(pg_session, project_id))
+    for doc in chain:
+        await pg_session.execute(Document.__table__.delete().where(Document.id == doc.id))
+    await pg_session.flush()
+
+    counts = await seed_documents_demo(pg_session, [project_id])
+    await pg_session.flush()
+    assert counts["documents"] == 2, f"only the chain may be re-filed, got {counts}"
+    assert len(await _seeded_documents(pg_session, project_id)) == before
+
+    third = await seed_documents_demo(pg_session, [project_id])
+    await pg_session.flush()
+    assert third["documents"] == 0, "the chain must not be filed twice"
+
+
 async def test_documents_second_pass_adds_nothing(pg_session, upload_store) -> None:
     """Re-running must not file the register a second time."""
     project_id = await _make_project(pg_session, "Millrace", demo=True)

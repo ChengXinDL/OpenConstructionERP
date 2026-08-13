@@ -3,9 +3,11 @@
 
 Loaded on demand via ``await seed_takeoff_demo(session, project_ids)``.
 
-Seeds one uploaded PDF :class:`TakeoffDocument` per showcase project - the
-flagship reference build plus the German demo projects - together with a spread
-of :class:`TakeoffMeasurement` annotations whose values are DERIVED from their
+Seeds the uploaded PDF :class:`TakeoffDocument` rows of every showcase project
+- the flagship reference build plus the German demo projects, and BOTH issues
+of sheet A-2.01 on the shoot project so the revision compare has two documents
+to diff - together with a spread of
+:class:`TakeoffMeasurement` annotations whose values are DERIVED from their
 own geometry: every measurement's ``points`` + ``scale_pixels_per_unit`` are
 fed through :func:`app.modules.takeoff.service.recompute_measurement_value`
 (the same function the API uses), so the stored value can never contradict the
@@ -20,12 +22,16 @@ linked via ``linked_boq_position_id`` - the traceability chain the takeoff
 workspace demonstrates. Only positions that really exist are referenced; a
 missed lookup leaves the measurement unlinked rather than pointing nowhere.
 
-The seed is idempotent PER PROJECT: a project that already has a takeoff
-document is skipped, so a user upload never blocks the seed from reaching the
-projects that are still empty (same contract as the daily_diary / field_time
-seeders). Legacy demo rows minted without a document, points or scale (the old
-"boq_derived" fill) are pruned - a measurement that cannot be shown on any
-sheet is worse than an honest empty state.
+The seed is idempotent PER DOCUMENT, keyed on ``metadata.seed_key``: a sheet
+already present is skipped, a sheet still missing is written, and a project
+holding a document this seeder did not write is left to its owner. That keeps
+a re-run a no-op while an install that predates a sheet still receives it, and
+it survives renaming a sheet (the old file-name-shaped identity would have
+re-seeded the same drawing under its new name). Legacy demo rows minted
+without a document, points or scale (the old "boq_derived" fill) are pruned -
+a measurement that cannot be shown on any sheet is worse than an honest empty
+state - and a document seeded before the sheet carried a revision index is
+adopted into the index-A plan instead of being duplicated.
 """
 
 from __future__ import annotations
@@ -201,19 +207,19 @@ def _flagship_specs() -> list[_Spec]:
 # groups are German; link patterns quote the demo packs' own BOQ descriptions.
 
 
-def _door_markers(only_t30: bool = False) -> list[dict[str, float]]:
-    doors = [d for d in plan.DOORS if d.t30] if only_t30 else plan.DOORS
-    return plan.viewer_points([(d.cx, d.wall_center_y) for d in doors])
+def _door_markers(rev: plan.Revision, only_t30: bool = False) -> list[dict[str, float]]:
+    doors = [d for d in rev.doors if d.t30] if only_t30 else list(rev.doors)
+    return plan.viewer_points([(d.cx, rev.door_center_y(d)) for d in doors])
 
 
 def _window_markers() -> list[dict[str, float]]:
     return plan.viewer_points([(cx, plan.window_wall_center_y(south)) for cx, south in plan.WINDOWS])
 
 
-def _skirting_ring_1_06() -> list[dict[str, float]]:
+def _skirting_ring_1_06(rev: plan.Revision) -> list[dict[str, float]]:
     """Skirting run around Großraumbüro 1.06, open at the door leaf."""
-    room = plan.ROOMS["1.06"]
-    door = next(d for d in plan.DOORS if d.room_number == "1.06")
+    room = rev.rooms["1.06"]
+    door = rev.doors_for("1.06")[0]
     x0, y0 = room.x, room.y
     x1, y1 = room.x + room.w, room.y + room.d
     east_jamb = door.cx + plan.DOOR_W_M / 2.0
@@ -221,14 +227,14 @@ def _skirting_ring_1_06() -> list[dict[str, float]]:
     return plan.viewer_points([(east_jamb, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0), (west_jamb, y0)])
 
 
-def _corridor_line(y_m: float) -> list[dict[str, float]]:
-    flur = plan.ROOMS["1.11"]
+def _corridor_line(rev: plan.Revision, y_m: float) -> list[dict[str, float]]:
+    flur = rev.rooms["1.11"]
     return plan.viewer_points([(flur.x, y_m), (flur.x + flur.w, y_m)])
 
 
-def _specs_frankfurt() -> list[_Spec]:
-    flur = plan.ROOMS["1.11"]
-    return [
+def _specs_frankfurt(rev: plan.Revision) -> list[_Spec]:
+    flur = rev.rooms["1.11"]
+    specs = [
         _Spec(
             "area",
             "Bodenplatten",
@@ -245,7 +251,7 @@ def _specs_frankfurt() -> list[_Spec]:
             "Estriche",
             "#10B981",
             "Estrich Flur 1.11",
-            plan.viewer_points(plan.room_polygon_m("1.11")),
+            plan.viewer_points(rev.room_polygon_m("1.11")),
             "m2",
             link_patterns=("%Estrich%",),
             link_units=("m2",),
@@ -255,7 +261,7 @@ def _specs_frankfurt() -> list[_Spec]:
             "Estriche",
             "#10B981",
             "Estrich Büro 1.01",
-            plan.viewer_points(plan.room_polygon_m("1.01")),
+            plan.viewer_points(rev.room_polygon_m("1.01")),
             "m2",
             link_patterns=("%Estrich%",),
             link_units=("m2",),
@@ -265,7 +271,7 @@ def _specs_frankfurt() -> list[_Spec]:
             "Sockelleisten",
             "#F59E0B",
             "Sockelleiste Großraumbüro 1.06 (umlaufend)",
-            _skirting_ring_1_06(),
+            _skirting_ring_1_06(rev),
             "m",
             link_patterns=("%Sockelleisten%",),
             link_units=("m", "lfm"),
@@ -275,7 +281,7 @@ def _specs_frankfurt() -> list[_Spec]:
             "Sockelleisten",
             "#F59E0B",
             "Sockelleiste Flur 1.11, Achse B",
-            _corridor_line(flur.y),
+            _corridor_line(rev, flur.y),
             "m",
             link_patterns=("%Sockelleisten%",),
             link_units=("m", "lfm"),
@@ -285,7 +291,7 @@ def _specs_frankfurt() -> list[_Spec]:
             "Wände",
             "#06B6D4",
             "Trennwand Trockenbau Flur, Achse C (Länge)",
-            _corridor_line(plan.CORRIDOR_Y1_M + plan.INT_WALL_M / 2.0),
+            _corridor_line(rev, rev.corridor_y1 + plan.INT_WALL_M / 2.0),
             "m",
             # Wall length reaches the m2 drywall position only through the
             # wall height: depth carries it (length x height = face area),
@@ -309,9 +315,9 @@ def _specs_frankfurt() -> list[_Spec]:
             "Türen",
             "#EF4444",
             "Innentüren EG",
-            _door_markers(),
+            _door_markers(rev),
             "pcs",
-            count=len(plan.DOORS),
+            count=len(rev.doors),
             link_patterns=("%Innentüren%",),
             link_units=_COUNT_UNITS,
         ),
@@ -325,10 +331,29 @@ def _specs_frankfurt() -> list[_Spec]:
             count=len(plan.WINDOWS),
         ),
     ]
+    if rev.demolished_wall_y is not None:
+        # Scope this issue brought with it: the corridor wall it moved has to
+        # come down first. Measured as its own item because it is new work,
+        # which is also why it shows up as an ADDED row in a revision compare
+        # instead of quietly changing the length of the wall that stays.
+        specs.append(
+            _Spec(
+                "distance",
+                "Rückbau",
+                "#94A3B8",
+                "Rückbau Trennwand Flur, Achse C (Lage Index A)",
+                _corridor_line(rev, rev.demolished_wall_y),
+                "m",
+                depth=Decimal("2.750000"),
+                link_patterns=("%Rückbau%", "%Abbruch%"),
+                link_units=("m2",),
+            )
+        )
+    return specs
 
 
-def _specs_heilbronn() -> list[_Spec]:
-    flur = plan.ROOMS["1.11"]
+def _specs_heilbronn(rev: plan.Revision) -> list[_Spec]:
+    flur = rev.rooms["1.11"]
     return [
         _Spec(
             "area",
@@ -356,7 +381,7 @@ def _specs_heilbronn() -> list[_Spec]:
             "Estriche",
             "#10B981",
             "Estrich Flur Sozialtrakt",
-            plan.viewer_points(plan.room_polygon_m("1.11")),
+            plan.viewer_points(rev.room_polygon_m("1.11")),
             "m2",
             link_patterns=("%Estrich%",),
             link_units=("m2",),
@@ -366,7 +391,7 @@ def _specs_heilbronn() -> list[_Spec]:
             "Sockelleisten",
             "#F59E0B",
             "Rammschutz-Sockelleiste Flur, Achse B",
-            _corridor_line(flur.y),
+            _corridor_line(rev, flur.y),
             "m",
             link_patterns=("%Sockelleisten%",),
             link_units=("m", "lfm"),
@@ -376,7 +401,7 @@ def _specs_heilbronn() -> list[_Spec]:
             "Wände",
             "#06B6D4",
             "Trockenbauwand Sozialtrakt, Achse C (Länge)",
-            _corridor_line(plan.CORRIDOR_Y1_M + plan.INT_WALL_M / 2.0),
+            _corridor_line(rev, rev.corridor_y1 + plan.INT_WALL_M / 2.0),
             "m",
             depth=Decimal("2.750000"),
             link_patterns=("Trockenbauwände%", "%Trockenbau%"),
@@ -387,9 +412,9 @@ def _specs_heilbronn() -> list[_Spec]:
             "Türen",
             "#EF4444",
             "T30-Türen Technik 1.05 und Lager 1.10",
-            _door_markers(only_t30=True),
+            _door_markers(rev, only_t30=True),
             "pcs",
-            count=sum(1 for d in plan.DOORS if d.t30),
+            count=sum(1 for d in rev.doors if d.t30),
             link_patterns=("T30%",),
             link_units=_COUNT_UNITS,
         ),
@@ -398,17 +423,17 @@ def _specs_heilbronn() -> list[_Spec]:
             "Türen",
             "#EF4444",
             "Innentüren Sozialtrakt EG",
-            _door_markers(),
+            _door_markers(rev),
             "pcs",
-            count=len(plan.DOORS),
+            count=len(rev.doors),
             link_patterns=("%Innentüren%",),
             link_units=_COUNT_UNITS,
         ),
     ]
 
 
-def _specs_heidelberg() -> list[_Spec]:
-    flur = plan.ROOMS["1.11"]
+def _specs_heidelberg(rev: plan.Revision) -> list[_Spec]:
+    flur = rev.rooms["1.11"]
     return [
         _Spec(
             "area",
@@ -436,7 +461,7 @@ def _specs_heidelberg() -> list[_Spec]:
             "Estriche",
             "#10B981",
             "Estrich Flur Sozialtrakt",
-            plan.viewer_points(plan.room_polygon_m("1.11")),
+            plan.viewer_points(rev.room_polygon_m("1.11")),
             "m2",
             link_patterns=("%Estrich%",),
             link_units=("m2",),
@@ -446,7 +471,7 @@ def _specs_heidelberg() -> list[_Spec]:
             "Sockelleisten",
             "#F59E0B",
             "Rammschutz-Sockelleiste Flur, Achse B",
-            _corridor_line(flur.y),
+            _corridor_line(rev, flur.y),
             "m",
             link_patterns=("%Sockelleisten%",),
             link_units=("m", "lfm"),
@@ -456,24 +481,32 @@ def _specs_heidelberg() -> list[_Spec]:
             "Türen",
             "#EF4444",
             "Innentüren Sozialtrakt EG",
-            _door_markers(),
+            _door_markers(rev),
             "pcs",
-            count=len(plan.DOORS),
+            count=len(rev.doors),
             link_patterns=("%Innentüren%",),
             link_units=_COUNT_UNITS,
         ),
     ]
 
 
-def _grundriss_extracted_text() -> str:
-    rooms = ", ".join(f"{r.label} ({plan.format_area_de(r.area_m2)})" for r in plan.ROOMS.values())
-    return f"Grundriss Erdgeschoss. Maßstab M 1:100. Büro- und Sozialbereich: {rooms}. Alle Maße in m."
+def _grundriss_extracted_text(rev: plan.Revision) -> str:
+    rooms = ", ".join(f"{r.label} ({plan.format_area_de(r.area_m2)})" for r in rev.rooms.values())
+    changes = "; ".join(f"Index {index}: {note} ({date})" for index, note, date in rev.history)
+    return (
+        f"Grundriss Erdgeschoss, Plan-Nr. A-2.01, Index {rev.index}, Stand {rev.issued}. "
+        f"Maßstab M 1:100. Büro- und Sozialbereich: {rooms}. Alle Maße in m. Änderungen: {changes}."
+    )
 
 
 @dataclass(frozen=True)
 class _DocumentPlan:
     """Everything needed to seed one project's takeoff document + rows."""
 
+    #: Stable identity of this document inside the seeder, stamped into
+    #: ``metadata.seed_key``. Idempotency is keyed on it rather than on the
+    #: file name, so renaming a sheet never re-seeds it as a second document.
+    seed_key: str
     source_pdf: str
     filename: str
     scale: float
@@ -481,41 +514,91 @@ class _DocumentPlan:
     extracted_text: str
     summary: str
     specs: list[_Spec]
+    #: Days between this sheet's issue and now. The document list is served
+    #: newest first and the compare drawer offers the newest document as the
+    #: target, so the two issues of one sheet must not share a timestamp -
+    #: rows written in one transaction all carry the same ``now()``, and the
+    #: pair would then order arbitrarily and diff backwards.
+    age_days: int = 30
+    revision_index: str | None = None
 
 
-def _flagship_document_plan() -> _DocumentPlan:
+def _flagship_document_plan() -> list[_DocumentPlan]:
+    return [
+        _DocumentPlan(
+            seed_key="flagship-ground-floor",
+            source_pdf="house_plans.pdf",
+            filename="ground-floor-plan.pdf",
+            scale=round(_FLAGSHIP_SCALE, 6),
+            scale_source="manual_calibration",
+            extracted_text=(
+                "Plan of Design No. 2 - reference build plate. Calibrated on the printed 34'-6\" overall "
+                "dimension. Room takeoff over the scanned floor plans."
+            ),
+            summary="Scanned plate calibrated and measured: floors, skirting runs, doors and windows.",
+            specs=_flagship_specs(),
+        )
+    ]
+
+
+def _german_document_plan(
+    rev: plan.Revision,
+    specs: list[_Spec],
+    *,
+    source_pdf: str,
+    age_days: int,
+) -> _DocumentPlan:
     return _DocumentPlan(
-        source_pdf="house_plans.pdf",
-        filename="ground-floor-plan.pdf",
-        scale=round(_FLAGSHIP_SCALE, 6),
-        scale_source="manual_calibration",
-        extracted_text=(
-            "Plan of Design No. 2 - reference build plate. Calibrated on the printed 34'-6\" overall "
-            "dimension. Room takeoff over the scanned floor plans."
-        ),
-        summary="Scanned plate calibrated and measured: floors, skirting runs, doors and windows.",
-        specs=_flagship_specs(),
-    )
-
-
-def _german_document_plan(specs: list[_Spec]) -> _DocumentPlan:
-    return _DocumentPlan(
-        source_pdf="grundriss_erdgeschoss.pdf",
-        filename="A-2.01 Grundriss Erdgeschoss.pdf",
+        seed_key=f"grundriss-index-{rev.index.lower()}",
+        source_pdf=source_pdf,
+        filename=f"A-2.01 Grundriss Erdgeschoss (Index {rev.index}).pdf",
         scale=round(_GRUNDRISS_SCALE, 6),
         scale_source="preset",
-        extracted_text=_grundriss_extracted_text(),
-        summary="Grundriss ausgewertet: Bodenplatte, Estriche, Trennwände, Sockelleisten, Türen und Fenster.",
+        extracted_text=_grundriss_extracted_text(rev),
+        summary=(
+            f"Grundriss Index {rev.index} ausgewertet: Bodenplatte, Estriche, Trennwände, "
+            "Sockelleisten, Türen und Fenster."
+        ),
         specs=specs,
+        age_days=age_days,
+        revision_index=rev.index,
     )
+
+
+def _grundriss_index_a(specs: Callable[[plan.Revision], list[_Spec]]) -> _DocumentPlan:
+    return _german_document_plan(
+        plan.REVISION_A,
+        specs(plan.REVISION_A),
+        source_pdf="grundriss_erdgeschoss.pdf",
+        age_days=30,
+    )
+
+
+def _plans_frankfurt() -> list[_DocumentPlan]:
+    """Both issues of sheet A-2.01, so the revision compare has real input.
+
+    The shoot project carries the pair the compare screen needs: index A is
+    the sheet the takeoff was built on, index B the reissue that widened the
+    corridor. Same rooms, same measurement names - so a compare matches them
+    up and reports the handful of quantities that really moved.
+    """
+    return [
+        _grundriss_index_a(_specs_frankfurt),
+        _german_document_plan(
+            plan.REVISION_B,
+            _specs_frankfurt(plan.REVISION_B),
+            source_pdf="grundriss_erdgeschoss_index_b.pdf",
+            age_days=3,
+        ),
+    ]
 
 
 #: German demo projects that receive the Grundriss, keyed by project name
 #: (demo installs mint random project ids, so the stable key is the name).
-_GERMAN_PROJECT_PLANS: dict[str, Callable[[], list[_Spec]]] = {
-    "Bürogebäude Frankfurt Europaviertel": _specs_frankfurt,
-    "Lebensmittelmarkt Heilbronn": _specs_heilbronn,
-    "Lebensmittelmarkt Heidelberg": _specs_heidelberg,
+_GERMAN_PROJECT_PLANS: dict[str, Callable[[], list[_DocumentPlan]]] = {
+    "Bürogebäude Frankfurt Europaviertel": _plans_frankfurt,
+    "Lebensmittelmarkt Heilbronn": lambda: [_grundriss_index_a(_specs_heilbronn)],
+    "Lebensmittelmarkt Heidelberg": lambda: [_grundriss_index_a(_specs_heidelberg)],
 }
 
 
@@ -596,6 +679,46 @@ async def _resolve_position_id(
     return None
 
 
+def _is_seeded_document(document: TakeoffDocument) -> bool:
+    """True for a document this seeder wrote (never for a user's upload)."""
+    meta = document.metadata_
+    return isinstance(meta, dict) and meta.get("seed") is True
+
+
+def _seed_key_of(document: TakeoffDocument) -> str | None:
+    """The document's seed identity, or None for a row that predates it."""
+    meta = document.metadata_ if isinstance(document.metadata_, dict) else {}
+    return str(meta.get("seed_key") or "").strip() or None
+
+
+def _adopt_legacy_document(document: TakeoffDocument, doc_plan: _DocumentPlan) -> None:
+    """Bring a document seeded before the sheet carried an index up to date.
+
+    Earlier installs seeded one unindexed sheet per project. That row IS this
+    plan's document (same project, same drawing, same measurements), so it is
+    renamed and re-served from the current fixture rather than left beside a
+    second copy: two rows for one sheet would show up in the compare drawer as
+    two revisions with an empty diff, and a row whose name promises an index
+    its bytes do not carry is the defect one drawer away.
+    """
+    source_pdf = _ASSETS_DIR / doc_plan.source_pdf
+    if document.file_path and source_pdf.exists():
+        dest = Path(document.file_path)
+        try:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source_pdf, dest)
+            document.size_bytes = dest.stat().st_size
+        except OSError:
+            logger.warning("takeoff seed: could not refresh %s from %s", document.file_path, source_pdf)
+    document.filename = doc_plan.filename
+    document.extracted_text = doc_plan.extracted_text
+    document.metadata_ = {
+        **(document.metadata_ if isinstance(document.metadata_, dict) else {}),
+        "seed_key": doc_plan.seed_key,
+        **({"revision_index": doc_plan.revision_index} if doc_plan.revision_index else {}),
+    }
+
+
 async def _prune_documentless_demo_rows(session: AsyncSession) -> int:
     """Delete legacy demo measurements that have no document behind them.
 
@@ -664,6 +787,7 @@ async def _seed_project_document(
         project_id=project_id,
         owner_id=owner_id,
         file_path=file_path,
+        created_at=datetime.now(UTC) - timedelta(days=doc_plan.age_days),
         extracted_text=doc_plan.extracted_text,
         page_data=[{"page": n, "text": doc_plan.filename, "tables": []} for n in range(1, pages + 1)],
         analysis={"summary": doc_plan.summary, "trades": ["concrete", "drywall", "flooring", "doors", "windows"]},
@@ -675,7 +799,13 @@ async def _seed_project_document(
             "defaultScale": {"pixelsPerUnit": doc_plan.scale, "unitLabel": "m"},
             "byPage": {"1": {"pixelsPerUnit": doc_plan.scale, "unitLabel": "m"}},
         },
-        metadata_={"seed": True, "demo": True, "scale": "1:100"},
+        metadata_={
+            "seed": True,
+            "demo": True,
+            "scale": "1:100",
+            "seed_key": doc_plan.seed_key,
+            **({"revision_index": doc_plan.revision_index} if doc_plan.revision_index else {}),
+        },
     )
     session.add(document)
     await session.flush()
@@ -744,23 +874,31 @@ async def seed_takeoff_demo(
         session: Open async DB session.
         project_ids: Candidate projects. The flagship project and the German
             showcase projects (matched by name) each receive their own
-            document; a project that already has one is skipped.
+            documents - two on the shoot project, one everywhere else - and a
+            document already seeded is skipped.
 
     Returns:
-        A dict of row counts per entity inserted (plus ``linked`` and
-        ``pruned``), or an empty dict when nothing was done.
+        A dict of row counts per entity inserted (plus ``linked``, ``pruned``
+        and ``adopted``), or an empty dict when nothing was done.
     """
     if not project_ids:
         return {}
 
-    counts: dict[str, int] = {"documents": 0, "measurements": 0, "linked": 0, "cad_sessions": 0, "pruned": 0}
+    counts: dict[str, int] = {
+        "documents": 0,
+        "measurements": 0,
+        "linked": 0,
+        "cad_sessions": 0,
+        "pruned": 0,
+        "adopted": 0,
+    }
 
     # Heal older installs: demo rows without a document cannot be shown on any
     # sheet, so they go before new documents arrive.
     counts["pruned"] = await _prune_documentless_demo_rows(session)
 
     # Resolve seed targets: the flagship by id, German projects by name.
-    targets: list[tuple[uuid.UUID, _DocumentPlan]] = []
+    targets: list[tuple[uuid.UUID, list[_DocumentPlan]]] = []
     if _FLAGSHIP_ID in project_ids:
         targets.append((_FLAGSHIP_ID, _flagship_document_plan()))
     name_rows = (
@@ -771,15 +909,30 @@ async def seed_takeoff_demo(
         )
     ).all()
     for pid, name in name_rows:
-        targets.append((pid, _german_document_plan(_GERMAN_PROJECT_PLANS[name]())))
+        targets.append((pid, _GERMAN_PROJECT_PLANS[name]()))
 
-    for project_id, doc_plan in targets:
-        # Per-project idempotency: a document already present (seeded or user
-        # uploaded) means this project is done - never double-seed it.
-        existing = (
-            await session.execute(select(TakeoffDocument.id).where(TakeoffDocument.project_id == project_id).limit(1))
-        ).scalar_one_or_none()
-        if existing is not None:
+    for project_id, doc_plans in targets:
+        existing = list(
+            (await session.execute(select(TakeoffDocument).where(TakeoffDocument.project_id == project_id)))
+            .scalars()
+            .all()
+        )
+        # Idempotency is per DOCUMENT, keyed on ``metadata.seed_key``: a
+        # project that already carries every sheet of its plan is done, and a
+        # project that carries only the first one (an install that predates
+        # the second issue) gets the missing sheet without duplicating what is
+        # already there. A document this seeder did not write means a user has
+        # taken the project over - it is left alone entirely.
+        if any(not _is_seeded_document(doc) for doc in existing):
+            continue
+        seeded_keys = {key for doc in existing if (key := _seed_key_of(doc)) is not None}
+        legacy = [doc for doc in existing if _seed_key_of(doc) is None]
+        if legacy and doc_plans[0].seed_key not in seeded_keys:
+            _adopt_legacy_document(legacy[0], doc_plans[0])
+            seeded_keys.add(doc_plans[0].seed_key)
+            counts["adopted"] += 1
+        pending = [doc_plan for doc_plan in doc_plans if doc_plan.seed_key not in seeded_keys]
+        if not pending:
             continue
 
         owner_id = await _resolve_owner_id(session, project_id)
@@ -787,9 +940,10 @@ async def seed_takeoff_demo(
             logger.info("takeoff seed skipped for %s: no owner user available", project_id)
             continue
 
-        project_counts = await _seed_project_document(session, project_id, owner_id, doc_plan)
-        for key, num in project_counts.items():
-            counts[key] += num
+        for doc_plan in pending:
+            project_counts = await _seed_project_document(session, project_id, owner_id, doc_plan)
+            for key, num in project_counts.items():
+                counts[key] += num
 
         # --- 1 optional CAD extraction session (flagship only) ---
         if project_id == _FLAGSHIP_ID:

@@ -1,14 +1,22 @@
 # DDC-CWICR-OE: DataDrivenConstruction · OpenConstructionERP
 """Generate the vector German demo floor plan (Grundriss Erdgeschoss).
 
-Renders ``flagship_assets/grundriss_erdgeschoss.pdf`` from the geometry in
-:mod:`app.scripts.grundriss_plan` - a single-page, fully vector DIN A3 sheet at
+Renders both issues of sheet A-2.01 from the geometry in
+:mod:`app.scripts.grundriss_plan` - single-page, fully vector DIN A3 sheets at
 M 1:100 with German room labels, dimension chains in metres, axis bubbles, a
-title block with a scale bar, and a border frame. The takeoff demo seeder
-derives its measurement polygons from the same geometry module, so what the
-viewer draws and what the seed claims cannot drift apart.
+revision index table, a title block with a scale bar, and a border frame:
 
-Regenerate (deterministic output, reportlab ``invariant`` mode)::
+* ``flagship_assets/grundriss_erdgeschoss.pdf`` - index A, the first issue;
+* ``flagship_assets/grundriss_erdgeschoss_index_b.pdf`` - index B, which
+  widens the corridor, adds a second meeting-room door, clouds the changed
+  area and shows the wall it replaces as a dashed "Rückbau" line.
+
+The takeoff demo seeder derives its measurement polygons from the same
+geometry module, so what the viewer draws and what the seed claims cannot
+drift apart - and a revision compare between the two sheets moves exactly the
+quantities the index table says it moved.
+
+Regenerate both (deterministic output, reportlab ``invariant`` mode)::
 
     python -m app.scripts.generate_grundriss_pdf
 
@@ -25,7 +33,13 @@ from reportlab.pdfgen import canvas as rl_canvas
 
 from app.scripts import grundriss_plan as plan
 
-OUT_PATH = Path(__file__).resolve().parent / "flagship_assets" / "grundriss_erdgeschoss.pdf"
+_ASSET_DIR = Path(__file__).resolve().parent / "flagship_assets"
+
+#: Where each issue is written, keyed by revision index.
+OUT_PATHS: dict[str, Path] = {
+    "A": _ASSET_DIR / "grundriss_erdgeschoss.pdf",
+    "B": _ASSET_DIR / "grundriss_erdgeschoss_index_b.pdf",
+}
 
 # Paint greys (0 = black, 1 = white).
 _EXT_WALL_GREY = 0.15
@@ -55,7 +69,7 @@ def _line_m(c: rl_canvas.Canvas, x1_m: float, y1_m: float, x2_m: float, y2_m: fl
     c.line(x1, y1, x2, y2)
 
 
-def _draw_walls(c: rl_canvas.Canvas) -> None:
+def _draw_walls(c: rl_canvas.Canvas, rev: plan.Revision) -> None:
     """Exterior wall band, corridor walls and partitions as filled bands."""
     # Exterior band: dark outer rectangle, white inner envelope punched out.
     _rect_m(c, 0, 0, plan.BUILDING_W_M, plan.BUILDING_D_M, fill_grey=_EXT_WALL_GREY)
@@ -72,20 +86,20 @@ def _draw_walls(c: rl_canvas.Canvas) -> None:
     _rect_m(
         c, plan.INNER_X0_M, plan.CORRIDOR_Y0_M - plan.INT_WALL_M, inner_w, plan.INT_WALL_M, fill_grey=_INT_WALL_GREY
     )
-    _rect_m(c, plan.INNER_X0_M, plan.CORRIDOR_Y1_M, inner_w, plan.INT_WALL_M, fill_grey=_INT_WALL_GREY)
+    _rect_m(c, plan.INNER_X0_M, rev.corridor_y1, inner_w, plan.INT_WALL_M, fill_grey=_INT_WALL_GREY)
     # Room partitions: vertical bands in the gaps between neighbouring rooms.
-    south = [plan.ROOMS[n] for n in ("1.01", "1.02", "1.03", "1.04", "1.05")]
-    north = [plan.ROOMS[n] for n in ("1.06", "1.07", "1.08", "1.09", "1.10")]
+    south = [rev.rooms[n] for n in ("1.01", "1.02", "1.03", "1.04", "1.05")]
+    north = [rev.rooms[n] for n in ("1.06", "1.07", "1.08", "1.09", "1.10")]
     for row in (south, north):
         for left, right in zip(row, row[1:], strict=False):
             gap_x = left.x + left.w
             _rect_m(c, gap_x, row[0].y, right.x - gap_x, row[0].d, fill_grey=_INT_WALL_GREY)
 
 
-def _punch_doors(c: rl_canvas.Canvas) -> None:
+def _punch_doors(c: rl_canvas.Canvas, rev: plan.Revision) -> None:
     """White openings in corridor walls plus door leaves and swing arcs."""
     r = plan.DOOR_W_M
-    for door in plan.DOORS:
+    for door in rev.doors:
         x0 = door.cx - r / 2.0
         if door.south_wall:
             wall_y = plan.CORRIDOR_Y0_M - plan.INT_WALL_M
@@ -94,7 +108,7 @@ def _punch_doors(c: rl_canvas.Canvas) -> None:
             leaf_end_y = hinge_y - r
             arc_start = 270.0
         else:
-            wall_y = plan.CORRIDOR_Y1_M
+            wall_y = rev.corridor_y1
             _rect_m(c, x0, wall_y - 0.01, r, plan.INT_WALL_M + 0.02, fill_grey=1.0)
             hinge_x, hinge_y = x0, wall_y + plan.INT_WALL_M
             leaf_end_y = hinge_y + r
@@ -143,9 +157,9 @@ def _punch_windows(c: rl_canvas.Canvas) -> None:
             _line_m(c, jx, y0, jx, y0 + plan.EXT_WALL_M)
 
 
-def _room_labels(c: rl_canvas.Canvas) -> None:
+def _room_labels(c: rl_canvas.Canvas, rev: plan.Revision) -> None:
     c.setFillColor(black)
-    for room in plan.ROOMS.values():
+    for room in rev.rooms.values():
         cx, cy = _pt(room.x + room.w / 2.0, room.y + room.d / 2.0)
         if room.number == "1.11":  # corridor: keep the label clear of doors
             cx, _ = _pt(4.4, 0)
@@ -208,10 +222,10 @@ def _chain_v(c: rl_canvas.Canvas, x_m: float, cuts: list[float], *, small_rotate
         c.restoreState()
 
 
-def _dimension_chains(c: rl_canvas.Canvas) -> None:
+def _dimension_chains(c: rl_canvas.Canvas, rev: plan.Revision) -> None:
     # South-row cut list: outer face, wall faces of every room, outer face.
     cuts = [0.0, plan.EXT_WALL_M]
-    for room in (plan.ROOMS[n] for n in ("1.01", "1.02", "1.03", "1.04", "1.05")):
+    for room in (rev.rooms[n] for n in ("1.01", "1.02", "1.03", "1.04", "1.05")):
         cuts.append(round(room.x + room.w, 4))
         cuts.append(round(room.x + room.w + plan.INT_WALL_M, 4))
     cuts[-1] = plan.BUILDING_W_M  # after the last room comes the exterior wall
@@ -222,8 +236,8 @@ def _dimension_chains(c: rl_canvas.Canvas) -> None:
         plan.EXT_WALL_M,
         plan.CORRIDOR_Y0_M - plan.INT_WALL_M,
         plan.CORRIDOR_Y0_M,
-        plan.CORRIDOR_Y1_M,
-        plan.CORRIDOR_Y1_M + plan.INT_WALL_M,
+        rev.corridor_y1,
+        rev.corridor_y1 + plan.INT_WALL_M,
         plan.BUILDING_D_M - plan.EXT_WALL_M,
         plan.BUILDING_D_M,
     ]
@@ -231,14 +245,14 @@ def _dimension_chains(c: rl_canvas.Canvas) -> None:
     _chain_v(c, -1.62, [0.0, plan.BUILDING_D_M], small_rotated=False)
 
 
-def _axes(c: rl_canvas.Canvas) -> None:
+def _axes(c: rl_canvas.Canvas, rev: plan.Revision) -> None:
     """Dash-dot structural axes with bubbles: A-D horizontal, 1-2 vertical."""
     c.setLineWidth(_THIN)
     c.setDash(6, 3)
     h_axes = [
         ("A", plan.EXT_WALL_M / 2.0),
         ("B", plan.CORRIDOR_Y0_M - plan.INT_WALL_M / 2.0),
-        ("C", plan.CORRIDOR_Y1_M + plan.INT_WALL_M / 2.0),
+        ("C", rev.corridor_y1 + plan.INT_WALL_M / 2.0),
         ("D", plan.BUILDING_D_M - plan.EXT_WALL_M / 2.0),
     ]
     for _lbl, y_m in h_axes:
@@ -289,7 +303,78 @@ def _scale_bar(c: rl_canvas.Canvas, x: float, y: float) -> None:
     c.drawString(x + 5 * step + 5.0, y + 0.5, "m")
 
 
-def _title_block(c: rl_canvas.Canvas) -> None:
+def _revision_cloud(c: rl_canvas.Canvas, bbox: tuple[float, float, float, float]) -> None:
+    """Revisionswolke: scalloped outline around the area this issue changed."""
+    x0, y0 = plan.to_pdf_xy(bbox[0], bbox[1])
+    x1, y1 = plan.to_pdf_xy(bbox[2], bbox[3])
+    c.setLineWidth(_MEDIUM)
+    c.setStrokeColor(black)
+    radius = 7.0
+    step = radius * 2.0
+    # Each edge is walked in whole bumps, so the scallops meet at the corners
+    # instead of leaving a stub of straight line behind.
+    for start, end, horizontal, outward in (
+        ((x0, y0), (x1, y0), True, 180.0),  # south edge, bulging down
+        ((x1, y1), (x0, y1), True, 0.0),  # north edge, bulging up
+        ((x0, y1), (x0, y0), False, 90.0),  # west edge, bulging left
+        ((x1, y0), (x1, y1), False, 270.0),  # east edge, bulging right
+    ):
+        span = abs((end[0] - start[0]) if horizontal else (end[1] - start[1]))
+        bumps = max(2, int(round(span / step)))
+        for i in range(bumps):
+            t = (i + 0.5) / bumps
+            px = start[0] + (end[0] - start[0]) * t
+            py = start[1] + (end[1] - start[1]) * t
+            c.arc(px - radius, py - radius, px + radius, py + radius, outward, 180.0)
+
+
+def _demolished_wall(c: rl_canvas.Canvas, rev: plan.Revision) -> None:
+    """Dashed centre line where this issue took a wall out, labelled Rückbau."""
+    if rev.demolished_wall_y is None:
+        return
+    c.setLineWidth(_MEDIUM)
+    c.setStrokeColor(black)
+    c.setDash(4, 3)
+    _line_m(c, plan.INNER_X0_M, rev.demolished_wall_y, plan.INNER_X1_M, rev.demolished_wall_y)
+    c.setDash()
+    # The wall/window punches leave the fill white; the label needs its own ink.
+    c.setFillColor(black)
+    c.setFont("Helvetica", 6.5)
+    tx, ty = _pt(3.10, rev.demolished_wall_y + 0.09)
+    c.drawString(tx, ty, "Rückbau Trennwand (Lage Index A)")
+
+
+def _revision_table(c: rl_canvas.Canvas, rev: plan.Revision) -> None:
+    """Index table (Änderungen), newest issue on top, German style.
+
+    Top right rather than the usual spot straight above the title block: this
+    building is wide enough that its dimension chains reach under the title
+    block, and a table printed over a chain is unreadable on both.
+    """
+    x0, w = 700.0, 458.0
+    row_h = 13.0
+    y0 = 740.0
+    header_y = y0 + row_h * len(rev.history)
+    c.setLineWidth(_THIN)
+    c.setStrokeColor(black)
+    c.setFillColor(black)
+    c.rect(x0, y0, w, header_y - y0 + row_h, stroke=1, fill=0)
+    c.line(x0, header_y, x0 + w, header_y)
+    for column_x in (x0 + 34, x0 + 380):
+        c.line(column_x, y0, column_x, header_y + row_h)
+    c.setFont("Helvetica-Bold", 7)
+    c.drawString(x0 + 6, header_y + 4.2, "Index")
+    c.drawString(x0 + 40, header_y + 4.2, "Änderung")
+    c.drawString(x0 + 386, header_y + 4.2, "Datum")
+    c.setFont("Helvetica", 7)
+    for i, (index, note, date) in enumerate(rev.history):
+        row_y = header_y - (i + 1) * row_h + 4.2
+        c.drawString(x0 + 6, row_y, index)
+        c.drawString(x0 + 40, row_y, note)
+        c.drawString(x0 + 386, row_y, date)
+
+
+def _title_block(c: rl_canvas.Canvas, rev: plan.Revision) -> None:
     x0, y0, w, h = 700.0, 34.0, 458.0, 112.0
     c.setLineWidth(_THICK)
     c.setFillColor(white)
@@ -306,44 +391,54 @@ def _title_block(c: rl_canvas.Canvas) -> None:
     c.drawString(x0 + 10, y0 + h - 46, "Neubau Bürogebäude · Büro- und Sozialbereich EG")
     c.drawString(x0 + 260, y0 + h - 46, "Format DIN A3 · Alle Maße in m")
     c.setFont("Helvetica", 8)
-    c.drawString(x0 + 10, y0 + 34, "Plan-Nr. A-2.01 · Index C · Stand 07/2026")
+    c.drawString(x0 + 10, y0 + 34, f"Plan-Nr. A-2.01 · Index {rev.index} · Stand {rev.issued}")
     c.drawString(x0 + 10, y0 + 20, "Blatt 1 von 1 · Flächen nach DIN 277")
     c.drawString(x0 + 10, y0 + 6, "Bemaßung: lichte Maße / Wandstärken")
     _scale_bar(c, x0 + 260, y0 + 12)
 
 
-def _sheet_header(c: rl_canvas.Canvas) -> None:
+def _sheet_header(c: rl_canvas.Canvas, rev: plan.Revision) -> None:
     c.setFont("Helvetica-Bold", 13)
-    c.drawString(42.0, plan.PAGE_H_PT - 46.0, "GRUNDRISS ERDGESCHOSS")
+    c.drawString(42.0, plan.PAGE_H_PT - 46.0, f"GRUNDRISS ERDGESCHOSS · INDEX {rev.index}")
     c.setFont("Helvetica", 9)
     c.drawString(42.0, plan.PAGE_H_PT - 60.0, "M 1:100 · Alle Maße in m · Flächenangaben in m²")
 
 
-def build_pdf(out_path: Path = OUT_PATH) -> Path:
-    """Render the plan; ``invariant`` makes the bytes reproducible."""
+def build_pdf(revision: plan.Revision = plan.REVISION_A, out_path: Path | None = None) -> Path:
+    """Render one issue of the sheet; ``invariant`` makes the bytes reproducible."""
+    out_path = out_path or OUT_PATHS[revision.index]
     c = rl_canvas.Canvas(str(out_path), pagesize=(plan.PAGE_W_PT, plan.PAGE_H_PT), invariant=1)
-    c.setTitle("Grundriss Erdgeschoss M 1:100")
+    c.setTitle(f"Grundriss Erdgeschoss M 1:100 - Index {revision.index}")
     c.setAuthor("OpenConstructionERP demo assets")
     c.setSubject("Vector demo floor plan for the PDF takeoff module")
     # Border frame.
     c.setLineWidth(_THICK)
     c.rect(25, 25, plan.PAGE_W_PT - 50, plan.PAGE_H_PT - 50, stroke=1, fill=0)
-    _sheet_header(c)
-    _axes(c)
-    _draw_walls(c)
-    _punch_doors(c)
+    _sheet_header(c, revision)
+    _axes(c, revision)
+    _draw_walls(c, revision)
+    _punch_doors(c, revision)
     _punch_windows(c)
     c.setLineWidth(_MEDIUM)
     c.setStrokeColor(black)
-    _room_labels(c)
-    _dimension_chains(c)
+    _demolished_wall(c, revision)
+    _room_labels(c, revision)
+    _dimension_chains(c, revision)
     _north_arrow(c)
-    _title_block(c)
+    if revision.cloud is not None:
+        _revision_cloud(c, revision.cloud)
+    _revision_table(c, revision)
+    _title_block(c, revision)
     c.showPage()
     c.save()
     return out_path
 
 
+def build_all() -> list[Path]:
+    """Render every issue of the sheet into ``flagship_assets``."""
+    return [build_pdf(rev) for rev in (plan.REVISION_A, plan.REVISION_B)]
+
+
 if __name__ == "__main__":
-    path = build_pdf()
-    print(f"wrote {path} ({path.stat().st_size} bytes)")
+    for path in build_all():
+        print(f"wrote {path} ({path.stat().st_size} bytes)")
