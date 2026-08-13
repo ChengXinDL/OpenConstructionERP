@@ -46,7 +46,7 @@ function backendPresetKeys(): string[] {
   const start = text.indexOf('COMPANY_PRESETS');
   const end = text.indexOf('SIZE_PRESETS');
   const section = text.slice(start, end === -1 ? undefined : end);
-  const keys = [...section.matchAll(/key="([a-z0-9_]+)"/g)].map((m) => m[1]);
+  const keys = [...section.matchAll(/key="([a-z0-9_]+)"/g)].map((m) => m[1]!);
   // The wizard shows at least the nine headline profiles; the catalogue has
   // grown past that. If this drops below nine the slice above went stale.
   expect(keys.length).toBeGreaterThanOrEqual(9);
