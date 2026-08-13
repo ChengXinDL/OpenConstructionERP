@@ -106,13 +106,17 @@ export function formatQuantity(
  * Recompute the on-canvas value label for a measurement in the target
  * measurement system.
  *
- * Takeoff stores the label string baked at create time in metres
- * (D-TKC-016). For a `metric` system this reproduces that exact string
- * (same geometry, same `scale`, same `formatMeasurement` rules), so the
- * metric display is unchanged. For `imperial` it rebuilds the label with
- * converted numbers + ft / ft² / ft³ units. Counts and annotation markups
- * carry no convertible quantity, so their stored label / annotation is
- * returned untouched.
+ * Takeoff stores quantities in metres (D-TKC-016) and this recomputes
+ * the label from `value` + geometry through the same `formatMeasurement`
+ * rules used at create time. Since K-12 the digits render in the READER's
+ * app language, so the recomputed string equals a string the author saw
+ * only when their locales agree - which is why quantity labels are no
+ * longer persisted into `annotation` (K-13, see
+ * `useMeasurementPersistence.annotationForWire`): display is always
+ * recomputed, never read back from a stored render. For `imperial` the
+ * label is rebuilt with converted numbers + ft / ft² / ft³ units. Counts
+ * and annotation markups carry no convertible quantity, so their stored
+ * label / annotation is returned untouched.
  *
  * The compound area / volume breakdowns mirror the create-time formats:
  *   area   -> "{area} u² (P: {perimeter} u)"
