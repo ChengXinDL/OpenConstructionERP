@@ -333,7 +333,16 @@ export function ServicePage() {
   });
   const contracts = contractsQ.data ?? [];
   const [selectedContractId, setSelectedContractId] = useState<string>('');
-  const effectiveContractId = selectedContractId || contracts[0]?.id || '';
+  // A pick made under one scope must not survive into another. Moving between
+  // /service and /projects/:projectId/service re-renders this component
+  // without remounting it, so the state outlives the list it was chosen from,
+  // and a stale id would put a foreign contract's assets under this project's
+  // name — the very thing the scoping is for. Derived rather than reset in an
+  // effect so there is no render where the two disagree.
+  const effectiveContractId =
+    (selectedContractId && contracts.some((c) => c.id === selectedContractId)
+      ? selectedContractId
+      : contracts[0]?.id) || '';
 
   const assetsQ = useQuery({
     queryKey: ['service', 'assets', effectiveContractId],
