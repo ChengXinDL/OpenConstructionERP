@@ -160,7 +160,7 @@ export function ScheduleResourcePanel({
       </div>
 
       {tab === 'histogram' ? (
-        <HistogramTab />
+        <HistogramTab projectId={projectId} />
       ) : (
         <LevelingTab
           scheduleId={scheduleId}
@@ -175,7 +175,7 @@ export function ScheduleResourcePanel({
 
 /* ── Tab 1: Resource histogram ───────────────────────────────────────────── */
 
-function HistogramTab() {
+function HistogramTab({ projectId }: { projectId: string }) {
   const { t } = useTranslation();
 
   const win = useMemo(defaultWindow, []);
@@ -185,9 +185,13 @@ function HistogramTab() {
   const [bucket, setBucket] = useState<HistogramBucket>('week');
   const [rateType, setRateType] = useState<HistogramRateType>('cost');
 
+  // Narrowed to the project the schedule belongs to: the crews homed here plus
+  // the unhomed company pool. Tenant-wide, the picker listed every project's
+  // roster and defaulted to whoever sorted first across all of them, so the
+  // histogram opened on a resource that has never worked on this schedule.
   const resourcesQ = useQuery<ResourceListItem[]>({
-    queryKey: ['schedule', 'resources', 'list'],
-    queryFn: () => listResources({ limit: 500 }),
+    queryKey: ['schedule', 'resources', 'list', projectId],
+    queryFn: () => listResources({ limit: 500, project_id: projectId }),
   });
 
   // Once the list loads, default the picker to the first resource so the

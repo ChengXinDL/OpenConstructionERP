@@ -144,6 +144,20 @@ describe('ScheduleResourcePanel', () => {
     });
   });
 
+  it('asks for the schedule project roster, not the whole tenant', async () => {
+    // The picker defaults to the first resource the list returns and draws its
+    // histogram straight away. Tenant-wide, that first resource came from
+    // whichever project sorted first across every roster in the tenant, so a
+    // schedule opened on a stranger's demand curve and the dropdown offered
+    // every other project's crews to pick from instead.
+    (listResources as any).mockResolvedValue(RESOURCES);
+    (resourceHistogram as any).mockResolvedValue(HISTOGRAM);
+    renderPanel();
+
+    await screen.findByTestId('resource-histogram');
+    expect(listResources).toHaveBeenCalledWith(expect.objectContaining({ project_id: 'p1' }));
+  });
+
   it('shows an empty state when there are no resources', async () => {
     (listResources as any).mockResolvedValue([]);
     renderPanel();

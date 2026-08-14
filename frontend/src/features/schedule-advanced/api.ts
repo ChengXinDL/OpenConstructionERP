@@ -1460,16 +1460,23 @@ export interface ResourceHistogramParams {
   hours_per_day?: number;
 }
 
-/** List the tenant's resources (for the histogram resource picker). */
+/** List resources for the histogram picker.
+ *
+ *  `project_id` narrows to that project's own roster plus the unhomed company
+ *  pool, which is what a picker on a project's schedule wants. Without it the
+ *  server answers tenant-wide.
+ */
 export function listResources(params?: {
   type?: string;
   status?: string;
   limit?: number;
+  project_id?: string;
 }): Promise<ResourceListItem[]> {
   const qs = new URLSearchParams();
   if (params?.type) qs.set('type', params.type);
   if (params?.status) qs.set('status', params.status);
   if (params?.limit !== undefined) qs.set('limit', String(params.limit));
+  if (params?.project_id) qs.set('project_id', params.project_id);
   const suffix = qs.toString() ? `?${qs.toString()}` : '';
   return apiGet<ResourceListItem[]>(`/v1/resources/resources/${suffix}`);
 }
