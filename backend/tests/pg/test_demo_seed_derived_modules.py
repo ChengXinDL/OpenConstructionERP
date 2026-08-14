@@ -491,6 +491,151 @@ async def test_documents_top_up_reaches_a_register_seeded_before_the_chain(pg_se
     assert third["documents"] == 0, "the chain must not be filed twice"
 
 
+async def _install_seeded_before_the_chain(session, german_name: str) -> uuid.UUID:
+    """A German showcase project whose register predates the revision chain.
+
+    Reproduced the way it really happened rather than by hand-writing rows: the
+    register is seeded while the project still has a neutral name, which files
+    the English general-arrangement pair, and the project becomes a German
+    showcase project only afterwards.
+    """
+    project_id = await _make_project(session, "Rivergate", demo=True)
+    await seed_documents_demo(session, [project_id])
+    await session.flush()
+    await session.execute(Project.__table__.update().where(Project.id == project_id).values(name=german_name))
+    await session.flush()
+    return project_id
+
+
+async def _sheets(session, project_id: uuid.UUID, drawing_number: str) -> list[Document]:
+    docs = await _seeded_documents(session, project_id)
+    return sorted(
+        (doc for doc in docs if doc.drawing_number == drawing_number),
+        key=lambda doc: doc.revision_code or "",
+    )
+
+
+async def test_documents_top_up_retires_the_english_pair_the_chain_replaces(pg_session, upload_store) -> None:
+    """The pair whose two issues serve one file must not survive the top-up.
+
+    That pair is the defect the German chain fixes, so leaving it beside the
+    chain would leave the register one click away from a revision that changed
+    nothing - on the very projects the chain was written for.
+    """
+    project_id = await _install_seeded_before_the_chain(pg_session, "Bürogebäude Frankfurt Europaviertel")
+    assert len(await _sheets(pg_session, project_id, "A-10-001")) == 2, "fixture filed no English pair"
+    before = len(await _seeded_documents(pg_session, project_id))
+
+    counts = await seed_documents_demo(pg_session, [project_id])
+    await pg_session.flush()
+
+    assert counts["documents"] == 2, f"only the chain may be filed, got {counts}"
+    assert counts["retired"] == 2, f"the English pair survived the top-up, got {counts}"
+    assert await _sheets(pg_session, project_id, "A-10-001") == []
+    assert [doc.revision_code for doc in await _sheets(pg_session, project_id, "A-2.01")] == ["A", "B"]
+
+    # Two out, two in: nothing else in the register moved.
+    docs = await _seeded_documents(pg_session, project_id)
+    assert len(docs) == before
+    # And exactly one chain is left, the one whose issues are different sheets.
+    linked = [(doc.drawing_number, doc.revision_code) for doc in docs if doc.parent_document_id is not None]
+    assert linked == [("A-2.01", "B")], f"expected one chain, saw {linked}"
+
+
+async def test_documents_retire_runs_once_and_then_changes_nothing(pg_session, upload_store) -> None:
+    """The pass after the retire must be a no-op, by its own report."""
+    project_id = await _install_seeded_before_the_chain(pg_session, "Lebensmittelmarkt Heilbronn")
+    await seed_documents_demo(pg_session, [project_id])
+    await pg_session.flush()
+    settled = {doc.id for doc in await _seeded_documents(pg_session, project_id)}
+
+    again = await seed_documents_demo(pg_session, [project_id])
+    await pg_session.flush()
+
+    # The counts dict, not only the row count: a delete that runs and matches
+    # nothing is still a different thing from one that never ran, and this dict
+    # is what the seeder reports to the boot log.
+    assert again == {"projects": 0, "documents": 0, "bytes": 0, "retired": 0}, f"second pass reported {again}"
+    assert {doc.id for doc in await _seeded_documents(pg_session, project_id)} == settled
+
+
+async def test_documents_retire_spares_a_sheet_the_seed_did_not_write(pg_session, upload_store) -> None:
+    """Somebody else's file under the same sheet number is not the seed's to delete."""
+    project_id = await _install_seeded_before_the_chain(pg_session, "Lebensmittelmarkt Heidelberg")
+    pair = await _sheets(pg_session, project_id, "A-10-001")
+    assert len(pair) == 2
+
+    # Same project, same sheet number, no seed marker: exactly the row a filter
+    # written on the sheet number alone would eat.
+    theirs = pair[0]
+    theirs.metadata_ = {"filed_by_hand": True}
+    await pg_session.flush()
+
+    counts = await seed_documents_demo(pg_session, [project_id])
+    await pg_session.flush()
+
+    assert counts["retired"] == 1, f"expected only the seeded half to go, got {counts}"
+    survivor = await pg_session.get(Document, theirs.id)
+    assert survivor is not None, "a document the seed did not write was deleted"
+    assert Path(survivor.file_path).exists(), "its bytes went with the row"
+
+
+async def test_documents_retire_spares_a_sheet_opened_in_takeoff(pg_session, upload_store) -> None:
+    """A takeoff document keeps its source id with no foreign key behind it.
+
+    Deleting the register row underneath one would leave that document, and
+    every measurement filed against it, pointing at nothing, with no constraint
+    anywhere to report it.
+    """
+    from app.modules.takeoff.models import TakeoffDocument
+
+    project_id = await _install_seeded_before_the_chain(pg_session, "Bürogebäude Frankfurt Europaviertel")
+    opened = (await _sheets(pg_session, project_id, "A-10-001"))[0]
+    owner_id = (await pg_session.execute(select(Project.owner_id).where(Project.id == project_id))).scalar_one()
+    pg_session.add(
+        TakeoffDocument(
+            id=uuid.uuid4(),
+            filename=opened.name,
+            project_id=project_id,
+            owner_id=owner_id,
+            source_document_id=str(opened.id),
+            file_path=opened.file_path,
+        )
+    )
+    await pg_session.flush()
+
+    counts = await seed_documents_demo(pg_session, [project_id])
+    await pg_session.flush()
+
+    assert counts["retired"] == 1, f"expected the opened sheet to stay, got {counts}"
+    assert await pg_session.get(Document, opened.id) is not None, "deleted a sheet takeoff was working on"
+
+
+async def test_documents_retire_waits_until_the_chain_is_really_there(pg_session, upload_store, monkeypatch) -> None:
+    """Half a chain must not cost the register the pair it replaces.
+
+    A sheet whose bytes cannot be stored is skipped without failing the seed,
+    so a retire that trusted the spec list instead of the rows it actually
+    wrote would leave the project with one issue and no pair at all.
+    """
+    from app.modules.documents import documents_seed
+
+    project_id = await _install_seeded_before_the_chain(pg_session, "Lebensmittelmarkt Heilbronn")
+    real_store = documents_seed._store
+    monkeypatch.setattr(
+        documents_seed,
+        "_store",
+        lambda project, spec: None if spec.key == "gr-index-b" else real_store(project, spec),
+    )
+
+    counts = await seed_documents_demo(pg_session, [project_id])
+    await pg_session.flush()
+
+    assert counts["documents"] == 1, f"fixture should have filed index A alone, got {counts}"
+    assert counts["retired"] == 0, "the pair was retired behind an incomplete chain"
+    assert len(await _sheets(pg_session, project_id, "A-10-001")) == 2
+
+
 async def test_documents_second_pass_adds_nothing(pg_session, upload_store) -> None:
     """Re-running must not file the register a second time."""
     project_id = await _make_project(pg_session, "Millrace", demo=True)

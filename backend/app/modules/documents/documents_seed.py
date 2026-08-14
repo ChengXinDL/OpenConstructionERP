@@ -328,6 +328,15 @@ _GERMAN_SHOWCASE_PROJECTS = frozenset(
 #: those projects rather than sitting beside it as a second chain.
 _ENGLISH_CHAIN_KEYS = frozenset({"ga-p01", "ga-c01"})
 
+#: The sheet that pair files under. A written row does not carry the spec key
+#: that named it, so retiring the pair on an install seeded before the German
+#: chain matches on the sheet number instead. Derived from the register rather
+#: than typed again, so it cannot drift away from the specs it has to match.
+_ENGLISH_CHAIN_SHEET: str | None = next(
+    (spec.drawing_number for spec in _REGISTER if spec.key in _ENGLISH_CHAIN_KEYS),
+    None,
+)
+
 # The German projects carry the same drawing through a revision as two REALLY
 # different sheets: index A and index B of A-2.01 are rendered from the same
 # geometry module, and index B widened the corridor. A chain whose archived
@@ -518,6 +527,67 @@ async def _has_seeded_sheet(session: AsyncSession, project_id: uuid.UUID, drawin
     return any((metadata or {}).get("source") == _SEED_SOURCE for metadata in (await session.execute(stmt)).scalars())
 
 
+async def _retire_english_chain(session: AsyncSession, project_id: uuid.UUID) -> int:
+    """Drop the English pair the German chain replaced. Returns rows removed.
+
+    An install seeded before the German chain existed keeps the English
+    general-arrangement pair, and that pair IS the defect the chain fixes: its
+    archived and current issues serve one file, so the register shows a
+    revision that changed nothing. The top-up therefore removes it instead of
+    leaving it beside a chain that does the same job honestly.
+
+    Deliberately narrow. Only rows this seeder wrote are touched, matched on
+    its own marker and on the sheet number, never on a name a user could have
+    typed. Only called once the German chain is confirmed on the project, so a
+    register can never end up with neither chain. And a row some takeoff
+    document was opened from is left alone: takeoff keeps its source as a plain
+    id column with no foreign key behind it, so deleting underneath one would
+    strand the measurements filed against it with nothing failing to say so.
+
+    The files stay on disk. Each project is seeded inside a SAVEPOINT that can
+    still roll back after this runs, and a surviving row whose bytes were
+    deleted is a broken register, while two orphaned demo PDFs cost nothing.
+    """
+    if not _ENGLISH_CHAIN_SHEET:
+        return 0
+
+    stmt = select(Document).where(
+        Document.project_id == project_id,
+        Document.drawing_number == _ENGLISH_CHAIN_SHEET,
+    )
+    candidates = [
+        document
+        for document in (await session.execute(stmt)).scalars().all()
+        if (document.metadata_ or {}).get("source") == _SEED_SOURCE
+    ]
+    if not candidates:
+        return 0
+
+    from app.modules.takeoff.models import TakeoffDocument
+
+    opened_in_takeoff = set(
+        (
+            await session.execute(
+                select(TakeoffDocument.source_document_id).where(
+                    TakeoffDocument.source_document_id.in_([str(document.id) for document in candidates])
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    retired = 0
+    for document in candidates:
+        if str(document.id) in opened_in_takeoff:
+            logger.info("documents seed: keeping %s, a takeoff document was opened from it", document.id)
+            continue
+        await session.delete(document)
+        retired += 1
+    await session.flush()
+    return retired
+
+
 async def _seed_project(
     session: AsyncSession,
     project_id: uuid.UUID,
@@ -525,7 +595,7 @@ async def _seed_project(
     project_name: str,
 ) -> dict[str, int]:
     """Write one project's document register, or top up its revision chain."""
-    empty = {"projects": 0, "documents": 0, "bytes": 0}
+    empty = {"projects": 0, "documents": 0, "bytes": 0, "retired": 0}
     specs = _register_for(project_name)
 
     if await _already_seeded(session, project_id):
@@ -537,7 +607,7 @@ async def _seed_project(
         if not specs or await _has_seeded_sheet(session, project_id, _GRUNDRISS_SHEET):
             return empty
 
-    counts = {"projects": 1, "documents": 0, "bytes": 0}
+    counts = {"projects": 1, "documents": 0, "bytes": 0, "retired": 0}
     by_key: dict[str, uuid.UUID] = {}
 
     for spec in specs:
@@ -575,6 +645,14 @@ async def _seed_project(
         counts["documents"] += 1
         counts["bytes"] += size_bytes
 
+    # Retire only behind a chain that is fully on the project. Counted off the
+    # keys that actually got a row, not off the specs that were meant to write
+    # one: an asset that failed to store skips its spec quietly, and trading a
+    # working English pair for half a German chain would leave the register
+    # with no honest revision at all.
+    if all(spec.key in by_key for spec in _GERMAN_REVISION_CHAIN):
+        counts["retired"] = await _retire_english_chain(session, project_id)
+
     return counts
 
 
@@ -598,10 +676,12 @@ async def seed_documents_demo(
             existed so the chain there shows two different sheets.
 
     Returns:
-        Dict with the number of projects touched, documents written and the
-        total bytes actually placed in the upload store.
+        Dict with the number of projects touched, documents written, total bytes
+        actually placed in the upload store, and rows retired: the English
+        general-arrangement pair the German chain replaces, removed only from
+        projects that now carry that chain.
     """
-    totals = {"projects": 0, "documents": 0, "bytes": 0}
+    totals = {"projects": 0, "documents": 0, "bytes": 0, "retired": 0}
     ids = list(project_ids)
     if not ids:
         return totals
