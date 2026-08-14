@@ -26,7 +26,7 @@ const playbook: Playbook = {
   longDescKey: "cases.takeoff_quantities_from_a_pdf_plan.longdesc",
   longDescDefault:
     "German quantity practice expects an Aufmass a third party can check: every figure traceable to a measurement, and the measurement taken the way VOB/C settles that trade. Measuring on the drawing itself keeps that chain whole, which a scale rule and a spreadsheet cannot.",
-  estMinutes: 12,
+  estMinutes: 14,
   steps: [
     {
       id: "file",
@@ -162,6 +162,29 @@ const playbook: Playbook = {
       whyKey: "cases.takeoff_quantities_from_a_pdf_plan.step.positions.why",
       whyDefault:
         "This is where a measured building turns into something you can price. Because each position keeps its link, the chain from the money back to the line on the plan stays intact, which is exactly what a client checking your Aufmass asks to see.",
+      moduleLabel: "Bill of Quantities",
+      moduleLabelKey: "boq.title",
+      to: "/projects/:projectId/boq",
+    },
+    {
+      id: "export",
+      icon: "FileOutput",
+      inputs: [
+        { labelKey: "cases.takeoff_quantities_from_a_pdf_plan.step.export.in.positions", label: "Positions with quantities" },
+        { labelKey: "cases.takeoff_quantities_from_a_pdf_plan.step.export.in.recipient", label: "Recipient's GAEB software" },
+      ],
+      outputs: [
+        { labelKey: "cases.takeoff_quantities_from_a_pdf_plan.step.export.out.file", label: "GAEB XML file" },
+        { labelKey: "cases.takeoff_quantities_from_a_pdf_plan.step.export.out.record", label: "Bill issued for pricing" },
+      ],
+      titleKey: "cases.takeoff_quantities_from_a_pdf_plan.step.export.title",
+      titleDefault: "Issue the bill as GAEB",
+      whatKey: "cases.takeoff_quantities_from_a_pdf_plan.step.export.what",
+      whatDefault:
+        "Export the finished bill as a GAEB XML file straight from the BOQ editor. What leaves the office is the same structure you built from the takeoff, positions, quantities and units, in the exchange format every German AVA package opens without retyping.",
+      whyKey: "cases.takeoff_quantities_from_a_pdf_plan.step.export.why",
+      whyDefault:
+        "A bill that travels as GAEB stays a bill instead of becoming a PDF someone retypes with new mistakes. The quantities you measured arrive in the other side's software as data, and the Aufmass chain behind them survives the handover.",
       moduleLabel: "Bill of Quantities",
       moduleLabelKey: "boq.title",
       to: "/projects/:projectId/boq",
