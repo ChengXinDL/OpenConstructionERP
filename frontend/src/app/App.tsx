@@ -1405,7 +1405,13 @@ export default function App() {
         <Route path="/service" element={<P title="Service & Maintenance"><ServicePage /></P>} />
         <Route path="/projects/:projectId/service" element={<P title="Service & Maintenance"><ServicePage /></P>} />
         <Route path="/equipment" element={<P title="Equipment & Fleet"><EquipmentPage /></P>} />
-        <Route path="/projects/:projectId/equipment" element={<P title="Equipment & Fleet"><EquipmentPage /></P>} />
+        {/* The fleet is a company register, not a project one: only a hire
+            (EquipmentRental) carries a project, the machine itself does not.
+            A route with :projectId in it promised a filter the data cannot
+            express, and the page answered it with the whole register, silently.
+            Redirected rather than deleted so an old link still lands somewhere
+            true. Same for the two registers below. */}
+        <Route path="/projects/:projectId/equipment" element={<Navigate to="/equipment" replace />} />
         <Route path="/payroll" element={<P title="Payroll"><PayrollPage /></P>} />
         <Route path="/projects/:projectId/payroll" element={<P title="Payroll"><PayrollPage /></P>} />
         <Route path="/daily-diary" element={<P title="Daily Diary"><DailyDiaryPage /></P>} />
@@ -1413,7 +1419,8 @@ export default function App() {
         <Route path="/field-time" element={<P title="Field Time"><FieldTimePage /></P>} />
         <Route path="/projects/:projectId/field-time" element={<P title="Field Time"><FieldTimePage /></P>} />
         <Route path="/portal" element={<P title="Client & Partner Portal"><PortalPage /></P>} />
-        <Route path="/projects/:projectId/portal" element={<P title="Client & Partner Portal"><PortalPage /></P>} />
+        {/* Portal users, access rules and sessions carry no project at all. */}
+        <Route path="/projects/:projectId/portal" element={<Navigate to="/portal" replace />} />
         <Route path="/resources" element={<P title="Resources & Crew"><ResourcesPage /></P>} />
         <Route path="/projects/:projectId/resources" element={<P title="Resources & Crew"><ResourcesPage /></P>} />
         <Route path="/portfolio/capacity" element={<P title="Capacity Planning"><CapacityPlanningPage /></P>} />
@@ -1430,7 +1437,9 @@ export default function App() {
         <Route path="/projects/:projectId/contracts" element={<P title="Contracts"><ContractsPage /></P>} />
         <Route path="/projects/:projectId/contracts/claims/:claimId" element={<P title="Progress Claim"><ProgressClaimDetailPage /></P>} />
         <Route path="/subcontractors" element={<P title="Subcontractors"><SubcontractorsPage /></P>} />
-        <Route path="/projects/:projectId/subcontractors" element={<P title="Subcontractors"><SubcontractorsPage /></P>} />
+        {/* A subcontractor is a company relationship; only the agreement
+            (SubcontractAgreement) is struck against a project. */}
+        <Route path="/projects/:projectId/subcontractors" element={<Navigate to="/subcontractors" replace />} />
         <Route path="/bid-management" element={<P title="Bid Management"><BidManagementPage /></P>} />
         <Route path="/projects/:projectId/bid-management" element={<P title="Bid Management"><BidManagementPage /></P>} />
         <Route path="/crm" element={<P title="CRM"><CRMPage /></P>} />
