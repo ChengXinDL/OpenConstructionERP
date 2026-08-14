@@ -19,14 +19,25 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 
 const fetchDocumentsMock = vi.fn();
+const fetchFileListMock = vi.fn();
 
 vi.mock('@/features/documents/api', () => ({
   fetchDocuments: (projectId: string) => fetchDocumentsMock(projectId),
   downloadDocumentBlob: vi.fn(),
 }));
 
+vi.mock('@/features/file-manager/api', () => ({
+  fetchFileList: (projectId: string, filters: unknown) => fetchFileListMock(projectId, filters),
+}));
+
 import { ProjectFilePicker } from './ProjectFilePicker';
-import { BIM_VIEWER_FORMATS, DWG_TAKEOFF_FORMATS } from '@/shared/lib/projectFileFormats';
+import type { DocumentItem } from '@/features/documents/api';
+import {
+  BIM_VIEWER_FORMATS,
+  DWG_TAKEOFF_FORMATS,
+  PDF_TAKEOFF_FORMATS,
+  type AcceptedFormat,
+} from '@/shared/lib/projectFileFormats';
 
 /** Minimal stored-document row in the shape the CDE API really returns:
  *  the original filename lives in ``name``, and ``mime_type`` is nullable. */
@@ -48,7 +59,16 @@ function makeDoc(id: string, name: string, mime: string | null = null) {
   };
 }
 
-function renderPicker(props: Partial<Parameters<typeof ProjectFilePicker>[0]> = {}) {
+/** Overrides for the documents-only shape of the picker. Spelled out rather
+ *  than derived from the component's props, which are a union since federation
+ *  landed and would distribute into a shape TypeScript cannot spread. */
+interface PickerOverrides {
+  open?: boolean;
+  accepted?: readonly AcceptedFormat[];
+  onPick?: (doc: DocumentItem) => void;
+}
+
+function renderPicker(props: PickerOverrides = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
@@ -69,6 +89,7 @@ function renderPicker(props: Partial<Parameters<typeof ProjectFilePicker>[0]> = 
 describe('ProjectFilePicker', () => {
   beforeEach(() => {
     fetchDocumentsMock.mockReset();
+    fetchFileListMock.mockReset();
   });
 
   it('lists only the stored files the calling module can open', async () => {
@@ -164,5 +185,189 @@ describe('ProjectFilePicker', () => {
     fetchDocumentsMock.mockResolvedValue([]);
     renderPicker({ open: false });
     expect(fetchDocumentsMock).not.toHaveBeenCalled();
+  });
+});
+
+/* ── Federated mode ─────────────────────────────────────────────────────
+ *
+ * The defect these cover: "project files" was never one store. PDF takeoff
+ * keeps its sheets in its own table, so a plan open in the takeoff viewer
+ * could not be found by name in a dialog that promised the project's files.
+ */
+
+/** One row of the file-manager listing, in the shape the endpoint returns. */
+function makeFileRow(
+  id: string,
+  kind: 'document' | 'takeoff',
+  name: string,
+  extra: Record<string, unknown> = {},
+) {
+  return {
+    id,
+    kind,
+    name,
+    project_id: 'p1',
+    size_bytes: 4096,
+    mime_type: 'application/pdf',
+    extension: 'pdf',
+    modified_at: '2026-08-01T09:00:00Z',
+    physical_path: `/data/${id}.pdf`,
+    relative_path: `${id}.pdf`,
+    storage_backend: 'local' as const,
+    download_url: `/api/v1/${kind === 'takeoff' ? 'takeoff/documents' : 'documents'}/${id}/download/`,
+    preview_url: null,
+    thumbnail_url: null,
+    discipline: null,
+    category: null,
+    extra,
+  };
+}
+
+function renderFederatedPicker(
+  props: { onPick?: (file: unknown) => void; open?: boolean } = {},
+) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <ProjectFilePicker
+          open
+          onClose={vi.fn()}
+          projectId="p1"
+          accepted={PDF_TAKEOFF_FORMATS}
+          moduleKinds={['takeoff']}
+          onPick={vi.fn()}
+          {...props}
+        />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+describe('ProjectFilePicker (federated)', () => {
+  beforeEach(() => {
+    fetchDocumentsMock.mockReset();
+    fetchFileListMock.mockReset();
+  });
+
+  it('finds a takeoff-only document by the name shown on screen', async () => {
+    /* THE REPORTED BUG, exactly: the sheet open in the takeoff viewer lives in
+     * takeoff's own store, and searching the dialog for a word from its name
+     * returned nothing. The search now goes to the federated endpoint, which
+     * looks in both stores, and the row comes back. */
+    fetchFileListMock.mockImplementation((_projectId: string, filters: { q?: string }) => {
+      const rows = [
+        makeFileRow('d1', 'document', 'Baugenehmigung.pdf'),
+        makeFileRow('t1', 'takeoff', 'A-2.01 Grundriss Erdgeschoss.pdf'),
+      ].filter((r) => !filters.q || r.name.toLowerCase().includes(filters.q.toLowerCase()));
+      return Promise.resolve({ project_id: 'p1', items: rows, total: rows.length, limit: 500, offset: 0 });
+    });
+
+    renderFederatedPicker();
+    await waitFor(() => expect(screen.getByText('A-2.01 Grundriss Erdgeschoss.pdf')).toBeTruthy());
+
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Grundriss' } });
+
+    await waitFor(() => expect(screen.queryByText('Baugenehmigung.pdf')).toBeNull());
+    expect(screen.getByText('A-2.01 Grundriss Erdgeschoss.pdf')).toBeTruthy();
+    // The search reached the server rather than filtering one page in the
+    // browser - the whole reason a takeoff row can be found at all.
+    await waitFor(() =>
+      expect(
+        fetchFileListMock.mock.calls.some((call) => call[1]?.q === 'Grundriss'),
+      ).toBe(true),
+    );
+  });
+
+  it('asks the server for both stores in one request', async () => {
+    /* Federation is server-side on purpose: merging two paginated listings in
+     * the browser would search page one of each and call it "the project". */
+    fetchFileListMock.mockResolvedValue({
+      project_id: 'p1',
+      items: [makeFileRow('t1', 'takeoff', 'Handaufmass.pdf')],
+      total: 1,
+      limit: 500,
+      offset: 0,
+    });
+
+    renderFederatedPicker();
+    await waitFor(() => expect(screen.getByText('Handaufmass.pdf')).toBeTruthy());
+
+    expect(fetchDocumentsMock).not.toHaveBeenCalled();
+    expect(fetchFileListMock).toHaveBeenCalledTimes(1);
+    expect(fetchFileListMock.mock.calls[0]?.[1]?.kinds).toEqual(['document', 'takeoff']);
+    // One accepted format, so the server filters it and `total` counts the
+    // same rows the list shows.
+    expect(fetchFileListMock.mock.calls[0]?.[1]?.extension).toBe('pdf');
+  });
+
+  it('names the store each row came from', async () => {
+    /* Two groups with the same file name in each is the honest picture on a
+     * demo project; an unlabelled merged list would not be. */
+    fetchFileListMock.mockResolvedValue({
+      project_id: 'p1',
+      items: [
+        makeFileRow('d1', 'document', 'A-2.01 Grundriss Erdgeschoss.pdf'),
+        makeFileRow('t1', 'takeoff', 'A-2.01 Grundriss Erdgeschoss.pdf'),
+      ],
+      total: 2,
+      limit: 500,
+      offset: 0,
+    });
+
+    renderFederatedPicker();
+    await waitFor(() => expect(screen.getAllByText('A-2.01 Grundriss Erdgeschoss.pdf')).toHaveLength(2));
+    // No locale bundle is loaded here, so i18next renders each heading's
+    // fallback - the kind id. On screen these are `files.category.document`
+    // and `files.category.takeoff`, already translated in every locale.
+    expect(screen.getByText('document')).toBeTruthy();
+    expect(screen.getByText('takeoff')).toBeTruthy();
+  });
+
+  it('marks a project file the module already holds and reopens that work', async () => {
+    /* The server folds a takeoff document onto the project file it was made
+     * from and hands over its id. Picking the row must reopen the existing
+     * takeoff document, not ask for a second one. */
+    fetchFileListMock.mockResolvedValue({
+      project_id: 'p1',
+      items: [makeFileRow('d1', 'document', 'A-2.01 Grundriss.pdf', { takeoff_document_id: 't9' })],
+      total: 1,
+      limit: 500,
+      offset: 0,
+    });
+    const onPick = vi.fn();
+
+    renderFederatedPicker({ onPick });
+    await waitFor(() => expect(screen.getByText('A-2.01 Grundriss.pdf')).toBeTruthy());
+    expect(screen.getByText('Already in this module')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('A-2.01 Grundriss.pdf'));
+    expect(onPick).toHaveBeenCalledTimes(1);
+    expect(onPick.mock.calls[0]?.[0]).toMatchObject({
+      id: 'd1',
+      kind: 'document',
+      takeoff_document_id: 't9',
+    });
+  });
+
+  it('admits when it is showing only part of the project', async () => {
+    /* A picker cannot page, so the one honest thing it can do is say how much
+     * of the listing is on screen. */
+    fetchFileListMock.mockResolvedValue({
+      project_id: 'p1',
+      items: [makeFileRow('t1', 'takeoff', 'Handaufmass.pdf')],
+      total: 240,
+      limit: 500,
+      offset: 0,
+    });
+
+    renderFederatedPicker();
+    await waitFor(() => expect(screen.getByTestId('truncation-notice')).toBeTruthy());
+  });
+
+  it('does not query the file manager while closed', async () => {
+    fetchFileListMock.mockResolvedValue({ project_id: 'p1', items: [], total: 0, limit: 500, offset: 0 });
+    renderFederatedPicker({ open: false });
+    expect(fetchFileListMock).not.toHaveBeenCalled();
   });
 });

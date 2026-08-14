@@ -42,6 +42,7 @@ from app.modules.projects.bundle_import import (
     validate_bundle as fm_validate_bundle,
 )
 from app.modules.projects.file_manager_schemas import (
+    FILE_KINDS,
     EmailLinkResponse,
     ExportOptions,
     ExportPreview,
@@ -2633,6 +2634,11 @@ async def file_manager_list(
     session: SessionDep,
     service: ProjectService = Depends(_get_service),
     category: FileKind | None = Query(default=None),
+    kinds: str | None = Query(
+        default=None,
+        max_length=200,
+        description=("Comma-separated file kinds to include, e.g. 'document,takeoff'. Unknown kinds are rejected."),
+    ),
     extension: str | None = Query(default=None, max_length=10),
     q: str | None = Query(default=None, max_length=200),
     sort: str = Query(default="modified", pattern="^(modified|name|size|kind)$"),
@@ -2641,17 +2647,36 @@ async def file_manager_list(
 ) -> FileListResponse:
     """Flat listing of every file attached to ``project_id``.
 
-    Cross-module: documents, photos, sheets, BIM models, DWG drawings.
-    Each row carries the *real* on-disk path so the UI can ground users
-    on where their data actually lives.
+    Cross-module: documents, photos, sheets, BIM models, DWG drawings and
+    takeoff documents. Each row carries the *real* on-disk path so the UI can
+    ground users on where their data actually lives, and ``kind`` says which
+    module the row came from.
+
+    ``category`` selects one kind, ``kinds`` a set of them. A caller that wants
+    exactly two sources - the "open from project files" picker asking for the
+    documents area plus the calling module's own store - uses ``kinds`` and
+    gets one project-scoped, permission-checked, paged answer instead of
+    merging two listings client-side. An unknown kind is a 400 rather than a
+    silently empty page, because a typo there returns rows the caller did not
+    ask for and nothing on screen would say so.
     """
     # IDOR/RBAC: team-readable docs - allow project team members (owner/admin/member), not owner-only
     await _verify_project_access(service, project_id, user_id, session, payload)
+    wanted: list[str] | None = None
+    if kinds:
+        wanted = [k.strip() for k in kinds.split(",") if k.strip()]
+        unknown = sorted({k for k in wanted if k not in FILE_KINDS})
+        if unknown:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unknown file kind(s): {', '.join(unknown)}",
+            )
     return await fm_list_files(
         session,
         str(project_id),
         user_id=str(user_id) if user_id else None,
         category=category,
+        kinds=wanted,
         extension=extension,
         query=q,
         limit=limit,

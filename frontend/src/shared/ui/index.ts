@@ -253,7 +253,7 @@ export { Markdown, renderDocMarkdown } from './Markdown';
 export type { MarkdownProps } from './Markdown';
 
 export { ProjectFilePicker, projectDocumentToFile } from './ProjectFilePicker';
-export type { ProjectFilePickerProps } from './ProjectFilePicker';
+export type { PickedProjectFile, ProjectFilePickerProps } from './ProjectFilePicker';
 
 export { SearchableSelect } from './SearchableSelect';
 export type { SearchableSelectOption, SearchableSelectProps } from './SearchableSelect';
