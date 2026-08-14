@@ -234,8 +234,20 @@ def scan_query_keys(root: Path) -> dict[str, tuple[list[Path], list[Path]]]:
             continue
         for key, pat in patterns.items():
             for m in pat.finditer(text):
-                # The queryFn follows the key, so look forward from it.
+                # The queryFn follows the key, so look forward from it - but
+                # only as far as the next key. A second `queryKey:` starts a
+                # second call object, and a queryFn past it belongs to that
+                # one. Without the cut, an `invalidateQueries` that happens to
+                # sit within 600 characters of the next `useQuery` borrows its
+                # fetcher, counts as a read, and is then judged against a type
+                # argument that is not its own: ProcurementPage invalidates
+                # ['finance-invoices'] in a mutation and the next query up the
+                # file reads a different endpoint entirely. No edit to that
+                # file could clear the failure, because the file is right.
                 window = text[m.start() : m.start() + 600]
+                nxt = re.search(r"queryKey:\s*\[", window[1:])
+                if nxt:
+                    window = window[: nxt.start() + 1]
                 if "queryFn" not in window:
                     continue
                 reads, bad = out[key]
