@@ -447,8 +447,9 @@ function CaseLinkCard({
 /**
  * The banded picture every case tile carries - the person the case is written
  * for on the left, the diagram of the work on the right, meeting through a
- * soft mask (the catalogue-card treatment, reused here at hero and strip
- * size, so opening a card never swaps the person the reader just clicked).
+ * soft mask (the catalogue-card treatment, reused at strip size, so opening
+ * a card never swaps the person the reader just clicked; the hero uses the
+ * vertical cut below).
  * Renders inside a `relative` container that has already reserved the space.
  * Decorative throughout: the photograph carries alt="" and everything it says
  * is said in the text beside it.
@@ -495,11 +496,61 @@ function FaceBandArt({
 }
 
 /**
+ * The hero-format cut of the same pair - person and work diagram - stacked
+ * vertically, because the hero tile is a tall column rather than the
+ * catalogue's wide band. The photo holds the top and fades down into the
+ * diagram, so the tile reads as one picture at whatever height the header
+ * row settles on. Vertical, so no rtl mirror is needed.
+ */
+function FaceColumnArt({
+  playbook,
+  face,
+}: {
+  playbook: Playbook;
+  face: string | null;
+}): ReactElement {
+  const tint = tintFor(playbook.category);
+  const Icon = iconFor(playbook.icon);
+  const art = (
+    <CaseArt
+      id={playbook.id}
+      category={playbook.category}
+      fallbackIcon={Icon}
+      fallbackClass={tint.text}
+    />
+  );
+  if (!face) return art;
+  return (
+    <>
+      <div className="absolute inset-x-0 bottom-0 h-[52%]">{art}</div>
+      <img
+        src={face}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        width={340}
+        height={480}
+        draggable={false}
+        className={clsx(
+          // Opaque through most of its height, then out, so the diagram
+          // below starts before the picture has finished - the vertical
+          // cut of the catalogue card's start-to-end treatment.
+          "absolute inset-x-0 top-0 h-[58%] w-full object-cover object-[50%_22%]",
+          "[mask-image:linear-gradient(to_bottom,#000_55%,transparent)]",
+        )}
+      />
+    </>
+  );
+}
+
+/**
  * The hero's picture of the case: the SAME photo the catalogue card wears
  * (dealt by `dealCaseFaces` over the whole catalogue), on the same light
- * tile, sized down to sit beside the title. Mounts its imagery only near the
- * viewport, like every case tile. Hidden on the narrowest screens, where the
- * hero is already tall and the text is what matters.
+ * tile, stretched to the height of the hero row so the picture, the text
+ * beside it and the control panel across from it read as blocks of one
+ * height. Mounts its imagery only near the viewport, like every case tile.
+ * Hidden on the narrowest screens, where the hero is already tall and the
+ * text is what matters.
  */
 function CaseHeroMedia({
   playbook,
@@ -513,15 +564,13 @@ function CaseHeroMedia({
     <div
       ref={ref}
       aria-hidden="true"
-      className="relative hidden w-44 shrink-0 self-start overflow-hidden rounded-xl border border-border-light bg-gradient-to-b from-white to-slate-50 shadow-xs ring-1 ring-inset ring-slate-900/[0.04] sm:block md:w-56"
+      className="relative hidden min-h-44 w-44 shrink-0 overflow-hidden rounded-xl border border-border-light bg-gradient-to-b from-white to-slate-50 shadow-xs ring-1 ring-inset ring-slate-900/[0.04] sm:block md:w-56"
     >
-      <div className="relative aspect-[16/9] w-full">
-        {near ? (
-          <FaceBandArt playbook={playbook} face={face} />
-        ) : (
-          <div className="h-full w-full" />
-        )}
-      </div>
+      {near && (
+        <div className="absolute inset-0">
+          <FaceColumnArt playbook={playbook} face={face} />
+        </div>
+      )}
     </div>
   );
 }
@@ -874,9 +923,10 @@ export function PlaybookRunner({ playbook, onBack }: PlaybookRunnerProps) {
       <header className="rounded-2xl border border-border-light bg-gradient-to-br from-oe-blue/[0.08] via-oe-blue/[0.03] to-transparent p-5 sm:p-6">
         {/* Two columns on wide screens: the case identity and purpose on the
             left, a compact control panel (progress, the primary action, reset
-            and the sample-project picker) on the right. They stack on narrow
-            screens; the panel sits at its natural height, top-aligned. */}
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-8">
+            and the sample-project picker) on the right. Both cells stretch to
+            the row's height, so the photo tile, the text and the panel read
+            as blocks of one height. They stack on narrow screens. */}
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-8">
           {/* Left: what this case is and why. The catalogue card's photo
               rides along into the hero, so the person the reader clicked is
               the person who greets them; the market flag sits in the same
@@ -937,8 +987,10 @@ export function PlaybookRunner({ playbook, onBack }: PlaybookRunnerProps) {
           </div>
 
           {/* Right: a compact control panel - progress, primary action, reset
-              and the sample-project picker, stacked in one tidy card. */}
-          <div className="rounded-xl border border-border-light/70 bg-surface-primary/60 p-4">
+              and the sample-project picker, stacked in one tidy card. The
+              picker sits on the card's floor, so when the row runs taller
+              than the panel's content the slack opens above it, not below. */}
+          <div className="flex flex-col rounded-xl border border-border-light/70 bg-surface-primary/60 p-4">
             <div
               className="flex flex-col gap-1.5"
               role="progressbar"
@@ -964,7 +1016,7 @@ export function PlaybookRunner({ playbook, onBack }: PlaybookRunnerProps) {
                 />
               </div>
             </div>
-            <div className="mt-4 flex flex-col gap-2">
+            <div className="mb-4 mt-4 flex flex-col gap-2">
               <Button
                 variant="primary"
                 size="lg"
@@ -980,7 +1032,7 @@ export function PlaybookRunner({ playbook, onBack }: PlaybookRunnerProps) {
               </Button>
               <div className="flex justify-center">{resetButton}</div>
             </div>
-            <div className="mt-4 border-t border-border-light/70 pt-3">
+            <div className="mt-auto border-t border-border-light/70 pt-3">
               <label
                 htmlFor={selectId}
                 className="block text-2xs font-semibold uppercase tracking-wide text-content-tertiary"
