@@ -47,6 +47,30 @@ def _latest_first() -> tuple:
     )
 
 
+def _oldest_first() -> tuple:
+    """Return the ORDER BY the paginated register reads in, oldest first.
+
+    The mirror of :func:`_latest_first`, and total for the same reason. The
+    register is read a page at a time with OFFSET/LIMIT, and OFFSET is only
+    meaningful against a total order: ``recorded_at`` defaults to the DB's
+    ``now()``, which in PostgreSQL is the TRANSACTION timestamp, so every
+    entry one write appends shares it, and a bulk field import appends many.
+    Ordered by the timestamp alone the database may arrange the tied rows
+    differently for each OFFSET it serves, so a walk through the pages can
+    return one entry twice and never return another, with each page looking
+    correct on its own.
+
+    ``seq`` is NOT NULL and unique per INSERT, so ending on it makes the
+    order total. That is the property this tuple exists to hold, and the one
+    ``test_progress_entry_page_walk`` asserts: the last key must be a column
+    that cannot tie.
+    """
+    return (
+        ProgressEntry.recorded_at.asc(),
+        ProgressEntry.seq.asc(),
+    )
+
+
 class ProgressRepository:
     """Data access for ProgressEntry and ProgressPlan models."""
 
@@ -73,13 +97,16 @@ class ProgressRepository:
         offset: int = 0,
         limit: int = 100,
     ) -> list[ProgressEntry]:
-        """Return progress entries, optionally filtered by position or period."""
+        """Return progress entries, optionally filtered by position or period.
+
+        Paginated, so the order has to be total; see :func:`_oldest_first`.
+        """
         stmt = select(ProgressEntry).where(ProgressEntry.project_id == project_id)
         if boq_position_id is not None:
             stmt = stmt.where(ProgressEntry.boq_position_id == boq_position_id)
         if period_label is not None:
             stmt = stmt.where(ProgressEntry.period_label == period_label)
-        stmt = stmt.order_by(ProgressEntry.recorded_at.asc()).offset(offset).limit(limit)
+        stmt = stmt.order_by(*_oldest_first()).offset(offset).limit(limit)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 

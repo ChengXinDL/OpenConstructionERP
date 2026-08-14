@@ -46,6 +46,7 @@ import {
 import clsx from 'clsx';
 import { Card, CardContent, Button, Badge, AIDisclaimerBanner, DismissibleInfo, IntroRichText, Breadcrumb, ModuleGuideButton } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
+import { TruncationNotice } from '@/shared/ui/TruncationNotice';
 import { aiGuide } from './aiGuide';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
@@ -472,6 +473,13 @@ function RecentEstimatesPanel({
               );
             })}
           </ul>
+          {/* The badge beside the heading has always carried `total`, which
+              reads as "you have 23 estimates" while eight rows are drawn -
+              true, and no help at all in working out that fifteen are missing.
+              This says which of the two numbers the list is. */}
+          <div className="px-4 py-2">
+            <TruncationNotice page={data!} />
+          </div>
         </Card>
       )}
     </section>

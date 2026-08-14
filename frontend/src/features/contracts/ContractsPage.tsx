@@ -315,7 +315,14 @@ function CounterpartyLink({
     );
   }
 
-  const contact = (contactsQ.data ?? []).find((c) => c.id === id);
+  // Known limit, deliberately left as it stands: this component renders once
+  // per contract row, so one shared 500-row page is one request where a
+  // per-id lookup would be one per distinct counterparty on screen. Past 500
+  // contacts a client counterparty falls out of the page and the cell quietly
+  // degrades to the type word instead of the firm name. The honest fix is a
+  // by-ids batch route, which is backend scope, not a notice here - a link
+  // cell has nowhere to say "showing 500 of 3500" that would mean anything.
+  const contact = (contactsQ.data?.items ?? []).find((c) => c.id === id);
   const contactName =
     contact?.company_name ||
     contact?.legal_name ||

@@ -39,6 +39,7 @@ import {
   SideDrawer,
 } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
+import { TruncationNotice } from '@/shared/ui/TruncationNotice';
 import { RequiresProject } from '@/shared/auth/RequiresProject';
 import { apiGet, getErrorMessage } from '@/shared/lib/api';
 import { formatCurrency, toNum } from '@/shared/lib/money';
@@ -746,6 +747,10 @@ export function CvrPage() {
                       : t('cvr.status_draft', { defaultValue: 'Draft' })}
                   </Badge>
                 )}
+                {/* The picker lists the newest 50 periods. On a job running
+                    longer than that the earliest CVRs are not in the dropdown
+                    and there is no other way into them from here. */}
+                {reportList && <TruncationNotice page={reportList} />}
               </div>
               <div className="flex items-center gap-2">
                 {canEdit && (
@@ -849,6 +854,10 @@ export function CvrPage() {
           defaultCurrency={reportCurrency}
           onChanged={() => qc.invalidateQueries({ queryKey: ['cvr-payapps', projectId] })}
         />
+        {/* The roll-up strip inside the section sums the applications it was
+            handed, so the reader has to be able to see that the server sent a
+            slice of them. Reads the server page, not the rendered array. */}
+        {payappList && <TruncationNotice page={payappList} className="mt-2" />}
       </Card>
 
       {/* Row-level cost head editor (opens from the pencil icon in the table) */}

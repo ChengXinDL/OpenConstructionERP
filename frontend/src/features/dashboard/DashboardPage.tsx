@@ -4,7 +4,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { apiGet, apiPost } from '@/shared/lib/api';
+import { apiGet, apiPost, type Page } from '@/shared/lib/api';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -2283,14 +2283,24 @@ function DashboardPageInner() {
     return { byCurrency, multiCurrency: byCurrency.length > 1 };
   }, [scopedBoqSummary]);
 
-  // Fetch contacts count for NextSteps suggestions
-  const { data: contactsList } = useQuery({
+  // Fetch contacts count for NextSteps suggestions.
+  //
+  // This asked for a bare array, got the `{items, total, offset, limit}`
+  // envelope the endpoint has been returning, and read `.length` off the
+  // object - `undefined`, so the count was zero for every user with any
+  // number of contacts, and NextSteps kept suggesting the first one. Reads
+  // `total` now, and asks for one row rather than fifty, since the count is
+  // the only thing wanted here.
+  const { data: contactsPage } = useQuery({
     queryKey: ['dashboard-contacts-count'],
-    queryFn: () => apiGet<{ id: string }[]>('/v1/contacts/').catch(() => []),
+    queryFn: () =>
+      apiGet<Page<{ id: string }>>('/v1/contacts/?limit=1').catch(
+        () => ({ items: [], total: 0, offset: 0, limit: 1 }) as Page<{ id: string }>,
+      ),
     retry: false,
     staleTime: 60_000,
   });
-  const contactsCount = contactsList?.length ?? 0;
+  const contactsCount = contactsPage?.total ?? 0;
 
   // Most-recently updated BOQ for "Continue your work" - sourced from the
   // rollup's pre-computed ``boq_summary.last_boq`` so we don't need to
