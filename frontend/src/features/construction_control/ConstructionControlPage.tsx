@@ -23,7 +23,6 @@ import {
 import { TabBar, tabIds, ModuleGuideButton, type TabBarTab } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { RequiresProject } from '@/shared/auth/RequiresProject';
-import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { useActiveProjectId } from '@/shared/hooks/useActiveProjectId';
 import { constructionControlGuide } from './construction_controlGuide';
 import { AcceptanceInspectionsSection } from './sections/AcceptanceInspectionsSection';
