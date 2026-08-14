@@ -220,15 +220,22 @@ export interface CreateRequestPayload {
 
 /* ── Resources ──────────────────────────────────────────────────────────── */
 
+/**
+ * List resources. Pass `project_id` on a site surface: the server then
+ * returns the crews homed on that project plus the unhomed company pool,
+ * instead of every resource on the install.
+ */
 export function listResources(params?: {
   type?: ResourceType | '';
   status?: ResourceStatus | '';
+  project_id?: string;
   offset?: number;
   limit?: number;
 }): Promise<Resource[]> {
   const qs = new URLSearchParams();
   if (params?.type) qs.set('type', params.type);
   if (params?.status) qs.set('status', params.status);
+  if (params?.project_id) qs.set('project_id', params.project_id);
   if (params?.offset !== undefined) qs.set('offset', String(params.offset));
   if (params?.limit !== undefined) qs.set('limit', String(params.limit));
   const q = qs.toString();

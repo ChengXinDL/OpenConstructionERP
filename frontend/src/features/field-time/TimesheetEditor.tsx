@@ -81,8 +81,12 @@ export function TimesheetEditor({ timesheetId, projectId, onClose }: TimesheetEd
   });
 
   const resourcesQ = useQuery({
-    queryKey: ['resources', 'list', 'field-time'],
-    queryFn: () => listResources({ limit: 500 }),
+    // Same scoping as the day recorder, and the same key: a timesheet line
+    // belongs to one project, so the picker must offer that project's roster
+    // and the unhomed company pool, nothing else.
+    queryKey: ['resources', 'list', 'field-time', projectId],
+    queryFn: () => listResources({ limit: 500, project_id: projectId }),
+    enabled: !!projectId,
   });
 
   const equipmentQ = useQuery({

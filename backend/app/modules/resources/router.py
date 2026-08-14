@@ -83,13 +83,21 @@ async def list_resources(
     limit: int = Query(default=100, ge=1, le=500),
     type_filter: str | None = Query(default=None, alias="type"),
     status_filter: str | None = Query(default=None, alias="status"),
+    project_id: uuid.UUID | None = Query(default=None),
     service: ResourcesService = Depends(_get_service),
 ) -> list[ResourceResponse]:
+    """List resources; ``project_id`` narrows to that project's own roster.
+
+    The narrowed form is what a site surface wants - the crews homed on this
+    project plus the unhomed company pool. Omitting it keeps the tenant-wide
+    register the resources page reads.
+    """
     items, _ = await service.list_resources(
         offset=offset,
         limit=limit,
         resource_type=type_filter,
         resource_status=status_filter,
+        project_id=project_id,
     )
     return [ResourceResponse.model_validate(i) for i in items]
 
