@@ -185,9 +185,10 @@ class QdrantHealth:
 #: dead end this whole field exists to stop.
 _MISSING_CLIENT_HINT = (
     "The vector client library is not part of this installation. Install the "
-    "semantic extra to enable it: pip install openconstructionerp[semantic]. "
-    "Packaged builds cannot install it themselves; use a source or container "
-    "install if you need semantic matching. Everything else works without it."
+    "client extra to enable it: pip install openconstructionerp[semantic-clients]. "
+    "That extra is the client alone and carries no embedding model, so it is a "
+    "small install; the container image and the desktop build ship it already. "
+    "Everything else works without it."
 )
 
 _client_installed: bool | None = None

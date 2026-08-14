@@ -498,13 +498,13 @@ def _check_infrastructure() -> str | None:
     if backend == "qdrant":
         if not _installed("qdrant_client"):
             return (
-                "VECTOR_BACKEND=qdrant but qdrant-client is not installed. Install the semantic "
-                "extra and start Qdrant, then rerun: pip install openconstructionerp[semantic]"
+                "VECTOR_BACKEND=qdrant but qdrant-client is not installed. Install the client "
+                "extra and start Qdrant, then rerun: pip install openconstructionerp[semantic-clients]"
             )
     elif not _installed("lancedb"):
         return (
-            "the LanceDB vector store is not installed. Install the semantic extra and rerun: "
-            "pip install openconstructionerp[semantic]"
+            "the LanceDB vector store is not installed. Install the vector extra and rerun: "
+            "pip install openconstructionerp[vector]"
         )
     return None
 

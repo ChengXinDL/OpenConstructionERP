@@ -525,9 +525,10 @@ def _get_client() -> Any:
 
     try:
         from qdrant_client import QdrantClient
-    except ImportError as exc:  # pragma: no cover - optional [semantic] extra
+    except ImportError as exc:  # pragma: no cover - optional [semantic-clients] extra
         raise RuntimeError(
-            "qdrant-client is not installed; install the [semantic] extra: pip install openconstructionerp[semantic]"
+            "qdrant-client is not installed; install the [semantic-clients] extra: "
+            "pip install openconstructionerp[semantic-clients]"
         ) from exc
 
     s = get_settings()
