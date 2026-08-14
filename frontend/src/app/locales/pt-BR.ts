@@ -10122,7 +10122,7 @@ const resource = {
     "nav.ai_advisor": "Consultor de custos com IA",
     "nav.project_intelligence": "Inteligência do projeto",
     "nav.estimation_dashboard": "Painel de orçamento",
-    "nav.change_orders": "Aditivos",
+    "nav.change_orders": "Ordens de alteração",
     "nav.risk_register": "Registro de riscos",
     "nav.documents": "Documentos",
     "nav.analytics": "Análises",

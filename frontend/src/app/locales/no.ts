@@ -10402,7 +10402,7 @@ const resource = {
     "nav.contracts": "Kontrakter",
     "nav.subcontractors": "Underentreprenør-register",
     "nav.bid_management": "Anbudsstyring",
-    "nav.variations": "Endringsordrer",
+    "nav.variations": "Endringsarbeider",
     "nav.supplier_catalogs": "Leverandørkataloger",
     "nav.property_dev": "Eiendomsutvikling",
     "nav.property_dev_house_types": "Hustyper",

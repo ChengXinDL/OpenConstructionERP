@@ -11906,7 +11906,7 @@ const resource = {
     "nav.contracts": "العقود",
     "nav.subcontractors": "دليل المقاولين الفرعيين",
     "nav.bid_management": "إدارة العطاءات",
-    "nav.variations": "أوامر التغيير",
+    "nav.variations": "الأعمال الإضافية",
     "nav.supplier_catalogs": "كتالوجات الموردين",
     "nav.property_dev": "التطوير العقاري",
     "nav.schedule_advanced": "جدول زمني متقدم",

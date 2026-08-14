@@ -8906,7 +8906,7 @@ const resource = {
     "nav.contracts": "合同",
     "nav.subcontractors": "分包商目录",
     "nav.bid_management": "投标管理",
-    "nav.variations": "变更单",
+    "nav.variations": "变更增项",
     "nav.supplier_catalogs": "供应商目录",
     "nav.property_dev": "房地产开发",
     "nav.schedule_advanced": "高级进度计划",

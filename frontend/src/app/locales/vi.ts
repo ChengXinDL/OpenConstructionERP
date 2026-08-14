@@ -9088,7 +9088,7 @@ const resource = {
     "nav.contracts": "Hợp đồng",
     "nav.subcontractors": "Danh bạ nhà thầu phụ",
     "nav.bid_management": "Quản lý đấu thầu",
-    "nav.variations": "Lệnh thay đổi",
+    "nav.variations": "Công việc phát sinh",
     "nav.supplier_catalogs": "Danh mục nhà cung cấp",
     "nav.property_dev": "Phát triển bất động sản",
     "nav.schedule_advanced": "Lịch trình nâng cao",

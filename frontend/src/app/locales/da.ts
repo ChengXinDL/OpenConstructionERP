@@ -10461,7 +10461,7 @@ const resource = {
     "nav.contracts": "Kontrakter",
     "nav.subcontractors": "Underentreprenør-register",
     "nav.bid_management": "Tilbudsstyring",
-    "nav.variations": "Ændringsordrer",
+    "nav.variations": "Ekstraarbejder",
     "nav.supplier_catalogs": "Leverandørkataloger",
     "nav.property_dev": "Ejendomsudvikling",
     "nav.property_dev_house_types": "Hustyper",

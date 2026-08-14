@@ -10031,7 +10031,7 @@ const resource = {
     "nav.ai_advisor": "Conseiller IA en coûts",
     "nav.project_intelligence": "Intelligence projet",
     "nav.estimation_dashboard": "Tableau de bord d'estimation",
-    "nav.change_orders": "Avenants",
+    "nav.change_orders": "Ordres de modification",
     "nav.risk_register": "Registre des risques",
     "nav.documents": "Documents",
     "nav.analytics": "Analytique",

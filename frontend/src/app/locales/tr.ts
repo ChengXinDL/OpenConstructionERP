@@ -9063,7 +9063,7 @@ const resource = {
     "nav.contracts": "Sözleşmeler",
     "nav.subcontractors": "Alt Yüklenici Dizini",
     "nav.bid_management": "Teklif Yönetimi",
-    "nav.variations": "Değişiklik Emirleri",
+    "nav.variations": "İlave İşler",
     "nav.supplier_catalogs": "Tedarikçi Katalogları",
     "nav.property_dev": "Gayrimenkul Geliştirme",
     "nav.schedule_advanced": "Gelişmiş Zamanlama",
