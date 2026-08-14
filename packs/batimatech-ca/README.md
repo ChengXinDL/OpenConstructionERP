@@ -4,7 +4,7 @@ Partner pack pre-configuring [OpenConstructionERP](https://github.com/DataDriven
 for Canadian construction companies.
 
 > **Pré-configuré pour les entreprises canadiennes de construction —
-> CNB 2020, contrats CCDC, normes CSA, conformité provinciale.**
+> normes NBC, contrats CCDC, base de coûts RSMeans Canada.**
 
 ## What this pack does
 
@@ -31,8 +31,8 @@ When installed alongside the OCERP core, this pack registers via the
   - `csa_s16` — CSA S16:19 Design of Steel Structures
   - `quebec_ccq` — Québec CCQ / RBQ licensing & compliance (Loi R-20)
   - `ontario_obc` — Ontario Building Code (O. Reg. 332/12) + WSIB
-- Applies batimatech branding (`#1C9BD7` cyan + `#1B3A5B` navy) and replaces
-  the boot logo / favicon.
+- Applies batimatech branding (`#BE1B2F` red + `#0F2C5F` Canadian navy)
+  and replaces the boot logo / favicon.
 - Replaces the default first-login onboarding wizard with a 9-step
   Canadian workflow (firm profile + province, GST/QST/HST + RBQ/CCQ/WSIB
   registrations, NBC 2020 Parts, CCDC contract default, CWICR regions,
@@ -41,35 +41,6 @@ When installed alongside the OCERP core, this pack registers via the
 The pack ships **no** new validation rule classes (Shape A) — it only
 switches on rules already present in the OCERP core. No modules are hidden;
 the full sidebar remains available.
-
-## Cost data
-
-**No commercial cost database is bundled, and none can be.** The Canadian
-unit-price databases sold by subscription are licensed products whose terms
-forbid redistribution, so shipping one inside an AGPL pack is not something a
-licence would permit us to do.
-
-This pack is therefore the structure, not the data. It gives you the code
-compliance and contract rules to estimate against, the CAD currency and tax
-defaults, and the import path for the rates you are licensed to use, whether
-that is your own historical cost history, a subscription you hold, or a public
-schedule of prices. The onboarding wizard asks which regions you work in; it
-never assumes a particular vendor.
-
-For national-average rates with regional adjustment, the pack points at the
-`cwicr-eng-toronto` region, which loads on demand.
-
-## Standards referenced
-
-- NBC 2020, National Building Code of Canada
-- CCDC 2-2020, 5A-2025 and 14-2013 contract forms
-- CSA A23.1:19, A23.3:19 and S16:19
-- Ontario Building Code, O. Reg. 332/12, and WSIB requirements
-- Québec Loi R-20 with CCQ and RBQ licensing
-
-These are referenced for interoperability and compliance checking. Clause and
-article numbers are interoperability facts and are used as such; the
-publishers' own text and tables are not reproduced here.
 
 ## Install
 
@@ -83,5 +54,6 @@ and restart.
 
 ## License
 
-AGPL-3.0-or-later, same as the OCERP core. The batimatech name and brand
-colours are trademarks of batimatech and used under partnership agreement.
+AGPL-3.0-or-later, same as the OCERP core. The batimatech name and red
+brand colour are trademarks of batimatech and used under partnership
+agreement.

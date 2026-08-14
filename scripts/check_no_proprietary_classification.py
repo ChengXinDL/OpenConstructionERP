@@ -150,6 +150,13 @@ _ALLOWED_NOMINATIVE: dict[str, frozenset[str]] = {
     "packs/us-costdata/": frozenset(
         {"title", "label", "name", "standard", "description"}
     ),
+    # Partner pack: naming this supplier's database as the pack's data source is
+    # sanctioned under a real partnership agreement, so it is not a finding here and
+    # must not be rewritten. An earlier wave read it as an unlicensed claim and
+    # rewrote it; the entry exists so that cannot happen a second time.
+    "packs/batimatech-ca/": frozenset(
+        {"title", "label", "name", "standard", "description"}
+    ),
     # Pickers and presets: the user chooses a standard and must see which one.
     "frontend/src/features/ai/QuickEstimatePage.tsx": frozenset({"label"}),
     "frontend/src/features/projects/CreateProjectPage.tsx": frozenset({"label"}),
