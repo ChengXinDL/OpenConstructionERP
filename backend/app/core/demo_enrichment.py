@@ -74,6 +74,7 @@ async def enrich_projects(project_ids: list[uuid.UUID]) -> None:
         from app.modules.contracts.seed import seed_contracts_demo
         from app.modules.costmodel.seed import seed_costmodel
         from app.modules.crm.seed import seed_crm_demo
+        from app.modules.cvr.seed import seed_cvr_demo
         from app.modules.daily_diary.seed import seed_daily_diary_demo, seed_daily_diary_showcase_de
         from app.modules.documents.documents_seed import seed_documents_demo
         from app.modules.documents.photos_seed import seed_photos
@@ -83,6 +84,7 @@ async def enrich_projects(project_ids: list[uuid.UUID]) -> None:
         from app.modules.field_time.seed import seed_field_time_demo
         from app.modules.finance.einvoice_settings_seed import seed_einvoice_settings_demo
         from app.modules.forms.submissions_seed import seed_forms_submissions_demo
+        from app.modules.full_evm.seed import seed_full_evm_demo
         from app.modules.hse_advanced.seed import seed_hse_advanced_demo
         from app.modules.interface_management.seed import seed_interface_management_demo
         from app.modules.markups.seed import seed_markups
@@ -224,6 +226,22 @@ async def enrich_projects(project_ids: list[uuid.UUID]) -> None:
             # so it stays on the demo estate. Self-guards per contract on an
             # existing claim.
             ("contracts", None, lambda s: seed_contracts_demo(s, _demo_pids)),
+            # The cost-value reconciliation register: closed months, the month
+            # running, the cashflow curve and the interim applications raised
+            # against them. Scales itself from the project's priced bill, so it
+            # runs after the installer has written one; a project without a
+            # priced bill is skipped rather than given an invented contract
+            # value. Demo estate only, for the same reason as the contracts
+            # above - a reconciliation states what a job earned and what it
+            # cost, and inventing one inside a live project is a data incident.
+            # Self-guards per project on an existing report.
+            ("cvr", None, lambda s: seed_cvr_demo(s, _demo_pids)),
+            # The frozen budget the same job is measured against, and the
+            # monthly measurements taken since. Reads the same commercial
+            # profile as the reconciliation above, so the margin one screen
+            # reports and the outturn the other forecasts describe one job
+            # rather than two. Self-guards per project on an existing baseline.
+            ("full_evm", None, lambda s: seed_full_evm_demo(s, _demo_pids)),
             # Seller identity and bank account for the E-Rechnung screen, copied
             # out of the showcase invoice that already carries them, so the
             # settings form is not empty on an install whose invoice exports
