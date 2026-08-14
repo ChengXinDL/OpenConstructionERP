@@ -469,6 +469,11 @@ _VARIATION_CLAUSES: dict[str, str] = {
     "JCT_SBC_2016": "Clause 5",
     "NEC4_ECC": "Clause 60-65",  # Compensation Events
     "PPC2000": "Part 5 - Pricing & Payment",
+    # German public and private works. § 1 Abs. 3 is the client's right to
+    # order a change; § 2 Abs. 5 is the price consequence and so the clause a
+    # variation is argued under. Works never agreed at all fall under § 2
+    # Abs. 6, which a row states in its own clause reference.
+    "VOB_B": "§ 2 Abs. 5 VOB/B",
     "GENERIC": "-",
 }
 
