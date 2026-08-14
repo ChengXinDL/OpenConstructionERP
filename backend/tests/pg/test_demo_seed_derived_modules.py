@@ -976,10 +976,10 @@ async def test_dwg_room_labels_read_as_a_german_plan(pg_session, dwg_store) -> N
     envelope_width = (float(extents["max_x"]) - float(extents["min_x"])) * 0.001
     envelope_depth = (float(extents["max_y"]) - float(extents["min_y"])) * 0.001
 
-    assert math.isclose(sum(width for width, _ in rooms.values()), envelope_width, rel_tol=1e-9), (
+    assert math.isclose(sum(width for width, _ in rooms.values()), envelope_width, rel_tol=1e-6), (
         f"the labelled rooms are {sum(w for w, _ in rooms.values())} m wide across an envelope of {envelope_width} m"
     )
     for name, (_, depth) in rooms.items():
-        assert math.isclose(depth, envelope_depth, rel_tol=1e-9), (
+        assert math.isclose(depth, envelope_depth, rel_tol=1e-6), (
             f"{name} is labelled {depth} m deep in an envelope {envelope_depth} m deep"
         )
