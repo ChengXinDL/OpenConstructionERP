@@ -176,6 +176,116 @@ def _sum_positions(positions: list[Position]) -> float:
     return sum(float(p.total) for p in positions if p.unit != "")
 
 
+def _tender_scopes(items: list[Position], package_count: int) -> list[list[Position]]:
+    """Split the priced lines into one contiguous scope per tender package.
+
+    Contiguous because the list is built section by section, so a slice of it
+    is a run of related trades rather than an arbitrary handful of lines.
+    """
+    if package_count <= 1:
+        return [list(items)]
+    size, remainder = divmod(len(items), package_count)
+    scopes: list[list[Position]] = []
+    cursor = 0
+    for index in range(package_count):
+        take = size + (1 if index < remainder else 0)
+        scopes.append(items[cursor : cursor + take])
+        cursor += take
+    return scopes
+
+
+def _bid_line_items(
+    scope: list[Position],
+    *,
+    bid_total: float,
+    bidder_index: int,
+) -> list[dict]:
+    """Spread one bidder's submitted total across a package scope, line by line.
+
+    A bid whose only number is a grand total leaves the price comparison with
+    nothing to compare. Both the leveling matrix and the budget comparison are
+    built by indexing ``line_items`` on ``position_id``, so an empty list
+    renders a matrix of empty cells no matter how many bidders submitted: the
+    screen whose whole purpose is per-line spread has no per-line data in it.
+
+    The submitted total is an input here, never an output. Several packs state
+    their bid figures in the package description ("3 Angebote, Spread 10,9 %")
+    and derive the bid factor from them, so the lines have to add up to the
+    number that is already written down rather than replace it.
+
+    Within that constraint each line moves deterministically around the
+    reference rate, so the matrix has real spread to colour and a reseed
+    produces the same comparison. Every so often a bidder leaves a line out
+    entirely, which is what gives the imputation path something to impute; on
+    short scopes that is skipped, where dropping one line would remove a
+    visible share of the package rather than a detail. A bidder who omits
+    scope still submitted their total, so it is spread over the lines they did
+    quote - which is precisely what leveling is meant to expose.
+
+    Line totals are the exact product of rate and quantity, not a rounded one,
+    because the matrix reads a disagreement between the two as a *scaled* bid
+    line and badges it.
+    """
+    quoted: list[tuple[Position, Decimal, Decimal]] = []
+    omit_allowed = bidder_index > 0 and len(scope) >= 8
+    for line_index, position in enumerate(scope):
+        if omit_allowed and (line_index + bidder_index * 5) % 19 == 0:
+            continue
+        # -5% .. +5% of the reference rate, decided by position rather than by
+        # chance. Shape only at this stage; the scale comes from the total.
+        spread = Decimal((line_index * 7 + bidder_index * 13) % 11 - 5) / Decimal(100)
+        quantity = Decimal(str(position.quantity))
+        shaped = Decimal(str(position.unit_rate)) * (Decimal(1) + spread)
+        quoted.append((position, quantity, shaped))
+
+    shaped_total = sum((qty * rate for _pos, qty, rate in quoted), Decimal(0))
+    if not quoted or shaped_total <= 0:
+        return []
+
+    target = Decimal(str(bid_total))
+    scale = target / shaped_total
+    lines: list[dict] = []
+    for position, quantity, shaped in quoted:
+        rate = (shaped * scale).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        lines.append(
+            {
+                "position_id": str(position.id),
+                "description": position.description or "",
+                "unit": position.unit or "",
+                "quantity": float(quantity),
+                "unit_rate": str(rate),
+                "total": float(rate * quantity),
+            }
+        )
+
+    # Rounding every rate to the cent leaves the column short or long of the
+    # submitted total. Correct it on the smallest lines first: one cent of
+    # rate moves a line by its own quantity, so the narrowest line is the one
+    # that can be nudged in the finest steps, and a scope-wide accumulation
+    # becomes a few cents on a six-figure package. It does not land exactly,
+    # and deliberately so - closing the last cents would need a line total
+    # that disagrees with its own rate times quantity, which is exactly what
+    # the matrix badges as a scaled bid line.
+    def _column_total() -> Decimal:
+        return sum((Decimal(str(line["total"])) for line in lines), Decimal(0))
+
+    for index in sorted(range(len(lines)), key=lambda i: Decimal(str(lines[i]["quantity"]))):
+        residual = target - _column_total()
+        if residual == 0:
+            break
+        quantity = Decimal(str(lines[index]["quantity"]))
+        if quantity <= 0:
+            continue
+        rate = (Decimal(str(lines[index]["unit_rate"])) + residual / quantity).quantize(
+            Decimal("0.01"), rounding=ROUND_HALF_UP
+        )
+        if rate <= 0:
+            continue
+        lines[index]["unit_rate"] = str(rate)
+        lines[index]["total"] = float(rate * quantity)
+    return lines
+
+
 # ---------------------------------------------------------------------------
 # Demo template descriptor
 # ---------------------------------------------------------------------------
@@ -11093,6 +11203,7 @@ async def install_demo_project(
     if template.tender_packages:
         # Multiple tender packages
         n_pkgs = len(template.tender_packages)
+        pkg_scopes = _tender_scopes(items_list, n_pkgs)
         for pkg_idx, (pkg_name, pkg_desc, pkg_status, pkg_companies) in enumerate(template.tender_packages):
             pkg = TenderPackage(
                 id=_id(),
@@ -11107,10 +11218,15 @@ async def install_demo_project(
             session.add(pkg)
             await session.flush()
 
-            # Each package covers a proportional share of grand_total
+            # The package covers a slice of the priced lines, and each bidder
+            # quotes that slice line by line. Where there are no priced lines
+            # to quote, the bid keeps the old proportional share of the grand
+            # total so the package still shows a number.
+            scope = pkg_scopes[pkg_idx] if pkg_idx < len(pkg_scopes) else []
             pkg_share = grand_total / n_pkgs
-            for co, email, factor in pkg_companies:
+            for bidder_idx, (co, email, factor) in enumerate(pkg_companies):
                 total = round(pkg_share * factor, 2)
+                lines = _bid_line_items(scope, bid_total=total, bidder_index=bidder_idx)
                 bid = TenderBid(
                     id=_id(),
                     package_id=pkg.id,
@@ -11121,7 +11237,7 @@ async def install_demo_project(
                     submitted_at=datetime.now(UTC).isoformat(),
                     status="submitted",
                     notes=f"Tender - {co} - {pkg_name}",
-                    line_items=[],
+                    line_items=lines,
                     metadata_={},
                 )
                 session.add(bid)
@@ -11140,8 +11256,9 @@ async def install_demo_project(
         session.add(pkg)
         await session.flush()
 
-        for co, email, factor in template.tender_companies:
+        for bidder_idx, (co, email, factor) in enumerate(template.tender_companies):
             total = round(grand_total * factor, 2)
+            lines = _bid_line_items(items_list, bid_total=total, bidder_index=bidder_idx)
             bid = TenderBid(
                 id=_id(),
                 package_id=pkg.id,
@@ -11152,7 +11269,7 @@ async def install_demo_project(
                 submitted_at=datetime.now(UTC).isoformat(),
                 status="submitted",
                 notes=f"Tender - {co}",
-                line_items=[],
+                line_items=lines,
                 metadata_={},
             )
             session.add(bid)

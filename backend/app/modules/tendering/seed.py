@@ -92,7 +92,7 @@ async def _seed_one_project(
         budget_dec = Decimal(budget)
         for bid_idx, (company, email, multiplier, bid_status) in enumerate(bid_specs):
             total = (budget_dec * Decimal(multiplier)).quantize(Decimal("0.01"))
-            unit_price = (total / Decimal("100")).quantize(Decimal("0.01"))
+            provisional = (total / Decimal("100")).quantize(Decimal("0.01"))
             bid = TenderBid(
                 package_id=package.id,
                 company_name=company,
@@ -104,22 +104,27 @@ async def _seed_one_project(
                 ),
                 status=bid_status,
                 notes=f"Bid from {company} for {trade.lower()}.",
+                # ``unit_rate`` / ``total``, because that is what BidLineItem
+                # declares and what every reader indexes on. The rows here used
+                # to say ``unit_price`` / ``total_price`` / ``code``, which no
+                # code in the tree reads: the API returned them, the page typed
+                # them as LineItem, and the columns rendered blank.
                 line_items=[
                     {
-                        "code": "01",
+                        "position_id": None,
                         "description": f"{trade} - main scope",
                         "unit": "lsum",
-                        "quantity": "1",
-                        "unit_price": str(total),
-                        "total_price": str(total),
+                        "quantity": 1.0,
+                        "unit_rate": str(total),
+                        "total": float(total),
                     },
                     {
-                        "code": "02",
+                        "position_id": None,
                         "description": f"{trade} - provisional sum",
                         "unit": "lsum",
-                        "quantity": "1",
-                        "unit_price": str(unit_price),
-                        "total_price": str(unit_price),
+                        "quantity": 1.0,
+                        "unit_rate": str(provisional),
+                        "total": float(provisional),
                     },
                 ],
                 metadata_={"seed": True, "rank": bid_idx + 1},
