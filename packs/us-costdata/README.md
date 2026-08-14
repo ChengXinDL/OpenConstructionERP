@@ -9,7 +9,10 @@ city cost index structure for localizing rates per metro.
 
 - Currency USD and the US state sales tax template
 - en-US locale with US construction vocabulary (bid, RFI, punch list,
-  submittal, sub, GC, CM at Risk) and imperial unit defaults
+  submittal, sub, GC, CM at Risk) and US spellings for the imperial units
+  (sq ft, lin ft, cu yd, gal, ton). Metric units keep their own names: the
+  locale renames a label, it does not convert the quantity next to it, so a
+  cubic metre is never printed as a cubic yard
 - CSI MasterFormat 2020 specification structure and UniFormat II (ASTM E1557)
   elemental classification for early-design estimates
 - AIA A201-2017 General Conditions plus the A101/A102/A103/A104/A141
@@ -25,7 +28,7 @@ city cost index structure for localizing rates per metro.
 ## Install
 
 This pack ships inside OpenConstructionERP. Activate it from Modules then
-Partner Packs: click Rescan, find "US Construction Pack", then Apply.
+Partner Packs: click Rescan, find "US Construction Pack", then Activate pack.
 
 To run a workspace that boots straight into it:
 

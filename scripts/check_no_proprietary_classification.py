@@ -175,6 +175,13 @@ _ALLOWED_NOMINATIVE: dict[str, frozenset[str]] = {
 # vocabulary happens to include words like Concrete and Masonry.
 _TABLE_THRESHOLD = 8
 
+# Markdown and TOML are here because a claim about our own content is not confined
+# to code. A pack's distribution description lives in ``pyproject.toml`` and its
+# product copy in ``README.md``, and both are read by users on PyPI; a pack naming a
+# commercial cost database as its data source sat in exactly those two files through
+# every green run of this gate. Note the limit of the extension fix: head 2 matches a
+# field assignment, so it reads the TOML description but not the same claim written as
+# markdown prose, which has no field name to match.
 _SCAN_SUFFIXES = {
     ".py",
     ".ts",
@@ -186,6 +193,8 @@ _SCAN_SUFFIXES = {
     ".yml",
     ".sql",
     ".csv",
+    ".md",
+    ".toml",
 }
 
 # Fields a user reads, optionally quoted as a dict or object key, which is the shape

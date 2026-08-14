@@ -4,7 +4,7 @@
     "name": "English (United States)",
     "fallback": "en",
     "coverage": "partial",
-    "notes": "US English overrides. Locks US construction terminology (bid, RFI, punch list, submittal, sub, GC, CM at Risk) and imperial unit defaults (sq ft, lin ft, cu yd, gal, ton). Falls back to en for everything else."
+    "notes": "US English overrides. Locks US construction terminology (bid, RFI, punch list, submittal, sub, GC, CM at Risk) and US spellings for the imperial units (sq ft, lin ft, cu yd, gal, ton). Metric units keep their own names: a locale renames a label, it cannot convert the quantity beside it. Falls back to en for everything else."
   },
   "translation": {
     "nav.dashboard": "Dashboard",
@@ -106,13 +106,6 @@
     "units.foot": "ft",
     "units.yard": "yd",
     "units.degree_f": "°F",
-
-    "modules.boq.unit.m2": "sq ft",
-    "modules.boq.unit.m3": "cu yd",
-    "modules.boq.unit.kg": "lb",
-    "modules.boq.unit.t": "ton",
-    "modules.boq.unit.l": "gal",
-    "modules.boq.unit.m": "lin ft",
 
     "banner.welcome_title": "Welcome to OpenConstructionERP — US Edition",
     "banner.welcome_body": "Pre-configured for US general contractors: CSI MasterFormat 2020 + UniFormat II, AIA A201-2017 General Conditions, OSHA 29 CFR 1926, IBC 2021, and city cost index localization for your markets.",
