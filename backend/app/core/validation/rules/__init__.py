@@ -1629,6 +1629,7 @@ _IMPERIAL_BOQ_UNITS: frozenset[str] = frozenset(
         "lbs",
         "oz",
         "ton",  # short ton
+        "ton_us",  # short ton, the canonical boq/units.py emits for "ton"
         "gal",
         "gallon",
     },
@@ -4179,7 +4180,23 @@ class MeasurementConsistency(ValidationRule):
     category = RuleCategory.CONSISTENCY
     description = "Flags mixing of metric and imperial units in the same BOQ"
 
-    IMPERIAL_UNITS = {"ft", "ft2", "ft3", "yd", "yd2", "yd3", "in", "lb", "ton", "gal", "sf", "sy", "cy", "lf"}
+    IMPERIAL_UNITS = {
+        "ft",
+        "ft2",
+        "ft3",
+        "yd",
+        "yd2",
+        "yd3",
+        "in",
+        "lb",
+        "ton",
+        "ton_us",
+        "gal",
+        "sf",
+        "sy",
+        "cy",
+        "lf",
+    }
     METRIC_UNITS = {"m", "m2", "m3", "mm", "cm", "km", "kg", "t", "l", "kl", "ml"}
 
     async def validate(self, context: ValidationContext) -> list[RuleResult]:
@@ -6606,6 +6623,7 @@ _UNIT_DIMENSIONS: dict[str, str] = {
     "tonne": "mass",
     "tonnes": "mass",
     "ton": "mass",
+    "ton_us": "mass",
     "lb": "mass",
     "lbs": "mass",
     "g": "mass",

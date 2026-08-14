@@ -49,6 +49,11 @@ const GAEB_UNIT_CODES: Record<string, string> = {
   kg: 'kg',
   g: 'g',
   t: 't',
+  lb: 'lb',
+  // "ton_us" is deliberately absent: GAEB has no short-ton code, and
+  // mapping it to 'ton' would break the round-trip because
+  // fromGaebUnitCode('ton') cannot tell the short ton from the tonne.
+  // Falling through verbatim keeps the unit unambiguous in both directions.
   // counts / lump
   pcs: 'Stk',
   ea: 'Stk',

@@ -75,7 +75,14 @@ _UNECE_BY_UNIT = {
     "l": "LTR",
     "kg": "KGM",
     "t": "TNE",
+    # "ton" keeps the metric code it has always had: rows stored before the
+    # BOQ normaliser started reading a typed "ton" as the short ton carry
+    # this string meaning the tonne, and an invoice must not restate what
+    # was already billed.  New input normalises to "ton_us" (STN) or "t".
     "ton": "TNE",
+    "ton_us": "STN",
+    "lb": "LBR",
+    "lbs": "LBR",
     "g": "GRM",
     "h": "HUR",
     "hr": "HUR",

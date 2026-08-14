@@ -255,6 +255,17 @@ describe('generateGAEBXML', () => {
     expect(toGaebUnitCode('')).toBe('Stk'); // empty -> default
   });
 
+  it('keeps the imperial mass units unambiguous through a GAEB round-trip', () => {
+    expect(toGaebUnitCode('lb')).toBe('lb');
+    expect(fromGaebUnitCode('lb')).toBe('lb');
+    // GAEB has no short-ton code. The canonical is forwarded verbatim so a
+    // re-import cannot read it back as the metric tonne, which is what
+    // mapping it onto 'ton' or 't' would do.
+    expect(toGaebUnitCode('ton_us')).toBe('ton_us');
+    expect(fromGaebUnitCode('ton_us')).toBe('ton_us');
+    expect(toGaebUnitCode('t')).toBe('t');
+  });
+
   // ── New: Hierarchy preservation — multi-level (Los → Titel → Position) ─
   it('preserves multi-level hierarchy on export (Los → Titel → Position)', () => {
     const positions: ExportPosition[] = [

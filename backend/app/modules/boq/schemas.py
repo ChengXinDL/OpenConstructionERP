@@ -355,7 +355,7 @@ class PositionCreate(BaseModel):
     # spellings (Romanian "Bucat", Bulgarian "бр", Russian "шт", German
     # "Stück", CWICR multi-prefix forms like "100 EA") all round-trip
     # through ``normalise_unit`` lowercased and stripped.  Common synonyms
-    # ("ton" → "t", "metre" → "m") still bucket into canonical forms so
+    # ("tonne" → "t", "metre" → "m") still bucket into canonical forms so
     # aggregations stay coherent.  Only genuinely unsafe shapes (empty,
     # > 30 chars, control chars, HTML / SQL / quote characters) are
     # rejected.
