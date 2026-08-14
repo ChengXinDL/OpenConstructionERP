@@ -21,6 +21,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.demo_showcase import GERMAN_SHOWCASE_DEMO_IDS
 from app.modules.boq.models import BOQ, BOQMarkup, Position
 from app.modules.changeorders.models import ChangeOrder, ChangeOrderItem
 from app.modules.contacts.models import Contact
@@ -9958,7 +9959,13 @@ async def _seed_module_data(
     try:
         from app.modules.daily_diary.models import DailyDiary
 
-        dd_list = generated.get("daily_diary", [])
+        # The German showcase projects get their diaries from
+        # seed_daily_diary_showcase_de: German text, German working days,
+        # entries and photos, and a signed archive chain. These headers are
+        # English, calendar-blind and empty, and writing them here would both
+        # lose that register and collide with it on
+        # (project_id, diary_date), which is unique.
+        dd_list = [] if demo_id in GERMAN_SHOWCASE_DEMO_IDS else generated.get("daily_diary", [])
         for d in dd_list:
             session.add(
                 DailyDiary(

@@ -74,7 +74,7 @@ async def enrich_projects(project_ids: list[uuid.UUID]) -> None:
         from app.modules.contracts.seed import seed_contracts_demo
         from app.modules.costmodel.seed import seed_costmodel
         from app.modules.crm.seed import seed_crm_demo
-        from app.modules.daily_diary.seed import seed_daily_diary_demo
+        from app.modules.daily_diary.seed import seed_daily_diary_demo, seed_daily_diary_showcase_de
         from app.modules.documents.documents_seed import seed_documents_demo
         from app.modules.documents.photos_seed import seed_photos
         from app.modules.dwg_takeoff.seed import seed_dwg_takeoff_demo
@@ -243,6 +243,12 @@ async def enrich_projects(project_ids: list[uuid.UUID]) -> None:
             # reconciliation correlator at the end of this list. Self-guards
             # per project on its own seeded notice codes.
             ("variations_showcase_de", None, lambda s: seed_variations_showcase_de(s, _demo_pids)),
+            # German Bautagebuch for the same four projects: thirty consecutive
+            # German working days ending today, entries and site photos, and a
+            # signed and archived chain closed by the named site supervisor.
+            # Must run after "photos" above, which commits the image files this
+            # register points at. Self-guards per project on its own diaries.
+            ("daily_diary_showcase_de", None, lambda s: seed_daily_diary_showcase_de(s, _demo_pids)),
             ("temporary_works", None, lambda s: seed_temporary_works_demo(s, _demo_pids)),
             # Mobilisation plan and readiness register. Demo-only: it records
             # signed consents, issued certificates and closed commencement gates,

@@ -15,6 +15,7 @@ from typing import Any, Iterable
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.demo_showcase import GERMAN_SHOWCASE_DEMO_IDS
 from app.modules.projects.models import Project
 from app.modules.variations.models import (
     DayworkSheet,
@@ -146,15 +147,10 @@ async def _project_currencies(
 #: Demo projects whose variations register is hand-authored in German by
 #: :func:`seed_variations_showcase_de`. The generic English sprinkle below
 #: must not reach them: a German showcase project with "Notice of variation
-#: 12" in its Anzeigen tab is the defect the showcase audit filed.
-_GERMAN_SHOWCASE_IDS = frozenset(
-    {
-        "office-frankfurt",
-        "retail-market-heidelberg",
-        "retail-market-karlsruhe",
-        "retail-market-heilbronn",
-    }
-)
+#: 12" in its Anzeigen tab is the defect the showcase audit filed. The list
+#: is shared with the other localised registers - see
+#: :mod:`app.core.demo_showcase` for why it has one home.
+_GERMAN_SHOWCASE_IDS = GERMAN_SHOWCASE_DEMO_IDS
 
 
 async def _demo_ids_by_project(
