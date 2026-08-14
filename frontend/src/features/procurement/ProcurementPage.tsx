@@ -40,6 +40,7 @@ import { apiGet, apiPost, apiPatch, type Page } from '@/shared/lib/api';
 import { TruncationNotice } from '@/shared/ui/TruncationNotice';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
+import { useActiveProjectId } from '@/shared/hooks/useActiveProjectId';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { getPOMatchStatus, type POLineMatchTag } from './api';
 import { procurementGuide } from './procurementGuide';
@@ -318,7 +319,7 @@ export function ProcurementPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const projectId = useProjectContextStore((s) => s.activeProjectId);
+  const projectId = useActiveProjectId();
   const projectName = useProjectContextStore((s) => s.activeProjectName);
 
   const [activeTab, setActiveTab] = useState<ProcurementTab>('purchase-orders');

@@ -46,7 +46,7 @@ import { DateDisplay } from '@/shared/ui/DateDisplay';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { apiGet, getErrorMessage } from '@/shared/lib/api';
 import { useToastStore } from '@/stores/useToastStore';
-import { useProjectContextStore } from '@/stores/useProjectContextStore';
+import { useActiveProjectId } from '@/shared/hooks/useActiveProjectId';
 import { useTabKeyboardNav } from '@/shared/hooks/useTabKeyboardNav';
 import { useDisplayQuantity } from '@/shared/hooks/useDisplayQuantity';
 import {
@@ -505,7 +505,7 @@ function HowBidManagementWorks() {
 export function BidManagementPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const activeProjectId = useProjectContextStore((s) => s.activeProjectId);
+  const activeProjectId = useActiveProjectId();
 
   const projectsQ = useQuery({
     queryKey: ['bid-management', 'projects'],

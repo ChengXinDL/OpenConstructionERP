@@ -50,7 +50,7 @@ import { useConfirm } from '@/shared/hooks/useConfirm';
 import { useDisplayQuantity } from '@/shared/hooks/useDisplayQuantity';
 import { DateDisplay } from '@/shared/ui/DateDisplay';
 import { useToastStore } from '@/stores/useToastStore';
-import { useProjectContextStore } from '@/stores/useProjectContextStore';
+import { useActiveProjectId } from '@/shared/hooks/useActiveProjectId';
 import { apiGet, getErrorMessage } from '@/shared/lib/api';
 import { onlyChangedFields } from '@/shared/lib/apiHelpers';
 import {
@@ -226,7 +226,7 @@ export function CarbonPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>('inventory');
-  const activeProjectId = useProjectContextStore((s) => s.activeProjectId);
+  const activeProjectId = useActiveProjectId();
   const [inventoryDrawerId, setInventoryDrawerId] = useState<string | null>(null);
   const [createInvOpen, setCreateInvOpen] = useState(false);
   const [createTargetOpen, setCreateTargetOpen] = useState(false);

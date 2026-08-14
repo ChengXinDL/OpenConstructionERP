@@ -38,6 +38,7 @@ import {
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { DismissibleInfo, IntroRichText } from '@/shared/ui/DismissibleInfo';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
+import { useActiveProjectId } from '@/shared/hooks/useActiveProjectId';
 import { useToastStore } from '@/stores/useToastStore';
 
 import {
@@ -78,7 +79,7 @@ export function SnapshotsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const activeProjectId = useProjectContextStore((s) => s.activeProjectId);
+  const activeProjectId = useActiveProjectId();
   const activeProjectName = useProjectContextStore((s) => s.activeProjectName);
   const toast = useToastStore((s) => s.addToast);
 

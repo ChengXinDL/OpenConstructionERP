@@ -37,7 +37,7 @@ import type { KpiBandItem } from '@/shared/ui';
 import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
 import { buildFieldTimeInsights } from './fieldTimeInsights';
 import { RequiresProject } from '@/shared/auth/RequiresProject';
-import { useProjectContextStore } from '@/stores/useProjectContextStore';
+import { useActiveProjectId } from '@/shared/hooks/useActiveProjectId';
 import { useToastStore } from '@/stores/useToastStore';
 import { getErrorMessage } from '@/shared/lib/api';
 import { todayLocalISO } from '@/shared/lib/dates';
@@ -196,7 +196,7 @@ function FieldTimeContent() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const addToast = useToastStore((s) => s.addToast);
-  const projectId = useProjectContextStore((s) => s.activeProjectId) ?? '';
+  const projectId = useActiveProjectId();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<TimesheetStatus | ''>('');

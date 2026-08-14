@@ -66,6 +66,7 @@ import { ContractAnalyticsPanels } from './ContractAnalyticsPanels';
 import { contractsGuide } from './contractsGuide';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
+import { useActiveProjectId } from '@/shared/hooks/useActiveProjectId';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { getErrorMessage } from '@/shared/lib/api';
 import { projectsApi } from '@/features/projects/api';
@@ -470,7 +471,7 @@ export function ContractsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState<Tab>('contracts');
-  const activeProjectId = useProjectContextStore((s) => s.activeProjectId);
+  const activeProjectId = useActiveProjectId();
 
   // CONN-43 consumer: a subcontractor's "Subcontract agreement" pill deep-links
   // here with ?counterparty=<id> so the register opens scoped to that firm's

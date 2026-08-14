@@ -60,6 +60,7 @@ import { PageHeader } from '@/shared/ui/PageHeader';
 import { useToastStore } from '@/stores/useToastStore';
 import { getErrorMessage, ApiError } from '@/shared/lib/api';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
+import { useActiveProjectId } from '@/shared/hooks/useActiveProjectId';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { usePreferencesStore } from '@/stores/usePreferencesStore';
 import {
@@ -410,7 +411,7 @@ export function ResourcesPage() {
   const [newRequestOpen, setNewRequestOpen] = useState(false);
   const qc = useQueryClient();
   const addToast = useToastStore((s) => s.addToast);
-  const activeProjectId = useProjectContextStore((s) => s.activeProjectId);
+  const activeProjectId = useActiveProjectId();
   const activeProjectName = useProjectContextStore((s) => s.activeProjectName);
   const setActiveProject = useProjectContextStore((s) => s.setActiveProject);
 
@@ -4461,7 +4462,7 @@ function ProposeAssignmentModal({
   // The project the user is already working in is the overwhelmingly likely
   // answer, so it seeds the picker; the activity is never seeded because
   // nothing says which row of that project's schedule this booking is for.
-  const activeProjectId = useProjectContextStore((s) => s.activeProjectId);
+  const activeProjectId = useActiveProjectId();
 
   // datetime-local inputs are wall-clock and tz-naive. Seeding them from
   // a UTC ISO string and then re-parsing with `new Date` double-applies

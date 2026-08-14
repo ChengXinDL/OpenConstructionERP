@@ -56,7 +56,7 @@ import { PageHeader } from '@/shared/ui/PageHeader';
 import { apiGet, getErrorMessage } from '@/shared/lib/api';
 import { onlyChangedFields } from '@/shared/lib/apiHelpers';
 import { useToastStore } from '@/stores/useToastStore';
-import { useProjectContextStore } from '@/stores/useProjectContextStore';
+import { useActiveProjectId } from '@/shared/hooks/useActiveProjectId';
 import { usePreferencesStore } from '@/stores/usePreferencesStore';
 import { useTabKeyboardNav } from '@/shared/hooks/useTabKeyboardNav';
 import {
@@ -370,7 +370,7 @@ function HowVariationsWork() {
 export function VariationsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const activeProjectId = useProjectContextStore((s) => s.activeProjectId);
+  const activeProjectId = useActiveProjectId();
 
   const projectsQ = useQuery({
     queryKey: ['variations', 'projects'],

@@ -60,7 +60,7 @@ import { RequiresProject } from '@/shared/auth/RequiresProject';
 import { DateDisplay } from '@/shared/ui/DateDisplay';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { useToastStore } from '@/stores/useToastStore';
-import { useProjectContextStore } from '@/stores/useProjectContextStore';
+import { useActiveProjectId } from '@/shared/hooks/useActiveProjectId';
 import { apiGet, getErrorMessage, type Page } from '@/shared/lib/api';
 import { TruncationNotice } from '@/shared/ui/TruncationNotice';
 import { todayLocalISO, isoDateFromLocal, nowLocalISO } from '@/shared/lib/dates';
@@ -239,7 +239,7 @@ export function DailyDiaryPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>('diaries');
-  const activeProjectId = useProjectContextStore((s) => s.activeProjectId);
+  const activeProjectId = useActiveProjectId();
   const [projectId, setProjectId] = useState<string>('');
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());

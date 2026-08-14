@@ -47,6 +47,7 @@ import { payrollGuide } from './payrollGuide';
 import { RequiresProject } from '@/shared/auth/RequiresProject';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
+import { useActiveProjectId } from '@/shared/hooks/useActiveProjectId';
 import { getErrorMessage } from '@/shared/lib/api';
 import {
   fetchPayrollBatches,
@@ -416,7 +417,7 @@ export default function PayrollPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const addToast = useToastStore((s) => s.addToast);
-  const activeProjectId = useProjectContextStore((s) => s.activeProjectId);
+  const activeProjectId = useActiveProjectId();
   const activeProjectName = useProjectContextStore((s) => s.activeProjectName);
   const projectId = activeProjectId ?? '';
 

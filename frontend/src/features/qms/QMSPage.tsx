@@ -48,7 +48,7 @@ import { DateDisplay } from '@/shared/ui/DateDisplay';
 import { SectionIntro } from '@/features/validation';
 import { apiGet, getAuthToken, getErrorMessage, triggerDownload } from '@/shared/lib/api';
 import { useToastStore } from '@/stores/useToastStore';
-import { useProjectContextStore } from '@/stores/useProjectContextStore';
+import { useActiveProjectId } from '@/shared/hooks/useActiveProjectId';
 import {
   listITPPlans,
   listInspections,
@@ -290,7 +290,7 @@ export function QMSPage() {
   // When raising an NCR straight from a failed inspection (CONN-64) we seed the
   // create modal's linked_inspection_id so the quality chain stays connected.
   const [ncrPrefillInspectionId, setNcrPrefillInspectionId] = useState<string | null>(null);
-  const activeProjectId = useProjectContextStore((s) => s.activeProjectId);
+  const activeProjectId = useActiveProjectId();
 
   const { data: projects = [] } = useQuery({
     queryKey: ['projects'],

@@ -54,7 +54,7 @@ import { RequiresProject } from '@/shared/auth/RequiresProject';
 import { PlanningCrossLinks } from '@/features/schedule/PlanningCrossLinks';
 import { DateDisplay } from '@/shared/ui/DateDisplay';
 import { useToastStore } from '@/stores/useToastStore';
-import { useProjectContextStore } from '@/stores/useProjectContextStore';
+import { useActiveProjectId } from '@/shared/hooks/useActiveProjectId';
 import { getErrorMessage } from '@/shared/lib/api';
 import { projectsApi } from '@/features/projects/api';
 import {
@@ -516,7 +516,7 @@ export function ScheduleAdvancedPage() {
     onChange: setTab,
     orientation: 'horizontal',
   });
-  const activeProjectId = useProjectContextStore((s) => s.activeProjectId);
+  const activeProjectId = useActiveProjectId();
   const [projectId, setProjectId] = useState<string>('');
   const [masterId, setMasterId] = useState<string>('');
   const [lookAheadId, setLookAheadId] = useState<string>('');
