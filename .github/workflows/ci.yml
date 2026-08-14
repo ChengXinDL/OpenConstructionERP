@@ -172,10 +172,13 @@ jobs:
     # blocks the merge instead of surfacing the next morning. It is fast because
     # it collects only the security selection, not the whole integration tree.
     runs-on: ubuntu-latest
-    # The isolation + IDOR selection legitimately runs 28 to 30 minutes on the
-    # shared runners, so a 30 minute cap was cancelling otherwise green runs.
-    # 45 gives headroom as the suite grows with each new module.
-    timeout-minutes: 45
+    # The isolation + IDOR selection legitimately runs a long time on the shared
+    # runners, so an early 30 minute cap was cancelling otherwise green runs.
+    # Last measured at 2015s (33m35s) for 515 tests, and the widened selection
+    # below is 658 tests, which projects to roughly 43 minutes. That would sit
+    # inside a 45 minute cap with about 5% to spare, which is not headroom, it
+    # is a cancellation waiting for the next module to land. 60.
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: backend
@@ -223,17 +226,42 @@ jobs:
       - name: Run tenant-isolation + IDOR suite
         # Collect ONLY the cross-tenant / IDOR selection from the integration and
         # module trees (the unit-level *_idor.py / tenant-scope guards already
-        # run in the sharded Backend CI). The -k filter matches the node id, so
-        # the filename keywords (idor / isolation / tenant / authz) pick exactly
-        # the security suite. --timeout matches the nightly so a hung test fails
-        # loud instead of stalling the cap.
+        # run in the sharded Backend CI). --timeout matches the nightly so a hung
+        # test fails loud instead of stalling the cap.
+        #
+        # The four original keywords were described as picking exactly the
+        # security suite. They did not. -k matches the node id and nothing else,
+        # so it never sees a fixture called two_tenants, a docstring that says
+        # IDOR, or an assertion message that says LEAK. Measured against the 5875
+        # tests in these two trees, the old chain took 515 and left about 87
+        # genuine cross-tenant tests behind, among them
+        # test_grant_on_project_A_does_not_leak_project_B and
+        # test_a_credential_cannot_be_planted_on_a_foreign_project. Those gated a
+        # merge only via the nightly, which is the exact hole this job exists to
+        # close, so the job name was writing a cheque the filter did not honour.
+        #
+        # The chain below takes 658. Each word was measured for what it drags in
+        # before being added: `security` was rejected at +353 (whole files by
+        # filename, decimal arithmetic and magic-byte gates), `scope` at +138
+        # (validators, fx conversion) and `forbidden` at +11 (a submittal state
+        # machine). `cross_tenant` and `outsider` are absent because they add
+        # nothing, already living inside `tenant` and `isolation`.
+        #
+        # A keyword chain is leaky by construction: a future test_cross_widget_leak
+        # needs another word here. The durable fix is a tenant_isolation marker
+        # selected with -m, and this chain is the interim.
         env:
           DATABASE_URL: postgresql+asyncpg://oe:oe@localhost:5432/openconstructionerp_test
           DATABASE_SYNC_URL: postgresql+psycopg2://oe:oe@localhost:5432/openconstructionerp_test
         run: >-
           pytest tests/integration tests/modules -q -ra
           --timeout=300 --timeout-method=signal
-          -k "idor or isolation or tenant or authz"
+          -k "idor or isolation or tenant or authz or rls or cross_project
+          or cross_package or cross_boq or other_project or other_user
+          or foreign or stranger or non_member or non_owner or non_author
+          or unrelated or uninvolved or scoping or sees_own or leak
+          or invisible or impersonat or smuggle or tamper or user_b
+          or wrong_project"
 
   zero-width-guard:
     name: Block zero-width Unicode characters
