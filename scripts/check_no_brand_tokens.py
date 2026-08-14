@@ -1,11 +1,22 @@
 #!/usr/bin/env python3
-"""Fail the build if a competitor or vendor brand token leaks into the repo.
+"""Fail the build if a competitor brand leaks in, or a named CAD tool loses its mark.
 
-Founder rule (strict): competitor and vendor product names must never appear in
-any commit, code, UI string, changelog, or build artifact. Internal research
-stays internal; everything shippable uses neutral generic names.
+Two rules live here and they are not the same rule.
 
-This gate enforces that automatically so it does not rely on a reviewer
+Competitor products must never appear in any commit, code, UI string, changelog
+or build artifact. Internal research stays internal; everything shippable uses
+neutral generic names. The hashed denylist below enforces that one.
+
+CAD authoring tools we convert FROM are the documented exception. Naming them is
+the only way to tell a user which files the pipeline actually reads, so they are
+allowed in UI strings, and the founder ruling of 2026-08-14 settles the form:
+the first mention in each string carries the registered sign, which is the same
+treatment the marketing site has used since 2026-07. The trademark form check
+enforces that one. It is deliberately hash-free, because here the word is
+permitted and only its form is in question, so the report can name it outright
+instead of masking it.
+
+This gate enforces both automatically so neither relies on a reviewer
 remembering. It is wired into both the local pre-commit hook and CI, exactly
 like ``check_version_sync.py``.
 
@@ -22,8 +33,8 @@ token (first and last character plus length) so a developer can locate and remov
 it without the log reproducing the full brand string.
 
 Exit codes:
-    0  no brand token found in the scanned files
-    1  at least one brand token found (with file:line locations)
+    0  no brand token found, and every named CAD tool carries its mark
+    1  a brand token leaked, or a UI string dropped the mark (file:line listed)
 
 Usage::
 
@@ -53,11 +64,17 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 #
 # Founder ruling (2026-07): third-party product names are purged from every
 # shippable surface and referred to only by open format (DWG/RVT/IFC/DGN) or a
-# neutral category. CAD/BIM authoring and coordination product names are therefore
-# denylisted below as well. The few genuinely load-bearing uses (our own DDC
-# converter repository URL, a file-format detection value the parser compares
-# against) are kept precise via the allowlist plus human review, so enforcement
-# never breaks our own integration code.
+# neutral category. CAD/BIM coordination product names are therefore denylisted
+# below as well. The few genuinely load-bearing uses (our own DDC converter
+# repository URL, a file-format detection value the parser compares against) are
+# kept precise via the allowlist plus human review, so enforcement never breaks
+# our own integration code.
+#
+# Amended 2026-08-14: the authoring tool the converter reads from is named in UI
+# strings rather than purged, so it is deliberately absent from this list. It is
+# not an oversight and must not be hashed in: the trademark form check below is
+# what governs it, and hashing it would forbid the very strings that ruling
+# permits.
 _DENY_HASHES: frozenset[str] = frozenset(
     {
         "a62ee5ab3e8914010c0f75ff149f9415c839c64ccf4d8ed91d13b456dbc1d813",
@@ -216,6 +233,54 @@ _SKIP_FILES = {
 _ALLOWLIST_FILE = REPO_ROOT / "scripts" / "brand_token_allowlist.txt"
 
 
+# Named CAD authoring tools: allowed in UI strings, required to carry the mark.
+# Literals, not hashes, because the point is the form of a permitted word.
+_MARKED_NAMES = ("Revit",)
+_REGISTERED = "®"
+_LOCALE_DIR = "frontend/src/app/locales/"
+
+# A locale entry is one line, `"some.key": "the display string",`. Only the value
+# is display text: a key such as `bim.filter_revit_categories` is an identifier
+# and is never marked, so the check reads group 2 and ignores group 1.
+_LOCALE_ENTRY_RE = re.compile(r'^\s*"([A-Za-z0-9_.\-]+)"\s*:\s*"(.*)"\s*,?\s*$')
+
+# The one context where the name is an identifier rather than a display name:
+# the converter's own repository slug, which is part of a URL and must stay
+# byte-exact. Anything else that looks slug-like is still reported, because a
+# gate that guesses at new slugs would rather quietly permit than ask.
+_SLUG_PREFIX = "cad2data-"
+
+
+def _scan_trademark_form(path: Path) -> list[tuple[int, str, str]]:
+    """Report a locale string whose first CAD tool mention is missing the mark.
+
+    Only the first mention needs it. "Revit templates read Revit parameters" is
+    correct usage, and demanding a sign on every repetition would make the gate
+    reject the very wording the ruling produced. German and Nordic compounds
+    keep the sign on the name itself, before the hyphen, as in Revit(R)-Modelle,
+    so nothing about a following hyphen makes an occurrence exempt.
+    """
+    hits: list[tuple[int, str, str]] = []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, OSError):
+        return hits
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        entry = _LOCALE_ENTRY_RE.match(line)
+        if not entry:
+            continue
+        key, value = entry.group(1), entry.group(2)
+        for name in _MARKED_NAMES:
+            for match in re.finditer(re.escape(name), value):
+                start, end = match.span()
+                if value[:start].endswith(_SLUG_PREFIX):
+                    continue  # repository slug inside a URL, not a display name
+                if value[end : end + len(_REGISTERED)] != _REGISTERED:
+                    hits.append((lineno, key, name))
+                break  # first display mention decides; later ones stay bare
+    return hits
+
+
 def _load_allowlist() -> list[tuple[str, str]]:
     entries: list[tuple[str, str]] = []
     if not _ALLOWLIST_FILE.is_file():
@@ -311,6 +376,7 @@ def main(argv: list[str]) -> int:
 
     allowlist = _load_allowlist()
     failures: list[str] = []
+    unmarked: list[str] = []
     allowed = 0
     for path in candidates:
         rp = path.resolve()
@@ -334,6 +400,22 @@ def main(argv: list[str]) -> int:
                 continue
             failures.append(f"{shown}:{lineno}: brand token {masked}")
 
+        if shown.replace("\\", "/").startswith(_LOCALE_DIR):
+            for lineno, key, name in _scan_trademark_form(rp):
+                unmarked.append(f"{shown}:{lineno}: {key} names {name} with no {_REGISTERED}")
+
+    if unmarked:
+        print(
+            f"[FAIL] {len(unmarked)} UI string(s) name a CAD tool without the "
+            f"registered sign - add {_REGISTERED} to the first mention:"
+        )
+        for u in unmarked:
+            print(f"  {u}")
+        print(
+            "\nThe name itself is allowed. Only the first mention in a string "
+            "takes the sign; later mentions in the same string stay bare."
+        )
+
     if failures:
         print(
             "[FAIL] competitor/vendor brand token(s) found - remove and use a neutral name:"
@@ -344,10 +426,13 @@ def main(argv: list[str]) -> int:
             "\nThese product names must never appear in the repo. Replace with the "
             "neutral generic term used elsewhere in the codebase."
         )
+
+    if failures or unmarked:
         return 1
 
     note = f" ({allowed} reviewed interop exception(s) allowed)" if allowed else ""
     print(f"[OK] no brand tokens in {len(candidates)} scanned file(s){note}")
+    print("[OK] every CAD tool named in a UI string carries the registered sign")
     return 0
 
 

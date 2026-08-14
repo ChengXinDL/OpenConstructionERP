@@ -835,7 +835,7 @@ function DropZone({
           {t('import.drop_or_browse', { defaultValue: 'Drop your file here, or click to browse' })}
         </p>
         <p className="mt-1 text-xs text-content-tertiary">
-          {t('import.supported_formats', { defaultValue: 'Supports Excel, CSV, PDF, photos, and CAD/BIM files (Revit, IFC, DWG, DGN)' })}
+          {t('import.supported_formats', { defaultValue: 'Supports Excel, CSV, PDF, photos, and CAD/BIM files (Revit®, IFC, DWG, DGN)' })}
         </p>
       </div>
       <input

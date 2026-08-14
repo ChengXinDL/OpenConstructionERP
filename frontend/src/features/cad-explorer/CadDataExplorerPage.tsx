@@ -4039,10 +4039,10 @@ export function CadDataExplorerPage() {
                     {t('nav.cad_bim_explorer', { defaultValue: 'CAD-BIM BI Explorer' })}
                   </h1>
                   <p className="text-base text-content-secondary mt-3 leading-relaxed">
-                    {t('explorer.hero_subtitle', { defaultValue: 'Analyze building element data in a powerful spreadsheet interface. Filter, pivot, chart, and export quantities from your IFC and Revit models.' })}
+                    {t('explorer.hero_subtitle', { defaultValue: 'Analyze building element data in a powerful spreadsheet interface. Filter, pivot, chart, and export quantities from your IFC and Revit® models.' })}
                   </p>
                   <p className="text-xs text-content-tertiary mt-3 leading-relaxed">
-                    IFC 2x3, 4.0, 4.1, 4.3 &middot; Revit 2015–2026 &middot; DWG &middot; DGN &middot; DXF &middot; RFA
+                    IFC 2x3, 4.0, 4.1, 4.3 &middot; Revit® 2015–2026 &middot; DWG &middot; DGN &middot; DXF &middot; RFA
                   </p>
                   <div className="mt-4 flex items-center justify-start">
                     <div className="inline-flex flex-wrap items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20">

@@ -995,8 +995,8 @@
     "reason_category": "standard_code"
   },
   "rulePacks.format_revit": {
-    "en_value": "Revit",
-    "note": "proper noun naming the third-party authoring tool whose parameter model the rule pack targets; untranslated in all 29 locales including ru. The label exists because a rule pack selects by that tool's own category and parameter names and cannot be described generically without becoming unusable. Open for a ruling on whether the screen should name a file extension instead",
+    "en_value": "Revit®",
+    "note": "proper noun naming the third-party authoring tool whose parameter model the rule pack targets; untranslated in all 29 locales including ru. The label exists because a rule pack selects by that tool's own category and parameter names and cannot be described generically without becoming unusable. Ruled 2026-08-14: the screen keeps the name and carries the registered sign on the first mention of every string, so the value is identical across locales by design rather than by omission",
     "reason_category": "product_name"
   },
   "safety.mod_ncr": {
