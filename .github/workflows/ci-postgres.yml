@@ -80,6 +80,14 @@ jobs:
       # than three incidents. It also covers the other half of a demo register
       # being useful: that it is not seeded entirely closed, and that two
       # projects do not render the same rows.
+      # Contact domains join for the same reason as the firm names two entries
+      # up, and from the other side of the same data: the German packs name
+      # their firms properly, umlauts and all, and the addresses were written
+      # to match. A domain label cannot carry an umlaut on the wire, so twenty
+      # of them across four files were unreachable as written and read on
+      # screen as typos. The name keeps its umlauts and the domain does not,
+      # which is a distinction only a check that reads the two spans separately
+      # can make, and nothing in the tree was making it.
       # The file after it stops naming modules one at a time. It reads the
       # vocabulary out of every module's schemas and checks every seeded record
       # against the module that owns it, which is how the fourth instance was
@@ -98,6 +106,7 @@ jobs:
           tests/unit/test_demo_seed_text_has_no_scaffolding_words.py
           tests/unit/test_demo_insight_dimensions.py
           tests/unit/test_demo_seed_has_no_real_firm_names.py
+          tests/unit/test_demo_contact_domains.py
           tests/unit/test_demo_safety_vocabulary.py
           tests/unit/test_demo_seed_speaks_module_vocabularies.py
           -q -p no:cacheprovider

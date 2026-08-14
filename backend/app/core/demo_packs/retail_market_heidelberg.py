@@ -2644,9 +2644,9 @@ TEMPLATE = DemoTemplate(
     # disabled.
     tender_name="VP-07 Kältetechnik CO2-Verbund und Kühlmöbel",
     tender_companies=[
-        ("Kurpfalz Kältetechnik GmbH", "vergabe@kurpfalz-kälte.de", 752_400 / _LV_GRAND_TOTAL),
-        ("Rhein-Neckar Kühlanlagenbau GmbH", "angebote@rn-kühlanlagen.de", 781_900 / _LV_GRAND_TOTAL),
-        ("Odenwald Kälte- und Klimatechnik GmbH", "ausschreibung@odenwald-kälte.de", 818_500 / _LV_GRAND_TOTAL),
+        ("Kurpfalz Kältetechnik GmbH", "vergabe@kurpfalz-kaelte.de", 752_400 / _LV_GRAND_TOTAL),
+        ("Rhein-Neckar Kühlanlagenbau GmbH", "angebote@rn-kuehlanlagen.de", 781_900 / _LV_GRAND_TOTAL),
+        ("Odenwald Kälte- und Klimatechnik GmbH", "ausschreibung@odenwald-kaelte.de", 818_500 / _LV_GRAND_TOTAL),
     ],
     # Four procurement packages, each mapping to a procurement-unit budget.
     # Status reflects a mid-construction snapshot: VP-07 awarded, VP-09 out for
@@ -2661,9 +2661,9 @@ TEMPLATE = DemoTemplate(
             "awarded",
             [
                 # bids 752,400 / 781,900 / 818,500 EUR, spread 8.8 %
-                ("Kurpfalz Kältetechnik GmbH", "vergabe@kurpfalz-kälte.de", 752_400 / _PKG_SHARE),
-                ("Rhein-Neckar Kühlanlagenbau GmbH", "angebote@rn-kühlanlagen.de", 781_900 / _PKG_SHARE),
-                ("Odenwald Kälte- und Klimatechnik GmbH", "ausschreibung@odenwald-kälte.de", 818_500 / _PKG_SHARE),
+                ("Kurpfalz Kältetechnik GmbH", "vergabe@kurpfalz-kaelte.de", 752_400 / _PKG_SHARE),
+                ("Rhein-Neckar Kühlanlagenbau GmbH", "angebote@rn-kuehlanlagen.de", 781_900 / _PKG_SHARE),
+                ("Odenwald Kälte- und Klimatechnik GmbH", "ausschreibung@odenwald-kaelte.de", 818_500 / _PKG_SHARE),
             ],
         ),
         (
@@ -2673,8 +2673,8 @@ TEMPLATE = DemoTemplate(
             [
                 # indicative bids 771,200 / 818,400 / 869,400 EUR, spread 12.7 %
                 ("Galabau Neckartal GmbH", "angebot@galabau-neckartal.de", 771_200 / _PKG_SHARE),
-                ("Tiefbau Bergstraße GmbH", "vergabe@tiefbau-bergstraße.de", 818_400 / _PKG_SHARE),
-                ("Grünbau Kraichgau GmbH", "ausschreibung@grünbau-kraichgau.de", 869_400 / _PKG_SHARE),
+                ("Tiefbau Bergstraße GmbH", "vergabe@tiefbau-bergstrasse.de", 818_400 / _PKG_SHARE),
+                ("Grünbau Kraichgau GmbH", "ausschreibung@gruenbau-kraichgau.de", 869_400 / _PKG_SHARE),
             ],
         ),
         (
@@ -2694,7 +2694,7 @@ TEMPLATE = DemoTemplate(
             [
                 # bids 411,300 / 438,700 / 460,200 EUR, spread 11.9 %
                 ("Sonnenkraft Kurpfalz GmbH", "angebot@sonnenkraft-kurpfalz.de", 411_300 / _PKG_SHARE),
-                ("EnergieWerk Bergstraße GmbH", "vergabe@energiewerk-bergstraße.de", 438_700 / _PKG_SHARE),
+                ("EnergieWerk Bergstraße GmbH", "vergabe@energiewerk-bergstrasse.de", 438_700 / _PKG_SHARE),
                 ("Elektro Wieblinger GmbH", "t.wieblinger@elektro-wieblinger.de", 460_200 / _PKG_SHARE),
             ],
         ),

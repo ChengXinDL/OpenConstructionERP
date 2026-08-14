@@ -2666,9 +2666,9 @@ TEMPLATE = DemoTemplate(
     # disabled.
     tender_name="VP-07 Kältetechnik CO2-Verbund und Kühlmöbel",
     tender_companies=[
-        ("Badische Kältetechnik GmbH", "vergabe@badische-kältetechnik.de", 958_400 / _LV_GRAND_TOTAL),
-        ("PfinzKlima Kälte- und Klimatechnik GmbH", "angebote@pfinzklima-kälte.de", 1_012_600 / _LV_GRAND_TOTAL),
-        ("Kühlanlagenbau Rheintal GmbH", "ausschreibung@kältebau-rheintal.de", 1_058_900 / _LV_GRAND_TOTAL),
+        ("Badische Kältetechnik GmbH", "vergabe@badische-kaeltetechnik.de", 958_400 / _LV_GRAND_TOTAL),
+        ("PfinzKlima Kälte- und Klimatechnik GmbH", "angebote@pfinzklima-kaelte.de", 1_012_600 / _LV_GRAND_TOTAL),
+        ("Kühlanlagenbau Rheintal GmbH", "ausschreibung@kaeltebau-rheintal.de", 1_058_900 / _LV_GRAND_TOTAL),
     ],
     # Four procurement packages (VP-07/09/10/11 of the design dossier), each
     # mapping to a procurement unit budget. Status reflects the week-21
@@ -2684,9 +2684,9 @@ TEMPLATE = DemoTemplate(
             "awarded",
             [
                 # bids 958,400 / 1,012,600 / 1,058,900 EUR, spread 10.5 %
-                ("Badische Kältetechnik GmbH", "vergabe@badische-kältetechnik.de", 958_400 / _PKG_SHARE),
-                ("PfinzKlima Kälte- und Klimatechnik GmbH", "angebote@pfinzklima-kälte.de", 1_012_600 / _PKG_SHARE),
-                ("Kühlanlagenbau Rheintal GmbH", "ausschreibung@kältebau-rheintal.de", 1_058_900 / _PKG_SHARE),
+                ("Badische Kältetechnik GmbH", "vergabe@badische-kaeltetechnik.de", 958_400 / _PKG_SHARE),
+                ("PfinzKlima Kälte- und Klimatechnik GmbH", "angebote@pfinzklima-kaelte.de", 1_012_600 / _PKG_SHARE),
+                ("Kühlanlagenbau Rheintal GmbH", "ausschreibung@kaeltebau-rheintal.de", 1_058_900 / _PKG_SHARE),
             ],
         ),
         (
@@ -2697,7 +2697,7 @@ TEMPLATE = DemoTemplate(
                 # indicative bids 1,205,000 / 1,278,400 / 1,364,200 EUR, spread 13.2 %
                 ("Galabau Hardtwald GmbH", "angebot@galabau-hardtwald.de", 1_205_000 / _PKG_SHARE),
                 ("Tiefbau Albtal GmbH", "vergabe@tiefbau-albtal.de", 1_278_400 / _PKG_SHARE),
-                ("Grünbau Kraichgau GmbH", "ausschreibung@grünbau-kraichgau.de", 1_364_200 / _PKG_SHARE),
+                ("Grünbau Kraichgau GmbH", "ausschreibung@gruenbau-kraichgau.de", 1_364_200 / _PKG_SHARE),
             ],
         ),
         (
@@ -2718,7 +2718,7 @@ TEMPLATE = DemoTemplate(
                 # bids 631,800 / 678,400 / 710,200 EUR, spread 12.4 %
                 ("Sonnkraft Solartechnik GmbH", "angebot@sonnkraft-solar.de", 631_800 / _PKG_SHARE),
                 ("EnergieWerk Oberrhein GmbH", "vergabe@energiewerk-oberrhein.de", 678_400 / _PKG_SHARE),
-                ("Elektro Würmtal GmbH", "k.würmtal@elektro-würmtal.de", 710_200 / _PKG_SHARE),
+                ("Elektro Würmtal GmbH", "k.würmtal@elektro-wuermtal.de", 710_200 / _PKG_SHARE),
             ],
         ),
     ],

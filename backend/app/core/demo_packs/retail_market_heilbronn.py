@@ -2765,9 +2765,9 @@ TEMPLATE = DemoTemplate(
     # disabled.
     tender_name="VP-07 Kältetechnik CO2-Verbund und Kühlmöbel",
     tender_companies=[
-        ("Sommerfeld Kältetechnik GmbH", "vergabe@sommerfeld-kältetechnik.de", 812_400 / _LV_GRAND_TOTAL),
-        ("NeckarFrost Kälte- und Klimatechnik GmbH", "angebote@neckarfrost-kälte.de", 858_900 / _LV_GRAND_TOTAL),
-        ("Kühlanlagenbau Westheimer GmbH", "ausschreibung@kältebau-westheimer.de", 901_200 / _LV_GRAND_TOTAL),
+        ("Sommerfeld Kältetechnik GmbH", "vergabe@sommerfeld-kaeltetechnik.de", 812_400 / _LV_GRAND_TOTAL),
+        ("NeckarFrost Kälte- und Klimatechnik GmbH", "angebote@neckarfrost-kaelte.de", 858_900 / _LV_GRAND_TOTAL),
+        ("Kühlanlagenbau Westheimer GmbH", "ausschreibung@kaeltebau-westheimer.de", 901_200 / _LV_GRAND_TOTAL),
     ],
     # Four procurement packages (VP-07/09/10/11 of the design dossier), each
     # mapping to a procurement unit budget. Status reflects the week-19
@@ -2783,9 +2783,9 @@ TEMPLATE = DemoTemplate(
             "awarded",
             [
                 # bids 812,400 / 858,900 / 901,200 EUR, spread 10.9 %
-                ("Sommerfeld Kältetechnik GmbH", "vergabe@sommerfeld-kältetechnik.de", 812_400 / _PKG_SHARE),
-                ("NeckarFrost Kälte- und Klimatechnik GmbH", "angebote@neckarfrost-kälte.de", 858_900 / _PKG_SHARE),
-                ("Kühlanlagenbau Westheimer GmbH", "ausschreibung@kältebau-westheimer.de", 901_200 / _PKG_SHARE),
+                ("Sommerfeld Kältetechnik GmbH", "vergabe@sommerfeld-kaeltetechnik.de", 812_400 / _PKG_SHARE),
+                ("NeckarFrost Kälte- und Klimatechnik GmbH", "angebote@neckarfrost-kaelte.de", 858_900 / _PKG_SHARE),
+                ("Kühlanlagenbau Westheimer GmbH", "ausschreibung@kaeltebau-westheimer.de", 901_200 / _PKG_SHARE),
             ],
         ),
         (
@@ -2796,7 +2796,7 @@ TEMPLATE = DemoTemplate(
                 # indicative bids 981,400 / 1,041,200 / 1,118,900 EUR, spread 14.0 %
                 ("Galabau Ergenzinger GmbH", "angebot@galabau-ergenzinger.de", 981_400 / _PKG_SHARE),
                 ("Tiefbau Krummacher GmbH", "vergabe@tiefbau-krummacher.de", 1_041_200 / _PKG_SHARE),
-                ("Grünbau Remstal GmbH", "ausschreibung@grünbau-remstal.de", 1_118_900 / _PKG_SHARE),
+                ("Grünbau Remstal GmbH", "ausschreibung@gruenbau-remstal.de", 1_118_900 / _PKG_SHARE),
             ],
         ),
         (
