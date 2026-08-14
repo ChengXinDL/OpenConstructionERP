@@ -44,7 +44,7 @@ import { isModuleI18nKey } from '@/modules/_i18n';
  * (current behaviour), so adding a route without a mapping degrades gracefully
  * rather than showing a raw key.
  */
-const TITLE_I18N_MAP: Record<string, string> = {
+export const TITLE_I18N_MAP: Record<string, string> = {
   // Overview
   'Dashboard': 'nav.dashboard',
   'Projects': 'nav.projects',
@@ -71,8 +71,12 @@ const TITLE_I18N_MAP: Record<string, string> = {
   'GAEB Exchange': 'nav.gaeb_exchange',
   'Resource Catalog': 'nav.resource_catalog',
   'Assemblies': 'nav.assemblies',
-  'New Assembly': 'assemblies.new',
-  'Assembly Editor': 'assemblies.editor',
+  'New Assembly': 'assemblies.new_assembly',
+  // No locale names the single-assembly editor, so it takes the module's own
+  // name. The keys these two used to point at, assemblies.new and
+  // assemblies.editor, exist in no locale at all, which the defaultValue
+  // fallback turned into a silently English heading.
+  'Assembly Editor': 'assemblies.title',
   // Takeoff & CAD/BIM
   'Quantity Takeoff': 'nav.takeoff_overview',
   'PDF Takeoff': 'nav.takeoff',
@@ -167,6 +171,105 @@ const TITLE_I18N_MAP: Record<string, string> = {
   'Settings': 'nav.settings',
   'About': 'nav.about',
   'Not Found': 'error.not_found',
+
+  /* The map had grown to cover about half the routes, and the half it missed
+     included the opening screen of most modules: the heading and the browser
+     tab printed English on an otherwise German session. Everything below is a
+     route whose words are already translated under some key, so these are
+     mappings and not new strings. Where the sidebar names the destination a
+     little differently - "Allowances & Contingency" for the route titled
+     "Allowances" - the sidebar wins, because the point of this map is that the
+     two can never disagree. */
+
+  // Estimation
+  'AI Estimate Builder': 'nav.ai_estimator',
+  'Assembly Library': 'nav.assembly_library',
+  'Basis of Estimate': 'nav.estimate_basis',
+  'Conceptual Estimate': 'nav.rom_estimate',
+  'Estimate Copilot': 'nav.estimate_copilot',
+  'Allowances': 'nav.allowances',
+  'Preliminaries': 'nav.preliminaries',
+  'Waste Factors': 'nav.waste_factors',
+  'Production Norms': 'nav.norm_expansion',
+  'Resource Summary': 'nav.resource_summary',
+  'Cost Match': 'nav.cost_match',
+  'Price Index': 'nav.price_index',
+  'Source Data': 'source_data.title',
+  'Databases & Resources': 'nav.setup_databases',
+  'Currencies': 'nav.fx',
+  // Takeoff & CAD/BIM
+  'Point Cloud': 'nav.point_cloud',
+  'Model Review': 'nav.model_review',
+  'Model Issues': 'nav.model_issues',
+  'Issues': 'nav.issues',
+  'Clash Profiles': 'clash.profiles.title',
+  'Design Options': 'nav.design_options',
+  'Drawing Sheets': 'sheets.page_title',
+  'Plan Room': 'nav.plan_room',
+  'Project map': 'geo_hub.project_title',
+  'Development map': 'geo_hub.development_title',
+  // Commercial
+  'Change Intelligence': 'nav.change_intelligence',
+  'Claims Evidence': 'nav.claims_evidence',
+  'Progress Claim': 'contracts.claim',
+  'Withholding Tax': 'nav.tax_withholding',
+  'Authority Submissions': 'authority_submission.title',
+  'Review Authority': 'review_authority.title',
+  'Interface Register': 'nav.interface_management',
+  'Management of Change': 'moc.title',
+  'Event Reconciliation': 'nav.reconciliation',
+  // Planning
+  'Takt Planning': 'nav.takt',
+  'Capacity Planning': 'nav.capacity_planning',
+  'Resource Leveling': 'nav.resource_leveling',
+  'Progress': 'nav.progress',
+  'Construction Control': 'nav.construction_control',
+  // Field & site
+  'Field Time': 'nav.field_time',
+  'Labor Rates': 'nav.labor_rates',
+  'Payroll': 'nav.payroll',
+  'Site Supervision': 'site_supervision.title',
+  'Site Mobilisation': 'nav.site_prep',
+  'Site Logistics': 'nav.site_logistics',
+  'Site Inventory': 'nav.site_inventory',
+  'Temporary Works': 'nav.temporary_works',
+  'Formwork': 'formwork.title',
+  'Off-site / Prefab': 'nav.prefab',
+  'Forms & checklists': 'nav.forms',
+  // Quality, handover & sustainability
+  'Commissioning': 'nav.commissioning',
+  'Handover & Closeout': 'closeout.title',
+  'Defects Liability': 'defects_liability.title',
+  'ESG Site Performance': 'nav.esg',
+  // Communication & documentation
+  'Inbox': 'inbox.title',
+  'Notifications': 'nav.notifications',
+  'Deadlines': 'deadlines.title',
+  'Phone Log': 'nav.phone_log',
+  'Inbound Capture': 'nav.inbound_capture',
+  'Email Delay Scan': 'nav.inbound_email',
+  'Document Connectors': 'nav.connectors',
+  'Approvals register': 'files.approvals.register_title',
+  'Recycle Bin': 'files.trash.title',
+  'Find Records': 'nav.find_records',
+  'E-Signatures': 'signing.title',
+  // Finance & analytics
+  'Payment Clock': 'nav.payment_clock',
+  'Cost-Value Reconciliation': 'nav.cvr',
+  'Earned Value': 'nav.full_evm',
+  'EAC Block Editor': 'eac.editor.title',
+  'Value Realized': 'nav.value',
+  'Portfolio': 'portfolio.title',
+  'Route Classifier': 'project_route.title',
+  // Learning & admin
+  'Cases': 'nav.cases',
+  'How it works': 'howto.page_title',
+  'Inside track': 'inside.page_title',
+  'Module Builder': 'nav.module_builder',
+  'Pipelines': 'nav.pipelines',
+  'Integrations': 'nav.integrations',
+  'Credentials': 'nav.credentials',
+  'Teams and Visibility': 'teams.title',
 };
 
 /**
