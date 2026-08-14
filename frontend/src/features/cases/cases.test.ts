@@ -194,10 +194,10 @@ describe('resolveStepRoute', () => {
 /* ── Auto-discovery contract ────────────────────────────────────────────── */
 
 describe('playbook auto-discovery (import.meta.glob)', () => {
-  it('discovers at least the reference case', () => {
+  it('discovers the shipped case files', () => {
     expect(Array.isArray(PLAYBOOKS)).toBe(true);
     expect(PLAYBOOKS.length).toBeGreaterThan(0);
-    expect(PLAYBOOKS.some((p) => p.id === 'price-from-pdf')).toBe(true);
+    expect(PLAYBOOKS.some((p) => p.id === 'takeoff-quantities-from-a-pdf-plan')).toBe(true);
   });
 
   it('is sorted by order ascending', () => {
@@ -241,9 +241,15 @@ describe('playbook auto-discovery (import.meta.glob)', () => {
   });
 
   it('getPlaybook resolves a known id and rejects unknown', () => {
-    expect(getPlaybook('price-from-pdf')?.id).toBe('price-from-pdf');
+    expect(getPlaybook('takeoff-quantities-from-a-pdf-plan')?.id).toBe(
+      'takeoff-quantities-from-a-pdf-plan',
+    );
     expect(getPlaybook('does-not-exist')).toBeUndefined();
     expect(getPlaybook(undefined)).toBeUndefined();
+    // Retired: its route was folded into the German takeoff case above. A file
+    // restored by a stray revert would put the card back on the hub silently,
+    // so the absence is asserted rather than left to the card count.
+    expect(getPlaybook('price-from-pdf')).toBeUndefined();
   });
 });
 

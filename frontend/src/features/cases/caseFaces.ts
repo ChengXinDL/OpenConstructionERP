@@ -58,7 +58,7 @@ export const ROLE_CAST: Record<CaseRole, string[]> = {
 };
 
 /**
- * Case slug -> bespoke photo path for the ten flagship cases that were shot
+ * Case slug -> bespoke photo path for the nine flagship cases that were shot
  * individually (`pbk-<case-slug>.webp` maps 1:1 to the case slug). A bespoke
  * photo always wins over the pooled role cast in `caseFaceFor`.
  */
@@ -69,7 +69,6 @@ export const BESPOKE_CASE_PHOTOS: Record<string, string> = {
   'coordinate-and-resolve-model-clashes': `${PEOPLE_ASSETS_BASE}/pbk-coordinate-and-resolve-model-clashes.webp`,
   'handover-and-closeout': `${PEOPLE_ASSETS_BASE}/pbk-handover-and-closeout.webp`,
   'inspect-and-close-ncr': `${PEOPLE_ASSETS_BASE}/pbk-inspect-and-close-ncr.webp`,
-  'price-from-pdf': `${PEOPLE_ASSETS_BASE}/pbk-price-from-pdf.webp`,
   'project-end-to-end': `${PEOPLE_ASSETS_BASE}/pbk-project-end-to-end.webp`,
   'run-the-site-day': `${PEOPLE_ASSETS_BASE}/pbk-run-the-site-day.webp`,
   'tender-from-boq': `${PEOPLE_ASSETS_BASE}/pbk-tender-from-boq.webp`,
@@ -116,7 +115,7 @@ function mod(n: number, m: number): number {
  * a positional round-robin, so consecutive cases under one role wear
  * consecutive faces and no two gallery neighbours repeat.
  *
- * @param caseId Case slug (e.g. `price-from-pdf`).
+ * @param caseId Case slug (e.g. `tender-from-boq`).
  * @param roles The case's role slugs, primary role first.
  * @param indexInRole Zero-based position of this case among the cases filed
  *   under its primary role, in display order.
