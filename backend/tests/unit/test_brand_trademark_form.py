@@ -25,6 +25,14 @@ of a URL that has to stay byte-exact, and marking it would break the link. The
 exemption is anchored on that prefix rather than on looking slug-shaped, so a
 new slug is reported rather than quietly permitted.
 
+Locale files are not the whole UI. English also ships as i18n defaults written
+into components, and ``guide.eac.selectors.body`` has no entry in any of the
+forty locales, so its default is the only English that string will ever render.
+A gate scoped to locale files reports green over exactly that. The second scan
+therefore reads default-shaped lines anywhere under ``frontend/src``, and its
+own risk is the opposite one: shouting at an identifier or a comment would get
+the gate switched off, so those shapes are tested as hard as the findings are.
+
 The live tree is asserted here on purpose, unlike the version-sync gate, which
 leaves that to its CI job. The brand script runs in ``Brand Token Check``, a job
 whose own workflow file carries the chronically red frontend build, whereas this
@@ -42,6 +50,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPT_PATH = REPO_ROOT / "scripts" / "check_no_brand_tokens.py"
 LOCALE_DIR = REPO_ROOT / "frontend" / "src" / "app" / "locales"
+FRONTEND_SRC = REPO_ROOT / "frontend" / "src"
 
 R = "®"
 
@@ -156,3 +165,92 @@ def test_every_shipped_locale_carries_the_mark(script):
         f"{path.name}:{lineno} {key}" for path in paths for lineno, key, _name in script._scan_trademark_form(path)
     ]
     assert offenders == [], f"{len(offenders)} unmarked UI string(s): {offenders[:10]}"
+
+
+def _scan_lines(script, tmp_path: Path, source: str) -> list[tuple[int, str]]:
+    probe = tmp_path / "Probe.tsx"
+    probe.write_text(source, encoding="utf-8")
+    return script._scan_component_defaults(probe)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "  defaultValue: 'Supports CAD/BIM files (Revit, IFC, DWG, DGN)',",
+        "  defaultLabel: 'Revit',",
+        "  revit: { key: 'rulePacks.format_revit', fallback: 'Revit' },",
+        # The shape that carries most of the long English: the hint names the
+        # field on one line and the string sits on the next.
+        "  bodyDefault:\n    'Match by IFC class, Revit category, or by level.',",
+    ],
+)
+def test_an_unmarked_i18n_default_is_reported(script, tmp_path, source):
+    assert _scan_lines(script, tmp_path, source) != []
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        f"  defaultValue: 'Supports CAD/BIM files (Revit{R}, IFC, DWG, DGN)',",
+        f"  bodyDefault:\n    'Match by IFC class, Revit{R} category, or by level.',",
+        # A repository link and a marked default share one line in AboutPage.
+        f"  {{ href: 'https://github.com/ddc/cad2data-Revit-IFC-DWG-DGN', desc: t('k', "
+        f"{{ defaultValue: 'Pipeline: Revit{R} to data' }}) }},",
+    ],
+)
+def test_a_marked_i18n_default_passes(script, tmp_path, source):
+    assert _scan_lines(script, tmp_path, source) == []
+
+
+def test_a_comment_is_not_display_text(script, tmp_path):
+    # This exact line lives in suggestQuantityFromBIM.ts. It explains why the
+    # default property lookup is case-tolerant, and a gate that demanded a
+    # trademark sign inside a code comment would be gone by Friday.
+    source = "  // default keys (Revit/IFC mix `NetVolume` vs `netVolume`).\n"
+    assert _scan_lines(script, tmp_path, source) == []
+
+
+def test_a_trailing_comment_is_not_display_text(script, tmp_path):
+    source = "  defaultValue: 'RVT shared-parameter', // Revit exports this as .txt\n"
+    assert _scan_lines(script, tmp_path, source) == []
+
+
+def test_an_identifier_without_a_default_is_ignored(script, tmp_path):
+    source = "const RevitCategory = pickCategory(element);\nexport type RevitParam = string;\n"
+    assert _scan_lines(script, tmp_path, source) == []
+
+
+def test_the_component_scan_is_wired_into_main(script, tmp_path, monkeypatch):
+    monkeypatch.setattr(script, "REPO_ROOT", tmp_path)
+    feature = tmp_path / "frontend" / "src" / "features" / "demo"
+    feature.mkdir(parents=True)
+    probe = feature / "DemoPage.tsx"
+
+    probe.write_text("  defaultValue: 'Supports Revit, IFC',", encoding="utf-8")
+    assert script.main([str(probe)]) == 1
+
+    probe.write_text(f"  defaultValue: 'Supports Revit{R}, IFC',", encoding="utf-8")
+    assert script.main([str(probe)]) == 0
+
+
+def test_every_shipped_component_default_carries_the_mark(script):
+    paths = [
+        path
+        for suffix in ("*.ts", "*.tsx")
+        for path in FRONTEND_SRC.rglob(suffix)
+        if LOCALE_DIR not in path.parents and "__tests__" not in path.parts
+    ]
+
+    # Same anti-vacuity guard as the locale sweep: a corpus that resolved wrong
+    # scans nothing and reports clean. A file known to hold a marked default
+    # proves the reader is looking at the shipped tree, not an empty one.
+    assert len(paths) >= 100, f"only {len(paths)} component file(s) under {FRONTEND_SRC}"
+    known = FRONTEND_SRC / "features" / "bim_requirements" / "RulePackLibrary.tsx"
+    assert known.is_file() and f"Revit{R}" in known.read_text(encoding="utf-8")
+
+    offenders = [
+        f"{path.relative_to(FRONTEND_SRC).as_posix()}:{lineno}"
+        for path in paths
+        for lineno, _name in script._scan_component_defaults(path)
+    ]
+    assert offenders == [], f"{len(offenders)} unmarked i18n default(s): {offenders[:10]}"

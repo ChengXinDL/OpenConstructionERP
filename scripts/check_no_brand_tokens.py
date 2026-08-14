@@ -250,9 +250,19 @@ _LOCALE_ENTRY_RE = re.compile(r'^\s*"([A-Za-z0-9_.\-]+)"\s*:\s*"(.*)"\s*,?\s*$')
 # gate that guesses at new slugs would rather quietly permit than ask.
 _SLUG_PREFIX = "cad2data-"
 
+# English that ships inside a component instead of a locale file: an i18n
+# default. Locale files are not the whole UI, and `guide.eac.selectors.body`
+# proves it - that string has no entry in any of the forty locales, so its
+# default is the only English a user will ever see and no locale gate can
+# reach it. The hint may sit on the line above, because a long default is
+# conventionally written as `bodyDefault:` and then the string.
+_DEFAULT_HINT_RE = re.compile(r"default|fallback", re.IGNORECASE)
+_FRONTEND_SRC = "frontend/src/"
+_COMMENT_STARTS = ("//", "*", "/*")
 
-def _scan_trademark_form(path: Path) -> list[tuple[int, str, str]]:
-    """Report a locale string whose first CAD tool mention is missing the mark.
+
+def _unmarked_first_mention(text: str) -> str | None:
+    """Name the CAD tool whose first display mention in `text` lacks the mark.
 
     Only the first mention needs it. "Revit templates read Revit parameters" is
     correct usage, and demanding a sign on every repetition would make the gate
@@ -260,6 +270,32 @@ def _scan_trademark_form(path: Path) -> list[tuple[int, str, str]]:
     keep the sign on the name itself, before the hyphen, as in Revit(R)-Modelle,
     so nothing about a following hyphen makes an occurrence exempt.
     """
+    for name in _MARKED_NAMES:
+        for match in re.finditer(re.escape(name), text):
+            start, end = match.span()
+            if text[:start].endswith(_SLUG_PREFIX):
+                continue  # repository slug inside a URL, not a display name
+            if text[end : end + len(_REGISTERED)] != _REGISTERED:
+                return name
+            break  # first display mention decides; later ones stay bare
+    return None
+
+
+def _code_before_comment(line: str) -> str:
+    """Drop a trailing `//` comment, leaving a `https://` URL intact."""
+    at = 0
+    while True:
+        at = line.find("//", at)
+        if at == -1:
+            return line
+        if at and line[at - 1] == ":":
+            at += 2
+            continue
+        return line[:at]
+
+
+def _scan_trademark_form(path: Path) -> list[tuple[int, str, str]]:
+    """Report a locale string whose first CAD tool mention is missing the mark."""
     hits: list[tuple[int, str, str]] = []
     try:
         text = path.read_text(encoding="utf-8")
@@ -270,14 +306,34 @@ def _scan_trademark_form(path: Path) -> list[tuple[int, str, str]]:
         if not entry:
             continue
         key, value = entry.group(1), entry.group(2)
-        for name in _MARKED_NAMES:
-            for match in re.finditer(re.escape(name), value):
-                start, end = match.span()
-                if value[:start].endswith(_SLUG_PREFIX):
-                    continue  # repository slug inside a URL, not a display name
-                if value[end : end + len(_REGISTERED)] != _REGISTERED:
-                    hits.append((lineno, key, name))
-                break  # first display mention decides; later ones stay bare
+        name = _unmarked_first_mention(value)
+        if name:
+            hits.append((lineno, key, name))
+    return hits
+
+
+def _scan_component_defaults(path: Path) -> list[tuple[int, str]]:
+    """Report an i18n default in a component whose CAD tool mention is bare.
+
+    Same rule as the locale scan, applied to the other place English lives. The
+    filter is the shape of the line rather than the file, so an identifier such
+    as RevitCategory and a comment about the converter stay out of it: a gate
+    that shouted at code would be turned off within a week.
+    """
+    hits: list[tuple[int, str]] = []
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except (UnicodeDecodeError, OSError):
+        return hits
+    for lineno, line in enumerate(lines, start=1):
+        if line.lstrip().startswith(_COMMENT_STARTS):
+            continue
+        previous = lines[lineno - 2] if lineno > 1 else ""
+        if not (_DEFAULT_HINT_RE.search(line) or _DEFAULT_HINT_RE.search(previous)):
+            continue
+        name = _unmarked_first_mention(_code_before_comment(line))
+        if name:
+            hits.append((lineno, name))
     return hits
 
 
@@ -400,9 +456,21 @@ def main(argv: list[str]) -> int:
                 continue
             failures.append(f"{shown}:{lineno}: brand token {masked}")
 
-        if shown.replace("\\", "/").startswith(_LOCALE_DIR):
+        norm = shown.replace("\\", "/")
+        if norm.startswith(_LOCALE_DIR):
             for lineno, key, name in _scan_trademark_form(rp):
-                unmarked.append(f"{shown}:{lineno}: {key} names {name} with no {_REGISTERED}")
+                unmarked.append(
+                    f"{shown}:{lineno}: {key} names {name} with no {_REGISTERED}"
+                )
+        elif (
+            norm.startswith(_FRONTEND_SRC)
+            and norm.endswith((".ts", ".tsx"))
+            and "__tests__" not in norm
+        ):
+            for lineno, name in _scan_component_defaults(rp):
+                unmarked.append(
+                    f"{shown}:{lineno}: i18n default names {name} with no {_REGISTERED}"
+                )
 
     if unmarked:
         print(
