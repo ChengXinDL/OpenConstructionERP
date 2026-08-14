@@ -2678,6 +2678,25 @@ def create_app() -> FastAPI:
             except Exception:
                 logger.warning("PostgreSQL auto-migration skipped (non-fatal)", exc_info=True)
 
+            # The heal above adds oe_progress_entry.seq to a pre-v3258 table as
+            # ADD COLUMN ... DEFAULT nextval(...), and PostgreSQL numbers the
+            # existing rows while rewriting the table, so they come out in heap
+            # order - while the Alembic migration numbers them by recorded_at.
+            # "Latest wins" in the progress module leads with seq, so the same
+            # rows answered differently depending on which path built the
+            # schema. Put them back in observation order. Runs AFTER the heal
+            # (takeoff's merge above runs before it) because the column it
+            # repairs is one the heal itself creates - going first would leave
+            # a boot-long window of wrong readings. Idempotent: a single scan
+            # that finds nothing out of order and stops, on every later boot.
+            try:
+                from app.modules.progress.seq_repair import repair_progress_entry_seq
+
+                async with engine.begin() as conn:
+                    await repair_progress_entry_seq(conn)
+            except Exception:
+                logger.warning("Progress seq order repair skipped (non-fatal)", exc_info=True)
+
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
             logger.info("PostgreSQL tables created/verified")

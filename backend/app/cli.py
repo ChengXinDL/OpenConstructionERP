@@ -933,6 +933,18 @@ def cmd_init_db(args: argparse.Namespace) -> None:
             await postgres_auto_migrate(engine, Base)
         except Exception as exc:  # noqa: BLE001
             logger.warning("init-db: postgres_auto_migrate skipped: %s", exc)
+        # The heal numbers a freshly added oe_progress_entry.seq in heap order,
+        # which is not the order the Alembic migration gives the same rows and
+        # decides which reading the progress module calls current. Same repair
+        # as the one the app runs at boot; here so init-db leaves the database
+        # in the state the first serve would have reached anyway.
+        try:
+            from app.modules.progress.seq_repair import repair_progress_entry_seq
+
+            async with engine.begin() as conn:
+                await repair_progress_entry_seq(conn)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("init-db: progress seq repair skipped: %s", exc)
         # Provision row-level-security roles + policies when enabled. No-op
         # while settings.rls_enforce is off, so a default init-db is unchanged.
         try:
