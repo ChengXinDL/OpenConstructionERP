@@ -36,17 +36,22 @@ beforeAll(async () => {
   await i18n.init({
     lng: 'de',
     fallbackLng: false,
-    resources: { de: { translation: { ...de.translation } } },
+    resources: { de: { translation: {} } },
     keySeparator: false,
     nsSeparator: false,
     interpolation: { escapeValue: false },
     react: { useSuspense: false },
   });
-  // Merge the module-bundled strings the same way `app/i18n.ts` does, so a key
-  // a manifest carries itself resolves here for the same reason it does live.
+  // Merge in production's order, which is not the intuitive one. `app/i18n.ts`
+  // merges the module bundles while the module itself evaluates (line 319);
+  // the locale arrives later, on the lazy chunk (line 111), and both calls
+  // overwrite. So a key that a manifest and a locale file both define is won
+  // by the locale file. Loading the locale first and the modules on top would
+  // let this test assert a German string the app never actually shows.
   for (const [lng, keys] of Object.entries(getModuleTranslations())) {
     i18n.addResourceBundle(lng, 'translation', keys, true, true);
   }
+  i18n.addResourceBundle('de', 'translation', de.translation, false, true);
 });
 
 function renderSection() {
