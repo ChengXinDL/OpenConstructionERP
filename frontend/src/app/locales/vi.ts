@@ -8885,6 +8885,7 @@ const resource = {
     "marketplace.vector_index": "Chỉ mục vector",
     "marketplace.vector_index_hint": "Nhập cơ sở dữ liệu chi phí trước, sau đó tạo vector.",
     "modules.title": "Mô-đun",
+    "modules.module_title": "Mô-đun",
     "modules.cat_regional": "Tiêu chuẩn khu vực",
     "modules.cat_regional_desc": "Định dạng nhập/xuất BOQ và tiêu chuẩn phân loại theo quốc gia",
     "modules.community_title": "Xây dựng mô-đun của riêng bạn",

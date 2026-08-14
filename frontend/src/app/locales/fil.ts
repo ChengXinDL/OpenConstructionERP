@@ -11230,6 +11230,7 @@ const resource = {
     "modules.section_desc": "I-toggle ang mga module on at off",
     "modules.section_title": "Mga Module",
     "modules.title": "Mga Module",
+    "modules.module_title": "Modyul",
     "modules.toggle_failed": "Nabigo ang toggle",
     "nav.5d_cost_model": "5D na Modelo ng Gastos",
     "nav.about": "Tungkol",

@@ -8894,6 +8894,7 @@ const resource = {
     "marketplace.vector_index": "Vektorový index",
     "marketplace.vector_index_hint": "Nejprve importujte databázi cen, poté vygenerujte vektory.",
     "modules.title": "Moduly",
+    "modules.module_title": "Modul",
     "files.trash.subtitle": "30denní uchovávání",
     "files.title": "Soubory projektu",
     "files.empty": "Žádný soubor neodpovídá filtrům.",

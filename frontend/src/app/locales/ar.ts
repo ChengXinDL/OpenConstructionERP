@@ -11864,6 +11864,7 @@ const resource = {
     "modules.section_desc": "تفعيل وتعطيل الوحدات",
     "modules.section_title": "الوحدات",
     "modules.title": "الوحدات",
+    "modules.module_title": "الوحدة",
     "modules.toggle_failed": "فشل التبديل",
     "nav.5d_cost_model": "نموذج التكلفة 5D",
     "nav.about": "حول",

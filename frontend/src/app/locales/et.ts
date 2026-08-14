@@ -11766,6 +11766,7 @@ const resource = {
     "modules.section_desc": "Lülita moodulid sisse ja välja",
     "modules.section_title": "Moodulid",
     "modules.title": "Moodulid",
+    "modules.module_title": "Moodul",
     "modules.toggle_failed": "Lülitamine ebaõnnestus",
     "nav.5d_cost_model": "5D kulumudel",
     "nav.about": "Teave",

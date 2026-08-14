@@ -7810,6 +7810,7 @@ const resource = {
     "marketplace.vector_index": "Vectorindex",
     "marketplace.vector_index_hint": "Importeer eerst de kostendatabase en genereer daarna vectoren.",
     "modules.title": "Modules",
+    "modules.module_title": "Module",
     "files.trash.subtitle": "Bewaartermijn van 30 dagen",
     "files.title": "Projectbestanden",
     "files.empty": "Geen bestanden voldoen aan uw filters.",

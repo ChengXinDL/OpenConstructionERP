@@ -11231,6 +11231,7 @@ const resource = {
     "modules.section_desc": "روشن و خاموش کردن ماژول‌ها",
     "modules.section_title": "ماژول‌ها",
     "modules.title": "ماژول‌ها",
+    "modules.module_title": "ماژول",
     "modules.toggle_failed": "تغییر وضعیت ناموفق بود",
     "nav.5d_cost_model": "مدل هزینه 5D",
     "nav.about": "درباره",

@@ -11231,6 +11231,7 @@ const resource = {
     "modules.section_desc": "ماڈیولز فعال اور غیر فعال ٹوگل کریں",
     "modules.section_title": "ماڈیولز",
     "modules.title": "ماڈیولز",
+    "modules.module_title": "ماڈیول",
     "modules.toggle_failed": "ٹوگل ناکام رہا",
     "nav.5d_cost_model": "5D لاگت ماڈل",
     "nav.about": "بارے میں",

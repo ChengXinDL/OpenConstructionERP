@@ -8849,6 +8849,7 @@ const resource = {
     "marketplace.vector_index": "ベクトルインデックス",
     "marketplace.vector_index_hint": "最初に単価データベースをインポートしてから、ベクトルを生成してください。",
     "modules.title": "モジュール",
+    "modules.module_title": "モジュール",
     "nav.5d_cost_model": "5Dコストモデル",
     "nav.assemblies": "複合単価",
     "nav.boq": "数量明細書",

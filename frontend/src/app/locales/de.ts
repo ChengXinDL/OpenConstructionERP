@@ -8616,6 +8616,7 @@ const resource = {
     "marketplace.vector_index": "Vektor-Index",
     "marketplace.vector_index_hint": "Importieren Sie zuerst die Kostendatenbank, dann generieren Sie Vektoren.",
     "modules.title": "Module",
+    "modules.module_title": "Modul",
     "modules.page_title": "Module & Marktplatz",
     "modules.section_title": "Module",
     "modules.active_count": "aktiv",

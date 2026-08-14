@@ -8923,6 +8923,7 @@ const resource = {
     "marketplace.vector_index": "Vektorski indeks",
     "marketplace.vector_index_hint": "Najprije uvezite bazu troškova, zatim generirajte vektore.",
     "modules.title": "Moduli",
+    "modules.module_title": "Modul",
     "modules.cat_regional": "Regionalni standardi",
     "modules.cat_regional_desc": "Formati uvoza/izvoza Troškovnika i klasifikacijski standardi specifični za određenu državu",
     "modules.community_title": "Izradite vlastiti modul",

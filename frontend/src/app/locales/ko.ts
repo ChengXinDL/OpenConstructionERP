@@ -8867,6 +8867,7 @@ const resource = {
     "marketplace.vector_index": "벡터 인덱스",
     "marketplace.vector_index_hint": "먼저 단가 데이터베이스를 가져온 다음 벡터를 생성하세요.",
     "modules.title": "모듈",
+    "modules.module_title": "모듈",
     "files.trash.subtitle": "30일 보관",
     "files.title": "프로젝트 파일",
     "files.empty": "필터에 맞는 파일이 없습니다.",

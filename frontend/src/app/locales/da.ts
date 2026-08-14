@@ -10048,6 +10048,7 @@ const resource = {
     "marketplace.vector_index": "Vektorindeks",
     "marketplace.vector_index_hint": "Importér prisdatabasen først, generér derefter vektorer.",
     "modules.title": "Moduler",
+    "modules.module_title": "Modul",
     "modules.dev_guide": "Byg et modul, udviklervejledning",
     "modules.dev_guide_title": "Byg dit eget modul",
     "modules.dev_guide_subtitle": "En praktisk 10-minutters gennemgang af tilføjelse af forretningsfunktioner til OpenConstructionERP.",

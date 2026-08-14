@@ -5349,6 +5349,7 @@ const resource = {
     "marketplace.vector_index": "Vector Index",
     "marketplace.vector_index_hint": "Import the cost database first, then generate vectors.",
     "modules.title": "Modules",
+    "modules.module_title": "Module",
     "modules.dev_guide": "Build a module, developer guide",
     "modules.dev_guide_title": "Build your own module",
     "modules.dev_guide_subtitle": "A practical, 10-minute walkthrough for adding business features to OpenConstructionERP.",

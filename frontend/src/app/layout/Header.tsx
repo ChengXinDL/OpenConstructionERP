@@ -167,6 +167,12 @@ export const TITLE_I18N_MAP: Record<string, string> = {
   'Audit Log': 'sidebar.admin_grid.audit',
   'Governance': 'sidebar.admin_grid.governance',
   'Modules': 'nav.modules',
+  // A module installed from the catalogue renders under a route that titles
+  // every one of them "Module". The word was translated everywhere already, as
+  // a filter label over in quantities, but a page heading has no business
+  // reading its name out of another module's namespace, so the modules
+  // namespace now carries it too.
+  'Module': 'modules.module_title',
   'E-invoice Clearance': 'nav.einvoice_clearance',
   'Settings': 'nav.settings',
   'About': 'nav.about',

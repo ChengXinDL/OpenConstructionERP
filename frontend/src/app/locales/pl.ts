@@ -8898,6 +8898,7 @@ const resource = {
     "marketplace.vector_index": "Indeks wektorowy",
     "marketplace.vector_index_hint": "Najpierw zaimportuj bazę kosztów, a następnie wygeneruj wektory.",
     "modules.title": "Moduły",
+    "modules.module_title": "Moduł",
     "files.trash.subtitle": "Przechowywanie 30 dni",
     "files.title": "Pliki projektu",
     "files.empty": "Żaden plik nie pasuje do filtrów.",

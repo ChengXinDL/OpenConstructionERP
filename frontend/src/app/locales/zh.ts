@@ -8886,6 +8886,7 @@ const resource = {
     "marketplace.vector_index": "向量索引",
     "marketplace.vector_index_hint": "请先导入造价数据库，然后生成向量。",
     "modules.title": "模块",
+    "modules.module_title": "模块",
     "nav.5d_cost_model": "5D 造价模型",
     "nav.assemblies": "组合单价",
     "nav.boq": "工程量清单",

@@ -7841,6 +7841,7 @@ const resource = {
     "marketplace.vector_index": "Índice Vetorial",
     "marketplace.vector_index_hint": "Importe o banco de dados de custos primeiro, depois gere os vetores.",
     "modules.title": "Módulos",
+    "modules.module_title": "Módulo",
     "nav.5d_cost_model": "Modelo de Custos 5D",
     "nav.assemblies": "Composições",
     "nav.boq": "Planilha Orçamentária",

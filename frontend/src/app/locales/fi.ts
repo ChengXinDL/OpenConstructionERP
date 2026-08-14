@@ -8837,6 +8837,7 @@ const resource = {
     "marketplace.vector_index": "Vektori-indeksi",
     "marketplace.vector_index_hint": "Tuo kustannustietokanta ensin ja luo sitten vektorit.",
     "modules.title": "Moduulit",
+    "modules.module_title": "Moduuli",
     "files.trash.subtitle": "30 päivän säilytys",
     "files.title": "Projektin tiedostot",
     "files.empty": "Yksikään tiedosto ei vastaa suodattimia.",

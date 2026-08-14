@@ -51,7 +51,6 @@ const ENGLISH_ON_PURPOSE = new Set([
   'Compare Revisions',
   'EAC Block Primitives',
   'Geo Hub Admin',
-  'Module',
   'Module Developer Guide',
   'Property Development Dashboard',
   'Search across projects',

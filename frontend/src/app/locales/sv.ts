@@ -10050,6 +10050,7 @@ const resource = {
     "marketplace.vector_index": "Vektorindex",
     "marketplace.vector_index_hint": "Importera kostnadsdatabasen först och generera sedan vektorer.",
     "modules.title": "Moduler",
+    "modules.module_title": "Modul",
     "modules.dev_guide": "Bygg en modul, utvecklarguide",
     "modules.dev_guide_title": "Bygg din egen modul",
     "modules.dev_guide_subtitle": "En praktisk genomgång på 10 minuter för att lägga till affärsfunktioner i OpenConstructionERP.",

@@ -8874,6 +8874,7 @@ const resource = {
     "marketplace.vector_index": "Vektör Dizini",
     "marketplace.vector_index_hint": "Önce maliyet veritabanını içe aktarın, ardından vektörleri oluşturun.",
     "modules.title": "Modüller",
+    "modules.module_title": "Modül",
     "files.trash.subtitle": "30 gün saklama",
     "files.title": "Proje dosyaları",
     "files.empty": "Filtrelerinize uyan dosya yok.",

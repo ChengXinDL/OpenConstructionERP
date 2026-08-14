@@ -8885,6 +8885,7 @@ const resource = {
     "marketplace.vector_index": "Indeks Vektor",
     "marketplace.vector_index_hint": "Impor database biaya terlebih dahulu, lalu buat vektor.",
     "modules.title": "Modul",
+    "modules.module_title": "Modul",
     "modules.cat_regional": "Standar Regional",
     "modules.cat_regional_desc": "Format impor/ekspor BOQ dan standar klasifikasi khusus negara",
     "modules.community_title": "Bangun Modul Anda Sendiri",

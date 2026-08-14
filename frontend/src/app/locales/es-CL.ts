@@ -7865,6 +7865,7 @@ const resource = {
     "marketplace.vector_index": "Índice vectorial",
     "marketplace.vector_index_hint": "Importe primero la base de datos de costos y luego genere los vectores.",
     "modules.title": "Módulos",
+    "modules.module_title": "Módulo",
     "modules.community_title": "Crea tu propio módulo",
     "modules.community_desc": "OpenConstructionERP tiene una arquitectura modular. Cualquiera puede crear módulos personalizados, bases de precios, estándares regionales, convertidores CAD, paneles analíticos, integraciones con sistemas externos o cualquier otra funcionalidad. Tu módulo aparecerá en esta sección y podrá ser instalado por cualquier usuario.",
     "modules.community_type_data": "Módulos de datos",

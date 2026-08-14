@@ -8959,6 +8959,7 @@ const resource = {
     "marketplace.vector_index": "Index Vectorial",
     "marketplace.vector_index_hint": "Importați mai întâi baza de date de costuri, apoi generați vectorii.",
     "modules.title": "Module",
+    "modules.module_title": "Modul",
     "modules.cat_regional": "Standarde Regionale",
     "modules.cat_regional_desc": "Formate de import/export Antemăsurătoare și standarde de clasificare specifice fiecărei țări",
     "modules.community_title": "Construiți Propriul Modul",

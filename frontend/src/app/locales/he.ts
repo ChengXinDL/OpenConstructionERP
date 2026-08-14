@@ -11235,6 +11235,7 @@ const resource = {
     "modules.section_desc": "הפעלה והשבתה של מודולים",
     "modules.section_title": "מודולים",
     "modules.title": "מודולים",
+    "modules.module_title": "מודול",
     "modules.toggle_failed": "המעבר נכשל",
     "nav.5d_cost_model": "מודל עלות 5D",
     "nav.about": "אודות",

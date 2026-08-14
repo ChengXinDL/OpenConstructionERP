@@ -7841,6 +7841,7 @@ const resource = {
     "marketplace.vector_index": "Indice vettoriale",
     "marketplace.vector_index_hint": "Importa prima il database dei costi, poi genera i vettori.",
     "modules.title": "Moduli",
+    "modules.module_title": "Modulo",
     "files.trash.subtitle": "Conservazione di 30 giorni",
     "files.title": "File del progetto",
     "files.empty": "Nessun file corrisponde ai filtri.",
