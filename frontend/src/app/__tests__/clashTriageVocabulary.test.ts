@@ -1,0 +1,95 @@
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+import i18next from 'i18next';
+import { describe, expect, it } from 'vitest';
+
+/**
+ * The clash page names a severity and a status by building the key from the
+ * value: t(`clash.severity.${s}`, { defaultValue: s }). Both vocabularies are
+ * closed and both are decided by the server - CLASH_SEVERITIES and
+ * CLASH_STATUSES in `backend/app/modules/clash/schemas.py` - so every value has
+ * exactly one key and the set of keys is knowable.
+ *
+ * The severity half of that had no key in any of the 40 locales. Nothing
+ * reported it: a missing key falls back to the defaultValue, which here is the
+ * raw server value, so a German coordinator read "critical / high / medium /
+ * low" on a screen that was otherwise entirely in German, and the orphan-key
+ * scan cannot see a family whose keys are assembled at runtime.
+ *
+ * This asserts the vocabulary is complete in every locale, which is the part a
+ * scan of call sites cannot answer, and that one locale really resolves it
+ * through the bundle rather than only carrying the line.
+ */
+
+const LOCALES_DIR = ['src/app/locales', 'frontend/src/app/locales']
+  .map((p) => resolve(process.cwd(), p))
+  .find(existsSync);
+
+/** Mirrors CLASH_SEVERITIES, worst to least. */
+const SEVERITIES = ['critical', 'high', 'medium', 'low'];
+/** Mirrors CLASH_STATUSES, in review order. */
+const STATUSES = ['new', 'active', 'reviewed', 'approved', 'resolved', 'ignored'];
+const KEYS = [
+  ...SEVERITIES.map((s) => `clash.severity.${s}`),
+  ...STATUSES.map((s) => `clash.status.${s}`),
+];
+
+function localeCodes(): string[] {
+  if (!LOCALES_DIR) throw new Error('cannot find the locales directory');
+  return readdirSync(LOCALES_DIR)
+    .filter((f) => f.endsWith('.ts') && f !== 'index.ts')
+    .map((f) => f.slice(0, -3))
+    .sort();
+}
+
+function localeText(code: string): string {
+  return readFileSync(resolve(LOCALES_DIR as string, `${code}.ts`), 'utf8');
+}
+
+describe('the clash triage vocabulary is complete in every locale', () => {
+  const codes = localeCodes();
+
+  it('finds the locale files at all', () => {
+    // A directory read that quietly returns nothing would make every
+    // assertion below vacuous, which is the failure this suite exists to
+    // catch in the locales themselves.
+    expect(codes.length).toBeGreaterThan(30);
+    expect(codes).toContain('de');
+    expect(codes).toContain('en');
+  });
+
+  for (const code of codes) {
+    it(`${code} names every severity and every status`, () => {
+      const text = localeText(code);
+      const missing = KEYS.filter((key) => !text.includes(`"${key}"`));
+      expect(missing, `${code} has no key for ${missing.join(', ')}`).toEqual([]);
+    });
+  }
+});
+
+describe('the vocabulary resolves through the bundle, not just in the file', () => {
+  it('de answers in German for every severity', () => {
+    // Read and evaluated rather than imported: the file is megabytes of object
+    // literal and the vitest transform pipeline times out on it. Same approach
+    // as localeKeyResolution.test.ts, for the same reason.
+    const source = localeText('de');
+    const start = source.indexOf('{', source.indexOf('const resource'));
+    const end = source.lastIndexOf('} as ');
+    // Not JSON: trailing commas, single-quoted values and comments all appear.
+    const resource = new Function(`return ${source.slice(start, end + 1)}`)() as {
+      translation: Record<string, string>;
+    };
+
+    const instance = i18next.createInstance();
+    void instance.init({ lng: 'de', resources: {}, initImmediate: false });
+    instance.addResourceBundle('de', 'translation', resource.translation, false, true);
+
+    for (const severity of SEVERITIES) {
+      const key = `clash.severity.${severity}`;
+      const value = instance.t(key, { defaultValue: severity });
+      expect(value, `de fell back to the raw value for ${key}`).not.toBe(severity);
+      expect(value.length).toBeGreaterThan(0);
+    }
+  });
+});

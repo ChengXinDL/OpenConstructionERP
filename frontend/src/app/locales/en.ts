@@ -11853,6 +11853,10 @@ const resource = {
     "clash.status.approved": "Approved",
     "clash.status.resolved": "Resolved",
     "clash.status.ignored": "Ignored",
+    "clash.severity.critical": "Critical",
+    "clash.severity.high": "High",
+    "clash.severity.medium": "Medium",
+    "clash.severity.low": "Low",
 
     // ── Persistent profiles + multi-dimensional grouping (item #23) ──
     "clash.manage_profiles": "Manage profiles",
