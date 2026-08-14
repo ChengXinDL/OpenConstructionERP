@@ -104,6 +104,17 @@ const DISMISS_KEY = 'oe_update_dismissed_version_session';
 const GITHUB_RELEASES_API =
   'https://api.github.com/repos/datadrivenconstruction/OpenConstructionERP/releases/latest';
 
+/**
+ * Skip the release check entirely.
+ *
+ * An install with no outbound internet - an on-premise deployment behind a
+ * proxy, an air-gapped site, a machine being recorded - cannot reach
+ * api.github.com, and there is no answer we would show it anyway. Without
+ * this it asks once an hour, per tab, forever, and the browser logs the
+ * failed request every time.
+ */
+const UPDATE_CHECK_DISABLED = Boolean(import.meta.env.VITE_DISABLE_UPDATE_CHECK);
+
 interface ReleaseInfo {
   version: string;
   notes: string;
@@ -113,7 +124,15 @@ interface ReleaseInfo {
 
 interface CachedRelease {
   fetched_at: number;
-  data: ReleaseInfo;
+  /**
+   * ``null`` records a check that ran and produced nothing to show: GitHub
+   * answered 403 because the anonymous rate limit is per IP and an office
+   * shares one, or the network refused the call. Without this the failure was
+   * not cached at all, so every mount in every tab asked again and the console
+   * collected one failed request after another. A negative entry expires on
+   * the same TTL as a positive one.
+   */
+  data: ReleaseInfo | null;
 }
 
 interface GroupedHighlights {
@@ -231,7 +250,9 @@ function readCache(): CachedRelease | null {
     const raw = localStorage.getItem(CACHE_KEY);
     if (!raw) return null;
     const cached = JSON.parse(raw) as CachedRelease;
-    if (!cached?.fetched_at || !cached?.data) return null;
+    // `data` may be null on purpose — that is the negative entry. Only its
+    // absence means the payload is from some other writer and unusable.
+    if (!cached?.fetched_at || cached.data === undefined) return null;
     if (Date.now() - cached.fetched_at > CACHE_TTL_MS) return null;
     return cached;
   } catch {
@@ -239,7 +260,7 @@ function readCache(): CachedRelease | null {
   }
 }
 
-function writeCache(data: ReleaseInfo): void {
+function writeCache(data: ReleaseInfo | null): void {
   try {
     const payload: CachedRelease = { fetched_at: Date.now(), data };
     localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
@@ -262,17 +283,30 @@ export function useUpdateCheck(): ReleaseInfo | null {
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
+      if (UPDATE_CHECK_DISABLED) return;
+      // A fresh cache entry answers the question whether or not it names a
+      // newer release. Returning only on the newer case sent every up to date
+      // install - which is most of them, most of the time - straight back to
+      // GitHub on every mount, so the cache guarded nothing.
       const cached = readCache();
-      if (cached && isNewer(cached.data.version, CURRENT_VERSION)) {
-        if (!cancelled) setRelease(cached.data);
+      if (cached) {
+        if (!cancelled && cached.data && isNewer(cached.data.version, CURRENT_VERSION)) {
+          setRelease(cached.data);
+        }
         return;
       }
       try {
         const resp = await fetch(GITHUB_RELEASES_API);
-        if (!resp.ok) return;
+        if (!resp.ok) {
+          writeCache(null);
+          return;
+        }
         const data = await resp.json();
         const latest = (data.tag_name ?? '').replace(/^v/, '');
-        if (!latest) return;
+        if (!latest) {
+          writeCache(null);
+          return;
+        }
         const info: ReleaseInfo = {
           version: latest,
           notes: data.body ?? '',
@@ -284,7 +318,9 @@ export function useUpdateCheck(): ReleaseInfo | null {
         writeCache(info);
         if (!cancelled && isNewer(latest, CURRENT_VERSION)) setRelease(info);
       } catch {
-        /* network error — silent */
+        /* Network error. Cached as a failure so the next mount does not
+           repeat it inside the TTL. */
+        writeCache(null);
       }
     };
     run();
@@ -311,11 +347,17 @@ export function UpdateNotification({ forceShow = false, hideDismiss = false }: U
   const [showFullModal, setShowFullModal] = useState(false);
 
   const checkForUpdate = useCallback(async () => {
+    if (UPDATE_CHECK_DISABLED) return;
+
     // 1. Try cache first — avoids hitting GitHub API when multiple tabs are open.
     const cached = readCache();
     if (cached) {
       const dismissedVersion = sessionStorage.getItem(DISMISS_KEY);
-      if (dismissedVersion !== cached.data.version && isNewer(cached.data.version, CURRENT_VERSION)) {
+      if (
+        cached.data &&
+        dismissedVersion !== cached.data.version &&
+        isNewer(cached.data.version, CURRENT_VERSION)
+      ) {
         setRelease(cached.data);
       }
       return;
@@ -324,10 +366,16 @@ export function UpdateNotification({ forceShow = false, hideDismiss = false }: U
     // 2. Cache miss → fetch from GitHub.
     try {
       const resp = await fetch(GITHUB_RELEASES_API);
-      if (!resp.ok) return;
+      if (!resp.ok) {
+        writeCache(null);
+        return;
+      }
       const data = await resp.json();
       const latest = (data.tag_name ?? '').replace(/^v/, '');
-      if (!latest) return;
+      if (!latest) {
+        writeCache(null);
+        return;
+      }
 
       const info: ReleaseInfo = {
         version: latest,
@@ -346,7 +394,9 @@ export function UpdateNotification({ forceShow = false, hideDismiss = false }: U
 
       setRelease(info);
     } catch {
-      /* Network error — silent. The next polling tick will retry. */
+      /* Network error. Recorded as a failure so the next mount does not
+         repeat it inside the TTL; the polling tick still retries after it. */
+      writeCache(null);
     }
   }, []);
 
