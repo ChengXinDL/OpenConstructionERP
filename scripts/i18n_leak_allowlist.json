@@ -449,6 +449,36 @@
     "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
     "reason_category": "standard_code"
   },
+  "einvoice.profile.en16931": {
+    "en_value": "EN 16931 (CII)",
+    "note": "e-invoicing standard name plus its syntax in brackets; the six bare profile names stay identical in all 39 locales while the four country-qualified siblings (nlcius, ehf, peppol_aunz, peppol_sg) are translated in ru/zh, which shows translators worked this block and left the standard names on purpose",
+    "reason_category": "standard_code"
+  },
+  "einvoice.profile.facturx": {
+    "en_value": "Factur-X 1.0",
+    "note": "French/German e-invoicing standard name and version, see einvoice.profile.en16931",
+    "reason_category": "standard_code"
+  },
+  "einvoice.profile.peppol": {
+    "en_value": "Peppol BIS Billing 3.0",
+    "note": "Peppol business interoperability specification name and version, see einvoice.profile.en16931",
+    "reason_category": "standard_code"
+  },
+  "einvoice.profile.ubl": {
+    "en_value": "EN 16931 (UBL)",
+    "note": "same standard as einvoice.profile.en16931 in the other syntax; both bracket tags are format codes",
+    "reason_category": "standard_code"
+  },
+  "einvoice.profile.xrechnung": {
+    "en_value": "XRechnung 3.0",
+    "note": "German CIUS name and version, see einvoice.profile.en16931",
+    "reason_category": "standard_code"
+  },
+  "einvoice.profile.zugferd": {
+    "en_value": "ZUGFeRD 2.1",
+    "note": "German hybrid invoice standard name and version, see einvoice.profile.en16931",
+    "reason_category": "standard_code"
+  },
   "explorer.load_failed_desc_status": {
     "en_value": "HTTP {{status}} - {{message}}",
     "note": "bare technical/business acronym or initialism",

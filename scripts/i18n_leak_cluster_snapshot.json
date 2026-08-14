@@ -1331,5 +1331,13 @@
       "sv"
     ],
     "key_count_at_seed": 3
+  },
+  {
+    "locale_set": [
+      "da",
+      "de",
+      "fr"
+    ],
+    "key_count_at_seed": 3
   }
 ]
