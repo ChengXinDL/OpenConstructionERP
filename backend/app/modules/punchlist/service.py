@@ -13,7 +13,7 @@ Stateless service layer. Handles:
 
 import logging
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +28,24 @@ from app.modules.punchlist.schemas import PunchItemCreate, PunchItemUpdate, Punc
 
 logger = logging.getLogger(__name__)
 _logger_ev = logging.getLogger(__name__ + ".events")
+
+
+def _as_utc(value: object) -> datetime | None:
+    """Return ``value`` as a timezone-aware UTC datetime, or None.
+
+    SQLite hands back naive datetimes where PostgreSQL hands back aware ones,
+    so comparing a stored timestamp against ``datetime.now(UTC)`` raises a
+    ``TypeError`` on one backend and not the other. A naive value is read as
+    already being UTC; an aware one is converted. Anything that is not a
+    datetime at all returns None rather than raising, matching the caution the
+    close-duration loop below already takes with these same columns.
+    """
+    if not isinstance(value, datetime):
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
 
 # Hoist heavy optional imports to module top so we pay the import cost once.
 # openpyxl is a soft dependency - the Excel export falls back to CSV when
@@ -617,11 +635,18 @@ class PunchListService:
         # closed_timestamps is a list of (created_at, verified_at, resolved_at,
         # updated_at) tuples for closed/verified items only - SQL diff isn't
         # portable across SQLite/PostgreSQL so we still walk in Python.
+        now = datetime.now(UTC)
+        week_ago = now - timedelta(days=7)
+
         closed_durations: list[float] = []
+        closed_last_7_days = 0
         for created_at, verified_at, resolved_at, updated_at in agg["closed_timestamps"]:
+            end_time = verified_at or resolved_at or updated_at
+            end_utc = _as_utc(end_time)
+            if end_utc is not None and end_utc >= week_ago:
+                closed_last_7_days += 1
             if not created_at:
                 continue
-            end_time = verified_at or resolved_at or updated_at
             if end_time is None:
                 continue
             try:
@@ -635,12 +660,28 @@ class PunchListService:
         if closed_durations:
             avg_days_to_close = round(sum(closed_durations) / len(closed_durations), 1)
 
+        # Age of the still-open work. Averaged here rather than in SQL for the
+        # same reason the close durations are: SQLite has no portable date diff.
+        # Clamped at zero so a row stamped in the future cannot pull the mean
+        # negative and report the backlog as younger than it is.
+        open_ages = [
+            max(0.0, (now - created_utc).total_seconds() / 86400.0)
+            for created_utc in (_as_utc(v) for v in agg["open_created_at"])
+            if created_utc is not None
+        ]
+        avg_open_age_days: float | None = None
+        if open_ages:
+            avg_open_age_days = round(sum(open_ages) / len(open_ages), 1)
+
         return {
             "total": agg["total"],
             "by_status": agg["by_status"],
             "by_priority": agg["by_priority"],
             "overdue": overdue,
             "avg_days_to_close": avg_days_to_close,
+            "urgent_open": agg["urgent_open"],
+            "closed_last_7_days": closed_last_7_days,
+            "avg_open_age_days": avg_open_age_days,
         }
 
     # ── PDF Export ────────────────────────────────────────────────────────

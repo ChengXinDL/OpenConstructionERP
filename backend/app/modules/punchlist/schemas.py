@@ -158,6 +158,15 @@ class PunchItemResponse(BaseModel):
     updated_at: datetime
 
 
+class PunchItemListResponse(BaseModel):
+    """Paginated list of punch items."""
+
+    items: list[PunchItemResponse]
+    total: int
+    offset: int
+    limit: int
+
+
 # ── Status transition schema ────────────────────────────────────────────
 
 
@@ -182,13 +191,25 @@ class PunchStatusTransition(BaseModel):
 
 
 class PunchListSummary(BaseModel):
-    """Aggregated punch list stats for a project."""
+    """Aggregated punch list stats for a project.
+
+    Every field here is computed over the whole project. The KPI band used to
+    derive the last three from whatever rows the list endpoint happened to
+    return, which is one page, so a project with more items than fit a page
+    reported numbers that were simply wrong.
+    """
 
     total: int = 0
     by_status: dict[str, int] = Field(default_factory=dict)
     by_priority: dict[str, int] = Field(default_factory=dict)
     overdue: int = 0
     avg_days_to_close: float | None = None
+    #: Critical or high priority items that are still open or in progress.
+    urgent_open: int = 0
+    #: Items closed or verified within the last seven days.
+    closed_last_7_days: int = 0
+    #: Mean age in days of items still open or in progress, None when none are.
+    avg_open_age_days: float | None = None
 
 
 # ── Bulk close schema ──────────────────────────────────────────────────

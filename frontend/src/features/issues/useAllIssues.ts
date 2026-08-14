@@ -73,6 +73,10 @@ export const SOURCE_ORDER: IssueSource[] = ['punch', 'ncr', 'clash', 'markup', '
 // Generous page sizes so the hub shows the real backlog, not the first screen.
 const MARKUP_LIMIT = 200;
 const CLASH_LIMIT = 200;
+// The punch list route caps `limit` at 100 and rejects anything above it, so
+// this one cannot match its siblings. It used to send no limit at all and
+// silently took the server default of 50.
+const PUNCH_LIMIT = 100;
 
 /** Minimal read view of a react-query result, enough to build source state. */
 interface ResultLike {
@@ -120,7 +124,7 @@ export function useAllIssues(
       },
       {
         queryKey: ['issues-hub', 'punch', projectId],
-        queryFn: () => fetchPunchItems(projectId),
+        queryFn: () => fetchPunchItems(projectId, { limit: PUNCH_LIMIT }),
         enabled,
         staleTime: 30_000,
       },
@@ -155,7 +159,7 @@ export function useAllIssues(
   const derived = useMemo(() => {
     // Each mapEach isolates per-item failures; a bad row is dropped alone.
     const markups = mapEach(markupRes?.data, mapMarkup);
-    const punch = mapEach(punchRes?.data, mapPunch);
+    const punch = mapEach(punchRes?.data?.items, mapPunch);
     const ncr = mapEach(ncrRes?.data, mapNcr);
     const clash = mapEach(clashRes?.data?.items, mapClashIssue);
     const bcf = bcfSourceAvailable ? mapEach(bcfRes?.data, mapBcfTopic) : [];

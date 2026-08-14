@@ -45,6 +45,7 @@ import {
 } from '@/shared/ui';
 import type { KpiBandItem } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
+import { TruncationNotice } from '@/shared/ui/TruncationNotice';
 import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
 import { buildPunchlistInsights } from './punchlistInsights';
 import { RequiresProject } from '@/shared/auth/RequiresProject';
@@ -277,23 +278,23 @@ function PunchSourceBadge({
 
    The role-home KPI strip the founder picked as the reference pattern
    (issue #70). Built on the shared <KpiBand> + StatCard so it reads the
-   same on every page that copies it. Metrics are derived from the data the
-   page already has: the server summary (total / by_status / by_priority /
-   overdue / avg_days_to_close) plus the loaded item list (used to compute
-   what the summary endpoint does not expose - urgent-open count, items
-   closed in the last seven days, and the average age of still-open work).
-   Tiles are clickable where a sensible drill-down exists, filtering the
-   list below to the matching slice. */
+   same on every page that copies it. Every tile comes from the server
+   summary, which counts the whole project.
 
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
+   Three of them used to be counted here in the browser, over whatever rows
+   the list endpoint had returned. That is one page - fifty items by default
+   - so on any project bigger than a page the urgent count, the closed-this-
+   week count and the average open age were all quietly measuring the page
+   instead of the project, and got further from the truth the more work the
+   project had. They are server aggregates now. Tiles stay clickable where a
+   sensible drill-down exists, filtering the list below to the matching
+   slice. */
 
-/** Parse an ISO timestamp to epoch ms, or null when absent/unparseable. */
-function toMs(value: string | null | undefined): number | null {
-  if (!value) return null;
-  const ms = new Date(value).getTime();
-  return Number.isFinite(ms) ? ms : null;
-}
+/** Stable empty list, so an absent page does not re-run every memo below. */
+const EMPTY_ITEMS: PunchItem[] = [];
+
+/** Rows the pin board asks for. 100 is the server's hard cap on this route. */
+const PIN_BOARD_LIMIT = 100;
 
 interface PunchKpiActions {
   /** Show only the given statuses in the list below. */
@@ -304,66 +305,36 @@ interface PunchKpiActions {
 
 function PunchKpiBand({
   summary,
-  items,
   actions,
 }: {
   summary: PunchSummary | undefined;
-  items: PunchItem[];
   actions: PunchKpiActions;
 }) {
   const { t } = useTranslation();
 
   const metrics = useMemo(() => {
     const byStatus = summary?.by_status ?? {};
-    const overdue = summary?.overdue ?? 0;
-    const avgClose = summary?.avg_days_to_close;
 
     // "Open" = the live workload still to be worked (open + in progress).
-    const open = (byStatus['open'] ?? 0) + (byStatus['in_progress'] ?? 0);
-    const resolved = byStatus['resolved'] ?? 0;
-    // Urgent-open is not in the summary payload, so derive it from the list:
-    // critical/high items that are not yet resolved/verified/closed.
-    const urgentOpen = items.reduce((n, it) => {
-      const live = it.status === 'open' || it.status === 'in_progress';
-      const urgent = it.priority === 'critical' || it.priority === 'high';
-      return n + (live && urgent ? 1 : 0);
-    }, 0);
-
-    // Closed in the last 7 days: prefer the verified/resolved timestamps,
-    // fall back to updated_at for closed items that carry no resolved stamp.
-    const now = Date.now();
-    const closedThisWeek = items.reduce((n, it) => {
-      if (it.status !== 'closed' && it.status !== 'verified') return n;
-      const when = toMs(it.verified_at) ?? toMs(it.resolved_at) ?? toMs(it.updated_at);
-      return n + (when != null && now - when <= WEEK_MS ? 1 : 0);
-    }, 0);
-
-    // Average age (days) of still-open items, from created_at. Null when
-    // there is nothing open to average so we render a dash, not "0d".
-    let ageSum = 0;
-    let ageCount = 0;
-    for (const it of items) {
-      if (it.status !== 'open' && it.status !== 'in_progress') continue;
-      const created = toMs(it.created_at);
-      if (created == null) continue;
-      ageSum += Math.max(0, now - created);
-      ageCount += 1;
-    }
-    const avgOpenAgeDays = ageCount > 0 ? Math.round(ageSum / ageCount / DAY_MS) : null;
-
+    // The server counts urgent_open over those same two states, so this
+    // tile and the urgent one can never contradict each other.
     return {
-      open,
-      resolved,
-      overdue,
-      urgentOpen,
-      closedThisWeek,
-      avgOpenAgeDays,
-      avgClose,
+      open: (byStatus['open'] ?? 0) + (byStatus['in_progress'] ?? 0),
+      resolved: byStatus['resolved'] ?? 0,
+      overdue: summary?.overdue ?? 0,
+      urgentOpen: summary?.urgent_open ?? 0,
+      closedThisWeek: summary?.closed_last_7_days ?? 0,
+      // Null when nothing is open, so the tile renders a dash, not "0d".
+      avgOpenAgeDays: summary?.avg_open_age_days ?? null,
+      avgClose: summary?.avg_days_to_close,
     };
-  }, [summary, items]);
+  }, [summary]);
 
+  // Whole days on the tile. The server rounds the average to one decimal;
+  // the strip has always read in days and a fractional count also makes
+  // i18next pick plural forms off a non-integer.
   const dashOrDays = (n: number | null | undefined) =>
-    n != null ? t('punch.kpi_days', { defaultValue: '{{count}}d', count: n }) : '-';
+    n != null ? t('punch.kpi_days', { defaultValue: '{{count}}d', count: Math.round(n) }) : '-';
 
   const kpiItems: KpiBandItem[] = [
     {
@@ -1056,7 +1027,7 @@ export function PunchListPage() {
     ? projects.find((p) => p.id === activeProjectId)?.name
     : undefined;
 
-  const { data: punchItems = [], isLoading, isError, error, refetch } = useQuery({
+  const { data: punchPage, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['punchlist', projectId, filterPriority, filterStatus, filterCategory, filterAssignee],
     queryFn: () =>
       fetchPunchItems(projectId, {
@@ -1067,6 +1038,7 @@ export function PunchListPage() {
       }),
     enabled: !!projectId,
   });
+  const punchItems = punchPage?.items ?? EMPTY_ITEMS;
 
   const { data: summary } = useQuery({
     queryKey: ['punchlist-summary', projectId],
@@ -1074,17 +1046,19 @@ export function PunchListPage() {
     enabled: !!projectId,
   });
 
-  // Unfiltered project-wide list used only to derive the KPI metrics the
-  // summary endpoint does not expose (urgent-open count, items closed this
-  // week, average age of open items). Keeping it separate from the
-  // filtered `punchItems` query means the role-home KPI band stays stable
-  // and project-wide even while the list below is narrowed by a filter.
-  const { data: kpiItems = [] } = useQuery({
-    queryKey: ['punchlist-kpi', projectId],
-    queryFn: () => fetchPunchItems(projectId),
+  // Unfiltered rows for the pin board, which draws every pinned item over
+  // its drawing sheet and so cannot work from the filtered list. The KPI
+  // band no longer reads this - it reads the server summary - but the pin
+  // board still needs actual rows, and one page of them is all it gets.
+  // Hence the notice above the board: past a page, pins are missing from
+  // the sheet and nothing else on screen would say so.
+  const { data: pinPage } = useQuery({
+    queryKey: ['punchlist-pins', projectId],
+    queryFn: () => fetchPunchItems(projectId, { limit: PIN_BOARD_LIMIT }),
     enabled: !!projectId,
     staleTime: 30_000,
   });
+  const pinItems = pinPage?.items ?? EMPTY_ITEMS;
 
   const { data: teamMembers = [] } = useQuery({
     queryKey: ['team-members', projectId],
@@ -1101,6 +1075,11 @@ export function PunchListPage() {
     enabled: !!projectId && (showAddModal || viewMode === 'pins'),
     staleTime: 60_000,
   });
+
+  // Whether the register is currently showing rows, as opposed to the
+  // loading skeleton, an error card, the empty state or the pin board.
+  const showListTruncation =
+    !!projectId && !isLoading && !isError && viewMode !== 'pins' && punchItems.length > 0;
 
   // Client-side search
   const filteredItems = useMemo(() => {
@@ -1158,12 +1137,12 @@ export function PunchListPage() {
     qc.invalidateQueries({ queryKey: ['punchlist-summary'] });
   }, [qc]);
 
-  // The pin board renders over the project-wide (unfiltered) `punchlist-kpi`
+  // The pin board renders over the project-wide (unfiltered) `punchlist-pins`
   // list, whose key is NOT matched by the ['punchlist'] invalidation above.
   // Placing a pin must refresh that list so the new pin appears at once.
   const invalidatePins = useCallback(() => {
     invalidateAll();
-    qc.invalidateQueries({ queryKey: ['punchlist-kpi'] });
+    qc.invalidateQueries({ queryKey: ['punchlist-pins'] });
   }, [invalidateAll, qc]);
 
   // Mutations
@@ -1461,7 +1440,6 @@ export function PunchListPage() {
       {/* KPI strip - the role-home reference band (issue #70). */}
       <PunchKpiBand
         summary={summary}
-        items={kpiItems}
         actions={{
           onFilterStatus: (status) => {
             setFilterStatus(status);
@@ -1641,6 +1619,15 @@ export function PunchListPage() {
 
       {/* Content */}
       <div>
+        {/* Only above rows that are actually on screen: the empty, loading,
+            error and no-project states are left exactly as they were, and
+            the pin board carries its own notice for its own fetch. The page
+            it describes is the server's, never `filteredItems` - the search
+            below is client-side, so pairing a narrowed count with the server
+            total would print a sentence that is not true of either. */}
+        {showListTruncation && punchPage && (
+          <TruncationNotice page={punchPage} className="mb-2" />
+        )}
         {!projectId ? (
           <RequiresProject
             emptyHint={t('punch.no_project_desc', {
@@ -1654,8 +1641,9 @@ export function PunchListPage() {
           <RecoveryCard error={error} onRetry={() => refetch()} />
         ) : viewMode === 'pins' ? (
           <React.Suspense fallback={<SkeletonTable rows={6} columns={5} />}>
+            {pinPage && <TruncationNotice page={pinPage} className="mb-2" />}
             <PunchPinBoard
-              items={kpiItems}
+              items={pinItems}
               drawings={drawings}
               onOpenItem={openDetail}
               onPinned={invalidatePins}

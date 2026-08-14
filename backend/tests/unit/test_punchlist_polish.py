@@ -118,6 +118,8 @@ class _StubPunchRepo:
             "by_status": {},
             "by_priority": {},
             "closed_timestamps": [],
+            "urgent_open": 0,
+            "open_created_at": [],
         }
 
     async def count_overdue(self, project_id: uuid.UUID) -> int:

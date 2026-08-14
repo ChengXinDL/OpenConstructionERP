@@ -6,7 +6,7 @@
  * All endpoints are prefixed with /v1/punchlist/.
  */
 
-import { apiGet, apiPost, apiPatch, apiDelete } from '@/shared/lib/api';
+import { apiGet, apiPost, apiPatch, apiDelete, type Page } from '@/shared/lib/api';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 
@@ -75,20 +75,42 @@ export interface BulkCloseResponse {
   errors: { id: string; error: string }[];
 }
 
+/**
+ * Project-wide punch list aggregates.
+ *
+ * Every number here is counted over the whole project by the server. The KPI
+ * band reads it instead of deriving figures from a page of rows, which is
+ * what it used to do and which went wrong the moment a project outgrew one
+ * page.
+ */
 export interface PunchSummary {
   total: number;
   by_status: Record<string, number>;
   by_priority: Record<string, number>;
   overdue: number;
   avg_days_to_close: number | null;
+  /** Critical or high priority items still open or in progress. */
+  urgent_open: number;
+  /** Items closed or verified in the last seven days. */
+  closed_last_7_days: number;
+  /** Mean age in days of items still open, null when none are. */
+  avg_open_age_days: number | null;
 }
 
 export interface PunchFilters {
+  /**
+   * Free-text search. NOT sent anywhere useful today: the backend list route
+   * declares no `search` query param, so FastAPI drops it and the register
+   * filters client-side over the page it already holds. Kept so the call
+   * sites do not change when the server learns to search.
+   */
   search?: string;
   priority?: PunchPriority | '';
   status?: PunchStatus | '';
   category?: PunchCategory | '';
   assigned_to?: string;
+  /** Rows per page. Server default 50, hard cap 100. */
+  limit?: number;
 }
 
 export interface CreatePunchPayload {
@@ -130,21 +152,29 @@ export interface TeamMember {
 
 /* ── API Functions ─────────────────────────────────────────────────────── */
 
+/**
+ * Fetch one page of the project's punch items.
+ *
+ * Returns the whole `{items, total, offset, limit}` envelope rather than just
+ * the rows: `total` counts every item matching the filters, so a caller can
+ * tell it is holding a slice and say so. Callers that only need the rows read
+ * `.items`, but they have to do it themselves, which is the point.
+ *
+ * `limit` defaults to the server's 50 and is capped there at 100.
+ */
 export async function fetchPunchItems(
   projectId: string,
   filters?: PunchFilters,
-): Promise<PunchItem[]> {
-  if (!projectId) return [];
+): Promise<Page<PunchItem>> {
+  if (!projectId) return { items: [], total: 0, offset: 0, limit: 0 };
   const params = new URLSearchParams({ project_id: projectId });
   if (filters?.search) params.set('search', filters.search);
   if (filters?.priority) params.set('priority', filters.priority);
   if (filters?.status) params.set('status', filters.status);
   if (filters?.category) params.set('category', filters.category);
   if (filters?.assigned_to) params.set('assigned_to', filters.assigned_to);
-  const res = await apiGet<PunchItem[] | { items: PunchItem[] }>(
-    `/v1/punchlist/items/?${params.toString()}`,
-  );
-  return Array.isArray(res) ? res : res.items ?? [];
+  if (filters?.limit != null) params.set('limit', String(filters.limit));
+  return apiGet<Page<PunchItem>>(`/v1/punchlist/items/?${params.toString()}`);
 }
 
 export async function createPunchItem(data: CreatePunchPayload): Promise<PunchItem> {
@@ -276,7 +306,17 @@ export async function fetchPunchDrawings(projectId: string): Promise<PunchDrawin
 }
 
 export async function fetchPunchSummary(projectId: string): Promise<PunchSummary> {
-  if (!projectId) return { total: 0, by_status: {}, by_priority: {}, overdue: 0, avg_days_to_close: null };
+  if (!projectId)
+    return {
+      total: 0,
+      by_status: {},
+      by_priority: {},
+      overdue: 0,
+      avg_days_to_close: null,
+      urgent_open: 0,
+      closed_last_7_days: 0,
+      avg_open_age_days: null,
+    };
   return apiGet<PunchSummary>(`/v1/punchlist/summary/?project_id=${projectId}`);
 }
 

@@ -36,6 +36,7 @@ from app.modules.punchlist.schemas import (
     PunchBulkCloseRequest,
     PunchBulkCloseResponse,
     PunchItemCreate,
+    PunchItemListResponse,
     PunchItemResponse,
     PunchItemUpdate,
     PunchListSummary,
@@ -134,7 +135,7 @@ async def create_item(
 # ── List ─────────────────────────────────────────────────────────────────────
 
 
-@router.get("/items/", response_model=list[PunchItemResponse])
+@router.get("/items/", response_model=PunchItemListResponse)
 async def list_items(
     session: SessionDep,
     project_id: uuid.UUID = Query(...),
@@ -148,10 +149,17 @@ async def list_items(
     trade: str | None = Query(default=None),
     _perm: None = Depends(RequirePermission("punchlist.read")),
     service: PunchListService = Depends(_get_service),
-) -> list[PunchItemResponse]:
-    """List punch items for a project with optional filters."""
+) -> PunchItemListResponse:
+    """List punch items for a project with optional filters.
+
+    Returns the ``{items, total, offset, limit}`` envelope. ``total`` counts
+    every row matching the filters, not the ones on this page, so a caller
+    can tell that it is holding a slice. The repository has always computed
+    it; this handler used to discard it, which left the register with no way
+    to know it was cut off at the default limit.
+    """
     await verify_project_access(project_id, user_id, session)
-    items, _ = await service.list_items(
+    items, total = await service.list_items(
         project_id,
         offset=offset,
         limit=limit,
@@ -161,7 +169,12 @@ async def list_items(
         category_filter=category,
         trade_filter=trade,
     )
-    return [_item_to_response(i) for i in items]
+    return PunchItemListResponse(
+        items=[_item_to_response(i) for i in items],
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
 
 
 # ── Root aliases ─────────────────────────────────────────────────────────────
@@ -173,7 +186,7 @@ async def list_items(
 # follows the same shape as everything else.
 
 
-@router.get("/", response_model=list[PunchItemResponse])
+@router.get("/", response_model=PunchItemListResponse)
 async def list_items_root_alias(
     session: SessionDep,
     project_id: uuid.UUID = Query(...),
@@ -187,7 +200,7 @@ async def list_items_root_alias(
     trade: str | None = Query(default=None),
     _perm: None = Depends(RequirePermission("punchlist.read")),
     service: PunchListService = Depends(_get_service),
-) -> list[PunchItemResponse]:
+) -> PunchItemListResponse:
     """Alias for ``GET /items/`` - see that handler for full semantics."""
     return await list_items(
         session=session,
