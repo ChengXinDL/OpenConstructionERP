@@ -22,7 +22,7 @@ from decimal import Decimal
 from typing import Iterable, Sequence
 
 from dateutil.easter import easter  # type: ignore[import]
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.calendar import is_working_day
@@ -122,18 +122,53 @@ async def seed_daily_diary_demo(
         return {}
 
     # Ninety days of diaries per project is not something to add twice. The
-    # boot backfill re-runs this on every start, so skip any project that
-    # already carries a diary rather than gating on a table-wide count: users
-    # write diaries too, and one real entry would otherwise stop the demo seed
-    # reaching the projects that are still empty.
+    # boot backfill re-runs this on every start, so the guard is per project
+    # rather than a table-wide count: users write diaries too, and one real
+    # entry would otherwise stop the demo seed reaching the projects that are
+    # still empty.
+    #
+    # What the guard asks matters more than that it exists. "Does this project
+    # hold a diary" was the wrong question. The demo installer writes a handful
+    # of empty English headers of its own before this runs, so every project
+    # answered yes and this seeder reached none of them - the rich diary was
+    # written, tested and never once inserted. The question is "did I write
+    # it", and the writers are told apart by the marks they leave:
+    # ``metadata_["seed"]`` is this seeder and its showcase sibling,
+    # ``metadata_["demo_id"]`` is the installer. A row carrying neither is a
+    # real diary and still stops the project cold, which is the whole point of
+    # having a guard.
+    #
     # Compared as strings on both sides. The id column is a text-backed GUID
     # that reads back as a uuid.UUID, and callers hand this function whichever
     # of the two they happen to hold, so comparing the raw values would let the
     # guard silently never match and duplicate the whole seed on every boot.
     _rows = (
-        await session.execute(select(DailyDiary.project_id).where(DailyDiary.project_id.in_(list(project_ids))))
-    ).scalars()
-    seeded = {str(_pid) for _pid in _rows.all()}
+        await session.execute(
+            select(DailyDiary.id, DailyDiary.project_id, DailyDiary.metadata_).where(
+                DailyDiary.project_id.in_(list(project_ids))
+            )
+        )
+    ).all()
+    seeded: set[str] = set()
+    installer_headers: dict[str, list] = {}
+    for _row_id, _pid, _marks in _rows:
+        _key = str(_pid)
+        _mark = _marks or {}
+        if _mark.get("demo_id") and not _mark.get("seed"):
+            installer_headers.setdefault(_key, []).append(_row_id)
+        else:
+            seeded.add(_key)
+
+    # Drop the installer's placeholders on the projects that are about to get
+    # the real thing. They are this install's own rows rather than anybody's
+    # work, and (project_id, diary_date) is unique, so a header left standing
+    # inside the ninety-day window would collide with the day being written.
+    # Projects that are being skipped keep theirs: a project this seeder does
+    # not fill must not come out emptier than it went in.
+    _doomed = [row_id for pid, rows in installer_headers.items() if pid not in seeded for row_id in rows]
+    if _doomed:
+        await session.execute(delete(DailyDiary).where(DailyDiary.id.in_(_doomed)))
+        await session.flush()
 
     rng = random.Random(deterministic_seed)
     base = base_date or datetime.now(UTC).replace(hour=8, minute=0, second=0, microsecond=0)
