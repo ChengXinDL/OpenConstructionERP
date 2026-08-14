@@ -536,7 +536,15 @@ export function getColumnDefs(context: BOQColumnContext): ColDef[] {
       // 88px default truncated a standard German GAEB OZ ("01.01.0010")
       // exactly where the column exists to show it.
       width: ordinalColumnWidth(context.maxOrdinalChars ?? 0),
-      minWidth: 70,
+      // The same number is the floor, not just the starting width. The grid
+      // runs sizeColumnsToFit on ready and after every column change, which
+      // redistributes width down to each column's minWidth - a 70px floor
+      // handed the fitted width straight back and re-ellipsised the OZ on a
+      // narrow viewport. An ordinal is an addressable identifier: it has to
+      // be readable to be typed back into an inquiry, so the column gives up
+      // no more width than the longest one in the grid needs. It stays
+      // user-resizable upwards via `resizable: true`.
+      minWidth: ordinalColumnWidth(context.maxOrdinalChars ?? 0),
       // The grid is singleClickEdit for data-entry columns (qty, rate), but
       // the Ordnungszahl is the client-issued identity of the line - a stray
       // click must never open an invisible editor over it. Column-level

@@ -27845,6 +27845,8 @@ const resource = {
     "gaeb.positions_imported": "Positionen importiert",
     "gaeb.preview": "Vorschau",
     "gaeb.prices": "Preise",
+    "gaeb.prices_missing_one": "{{count}} Position ohne Preis",
+    "gaeb.prices_missing_other": "{{count}} Positionen ohne Preis",
     "gaeb.sections": "Abschnitte",
     "gaeb.create_new_boq": "Neues LV anlegen",
     "gaeb.select_boq": "LV auswählen",

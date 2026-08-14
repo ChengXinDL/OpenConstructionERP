@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import {
   generateGAEBXML,
   hasPricedPositions,
+  priceCoverage,
   toGaebUnitCode,
   fromGaebUnitCode,
   type ExportPosition,
@@ -430,6 +431,69 @@ describe('hasPricedPositions', () => {
 
   it('is true for the priced sample LV', () => {
     expect(hasPricedPositions(samplePositions)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Export summary truthfulness, part two: the half-priced LV.
+//
+// "At least one rate" was still enough for the tile to read "Prices: Yes",
+// so a bill with one priced line out of four hundred announced itself as a
+// priced bid. The tile reads this coverage directly - 'all' is the only state
+// that may claim prices, 'partial' says so and names the gap.
+// ---------------------------------------------------------------------------
+
+describe('priceCoverage', () => {
+  const unpricedRows = () => samplePositions.map((p) => ({ ...p, unitRate: 0, total: 0 }));
+
+  it('claims nothing for an LV whose every line is unpriced', () => {
+    const coverage = priceCoverage(unpricedRows());
+    expect(coverage.state).toBe('none');
+    expect(coverage.state).not.toBe('all');
+    expect(coverage.priced).toBe(0);
+    expect(coverage.missing).toBe(3); // 5 rows, 2 of them sections
+    expect(coverage.items).toBe(3);
+  });
+
+  it('reports a half-priced LV as partial, not as priced', () => {
+    const rows = unpricedRows();
+    rows[1] = { ...rows[1], unitRate: 18.5, total: 6484.25 };
+    const coverage = priceCoverage(rows);
+    expect(coverage.state).toBe('partial');
+    expect(coverage.priced).toBe(1);
+    expect(coverage.missing).toBe(2);
+    // The rule the tile used to run on says "priced" about this same bill.
+    // That is the statement being replaced, not a second opinion about it.
+    expect(hasPricedPositions(rows)).toBe(true);
+  });
+
+  it('claims prices only when every line item carries a rate', () => {
+    const coverage = priceCoverage(samplePositions);
+    expect(coverage.state).toBe('all');
+    expect(coverage.priced).toBe(3);
+    expect(coverage.missing).toBe(0);
+  });
+
+  it('reads a zero rate as missing, whatever the total says', () => {
+    const rows = samplePositions.map((p) => (p.isSection ? p : { ...p, unitRate: 0 }));
+    expect(priceCoverage(rows).state).toBe('none');
+  });
+
+  it('ignores section header rows on both sides of the count', () => {
+    // A degenerate section row carrying a rate must neither price the LV nor
+    // count against it: sections never carry money.
+    const rows = unpricedRows();
+    rows[0] = { ...rows[0], unitRate: 99 };
+    const coverage = priceCoverage(rows);
+    expect(coverage.state).toBe('none');
+    expect(coverage.items).toBe(3);
+  });
+
+  it('says nothing is priced when the bill is all sections', () => {
+    const coverage = priceCoverage(samplePositions.filter((p) => p.isSection));
+    expect(coverage.state).toBe('none');
+    expect(coverage.items).toBe(0);
+    expect(coverage.missing).toBe(0);
   });
 });
 

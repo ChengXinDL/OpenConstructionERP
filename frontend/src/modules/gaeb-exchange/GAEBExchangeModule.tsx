@@ -35,7 +35,7 @@ import {
 import {
   generateGAEBXML,
   downloadGAEBXML,
-  hasPricedPositions,
+  priceCoverage,
   type GAEBExportFormat,
   type ExportPosition,
 } from './data/gaebExport';
@@ -372,6 +372,12 @@ export default function GAEBExchangeModule() {
 
   const selectedExportBoq = exportBoqs.find((b) => b.id === exportBoqId);
   const selectedExportProject = projects.find((p) => p.id === exportProjectId);
+
+  // What the summary's "Prices" tile is allowed to claim. Read from the rates
+  // in the bill, then overridden to "none" for X81, which drops prices by
+  // definition - the file the user is about to download really carries none.
+  const coverage = useMemo(() => priceCoverage(exportablePositions), [exportablePositions]);
+  const priceState = exportFormat === 'X81' ? 'none' : coverage.state;
 
   const handleExport = useCallback(async () => {
     if (exportablePositions.length === 0) {
@@ -800,17 +806,31 @@ export default function GAEBExchangeModule() {
                   <div className="text-2xs text-content-tertiary uppercase">{t('gaeb.format_label', { defaultValue: 'Format' })}</div>
                   <div className="text-lg font-bold text-content-primary">{exportFormat}</div>
                 </div>
-                <div className="rounded-lg bg-surface-secondary/50 p-3 text-center">
+                <div className="rounded-lg bg-surface-secondary/50 p-3 text-center" data-testid="gaeb-prices-tile">
                   <div className="text-2xs text-content-tertiary uppercase">{t('gaeb.prices', { defaultValue: 'Prices' })}</div>
-                  <div className="text-lg font-bold text-content-primary">
-                    {/* Answer from the data, not the format: X81 never carries
-                        prices; for X83/X84 "Yes" requires at least one priced
-                        line, otherwise an unpriced LV would be exported under
-                        a summary claiming a priced bid. */}
-                    {exportFormat !== 'X81' && hasPricedPositions(exportablePositions)
-                      ? t('common.yes', { defaultValue: 'Yes' })
-                      : t('common.no', { defaultValue: 'No' })}
+                  {/* "Yes" only when every line item carries a rate. One priced
+                      line out of four hundred is not a priced bid, and the
+                      bidder who reads "Yes" and receives a half-priced file has
+                      no way back - so the partial state names how many rates
+                      are still missing instead of rounding up to Yes. */}
+                  <div
+                    className={`text-lg font-bold ${priceState === 'partial' ? 'text-amber-600 dark:text-amber-400' : 'text-content-primary'}`}
+                  >
+                    {priceState === 'all' && t('common.yes', { defaultValue: 'Yes' })}
+                    {/* `boq.partial` is the platform's existing "some but not
+                        all" label, already translated in every locale. */}
+                    {priceState === 'partial' && t('boq.partial', { defaultValue: 'Partial' })}
+                    {priceState === 'none' && t('common.no', { defaultValue: 'No' })}
                   </div>
+                  {priceState === 'partial' && (
+                    <div className="text-2xs text-amber-600 dark:text-amber-400">
+                      {t('gaeb.prices_missing', {
+                        count: coverage.missing,
+                        defaultValue: '{{count}} line without a rate',
+                        defaultValue_other: '{{count}} lines without a rate',
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
 

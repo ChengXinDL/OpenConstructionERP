@@ -31608,6 +31608,8 @@ const resource = {
     "gaeb.sections": "Sections",
     "gaeb.format_label": "Format",
     "gaeb.prices": "Prices",
+    "gaeb.prices_missing_one": "{{count}} line without a rate",
+    "gaeb.prices_missing_other": "{{count}} lines without a rate",
   "gaeb.show_all_one": "Show all {{count}}",
   "gaeb.show_all_other": "Show all {{count}}",
   "gaeb.import_btn_one": "Import {{count}} position",
