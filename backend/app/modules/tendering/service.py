@@ -72,6 +72,51 @@ def _round2_dec(value: Decimal) -> Decimal:
     return value.quantize(_CENTS, rounding=ROUND_HALF_UP)
 
 
+def _positions_in_scope(positions: list, metadata: dict | None) -> list:
+    """Narrow a package's BOQ positions to the lines it was raised over.
+
+    A tender package can cover part of a bill: ``create_from_boq`` freezes the
+    chosen sections into ``line_item_template``, and the demo installer records
+    the same thing as a plain ``scope_position_ids`` list. Both comparison
+    screens read the package's whole BOQ, so without this narrowing the lines
+    nobody was asked to price still land on the reference side, where every
+    bidder reads as having omitted them. A package over a quarter of a bill
+    then levels a bid of 812,400 to roughly four times that, because each
+    out-of-scope line is imputed at the bidder's own mean rate, and compares it
+    against a budget four times its own.
+
+    Metadata that declares no scope means the package covers everything its
+    BOQ holds, which is what every package created before this carried. A scope
+    that matches nothing in the BOQ is stale metadata rather than an empty
+    package, so it is ignored too: an empty matrix would be a worse answer than
+    a wide one.
+
+    Args:
+        positions: BOQ positions as loaded for the package.
+        metadata: The package's metadata mapping, possibly empty.
+
+    Returns:
+        The positions in scope, in their original order.
+    """
+    meta = metadata or {}
+    scope: set[str] = set()
+
+    raw = meta.get("scope_position_ids")
+    if isinstance(raw, list):
+        scope.update(str(v) for v in raw if v)
+
+    template = meta.get("line_item_template")
+    if isinstance(template, list):
+        for item in template:
+            if isinstance(item, dict) and item.get("position_id"):
+                scope.add(str(item["position_id"]))
+
+    if not scope:
+        return positions
+    narrowed = [p for p in positions if str(p.id) in scope]
+    return narrowed or positions
+
+
 async def _safe_publish(name: str, data: dict, source_module: str = "") -> None:
     try:
         event_bus.publish_detached(name, data, source_module=source_module)
@@ -506,7 +551,7 @@ class TenderingService:
         boq_service = BOQService(self.session)
         try:
             boq_data = await boq_service.get_boq_with_positions(package.boq_id)
-            budget_positions = boq_data.positions
+            budget_positions = _positions_in_scope(boq_data.positions, package.metadata_)
         except HTTPException:
             budget_positions = []
 
@@ -1501,7 +1546,7 @@ class TenderingService:
         boq_service = BOQService(self.session)
         try:
             boq_data = await boq_service.get_boq_with_positions(package.boq_id)
-            ref_positions = boq_data.positions
+            ref_positions = _positions_in_scope(boq_data.positions, package.metadata_)
         except HTTPException:
             ref_positions = []
 

@@ -181,16 +181,57 @@ def _tender_scopes(items: list[Position], package_count: int) -> list[list[Posit
 
     Contiguous because the list is built section by section, so a slice of it
     is a run of related trades rather than an arbitrary handful of lines.
+
+    The cut balances money, not line count. Every package's bids are the same
+    share of the grand total, and the budget comparison measures a bid against
+    the lines its own package holds, so a scope worth half of what its bidders
+    quote would put all three of them 100% over budget for a reason nobody can
+    read off the screen. Cutting on the running total keeps each scope near its
+    share, and a bill of few enough lines gives one line to each package rather
+    than crowding them into the first.
     """
     if package_count <= 1:
         return [list(items)]
-    size, remainder = divmod(len(items), package_count)
-    scopes: list[list[Position]] = []
+    if len(items) <= package_count:
+        return [[item] for item in items] + [[] for _ in range(package_count - len(items))]
+
+    values = [Decimal(str(item.quantity or 0)) * Decimal(str(item.unit_rate or 0)) for item in items]
+    cumulative: list[Decimal] = []
+    running = Decimal(0)
+    for value in values:
+        running += value
+        cumulative.append(running)
+    total = running
+    if total <= 0:
+        size, remainder = divmod(len(items), package_count)
+        scopes: list[list[Position]] = []
+        cursor = 0
+        for index in range(package_count):
+            take = size + (1 if index < remainder else 0)
+            scopes.append(items[cursor : cursor + take])
+            cursor += take
+        return scopes
+
+    scopes = []
     cursor = 0
-    for index in range(package_count):
-        take = size + (1 if index < remainder else 0)
-        scopes.append(items[cursor : cursor + take])
-        cursor += take
+    for index in range(1, package_count):
+        target = total * Decimal(index) / Decimal(package_count)
+        end = cursor
+        while end < len(items) and (cumulative[end - 1] if end else Decimal(0)) < target:
+            end += 1
+        # Cut on whichever side of the target is nearer. Stopping at the first
+        # line that crosses it hands a fat line to the earlier package every
+        # time, and four of those in a row leave the last package short by the
+        # sum of all four overshoots.
+        if end - 1 > cursor and target - cumulative[end - 2] < cumulative[end - 1] - target:
+            end -= 1
+        # One line for this package at the least, and one left for each package
+        # still to come: a single line worth a third of the bill must not empty
+        # the two packages behind it.
+        end = min(max(end, cursor + 1), len(items) - (package_count - index))
+        scopes.append(items[cursor:end])
+        cursor = end
+    scopes.append(items[cursor:])
     return scopes
 
 
@@ -11205,6 +11246,17 @@ async def install_demo_project(
         n_pkgs = len(template.tender_packages)
         pkg_scopes = _tender_scopes(items_list, n_pkgs)
         for pkg_idx, (pkg_name, pkg_desc, pkg_status, pkg_companies) in enumerate(template.tender_packages):
+            # The package covers a slice of the priced lines, and each bidder
+            # quotes that slice line by line. Where there are no priced lines
+            # to quote, the bid keeps the old proportional share of the grand
+            # total so the package still shows a number.
+            #
+            # The slice is recorded on the package because both comparison
+            # screens read the package's BOQ, which is the whole bill. Without
+            # the record they would put three quarters of a four-package bill
+            # on the reference side of a quarter-sized bid and impute every
+            # line of it.
+            scope = pkg_scopes[pkg_idx] if pkg_idx < len(pkg_scopes) else []
             pkg = TenderPackage(
                 id=_id(),
                 project_id=project.id,
@@ -11213,16 +11265,15 @@ async def install_demo_project(
                 description=pkg_desc,
                 status=pkg_status,
                 deadline=(start - timedelta(days=30 + pkg_idx * 7)).strftime("%Y-%m-%d"),
-                metadata_={"package_index": pkg_idx + 1, "total_packages": n_pkgs},
+                metadata_={
+                    "package_index": pkg_idx + 1,
+                    "total_packages": n_pkgs,
+                    "scope_position_ids": [str(p.id) for p in scope],
+                },
             )
             session.add(pkg)
             await session.flush()
 
-            # The package covers a slice of the priced lines, and each bidder
-            # quotes that slice line by line. Where there are no priced lines
-            # to quote, the bid keeps the old proportional share of the grand
-            # total so the package still shows a number.
-            scope = pkg_scopes[pkg_idx] if pkg_idx < len(pkg_scopes) else []
             pkg_share = grand_total / n_pkgs
             for bidder_idx, (co, email, factor) in enumerate(pkg_companies):
                 total = round(pkg_share * factor, 2)

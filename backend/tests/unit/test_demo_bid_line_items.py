@@ -119,10 +119,39 @@ def test_every_scope_line_lands_in_exactly_one_package() -> None:
     """The split covers the BOQ once - no line quoted twice, none dropped."""
     scope = _scope(41)
     scopes = _tender_scopes(scope, 4)
-    assert [len(s) for s in scopes] == [11, 10, 10, 10]
+    assert len(scopes) == 4
     seen = [position.id for chunk in scopes for position in chunk]
     assert seen == [position.id for position in scope]
     # Fewer lines than packages: the tail packages are empty, not short by a
     # line someone else already has.
     assert [len(s) for s in _tender_scopes(_scope(3), 4)] == [1, 1, 1, 0]
     assert len(_tender_scopes(scope, 1)) == 1
+
+
+def _value(positions: list) -> Decimal:
+    return sum((Decimal(p.quantity) * Decimal(p.unit_rate) for p in positions), Decimal(0))
+
+
+def test_each_package_is_worth_about_the_share_its_bidders_quote() -> None:
+    """Every package's bids are the same share of the grand total.
+
+    The budget comparison measures a bid against the lines its own package
+    holds, so a scope worth half of what its bidders quote shows all three of
+    them 100% over budget for a reason nobody can read off the screen. Splitting
+    41 lines into four equal counts does exactly that, because BOQ lines differ
+    by two orders of magnitude in value.
+    """
+    scope = _scope(41)
+    scopes = _tender_scopes(scope, 4)
+    share = _value(scope) / 4
+    ratios = [_value(chunk) / share for chunk in scopes]
+    assert all(Decimal("0.8") < r < Decimal("1.25") for r in ratios), ratios
+
+
+def test_one_expensive_line_does_not_empty_the_packages_behind_it() -> None:
+    """A line worth most of the bill takes its package, not everyone else's."""
+    fat = [_Pos(0, 1000.0, 1000.0)] + [_Pos(i, 1.0, 1.0) for i in range(1, 9)]
+    scopes = _tender_scopes(fat, 4)
+    assert all(chunk for chunk in scopes), [len(s) for s in scopes]
+    # An unpriced bill has no value to balance and falls back to line count.
+    assert [len(s) for s in _tender_scopes([_Pos(i, 0.0, 0.0) for i in range(9)], 4)] == [3, 2, 2, 2]

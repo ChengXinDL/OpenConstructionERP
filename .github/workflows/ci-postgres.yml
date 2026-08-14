@@ -108,6 +108,7 @@ jobs:
           tests/unit/test_demo_seed_has_no_real_firm_names.py
           tests/unit/test_demo_contact_domains.py
           tests/unit/test_demo_bid_line_items.py
+          tests/unit/test_tender_package_scope.py
           tests/unit/test_demo_safety_vocabulary.py
           tests/unit/test_demo_seed_speaks_module_vocabularies.py
           -q -p no:cacheprovider
