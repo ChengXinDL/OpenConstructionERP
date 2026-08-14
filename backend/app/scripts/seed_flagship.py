@@ -675,6 +675,10 @@ async def install_flagship(
         # parses out of the box via ezdxf. The helper falls back to a
         # metadata-only row if ezdxf is unavailable; the backend then reports
         # "needs_conversion" so the UI shows a convert CTA, still never a spinner.
+        #
+        # Nothing is copied off ``m`` but the name and the discipline. Its
+        # element count belongs to the converted drawing behind the spec, not
+        # to the DXF authored at seed time, and the seeder counts that one.
         if is_non_3d_format(m.get("model_format")):
             from app.scripts.seed_dwg_drawing import seed_ready_dwg_drawing
 
@@ -686,7 +690,6 @@ async def install_flagship(
                 name=m["name"],
                 discipline=m.get("discipline"),
                 source="flagship_seed",
-                element_count=m.get("element_count", 0),
             )
             dwg_count += 1
             continue

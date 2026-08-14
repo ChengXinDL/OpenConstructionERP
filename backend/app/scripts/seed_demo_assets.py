@@ -534,9 +534,13 @@ async def _attach_dwg_drawing(
 
     Idempotent on a deterministic id. Returns True when a drawing exists
     afterwards.
+
+    The spec model is read for its presence only - it says the bundle carries a
+    2D drawing at all. Nothing is copied off it: the seeded DXF is authored
+    here, so the spec model's element count belongs to the converted CAD file
+    behind the spec and not to the drawing this attaches.
     """
-    src = _source_model(spec, _DWG_MODEL["source_format"])
-    if src is None:
+    if _source_model(spec, _DWG_MODEL["source_format"]) is None:
         return False
 
     did = _u(str(pid), "dwg", _DWG_MODEL["model_format"])
@@ -551,7 +555,6 @@ async def _attach_dwg_drawing(
         name=_DWG_MODEL["model_name"],
         discipline=_DWG_MODEL.get("discipline"),
         source="demo_asset_seed",
-        element_count=src.get("element_count", 0),
     )
 
 
