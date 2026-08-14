@@ -119,7 +119,7 @@ export function CasesPage() {
 
   // Detail mode: a specific case is open in the runner.
   if (playbookId) {
-    // `getPlaybook` only knows the 144 shipped files, and an authored id
+    // `getPlaybook` only knows the shipped files, and an authored id
     // (`custom-<uuid>`) is not one of them, so the authored list answers first
     // and the bundle answers for everything else.
     const playbook =
@@ -531,7 +531,7 @@ function CasesList() {
     setActiveStage(activeStage === id ? "all" : id);
   };
 
-  // A hub of 144 cases is easy to bounce off: none of them is wrong, so none of
+  // A hub of this many cases is easy to bounce off: none of them is wrong, so none of
   // them is obviously the one to open. This opens one at random from whatever
   // the filters currently leave on screen, so it stays inside the discipline
   // and role the reader already chose rather than throwing them anywhere.

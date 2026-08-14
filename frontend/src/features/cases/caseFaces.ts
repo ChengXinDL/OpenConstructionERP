@@ -61,6 +61,10 @@ export const ROLE_CAST: Record<CaseRole, string[]> = {
  * Case slug -> bespoke photo path for the nine flagship cases that were shot
  * individually (`pbk-<case-slug>.webp` maps 1:1 to the case slug). A bespoke
  * photo always wins over the pooled role cast in `caseFaceFor`.
+ *
+ * The takeoff shot was framed for the retired PDF pricing case; the German
+ * takeoff case inherited that route, so it inherits the photograph, filed
+ * under its own slug to keep the 1:1 rule.
  */
 export const BESPOKE_CASE_PHOTOS: Record<string, string> = {
   'answer-an-rfi': `${PEOPLE_ASSETS_BASE}/pbk-answer-an-rfi.webp`,
@@ -71,6 +75,7 @@ export const BESPOKE_CASE_PHOTOS: Record<string, string> = {
   'inspect-and-close-ncr': `${PEOPLE_ASSETS_BASE}/pbk-inspect-and-close-ncr.webp`,
   'project-end-to-end': `${PEOPLE_ASSETS_BASE}/pbk-project-end-to-end.webp`,
   'run-the-site-day': `${PEOPLE_ASSETS_BASE}/pbk-run-the-site-day.webp`,
+  'takeoff-quantities-from-a-pdf-plan': `${PEOPLE_ASSETS_BASE}/pbk-takeoff-quantities-from-a-pdf-plan.webp`,
   'tender-from-boq': `${PEOPLE_ASSETS_BASE}/pbk-tender-from-boq.webp`,
 };
 
