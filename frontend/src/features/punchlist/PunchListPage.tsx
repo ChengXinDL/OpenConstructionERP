@@ -1619,12 +1619,17 @@ export function PunchListPage() {
 
       {/* Content */}
       <div>
-        {/* Only above rows that are actually on screen: the empty, loading,
-            error and no-project states are left exactly as they were, and
-            the pin board carries its own notice for its own fetch. The page
-            it describes is the server's, never `filteredItems` - the search
-            below is client-side, so pairing a narrowed count with the server
-            total would print a sentence that is not true of either. */}
+        {/* Shown whenever the server actually returned rows. The loading,
+            error and no-project states are untouched, and the pin board
+            carries its own notice for its own fetch. It does still sit above
+            the "no matching items" state, deliberately and as the finance
+            register already does: the search below is client-side, so a
+            search that finds nothing is exactly when the reader has to be
+            told only part of the register was searched. A project with no
+            items at all is unaffected, because then total is 0 and the
+            notice renders nothing. The page it describes is always the
+            server's, never `filteredItems`: pairing a narrowed count with
+            the server total would print a sentence true of neither. */}
         {showListTruncation && punchPage && (
           <TruncationNotice page={punchPage} className="mb-2" />
         )}
