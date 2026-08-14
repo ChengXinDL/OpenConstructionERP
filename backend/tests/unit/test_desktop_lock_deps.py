@@ -47,14 +47,13 @@ _REQUIRED_BASE_DEPS = (
 )
 
 # Vector-store clients from the [semantic-clients] extra. qdrant-client opens
-# the CWICR match store and lancedb backs the generic semantic store the
-# desktop CLI selects (app/cli.py sets VECTOR_BACKEND=lancedb). Both are
-# imported inside function bodies, so a lock without them produces a sidecar
-# that answers an empty 200 from /match-elements instead of failing loudly.
-_REQUIRED_CLIENT_DEPS = (
-    "qdrant-client",
-    "lancedb",
-)
+# the CWICR match store, and it is imported inside a function body, so a lock
+# without it produces a sidecar that answers an empty 200 from /match-elements
+# instead of failing loudly. lancedb is deliberately absent: it is 157 MB for a
+# generic semantic store that has no encoder in a stock install anyway, so it
+# stays in [vector]. Absent, not forbidden - it is a client, not an embedder,
+# and an operator who installs [vector] on top is doing nothing wrong.
+_REQUIRED_CLIENT_DEPS = ("qdrant-client",)
 
 # The other half of the same decision: the clients ship, the encoders do not.
 # FlagEmbedding and sentence-transformers pull torch, which the PyInstaller
@@ -90,10 +89,9 @@ def test_vector_clients_present_in_desktop_lock() -> None:
     versions = _lock_versions()
     missing = [dep for dep in _REQUIRED_CLIENT_DEPS if dep.lower() not in versions]
     assert not missing, (
-        "requirements-desktop.lock is missing the [semantic-clients] vector-store "
-        f"clients: {missing}. A lock compiled without --extra semantic-clients "
-        f"looks healthy but ships a sidecar whose /match-elements returns nothing. "
-        f"Regenerate with: {_REGEN}"
+        f"requirements-desktop.lock is missing the [semantic-clients] vector-store client: {missing}. "
+        "A lock compiled without --extra semantic-clients looks healthy but ships a sidecar "
+        f"whose /match-elements returns nothing. Regenerate with: {_REGEN}"
     )
 
 

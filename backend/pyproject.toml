@@ -141,27 +141,36 @@ vector = [
     "lancedb>=0.17.0",
     "fastembed>=0.4.0",
 ]
-# Vector-store client libraries, without any embedding model. These are the
-# two clients the shipped deployments already assume exist: qdrant-client
-# talks to the CWICR match store (app/modules/costs/qdrant_adapter.py) and
-# lancedb backs the generic per-module semantic store that every deploy
-# target selects with VECTOR_BACKEND=lancedb. Both were reachable only
-# through heavier extras, so the standard docker image and the frozen
-# desktop sidecar shipped without them: /match-elements answered an empty
-# 200 on every stock install because _get_client() raised ImportError and
-# the ranker fell through to its metadata-only path with no store to read.
-# They live in their own extra so the unified image and the desktop lock can
-# carry the clients without also dragging in torch.
+# The vector-store client, without any embedding model. qdrant-client talks to
+# the CWICR match store (app/modules/costs/qdrant_adapter.py) and was reachable
+# only through [semantic], so the standard docker image and the frozen desktop
+# sidecar both shipped without it and /match-elements answered an empty 200 on
+# every stock install. Not because results were poor: _get_client() raised
+# ImportError, the hybrid search failed, the ranker's encoder-free metadata
+# fallback called _get_client() too and raised again, and both failures were
+# logged and swallowed into an empty candidate list. It lives in its own extra
+# so the image and the desktop lock can carry the client without torch.
 #
-# Deliberately NOT here: FlagEmbedding / sentence-transformers (torch, GBs)
-# and polars. polars only reads an operator-supplied CWICR rate parquet from
-# ~/.openestimator/cwicr; nothing ships or downloads that file (the snapshot
-# loader restores Qdrant collections, not parquet), so on a stock install it
-# would be weight that no code path reaches. It stays in [semantic] next to
-# the encoder that the same operator installs.
+# Deliberately NOT here, each measured or traced rather than assumed:
+#
+# * FlagEmbedding / sentence-transformers - gigabytes of torch. The PyInstaller
+#   spec excludes torch outright, so they could never reach the desktop build.
+# * polars - only reads an operator-supplied CWICR rate parquet from
+#   ~/.openestimator/cwicr, and nothing ships or downloads that file (the
+#   snapshot loader restores Qdrant collections, not parquet). Weight no code
+#   path on a stock install would reach.
+# * lancedb - added here first, then removed on measurement. It is not a light
+#   client: 157 MB on Linux and 196 MB on Windows, almost all of it one
+#   unstripped Rust extension, against 21 MB for qdrant-client and its gRPC
+#   stack. It would also not have bought the feature it looks like it buys,
+#   because core/vector.py's get_embedder() only tries sentence-transformers
+#   and nothing in the tree imports fastembed, so the generic semantic store
+#   has no encoder either way. It stays in [vector]. Deploy targets do set
+#   VECTOR_BACKEND=lancedb against an uninstalled backend; that mismatch
+#   predates this extra and is a separate decision, not something to paper
+#   over by shipping 157 MB.
 semantic-clients = [
     "qdrant-client>=1.12.0",
-    "lancedb>=0.17.0",
 ]
 # Semantic search: Qdrant vector DB + sentence-transformers embeddings.
 # Used by the cost-database semantic-match endpoints and the RAG layer.

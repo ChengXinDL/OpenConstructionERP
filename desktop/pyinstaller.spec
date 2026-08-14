@@ -81,17 +81,16 @@ hidden_imports = [
     "pypdf",  # PDF stamping / merge (pdf_stamp, property_dev exports)
 ]
 
-# Vector-store clients, in the lock since the [semantic-clients] extra landed.
-# Both are imported inside function bodies (qdrant_adapter._get_client,
-# core.vector._get_lancedb) so the static graph never sees them, and naming the
-# top-level package alone is not enough: the submodules the code reaches for
-# are themselves lazy (qdrant_client.http.models, qdrant_client.local for the
-# embedded on-disk store). collect_submodules walks the whole package so the
-# frozen sidecar carries the same client the wheel does. Without this the lock
-# would ship the wheels into the build and PyInstaller would drop them again,
-# leaving the desktop channel on the broken behaviour the extra just fixed.
+# The CWICR vector-store client, in the lock since the [semantic-clients] extra
+# landed. It is imported inside a function body (qdrant_adapter._get_client) so
+# the static graph never sees it, and naming the top-level package alone is not
+# enough: the submodules the code reaches for are themselves lazy
+# (qdrant_client.http.models, qdrant_client.local for the embedded on-disk
+# store). collect_submodules walks the whole package so the frozen sidecar
+# carries the same client the wheel does. Without this the lock would ship the
+# wheel into the build and PyInstaller would drop it again, leaving the desktop
+# channel on the broken behaviour the extra just fixed.
 hidden_imports += collect_submodules("qdrant_client")
-hidden_imports += collect_submodules("lancedb")
 
 # Auto-discover modules
 if modules_dir.is_dir():
