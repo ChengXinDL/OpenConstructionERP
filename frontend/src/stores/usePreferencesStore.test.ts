@@ -18,7 +18,8 @@ describe('usePreferencesStore', () => {
     const state = usePreferencesStore.getState();
     expect(state.currency).toBe('EUR');
     expect(state.measurementSystem).toBe('metric');
-    expect(state.dateFormat).toBe('DD.MM.YYYY');
+    // 'auto' = follow the UI language. See the date-format block below.
+    expect(state.dateFormat).toBe('auto');
     expect(state.numberLocale).toBe('de-DE');
     expect(state.vatRate).toBe(19);
   });
@@ -117,6 +118,48 @@ describe('usePreferencesStore', () => {
       mockApiGet.mockRejectedValueOnce(new Error('offline'));
       await expect(usePreferencesStore.getState().hydrateFromServer()).resolves.toBeUndefined();
       expect(usePreferencesStore.getState().measurementSystem).toBe('imperial');
+    });
+  });
+
+  // The date format is the one preference whose stored value cannot be trusted
+  // at face value. `users.date_format` is NOT NULL and defaulted to
+  // 'DD.MM.YYYY' long before any surface read the preference, so every account
+  // carries that value whether or not a human ever chose it. Hydration - not
+  // the store default - is therefore where a naive wiring would flip existing
+  // users to numeric day-first dates on their next sign-in.
+  describe('date format hydration', () => {
+    it('reads the legacy account default as "never chose" and stays automatic', async () => {
+      mockApiGet.mockResolvedValueOnce({ date_format: 'DD.MM.YYYY' });
+      await usePreferencesStore.getState().hydrateFromServer();
+      expect(usePreferencesStore.getState().dateFormat).toBe('auto');
+    });
+
+    it('adopts an order the account default could never have produced', async () => {
+      mockApiGet.mockResolvedValueOnce({ date_format: 'YYYY-MM-DD' });
+      await usePreferencesStore.getState().hydrateFromServer();
+      expect(usePreferencesStore.getState().dateFormat).toBe('YYYY-MM-DD');
+    });
+
+    it('adopts an explicit automatic from the account', async () => {
+      usePreferencesStore.getState().setPreference('dateFormat', 'MM/DD/YYYY');
+      mockApiGet.mockResolvedValueOnce({ date_format: 'auto' });
+      await usePreferencesStore.getState().hydrateFromServer();
+      expect(usePreferencesStore.getState().dateFormat).toBe('auto');
+    });
+
+    it('keeps day-first when this browser chose it, rather than reading it as the default', async () => {
+      usePreferencesStore.getState().setPreference('dateFormat', 'DD.MM.YYYY');
+      mockApiGet.mockResolvedValueOnce({ date_format: 'DD.MM.YYYY' });
+      await usePreferencesStore.getState().hydrateFromServer();
+      expect(usePreferencesStore.getState().dateFormat).toBe('DD.MM.YYYY');
+    });
+
+    it('leaves an order outside the vocabulary alone, landing on automatic', async () => {
+      // The regional packs also ship DD/MM/YYYY and YYYY/MM/DD, which this
+      // toggle has no button for.
+      mockApiGet.mockResolvedValueOnce({ date_format: 'DD/MM/YYYY' });
+      await usePreferencesStore.getState().hydrateFromServer();
+      expect(usePreferencesStore.getState().dateFormat).toBe('auto');
     });
   });
 });

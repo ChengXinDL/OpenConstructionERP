@@ -55,9 +55,15 @@ class User(Base):
     number_format: Mapped[str] = mapped_column(
         String(20), nullable=False, default="1.234,56", server_default="1.234,56"
     )
-    date_format: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="DD.MM.YYYY", server_default="DD.MM.YYYY"
-    )
+    # "auto" means the UI follows the interface language when rendering dates.
+    # New accounts start there so the stored value is only ever an order the
+    # user actually picked. server_default stays "DD.MM.YYYY" for the same
+    # reason as currency_code below - changing it would alter the table DDL and
+    # require a migration for no functional gain, because ORM inserts always
+    # supply the Python-side default. Accounts created before the automatic
+    # option still carry "DD.MM.YYYY"; the frontend store treats that exact
+    # value as "never chose" so their rendering does not change.
+    date_format: Mapped[str] = mapped_column(String(20), nullable=False, default="auto", server_default="DD.MM.YYYY")
     # No EUR bias for new accounts: empty string means "not chosen yet" and
     # the UI falls back to the project currency / local preference store.
     # server_default stays "EUR" on purpose - changing it would alter the

@@ -18,7 +18,13 @@ import { apiGet } from '@/shared/lib/api';
 const STORAGE_KEY = 'oe_preferences';
 
 export type MeasurementSystem = 'metric' | 'imperial';
-export type DateFormat = 'DD.MM.YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD';
+/**
+ * Date-format preference. `'auto'` means "follow the UI language" and is the
+ * default: it renders exactly what the app rendered before the preference was
+ * wired into the date surfaces, so an account that never picked a format sees
+ * no change. See `formatDateWithPreference` in `@/shared/lib/formatters`.
+ */
+export type DateFormat = 'auto' | 'DD.MM.YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD';
 export type NumberLocale = 'de-DE' | 'en-US' | 'en-GB' | 'fr-FR' | 'ru-RU' | 'ar-SA' | 'ja-JP' | 'zh-CN' | 'es-MX';
 
 interface Preferences {
@@ -35,7 +41,7 @@ interface Preferences {
 const DEFAULTS: Preferences = {
   currency: 'EUR',
   measurementSystem: 'metric',
-  dateFormat: 'DD.MM.YYYY',
+  dateFormat: 'auto',
   numberLocale: 'de-DE',
   vatRate: 19,
   defaultRegion: 'DACH',
@@ -73,7 +79,33 @@ interface ServerPreferences {
 // store actually understands - a stray or future server value is skipped, never
 // forced into the union.
 const MEASUREMENT_SYSTEMS: readonly MeasurementSystem[] = ['metric', 'imperial'];
-const DATE_FORMATS: readonly DateFormat[] = ['DD.MM.YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'];
+const DATE_FORMATS: readonly DateFormat[] = ['auto', 'DD.MM.YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'];
+
+/**
+ * The value the account column carries when nobody ever picked a date format:
+ * `users.date_format` is NOT NULL and defaults to this, so on an account that
+ * predates the "automatic" option the value is ambiguous between "never chose"
+ * and "chose the day-first order".
+ */
+const LEGACY_ACCOUNT_DATE_FORMAT = 'DD.MM.YYYY';
+
+/**
+ * Decide what a server `date_format` means for this browser.
+ *
+ * Returns `undefined` for "leave the local value alone". We resolve the
+ * ambiguous legacy default in favour of automatic unless this browser already
+ * carries an explicit choice, which is what keeps every existing account
+ * rendering exactly as it does today instead of switching to numeric dates on
+ * the next sign-in. The two orders the column default can never produce, and
+ * an explicit `auto`, are always adopted. A value outside the vocabulary (the
+ * regional packs also ship `DD/MM/YYYY` and `YYYY/MM/DD`) is left alone rather
+ * than forced, so it falls through to the `'auto'` default on a fresh browser.
+ */
+function adoptServerDateFormat(server: string, local: DateFormat): DateFormat | undefined {
+  if (!(DATE_FORMATS as readonly string[]).includes(server)) return undefined;
+  if (server === LEGACY_ACCOUNT_DATE_FORMAT && local === 'auto') return undefined;
+  return server as DateFormat;
+}
 // The account stores the number format as a display PATTERN, not a BCP-47
 // locale; map the known patterns onto the locale the store formats with.
 const NUMBER_FORMAT_TO_LOCALE: Record<string, NumberLocale> = {
@@ -130,8 +162,9 @@ export const usePreferencesStore = create<PreferencesState>((set, get) => ({
       if (r.measurement_system && (MEASUREMENT_SYSTEMS as readonly string[]).includes(r.measurement_system)) {
         updates.measurementSystem = r.measurement_system as MeasurementSystem;
       }
-      if (r.date_format && (DATE_FORMATS as readonly string[]).includes(r.date_format)) {
-        updates.dateFormat = r.date_format as DateFormat;
+      if (r.date_format) {
+        const adopted = adoptServerDateFormat(r.date_format, get().dateFormat);
+        if (adopted) updates.dateFormat = adopted;
       }
       const mappedLocale = r.number_format ? NUMBER_FORMAT_TO_LOCALE[r.number_format] : undefined;
       if (mappedLocale) updates.numberLocale = mappedLocale;

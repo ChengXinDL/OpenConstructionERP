@@ -67,6 +67,8 @@ const PAPER_SIZES = [
   { value: 'Legal', label: 'Legal (8.5 x 14 in)' },
 ] as const;
 
+// 'auto' is added in the component so its label can be translated; the three
+// explicit orders are shown as their own example, which needs no translation.
 const DATE_FORMATS: { value: DateFormat; example: string }[] = [
   { value: 'DD.MM.YYYY', example: '07.04.2026' },
   { value: 'MM/DD/YYYY', example: '04/07/2026' },
@@ -329,7 +331,12 @@ export function RegionalSettings({ animationDelay = '0ms' }: { animationDelay?: 
   const timezone = prefs?.timezone ?? 'UTC';
   const measurementSystem = (prefs?.measurement_system as MeasurementSystem) ?? storeMeasurement;
   const paperSize = prefs?.paper_size ?? 'A4';
-  const dateFormat = (prefs?.date_format as DateFormat) ?? storeDateFormat;
+  // Read the date format from the store, not from the raw account field. The
+  // account column is free-form and NOT NULL: it can hold an order this toggle
+  // has no button for (the regional packs ship DD/MM/YYYY and YYYY/MM/DD), and
+  // its default is indistinguishable from a real choice. The store is what the
+  // date surfaces actually render with, so showing it keeps the control honest.
+  const dateFormat = storeDateFormat;
   const numberFormat = (prefs?.number_format as NumberLocale) ?? storeNumberLocale;
   // MONEY-BUG FIX: read the persisted server value from `currency_code`
   // (the real backend field) instead of the non-existent `currency`, so a
@@ -492,10 +499,16 @@ export function RegionalSettings({ animationDelay = '0ms' }: { animationDelay?: 
             </label>
             <ToggleGroup
               value={dateFormat}
-              options={DATE_FORMATS.map((f) => ({
-                value: f.value,
-                label: f.example,
-              }))}
+              options={[
+                {
+                  value: 'auto' as DateFormat,
+                  label: t('settings.date_format_auto', { defaultValue: 'Automatic' }),
+                },
+                ...DATE_FORMATS.map((f) => ({
+                  value: f.value,
+                  label: f.example,
+                })),
+              ]}
               onChange={(val) => handleChange('date_format', val)}
             />
           </div>

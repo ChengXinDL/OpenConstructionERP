@@ -12,6 +12,7 @@
  * were lifted out so any feature can reuse them.
  */
 import i18next from 'i18next';
+import { usePreferencesStore, type DateFormat } from '@/stores/usePreferencesStore';
 
 /** i18next language code → Intl BCP-47 locale tag */
 const LOCALE_MAP: Record<string, string> = {
@@ -105,7 +106,106 @@ export function fmtCurrency(value: number | string | null | undefined, currency?
   }
 }
 
-/** Date formatter using current locale. */
+// ---------------------------------------------------------------------------
+// Date-format preference (Settings → Regional → Date Format)
+//
+// The preference selects the ORDER and SEPARATOR of the day/month/year fields
+// and forces them numeric. It deliberately does not touch the calendar, the
+// numbering system, the time zone or the time fields: those follow the UI
+// language, exactly as they did before the preference was wired up. An Arabic
+// user who asks for MM/DD/YYYY keeps Arabic-Indic digits and the Islamic
+// calendar, only reordered.
+//
+// `'auto'` is the default and means "follow the UI language". It runs the
+// original, language-derived code path untouched, so an account that never
+// chose a format renders byte for byte as it did before.
+// ---------------------------------------------------------------------------
+
+const DATE_FIELD_TYPES: ReadonlySet<string> = new Set(['day', 'month', 'year']);
+
+/** The all-numeric day/month/year every explicit preference implies. */
+const NUMERIC_DATE_FIELDS: Intl.DateTimeFormatOptions = {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+};
+
+function joinByPreference(
+  day: string,
+  month: string,
+  year: string,
+  pref: Exclude<DateFormat, 'auto'>,
+): string {
+  switch (pref) {
+    case 'MM/DD/YYYY':
+      return `${month}/${day}/${year}`;
+    case 'YYYY-MM-DD':
+      return `${year}-${month}-${day}`;
+    case 'DD.MM.YYYY':
+    default:
+      return `${day}.${month}.${year}`;
+  }
+}
+
+/**
+ * Format `date` in `locale` with `options`, applying the date-format
+ * preference `pref`.
+ *
+ * Under `'auto'` this is `Intl.DateTimeFormat(locale, options).format(date)`
+ * and nothing else — the equivalence the unset default depends on.
+ *
+ * Under an explicit preference the day/month/year fields are re-emitted in the
+ * requested order, and everything the locale produced around them (the time,
+ * the date/time connector, era markers, RTL marks) is kept verbatim. Options
+ * that do not ask for a full date — a time-only cell, a month/year header —
+ * have no field order to rewrite and stay with the language.
+ *
+ * One nuance of re-emitting through `formatToParts`: on some ICU builds it
+ * disagrees with `format()` about invisible separators (Node 24 / ICU 78 puts
+ * a narrow no-break space before the en-US day period where `format()` puts an
+ * ordinary space). Only a surface with an explicit preference takes this path,
+ * so the difference cannot reach the default rendering, but a caller matching
+ * on the exact whitespace of a time should know it exists.
+ */
+export function formatDateWithPreference(
+  date: Date,
+  locale: string | undefined,
+  options: Intl.DateTimeFormatOptions,
+  pref: DateFormat,
+): string {
+  if (pref === 'auto' || !options.day || !options.month || !options.year) {
+    return new Intl.DateTimeFormat(locale, options).format(date);
+  }
+  const parts = new Intl.DateTimeFormat(locale, { ...options, ...NUMERIC_DATE_FIELDS }).formatToParts(date);
+  const first = parts.findIndex((p) => DATE_FIELD_TYPES.has(p.type));
+  if (first < 0) return new Intl.DateTimeFormat(locale, options).format(date);
+  let last = first;
+  for (let i = parts.length - 1; i > first; i--) {
+    if (DATE_FIELD_TYPES.has(parts[i]!.type)) {
+      last = i;
+      break;
+    }
+  }
+  const pick = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  return [
+    ...parts.slice(0, first).map((p) => p.value),
+    joinByPreference(pick('day'), pick('month'), pick('year'), pref),
+    ...parts.slice(last + 1).map((p) => p.value),
+  ].join('');
+}
+
+/**
+ * The date format the user chose, or `'auto'` when they never chose one.
+ *
+ * Read through `getState()` rather than the hook so plain formatters can use
+ * it; React surfaces should subscribe with `usePreferencesStore` so a change
+ * in Settings repaints the page that is already open.
+ */
+export function getDateFormatPreference(): DateFormat {
+  return usePreferencesStore.getState().dateFormat;
+}
+
+/** Date formatter using current locale and the user's date-format preference. */
 export function fmtDate(dateStr: string, options?: Intl.DateTimeFormatOptions): string {
   const defaults: Intl.DateTimeFormatOptions = {
     day: '2-digit',
@@ -120,7 +220,11 @@ export function fmtDate(dateStr: string, options?: Intl.DateTimeFormatOptions): 
   // is preserved; full timestamps keep their local-zone rendering.
   const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
   const finalOpts = isDateOnly && !opts.timeZone ? { ...opts, timeZone: 'UTC' } : opts;
-  return new Date(dateStr).toLocaleDateString(getIntlLocale(), finalOpts);
+  const pref = getDateFormatPreference();
+  if (pref === 'auto') {
+    return new Date(dateStr).toLocaleDateString(getIntlLocale(), finalOpts);
+  }
+  return formatDateWithPreference(new Date(dateStr), getIntlLocale(), finalOpts, pref);
 }
 
 // ---------------------------------------------------------------------------
