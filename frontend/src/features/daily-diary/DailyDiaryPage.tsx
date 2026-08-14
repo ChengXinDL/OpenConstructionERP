@@ -61,7 +61,7 @@ import { DateDisplay } from '@/shared/ui/DateDisplay';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
-import { apiGet, getErrorMessage } from '@/shared/lib/api';
+import { apiGet, getErrorMessage, type Page } from '@/shared/lib/api';
 import { todayLocalISO, isoDateFromLocal, nowLocalISO } from '@/shared/lib/dates';
 import { projectsApi } from '@/features/projects/api';
 import {
@@ -1893,10 +1893,10 @@ function EntriesTimeline({
   const inspectionsQ = useQuery({
     queryKey: ['daily-diary', 'src-inspections', projectId],
     queryFn: async () => {
-      const rows = await apiGet<Record<string, unknown>[]>(
+      const page = await apiGet<Page<Record<string, unknown>>>(
         `/v1/inspections/?project_id=${encodeURIComponent(projectId)}`,
       );
-      return rows.map((r) => ({
+      return page.items.map((r) => ({
         id: String(r.id),
         label: [r.inspection_number, r.title]
           .filter(Boolean)

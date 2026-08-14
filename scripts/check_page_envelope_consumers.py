@@ -45,6 +45,14 @@ MIGRATED_ENDPOINTS: dict[str, str] = {
     # `/v1/notifications?...`, and `url_shape` cuts at the `?`, so the route
     # this scan sees is the bare path.
     "/v1/notifications": "notifications list",
+    # Wave 3. `GET /v1/punchlist/` is the same handler under a root alias and
+    # is enveloped too, but no frontend caller uses it - every call goes to
+    # `/items/`. Listing it would print "0 call sites, 0 migrated" and pass
+    # without reading anything, which is the decorative entry the wave 2 note
+    # above bans, so only the route with readers is listed.
+    "/v1/punchlist/items/": "punchlist items",
+    "/v1/correspondence/": "correspondence list",
+    "/v1/inspections/": "inspections list",
 }
 
 # Wave 2 measured five more enveloped endpoints - file_comments,
@@ -95,6 +103,29 @@ SHARED_QUERY_KEYS: dict[str, str] = {
     # different cache entries that cannot hand each other a value - the
     # ['projects-switcher'] vs ['projects'] case named above. Listing either
     # would assert a sharing that does not exist.
+    #
+    # Punchlist reads its list endpoint from three places and none of them
+    # share a cache entry: the register under ['punchlist', project, ...4
+    # filters], the pin board under ['punchlist-pins', project], the issue
+    # hub under ['issues-hub', 'punch', project]. So there is nothing here to
+    # assert. "punchlist" specifically MUST NOT be added: QUERY_KEY_RE anchors
+    # only the FIRST array element, so it also matches PunchDetailDrawer's
+    # ['punchlist', 'item', itemId] - a single-item apiGet<PunchItem> that
+    # carries no `Page<`, no `.items` and no `items:`. ENVELOPE_HINT fails on
+    # it, the gate reports the drawer UNMIGRATED, and no edit to a correct
+    # file can clear it. ['punchlist-kpi'] used to exist and was renamed to
+    # ['punchlist-pins'] when the KPI band stopped reading rows.
+    #
+    # Correspondence has one reader, the register itself. A one-reader key
+    # cannot disagree with anything today, but it is the key the next reader
+    # of that endpoint will copy, and this is where that reader gets caught.
+    "correspondence": "/v1/correspondence/",
+    # Inspections has two readers of one endpoint under one first element:
+    # the register under ['inspections', project, status, type] and the
+    # dashboard quality card under ['inspections', 'dashboard-quality',
+    # project]. Different second elements, so different cache entries, but
+    # both go through fetchInspections and both had to move together.
+    "inspections": "/v1/inspections/",
 }
 
 QUERY_KEY_RE = r"queryKey:\s*\[\s*['\"`]{key}['\"`]"

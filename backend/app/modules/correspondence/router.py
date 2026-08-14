@@ -38,6 +38,7 @@ ALLOWED_ATTACHMENT_TYPES = frozenset({"pdf", "png", "jpeg", "gif", "webp", "zip"
 from app.dependencies import CurrentUserId, RequirePermission, SessionDep, verify_project_access
 from app.modules.correspondence.schemas import (
     CorrespondenceCreate,
+    CorrespondenceListResponse,
     CorrespondenceResponse,
     CorrespondenceUpdate,
 )
@@ -110,7 +111,7 @@ def _to_response(item: object) -> CorrespondenceResponse:
     )
 
 
-@router.get("/", response_model=list[CorrespondenceResponse])
+@router.get("/", response_model=CorrespondenceListResponse)
 async def list_correspondences(
     session: SessionDep,
     project_id: uuid.UUID = Query(...),
@@ -126,9 +127,15 @@ async def list_correspondences(
     ),
     _perm: None = Depends(RequirePermission("correspondence.read")),
     service: CorrespondenceService = Depends(_get_service),
-) -> list[CorrespondenceResponse]:
+) -> CorrespondenceListResponse:
+    """List correspondence for a project, one page plus the matching total.
+
+    The service already counts the whole filtered set to build the page; this
+    returns that count instead of discarding it, so a caller can tell a
+    complete log from a truncated one.
+    """
     await verify_project_access(project_id, user_id, session)
-    items, _ = await service.list_correspondences(
+    items, total = await service.list_correspondences(
         project_id,
         offset=offset,
         limit=limit,
@@ -136,7 +143,12 @@ async def list_correspondences(
         correspondence_type=type_filter,
         status=status_filter,
     )
-    return [_to_response(c) for c in items]
+    return CorrespondenceListResponse(
+        items=[_to_response(c) for c in items],
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
 
 
 @router.post("/", response_model=CorrespondenceResponse, status_code=201)

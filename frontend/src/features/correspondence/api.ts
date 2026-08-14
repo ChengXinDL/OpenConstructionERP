@@ -6,7 +6,7 @@
  * All endpoints are prefixed with /v1/correspondence/.
  */
 
-import { apiDelete, apiGet, apiPatch, apiPost, triggerDownload } from '@/shared/lib/api';
+import { apiDelete, apiGet, apiPatch, apiPost, triggerDownload, type Page } from '@/shared/lib/api';
 import { useAuthStore } from '@/stores/useAuthStore';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -152,7 +152,7 @@ function normaliseCorrespondence(c: CorrespondenceWire): Correspondence {
 
 export async function fetchCorrespondence(
   filters?: CorrespondenceFilters,
-): Promise<Correspondence[]> {
+): Promise<Page<Correspondence>> {
   const params = new URLSearchParams();
   if (filters?.project_id) params.set('project_id', filters.project_id);
   if (filters?.direction) params.set('direction', filters.direction);
@@ -160,13 +160,18 @@ export async function fetchCorrespondence(
   if (filters?.status) params.set('status', filters.status);
   // Raise from the server default cap (50) to its accepted ceiling (le=100) so
   // the list and client-side search cover up to 100 records instead of
-  // silently dropping older rows.
+  // silently dropping older rows. Beyond that the server reports how many
+  // matched in `total`, which is what lets the page say the log is cut.
   params.set('limit', '100');
-  const qs = params.toString();
-  const rows = await apiGet<CorrespondenceWire[]>(
-    `/v1/correspondence/${qs ? `?${qs}` : ''}`,
+  // Written as one literal rather than a `qs ? '?' + qs : ''` ternary: the
+  // limit above is unconditional, so the empty branch was unreachable, and
+  // the route scan in scripts/check_page_envelope_consumers.py can only bind
+  // a URL it can read end to end - a ternary with a space in it stops the
+  // match and the endpoint reports zero call sites it never inspected.
+  const page = await apiGet<Page<CorrespondenceWire>>(
+    `/v1/correspondence/?${params.toString()}`,
   );
-  return rows.map(normaliseCorrespondence);
+  return { ...page, items: page.items.map(normaliseCorrespondence) };
 }
 
 export async function createCorrespondence(

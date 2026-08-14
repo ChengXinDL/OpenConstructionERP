@@ -171,3 +171,18 @@ class CorrespondenceResponse(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict, validation_alias="metadata_")
     created_at: datetime
     updated_at: datetime
+
+
+class CorrespondenceListResponse(BaseModel):
+    """One page of correspondence plus the size of the whole set.
+
+    ``total`` is the row count matching the filters, not the length of
+    ``items``. The register is the contractual record of who was told what
+    and when, so a client that renders ``items`` without reading ``total``
+    shows a truncated log and cannot tell that it did.
+    """
+
+    items: list[CorrespondenceResponse] = Field(default_factory=list)
+    total: int = 0
+    offset: int = 0
+    limit: int = 50

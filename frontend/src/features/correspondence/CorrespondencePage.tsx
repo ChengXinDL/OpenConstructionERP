@@ -1535,7 +1535,7 @@ export function CorrespondencePage() {
     projects.find((p) => p.id === selectedProjectId)?.name || '';
 
   const {
-    data: items = [],
+    data: page,
     isLoading,
     isError,
     error,
@@ -1551,6 +1551,9 @@ export function CorrespondencePage() {
       }),
     enabled: !!projectId,
   });
+  // Memoised on the page object rather than defaulted inline: a fresh `[]`
+  // on every render would change the identity every dependent useMemo reads.
+  const items = useMemo(() => page?.items ?? [], [page]);
 
   // Client-side search
   const filtered = useMemo(() => {
@@ -1977,6 +1980,10 @@ export function CorrespondencePage() {
                 count: filtered.length,
               })}
             </p>
+            {/* The count above is what the search left of the page; this is
+                what the page left of the register. Both have to be said, or a
+                letter that never loaded reads as a letter that never existed. */}
+            {page && <TruncationNotice page={page} className="-mt-2 mb-3" />}
             <Card padding="none" className="overflow-x-auto">
               {/* Table header */}
               <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border-light bg-surface-secondary/30 text-2xs font-medium text-content-tertiary uppercase tracking-wider min-w-[640px]">

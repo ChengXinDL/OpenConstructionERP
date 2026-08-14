@@ -47,7 +47,7 @@ import { SectionIntro } from '@/features/validation';
 import { SafetyTrendsChart } from './SafetyTrendsChart';
 import { SafetyThresholdWidget } from './SafetyThresholdWidget';
 import { safetyGuide } from './safetyGuide';
-import { apiGet, apiPost, triggerDownload, extractErrorMessageFromBody } from '@/shared/lib/api';
+import { apiGet, apiPost, triggerDownload, extractErrorMessageFromBody, type Page } from '@/shared/lib/api';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
@@ -381,7 +381,7 @@ function QualityDashboardSummary({
     queryFn: async () =>
       (
         await fetchAllPages<{ status: string }>((offset, limit) =>
-          apiGet<{ status: string }[]>(
+          apiGet<Page<{ status: string }>>(
             `/v1/inspections/?project_id=${projectId}&limit=${limit}&offset=${offset}`,
           ),
         )
