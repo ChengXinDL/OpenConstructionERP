@@ -166,8 +166,16 @@ async def test_the_page_order_ends_on_a_column_that_cannot_tie(pg_session) -> No
     keys = _oldest_first()
 
     assert len(keys) >= 2, "a single-key order over a tied column is not total"
+    # Identify the key by table and name rather than by object identity.
+    # ``ProgressEntry.seq.asc()`` coerces the mapped attribute through
+    # ``__clause_element__``, so ``.element`` is the annotated Column, never
+    # the InstrumentedAttribute the model exposes and never the plain
+    # ``__table__.c.seq`` either. An ``is`` comparison against any of the
+    # three fails on a correct ORDER BY, which is what it did.
     last = keys[-1].element
-    assert last is ProgressEntry.seq, f"the register's order must end on seq, not on {last}"
+    assert (last.table.name, last.key) == (ProgressEntry.__tablename__, "seq"), (
+        f"the register's order must end on {ProgressEntry.__tablename__}.seq, not on {last}"
+    )
 
     # Assert the property seq is relied on FOR, not merely its name: another
     # column could be substituted here and the order would still be total only
