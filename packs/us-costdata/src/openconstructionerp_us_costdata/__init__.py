@@ -2,7 +2,7 @@
 
 Pre-configured for US general contractors:
 
-* **CSI MasterFormat 2020** — 50 Division specification structure
+* **CSI MasterFormat 2020** — 35 active Divisions of specification structure
 * **UniFormat II (ASTM E1557)** — elemental classification for early-stage estimating
 * **AIA A201-2017** — General Conditions (incorporated into every project)
 * **AIA Owner-Contractor agreement family** — A101 stipulated sum, A102 GMP/CMAR,

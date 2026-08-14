@@ -26,10 +26,10 @@ steps:
 
   - id: classification_standard
     title: "Cost classification (MasterFormat + UniFormat)"
-    body: "OCERP will structure your BOQs and cost reports against the chosen CSI standards. MasterFormat 2020 (50 Divisions, spec-driven) is the default; UniFormat II (ASTM E1557, elemental) is recommended for conceptual / early-design estimates."
+    body: "OCERP will structure your BOQs and cost reports against the chosen CSI standards. MasterFormat 2020 (35 active Divisions, spec-driven) is the default; UniFormat II (ASTM E1557, elemental) is recommended for conceptual / early-design estimates."
     fields:
-      - { key: primary_classification, label: "Primary classification", type: radio, required: true, default: "MasterFormat 2020 (50 Divisions)",
-          options: ["MasterFormat 2020 (50 Divisions)", "UniFormat II (elemental, ASTM E1557)", "Both (choose per project)"] }
+      - { key: primary_classification, label: "Primary classification", type: radio, required: true, default: "MasterFormat 2020 (35 active Divisions)",
+          options: ["MasterFormat 2020 (35 active Divisions)", "UniFormat II (elemental, ASTM E1557)", "Both (choose per project)"] }
       - { key: enforce_division_completeness, label: "Warn when projects are missing common Divisions (01, 03, 09, 23, 26)", type: checkbox, default: true }
       - { key: enforce_uniformat_for_early_estimate, label: "Default to UniFormat II for projects flagged 'Conceptual' or 'Schematic Design'", type: checkbox, default: true }
 
@@ -49,8 +49,8 @@ steps:
           - "A104-2017 — Abbreviated, small projects"
           - "A141-2014 — Owner-Design-Builder"
       - { key: apply_a201_general_conditions, label: "Always incorporate AIA A201-2017 General Conditions", type: checkbox, default: true }
-      - { key: enable_g702_g703_payapp, label: "Enable G702 / G703 Application & Certificate for Payment templates", type: checkbox, default: true }
-      - { key: enable_g703_continuation_sheet, label: "Generate G703 Continuation Sheet automatically from the Schedule of Values", type: checkbox, default: true }
+      - { key: enable_progress_payment_application, label: "Enable the progress payment application and certificate templates", type: checkbox, default: true }
+      - { key: enable_continuation_sheet_from_sov, label: "Generate the continuation sheet automatically from the Schedule of Values", type: checkbox, default: true }
       - { key: default_delivery_method, label: "Default project-delivery method", type: select, required: true, default: "Design-Bid-Build",
           options: ["Design-Bid-Build (DBB)", "Construction Manager at Risk (CMAR / GMP)", "Design-Build (DB)", "Integrated Project Delivery (IPD)", "Job Order Contracting (JOC)"] }
 

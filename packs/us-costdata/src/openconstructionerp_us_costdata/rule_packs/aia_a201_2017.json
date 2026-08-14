@@ -4,7 +4,7 @@
   "standard": "AIA A201-2017",
   "jurisdiction": "US",
   "edition": "2017 (replaces 2007; next revision expected ~2027)",
-  "description": "Enables OCERP built-in validation rules that check tender packs and contract documents for the mandatory AIA A201-2017 General Conditions — all 15 articles plus the supporting G702/G703 Application & Certificate for Payment schedule.",
+  "description": "Enables OCERP built-in validation rules that check tender packs and contract documents for the mandatory AIA A201-2017 General Conditions — all 15 articles plus the supporting progress payment application and continuation sheet schedule.",
   "issuer": "American Institute of Architects (AIA)",
   "article_count": 15,
   "enables_rule_ids": [

@@ -768,7 +768,7 @@ Apply these `source` field values consistently:
 
 ### 9.1 MasterFormat (CSI)
 
-This is the primary classification standard for US construction cost data: 50 divisions (00 to 49), each carrying hierarchical section numbers.
+This is the primary classification standard for US construction cost data. Divisions are numbered in the 00 to 49 band, of which 35 are assigned and the rest stay reserved, and each carries hierarchical section numbers.
 
 **The sitework divisions OCERP leans on** (numbers are interoperability facts; the work descriptions are our own - the official division titles are proprietary and are not reproduced in this repository):
 

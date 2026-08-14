@@ -1,12 +1,12 @@
 {
   "rule_pack_id": "masterformat_2020",
-  "name": "CSI MasterFormat 2020 — 50 Division Structure",
+  "name": "CSI MasterFormat 2020 — Division Structure",
   "standard": "CSI MasterFormat 2020",
   "jurisdiction": "US",
   "edition": "2020 (Numbers & Titles)",
   "description": "Enables OCERP built-in validation rules that enforce the CSI MasterFormat 2020 numbering scheme (Level 1 Division 'NN', Level 2 Section 'NN NN', Level 3 Subsection 'NN NN NN', up to Level 4 'NN NN NN.NN'), section title presence, mandatory descriptions, and Division completeness checks per project type (commercial new build, renovation, civil/sitework).",
   "issuer": "Construction Specifications Institute (CSI) & Construction Specifications Canada (CSC)",
-  "covers_divisions": "00-14, 21-28, 31-35, 40-48 (50 numbered Divisions, 'reserved' bands documented)",
+  "covers_divisions": "00-14, 21-23, 25-28, 31-35, 40-46, 48 (35 active Divisions; the unassigned numbers in the 00-49 band stay reserved)",
   "enables_rule_ids": [
     "masterformat.division_code_valid",
     "masterformat.division_code_in_active_range",
