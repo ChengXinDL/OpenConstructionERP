@@ -82,8 +82,15 @@ COPY backend/ backend/
 RUN mkdir -p /app/frontend/dist
 COPY --from=frontend-build /build/dist backend/app/_frontend_dist/
 
-# Install Python dependencies with server extras (asyncpg for PostgreSQL)
-RUN pip install --no-cache-dir "./backend[server]" && \
+# Install Python dependencies with the server and vector-client extras.
+# [server] brings Celery + boto3. [semantic-clients] brings qdrant-client and
+# lancedb, the two vector-store clients this image already behaves as though it
+# has: VECTOR_BACKEND=lancedb is set below, and the CWICR matching path opens a
+# Qdrant store. Installing only [server] left both imports missing, so
+# /match-elements answered an empty 200 on every container built from here (and
+# Railway, Render and the terraform droplet all deploy this same image). The
+# encoder stays out on purpose - [semantic] would add torch.
+RUN pip install --no-cache-dir "./backend[server,semantic-clients]" && \
     pip install --no-cache-dir "ezdxf>=0.18.0" || true
 
 # Copy data catalogs (for seed/enrichment)

@@ -141,6 +141,28 @@ vector = [
     "lancedb>=0.17.0",
     "fastembed>=0.4.0",
 ]
+# Vector-store client libraries, without any embedding model. These are the
+# two clients the shipped deployments already assume exist: qdrant-client
+# talks to the CWICR match store (app/modules/costs/qdrant_adapter.py) and
+# lancedb backs the generic per-module semantic store that every deploy
+# target selects with VECTOR_BACKEND=lancedb. Both were reachable only
+# through heavier extras, so the standard docker image and the frozen
+# desktop sidecar shipped without them: /match-elements answered an empty
+# 200 on every stock install because _get_client() raised ImportError and
+# the ranker fell through to its metadata-only path with no store to read.
+# They live in their own extra so the unified image and the desktop lock can
+# carry the clients without also dragging in torch.
+#
+# Deliberately NOT here: FlagEmbedding / sentence-transformers (torch, GBs)
+# and polars. polars only reads an operator-supplied CWICR rate parquet from
+# ~/.openestimator/cwicr; nothing ships or downloads that file (the snapshot
+# loader restores Qdrant collections, not parquet), so on a stock install it
+# would be weight that no code path reaches. It stays in [semantic] next to
+# the encoder that the same operator installs.
+semantic-clients = [
+    "qdrant-client>=1.12.0",
+    "lancedb>=0.17.0",
+]
 # Semantic search: Qdrant vector DB + sentence-transformers embeddings.
 # Used by the cost-database semantic-match endpoints and the RAG layer.
 #
@@ -150,7 +172,7 @@ vector = [
 # of dead wheels on the user's disk. API keys live in the database and
 # `~/.openestimate/config.json`, not in SDK clients.
 semantic = [
-    "qdrant-client>=1.12.0",
+    "openconstructionerp[semantic-clients]",
     "sentence-transformers>=3.3.0",
     # BAAI/bge-m3 multilingual encoder — 1024-dim dense + sparse + colbert
     # in one forward pass, MIT license, 100+ languages. Powers the CWICR
