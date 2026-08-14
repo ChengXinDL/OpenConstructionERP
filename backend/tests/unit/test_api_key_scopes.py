@@ -244,17 +244,26 @@ def _registered_permissions() -> None:
     register_integrations_permissions()
 
 
-def _run_feed(scopes: list[str], role: str = "viewer", *, active: bool = True) -> str:
-    """Drive the real route with a key carrying ``scopes``; return nothing useful.
+def _run_feed(
+    scopes: list[str],
+    role: str = "viewer",
+    *,
+    active: bool = True,
+    reached: list[object] | None = None,
+) -> str:
+    """Drive the real route with a key carrying ``scopes``.
 
     Raises whatever the route raises. On the allowed path that is
     :class:`_ReachedProjectAccess`, since the project guard is the next step.
+    ``reached`` collects one entry if the project guard was consulted at all.
     """
     owner = _FakeUser(str(uuid.uuid4()), role, is_active=active)
     key = _FakeKey(owner.id, scopes)
     session = _FakeSession(key, owner)
+    log = reached if reached is not None else []
 
     async def _boom(*_args: object, **_kwargs: object) -> None:
+        log.append(True)
         raise _ReachedProjectAccess
 
     original = deps.verify_project_access
@@ -306,3 +315,20 @@ def test_calendar_feed_admin_key_still_needs_the_scope() -> None:
     with pytest.raises(HTTPException) as exc:
         _run_feed([], role="admin")
     assert exc.value.status_code == 403
+
+
+def test_calendar_feed_refusal_never_reads_the_project() -> None:
+    """The scope 403 is not a UUID-existence oracle.
+
+    A 403 leaks only when its answer depends on the row: "exists but not
+    yours" is distinguishable from "does not exist". This refusal is decided
+    from the credential alone, so it answers identically for a real project id
+    and a made-up one, which is why the integrations router may carry it
+    without becoming a UUID-existence oracle (see TestIDORShape in
+    tests/modules/test_integrations_security.py).
+    """
+    reached: list[object] = []
+    with pytest.raises(HTTPException) as exc:
+        _run_feed([], reached=reached)
+    assert exc.value.status_code == 403
+    assert reached == [], "the refusal consulted the project, so it can leak whether it exists"
