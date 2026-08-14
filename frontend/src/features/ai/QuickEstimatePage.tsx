@@ -151,7 +151,7 @@ const FORMAT_LABELS: { [K in FileTab]: string } = {
   photo: 'JPG, PNG, TIFF, WebP',
   pdf: 'PDF',
   excel: 'Excel (.xlsx), CSV (.csv)',
-  cad: 'Revit (.rvt), IFC (.ifc), DWG (.dwg), DGN (.dgn)',
+  cad: 'Revit® (.rvt), IFC (.ifc), DWG (.dwg), DGN (.dgn)',
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

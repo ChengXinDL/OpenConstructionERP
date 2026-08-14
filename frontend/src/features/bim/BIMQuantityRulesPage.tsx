@@ -1775,7 +1775,7 @@ function RequirementRuleEditor({
                       }}
                       className="sr-only"
                     />
-                    {fmt === 'revit' ? 'Revit' : 'IFC'}
+                    {fmt === 'revit' ? 'Revit®' : 'IFC'}
                   </label>
                 ))}
               </div>
