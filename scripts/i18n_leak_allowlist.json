@@ -149,6 +149,11 @@
     "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
     "reason_category": "standard_code"
   },
+  "boq.res_material": {
+    "en_value": "Material",
+    "note": "the same Latin loanword in de, es, es-CL, es-CO, es-MX, id, pt, pt-BR and sv; fr says Materiaux/Materiau, pl Material with the Polish ending and ru Materialy, so the nine that match en are nine languages agreeing on a word, not nine files copied from en",
+    "reason_category": "cognate_loanword"
+  },
   "boq.shortcut_ctrl_enter": {
     "en_value": "Ctrl+Enter",
     "note": "keyboard shortcut, identical in en/ru/kk (kk locale addition)",
@@ -349,6 +354,11 @@
     "note": "pure interpolation shell with a bare percent sign, no literal text to translate (bn locale addition)",
     "reason_category": "template_placeholder"
   },
+  "costmodel.benchmark_area_value": {
+    "en_value": "{{area}} m²",
+    "note": "m² is a universal Latin SI symbol; fa keeps it in Latin form consistently (daily_diary.area_m2, boq.area_m2, etc.). ru only differs by using Cyrillic м², not a real translation need.",
+    "reason_category": "symbol"
+  },
   "costmodel.mod_boq": {
     "en_value": "BOQ",
     "note": "named open data / interchange standard or format code (CLAUDE.md: not translated); identical in every locale including ru (bn locale addition)",
@@ -528,6 +538,11 @@
     "en_value": "{{name}}",
     "note": "entirely template variables/punctuation, no literal word to translate",
     "reason_category": "template_placeholder"
+  },
+  "finance.cat_material": {
+    "en_value": "Material",
+    "note": "the same Latin loanword in de, es, es-CL, es-CO, es-MX, id, pt, pt-BR and sv; fr says Materiaux/Materiau, pl Material with the Polish ending and ru Materialy, so the nine that match en are nine languages agreeing on a word, not nine files copied from en",
+    "reason_category": "cognate_loanword"
   },
   "finance.einvoice.downloadXml": {
     "en_value": "XML",
@@ -1144,6 +1159,11 @@
     "note": "GWP is a named technical index (global warming potential) and kg/CO2e are SI/chemical symbols, kept literal in every remaining locale after bg was repaired to GWP (кг CO2e) to match its own attested кг convention. mn and ru independently already hold the identical GWP (кг CO2e) form and are not in the leaked set.",
     "reason_category": "abbreviation"
   },
+  "sustainability.material": {
+    "en_value": "Material",
+    "note": "the same Latin loanword in de, es, es-CL, es-CO, es-MX, id, pt, pt-BR and sv; fr says Materiaux/Materiau, pl Material with the Polish ending and ru Materialy, so the nine that match en are nine languages agreeing on a word, not nine files copied from en",
+    "reason_category": "cognate_loanword"
+  },
   "takeoff.file_limit": {
     "en_value": "PDF",
     "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
@@ -1233,10 +1253,5 @@
     "en_value": "DIN 276",
     "note": "named open data / interchange standard or format code (CLAUDE.md: not translated)",
     "reason_category": "standard_code"
-  },
-  "costmodel.benchmark_area_value": {
-    "en_value": "{{area}} m²",
-    "note": "m² is a universal Latin SI symbol; fa keeps it in Latin form consistently (daily_diary.area_m2, boq.area_m2, etc.). ru only differs by using Cyrillic м², not a real translation need.",
-    "reason_category": "symbol"
   }
 }
