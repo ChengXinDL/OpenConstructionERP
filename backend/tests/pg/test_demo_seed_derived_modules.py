@@ -611,6 +611,43 @@ async def test_documents_retire_spares_a_sheet_opened_in_takeoff(pg_session, upl
     assert await pg_session.get(Document, opened.id) is not None, "deleted a sheet takeoff was working on"
 
 
+async def _no_retire(session, project_id: uuid.UUID) -> int:
+    """The build that filed the chain before the retire existed."""
+    return 0
+
+
+async def test_documents_retire_reaches_a_project_whose_chain_landed_earlier(
+    pg_session, upload_store, monkeypatch
+) -> None:
+    """The pair goes even when the chain was filed by an earlier build.
+
+    An install reseeded in between carries both the chain and the pair, and it
+    will never take the top-up path again - the sheet is already there. A retire
+    that only ran beside the write that files the chain would never reach it.
+    """
+    from app.modules.documents import documents_seed
+
+    project_id = await _install_seeded_before_the_chain(pg_session, "Bürogebäude Frankfurt Europaviertel")
+    real_retire = documents_seed._retire_english_chain
+    monkeypatch.setattr(documents_seed, "_retire_english_chain", _no_retire)
+    await seed_documents_demo(pg_session, [project_id])
+    await pg_session.flush()
+    # Restored by hand rather than with undo(): the upload store is redirected
+    # through the same monkeypatch, and undoing that would send the next pass
+    # at the real one.
+    monkeypatch.setattr(documents_seed, "_retire_english_chain", real_retire)
+    assert len(await _sheets(pg_session, project_id, "A-2.01")) == 2, "fixture filed no chain"
+    assert len(await _sheets(pg_session, project_id, "A-10-001")) == 2, "fixture retired the pair too early"
+
+    counts = await seed_documents_demo(pg_session, [project_id])
+    await pg_session.flush()
+
+    assert counts["retired"] == 2, f"the pair outlived the chain, got {counts}"
+    assert counts["documents"] == 0, "the chain must not be filed a second time"
+    assert await _sheets(pg_session, project_id, "A-10-001") == []
+    assert [doc.revision_code for doc in await _sheets(pg_session, project_id, "A-2.01")] == ["A", "B"]
+
+
 async def test_documents_retire_waits_until_the_chain_is_really_there(pg_session, upload_store, monkeypatch) -> None:
     """Half a chain must not cost the register the pair it replaces.
 

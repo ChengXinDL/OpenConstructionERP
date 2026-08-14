@@ -604,8 +604,15 @@ async def _seed_project(
         # current issues serve one file is what this fixes, and re-filing the
         # other nine documents would double the register.
         specs = tuple(spec for spec in specs if spec in _GERMAN_REVISION_CHAIN)
-        if not specs or await _has_seeded_sheet(session, project_id, _GRUNDRISS_SHEET):
+        if not specs:
             return empty
+        if await _has_seeded_sheet(session, project_id, _GRUNDRISS_SHEET):
+            # The chain is already filed, which is the whole condition the
+            # retire waits on, so it still runs from here. An install reseeded
+            # between the chain landing and the retire landing carries both the
+            # chain and the pair it replaces, and this early return is the only
+            # path that install ever takes again.
+            return {**empty, "retired": await _retire_english_chain(session, project_id)}
 
     counts = {"projects": 1, "documents": 0, "bytes": 0, "retired": 0}
     by_key: dict[str, uuid.UUID] = {}
