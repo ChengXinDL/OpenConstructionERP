@@ -103,6 +103,30 @@ describe('manifest names and descriptions', () => {
     }).map((e) => `${e.moduleId}.${e.field} -> ${e.value}`);
     expect(untranslated).toEqual([]);
   });
+
+  it('are actually translated in every locale a manifest carries, not the English string again', () => {
+    // Generalizes the German check above to every locale any manifest ships
+    // a translation for, rather than pinning German alone. A manifest-carried
+    // locale that repeats the English string is the same failure as the
+    // German case, just for a language nobody happened to open the registry
+    // page in yet - and this keeps working for whatever locale a manifest
+    // adds next, not only the ones present today.
+    const PROPER_NOUNS = /GAEB|COLLADA|DataFrame|IFC|RVT|BOQ|EPD|Yjs|CRDT|Monte Carlo|DIN|NRM/;
+    const untranslated: string[] = [];
+    for (const entry of NAMES_AND_DESCRIPTIONS) {
+      const english = englishFor(entry);
+      if (!english || PROPER_NOUNS.test(english)) continue;
+      const locales = Object.keys(entry.manifest.translations ?? {});
+      for (const lng of locales) {
+        if (lng === 'en' || lng === 'de') continue; // covered by the test above
+        const value = entry.manifest.translations?.[lng]?.[entry.value];
+        if (value !== undefined && value === english) {
+          untranslated.push(`${entry.moduleId}.${entry.field} -> ${entry.value} [${lng}]`);
+        }
+      }
+    }
+    expect(untranslated).toEqual([]);
+  });
 });
 
 describe('module route titles', () => {

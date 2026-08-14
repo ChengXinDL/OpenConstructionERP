@@ -151,6 +151,7 @@ export const manifest: ModuleManifest = {
       'regional.browse': 'Datei wählen',
     },
     ru: {
+      'modules.regional_exchange.description': 'Один импорт / экспорт для 20 региональных стандартов стоимости (NRM, MasterFormat, DIN 276, PBC, ГЭСН, …).',
       'nav.regional_exchange': 'Региональный обмен сметами',
       'regional.tab_import': 'Импорт',
       'regional.tab_export': 'Экспорт',
@@ -160,6 +161,7 @@ export const manifest: ModuleManifest = {
       'regional.browse': 'Выбрать файл',
     },
     es: {
+      'modules.regional_exchange.description': 'Una importación / exportación para 20 estándares regionales de costes (NRM, MasterFormat, DIN 276, PBC, GESN, …).',
       'nav.regional_exchange': 'Intercambio Regional de BOQ',
       'regional.tab_import': 'Importar',
       'regional.tab_export': 'Exportar',
@@ -167,6 +169,7 @@ export const manifest: ModuleManifest = {
       'regional.browse': 'Examinar archivos',
     },
     fr: {
+      'modules.regional_exchange.description': 'Un import / export pour 20 référentiels de coûts régionaux (NRM, MasterFormat, DIN 276, PBC, GESN, …).',
       'nav.regional_exchange': 'Échange BOQ Régional',
       'regional.tab_import': 'Importer',
       'regional.tab_export': 'Exporter',
@@ -174,6 +177,7 @@ export const manifest: ModuleManifest = {
       'regional.browse': 'Parcourir',
     },
     it: {
+      'modules.regional_exchange.description': 'Un import / export per 20 standard di costo regionali (NRM, MasterFormat, DIN 276, PBC, GESN, …).',
       'nav.regional_exchange': 'Scambio BOQ Regionale',
       'regional.tab_import': 'Importa',
       'regional.tab_export': 'Esporta',
@@ -181,6 +185,7 @@ export const manifest: ModuleManifest = {
       'regional.browse': 'Sfoglia file',
     },
     pl: {
+      'modules.regional_exchange.description': 'Jeden import / eksport dla 20 regionalnych standardów kosztowych (NRM, MasterFormat, DIN 276, PBC, GESN, …).',
       'nav.regional_exchange': 'Regionalna Wymiana BOQ',
       'regional.tab_import': 'Importuj',
       'regional.tab_export': 'Eksportuj',
@@ -188,46 +193,55 @@ export const manifest: ModuleManifest = {
       'regional.browse': 'Przeglądaj',
     },
     cs: {
+      'modules.regional_exchange.description': 'Jeden import / export pro 20 regionálních nákladových standardů (NRM, MasterFormat, DIN 276, PBC, GESN, …).',
       'nav.regional_exchange': 'Regionální výměna BOQ',
       'regional.tab_import': 'Importovat',
       'regional.tab_export': 'Exportovat',
     },
     nl: {
+      'modules.regional_exchange.description': 'Eén import / export voor 20 regionale kostenstandaarden (NRM, MasterFormat, DIN 276, PBC, GESN, …).',
       'nav.regional_exchange': 'Regionale BOQ-uitwisseling',
       'regional.tab_import': 'Importeren',
       'regional.tab_export': 'Exporteren',
     },
     pt: {
+      'modules.regional_exchange.description': 'Uma importação / exportação para 20 normas regionais de custos (NRM, MasterFormat, DIN 276, PBC, GESN, …).',
       'nav.regional_exchange': 'Intercâmbio Regional de BOQ',
       'regional.tab_import': 'Importar',
       'regional.tab_export': 'Exportar',
     },
     tr: {
+      'modules.regional_exchange.description': '20 bölgesel maliyet standardı için tek bir içe / dışa aktarma (NRM, MasterFormat, DIN 276, PBC, GESN, …).',
       'nav.regional_exchange': 'Bölgesel BOQ Değişimi',
       'regional.tab_import': 'İçeri Aktar',
       'regional.tab_export': 'Dışarı Aktar',
     },
     ja: {
+      'modules.regional_exchange.description': '20 の地域別コスト標準 (NRM、MasterFormat、DIN 276、PBC、GESN、…) に対応する単一のインポート / エクスポートです。',
       'nav.regional_exchange': '地域BOQ交換',
       'regional.tab_import': 'インポート',
       'regional.tab_export': 'エクスポート',
     },
     ko: {
+      'modules.regional_exchange.description': '20개 지역 원가 표준(NRM, MasterFormat, DIN 276, PBC, GESN, …)을 위한 단일 가져오기 / 내보내기입니다.',
       'nav.regional_exchange': '지역 BOQ 교환',
       'regional.tab_import': '가져오기',
       'regional.tab_export': '내보내기',
     },
     zh: {
+      'modules.regional_exchange.description': '面向 20 种地区造价标准（NRM、MasterFormat、DIN 276、PBC、GESN、…）的统一导入 / 导出。',
       'nav.regional_exchange': '区域工程量交换',
       'regional.tab_import': '导入',
       'regional.tab_export': '导出',
     },
     ar: {
+      'modules.regional_exchange.description': 'استيراد / تصدير واحد لـ 20 معيار تكلفة إقليمي (NRM، MasterFormat، DIN 276، PBC، GESN، …).',
       'nav.regional_exchange': 'تبادل BOQ الإقليمي',
       'regional.tab_import': 'استيراد',
       'regional.tab_export': 'تصدير',
     },
     hi: {
+      'modules.regional_exchange.description': '20 क्षेत्रीय लागत मानकों (NRM, MasterFormat, DIN 276, PBC, GESN, …) के लिए एक ही आयात / निर्यात।',
       'nav.regional_exchange': 'क्षेत्रीय BOQ विनिमय',
       'regional.tab_import': 'आयात',
       'regional.tab_export': 'निर्यात',
