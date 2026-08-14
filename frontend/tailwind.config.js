@@ -30,6 +30,15 @@ export default {
           // brighter hue in dark mode so the same class clears WCAG-AA
           // 4.5:1 in both themes. See index.css `--oe-blue-text`.
           'blue-text': 'var(--oe-blue-text)',
+          purple: ({ opacityValue }) =>
+            opacityValue === undefined
+              ? 'var(--oe-purple)'
+              : `rgb(var(--oe-purple-ch) / ${opacityValue})`,
+          // Same two notes as blue above: no alpha on the subtle tint because
+          // its dark value is already an rgba(), and the -text token resolves
+          // per theme so one class clears AA in both.
+          'purple-subtle': 'var(--oe-purple-subtle)',
+          'purple-text': 'var(--oe-purple-text)',
         },
         surface: {
           primary: ({ opacityValue }) =>

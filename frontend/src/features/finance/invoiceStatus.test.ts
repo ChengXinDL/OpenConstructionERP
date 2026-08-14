@@ -11,6 +11,7 @@ import {
   invoiceStatusOptions,
   isReceivable,
   INVOICE_SELF_SERVICE_TRANSITIONS,
+  INVOICE_STATUS_COLORS,
   INVOICE_STATUS_ORDER,
 } from './FinancePage';
 
@@ -121,6 +122,19 @@ describe('invoice status dropdown options', () => {
     const openers = unguardedEInvoiceOpeners(planted);
     expect(openers.total).toBe(2);
     expect(openers.unguarded).toEqual([2]); // 1-based line of the bare button
+  });
+
+  it('keeps approved and sent on different badge colours', () => {
+    // These two sit one row apart in the same status column, and an invoice
+    // that has gone out to the client is not an invoice that has only been
+    // approved internally. They shared one blue until the palette grew a
+    // variant for it. Statuses that mean "nothing is in flight" are still free
+    // to share neutral, so this pins the one pair that has to stay apart
+    // rather than demanding a unique colour per status.
+    expect(INVOICE_STATUS_COLORS.sent).not.toBe(INVOICE_STATUS_COLORS.approved);
+    // ...and neither may borrow the colour that means the money arrived.
+    expect(INVOICE_STATUS_COLORS.sent).not.toBe(INVOICE_STATUS_COLORS.paid);
+    expect(INVOICE_STATUS_COLORS.approved).not.toBe(INVOICE_STATUS_COLORS.paid);
   });
 
   it('preserves the canonical display order in the option list', () => {

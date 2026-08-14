@@ -44,6 +44,24 @@
      hex values above/below. */
   --oe-blue-ch: 0 113 227;
 
+  /* Purple — the status palette ran out of hues before it ran out of states.
+     Seven invoice states share five badge variants, and the pair that had to
+     come apart is approved (blue) against sent: on the finance list they sit
+     in the same column, one row apart, and one colour for both reads as one
+     state. Blue keeps approved, which has the longer history in the UI.
+     Deliberately purple rather than the existing semantic-info cyan, which is
+     close enough to brand blue that the split would not survive a glance.
+     Measured against the surfaces it lands on:
+       Light  #6b21a8 -> 8.72:1 on #fff, 8.13:1 on the #faf5ff pill
+     Note that hue is a weak channel on its own: purple sits next to blue for
+     a red-blind reader, so the badge label stays the thing that carries the
+     meaning and this is the second cue, not the only one. */
+  --oe-purple: #9333ea;
+  --oe-purple-subtle: #faf5ff;
+  --oe-purple-text: #6b21a8;
+  /* Channel triplet for alpha modifiers - see the blue comment above. */
+  --oe-purple-ch: 147 51 234;
+
   /* Surfaces */
   --oe-bg: #ffffff;
   --oe-bg-secondary: #f5f5f7;
@@ -189,6 +207,17 @@
   --oe-blue-text: #93c5fd;
   /* Channel triplet - see the light-mode comment. Keep in sync. */
   --oe-blue-ch: 59 130 246;
+
+  /* Purple — see the light-mode comment for why this family exists. Same
+     shape as the blue pair: the tint becomes a translucent wash so it lifts
+     with whatever surface it sits on, and the text goes brighter so one class
+     clears AA in both themes. Worst case is the elevated surface:
+       Dark   #d8b4fe -> 9.03:1 on #1e2130, 7.58:1 on the flattened pill */
+  --oe-purple: #a855f7;
+  --oe-purple-subtle: rgba(168, 85, 247, 0.15);
+  --oe-purple-text: #d8b4fe;
+  /* Channel triplet - see the light-mode comment. Keep in sync. */
+  --oe-purple-ch: 168 85 247;
 
   /* Surfaces — deep blue-gray palette */
   --oe-bg: #0f1117;

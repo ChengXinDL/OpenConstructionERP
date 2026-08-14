@@ -49,6 +49,7 @@ import {
   tabIds,
   ModuleGuideButton,
 } from '@/shared/ui';
+import type { BadgeVariant } from '@/shared/ui';
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { RequiresProject } from '@/shared/auth/RequiresProject';
 import {
@@ -288,22 +289,17 @@ function currencyOptions(active: string): string[] {
   return [...COMMON_CURRENCIES];
 }
 
-const INVOICE_STATUS_COLORS: Record<
-  string,
-  'neutral' | 'blue' | 'success' | 'warning' | 'error'
-> = {
+export const INVOICE_STATUS_COLORS: Record<string, BadgeVariant> = {
   draft: 'neutral',
   pending: 'warning',
   approved: 'blue',
   // Issued to the client and waiting to be paid. Without an entry here it
   // arrived as 'neutral', so the invoice the client is holding looked exactly
-  // like a draft nobody has sent and like one that was cancelled. It shares
-  // 'blue' with approved on purpose: the palette carries five variants for
-  // seven states, and these two are the pair that means the same thing to the
-  // eye scanning a column, in flight and not yet money. The label separates
-  // them. The collisions worth avoiding are the ones that cross that line,
-  // which is why neither of them is 'success' or 'warning'.
-  sent: 'blue',
+  // like a draft nobody has sent and like one that was cancelled. It gets its
+  // own hue rather than sharing blue with approved: the two sit one row apart
+  // in this very column, and a reader scanning it takes one colour to mean one
+  // state.
+  sent: 'purple',
   paid: 'success',
   disputed: 'error',
   cancelled: 'neutral',
