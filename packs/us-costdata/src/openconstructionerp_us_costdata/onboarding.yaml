@@ -3,11 +3,11 @@
 # the OnboardingWizard React component in place of the default steps.
 
 version: 1
-pack: us-rsmeans
+pack: us-costdata
 locale: en-US
 estimated_minutes: 10
 title: "Welcome to OpenConstructionERP — US Edition"
-subtitle: "Eight quick steps to align your workspace with US practice (MasterFormat + UniFormat II, AIA contracts, OSHA 1926, IBC 2021, RSMeans CCI)."
+subtitle: "Eight quick steps to align your workspace with US practice (MasterFormat + UniFormat II, AIA contracts, OSHA 1926, IBC 2021, city cost index)."
 
 steps:
   - id: company_profile
@@ -81,11 +81,11 @@ steps:
           options: ["IECC 2021 — Prescriptive", "IECC 2021 — Performance", "ASHRAE 90.1-2019", "State energy code (CA Title 24, etc.)"] }
 
   - id: cost_data
-    title: "Cost data — RSMeans City Cost Index"
-    body: "RSMeans CCI localises national average unit prices to your markets. Pick your active metros — you can add more later from the cost-database UI (720+ US cities supported)."
+    title: "Cost data — city cost index"
+    body: "A city cost index localises national average unit prices to your markets. No index ships with this pack, so you import the one you subscribe to. Pick your active metros — you can add more later from the cost-database UI."
     fields:
-      - key: rsmeans_cities
-        label: "Active CCI metros"
+      - key: cost_index_cities
+        label: "Active index metros"
         type: multiselect
         required: true
         default: ["New York, NY"]
@@ -105,8 +105,8 @@ steps:
           - "Dallas, TX"
           - "Miami, FL"
           - "Minneapolis, MN"
-      - { key: rsmeans_subscription, label: "I have an active RSMeans Data Online subscription", type: checkbox, default: false }
-      - { key: rsmeans_index_period, label: "Index period", type: select, default: "Current quarter",
+      - { key: cost_index_subscription, label: "I have an active cost-index subscription to import from", type: checkbox, default: false }
+      - { key: cost_index_period, label: "Index period", type: select, default: "Current quarter",
           options: ["Current quarter", "Latest annual", "Override per project"] }
       - { key: include_o_and_p,   label: "Use O&P (with Overhead & Profit) rates as default, not Bare Costs", type: checkbox, default: true }
 
@@ -124,7 +124,7 @@ steps:
 
   - id: review
     title: "Review and finish"
-    body: "We'll create your first US project workspace with MasterFormat 2020 + UniFormat II validation, AIA A201-2017 General Conditions, OSHA 29 CFR 1926 HSE plan, IBC 2021 code references, and RSMeans CCI for your selected metros. You can change everything later in Settings."
+    body: "We'll create your first US project workspace with MasterFormat 2020 + UniFormat II validation, AIA A201-2017 General Conditions, OSHA 29 CFR 1926 HSE plan, IBC 2021 code references, and city cost index localization for your selected metros. You can change everything later in Settings."
     action:
       label: "Create my US workspace"
       apply:
@@ -137,4 +137,4 @@ steps:
             - aia_owner_contractor
             - osha_1926
             - ibc_2021
-            - rsmeans_city_index
+            - us_city_cost_index

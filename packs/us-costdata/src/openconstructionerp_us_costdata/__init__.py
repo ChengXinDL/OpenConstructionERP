@@ -9,13 +9,16 @@ Pre-configured for US general contractors:
   A103 cost-plus, A104 abbreviated, A141 design-build
 * **OSHA 29 CFR 1926** — Construction Industry safety regulations
 * **IBC 2021** — International Building Code (state amendment overrides supported)
-* **RSMeans City Cost Index** — 720+ US metros + ~80 Canadian cities
+* **City cost index** — regional localization of the cost data the user imports
+
+No commercial cost database is bundled: the pack is the structure that
+user-supplied rates are imported into. See ``README.md``.
 
 This package exports a module-level ``MANIFEST`` instance of
 :class:`PartnerPackManifest` referenced from ``pyproject.toml``::
 
     [project.entry-points."openconstructionerp.partner_packs"]
-    us-rsmeans = "openconstructionerp_us_rsmeans:MANIFEST"
+    us-costdata = "openconstructionerp_us_costdata:MANIFEST"
 
 The OCERP core discovers this entry point at boot, validates the
 manifest, and applies the partner overrides (branding, locale,

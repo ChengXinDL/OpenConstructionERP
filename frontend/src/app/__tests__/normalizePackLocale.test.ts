@@ -12,7 +12,7 @@ describe('normalizePackLocale', () => {
   it('strips the region subtag to a supported base language', () => {
     expect(normalizePackLocale('fr-CA')).toBe('fr'); // batimatech-ca
     expect(normalizePackLocale('en-GB')).toBe('en'); // uk-jct
-    expect(normalizePackLocale('en-US')).toBe('en'); // us-rsmeans
+    expect(normalizePackLocale('en-US')).toBe('en'); // us-costdata
     expect(normalizePackLocale('en-AU')).toBe('en'); // aus
     expect(normalizePackLocale('en-NZ')).toBe('en'); // nzs
   });

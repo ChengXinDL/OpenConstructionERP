@@ -205,7 +205,7 @@ backend/app/modules/catalog/
 | `unit` | `String(20)` | NO | - | Measurement unit: `SF`, `CY`, `LF`, `EA`, `hr`, `m`, `m2`, `m3`, `kg`, `pcs` |
 | `rate` | `String(50)` | NO | - | Unit rate stored as a string for SQLite compatibility |
 | `currency` | `String(10)` | NO | `""` | ISO 4217 code. Resolved from region if left empty |
-| `source` | `String(50)` | NO | `"cwicr"` | Data provenance: `cwicr`, `rsmeans`, `manual`, `file_import`, `custom` |
+| `source` | `String(50)` | NO | `"cwicr"` | Data provenance: `cwicr`, `commercial`, `manual`, `file_import`, `custom` |
 | `classification` | `JSON` | NO | `{}` | Multi-standard: `{"masterformat": "03 30 00", "din276": "330"}` |
 | `components` | `JSON` | NO | `[]` | Resource breakdown: `[{type, name, quantity, unit_rate, cost, unit}]` |
 | `tags` | `JSON` | NO | `[]` | Searchable: `["demolition", "sitework", "nashville"]` |
@@ -630,7 +630,7 @@ source classification       -> classification (transformed to standard keys)
 source labor/equip/material -> components (resource-based decomposition)
 source metadata             -> metadata (provenance, effective dates, source URLs)
 source tags                 -> tags
-source identifier           -> source field ("usace", "bls_oews", "rsmeans", etc.)
+source identifier           -> source field ("usace", "bls_oews", "commercial", etc.)
 ```
 
 ### 8.2 Per-Source Mapping Details
@@ -719,12 +719,12 @@ Bid prices are **composite rates** (labor plus material plus equipment plus over
 
 ```json
 {
-  "code": "RSM-312313.10-0400",
+  "code": "COM-312313.10-0400",
   "description": "Excavation, trench, common earth, 0-4 ft deep, machine",
   "unit": "CY",
   "rate": 18.50,
   "currency": "USD",
-  "source": "rsmeans",
+  "source": "commercial",
   "region": "USA_USD",
   "classification": {"masterformat": "31 23 13.10", "uniformat": "G10"},
   "components": [
@@ -732,8 +732,8 @@ Bid prices are **composite rates** (labor plus material plus equipment plus over
     {"type": "equipment", "name": "Hydraulic excavator 3/4 CY", "quantity": 0.35, "unit_rate": 25.49, "cost": 8.92, "unit": "hr"},
     {"type": "material", "name": "No material", "quantity": 0, "unit_rate": 0, "cost": 0, "unit": "CY"}
   ],
-  "tags": ["excavation", "trench", "earthwork", "rsmeans"],
-  "metadata": {"city_cost_index": 1.0, "rsmeans_line": "312313.10-0400"}
+  "tags": ["excavation", "trench", "earthwork", "commercial"],
+  "metadata": {"city_cost_index": 1.0, "source_line": "312313.10-0400"}
 }
 ```
 
@@ -751,7 +751,7 @@ Apply these `source` field values consistently:
 | `caltrans_bid` | California DOT contract cost data |
 | `fdot_bid` | Florida DOT historical item average cost |
 | `dot_bid` | Generic state DOT bid prices |
-| `rsmeans` | Commercial unit-cost database import |
+| `commercial` | Commercial unit-cost database import |
 | `craftsman_nce` | Commercial estimator handbook |
 | `enr_index` | Published construction cost index / material prices |
 | `marshall_swift` | Replacement-cost valuation data |

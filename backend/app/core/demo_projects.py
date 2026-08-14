@@ -2132,7 +2132,7 @@ PACK_DEMO_PROJECT: dict[str, str] = {
     "saudi-vision2030": "mixed-use-riyadh",
     "south-africa": "mixed-use-johannesburg",
     "uk-jct": "commercial-london",
-    "us-rsmeans": "commercial-denver",
+    "us-costdata": "commercial-denver",
 }
 
 # Country-name → ISO 3166-1 alpha-2, for catalog rows auto-derived from a

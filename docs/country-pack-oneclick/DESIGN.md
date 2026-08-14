@@ -190,7 +190,7 @@ Each onboarding country needs **2** demos. Inventory by country:
 |---------|--------------------------------------|---------|
 | DE      | residential-berlin (built-in)        | office-frankfurt (bimhessen-de pack) ✓ |
 | GB      | office-london (built-in)             | commercial-london (uk-jct pack) ✓ |
-| US      | medical-us (built-in)                | commercial-denver (us-rsmeans pack) ✓ |
+| US      | medical-us (built-in)                | commercial-denver (us-costdata pack) ✓ |
 | FR      | school-paris (built-in)              | **AUTHOR** |
 | AE      | warehouse-dubai (built-in)           | **AUTHOR** |
 | CA      | office-montreal (batimatech pack)    | **AUTHOR** |

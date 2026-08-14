@@ -5,7 +5,7 @@ from __future__ import annotations
 from app.core.demo_projects import DemoTemplate
 
 # ---------------------------------------------------------------------------
-# Partner pack: us-rsmeans  ─  Commercial Office Building, Denver, Colorado
+# Partner pack: us-costdata  ─  Commercial Office Building, Denver, Colorado
 # ---------------------------------------------------------------------------
 # Class A speculative office building, LoDo / RiNo edge of Downtown Denver.
 # ~12,200 m2 (131,300 sf) gross, 7 storeys + 1-level below-grade parking.

@@ -146,8 +146,8 @@ _ALLOWED_NOMINATIVE: dict[str, frozenset[str]] = {
     "backend/app/modules/assemblies/router.py": frozenset({"description"}),
     # Column-header aliases exist to recognise the name in a customer's spreadsheet.
     "backend/app/modules/eac/aliases/seed_catalog.json": frozenset({"name"}),
-    # A whole pack that exists to consume a licensed commercial data source.
-    "packs/us-rsmeans/": frozenset(
+    # A whole pack whose job is to name the standards US work interoperates with.
+    "packs/us-costdata/": frozenset(
         {"title", "label", "name", "standard", "description"}
     ),
     # Pickers and presets: the user chooses a standard and must see which one.

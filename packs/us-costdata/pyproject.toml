@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "openconstructionerp-us-rsmeans"
+name = "openconstructionerp-us-costdata"
 version = "0.2.0"
-description = "Pre-configured partner pack for US general contractors — CSI MasterFormat 2020 + UniFormat II, AIA A201-2017 + Owner-Contractor family, OSHA 29 CFR 1926, IBC 2021, and RSMeans City Cost Index for 720+ US metros."
+description = "Pre-configured partner pack for US general contractors: CSI MasterFormat 2020 + UniFormat II, AIA A201-2017 + Owner-Contractor family, OSHA 29 CFR 1926, IBC 2021, and a city cost index structure for regional localization of imported rates."
 readme = "README.md"
 license = { text = "AGPL-3.0-or-later" }
 requires-python = ">=3.11"
@@ -20,7 +20,7 @@ keywords = [
     "masterformat",
     "uniformat",
     "aia",
-    "rsmeans",
+    "cost-index",
     "osha",
     "ibc",
 ]
@@ -46,7 +46,7 @@ dependencies = [
 Source = "https://github.com/DataDrivenConstruction/openconstructionerp"
 
 [project.entry-points."openconstructionerp.partner_packs"]
-us-rsmeans = "openconstructionerp_us_rsmeans:MANIFEST"
+us-costdata = "openconstructionerp_us_costdata:MANIFEST"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
@@ -55,7 +55,7 @@ package-dir = { "" = "src" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-openconstructionerp_us_rsmeans = [
+openconstructionerp_us_costdata = [
     "logo.svg",
     "onboarding.yaml",
     "locales/*.json",

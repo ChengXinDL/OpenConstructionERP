@@ -1,4 +1,4 @@
-"""Build the ``PartnerPackManifest`` instance for the us-rsmeans pack.
+"""Build the ``PartnerPackManifest`` instance for the us-costdata pack.
 
 Kept in its own module so unit tests can import the manifest without
 triggering the package ``__init__`` side-effects.
@@ -9,7 +9,7 @@ from __future__ import annotations
 from app.core.partner_pack.manifest import PartnerBranding, PartnerPackManifest
 
 MANIFEST = PartnerPackManifest(
-    slug="us-rsmeans",
+    slug="us-costdata",
     partner_name="US Construction Pack",
     partner_url=None,
     pack_version="0.2.0",
@@ -17,16 +17,16 @@ MANIFEST = PartnerPackManifest(
         "Pre-configured for US general contractors: CSI MasterFormat 2020 + "
         "UniFormat II elemental, AIA A201-2017 General Conditions + Owner-"
         "Contractor agreement family (A101/A102/A103/A104/A141), OSHA 29 CFR "
-        "1926 construction safety, IBC 2021 building code, and RSMeans City "
-        "Cost Index for 720+ US metros."
+        "1926 construction safety, IBC 2021 building code, and a city cost "
+        "index for localizing imported rates per metro."
     ),
     default_locale="en-US",
     additional_locales={"en-US": "locales/en-US.json"},
     cwicr_regions=[
         # Note: only one CWICR pack exists for the US (national-average USD
-        # with regional adjustment factors). RSMeans CCI is applied on top
-        # for per-metro localization. The cities are listed under
-        # ``metadata.rsmeans_cci_cities`` for the onboarding wizard.
+        # with regional adjustment factors). A city cost index is applied on
+        # top for per-metro localization. The cities are listed under
+        # ``metadata.city_cost_index_cities`` for the onboarding wizard.
         "cwicr-usa-usd",
     ],
     default_currency="USD",
@@ -39,7 +39,7 @@ MANIFEST = PartnerPackManifest(
         "aia_owner_contractor",
         "osha_1926",
         "ibc_2021",
-        "rsmeans_city_index",
+        "us_city_cost_index",
     ],
     default_modules=[],   # empty = show all
     hidden_modules=[],
@@ -64,12 +64,11 @@ MANIFEST = PartnerPackManifest(
             "IBC 2021 (International Building Code)",
             "ICC A117.1-2017 (Accessibility)",
             "IECC 2021 (Energy)",
-            "RSMeans CCI",
         ],
-        "rsmeans_cci_cities": [
-            # Top-10 US metros pre-offered in the onboarding wizard.
-            # Full RSMeans CCI covers 720+ US cities + ~80 Canadian cities;
-            # users can add more from the cost-database UI.
+        "city_cost_index_cities": [
+            # Top-10 US metros pre-offered in the onboarding wizard. Whichever
+            # index the user subscribes to covers far more; more cities can be
+            # added from the cost-database UI.
             {"slug": "ny-new-york",     "label": "New York, NY",      "metro": "NYC",   "default": True},
             {"slug": "ca-los-angeles",  "label": "Los Angeles, CA",   "metro": "LA",    "default": False},
             {"slug": "il-chicago",      "label": "Chicago, IL",       "metro": "CHI",   "default": False},
