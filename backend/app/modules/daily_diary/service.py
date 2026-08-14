@@ -985,6 +985,27 @@ class DailyDiaryService:
         await self.get_diary(diary_id)
         return await self.entry_repo.list_for_diary(diary_id, entry_type=entry_type)
 
+    async def page_entries(
+        self,
+        diary_id: uuid.UUID,
+        *,
+        entry_type: str | None = None,
+        offset: int = 0,
+        limit: int = 500,
+    ) -> tuple[list[DiaryEntry], int]:
+        """One page of a diary's entries plus the count that matched.
+
+        Kept apart from :meth:`list_entries` rather than replacing it: that
+        one feeds the PDF and the completeness maths, which need every row.
+        """
+        await self.get_diary(diary_id)
+        return await self.entry_repo.page_for_diary(
+            diary_id,
+            entry_type=entry_type,
+            offset=offset,
+            limit=limit,
+        )
+
     async def get_entry(self, entry_id: uuid.UUID) -> DiaryEntry:
         entry = await self.entry_repo.get_by_id(entry_id)
         if entry is None:

@@ -53,6 +53,9 @@ MIGRATED_ENDPOINTS: dict[str, str] = {
     "/v1/punchlist/items/": "punchlist items",
     "/v1/correspondence/": "correspondence list",
     "/v1/inspections/": "inspections list",
+    "/v1/daily-diary/diaries/": "daily diary list",
+    "/v1/daily-diary/diaries/{}/entries": "daily diary entries",
+    "/v1/daily-diary/photos/": "daily diary photos",
 }
 
 # Wave 2 measured five more enveloped endpoints - file_comments,
@@ -126,6 +129,13 @@ SHARED_QUERY_KEYS: dict[str, str] = {
     # project]. Different second elements, so different cache entries, but
     # both go through fetchInspections and both had to move together.
     "inspections": "/v1/inspections/",
+    # NOT listable, on purpose: "daily-diary". QUERY_KEY_RE anchors only the
+    # FIRST array element, and that module namespaces about thirty keys under
+    # it - weather, workforce, signatures, completeness, one diary by id.
+    # None of those are pages, none carry `Page<`, `.items` or `items:`, so
+    # the entry would report every one of them UNMIGRATED and no edit to a
+    # correct file could clear it. Its three list endpoints are covered by
+    # the URL scan above instead, which does see them.
 }
 
 QUERY_KEY_RE = r"queryKey:\s*\[\s*['\"`]{key}['\"`]"

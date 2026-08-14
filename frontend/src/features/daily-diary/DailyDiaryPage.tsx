@@ -62,6 +62,7 @@ import { PageHeader } from '@/shared/ui/PageHeader';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { apiGet, getErrorMessage, type Page } from '@/shared/lib/api';
+import { TruncationNotice } from '@/shared/ui/TruncationNotice';
 import { todayLocalISO, isoDateFromLocal, nowLocalISO } from '@/shared/lib/dates';
 import { projectsApi } from '@/features/projects/api';
 import {
@@ -319,7 +320,7 @@ export function DailyDiaryPage() {
 
   const activeDiary: DailyDiary | undefined = activeDiaryId
     ? selectedDiaryQ.data
-    : todayDiariesQ.data?.[0];
+    : todayDiariesQ.data?.items[0];
   const activeLoading = activeDiaryId
     ? selectedDiaryQ.isLoading
     : todayDiariesQ.isLoading;
@@ -346,7 +347,7 @@ export function DailyDiaryPage() {
   // has no early return) so the hook order stays stable.
   const insights = useModuleInsights('daily-diary', { defaultOpen: true });
   const { datasets: insightDatasets, builtins: insightBuiltins } = useMemo(
-    () => buildDailyDiaryInsights(diariesQ.data ?? [], '', t),
+    () => buildDailyDiaryInsights(diariesQ.data?.items ?? [], '', t),
     [diariesQ.data, t],
   );
 
@@ -541,7 +542,7 @@ export function DailyDiaryPage() {
           </Card>
         ) : (
           <DiariesCalendar
-            diaries={diariesQ.data ?? []}
+            diaries={diariesQ.data?.items ?? []}
             loading={diariesQ.isLoading}
             year={year}
             month={month}
@@ -604,10 +605,13 @@ export function DailyDiaryPage() {
           />
         </Card>
       ) : (
-        <ArchiveTab
-          diaries={archiveQ.data ?? []}
-          loading={archiveQ.isLoading}
-        />
+        <>
+          <ArchiveTab
+            diaries={archiveQ.data?.items ?? []}
+            loading={archiveQ.isLoading}
+          />
+          {archiveQ.data && <TruncationNotice page={archiveQ.data} className="mt-3" />}
+        </>
       )}
 
       {createOpen && projectId && (
@@ -1489,11 +1493,12 @@ function TodayTab({
       <EntriesTimeline projectId={projectId} diaryId={diary.id} sealed={sealed} />
 
       <PhotoGrid
-        photos={photosQ.data ?? []}
+        photos={photosQ.data?.items ?? []}
         loading={photosQ.isLoading}
         sealed={sealed}
         onUpload={() => setPhotoOpen(true)}
       />
+      {photosQ.data && <TruncationNotice page={photosQ.data} className="-mt-2" />}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <DroneSection
@@ -1971,7 +1976,7 @@ function EntriesTimeline({
     onError: (err) => addToast({ type: 'error', title: getErrorMessage(err) }),
   });
 
-  const entries = entriesQ.data ?? [];
+  const entries = entriesQ.data?.items ?? [];
 
   return (
     <Card padding="md">
@@ -2168,6 +2173,7 @@ function EntriesTimeline({
           ))}
         </ul>
       )}
+      {entriesQ.data && <TruncationNotice page={entriesQ.data} className="mt-2" />}
     </Card>
   );
 }

@@ -38,6 +38,7 @@ from app.modules.daily_diary.pdf_translations import diary_pdf_filename, resolve
 from app.modules.daily_diary.schemas import (
     BeforeAfterResponse,
     DailyDiaryCreate,
+    DailyDiaryListResponse,
     DailyDiaryResponse,
     DailyDiaryUpdate,
     DiaryArchiveSignatureResponse,
@@ -45,10 +46,12 @@ from app.modules.daily_diary.schemas import (
     DiaryDashboardResponse,
     DiaryEntryBulkCreate,
     DiaryEntryCreate,
+    DiaryEntryListResponse,
     DiaryEntryResponse,
     DiaryEntryUpdate,
     DiaryImmutablePayloadHashResponse,
     DiaryPhotoCreate,
+    DiaryPhotoListResponse,
     DiaryPhotoResponse,
     DiaryPhotoUpdate,
     DiarySignRequest,
@@ -98,7 +101,7 @@ def _get_service(session: SessionDep) -> DailyDiaryService:
 # ── Diaries ──────────────────────────────────────────────────────────────
 
 
-@router.get("/diaries/", response_model=list[DailyDiaryResponse])
+@router.get("/diaries/", response_model=DailyDiaryListResponse)
 async def list_diaries(
     session: SessionDep,
     project_id: uuid.UUID = Query(...),
@@ -110,10 +113,10 @@ async def list_diaries(
     user_id: CurrentUserId = None,  # type: ignore[assignment]
     _perm: None = Depends(RequirePermission("daily_diary.read")),
     service: DailyDiaryService = Depends(_get_service),
-) -> list[DailyDiaryResponse]:
-    """List daily diaries for a project."""
+) -> DailyDiaryListResponse:
+    """List daily diaries for a project, one page plus the matching total."""
     await verify_project_access(project_id, user_id, session)
-    items, _ = await service.list_diaries(
+    items, total = await service.list_diaries(
         project_id,
         date_from=date_from,
         date_to=date_to,
@@ -121,7 +124,12 @@ async def list_diaries(
         offset=offset,
         limit=limit,
     )
-    return [DailyDiaryResponse.model_validate(item) for item in items]
+    return DailyDiaryListResponse(
+        items=[DailyDiaryResponse.model_validate(item) for item in items],
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
 
 
 @router.post("/diaries/", response_model=DailyDiaryResponse, status_code=201)
@@ -439,21 +447,41 @@ async def create_entry(
 
 @router.get(
     "/diaries/{diary_id}/entries",
-    response_model=list[DiaryEntryResponse],
+    response_model=DiaryEntryListResponse,
 )
 async def list_entries(
     diary_id: uuid.UUID,
     session: SessionDep,
     entry_type: str | None = Query(default=None),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=500, ge=1, le=2000),
     user_id: CurrentUserId = None,  # type: ignore[assignment]
     _perm: None = Depends(RequirePermission("daily_diary.read")),
     service: DailyDiaryService = Depends(_get_service),
-) -> list[DiaryEntryResponse]:
-    """List all entries for a diary, chronologically (entry_time asc)."""
+) -> DiaryEntryListResponse:
+    """List a diary's entries, chronologically (entry_time asc), one page.
+
+    ``offset`` and ``limit`` are new here: this route used to take neither and
+    returned however many entries the diary held. A day's diary is small, but
+    the bulk-create route below can write a whole month into one, and an
+    endpoint whose response size is set by the data alone has no ceiling at
+    all. The bound matches the photos route in this module; ``total`` says
+    what it cut, so a client can tell a whole day from part of one.
+    """
     diary = await service.get_diary(diary_id)
     await verify_project_access(diary.project_id, user_id, session)
-    entries = await service.list_entries(diary_id, entry_type=entry_type)
-    return [DiaryEntryResponse.model_validate(e) for e in entries]
+    entries, total = await service.page_entries(
+        diary_id,
+        entry_type=entry_type,
+        offset=offset,
+        limit=limit,
+    )
+    return DiaryEntryListResponse(
+        items=[DiaryEntryResponse.model_validate(e) for e in entries],
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
 
 
 @router.post(
@@ -529,7 +557,7 @@ async def delete_entry(
 # ── Photos ───────────────────────────────────────────────────────────────
 
 
-@router.get("/photos/", response_model=list[DiaryPhotoResponse])
+@router.get("/photos/", response_model=DiaryPhotoListResponse)
 async def list_photos(
     session: SessionDep,
     project_id: uuid.UUID = Query(...),
@@ -540,16 +568,22 @@ async def list_photos(
     user_id: CurrentUserId = None,  # type: ignore[assignment]
     _perm: None = Depends(RequirePermission("daily_diary.read")),
     service: DailyDiaryService = Depends(_get_service),
-) -> list[DiaryPhotoResponse]:
+) -> DiaryPhotoListResponse:
+    """List diary photos for a project, one page plus the matching total."""
     await verify_project_access(project_id, user_id, session)
-    items, _ = await service.photo_repo.photos_for_project_in_range(
+    items, total = await service.photo_repo.photos_for_project_in_range(
         project_id,
         date_from=date_from,
         date_to=date_to,
         offset=offset,
         limit=limit,
     )
-    return [DiaryPhotoResponse.model_validate(i) for i in items]
+    return DiaryPhotoListResponse(
+        items=[DiaryPhotoResponse.model_validate(i) for i in items],
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
 
 
 @router.get("/photos/timeline", response_model=PhotoTimelineResponse)

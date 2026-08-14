@@ -50,7 +50,7 @@ import {
   Activity as ActivityIcon,
 } from 'lucide-react';
 import { Card, Skeleton, Badge, AuthImage } from '@/shared/ui';
-import { apiGet, ApiError } from '@/shared/lib/api';
+import { apiGet, ApiError, type Page } from '@/shared/lib/api';
 import { getPhotoThumbUrl } from '@/features/documents/api';
 import { useProjectWidgetsRollup } from '../hooks/useProjectWidgetsRollup';
 import type {
@@ -450,14 +450,16 @@ export function DailyDiaryWidget({ projectId }: { projectId: string }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const rollup = useRollupSlice('project_daily_diary');
-  const fallback = useGracefulQuery<DiaryItem[]>(
+  const fallback = useGracefulQuery<Page<DiaryItem>>(
     ['proj-widget-diary', projectId],
     `/v1/daily-diary/diaries/?project_id=${projectId}&limit=1`,
     !rollup.hasProvider,
   );
+  // No truncation notice here on purpose: the widget asks for one diary and
+  // shows one. It is a deliberate top-of-list, not a list that came up short.
   const data: DiaryItem[] | null | undefined = rollup.hasProvider
     ? (rollup.data?.items as DiaryItem[] | undefined) ?? null
-    : fallback.data;
+    : fallback.data?.items;
   const isLoading = rollup.hasProvider ? rollup.isLoadingFromRollup : fallback.isLoading;
 
   const latest = data?.[0];
