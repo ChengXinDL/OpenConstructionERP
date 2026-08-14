@@ -16,6 +16,17 @@ enforces that one. It is deliberately hash-free, because here the word is
 permitted and only its form is in question, so the report can name it outright
 instead of masking it.
 
+English reaches a user through three surfaces, and a check that guards one of
+them reports green over the other two. A locale value is the surface everyone
+thinks of; an i18n default inside a component is the fallback when a key is
+missing, and `guide.eac.selectors.body` has no entry in any of the forty
+locales, so its default is the only English that will ever render; a bare
+quoted literal in a component never went through i18n at all. All three are
+scanned. What is deliberately NOT marked is data: a file-format token
+(RVT/DWG/IFC/DGN), a code identifier, the converter's repository slug, a
+shipped release note, and a rule pack's `name`, which another file matches
+against byte-for-byte.
+
 This gate enforces both automatically so neither relies on a reviewer
 remembering. It is wired into both the local pre-commit hook and CI, exactly
 like ``check_version_sync.py``.
@@ -260,6 +271,35 @@ _DEFAULT_HINT_RE = re.compile(r"default|fallback", re.IGNORECASE)
 _FRONTEND_SRC = "frontend/src/"
 _COMMENT_STARTS = ("//", "*", "/*")
 
+# The third place English ships: a literal written straight into a component,
+# with no i18n call and no locale entry behind it, so no translator ever sees
+# it. A radio label, a format list and a thrown message all reached users this
+# way. Single and double quotes only; see _scan_display_literals for why a
+# template literal is not one of them.
+_QUOTED_RE = re.compile(r"'((?:[^'\\\n]|\\.)*)'|\"((?:[^\"\\\n]|\\.)*)\"")
+_FIELD_RE = re.compile(r"^\s*(\w+)\s*:")
+
+# A test fixture is not a display string. `__tests__` alone misses the sibling
+# convention (`BIMConverterVerifyGate.test.tsx`), which is how an unmarked
+# fixture sat inside the scanned set while the gate read green.
+_TEST_MARKERS = ("__tests__", ".test.", ".spec.")
+
+# Ruled 2026-08-14: a shipped release note records what was written that day.
+# It is a record, not a surface the product restyles, so the marks stay out of
+# it. Marking it once and reverting is what settled this; do not re-mark it.
+_ARCHIVE_FILES = ("frontend/src/features/about/Changelog.tsx",)
+
+# Closed decision 2026-08-14 - do not reopen this by "fixing" the gate. A rule
+# pack's `name` is its identity rather than a label: the same string is the
+# pack name in data/bim_rules/*.yaml, and the copy seeded from the frontend has
+# to stay byte-exact against it, so a sign on one side would rename the pack on
+# that side only. `description`, sitting directly beside it in the same object,
+# IS display text and does carry the mark. Scoped to the one file that holds
+# seeded pack identities so it cannot quietly widen into an excuse elsewhere.
+_IDENTITY_FIELDS: dict[str, tuple[str, ...]] = {
+    "frontend/src/features/bim_requirements/SEED_PACKS.ts": ("name",),
+}
+
 
 def _unmarked_first_mention(text: str) -> str | None:
     """Name the CAD tool whose first display mention in `text` lacks the mark.
@@ -334,6 +374,55 @@ def _scan_component_defaults(path: Path) -> list[tuple[int, str]]:
         name = _unmarked_first_mention(_code_before_comment(line))
         if name:
             hits.append((lineno, name))
+    return hits
+
+
+def _is_test_path(norm: str) -> bool:
+    return any(marker in norm for marker in _TEST_MARKERS)
+
+
+def _scan_display_literals(path: Path, norm: str) -> list[tuple[int, str]]:
+    """Report a quoted display string whose CAD tool mention is bare.
+
+    Scope is narrow on purpose, because a rule over every quoted string in the
+    frontend reports text that must NOT be marked:
+
+    Template literals are skipped. SEED_PACKS.ts embeds whole YAML rule-pack
+    documents in backticks, and the first mention inside one lands in a ``#``
+    comment of that embedded document - a comment this rule has no way to read
+    as one. Those documents are the same bytes as data/bim_rules/*.yaml and are
+    marked there instead, so nothing is lost by not reading them twice.
+
+    Identity fields are skipped per _IDENTITY_FIELDS: a value that another file
+    matches against is data, and marking it would edit the data.
+    """
+    hits: list[tuple[int, str]] = []
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except (UnicodeDecodeError, OSError):
+        return hits
+    identity = _IDENTITY_FIELDS.get(norm, ())
+    in_template = False
+    for lineno, line in enumerate(lines, start=1):
+        was_inside = in_template
+        if (line.count("`") - line.count("\\`")) % 2:
+            in_template = not in_template
+        if was_inside:
+            continue
+        if line.lstrip().startswith(_COMMENT_STARTS):
+            continue
+        code = _code_before_comment(line)
+        field = _FIELD_RE.match(line) or (
+            _FIELD_RE.match(lines[lineno - 2]) if lineno > 1 else None
+        )
+        if field and field.group(1) in identity:
+            continue
+        for match in _QUOTED_RE.finditer(code):
+            body = match.group(1) if match.group(1) is not None else match.group(2)
+            name = _unmarked_first_mention(body)
+            if name:
+                hits.append((lineno, name))
+                break
     return hits
 
 
@@ -465,12 +554,24 @@ def main(argv: list[str]) -> int:
         elif (
             norm.startswith(_FRONTEND_SRC)
             and norm.endswith((".ts", ".tsx"))
-            and "__tests__" not in norm
+            and not _is_test_path(norm)
         ):
+            # A default is also a quoted literal, so report each line once and
+            # let the more specific message win.
+            seen: set[int] = set()
             for lineno, name in _scan_component_defaults(rp):
+                seen.add(lineno)
                 unmarked.append(
                     f"{shown}:{lineno}: i18n default names {name} with no {_REGISTERED}"
                 )
+            if norm not in _ARCHIVE_FILES:
+                for lineno, name in _scan_display_literals(rp, norm):
+                    if lineno in seen:
+                        continue
+                    unmarked.append(
+                        f"{shown}:{lineno}: display string names {name} "
+                        f"with no {_REGISTERED}"
+                    )
 
     if unmarked:
         print(

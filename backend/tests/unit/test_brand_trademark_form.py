@@ -254,3 +254,133 @@ def test_every_shipped_component_default_carries_the_mark(script):
         for lineno, _name in script._scan_component_defaults(path)
     ]
     assert offenders == [], f"{len(offenders)} unmarked i18n default(s): {offenders[:10]}"
+
+
+# ── Third surface: a literal written straight into the page ──────────────────
+# Neither a locale value nor an i18n default. A radio label, a format map and a
+# thrown message each reached users this way, so the first two scans reported
+# green over text a translator never saw either.
+
+SEED_PACKS = "frontend/src/features/bim_requirements/SEED_PACKS.ts"
+
+
+def _norm(path: Path) -> str:
+    return path.relative_to(REPO_ROOT).as_posix()
+
+
+def _scan_display(script, tmp_path: Path, source: str, norm: str = "x.tsx"):
+    probe = tmp_path / "Probe.tsx"
+    probe.write_text(source, encoding="utf-8")
+    return script._scan_display_literals(probe, norm)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "  cad: 'Revit (.rvt), IFC (.ifc), DWG (.dwg)',",
+        "  {fmt === 'revit' ? 'Revit' : 'IFC'}",
+        "  throw new Error('This mesh has no Revit ElementId.');",
+        "    description: 'Match by Revit category',",
+    ],
+)
+def test_an_unmarked_display_literal_is_reported(script, tmp_path, source):
+    assert _scan_display(script, tmp_path, source) != []
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        f"  cad: 'Revit{R} (.rvt), IFC (.ifc), DWG (.dwg)',",
+        f"  {{fmt === 'revit' ? 'Revit{R}' : 'IFC'}}",
+        # Second mention in the same string stays bare, as everywhere else.
+        f"  label: 'Revit{R} templates read Revit parameters',",
+        # A format token is not a product name and is never marked.
+        "  accept: '.rvt,.ifc,.dwg,.dgn',",
+    ],
+)
+def test_a_marked_display_literal_passes(script, tmp_path, source):
+    assert _scan_display(script, tmp_path, source) == []
+
+
+def test_a_template_literal_is_not_scanned(script, tmp_path):
+    # SEED_PACKS.ts embeds whole YAML documents in backticks. The first mention
+    # inside one lands in that document's `#` comment, which this rule cannot
+    # read as a comment; the documents are marked in data/bim_rules/*.yaml.
+    source = (
+        "const PACK = `# Revit cost-classification completeness (DIN 276).\n"
+        "#\n"
+        "# Every element modelled in Revit must carry a code.\n"
+        "  name: DIN 276 Cost-Group Completeness (Revit)\n"
+        "`;\n"
+    )
+    assert _scan_display(script, tmp_path, source) == []
+
+
+def test_a_rule_pack_name_is_identity_but_its_description_is_not(script, tmp_path):
+    # The closed decision, asserted from both sides in one test so neither half
+    # can be relaxed without the other failing.
+    source = (
+        "    name: 'DIN 276 Cost-Group Completeness (Revit)',\n"
+        "    description:\n"
+        "      'Verifies that every Revit wall carries a code.',\n"
+    )
+    hits = _scan_display(script, tmp_path, source, norm=SEED_PACKS)
+    assert [line for line, _ in hits] == [3], hits
+
+
+def test_the_identity_exemption_does_not_widen_beyond_that_file(script, tmp_path):
+    # A `name:` field in any other component is ordinary display text. Without
+    # this, "name is identity" becomes a way to leave anything unmarked.
+    source = "    name: 'DIN 276 Cost-Group Completeness (Revit)',\n"
+    assert _scan_display(script, tmp_path, source, norm="frontend/src/x.tsx") != []
+
+
+def test_a_test_fixture_is_not_a_display_string(script):
+    # `__tests__` alone missed the sibling convention, and an unmarked fixture
+    # in BIMConverterVerifyGate.test.tsx sat inside the scanned set unreported.
+    assert script._is_test_path("frontend/src/features/bim/X.test.tsx")
+    assert script._is_test_path("frontend/src/features/bim/X.spec.ts")
+    assert script._is_test_path("frontend/src/app/__tests__/x.ts")
+    assert not script._is_test_path("frontend/src/features/bim/BIMTestPage.tsx")
+
+
+def test_the_shipped_release_notes_stay_out_of_it(script):
+    # Ruled 2026-08-14: a release note records what was written that day. The
+    # file still holds unmarked mentions, which is what makes this meaningful.
+    changelog = REPO_ROOT / "frontend" / "src" / "features" / "about" / "Changelog.tsx"
+    assert changelog.is_file()
+    assert script._scan_display_literals(changelog, _norm(changelog)) != []
+    assert _norm(changelog) in script._ARCHIVE_FILES
+
+
+def test_the_display_scan_is_wired_into_main(script, tmp_path, monkeypatch):
+    monkeypatch.setattr(script, "REPO_ROOT", tmp_path)
+    feature = tmp_path / "frontend" / "src" / "features" / "demo"
+    feature.mkdir(parents=True)
+    probe = feature / "DemoPage.tsx"
+
+    probe.write_text("  const label = 'Revit category';", encoding="utf-8")
+    assert script.main([str(probe)]) == 1
+
+    probe.write_text(f"  const label = 'Revit{R} category';", encoding="utf-8")
+    assert script.main([str(probe)]) == 0
+
+
+def test_every_shipped_display_literal_carries_the_mark(script):
+    paths = [
+        path
+        for suffix in ("*.ts", "*.tsx")
+        for path in FRONTEND_SRC.rglob(suffix)
+        if LOCALE_DIR not in path.parents and not script._is_test_path(_norm(path))
+    ]
+    assert len(paths) >= 100, f"only {len(paths)} component file(s) under {FRONTEND_SRC}"
+    seeded = REPO_ROOT / SEED_PACKS
+    assert seeded.is_file() and f"Revit{R}" in seeded.read_text(encoding="utf-8")
+
+    offenders = [
+        f"{_norm(path)}:{lineno}"
+        for path in paths
+        if _norm(path) not in script._ARCHIVE_FILES
+        for lineno, _name in script._scan_display_literals(path, _norm(path))
+    ]
+    assert offenders == [], f"{len(offenders)} unmarked display string(s): {offenders[:10]}"
