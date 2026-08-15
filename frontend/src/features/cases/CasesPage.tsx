@@ -79,6 +79,10 @@ import { ROLE_META, ROLE_BY_ID, rolesForPlaybook, tintForRole } from "./roles";
 import { RoleAvatar } from "./RoleAvatar";
 import { RoleArt } from "./RoleArt";
 import { CaseArt } from "./CaseArt";
+
+/** The honeycomb cell the marketing site cuts its portraits to. Kept identical
+ *  so a case card and the page it came from show the same shape. */
+const HEX_CELL = "polygon(50% 2%, 100% 26%, 100% 74%, 50% 98%, 0% 74%, 0% 26%)";
 import { CompanyArt } from "./CompanyArt";
 import { dealCaseFaces } from "./caseFaces";
 import {
@@ -1466,44 +1470,46 @@ function CaseCard({
           16/9 size whether the art or a placeholder sits inside, so gating the
           art on `near` never shifts the layout.
 
-          A case that has a face is banded: the person this case is written for
-          on the left, the diagram of the work on the right, the two meeting
-          through a soft mask rather than butting together - the treatment the
-          marketing site already uses on the cards these cases came from. The
-          photograph is decorative (alt=""); the role it stands for is named in
-          the card text below, so nothing is said only in a picture. Both halves
-          are absolutely positioned inside the tile the layout has already
-          reserved, so the band cannot shift anything, and both mount together
-          on `near` so a card off screen still costs nothing. */}
+          A case that has a face keeps the whole diagram and wears the person
+          as a hex over one corner of it. Banding the two side by side cost the
+          diagram nearly 40% of its width, and the diagram is what says what the
+          case does; the hex is the same cell the marketing site uses on the
+          cards these cases came from, so the person still arrives first without
+          taking the meaning with them. The photograph is decorative (alt="");
+          the role it stands for is named in the card text below, so nothing is
+          said only in a picture. Both layers are absolutely positioned inside
+          the tile the layout has already reserved, so neither can shift
+          anything, and both mount on `near` so a card off screen costs
+          nothing. */}
       <div className="relative aspect-[16/9] w-full shrink-0 overflow-hidden border-b border-border-light bg-gradient-to-b from-white to-slate-50 ring-1 ring-inset ring-slate-900/[0.04]">
         {!near ? (
           <div className="h-full w-full" aria-hidden="true" />
-        ) : face ? (
-          <>
-            <img
-              src={face}
-              alt=""
-              loading="lazy"
-              decoding="async"
-              width={340}
-              height={480}
-              draggable={false}
-              className={clsx(
-                "absolute inset-y-0 start-0 w-[38%] object-cover object-[50%_22%]",
-                // The mask is what makes this a band rather than an inset
-                // photo: opaque through most of its width, then out, so the
-                // diagram beside it starts before the picture has finished.
-                // Mirrored under rtl, where the band sits on the other side.
-                "[mask-image:linear-gradient(to_right,#000_58%,transparent)]",
-                "rtl:[mask-image:linear-gradient(to_left,#000_58%,transparent)]",
-              )}
-            />
-            <div className="absolute inset-y-0 end-0 w-[62%]">
-              <CaseArt id={pb.id} category={pb.category} fallbackIcon={Icon} fallbackClass={tint.text} />
-            </div>
-          </>
         ) : (
-          <CaseArt id={pb.id} category={pb.category} fallbackIcon={Icon} fallbackClass={tint.text} />
+          <>
+            <CaseArt id={pb.id} category={pb.category} fallbackIcon={Icon} fallbackClass={tint.text} />
+            {face && (
+              <div className="pointer-events-none absolute bottom-2 start-2 w-[34%] max-w-[6.5rem]">
+                {/* The rim is the wrapper's own background showing through a
+                    3px inset, because a border cannot survive a clip-path. */}
+                <div
+                  className="aspect-[7/8] bg-white/90 p-[3px] shadow-md shadow-slate-900/15"
+                  style={{ clipPath: HEX_CELL }}
+                >
+                  <img
+                    src={face}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    width={340}
+                    height={480}
+                    draggable={false}
+                    className="h-full w-full object-cover object-[50%_18%]"
+                    style={{ clipPath: HEX_CELL }}
+                  />
+                </div>
+              </div>
+            )}
+          </>
         )}
         {(num != null || authored || pb.region) && (
           <div className="absolute left-3 top-3 flex items-center gap-1.5">
