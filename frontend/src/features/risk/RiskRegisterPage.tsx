@@ -18,7 +18,7 @@ import { PlanningCrossLinks } from '@/features/schedule/PlanningCrossLinks';
 import SimilarItemsPanel from '@/shared/ui/SimilarItemsPanel';
 import { UserSearchInput } from '@/shared/ui/UserSearchInput';
 import { apiGet, apiPost, apiPatch, apiDelete } from '@/shared/lib/api';
-import { getIntlLocale } from '@/shared/lib/formatters';
+import { fmtPercent, getIntlLocale } from '@/shared/lib/formatters';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { useTabKeyboardNav } from '@/shared/hooks/useTabKeyboardNav';
@@ -411,7 +411,7 @@ function DetailView({ riskId, onBack }: { riskId: string; onBack: () => void }) 
 
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
         {[
-          [t('risk.probability', { defaultValue: 'Probability' }), `${(risk.probability * 100).toFixed(0)}%`],
+          [t('risk.probability', { defaultValue: 'Probability' }), fmtPercent(risk.probability * 100, 0)],
           [t('risk.severity', { defaultValue: 'Severity' }), t(`risk.severity_${risk.impact_severity}`, { defaultValue: risk.impact_severity })],
           [t('risk.score', { defaultValue: 'Score' }), risk.risk_score.toFixed(2)],
           [t('risk.impact_cost', { defaultValue: 'Cost Impact' }), fmtCur(risk.impact_cost, risk.currency)],
@@ -1002,7 +1002,7 @@ export function RiskRegisterPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3"><Badge variant="neutral">{t(`risk.cat_${r.category}`, { defaultValue: r.category })}</Badge></td>
-                      <td className="px-4 py-3 text-center text-content-secondary tabular-nums">{(r.probability * 100).toFixed(0)}%</td>
+                      <td className="px-4 py-3 text-center text-content-secondary tabular-nums">{fmtPercent(r.probability * 100, 0)}</td>
                       <td className="px-4 py-3"><Badge variant={r.impact_severity === 'critical' ? 'error' : r.impact_severity === 'high' ? 'warning' : r.impact_severity === 'medium' ? 'blue' : 'neutral'}>{t(`risk.severity_${r.impact_severity}`, { defaultValue: r.impact_severity })}</Badge></td>
                       <td className="px-4 py-3 text-center font-medium tabular-nums text-content-primary">{r.risk_score.toFixed(1)}</td>
                       <td className="px-4 py-3"><Badge variant={STATUS_COLORS[r.status] || 'neutral'}>{t(`risk.status_${r.status}`, { defaultValue: r.status })}</Badge></td>

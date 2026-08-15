@@ -79,6 +79,7 @@ import {
 } from './thresholds';
 import { ThresholdRulesModal } from './ThresholdRulesModal';
 import { cadExplorerGuide } from './cadExplorerGuide';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 /* ── Recharts - lazy-loaded so the initial Data Explorer bundle stays lean.
       Charts live in a ~38 kB gzipped chunk that only loads once the user
@@ -2746,7 +2747,7 @@ function DescribeSummary({
         <div className="rounded-xl border border-border-light bg-surface-elevated/90 p-3 shadow-xs transition-shadow duration-normal ease-oe hover:shadow-sm">
           <p className="text-2xs text-content-tertiary uppercase">{t('explorer.data_completeness', { defaultValue: 'Data Completeness' })}</p>
           <p className={`text-lg font-bold tabular-nums ${qualityScore > 50 ? 'text-green-600' : qualityScore > 20 ? 'text-amber-600' : 'text-red-500'}`}>
-            {qualityScore.toFixed(1)}%
+            {fmtPercent(qualityScore)}
           </p>
         </div>
         <div className="rounded-xl border border-border-light bg-surface-elevated/90 p-3 shadow-xs transition-shadow duration-normal ease-oe hover:shadow-sm">
@@ -2830,7 +2831,7 @@ function DescribeSummary({
                   />
                 </div>
                 <span className="text-2xs text-content-primary tabular-nums w-16 text-right shrink-0">{v.count.toLocaleString()}</span>
-                <span className="text-2xs text-content-quaternary tabular-nums w-12 text-right shrink-0">{v.percentage.toFixed(1)}%</span>
+                <span className="text-2xs text-content-quaternary tabular-nums w-12 text-right shrink-0">{fmtPercent(v.percentage)}</span>
               </div>
             ))}
           </div>

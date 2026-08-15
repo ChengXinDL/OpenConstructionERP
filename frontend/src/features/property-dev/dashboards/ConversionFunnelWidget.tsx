@@ -18,6 +18,7 @@ import {
   type ConversionFunnelStep,
 } from '../api';
 import { DashboardEmpty, DashboardSkeleton, num } from './_shared';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 interface ConversionFunnelWidgetProps {
   since?: string;
@@ -175,9 +176,9 @@ export function ConversionFunnelWidget({
                   fontSize="10"
                   className="fill-current text-content-tertiary"
                 >
-                  {num(s.conversion_from_top_pct).toFixed(1)}% of top
+                  {fmtPercent(num(s.conversion_from_top_pct))} of top
                   {i > 0 && (
-                    <tspan> · ↓{num(s.drop_pct).toFixed(1)}%</tspan>
+                    <tspan> · ↓{fmtPercent(num(s.drop_pct))}</tspan>
                   )}
                 </text>
               </g>
@@ -195,7 +196,7 @@ export function ConversionFunnelWidget({
               label: STEP_LABEL[s.code] ?? s.label,
               count: s.count,
               conv: num(s.conversion_from_top_pct).toFixed(1),
-              drop: i === 0 ? '' : `, ${num(s.drop_pct).toFixed(1)}% drop`,
+              drop: i === 0 ? '' : `, ${fmtPercent(num(s.drop_pct))} drop`,
             })}
           </li>
         ))}

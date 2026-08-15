@@ -21,6 +21,7 @@ import {
 import { apiGet } from '@/shared/lib/api';
 import { RecoveryCard, Skeleton } from '@/shared/ui';
 import { classifyVariance, type VarianceLevel } from './variance-thresholds';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 export const PI_QUERY_STALE_MS = 60_000;
 
@@ -188,7 +189,7 @@ export function ProjectKPIHero({ projectId }: ProjectKPIHeroProps) {
             data-testid="kpi-variance-pct"
           >
             {variancePct > 0 ? '+' : ''}
-            {variancePct.toFixed(1)}%
+            {fmtPercent(variancePct)}
           </span>
         </div>
         <p className="text-2xs text-content-tertiary mt-1">
@@ -216,7 +217,7 @@ export function ProjectKPIHero({ projectId }: ProjectKPIHeroProps) {
         <div className="flex items-baseline gap-2 mt-2">
           <CalendarCheck size={20} className={scheduleStyle.text} />
           <span className={`text-2xl font-bold tabular-nums ${scheduleStyle.text}`}>
-            {scheduleAdherence.toFixed(0)}%
+            {fmtPercent(scheduleAdherence, 0)}
           </span>
         </div>
         <p className="text-2xs text-content-tertiary mt-1">

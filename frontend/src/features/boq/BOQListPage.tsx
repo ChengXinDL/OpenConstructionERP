@@ -13,7 +13,7 @@ import { Card, Badge, EmptyState, Skeleton, Button, Breadcrumb, FileTypeChips, D
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { DateDisplay } from '@/shared/ui/DateDisplay';
 import { apiGet } from '@/shared/lib/api';
-import { getIntlLocale, fmtCompact } from '@/shared/lib/formatters';
+import { fmtCompact, fmtPercent, getIntlLocale } from '@/shared/lib/formatters';
 import { boqApi, type BOQWithPositions, groupPositionsIntoSections, type SectionGroup } from './api';
 import { resourceAwareTotalInBase, getCurrencyCode } from './boqHelpers';
 import { projectsApi, type ProjectFxRate } from '@/features/projects/api';
@@ -95,7 +95,7 @@ function fmtPct(a: number, b: number): string {
   if (na === 0) return nb === 0 ? '0%' : '+100%';
   const pct = ((nb - na) / Math.abs(na)) * 100;
   const sign = pct >= 0 ? '+' : '';
-  return `${sign}${pct.toFixed(1)}%`;
+  return `${sign}${fmtPercent(pct)}`;
 }
 
 function diffColor(diff: number): string {

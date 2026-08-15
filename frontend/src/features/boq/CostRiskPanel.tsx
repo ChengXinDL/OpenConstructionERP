@@ -10,6 +10,7 @@ import {
   type CostRiskDriver,
   type CostRiskCdfPoint,
 } from './api';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 /* ── Helpers ─────────────────────────────────────────────────────────── */
 
@@ -129,7 +130,7 @@ function ConvergenceBadge({
     >
       <Icon size={11} strokeWidth={2} />
       {cfg.label}
-      {marginPct > 0 && <span className="tabular-nums opacity-70">±{marginPct.toFixed(1)}%</span>}
+      {marginPct > 0 && <span className="tabular-nums opacity-70">±{fmtPercent(marginPct)}</span>}
     </span>
   );
 }
@@ -214,7 +215,7 @@ function ContingencyCard({
           <div className="text-lg font-bold text-blue-700 dark:text-blue-400 tabular-nums mt-0.5">
             {fmtCurrency(contingency, fmt)}{' '}
             <span className="text-sm font-medium text-blue-600/70 dark:text-blue-400/70">
-              (+{contingencyPct.toFixed(1)}%)
+              (+{fmtPercent(contingencyPct)})
             </span>
           </div>
         </div>
@@ -446,7 +447,7 @@ function RiskDriversTable({
                       />
                     </div>
                     <span className="tabular-nums font-medium text-content-secondary w-12 text-right">
-                      {driver.contribution_pct.toFixed(1)}%
+                      {fmtPercent(driver.contribution_pct)}
                     </span>
                   </div>
                 </td>
@@ -591,12 +592,12 @@ export function CostRiskPanel({ boqId, locale = 'de-DE' }: { boqId: string; loca
                   />
                   <StatTile
                     label={t('boq.cost_risk_cv', { defaultValue: 'Variability (CV)' })}
-                    value={`${(data.cv_pct ?? 0).toFixed(1)}%`}
+                    value={fmtPercent(data.cv_pct ?? 0)}
                     hint={cvLabel(data.cv_pct ?? 0)}
                   />
                   <StatTile
                     label={t('boq.cost_risk_prob_base', { defaultValue: 'Chance <= base' })}
-                    value={`${(data.prob_within_base ?? 0).toFixed(0)}%`}
+                    value={fmtPercent(data.prob_within_base ?? 0, 0)}
                   />
                 </div>
               )}

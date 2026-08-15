@@ -32,6 +32,7 @@ import {
   type PositionCO2Detail,
   type EPDMaterial,
 } from './api';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 /* ── Types ─────────────────────────────────────────────────────────── */
 
@@ -615,7 +616,7 @@ export function SustainabilityPage() {
                               </div>
                             </td>
                             <td className="py-2.5 px-4 text-right tabular-nums text-content-secondary">{item.positions_count}</td>
-                            <td className="py-2.5 px-4 text-right tabular-nums text-content-secondary">{item.percentage.toFixed(1)}%</td>
+                            <td className="py-2.5 px-4 text-right tabular-nums text-content-secondary">{fmtPercent(item.percentage)}</td>
                             <td className="py-2.5 pl-4 text-right tabular-nums font-medium text-content-primary">
                               {/* ABSOLUTE CO2 mass - kept in t CO2e (EN 15804 standard) */}
                               {(item.co2_kg / 1000).toLocaleString(numberLocale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} t

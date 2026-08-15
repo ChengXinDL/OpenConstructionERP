@@ -14,6 +14,7 @@ import clsx from 'clsx';
 
 import { Card } from '@/shared/ui';
 import { previewRegionalAdjust, type RegionalAdjustResponse } from './api';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 /** Seed regions populated by ``app.scripts.seed_regional_indices``.  Match
  *  the seed pipeline so the picker never points at an empty region. */
@@ -186,7 +187,7 @@ export function RegionalAdjustPanel({
               )}
             >
               {deltaPct >= 0 ? '+' : ''}
-              {deltaPct.toFixed(1)}%
+              {fmtPercent(deltaPct)}
             </div>
           </div>
         )}

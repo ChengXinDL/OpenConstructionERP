@@ -72,6 +72,7 @@ import {
   toNumber,
   type CoverageTone,
 } from './sixd';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 const inputCls =
   'h-9 w-full rounded-lg border border-border bg-surface-primary px-3 text-sm focus:outline-none focus:ring-2 focus:ring-oe-blue/30 focus:border-oe-blue';
@@ -568,7 +569,7 @@ function CoverageRow({
             linked,
             total,
           })}{' '}
-          ({safePct.toFixed(0)}%)
+          ({fmtPercent(safePct, 0)})
         </span>
       </div>
       <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-secondary">

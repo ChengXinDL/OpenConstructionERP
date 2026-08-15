@@ -22,6 +22,7 @@ import { DateDisplay } from '@/shared/ui/DateDisplay';
 import { useToastStore } from '@/stores/useToastStore';
 import { getErrorMessage } from '@/shared/lib/api';
 import { listPORetainageReleases, releasePORetainage } from './api';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 interface RetainagePanelProps {
   open: boolean;
@@ -121,7 +122,7 @@ export function RetainagePanel({
             label={t('procurement.retainage_percent', {
               defaultValue: 'Retention',
             })}
-            value={`${Number(retentionPercent).toFixed(2)}%`}
+            value={fmtPercent(Number(retentionPercent), 2)}
           />
           <SummaryTile
             icon={<PiggyBank size={16} />}

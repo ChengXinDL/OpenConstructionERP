@@ -85,6 +85,7 @@ import { FleetOptimizationPanel } from './components/FleetOptimizationPanel';
 import { equipmentGuide } from './equipmentGuide';
 import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
 import { buildEquipmentInsights } from './equipmentInsights';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 type DrawerTab =
   | 'utilization'
@@ -1203,7 +1204,7 @@ function UtilizationTab({
               })}
             </p>
             <p className="mt-1 text-lg font-semibold tabular-nums">
-              {dashboard.utilization_pct.toFixed(0)}%
+              {fmtPercent(dashboard.utilization_pct, 0)}
             </p>
           </Card>
           <Card padding="sm">
@@ -1323,7 +1324,7 @@ function UtilizationTab({
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {r.fuel_level !== null && r.fuel_level !== undefined
-                      ? `${toNum(r.fuel_level).toFixed(0)}%`
+                      ? fmtPercent(toNum(r.fuel_level), 0)
                       : '—'}
                   </td>
                   <td className="px-3 py-2 text-content-secondary">

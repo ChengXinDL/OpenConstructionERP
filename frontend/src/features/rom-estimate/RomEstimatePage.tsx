@@ -27,6 +27,7 @@ import {
   type RomEstimateRecord,
   type RomReconciliation,
 } from './api';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 /**
  * Conceptual (ROM) estimate page.
@@ -48,7 +49,7 @@ const INPUT_CLASS =
 function formatPct(value: string): string {
   const n = toNum(value);
   const sign = n > 0 ? '+' : '';
-  return `${sign}${n.toFixed(0)}%`;
+  return `${sign}${fmtPercent(n, 0)}`;
 }
 
 export function RomEstimatePage() {
@@ -557,7 +558,7 @@ function RomResultView({
                       {t(`romEstimate.element_${line.key}`, { defaultValue: line.label })}
                     </td>
                     <td className="py-2 pr-4 text-right tabular-nums text-content-secondary">
-                      {toNum(line.cost_share_pct).toFixed(0)}%
+                      {fmtPercent(toNum(line.cost_share_pct), 0)}
                     </td>
                     <td className="py-2 pr-4 text-right tabular-nums text-content-secondary">
                       {formatCurrency(line.rate_per_m2, currency)}

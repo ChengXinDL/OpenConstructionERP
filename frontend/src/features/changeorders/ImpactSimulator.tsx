@@ -28,7 +28,7 @@ import {
   History,
 } from 'lucide-react';
 import { Button, Card, Badge } from '@/shared/ui';
-import { fmtDate, getIntlLocale } from '@/shared/lib/formatters';
+import { fmtDate, fmtPercent, getIntlLocale } from '@/shared/lib/formatters';
 
 /** Locale-aware "12. Aug. 2026, 21:16" datetime, matching DateDisplay's
  *  datetime format so the forecast stamp and the register tables agree. */
@@ -255,7 +255,7 @@ export function ImpactSimulator({
                   </span>
                   {data.cost.pct_of_budget > 0 && (
                     <Badge variant="neutral" size="sm">
-                      {data.cost.pct_of_budget.toFixed(1)}%{' '}
+                      {fmtPercent(data.cost.pct_of_budget)}{' '}
                       {t('changeorders.impact_of_budget', { defaultValue: 'of budget' })}
                     </Badge>
                   )}

@@ -27,7 +27,7 @@ import {
   Scale,
 } from 'lucide-react';
 import { Badge, EmptyState } from '@/shared/ui';
-import { getIntlLocale } from '@/shared/lib/formatters';
+import { fmtPercent, getIntlLocale } from '@/shared/lib/formatters';
 import { classifyCell } from '@/features/tendering/analysis';
 import { CostPerAreaBenchmark } from '@/features/boq/CostPerAreaBenchmark';
 import type {
@@ -94,13 +94,13 @@ function DeltaBadge({ pct }: { pct: number }) {
   if (pct < 0) {
     return (
       <span className="inline-flex items-center gap-0.5 text-xs font-medium text-semantic-success">
-        <ArrowDownRight size={12} /> {pct.toFixed(1)}%
+        <ArrowDownRight size={12} /> {fmtPercent(pct)}
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-0.5 text-xs font-medium text-semantic-error">
-      <ArrowUpRight size={12} /> +{pct.toFixed(1)}%
+      <ArrowUpRight size={12} /> +{fmtPercent(pct)}
     </span>
   );
 }

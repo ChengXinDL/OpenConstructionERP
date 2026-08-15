@@ -100,6 +100,7 @@ import { AssignmentTargetFields } from './AssignmentTargetFields';
 import { resourcesGuide } from './resourcesGuide';
 import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
 import { buildResourcesInsights } from './resourcesInsights';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 type Tab = 'resources' | 'requests' | 'assignments';
 
@@ -3876,7 +3877,7 @@ function ResourceDrawer({
                   label={t('resources.utilization', { defaultValue: 'Utilization (30d)' })}
                   value={
                     data.utilization_30d
-                      ? `${data.utilization_30d.utilization_percent.toFixed(0)}%`
+                      ? fmtPercent(data.utilization_30d.utilization_percent, 0)
                       : '—'
                   }
                 />

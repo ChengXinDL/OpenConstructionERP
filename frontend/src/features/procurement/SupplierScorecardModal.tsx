@@ -14,6 +14,7 @@ import { Loader2, TrendingUp, AlertTriangle, Truck } from 'lucide-react';
 import { WideModal, Badge, EmptyState } from '@/shared/ui';
 import { MoneyDisplay } from '@/shared/ui/MoneyDisplay';
 import { getSupplierScorecard } from './api';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 interface SupplierScorecardModalProps {
   open: boolean;
@@ -58,7 +59,7 @@ const TONE_TEXT: Record<TileTone, string> = {
 };
 
 function formatPct(value: number): string {
-  return `${(value * 100).toFixed(1)}%`;
+  return fmtPercent(value * 100);
 }
 
 /**

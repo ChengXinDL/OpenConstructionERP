@@ -15,6 +15,7 @@ import { MoneyDisplay } from '@/shared/ui/MoneyDisplay';
 import { useDisplayQuantity } from '@/shared/hooks/useDisplayQuantity';
 import { listVariants, type HouseType } from '../api';
 import { toNumber } from './_shared';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 export function HouseTypesTab({
   rows,
@@ -95,7 +96,7 @@ function HouseTypeCard({ ht }: { ht: HouseType }) {
             {variantsQ.data.map((v) => (
               <Badge key={v.id} variant="neutral">
                 {v.code} ({toNumber(v.modifier_pct) > 0 ? '+' : ''}
-                {toNumber(v.modifier_pct).toFixed(1)}%)
+                {fmtPercent(toNumber(v.modifier_pct))})
               </Badge>
             ))}
           </div>

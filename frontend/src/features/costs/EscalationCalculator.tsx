@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { TrendingUp, Calculator, Info } from 'lucide-react';
 import clsx from 'clsx';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 /* ── Published construction cost indices (annual % change) ────────────── */
 
@@ -236,7 +237,7 @@ export function EscalationCalculator({
                 className="flex items-center gap-1 rounded-md bg-surface-secondary px-2 py-1"
               >
                 <span className="text-2xs text-content-tertiary">{year}</span>
-                <span className="text-2xs font-medium text-amber-600">+{rate.toFixed(1)}%</span>
+                <span className="text-2xs font-medium text-amber-600">+{fmtPercent(rate)}</span>
               </div>
             ))}
           </div>

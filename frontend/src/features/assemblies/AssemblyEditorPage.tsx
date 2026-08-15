@@ -31,7 +31,7 @@ import clsx from 'clsx';
 import { Button, Badge, Card, Input, Breadcrumb, ConfirmDialog, DismissibleInfo } from '@/shared/ui';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { apiGet, triggerDownload } from '@/shared/lib/api';
-import { getIntlLocale } from '@/shared/lib/formatters';
+import { fmtPercent, getIntlLocale } from '@/shared/lib/formatters';
 import { currencyFractionDigits } from '@/shared/lib/money';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
@@ -1892,7 +1892,7 @@ function BreakdownSidebar({
                   <div className="flex items-baseline justify-between gap-2 text-xs mb-1">
                     <span className="font-medium text-content-secondary">{labelFor(rt)}</span>
                     <span className="text-content-tertiary tabular-nums">
-                      {pct.toFixed(0)}%
+                      {fmtPercent(pct, 0)}
                     </span>
                   </div>
                   <div className="h-1.5 rounded-full bg-surface-tertiary overflow-hidden">

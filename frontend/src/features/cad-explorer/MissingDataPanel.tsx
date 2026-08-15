@@ -25,6 +25,7 @@ import {
 } from './api';
 import { useToastStore } from '@/stores/useToastStore';
 import { copyToClipboard } from '@/shared/lib/browser';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 interface MissingDataPanelProps {
   sessionId: string;
@@ -406,7 +407,7 @@ export function MissingDataPanel({ sessionId }: MissingDataPanelProps) {
               >
                 <div className="font-semibold truncate max-w-[220px]">{hover.column.name}</div>
                 <div className="opacity-80">
-                  {(hover.column.fill_rate * 100).toFixed(1)}%{' '}
+                  {fmtPercent(hover.column.fill_rate * 100)}{' '}
                   {t('explorer.missingness_tooltip_filled', { defaultValue: 'filled' })}
                   {' · '}
                   {hover.column.non_null_count.toLocaleString()}{' / '}

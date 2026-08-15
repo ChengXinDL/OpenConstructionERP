@@ -22,6 +22,7 @@ import { useToastStore } from '@/stores/useToastStore';
 import { getResourceTypeLabel } from './boqResourceTypes';
 import { VariantPicker } from '@/features/costs/VariantPicker';
 import type { CostVariant } from '@/features/costs/api';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 /* ── Constants ──────────────────────────────────────────────────────── */
 
@@ -781,7 +782,7 @@ function ResourceRow({
           }
         >
           {abcClass && <span className="font-bold">{abcClass}</span>}
-          <span>{abcPct.toFixed(1)}%</span>
+          <span>{fmtPercent(abcPct)}</span>
         </span>
       </td>
       <td className="px-3 py-2 text-center text-content-tertiary tabular-nums">

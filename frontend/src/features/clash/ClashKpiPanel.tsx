@@ -12,6 +12,7 @@ import clsx from 'clsx';
 import { Card } from '@/shared/ui/Card';
 
 import { clashApi, type ClashKpi } from './api';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low'] as const;
 const SEVERITY_COLOR: Record<string, string> = {
@@ -222,7 +223,7 @@ export function ClashKpiPanel({ projectId, runId }: ClashKpiPanelProps) {
                   <td className="py-1.5 text-right font-medium">{p.count}</td>
                   <td className="py-1.5 text-right">{p.open_count}</td>
                   <td className="py-1.5 text-right">
-                    {(p.open_share * 100).toFixed(0)}%
+                    {fmtPercent(p.open_share * 100, 0)}
                   </td>
                 </tr>
               ))}

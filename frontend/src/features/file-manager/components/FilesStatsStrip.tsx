@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { Database, FileText, HardDrive, Layers } from 'lucide-react';
 import type { FileKind, FileTreeNode, StorageLocations } from '../types';
 import { ALL_KINDS, KIND_COLORS } from '../kindModule';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 function fmtBytes(bytes: number): string {
   if (bytes === 0 || !Number.isFinite(bytes)) return '0 B';
@@ -103,7 +104,7 @@ export function FilesStatsStrip({ tree, locations }: FilesStatsStripProps) {
                 key={seg.kind}
                 className={`${KIND_COLORS[seg.kind] ?? 'bg-content-tertiary'} transition-[width] duration-500`}
                 style={{ width: `${seg.pct}%` }}
-                title={`${seg.label}: ${fmtBytes(seg.bytes)} (${seg.pct.toFixed(1)}%)`}
+                title={`${seg.label}: ${fmtBytes(seg.bytes)} (${fmtPercent(seg.pct)})`}
               />
             ))}
           </div>
@@ -117,7 +118,7 @@ export function FilesStatsStrip({ tree, locations }: FilesStatsStripProps) {
                   className={`h-2 w-2 rounded-full ${KIND_COLORS[seg.kind] ?? 'bg-content-tertiary'}`}
                 />
                 <span>{seg.label}</span>
-                <span className="text-content-quaternary tabular-nums">{seg.pct.toFixed(0)}%</span>
+                <span className="text-content-quaternary tabular-nums">{fmtPercent(seg.pct, 0)}</span>
               </span>
             ))}
           </div>

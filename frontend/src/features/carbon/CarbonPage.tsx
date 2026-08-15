@@ -107,6 +107,7 @@ import {
   type Scope3Entry,
   type MaterialCarbonFactor,
 } from './api';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 type Tab = 'inventory' | 'wholelife' | 'epds' | 'targets' | 'reports';
 
@@ -1043,7 +1044,7 @@ function TargetRow({
         />
       </div>
       <p className="mt-1 text-xs text-content-tertiary tabular-nums">
-        {pct.toFixed(0)}%
+        {fmtPercent(pct, 0)}
         {met && (
           <span className="ms-1 inline-flex items-center gap-0.5 text-semantic-success">
             <CheckCircle2 size={11} />
@@ -1789,7 +1790,7 @@ function TopEmitterRow({
                   >
                     {toNum(opt.savings_kg) > 0 ? '−' : ''}
                     {formatKg(Math.abs(toNum(opt.savings_kg)))}{' '}
-                    ({Number(opt.savings_pct).toFixed(0)}%)
+                    ({fmtPercent(Number(opt.savings_pct), 0)})
                   </span>
                 </li>
               ))}
@@ -1863,7 +1864,7 @@ function ScopeKpi({
         </span>
       </div>
       <p className="mt-0.5 text-sm font-medium tabular-nums">{formatKg(kg)}</p>
-      <p className="text-xs text-content-tertiary tabular-nums">{pct.toFixed(0)}%</p>
+      <p className="text-xs text-content-tertiary tabular-nums">{fmtPercent(pct, 0)}</p>
     </div>
   );
 }

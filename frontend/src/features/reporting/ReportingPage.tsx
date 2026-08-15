@@ -43,6 +43,7 @@ import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
 import { apiGet, apiPost, API_BASE, getAuthToken, ApiError } from '@/shared/lib/api';
 import { projectsApi, type Project } from '@/features/projects/api';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 // Roles allowed to trigger the portfolio-wide KPI recompute. The backend
 // gates /kpi/recalculate-all/ behind reporting.distribute (MANAGER), so
@@ -1488,7 +1489,7 @@ function SiteDashboard({
         />
         <KPICard
           label={t('reporting.progress', { defaultValue: 'Progress' })}
-          value={scheduleStats?.progress_pct != null ? `${scheduleStats.progress_pct.toFixed(0)}%` : EMPTY}
+          value={scheduleStats?.progress_pct != null ? fmtPercent(scheduleStats.progress_pct, 0) : EMPTY}
           color={kpiColor(scheduleStats?.progress_pct ?? null, [50, 80])}
           icon={BarChart3}
         />
@@ -1696,7 +1697,7 @@ function FinanceDashboardView({
             />
             <KPICard
               label={t('reporting.budget_consumed', { defaultValue: 'Budget Consumed' })}
-              value={budgetConsumedPct !== null ? `${budgetConsumedPct.toFixed(1)}%` : EMPTY}
+              value={budgetConsumedPct !== null ? fmtPercent(budgetConsumedPct) : EMPTY}
               color={budgetColor}
               icon={BarChart3}
               onClick={() => openFinance('budgets')}

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiGet } from '@/shared/lib/api';
-import { fmtCurrency, fmtNumber, getIntlLocale } from '@/shared/lib/formatters';
+import { fmtCurrency, fmtNumber, fmtPercent, getIntlLocale } from '@/shared/lib/formatters';
 import {
   FolderOpen,
   DollarSign,
@@ -186,7 +186,7 @@ export function AnalyticsPage() {
       Number(p.budget).toFixed(0),
       Number(p.actual).toFixed(0),
       Number(p.variance).toFixed(0),
-      p.variance_pct == null ? '' : `${Number(p.variance_pct).toFixed(1)}%`,
+      p.variance_pct == null ? '' : fmtPercent(Number(p.variance_pct)),
       p.status,
     ].join(','));
     const csv = [headers.join(','), ...rows].join('\n');
@@ -217,7 +217,7 @@ export function AnalyticsPage() {
 
   const totalVariancePct =
     data && data.total_planned > 0
-      ? `${((data.total_variance / data.total_planned) * 100).toFixed(1)}%`
+      ? fmtPercent((data.total_variance / data.total_planned) * 100)
       : '—';
 
   if (isLoading) {

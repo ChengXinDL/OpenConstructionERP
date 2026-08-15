@@ -105,6 +105,7 @@ import {
   type ParetoRow,
 } from './api';
 import { changeIntelligenceGuide } from './change_intelligenceGuide';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 type BadgeVariant = 'neutral' | 'blue' | 'success' | 'warning' | 'error';
 
@@ -199,7 +200,7 @@ function ratePercent(rate: string | null | undefined): string {
  */
 function pctNum(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return '-';
-  return `${value.toFixed(1)}%`;
+  return fmtPercent(value);
 }
 
 /**
@@ -212,7 +213,7 @@ function pctString(value: string | null | undefined): string {
   if (value === null || value === undefined || value === '') return '-';
   const n = Number(value);
   if (!Number.isFinite(n)) return '-';
-  return `${n.toFixed(1)}%`;
+  return fmtPercent(n);
 }
 
 /** Badge variant for a HIGH/LOW traceability cohort label. */

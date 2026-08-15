@@ -78,6 +78,7 @@ import { useProjectContextStore } from '@/stores/useProjectContextStore';
 import { useRecentStore } from '@/stores/useRecentStore';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useToastStore } from '@/stores/useToastStore';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -2051,7 +2052,7 @@ export function ProjectDetailPage() {
             stats.unavailable
               ? '\u2014'
               : stats.avgValidationScore > 0
-                ? `${(stats.avgValidationScore * 100).toFixed(0)}%`
+                ? fmtPercent(stats.avgValidationScore * 100, 0)
                 : 'N/A'
           }
           icon={<ShieldCheck size={20} strokeWidth={1.75} />}
@@ -2132,7 +2133,7 @@ export function ProjectDetailPage() {
                         {t('projects.dash_budget_consumed', { defaultValue: 'Budget Consumed' })}
                       </p>
                       <p className="mt-0.5 text-xl font-bold text-content-primary tabular-nums leading-tight">
-                        {parseFloat(dashboardData.budget.consumed_pct).toFixed(1)}%
+                        {fmtPercent(parseFloat(dashboardData.budget.consumed_pct))}
                       </p>
                       <p className="text-xs text-content-secondary mt-1 tabular-nums">
                         {formatCurrency(parseFloat(dashboardData.budget.actual), currency)}{' '}
@@ -2181,7 +2182,7 @@ export function ProjectDetailPage() {
                         {t('projects.dash_schedule_progress', { defaultValue: 'Schedule Progress' })}
                       </p>
                       <p className="mt-0.5 text-xl font-bold text-content-primary tabular-nums leading-tight">
-                        {parseFloat(dashboardData.schedule.progress_pct).toFixed(1)}%
+                        {fmtPercent(parseFloat(dashboardData.schedule.progress_pct))}
                       </p>
                       <p className="text-xs text-content-secondary mt-1">
                         {dashboardData.schedule.completed}/{dashboardData.schedule.total_activities}{' '}
@@ -2214,7 +2215,7 @@ export function ProjectDetailPage() {
                         {t('projects.dash_quality', { defaultValue: 'Quality Score' })}
                       </p>
                       <p className="mt-0.5 text-xl font-bold text-content-primary tabular-nums leading-tight">
-                        {(parseFloat(dashboardData.quality.validation_score) * 100).toFixed(0)}%
+                        {fmtPercent(parseFloat(dashboardData.quality.validation_score) * 100, 0)}
                       </p>
                       <p className="text-xs text-content-secondary mt-1">
                         {dashboardData.quality.open_defects > 0
@@ -2377,7 +2378,7 @@ export function ProjectDetailPage() {
                       </svg>
                       <div className="absolute inset-0 flex items-center justify-center">
                         <span className="text-base font-bold text-content-primary tabular-nums">
-                          {parseFloat(dashboardData.schedule.progress_pct).toFixed(0)}%
+                          {fmtPercent(parseFloat(dashboardData.schedule.progress_pct), 0)}
                         </span>
                       </div>
                     </div>

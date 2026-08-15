@@ -38,7 +38,7 @@ import { PageHeader } from '@/shared/ui/PageHeader';
 import { catalogGuide } from './catalogGuide';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { apiGet, apiPost, apiPatch, apiDelete } from '@/shared/lib/api';
-import { getIntlLocale } from '@/shared/lib/formatters';
+import { fmtPercent, getIntlLocale } from '@/shared/lib/formatters';
 import { useToastStore } from '@/stores/useToastStore';
 import { usePreferencesStore } from '@/stores/usePreferencesStore';
 import { REGION_MAP } from '@/stores/useCostDatabaseStore';
@@ -914,7 +914,7 @@ function ResourceDetailPanel({
             <div className="flex items-center gap-2 mb-1">
               <span className="text-2xs text-content-tertiary">{resource.currency}</span>
               {priceSpread > 0 && (
-                <span className="text-2xs text-content-quaternary">{t('catalog.spread', { defaultValue: 'spread' })} {priceSpread.toFixed(0)}%</span>
+                <span className="text-2xs text-content-quaternary">{t('catalog.spread', { defaultValue: 'spread' })} {fmtPercent(priceSpread, 0)}</span>
               )}
             </div>
             <div className="h-2 w-full rounded-full bg-surface-tertiary overflow-hidden">
@@ -2496,7 +2496,7 @@ function PriceAdjustModal({
                     const items = [];
                     for (let y = baseYear; y < targetYear; y++) {
                       const rate = idx?.rates[String(y)] ?? idx?.rates[String(Math.min(y, 2026))] ?? 3.0;
-                      items.push(<span key={y} className="inline-flex items-center gap-1 rounded bg-surface-secondary px-2 py-0.5 text-2xs"><span className="text-content-tertiary">{y}</span><span className="font-medium text-amber-600">+{rate.toFixed(1)}%</span></span>);
+                      items.push(<span key={y} className="inline-flex items-center gap-1 rounded bg-surface-secondary px-2 py-0.5 text-2xs"><span className="text-content-tertiary">{y}</span><span className="font-medium text-amber-600">+{fmtPercent(rate)}</span></span>);
                     }
                     return items;
                   })()}

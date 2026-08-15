@@ -34,12 +34,13 @@ import {
   type AnalyticsBreakdown,
   type MatchAnalyticsResponse,
 } from './api';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 const WINDOW_OPTIONS = [1, 7, 30, 90] as const;
 
 function fmtPct(v: number | null | undefined): string {
   if (v === null || v === undefined) return '—';
-  return `${(v * 100).toFixed(1)}%`;
+  return fmtPercent(v * 100);
 }
 
 function fmtNum(v: number | null | undefined, digits = 2): string {

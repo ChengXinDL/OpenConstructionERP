@@ -23,6 +23,7 @@ import {
 import { useProjectBenchmarkData } from './hooks/useProjectBenchmarkData';
 import { fetchOwnPortfolio, type BenchmarkResponse } from './api';
 import { useDisplayQuantity } from '@/shared/hooks/useDisplayQuantity';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 /* ── Helpers ───────────────────────────────────────────────────────── */
 
@@ -109,7 +110,7 @@ function ElementRow({
         <div className={`h-full rounded-sm ${barClass}`} style={{ width: `${widthPct}%` }} />
       </div>
       <span className="w-9 shrink-0 text-right tabular-nums text-content-tertiary">
-        {(row.pct * 100).toFixed(0)}%
+        {fmtPercent(row.pct * 100, 0)}
       </span>
       <span className="w-20 shrink-0 text-right tabular-nums font-medium text-content-primary">
         {/* RATE (reciprocal): EUR/m2 element share -> EUR/ft2 for imperial */}
@@ -535,7 +536,7 @@ export default function BenchmarkModule() {
           </p>
           <p className="text-xs text-content-tertiary mt-1">
             {/* diffPct is a percentage - passes through unchanged in both systems */}
-            {analysis.diffPct > 0 ? '+' : ''}{analysis.diffPct.toFixed(1)}% {t('benchmarks.vs_median', { defaultValue: 'vs median' })}
+            {analysis.diffPct > 0 ? '+' : ''}{fmtPercent(analysis.diffPct)} {t('benchmarks.vs_median', { defaultValue: 'vs median' })}
           </p>
         </div>
       </div>

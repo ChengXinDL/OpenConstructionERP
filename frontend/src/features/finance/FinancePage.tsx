@@ -77,6 +77,7 @@ import { StatementsTab } from './StatementsTab';
 import { RetentionLedgerTab } from './RetentionLedgerTab';
 import { EInvoiceModal } from './EInvoiceModal';
 import { financeGuide } from './financeGuide';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 
@@ -691,7 +692,7 @@ export function FinanceSummaryCards({
                 {t('finance.budget_consumption', { defaultValue: 'Budget consumed' })}
               </span>
               <span className="tabular-nums font-semibold text-content-primary">
-                {consumedPct.toFixed(1)}%
+                {fmtPercent(consumedPct)}
                 {warningLevel !== 'normal' && (
                   <span
                     className={clsx(

@@ -217,6 +217,7 @@ import { openLink } from '@/shared/lib/desktop';
 // Type-only: the scale-source vocabulary is a closed set owned by the backend
 // contract, so the viewer reuses it instead of restating it as a bare string.
 import type { ScaleSource } from '@/features/takeoff/api';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 // Configure PDF.js worker — bundled locally (no CDN dependency)
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -7501,7 +7502,7 @@ export default function TakeoffViewerModule({
                 <button onClick={zoomOut} className={tbBtn(false)} title={t('takeoff_viewer.zoom_out', { defaultValue: 'Zoom out' })} aria-label={t('takeoff_viewer.zoom_out', { defaultValue: 'Zoom out' })}>
                   <ZoomOut size={16} />
                 </button>
-                <span className="inline-flex h-7 min-w-[2.75rem] items-center justify-center px-1 text-xs tabular-nums text-content-tertiary">{(zoom * 100).toFixed(0)}%</span>
+                <span className="inline-flex h-7 min-w-[2.75rem] items-center justify-center px-1 text-xs tabular-nums text-content-tertiary">{fmtPercent(zoom * 100, 0)}</span>
                 <button onClick={zoomIn} className={tbBtn(false)} title={t('takeoff_viewer.zoom_in', { defaultValue: 'Zoom in' })} aria-label={t('takeoff_viewer.zoom_in', { defaultValue: 'Zoom in' })}>
                   <ZoomIn size={16} />
                 </button>

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Artem Boiko / DataDrivenConstruction
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getIntlLocale } from '@/shared/lib/formatters';
+import { fmtPercent, getIntlLocale } from '@/shared/lib/formatters';
 import { formatCompactCurrency } from '@/shared/lib/money';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -357,7 +357,7 @@ export function BidComparisonChart({
                   }
                 >
                   {bar.bid.deviation_pct > 0 ? '+' : ''}
-                  {bar.bid.deviation_pct.toFixed(1)}%
+                  {fmtPercent(bar.bid.deviation_pct)}
                 </text>
 
                 {/* Company name on X axis */}

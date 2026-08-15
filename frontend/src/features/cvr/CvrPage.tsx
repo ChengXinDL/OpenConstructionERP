@@ -74,6 +74,7 @@ import {
 } from './api';
 import { InsightsPanel, InsightsToggleButton, useModuleInsights } from '@/features/insights';
 import { buildCvrInsights } from './cvrInsights';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 interface Project {
   id: string;
@@ -94,7 +95,7 @@ function currentPeriod(): string {
 
 /** Format a percentage string (e.g. "20.79") for display with one decimal. */
 function fmtPct(pct: string): string {
-  return `${toNum(pct).toFixed(1)}%`;
+  return fmtPercent(toNum(pct));
 }
 
 const PAYAPP_STATUS_TONE: Record<PaymentApplicationStatus, string> = {

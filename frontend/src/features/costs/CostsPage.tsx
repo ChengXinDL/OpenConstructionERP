@@ -39,7 +39,7 @@ import { Button, Card, Badge, EmptyState, SkeletonTable, CountryFlag, CountryFla
 import { PageHeader } from '@/shared/ui/PageHeader';
 import { useConfirm } from '@/shared/hooks/useConfirm';
 import { apiGet, apiPost, apiPatch, apiDelete, triggerDownload, extractErrorMessageFromBody } from '@/shared/lib/api';
-import { getIntlLocale } from '@/shared/lib/formatters';
+import { fmtPercent, getIntlLocale } from '@/shared/lib/formatters';
 import { copyToClipboard } from '@/shared/lib/browser';
 import { useToastStore } from '@/stores/useToastStore';
 import { useProjectContextStore } from '@/stores/useProjectContextStore';
@@ -3754,19 +3754,19 @@ function CostItemRow({
                     {laborCost > 0 && (
                       <span className="flex items-center gap-1">
                         <span className="h-2 w-2 rounded-full bg-amber-400" />
-                        {t('costs.component_labor', { defaultValue: 'Labor' })} {pct(laborCost).toFixed(0)}%
+                        {t('costs.component_labor', { defaultValue: 'Labor' })} {fmtPercent(pct(laborCost), 0)}
                       </span>
                     )}
                     {equipmentCost > 0 && (
                       <span className="flex items-center gap-1">
                         <span className="h-2 w-2 rounded-full bg-blue-400" />
-                        {t('costs.component_equipment', { defaultValue: 'Equipment' })} {pct(equipmentCost).toFixed(0)}%
+                        {t('costs.component_equipment', { defaultValue: 'Equipment' })} {fmtPercent(pct(equipmentCost), 0)}
                       </span>
                     )}
                     {materialCost > 0 && (
                       <span className="flex items-center gap-1">
                         <span className="h-2 w-2 rounded-full bg-green-400" />
-                        {t('costs.component_material', { defaultValue: 'Materials' })} {pct(materialCost).toFixed(0)}%
+                        {t('costs.component_material', { defaultValue: 'Materials' })} {fmtPercent(pct(materialCost), 0)}
                       </span>
                     )}
                   </div>

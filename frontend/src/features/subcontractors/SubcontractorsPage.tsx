@@ -87,6 +87,7 @@ import {
   type CreateSubcontractorPayload,
   type Rating,
 } from './api';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 type DrawerTab = 'scope' | 'payments' | 'ratings' | 'retention';
 
@@ -1300,7 +1301,7 @@ function AgreementRow({ agreement }: { agreement: Agreement }) {
       <div className="mt-2 flex items-center justify-between text-xs text-content-secondary">
         <span>
           {t('subcontractors.retention', { defaultValue: 'Retention' })}:{' '}
-          {toNum(agreement.retention_percent).toFixed(1)}%
+          {fmtPercent(toNum(agreement.retention_percent))}
         </span>
         <span className="font-medium text-content-primary">
           <MoneyDisplay
@@ -1319,7 +1320,7 @@ function AgreementRow({ agreement }: { agreement: Agreement }) {
             >
               <span className="truncate">{wp.name}</span>
               <span className="ml-2 tabular-nums">
-                {toNum(wp.completion_percent).toFixed(0)}%
+                {fmtPercent(toNum(wp.completion_percent), 0)}
               </span>
             </div>
           ))}

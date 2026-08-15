@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ThumbsUp, ThumbsDown, Cpu, Database, Activity } from 'lucide-react';
 import { getAdminStats } from './api';
 import type { AdminStats } from './types';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 const WINDOWS = [7, 30, 90] as const;
 
@@ -251,7 +252,7 @@ export default function AdminStatsPage() {
             />
             <StatCard
               label="Feedback rate"
-              value={`${stats.feedback_rate_pct.toFixed(1)}%`}
+              value={fmtPercent(stats.feedback_rate_pct)}
               icon={<Activity size={16} />}
               sub="% of messages rated"
             />
@@ -267,7 +268,7 @@ export default function AdminStatsPage() {
             />
             <StatCard
               label="Cache hit rate"
-              value={`${stats.cache_hit_rate_pct.toFixed(1)}%`}
+              value={fmtPercent(stats.cache_hit_rate_pct)}
               icon={<Database size={16} />}
               sub="prompt cache reuse"
             />

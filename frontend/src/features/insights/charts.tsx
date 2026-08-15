@@ -29,7 +29,7 @@ import {
   YAxis,
 } from 'recharts';
 import { useTranslation } from 'react-i18next';
-import { fmtCompact, getIntlLocale } from '@/shared/lib/formatters';
+import { fmtCompact, fmtPercent, getIntlLocale } from '@/shared/lib/formatters';
 import { formatCompactCurrency } from '@/shared/lib/money';
 import { hasEnoughPoints } from '@/shared/lib/chartDataFloor';
 import type { SeriesPoint } from './aggregate';
@@ -73,7 +73,7 @@ export function formatCompact(v: number, format: ValueFormat = 'number', currenc
 /** Full form for tooltips: locale grouping and a real currency symbol. */
 export function formatFull(v: number, format: ValueFormat = 'number', currency?: string): string {
   if (!Number.isFinite(v)) return '-';
-  if (format === 'percent') return `${v.toFixed(1)}%`;
+  if (format === 'percent') return fmtPercent(v);
   const locale = getIntlLocale();
   if (format === 'currency') {
     const code = (currency || '').trim().toUpperCase();

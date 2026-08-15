@@ -84,6 +84,7 @@ import {
 } from './api';
 import { biDashboardsGuide } from './biDashboardsGuide';
 import { useDashboardFilters } from '@/stores/useDashboardFilters';
+import { fmtPercent } from '@/shared/lib/formatters';
 
 type Tab = 'dashboards' | 'kpis' | 'reports' | 'schedules' | 'alerts';
 
@@ -924,7 +925,7 @@ function DeltaChip({ delta }: { delta: number }) {
       <span className="flex items-center gap-1">
         <Icon size={10} />
         {sign}
-        {delta.toFixed(1)}%
+        {fmtPercent(delta)}
       </span>
     </Badge>
   );
