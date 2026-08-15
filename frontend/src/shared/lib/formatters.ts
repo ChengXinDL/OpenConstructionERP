@@ -56,6 +56,29 @@ export function fmtNumber(value: number | string | null | undefined, decimals = 
   }).format(safe);
 }
 
+/**
+ * A percentage that is already on a 0-100 scale, written the way the reader's
+ * language writes one.
+ *
+ * `${n.toFixed(1)}%` is the shape this replaces, and it is wrong twice over
+ * outside English: the separator is a point where most of Europe writes a
+ * comma, so 68.3 reads as a number in the tens of thousands, and the sign
+ * goes before the digits in Turkish. Both belong to the locale data, not to
+ * the call site.
+ *
+ * The value is divided by 100 because the engine's percent style multiplies
+ * it back; the digit count still refers to the percentage as displayed.
+ */
+export function fmtPercent(value: number | string | null | undefined, decimals = 1): string {
+  const n = typeof value === 'number' ? value : Number(value ?? 0);
+  const safe = Number.isFinite(n) ? n : 0;
+  return new Intl.NumberFormat(getIntlLocale(), {
+    style: 'percent',
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(safe / 100);
+}
+
 /** Compact number formatter (e.g. 1.2M) using current locale. */
 export function fmtCompact(value: number | string | null | undefined): string {
   const n = typeof value === 'number' ? value : Number(value ?? 0);

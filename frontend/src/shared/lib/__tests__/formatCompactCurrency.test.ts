@@ -1,6 +1,17 @@
-import { describe, expect, it } from 'vitest';
+import i18next from 'i18next';
+import { afterAll, describe, expect, it } from 'vitest';
 
 import { formatCompactCurrency } from '../money';
+import { fmtPercent } from '../formatters';
+
+// The percent helper reads the live UI language off the i18next singleton,
+// which nothing else in this file needs, so it is initialised here with no
+// resources at all - the language tag is the whole input.
+void i18next.init({ lng: 'en', resources: {}, initImmediate: false });
+const original = i18next.language;
+afterAll(() => {
+  void i18next.changeLanguage(original);
+});
 
 /**
  * A German cost report printed "203.1M EUR".
@@ -58,5 +69,37 @@ describe('formatCompactCurrency', () => {
 
   it('never throws on a malformed locale tag', () => {
     expect(() => formatCompactCurrency(5_000_000, 'EUR', 'not a locale')).not.toThrow();
+  });
+});
+
+/**
+ * The same failure in the other half of the same screens: `${n.toFixed(1)}%`
+ * printed 68.3% to a reader whose language writes 68,3 %, and put the sign on
+ * the wrong side of the digits for Turkish.
+ */
+describe('fmtPercent', () => {
+  it('writes the separator of the reader, not of the author', () => {
+    void i18next.changeLanguage('de');
+    expect(fmtPercent(68.3)).toContain('68,3');
+    expect(fmtPercent(68.3)).not.toContain('68.3');
+  });
+
+  it('puts the sign where the language puts it', () => {
+    void i18next.changeLanguage('tr');
+    expect(fmtPercent(68.3).trimStart().startsWith('%')).toBe(true);
+    void i18next.changeLanguage('en');
+    expect(fmtPercent(68.3).trimEnd().endsWith('%')).toBe(true);
+  });
+
+  it('keeps a negative percentage negative', () => {
+    void i18next.changeLanguage('de');
+    expect(fmtPercent(-36.7)).toMatch(/36,7/);
+    expect(fmtPercent(-36.7)).toMatch(/-/);
+  });
+
+  it('honours the digit count it is given', () => {
+    void i18next.changeLanguage('en');
+    expect(fmtPercent(85, 0)).toBe('85%');
+    expect(fmtPercent(85)).toBe('85.0%');
   });
 });

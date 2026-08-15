@@ -30,6 +30,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { apiGet } from '@/shared/lib/api';
+import { fmtPercent } from '@/shared/lib/formatters';
 import {
   Badge,
   Breadcrumb,
@@ -62,7 +63,7 @@ interface ProjectLite {
 /** Format a plain float percentage (0-100). Returns "-" when absent. */
 function fmtPct(value: number | null | undefined, frac = 1): string {
   if (value == null || !Number.isFinite(value)) return '-';
-  return `${value.toFixed(frac)}%`;
+  return fmtPercent(value, frac);
 }
 
 /** Format a Decimal-string (or number) quantity locale-aware. Returns "-" when absent. */
@@ -78,7 +79,7 @@ function fmtPctStr(value: string | null | undefined, frac = 1): string {
   if (value == null) return '-';
   const n = parseFloat(value);
   if (!Number.isFinite(n)) return '-';
-  return `${n.toFixed(frac)}%`;
+  return fmtPercent(n, frac);
 }
 
 /** Clamp a parsed percent into [0, 100] for a progress-bar width. */

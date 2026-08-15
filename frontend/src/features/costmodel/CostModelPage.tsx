@@ -48,7 +48,7 @@ import { CostSpinePanel } from './CostSpinePanel';
 import { ContractExposurePanel } from './ContractExposurePanel';
 import { costmodelGuide } from './costmodelGuide';
 import { BudgetLineThresholdEditor, parseThreshold } from './BudgetLineThresholdEditor';
-import { getIntlLocale } from '@/shared/lib/formatters';
+import { fmtPercent, getIntlLocale } from '@/shared/lib/formatters';
 import { formatCompactCurrency, formatCurrency as fmtMoney } from '@/shared/lib/money';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
@@ -539,7 +539,7 @@ const BudgetTable = memo(function BudgetTable({
                 <td className="py-3.5 px-2">
                   <div className="flex flex-col items-center gap-0.5">
                     <span className={`text-2xs font-semibold tabular-nums ${spentOver ? 'text-semantic-error' : 'text-content-secondary'}`}>
-                      {spentPct.toFixed(0)}%
+                      {fmtPercent(spentPct, 0)}
                     </span>
                     <div className="h-1.5 w-full max-w-[60px] rounded-full bg-surface-secondary overflow-hidden">
                       <div
@@ -580,7 +580,7 @@ const BudgetTable = memo(function BudgetTable({
               {totals.planned > 0 && (
                 <div className="flex flex-col items-center gap-0.5">
                   <span className="text-2xs font-bold tabular-nums text-content-primary">
-                    {Math.min(100, (totals.actual / totals.planned) * 100).toFixed(0)}%
+                    {fmtPercent(Math.min(100, (totals.actual / totals.planned) * 100), 0)}
                   </span>
                   <div className="h-1.5 w-full max-w-[60px] rounded-full bg-surface-secondary overflow-hidden">
                     <div
@@ -907,7 +907,7 @@ const EVMDashboard = memo(function EVMDashboard({
                 {t('costmodel.evm_time_elapsed', { defaultValue: 'Time Elapsed' })}
               </span>
               <span className="font-medium tabular-nums text-content-primary">
-                {evm.time_elapsed_pct.toFixed(1)}%
+                {fmtPercent(evm.time_elapsed_pct)}
               </span>
             </div>
             <div className="flex justify-between">
@@ -915,7 +915,7 @@ const EVMDashboard = memo(function EVMDashboard({
                 {t('costmodel.evm_schedule_progress', { defaultValue: 'Schedule Progress' })}
               </span>
               <span className="font-medium tabular-nums text-content-primary">
-                {evm.schedule_progress_pct.toFixed(1)}%
+                {fmtPercent(evm.schedule_progress_pct)}
               </span>
             </div>
             <div className="flex justify-between">
@@ -1898,7 +1898,7 @@ function WhatIfPanel({
                       {formatCompact(result.delta, currency)}
                       <span className="text-xs font-medium ml-1">
                         ({result.delta_pct > 0 ? '+' : ''}
-                        {result.delta_pct.toFixed(1)}%)
+                        {fmtPercent(result.delta_pct)})
                       </span>
                     </div>
                   </div>
@@ -2487,7 +2487,7 @@ function FiveDDashboard({ project }: { project: Project }) {
                           className={`text-sm font-semibold tabular-nums ${varianceColor(dashboard.variance)}`}
                         >
                           {dashboard.variance > 0 ? '+' : ''}
-                          {dashboard.variance_pct.toFixed(1)}%
+                          {fmtPercent(dashboard.variance_pct)}
                         </span>
                       </div>
                     </>
