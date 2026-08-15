@@ -14,6 +14,7 @@ import logging
 import os
 import re
 from collections.abc import Awaitable, Callable
+from contextvars import ContextVar
 from typing import Any
 
 import httpx
@@ -522,20 +523,60 @@ _OPENAI_COMPAT_CONFIG = {
 }
 
 
-def update_provider_config(saved_meta: dict | None = None) -> None:
-    """Refresh the Ollama/vLLM endpoints from the saved settings metadata.
-    Invoked once after settings are persisted so every subsequent AI call in
-    the app reuses the user's endpoint without that URL having to be threaded
-    through each individual call site (no per-call URL threading required)."""
-    meta = saved_meta or {}
-    for provider in ("ollama", "vllm"):  # only self-hosted runtimes are tunable
-        candidate = meta.get(f"{provider}_base_url") if isinstance(meta, dict) else None
-        if not (isinstance(candidate, str) and candidate.strip()):
-            continue
-        endpoint = candidate.strip().rstrip("/")
-        if not endpoint.endswith("/v1/chat/completions"):
-            endpoint += "/v1/chat/completions"
-        _OPENAI_COMPAT_CONFIG[provider]["url"] = endpoint
+# The self-hosted endpoints belonging to the settings currently being
+# resolved. Empty means "nobody named one", which is the env / localhost
+# default in _OPENAI_COMPAT_CONFIG above and never another user's host.
+_SELF_HOSTED_ENDPOINTS: ContextVar[dict[str, str] | None] = ContextVar("oe_ai_self_hosted_endpoints", default=None)
+
+
+def _normalise_self_hosted_url(candidate: str) -> str:
+    """Return *candidate* as a full chat-completions endpoint.
+
+    Users save the runtime's root ("http://gpu-box:11434") far more often than
+    its chat path, so the path is appended when it is missing. Kept separate
+    from any storage so the same normalisation applies to a row that was
+    written before it existed.
+    """
+    endpoint = candidate.strip().rstrip("/")
+    if not endpoint.endswith("/v1/chat/completions"):
+        endpoint += "/v1/chat/completions"
+    return endpoint
+
+
+def self_hosted_endpoints(saved_meta: dict | None) -> dict[str, str]:
+    """Extract the Ollama / vLLM endpoints one user's settings metadata names.
+
+    Only these two runtimes are tunable: every other provider is a fixed
+    vendor URL, and letting a user rewrite those would be an open redirect for
+    their own API key.
+    """
+    meta = saved_meta if isinstance(saved_meta, dict) else {}
+    found: dict[str, str] = {}
+    for provider in ("ollama", "vllm"):
+        candidate = meta.get(f"{provider}_base_url")
+        if isinstance(candidate, str) and candidate.strip():
+            found[provider] = _normalise_self_hosted_url(candidate)
+    return found
+
+
+def use_self_hosted_endpoints(saved_meta: dict | None) -> None:
+    """Bind the self-hosted endpoints of the settings being resolved right now.
+
+    The binding is a context variable, so it reaches the dispatch below
+    without every intermediate signature having to carry a URL, and it reaches
+    nothing else: an asyncio task inherits a copy of the context, so one
+    request cannot see - or overwrite - what another request bound.
+
+    This used to be a module-global dictionary that the settings endpoint
+    mutated in place (GHSA-wfpw-cv5v-64j5). Saving an Ollama URL therefore
+    repointed the runtime for every user sharing the worker process, and the
+    next person to run an estimate sent their project to whatever host the
+    last person to touch their own settings had named. Both halves of that are
+    fixed here: the value is bound per call rather than per process, and it is
+    always bound, so settings without an endpoint clear whatever the previous
+    resolution in this task left behind.
+    """
+    _SELF_HOSTED_ENDPOINTS.set(self_hosted_endpoints(saved_meta))
 
 
 async def _post_openai_compat(
@@ -599,8 +640,10 @@ async def _post_openai_compat(
     if tools:
         payload["tools"] = tools
 
-    # Prefer the caller-supplied endpoint, otherwise fall back to the config.
-    endpoint = base_url or config["url"]
+    # An explicit argument wins, then the endpoint bound for the settings this
+    # call was resolved from, then the process default. The middle term is what
+    # makes one user's self-hosted runtime theirs alone.
+    endpoint = base_url or (_SELF_HOSTED_ENDPOINTS.get() or {}).get(provider) or config["url"]
     # SSRF guard for self-hosted runtimes: their endpoint is user-supplied, so
     # re-resolve and re-check it at this single dispatch choke point (every
     # Ollama / vLLM call funnels through here). Loopback / private stay allowed;
@@ -1224,6 +1267,10 @@ def resolve_provider_and_key(
         ValueError: If no API key is configured.
     """
     from app.core.crypto import decrypt_secret
+
+    # Bind before any branch returns: whichever provider this resolves to, the
+    # dispatch that follows in this task must use THESE settings' endpoints.
+    use_self_hosted_endpoints(getattr(settings, "metadata_", None) if settings else None)
 
     model = preferred_model or (settings.preferred_model if settings else "claude-sonnet")
 
