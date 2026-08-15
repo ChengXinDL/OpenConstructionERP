@@ -1055,7 +1055,11 @@ export function PunchListPage() {
   const { data: pinPage } = useQuery({
     queryKey: ['punchlist-pins', projectId],
     queryFn: () => fetchPunchItems(projectId, { limit: PIN_BOARD_LIMIT }),
-    enabled: !!projectId,
+    // Only when the board is on screen. Everything it feeds - the board, its
+    // truncation notice - lives inside the pins branch, so on the register
+    // view this was a second hundred-row fetch of the same endpoint nobody
+    // read. Gated the same way the drawings query beside it already is.
+    enabled: !!projectId && viewMode === 'pins',
     staleTime: 30_000,
   });
   const pinItems = pinPage?.items ?? EMPTY_ITEMS;
