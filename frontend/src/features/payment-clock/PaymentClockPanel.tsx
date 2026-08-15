@@ -303,7 +303,18 @@ function ClockDetail({
             : formatCurrency(sum.amount, sum.currency || app.currency)}
         </p>
         {sum.explanation && (
-          <p className="mt-1 text-sm text-content-secondary">{sum.explanation}</p>
+          <p className="mt-1 text-sm text-content-secondary">
+            {/* The server assembles the sentence in English because it can only
+                assemble it in one language. It also names which sentence it is,
+                so it can be said here instead. The prose stays the fallback: a
+                reading stored before the codes existed carries no reason. */}
+            {sum.reason
+              ? t(`payment_clock.sum_reason_${sum.reason}`, {
+                  defaultValue: sum.explanation,
+                  ...(sum.params ?? {}),
+                })
+              : sum.explanation}
+          </p>
         )}
       </div>
 

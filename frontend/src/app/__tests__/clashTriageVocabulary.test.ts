@@ -30,9 +30,25 @@ const LOCALES_DIR = ['src/app/locales', 'frontend/src/app/locales']
 const SEVERITIES = ['critical', 'high', 'medium', 'low'];
 /** Mirrors CLASH_STATUSES, in review order. */
 const STATUSES = ['new', 'active', 'reviewed', 'approved', 'resolved', 'ignored'];
+/** Mirrors TOLERANCE_PRESETS on the clash page. */
+const TOLERANCES = ['coarse', 'standard', 'fine', 'precise'];
+/** Mirrors the reason codes notified_sum returns. The payment clock assembles
+ *  its sentence on the server, which can only assemble it in one language, so
+ *  the same failure lives there: the page names the key from the code. */
+const SUM_REASONS = [
+  'payment_notice',
+  'no_notice_sequence',
+  'window_open_until',
+  'window_open',
+  'silence_does_not_fix',
+  'default_payment_notice',
+  'application',
+];
 const KEYS = [
   ...SEVERITIES.map((s) => `clash.severity.${s}`),
   ...STATUSES.map((s) => `clash.status.${s}`),
+  ...TOLERANCES.map((s) => `clash.tol_${s}`),
+  ...SUM_REASONS.map((s) => `payment_clock.sum_reason_${s}`),
 ];
 
 function localeCodes(): string[] {
@@ -60,7 +76,7 @@ describe('the clash triage vocabulary is complete in every locale', () => {
   });
 
   for (const code of codes) {
-    it(`${code} names every severity and every status`, () => {
+    it(`${code} names every value its screens build a key from`, () => {
       const text = localeText(code);
       const missing = KEYS.filter((key) => !text.includes(`"${key}"`));
       expect(missing, `${code} has no key for ${missing.join(', ')}`).toEqual([]);

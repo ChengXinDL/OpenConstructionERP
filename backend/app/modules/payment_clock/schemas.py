@@ -384,6 +384,12 @@ class NotifiedSum(BaseModel):
     currency: str = ""
     source: str = "undetermined"
     explanation: str = ""
+    # The same answer in a form a screen can translate. ``source`` cannot serve:
+    # three different answers share ``undetermined``. Empty on a stored reading
+    # written before the codes existed, which is why the page keeps the prose as
+    # its fallback rather than showing nothing.
+    reason: str = ""
+    params: dict[str, str] = Field(default_factory=dict)
 
     @field_serializer("amount", when_used="json")
     @classmethod

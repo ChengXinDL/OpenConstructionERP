@@ -705,6 +705,14 @@ class TestNotifiedSum:
         summary = service.notified_sum(application, regime, [], as_of=date(2026, 4, 13))
         assert summary["source"] == "application"
         assert summary["amount"] == Decimal("124000.00")
+        # The sentence is assembled here, in English, because it can only be
+        # assembled in one language. The code and its parameters are how a
+        # screen says the same thing in the reader's - so every value the
+        # sentence interpolates has to travel with it.
+        assert summary["reason"] == "application"
+        assert set(summary["params"]) == {"deadline", "statute", "amount"}
+        for value in summary["params"].values():
+            assert value and value in summary["explanation"]
 
     async def test_a_payment_notice_served_in_time_settles_the_sum(self, session):
         application, regime = await _application(session)
@@ -726,6 +734,10 @@ class TestNotifiedSum:
         summary = service.notified_sum(application, regime, notices, as_of=date(2026, 4, 13))
         assert summary["source"] == "payment_notice"
         assert summary["amount"] == Decimal("118500.00")
+        assert summary["reason"] == "payment_notice"
+        assert set(summary["params"]) == {"issued", "amount"}
+        for value in summary["params"].values():
+            assert value and value in summary["explanation"]
 
     async def test_the_window_being_open_is_not_a_breach(self, session):
         application, regime = await _application(session)
