@@ -111,6 +111,7 @@ jobs:
           tests/unit/test_tender_package_scope.py
           tests/unit/test_demo_safety_vocabulary.py
           tests/unit/test_demo_seed_speaks_module_vocabularies.py
+          tests/unit/test_demo_progress_periods.py
           -q -p no:cacheprovider
       # The region to currency table. Attached for the same reason as the suites
       # around it, which is that tests/unit runs in no lane that blocks a merge.

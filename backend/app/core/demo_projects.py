@@ -4446,6 +4446,29 @@ def _country_code_for(template: DemoTemplate) -> str:
     return _COUNTRY_ISO2.get(str(addr.get("country", "")), "")
 
 
+def _period_label(base: datetime, offset_months: int) -> str:
+    """Return the ``YYYY-MM`` label of the month ``offset_months`` after ``base``.
+
+    The month carries into the year, which is the whole point. Wrapping the
+    month with ``% 12`` while keeping ``base.year`` is what the progress
+    series did before: a 22-month programme starting in April labelled its
+    13th month exactly like its 1st. Readings are keyed by that label, so the
+    two collided, and sorting the collided labels turned a monotone ladder
+    into a collapse - the S-curve fell 36.7 points in a single month and
+    ended the year below its own July. Every demo project is affected the
+    moment it runs past its start month a year later.
+
+    Args:
+        base: Project start; only its year and month are read.
+        offset_months: Whole months after ``base``, 0 being the start month.
+
+    Returns:
+        The period label, sortable as a string because the year leads it.
+    """
+    total = base.month - 1 + offset_months
+    return f"{base.year + total // 12}-{total % 12 + 1:02d}"
+
+
 def _generate_module_data(
     template: DemoTemplate,
     project_id: uuid.UUID,
@@ -5471,7 +5494,7 @@ def _generate_module_data(
     progress_entries: list[dict] = []
     progress_plan: list[dict] = []
     for m in range(1, months + 1):
-        period = f"{base.year}-{(base.month + m - 1 - 1) % 12 + 1:02d}"
+        period = _period_label(base, m - 1)
         planned = round(min(100.0, m / months * 100.0), 3)
         actual = round(min(100.0, max(0.0, planned - 5.0)), 3)
         progress_plan.append({"period_label": period, "planned_pct": planned, "notes": "Planned S-curve"})
