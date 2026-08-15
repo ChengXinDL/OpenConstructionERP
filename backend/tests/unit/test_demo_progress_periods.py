@@ -97,6 +97,21 @@ class TestSeededSeries:
             ]
             assert not drops, f"{demo_id} {key} falls at {drops}"
 
+    def test_the_actuals_stop_at_today_and_the_plan_does_not(self, demo_id: str) -> None:
+        # A demo is installed into a story that started in April 2026 and runs
+        # for years. Recording progress for the whole programme filed a job in
+        # its fifth month as 88 per cent built, with readings dated two years
+        # ahead, while the 4D schedule beside it read the real clock and said
+        # eleven. The plan legitimately runs to the end; the actuals cannot
+        # run past the month the reader is in.
+        today = datetime.now()
+        this_month = f"{today.year}-{today.month:02d}"
+        generated = _generate(DEMO_TEMPLATES[demo_id])
+        actuals = [row["period_label"] for row in generated["progress"]]
+        assert max(actuals) <= this_month, f"{demo_id} records progress in {max(actuals)}"
+        plan = [row["period_label"] for row in generated["progress_plan"]]
+        assert max(plan) > max(actuals), f"{demo_id} plans no further than it has already built"
+
     def test_the_series_spans_the_programme_it_belongs_to(self, demo_id: str) -> None:
         # A collision used to shorten the axis as well as scramble it: three
         # readings sharing one label render as one period.

@@ -5491,14 +5491,26 @@ def _generate_module_data(
     ]
 
     # progress - percent-complete observations + planned S-curve per month.
+    #
+    # The plan covers the whole programme and the actuals stop at today, which
+    # is the shape an S-curve is drawn from: a planned line running to the end
+    # and an actual line that stops where the site is. "Today-ish" used to mean
+    # two months short of the END of the programme, so a thirty-month job in
+    # its fifth month filed itself as 88 per cent built, with readings dated
+    # two years into the future, while its own 4D schedule - which reads the
+    # real clock against each phase window - said eleven. Both numbers were on
+    # the same screen.
     progress_entries: list[dict] = []
     progress_plan: list[dict] = []
+    installed = datetime.now()
+    elapsed_months = (installed.year - base.year) * 12 + (installed.month - base.month) + 1
+    last_actual = max(1, min(months, elapsed_months))
     for m in range(1, months + 1):
         period = _period_label(base, m - 1)
         planned = round(min(100.0, m / months * 100.0), 3)
         actual = round(min(100.0, max(0.0, planned - 5.0)), 3)
         progress_plan.append({"period_label": period, "planned_pct": planned, "notes": "Planned S-curve"})
-        if m <= max(months - 2, 1):  # actuals only up to "today-ish"
+        if m <= last_actual:
             progress_entries.append(
                 {
                     "period_label": period,
