@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
+  AlertTriangle,
   Wallet,
   FileText,
   CreditCard,
@@ -484,6 +485,7 @@ export function FinanceSummaryCards({
   const totalActual = Number(dashboard?.total_actual ?? 0);
   const totalInvoiced = Number(dashboard?.total_payable ?? 0);
   const totalReceivable = Number(dashboard?.total_receivable ?? 0);
+  const totalOverdue = Number(dashboard?.total_overdue ?? 0);
   const remaining = (totalRevised || totalBudget) - totalActual;
   // Currency comes from the data (task #217) — never hardcoded. When the
   // backend cannot resolve one (no priced records yet) MoneyDisplay still
@@ -573,6 +575,21 @@ export function FinanceSummaryCards({
       icon: <PiggyBank size={18} />,
       color: 'bg-green-50 text-green-600 dark:bg-green-950/40 dark:text-green-400',
       accent: 'bg-green-500',
+    },
+    {
+      // The money already past its due date, beside the money still owed. The
+      // endpoint has returned it all along and the reporting page has drawn it
+      // all along; this screen declared the field and never read it, so the
+      // one figure a finance lead opens the page for was the one it did not
+      // show. Same key as the reporting tile: one number, one wording.
+      label: t('reporting.overdue_total', { defaultValue: 'Total Overdue' }),
+      value: totalOverdue,
+      icon: <AlertTriangle size={18} />,
+      color:
+        totalOverdue > 0
+          ? 'bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400'
+          : 'bg-green-50 text-green-600 dark:bg-green-950/40 dark:text-green-400',
+      accent: totalOverdue > 0 ? 'bg-red-500' : 'bg-green-500',
     },
     {
       label: t('finance.summary_remaining', { defaultValue: 'Remaining Budget' }),
