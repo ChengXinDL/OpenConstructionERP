@@ -26,7 +26,6 @@ import { AdminOnly } from '@/shared/auth/AdminOnly';
 import GlobalSearchModal from '@/features/search/GlobalSearchModal';
 import { useGlobalSearchStore } from '@/stores/useGlobalSearchStore';
 import { FloatingQueuePanel } from './layout/FloatingQueuePanel';
-import { getRouteLabel } from './layout/navCatalog';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { useThemeStore } from '@/stores/useThemeStore';
 import { useBrandingStore } from '@/stores/useBrandingStore';
@@ -772,17 +771,9 @@ function AppShell() {
 // visible flash of the previous page's title.
 function P({ title, children }: { title: string; children: React.ReactNode }) {
   const setTitle = useContext(PageTitleContext);
-  const { t } = useTranslation();
-  const { pathname } = useLocation();
-  // The `title` prop is the English name written at the route. Where the
-  // screen catalogue knows the path - which is every screen the menu offers -
-  // the product's own translated name for it wins, so the top bar stops
-  // printing an English word over a translated page.
-  const entry = getRouteLabel(pathname);
-  const resolved = entry ? t(entry.labelKey, { defaultValue: entry.defaultLabel ?? title }) : title;
   useLayoutEffect(() => {
-    setTitle(resolved);
-  }, [setTitle, resolved]);
+    setTitle(title);
+  }, [setTitle, title]);
   return <>{children}</>;
 }
 
