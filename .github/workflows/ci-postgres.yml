@@ -242,14 +242,6 @@ jobs:
       # No database, about two seconds.
       - name: Run erp_chat no-tool provider tests
         run: pytest tests/unit/test_erp_chat_fallback_provider.py -q -p no:cacheprovider
-      # GHSA-wfpw-cv5v-64j5. The Ollama / vLLM endpoint a user saves used to be
-      # written into a module-global table, so it became the endpoint of every
-      # user sharing the worker process and their prompts went to whatever host
-      # was saved last. It is bound per resolution now. Attached here because
-      # the shape of the bug - shared mutable state that looks like
-      # configuration - comes back the moment someone adds a second writer.
-      - name: Run AI self-hosted endpoint isolation tests
-        run: pytest tests/unit/test_ai_self_hosted_endpoint_isolation.py -q -p no:cacheprovider
       # A cross-tenant read, so it is attached here rather than left to the
       # sharded Backend CI job. The rating provenance record carries a raw
       # COUNT(*) over the NCR, safety-incident and schedule tables filtered
@@ -471,8 +463,17 @@ jobs:
       # still attached, which is the right way to ask and also the reason it
       # went red on its own when FastAPI changed how a mounted router is
       # recorded. It was in no lane, so nothing said so.
+      # The isolation file beside it is GHSA-wfpw-cv5v-64j5: the Ollama / vLLM
+      # endpoint a user saved was written into a module-global table, so it
+      # became the endpoint of every user sharing the worker process and their
+      # prompts went to whatever host was saved last. It is bound per
+      # resolution now, and the shape of that bug - shared mutable state that
+      # reads as configuration - returns the moment a second writer appears.
       - name: Run AI endpoint security tests
-        run: pytest tests/modules/test_ai_security.py -q -p no:cacheprovider
+        run: >-
+          pytest tests/modules/test_ai_security.py
+          tests/unit/test_ai_self_hosted_endpoint_isolation.py
+          -q -p no:cacheprovider
       # The literal string bim did not appear anywhere in this file, so 30 unit
       # files and 528 tests, including the ones covering all 28 BIM validation
       # rules, were enforced by nothing. Those rules are reachable in production:
