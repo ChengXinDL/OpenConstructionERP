@@ -147,6 +147,51 @@ export function toNum(v: string | number | null | undefined): number {
  * @param locale Optional BCP-47 locale tag; defaults to the active UI locale.
  * @param options Optional fraction-digit overrides.
  */
+
+/**
+ * Compact money for tiles, badges and chart axes: "203,1 Mio. €" in German,
+ * "€203.1M" in English, "2.0億円" in Japanese.
+ *
+ * Four screens grew their own version of this and every one of them wrote
+ * `.toFixed(1)` and an English `M`, so a German cost report printed
+ * "203.1M EUR" - a decimal point where that reader expects a thousands
+ * separator, and a magnitude letter their language does not use. The
+ * engine's own compact notation knows both, per locale, and the currency
+ * arrives as a symbol rather than a bare code for the same reason
+ * {@link formatCurrency} prefers one.
+ *
+ * Amounts under a thousand are not compacted - there is nothing to shorten -
+ * and fall through to {@link formatCurrency} at whole-number precision,
+ * which is the look the callers had.
+ *
+ * @param v Amount, string or number, as the wire delivers it.
+ * @param currency ISO 4217 code. Blank or unknown renders a bare number.
+ * @param locale Override for the current UI locale.
+ */
+export function formatCompactCurrency(
+  v: string | number | null | undefined,
+  currency?: string | null,
+  locale?: string,
+): string {
+  const amount = toNum(v);
+  const loc = locale || getIntlLocale();
+  const code = (currency || '').trim().toUpperCase();
+  const isValid = CURRENCY_CODE_RE.test(code);
+  const whole = { minimumFractionDigits: 0, maximumFractionDigits: 0 };
+  if (Math.abs(amount) < 1000) return formatCurrency(amount, code, loc, whole);
+  try {
+    return new Intl.NumberFormat(loc, {
+      notation: 'compact',
+      compactDisplay: 'short',
+      maximumFractionDigits: 1,
+      ...(isValid ? { style: 'currency' as const, currency: code } : {}),
+    }).format(amount);
+  } catch {
+    // A malformed locale tag, the same case formatCurrency guards against.
+    return formatCurrency(amount, code, loc, whole);
+  }
+}
+
 export function formatCurrency(
   v: string | number | null | undefined,
   currency?: string | null,

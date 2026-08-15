@@ -13,7 +13,7 @@ import {
   Layers,
 } from 'lucide-react';
 import { Card } from '@/shared/ui';
-import { getIntlLocale } from '@/shared/lib/formatters';
+import { fmtCompact, getIntlLocale } from '@/shared/lib/formatters';
 
 export interface CompactProjectCardProps {
   id: string;
@@ -59,8 +59,10 @@ const currencyFmt = new Intl.NumberFormat(getIntlLocale(), {
 function formatCompactValue(raw: number | string | null | undefined): string {
   const value = typeof raw === 'number' ? raw : Number(raw ?? 0);
   if (!Number.isFinite(value)) return '0';
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (value >= 1_000) return `${(value / 1_000).toFixed(0)}K`;
+  // fmtCompact reads the locale per call, which the module-level formatter
+  // below cannot: it is built once, at import, from whatever language the
+  // app started in.
+  if (Math.abs(value) >= 1_000) return fmtCompact(value);
   return currencyFmt.format(value);
 }
 

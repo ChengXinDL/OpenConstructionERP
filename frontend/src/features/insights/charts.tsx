@@ -29,7 +29,8 @@ import {
   YAxis,
 } from 'recharts';
 import { useTranslation } from 'react-i18next';
-import { getIntlLocale } from '@/shared/lib/formatters';
+import { fmtCompact, getIntlLocale } from '@/shared/lib/formatters';
+import { formatCompactCurrency } from '@/shared/lib/money';
 import { hasEnoughPoints } from '@/shared/lib/chartDataFloor';
 import type { SeriesPoint } from './aggregate';
 import type { ChartKind, ValueFormat } from './types';
@@ -63,12 +64,10 @@ const MARGIN = { top: 8, right: 12, left: 0, bottom: 4 };
 export function formatCompact(v: number, format: ValueFormat = 'number', currency?: string): string {
   if (!Number.isFinite(v)) return '-';
   if (format === 'percent') return `${v.toFixed(Math.abs(v) < 10 ? 1 : 0)}%`;
+  if (format === 'currency' && currency) return formatCompactCurrency(v, currency);
   const abs = Math.abs(v);
-  let s: string;
-  if (abs >= 1_000_000) s = `${(v / 1_000_000).toFixed(1)}M`;
-  else if (abs >= 1_000) s = `${(v / 1_000).toFixed(abs >= 10_000 ? 0 : 1)}K`;
-  else s = `${Math.round(v * 100) / 100}`;
-  return format === 'currency' && currency ? `${s} ${currency}` : s;
+  if (abs < 1_000) return `${Math.round(v * 100) / 100}`;
+  return fmtCompact(v);
 }
 
 /** Full form for tooltips: locale grouping and a real currency symbol. */

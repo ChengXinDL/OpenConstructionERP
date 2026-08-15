@@ -49,7 +49,7 @@ import { ContractExposurePanel } from './ContractExposurePanel';
 import { costmodelGuide } from './costmodelGuide';
 import { BudgetLineThresholdEditor, parseThreshold } from './BudgetLineThresholdEditor';
 import { getIntlLocale } from '@/shared/lib/formatters';
-import { formatCurrency as fmtMoney } from '@/shared/lib/money';
+import { formatCompactCurrency, formatCurrency as fmtMoney } from '@/shared/lib/money';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 
@@ -83,14 +83,7 @@ function formatCurrency(amount: string | number, currency?: string): string {
 }
 
 function formatCompact(amount: number, currency: string): string {
-  const abs = Math.abs(amount);
-  if (abs >= 1_000_000) {
-    return `${(amount / 1_000_000).toFixed(1)}M ${currency}`;
-  }
-  if (abs >= 1_000) {
-    return `${(amount / 1_000).toFixed(0)}K ${currency}`;
-  }
-  return formatCurrency(amount, currency);
+  return formatCompactCurrency(amount, currency);
 }
 
 /**

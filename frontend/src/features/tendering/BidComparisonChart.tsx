@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getIntlLocale } from '@/shared/lib/formatters';
+import { formatCompactCurrency } from '@/shared/lib/money';
 
 /* ── Types ─────────────────────────────────────────────────────────────── */
 
@@ -32,17 +33,9 @@ const MIN_CHART_HEIGHT = 300;
 const TICK_COUNT = 5;
 
 function formatCompact(amount: number, currency: string): string {
-  // currency may be "" — appending it then renders a clean number with no
-  // symbol rather than a wrong one (task #217). Trim so we don't leave a
-  // trailing space.
-  const suffix = currency ? ` ${currency}` : '';
-  if (amount >= 1_000_000) {
-    return `${(amount / 1_000_000).toFixed(1)}M${suffix}`;
-  }
-  if (amount >= 1_000) {
-    return `${(amount / 1_000).toFixed(0)}K${suffix}`;
-  }
-  return `${amount.toFixed(0)}${suffix}`;
+  // currency may be "", which renders a clean number with no symbol rather
+  // than a wrong one (task #217).
+  return formatCompactCurrency(amount, currency);
 }
 
 function formatFull(amount: number, currency: string): string {
