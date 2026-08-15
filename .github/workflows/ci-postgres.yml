@@ -752,6 +752,7 @@ jobs:
       # exists to prevent in the first place.
       FRONTEND_TEST_FILES: >-
         src/app/__tests__/clashTriageVocabulary.test.ts
+        src/app/layout/navCatalog.test.ts
         src/features/assemblies/__tests__/preview-totals-no-blended-scalar.test.tsx
         src/features/bim/BIMConverterVerifyGate.test.tsx
         src/features/cases/casesProjectContext.test.tsx

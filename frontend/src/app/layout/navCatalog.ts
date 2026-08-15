@@ -851,3 +851,56 @@ export const navGroups: NavGroup[] = [
     ],
   },
 ];
+
+
+/**
+ * Route to the name the product gives that screen, derived from the catalogue
+ * above so the top bar, the sidebar row and the case picker cannot disagree.
+ *
+ * The top bar used to take its title from a literal English string written at
+ * the route: `<P title="Progress">`. On a German screen that renders the word
+ * "Progress" over a page that is otherwise entirely German, on three routes
+ * out of four, and no locale check can see it because there is no key to be
+ * missing. Every one of those screens already has a translated name - the one
+ * on its own sidebar row - so the title asks for that instead.
+ *
+ * Matching mirrors `getRouteIcon` deliberately: longest prefix wins, nested
+ * project routes match on their trailing feature segment, and root only
+ * matches itself. Title and icon therefore always come off the same entry.
+ */
+const ROUTE_LABEL_MAP: Record<string, { labelKey: string; defaultLabel?: string }> = (() => {
+  const map: Record<string, { labelKey: string; defaultLabel?: string }> = {};
+  for (const group of navGroups) {
+    for (const item of group.items) {
+      // A row may point at a tab of a screen (`/takeoff?tab=measurements`).
+      // The title names the screen, so the query is dropped and the first row
+      // to claim a path keeps it - the same screen cannot have two names.
+      const bare = item.to.split('?')[0]!.split('#')[0]!;
+      if (!(bare in map)) {
+        map[bare] = { labelKey: item.labelKey, defaultLabel: item.defaultLabel };
+      }
+    }
+  }
+  return map;
+})();
+
+const SORTED_LABEL_PREFIXES = Object.keys(ROUTE_LABEL_MAP).sort((a, b) => b.length - a.length);
+
+/** The catalogue entry naming `pathname`, or null when no screen claims it. */
+export function getRouteLabel(pathname: string): { labelKey: string; defaultLabel?: string } | null {
+  if (!pathname) return null;
+  const cleanPath = pathname.split('?')[0]!.split('#')[0]!;
+  const projectNested = cleanPath.match(/^\/projects\/[^/]+\/(.+)$/);
+  const candidate = projectNested ? `/${projectNested[1]}` : cleanPath;
+
+  for (const prefix of SORTED_LABEL_PREFIXES) {
+    if (prefix === '/') {
+      if (candidate === '/') return ROUTE_LABEL_MAP['/']!;
+      continue;
+    }
+    if (candidate === prefix || candidate.startsWith(prefix + '/')) {
+      return ROUTE_LABEL_MAP[prefix]!;
+    }
+  }
+  return null;
+}

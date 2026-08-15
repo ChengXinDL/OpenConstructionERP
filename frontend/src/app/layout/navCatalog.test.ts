@@ -13,7 +13,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { navGroups } from './navCatalog';
+import { getRouteLabel, navGroups } from './navCatalog';
 import { getRouteIcon } from './routeIcons';
 import { MODULE_REGISTRY } from '@/modules/_registry';
 
@@ -170,5 +170,61 @@ describe('the screen catalogue and the routes that mount those screens', () => {
       }
     }
     expect(silent).toEqual([]);
+  });
+});
+
+/**
+ * The top bar took its title from a literal English string written at the
+ * route (`<P title="Progress">`), so three of the four screens in a German
+ * cost-control walkthrough had an English word over a German page. No locale
+ * check can see that: there is no key to be missing. The title now asks the
+ * catalogue for the name the sidebar already shows.
+ */
+describe('the page title comes from the screen catalogue', () => {
+  it('names every screen the menu offers', () => {
+    // Rows that point at a tab of a screen share that screen's path, and a
+    // screen has one name, so the expected answer is the first row to claim
+    // the bare path rather than this row's own key.
+    const first = new Map<string, string>();
+    for (const group of navGroups) {
+      for (const item of group.items) {
+        const bare = item.to.split('?')[0]!.split('#')[0]!;
+        if (!first.has(bare)) first.set(bare, item.labelKey);
+      }
+    }
+    const unnamed: string[] = [];
+    for (const [path, labelKey] of first) {
+      const entry = getRouteLabel(path);
+      if (entry?.labelKey !== labelKey) {
+        unnamed.push(`${path}: menu says ${labelKey}, lookup says ${entry?.labelKey ?? 'nothing'}`);
+      }
+    }
+    expect(first.size).toBeGreaterThan(100);
+    expect(unnamed).toEqual([]);
+  });
+
+  it('answers for the routes that were showing English', () => {
+    // The three the audit measured, plus a detail route, which resolves to
+    // its parent screen the same way the icon does.
+    expect(getRouteLabel('/progress')?.labelKey).toBe('nav.progress');
+    expect(getRouteLabel('/full-evm')?.labelKey).toBe('nav.full_evm');
+    expect(getRouteLabel('/cvr')?.labelKey).toBeTruthy();
+    expect(getRouteLabel('/rfi/123')?.labelKey).toBe(getRouteLabel('/rfi')?.labelKey);
+  });
+
+  it('says nothing for a path no screen claims, so the written title stands', () => {
+    expect(getRouteLabel('/not-a-screen-at-all')).toBeNull();
+    expect(getRouteLabel('')).toBeNull();
+  });
+
+  it('resolves those keys in German rather than falling back', () => {
+    const source = readFileSync(
+      resolve(process.cwd(), existsSync('src/app/locales/de.ts') ? 'src/app/locales/de.ts' : 'frontend/src/app/locales/de.ts'),
+      'utf8',
+    );
+    for (const path of ['/progress', '/full-evm']) {
+      const key = getRouteLabel(path)!.labelKey;
+      expect(source, `de has no ${key}`).toContain(`"${key}"`);
+    }
   });
 });
