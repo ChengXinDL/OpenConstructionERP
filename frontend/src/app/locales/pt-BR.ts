@@ -7480,6 +7480,7 @@ const resource = {
     "costmodel.evm_vac_label": "VNT",
     "costmodel.forecast": "Previsão",
     "costmodel.forecast_eac": "Previsão (ENT)",
+    "costmodel.forecast_lines": "Previsão (Linhas de orçamento)",
     "costmodel.generate_budget": "Gerar Orçamento a partir do BOQ",
     "costmodel.generate_cash_flow": "Gerar Fluxo de Caixa",
     "costmodel.no_budget": "Sem dados de orçamento ainda",

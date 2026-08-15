@@ -8476,6 +8476,7 @@ const resource = {
     "costmodel.evm_vac_label": "VAC",
     "costmodel.forecast": "Ennuste",
     "costmodel.forecast_eac": "Ennuste (EAC)",
+    "costmodel.forecast_lines": "Ennuste (Budjettirivit)",
     "costmodel.generate_budget": "Luo budjetti määräluettelosta",
     "costmodel.generate_cash_flow": "Luo kassavirtaennuste",
     "costmodel.no_budget": "Ei budjettitietoja vielä",

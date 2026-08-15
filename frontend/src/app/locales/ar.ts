@@ -9910,6 +9910,7 @@ const resource = {
     "costmodel.evm_vac_label": "VAC",
     "costmodel.forecast": "التوقعات",
     "costmodel.forecast_eac": "التوقعات (EAC)",
+    "costmodel.forecast_lines": "التوقعات (بنود الموازنة)",
     "costmodel.generate_budget": "توليد الميزانية من جدول الكميات",
     "costmodel.generate_cash_flow": "توليد التدفق النقدي",
     "costmodel.no_budget": "لا توجد بيانات ميزانية بعد",

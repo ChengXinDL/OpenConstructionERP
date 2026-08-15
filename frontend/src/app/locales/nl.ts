@@ -7444,6 +7444,7 @@ const resource = {
     "costmodel.evm_vac_label": "VAC",
     "costmodel.forecast": "Prognose",
     "costmodel.forecast_eac": "Prognose (EAC)",
+    "costmodel.forecast_lines": "Prognose (Budgetregels)",
     "costmodel.generate_budget": "Budget genereren vanuit raming",
     "costmodel.generate_cash_flow": "Kasstroom genereren",
     "costmodel.no_budget": "Nog geen budgetgegevens",

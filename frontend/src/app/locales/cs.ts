@@ -8528,6 +8528,7 @@ const resource = {
     "costmodel.evm_vac_label": "VAC",
     "costmodel.forecast": "Prognóza",
     "costmodel.forecast_eac": "Prognóza (EAC)",
+    "costmodel.forecast_lines": "Prognóza (Rozpočtové položky)",
     "costmodel.generate_budget": "Vygenerovat rozpočet z BOQ",
     "costmodel.generate_cash_flow": "Vygenerovat cash flow",
     "costmodel.no_budget": "Zatím žádná rozpočtová data",

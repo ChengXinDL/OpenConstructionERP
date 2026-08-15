@@ -9262,6 +9262,7 @@ const resource = {
     "costmodel.evm_vac_label": "VAC",
     "costmodel.forecast": "תחזית",
     "costmodel.forecast_eac": "תחזית (EAC)",
+    "costmodel.forecast_lines": "תחזית (שורות תקציב)",
     "costmodel.generate_budget": "יצירת תקציב מכתב הכמויות",
     "costmodel.generate_cash_flow": "יצירת תזרים מזומנים",
     "costmodel.no_budget": "אין עדיין נתוני תקציב",

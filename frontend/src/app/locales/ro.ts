@@ -8578,6 +8578,7 @@ const resource = {
     "costmodel.evm_vac_label": "VAC",
     "costmodel.forecast": "Prognoză",
     "costmodel.forecast_eac": "Prognoză (EAC)",
+    "costmodel.forecast_lines": "Prognoză (Linii de buget)",
     "costmodel.generate_budget": "Generați Buget din Antemăsurătoare",
     "costmodel.generate_cash_flow": "Generați Flux de Numerar",
     "costmodel.no_budget": "Nicio dată de buget",

@@ -8542,6 +8542,7 @@ const resource = {
     "costmodel.evm_vac_label": "VAC",
     "costmodel.forecast": "Prognoza",
     "costmodel.forecast_eac": "Prognoza (EAC)",
+    "costmodel.forecast_lines": "Prognoza (Stavke proračuna)",
     "costmodel.generate_budget": "Generiraj proračun iz Troškovnika",
     "costmodel.generate_cash_flow": "Generiraj novčani tok",
     "costmodel.no_budget": "Još nema podataka o proračunu",

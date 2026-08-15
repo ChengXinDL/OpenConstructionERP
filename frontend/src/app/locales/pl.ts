@@ -8532,6 +8532,7 @@ const resource = {
     "costmodel.evm_unknown": "Nieznany",
     "costmodel.forecast": "Prognoza",
     "costmodel.forecast_eac": "Prognoza (EAC)",
+    "costmodel.forecast_lines": "Prognoza (Pozycje budżetu)",
     "costmodel.generate_budget": "Wygeneruj budżet z kosztorysu",
     "costmodel.generate_cash_flow": "Wygeneruj przepływy pieniężne",
     "costmodel.no_budget": "Brak danych budżetowych",

@@ -9306,6 +9306,7 @@ const resource = {
     "costmodel.evm_vac_label": "VAC",
     "costmodel.forecast": "Prognos",
     "costmodel.forecast_eac": "Prognos (EAC)",
+    "costmodel.forecast_lines": "Prognos (Budgetrader)",
     "costmodel.generate_budget": "Generera budget från kalkyl",
     "costmodel.generate_cash_flow": "Generera kassaflöde",
     "costmodel.no_budget": "Inga budgetdata ännu",

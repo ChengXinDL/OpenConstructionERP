@@ -8487,6 +8487,7 @@ const resource = {
     "costmodel.evm_vac_label": "VAC",
     "costmodel.forecast": "予測",
     "costmodel.forecast_eac": "予測 (EAC)",
+    "costmodel.forecast_lines": "予測 (予算明細)",
     "costmodel.generate_budget": "数量明細書から予算を生成",
     "costmodel.generate_cash_flow": "キャッシュフローを生成",
     "costmodel.no_budget": "予算データがありません",

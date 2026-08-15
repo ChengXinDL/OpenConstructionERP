@@ -9258,6 +9258,7 @@ const resource = {
     "costmodel.evm_vac_label": "VAC",
     "costmodel.forecast": "پیش گوئی",
     "costmodel.forecast_eac": "پیش گوئی (EAC)",
+    "costmodel.forecast_lines": "پیش گوئی (بجٹ لائنز)",
     "costmodel.generate_budget": "مقدار کا بل سے بجٹ بنائیں",
     "costmodel.generate_cash_flow": "کیش فلو بنائیں",
     "costmodel.no_budget": "ابھی تک کوئی بجٹ ڈیٹا نہیں",

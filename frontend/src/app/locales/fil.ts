@@ -9257,6 +9257,7 @@ const resource = {
     "costmodel.evm_vac_label": "VAC",
     "costmodel.forecast": "Pagtataya",
     "costmodel.forecast_eac": "Pagtataya (EAC)",
+    "costmodel.forecast_lines": "Pagtataya (Mga budget line)",
     "costmodel.generate_budget": "Bumuo ng Badyet mula sa BOQ",
     "costmodel.generate_cash_flow": "Bumuo ng Cash Flow",
     "costmodel.no_budget": "Wala pang datos ng badyet",

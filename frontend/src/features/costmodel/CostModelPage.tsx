@@ -2108,6 +2108,13 @@ function FiveDDashboard({ project }: { project: Project }) {
     retry: false,
   });
 
+  // The Performance card names the same two indices the Earned Value panel
+  // does, so it has to read the same computation. Falls back to the latest
+  // stored snapshot, which is all the dashboard aggregate carries, when the
+  // live figures are absent.
+  const perfSpi = evmData?.spi ?? dashboard?.spi ?? 0;
+  const perfCpi = evmData?.cpi ?? dashboard?.cpi ?? 0;
+
   // Live KPI freshness: poll a cheap watermark; when an upstream change (cost,
   // schedule progress, finance, contracts) advances it, refetch the live EVM /
   // dashboard figures so the numbers stay current without a manual reload.
@@ -2382,7 +2389,7 @@ function FiveDDashboard({ project }: { project: Project }) {
             accentColor="amber"
           />
           <KPICard
-            label={t('costmodel.forecast_eac', 'Forecast (EAC)')}
+            label={t('costmodel.forecast_lines', { defaultValue: 'Forecast (budget lines)' })}
             amount={dashboard.total_forecast}
             currency={currency}
             variance={dashboard.total_budget - dashboard.total_forecast}
@@ -2441,6 +2448,14 @@ function FiveDDashboard({ project }: { project: Project }) {
       <MonteCarloPanel projectId={project.id} currency={currency} />
 
       {/* Performance Indicators + S-Curve row */}
+      {/* One page, one pair of indices. This card read the latest stored EVM
+          snapshot while the Earned Value panel above it recomputed live, so
+          the same two names carried two different numbers in the same scroll:
+          SPI 0.90 / CPI 0.96 here against SPI 0.75 / CPI 0.19 there, one
+          saying the job is nearly on plan and the other that it pays five
+          euro for one of work. The live figures win where they exist; the
+          snapshot stays as the fallback for a project whose EVM cannot be
+          recomputed. */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* SPI / CPI */}
         <div>
@@ -2452,11 +2467,11 @@ function FiveDDashboard({ project }: { project: Project }) {
                   <Skeleton height={56} className="w-full" rounded="lg" />
                   <Skeleton height={56} className="w-full" rounded="lg" />
                 </div>
-              ) : dashboard && dashboard.spi > 0 && dashboard.cpi > 0 ? (
+              ) : dashboard && perfSpi > 0 && perfCpi > 0 ? (
                 <div className="space-y-5">
                   <PerformanceIndicator
                     label="SPI"
-                    value={dashboard.spi}
+                    value={perfSpi}
                     description={t(
                       'costmodel.spi_desc',
                       'Schedule Performance Index',
@@ -2465,7 +2480,7 @@ function FiveDDashboard({ project }: { project: Project }) {
                   <div className="border-t border-border-light" />
                   <PerformanceIndicator
                     label="CPI"
-                    value={dashboard.cpi}
+                    value={perfCpi}
                     description={t('costmodel.cpi_desc', 'Cost Performance Index')}
                   />
                   {dashboard.variance !== 0 && (

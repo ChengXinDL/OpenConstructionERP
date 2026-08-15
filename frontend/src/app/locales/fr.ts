@@ -7429,6 +7429,7 @@ const resource = {
     "costmodel.evm_vac_label": "VAC",
     "costmodel.forecast": "Prévision",
     "costmodel.forecast_eac": "Prévision (EAC)",
+    "costmodel.forecast_lines": "Prévision (Lignes de budget)",
     "costmodel.generate_budget": "Générer le budget depuis le DQE",
     "costmodel.generate_cash_flow": "Générer le flux de trésorerie",
     "costmodel.no_budget": "Pas encore de données budgétaires",

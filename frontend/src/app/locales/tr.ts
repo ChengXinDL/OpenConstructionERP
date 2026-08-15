@@ -8513,6 +8513,7 @@ const resource = {
     "costmodel.evm_vac_label": "VAC",
     "costmodel.forecast": "Tahmin",
     "costmodel.forecast_eac": "Tahmin (EAC)",
+    "costmodel.forecast_lines": "Tahmin (Bütçe kalemleri)",
     "costmodel.generate_budget": "Metrajdan Bütçe Oluştur",
     "costmodel.generate_cash_flow": "Nakit Akışı Oluştur",
     "costmodel.no_budget": "Henüz bütçe verisi yok",

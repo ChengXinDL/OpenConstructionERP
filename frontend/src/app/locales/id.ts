@@ -8509,6 +8509,7 @@ const resource = {
     "costmodel.evm_vac_label": "VAC",
     "costmodel.forecast": "Prakiraan",
     "costmodel.forecast_eac": "Perkiraan (EAC)",
+    "costmodel.forecast_lines": "Perkiraan (Baris anggaran)",
     "costmodel.generate_budget": "Buat Anggaran dari BOQ",
     "costmodel.generate_cash_flow": "Buat Arus Kas",
     "costmodel.no_budget": "Belum ada data anggaran",

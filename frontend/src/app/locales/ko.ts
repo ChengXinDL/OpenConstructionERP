@@ -8506,6 +8506,7 @@ const resource = {
     "costmodel.evm_vac_label": "VAC",
     "costmodel.forecast": "예측",
     "costmodel.forecast_eac": "예측 (EAC)",
+    "costmodel.forecast_lines": "예측 (예산 항목)",
     "costmodel.generate_budget": "내역서에서 예산 생성",
     "costmodel.generate_cash_flow": "현금흐름 생성",
     "costmodel.no_budget": "아직 예산 데이터가 없습니다",

@@ -9304,6 +9304,7 @@ const resource = {
     "costmodel.evm_vac_label": "VAC",
     "costmodel.forecast": "Prognose",
     "costmodel.forecast_eac": "Prognose (EAC)",
+    "costmodel.forecast_lines": "Prognose (Budgetlinjer)",
     "costmodel.generate_budget": "Generér budget fra tilbudsliste",
     "costmodel.generate_cash_flow": "Generér likviditetsoversigt",
     "costmodel.no_budget": "Ingen budgetdata endnu",

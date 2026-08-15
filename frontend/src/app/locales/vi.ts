@@ -8509,6 +8509,7 @@ const resource = {
     "costmodel.evm_vac_label": "VAC",
     "costmodel.forecast": "Dự báo",
     "costmodel.forecast_eac": "Dự báo (EAC)",
+    "costmodel.forecast_lines": "Dự báo (Dòng ngân sách)",
     "costmodel.generate_budget": "Tạo ngân sách từ BOQ",
     "costmodel.generate_cash_flow": "Tạo dòng tiền",
     "costmodel.no_budget": "Chưa có dữ liệu ngân sách",

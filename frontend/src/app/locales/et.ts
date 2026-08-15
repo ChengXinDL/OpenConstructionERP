@@ -9812,6 +9812,7 @@ const resource = {
     "costmodel.evm_vac_label": "VAC",
     "costmodel.forecast": "Prognoos",
     "costmodel.forecast_eac": "Prognoos (EAC)",
+    "costmodel.forecast_lines": "Prognoos (Eelarveread)",
     "costmodel.generate_budget": "Loo eelarve mahutabelist",
     "costmodel.generate_cash_flow": "Loo rahavoog",
     "costmodel.no_budget": "Eelarveandmeid pole veel",

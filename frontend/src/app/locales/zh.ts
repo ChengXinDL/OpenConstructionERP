@@ -8524,6 +8524,7 @@ const resource = {
     "costmodel.evm_vac_label": "VAC",
     "costmodel.forecast": "预测",
     "costmodel.forecast_eac": "预测 (EAC)",
+    "costmodel.forecast_lines": "预测 (预算明细)",
     "costmodel.generate_budget": "从清单生成预算",
     "costmodel.generate_cash_flow": "生成现金流",
     "costmodel.no_budget": "暂无预算数据",
