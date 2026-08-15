@@ -151,12 +151,21 @@ const KPICard = memo(function KPICard({
         </div>
         {variance !== undefined && variance !== 0 && (
           <div className="mt-2.5 flex items-center gap-1.5">
+            {/* The badge says "vs budget", so the number has to be the deviation
+                from it - spending above budget is a plus. What the callers pass
+                is the opposite quantity, budget minus spend, which is the
+                headroom left: it is the right input for the colour (headroom is
+                green) and the arrow (headroom points down), and the wrong one to
+                print. Printed raw it labelled a project 11.1M under budget as
+                "+11.1M vs. Budget", and the reader who looks at the number
+                rather than the arrow got the opposite truth. All three now come
+                off one quantity. */}
             <span
               className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-2xs font-semibold ${varianceBg(variance)} ${varianceColor(variance)}`}
             >
               {variance < 0 ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-              {variance > 0 ? '+' : ''}
-              {formatCompact(variance, currency)}
+              {-variance > 0 ? '+' : ''}
+              {formatCompact(-variance, currency)}
             </span>
             <span className="text-2xs text-content-tertiary">{t('costmodel.vs_budget', { defaultValue: 'vs budget' })}</span>
           </div>
