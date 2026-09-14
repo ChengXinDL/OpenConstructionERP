@@ -796,6 +796,133 @@ PAYMENT_REGIMES: tuple[dict[str, Any], ...] = (
             "precisely without widening the vocabulary."
         ),
     },
+    # The four Canadian regimes below are split by jurisdiction because each
+    # province and the federal government enacted its own prompt payment or
+    # lien statute with its own clock. Ontario's Construction Act was the
+    # first to bring a statutory payment period; the federal act followed in
+    # 2019, Alberta in 2020, and British Columbia's Builders Lien Act has its
+    # own certificate-based period. A regime in this table is one clock, which
+    # is why each jurisdiction is a separate entry rather than a single
+    # "Canada" row with footnotes a calculation cannot read.
+    {
+        "code": "ca_fed_prompt_payment",
+        "jurisdiction": "Canada (federal)",
+        "country_code": "CA",
+        "statute": "Federal Prompt Payment for Construction Work Act, S.C. 2019, c. 29, s. 387",
+        "statute_reference": "sections 4, 6 and 10",
+        "due_date_basis": "application_date",
+        "due_date_days": 0,
+        "due_date_day_basis": "calendar",
+        "payment_notice_basis": "application_date",
+        "payment_notice_days": None,
+        "payment_notice_day_basis": "calendar",
+        "final_date_basis": "application_date",
+        "final_date_days": 28,
+        "final_date_day_basis": "calendar",
+        "pay_less_days": None,
+        "pay_less_day_basis": "calendar",
+        "no_notice_effect": "none",
+        "interest_basis": "reference_rate_plus_margin",
+        "interest_reference_rate": "Bank of Canada overnight rate",
+        "interest_margin_percent": Decimal("1.500"),
+        "interest_fixed_percent": None,
+        "interest_statute": "Federal Prompt Payment for Construction Work Act, section 10",
+        "notes": (
+            "The clock for a payment owed by the Crown on federal construction work. The Act requires "
+            "payment of a proper invoice within 28 calendar days of receipt, so enter the date the Crown "
+            "received the proper invoice as the application date; following the convention used for the "
+            "other single-date regimes, the application date is taken as the due date and the 28-day limit "
+            "as the final date for payment. A proper invoice is defined in section 4 and must meet the "
+            "requirements the contract specifies, including being in a form acceptable to the contracting "
+            "authority. There is no statutory payment notice or pay-less notice in the Act, so silence has "
+            "no preclusive effect. Interest on late payment runs at the Bank of Canada overnight rate plus "
+            "one and a half percent, which is the reference_rate_plus_margin shape. The Act also creates "
+            "a downstream clock: a contractor paid by the Crown must pay its subcontractor within 28 days "
+            "of the subcontractor's proper invoice, and the same pass-through applies down the chain; this "
+            "regime does not compute those downstream clocks. The Act applies to contracts entered into on "
+            "or after the day the prompt payment provisions came into force, and only to federal real "
+            "property and federal immovables as defined in the Federal Real Property and Federal "
+            "Immovables Act."
+        ),
+    },
+    {
+        "code": "ca_ab_prompt_payment",
+        "jurisdiction": "Alberta, Canada",
+        "country_code": "CA",
+        "statute": "Prompt Payment and Construction Lien Improvement Act, S.A. 2020, c. P-26.4",
+        "statute_reference": "sections 32.1, 32.2 and 32.3 of the Builders' Lien Act as amended",
+        "due_date_basis": "application_date",
+        "due_date_days": 0,
+        "due_date_day_basis": "calendar",
+        "payment_notice_basis": "application_date",
+        "payment_notice_days": 14,
+        "payment_notice_day_basis": "calendar",
+        "final_date_basis": "application_date",
+        "final_date_days": 28,
+        "final_date_day_basis": "calendar",
+        "pay_less_days": None,
+        "pay_less_day_basis": "calendar",
+        "no_notice_effect": "applied_sum_becomes_notified_sum",
+        "interest_basis": "contract",
+        "interest_reference_rate": "",
+        "interest_margin_percent": None,
+        "interest_fixed_percent": None,
+        "interest_statute": "",
+        "notes": (
+            "The clock for a payment on construction work in Alberta, introduced by the Prompt Payment "
+            "and Construction Lien Improvement Act 2020, which amended the Builders' Lien Act to add a "
+            "prompt payment Part. The owner must pay a proper invoice within 28 calendar days of receipt, "
+            "so enter the date the owner received the proper invoice as the application date. A notice of "
+            "non-payment, stating the amount disputed and the reasons, must be served within 14 days; "
+            "missing that window and the invoiced amount must be paid in full, which is why the no-notice "
+            "effect is applied_sum_becomes_notified_sum, the same shape as Ontario's Construction Act. The "
+            "contractor must then pay each subcontractor within 7 days of receiving payment from the owner, "
+            "a downstream clock this regime does not compute. The Act does not prescribe a statutory "
+            "interest rate for late payment on its own terms, so the interest basis is contract; where the "
+            "contract is silent the common-law rules on pre-judgment interest apply. These provisions apply "
+            "to contracts entered into on or after the date the prompt payment provisions came into force."
+        ),
+    },
+    {
+        "code": "ca_bc_builders_lien",
+        "jurisdiction": "British Columbia, Canada",
+        "country_code": "CA",
+        "statute": "Builders Lien Act, S.B.C. 1997, c. 45",
+        "statute_reference": "sections 5 and 9",
+        "due_date_basis": "application_date",
+        "due_date_days": 0,
+        "due_date_day_basis": "calendar",
+        "payment_notice_basis": "application_date",
+        "payment_notice_days": None,
+        "payment_notice_day_basis": "calendar",
+        "final_date_basis": "application_date",
+        "final_date_days": 55,
+        "final_date_day_basis": "calendar",
+        "pay_less_days": None,
+        "pay_less_day_basis": "calendar",
+        "no_notice_effect": "none",
+        "interest_basis": "contract",
+        "interest_reference_rate": "",
+        "interest_margin_percent": None,
+        "interest_fixed_percent": None,
+        "interest_statute": "",
+        "notes": (
+            "The clock derived from the lien period in British Columbia's Builders Lien Act. Unlike "
+            "Ontario and Alberta, British Columbia does not have a standalone prompt payment statute with "
+            "a fixed invoice-to-payment period; the relevant statutory deadline is the 55-day window from "
+            "the issuance of a certificate of completion within which a subcontractor or supplier must "
+            "file a lien, and which also serves as the outer boundary for payment. Enter the date the "
+            "certificate of completion was issued as the application date; the 55 calendar days is written "
+            "here as the final date for payment, following the convention used for the other single-date "
+            "regimes. There is no statutory payment notice or pay-less notice in the Act, so silence has "
+            "no preclusive effect. The Act does not prescribe a statutory interest rate for late payment, "
+            "so the interest basis is contract; where the contract is silent the Court Order Interest Act "
+            "pre-judgment rate applies. British Columbia has had discussions about introducing prompt "
+            "payment legislation closer to the Ontario model, but as of the date this entry was written "
+            "no such statute is in force, and this lien-period-based clock is the nearest statutory "
+            "deadline the province provides."
+        ),
+    },
     {
         "code": "in_msmed_2006",
         "jurisdiction": "India",
