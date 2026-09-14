@@ -705,6 +705,21 @@ const InsidePage = lazy(() =>
   import('@/features/inside').then((m) => ({ default: m.InsidePage }))
 );
 
+// Module UIs that sit behind their backend counterpart (no data without
+// the backend module enabled).
+const JobsPage = lazy(() =>
+  import('@/features/jobs').then((m) => ({ default: m.JobsPage }))
+);
+const WorkflowsPage = lazy(() =>
+  import('@/features/enterprise-workflows').then((m) => ({ default: m.WorkflowsPage }))
+);
+const RebarSchedulePage = lazy(() =>
+  import('@/features/rebar-schedule').then((m) => ({ default: m.RebarSchedulePage }))
+);
+const RFQBiddingPage = lazy(() =>
+  import('@/features/rfq-bidding').then((m) => ({ default: m.RFQBiddingPage }))
+);
+
 // CPMView is keyed by the schedule it analyses, so the route reads :id and
 // forwards it through. Kept as a tiny inline component to avoid bloating
 // the schedule feature with a route-wrapper that only exists for App.tsx.
@@ -1394,6 +1409,13 @@ export default function App() {
         <Route path="/setup/databases" element={<P title="Databases & Resources"><DatabaseSetupPage /></P>} />
         <Route path="/settings" element={<P title="Settings"><SettingsPage /></P>} />
         <Route path="/integrations" element={<P title="Integrations"><IntegrationsPage /></P>} />
+        <Route path="/jobs" element={<P title="Background Jobs"><JobsPage /></P>} />
+        <Route path="/workflows" element={<P title="Approval Workflows"><WorkflowsPage /></P>} />
+        <Route path="/projects/:projectId/workflows" element={<P title="Approval Workflows"><WorkflowsPage /></P>} />
+        <Route path="/rebar-schedule" element={<P title="Rebar Schedule"><RebarSchedulePage /></P>} />
+        <Route path="/projects/:projectId/rebar-schedule" element={<P title="Rebar Schedule"><RebarSchedulePage /></P>} />
+        <Route path="/rfq-bidding" element={<P title="RFQ Bidding"><RFQBiddingPage /></P>} />
+        <Route path="/projects/:projectId/rfq-bidding" element={<P title="RFQ Bidding"><RFQBiddingPage /></P>} />
         <Route path="/about" element={<P title="About"><AboutPage /></P>} />
         <Route path="/how-it-works" element={<P title="How it works"><HowItWorksPage /></P>} />
         {/* Cases (playbooks) - list at /cases, the stepper at /cases/:playbookId

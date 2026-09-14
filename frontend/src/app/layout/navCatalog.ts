@@ -248,6 +248,7 @@ export const navGroups: NavGroup[] = [
       { labelKey: 'nav.dwg_takeoff', to: '/dwg-takeoff', icon: PencilRuler },
       { labelKey: 'nav.bim_viewer', to: '/bim', icon: Box },
       { labelKey: 'nav.quantities', to: '/quantities', icon: Ruler },
+      { labelKey: 'nav.rebar_schedule', defaultLabel: 'Rebar Schedule', to: '/rebar-schedule', icon: Construction, advancedOnly: true },
     ],
   },
   // ── 3. COST DATA ───────────────────────────────────────────────────
@@ -488,6 +489,15 @@ export const navGroups: NavGroup[] = [
           'Formal bidding with bidder invitations, a questions board and bid leveling.',
       },
       {
+        labelKey: 'nav.rfq_bidding',
+        defaultLabel: 'RFQ Bidding',
+        to: '/rfq-bidding',
+        icon: Scale,
+        advancedOnly: true,
+        helpKey: 'sidebar.help.rfq_bidding',
+        defaultHelp: 'Request for quotation with bid comparison, evaluation and award.',
+      },
+      {
         labelKey: 'tendering.title',
         to: '/tendering',
         icon: FileText,
@@ -576,6 +586,7 @@ export const navGroups: NavGroup[] = [
       { labelKey: 'nav.inbound_email', to: '/inbound-email', icon: Inbox, advancedOnly: true },
       { labelKey: 'nav.find_records', to: '/find', icon: FileSearch, advancedOnly: true },
       { labelKey: 'project_route.title', to: '/project-route', icon: SlidersHorizontal, advancedOnly: true },
+      { labelKey: 'nav.workflows', defaultLabel: 'Approval Workflows', to: '/workflows', icon: ListChecks, advancedOnly: true },
     ],
   },
   // ── 11. FIELD OPERATIONS ───────────────────────────────────────────
@@ -910,6 +921,7 @@ export const navGroups: NavGroup[] = [
       // no role gate here: the build and remove controls on the page are what
       // an administrator sees and what the server enforces.
       { labelKey: 'nav.module_builder', to: '/module-builder', icon: Wand2, advancedOnly: true },
+      { labelKey: 'nav.background_jobs', defaultLabel: 'Background Jobs', to: '/jobs', icon: Wrench, advancedOnly: true, adminOnly: true },
     ],
   },
 ];
