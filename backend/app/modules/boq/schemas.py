@@ -1746,13 +1746,20 @@ class EstimateClassificationMetrics(BaseModel):
 
 
 class EstimateClassificationResponse(BaseModel):
-    """AACE 18R-97 estimate classification result for a BOQ.
+    """Estimate classification result for a BOQ.
 
-    See AACE International Recommended Practice 18R-97 for the full standard.
-    Classes range from 5 (least defined) to 1 (most defined).
+    Supports multiple classification systems resolved from the project's
+    jurisdiction. AACE 18R-97 (integer classes 1-5) is the default, but
+    jurisdictions may use their own taxonomy, e.g. Canadian CCA classes
+    (letter classes D/C/B/A).
     """
 
-    estimate_class: int = Field(..., ge=1, le=5, description="AACE class 1-5")
+    estimate_class: int | str = Field(
+        ..., description="Class identifier: int for AACE (1-5), str for others (e.g. 'D')"
+    )
+    classification_system: str = Field(
+        default="aace", description="Which system produced this class (aace, ca_cca, ...)"
+    )
     class_label: str = Field(default="", description="Human-readable label (e.g. 'Screening')")
     accuracy_low: str = Field(default="", description="Lower accuracy bound (e.g. '-50%')")
     accuracy_high: str = Field(default="", description="Upper accuracy bound (e.g. '+100%')")

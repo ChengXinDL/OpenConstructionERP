@@ -1178,6 +1178,67 @@ _AACE_CLASSES: dict[int, dict[str, str | int]] = {
     },
 }
 
+# ── Canadian CCA estimate classification ─────────────────────────────────────
+# Based on the Canadian Construction Association / Treasury Board practice.
+# Classes use letters (D least defined through A most defined) rather than
+# AACE's reverse-numbered 5-to-1 scale.
+
+_CA_CCA_CLASSES: dict[str, dict[str, str | int]] = {
+    "D": {
+        "label": "Order of Magnitude",
+        "accuracy_low": "-30%",
+        "accuracy_high": "+50%",
+        "definition_low": 0,
+        "definition_high": 5,
+        "methodology": (
+            "High-level estimate based on gross floor area or capacity, used for initial project screening. "
+            "Comparable to AACE Class 5/4."
+        ),
+    },
+    "C": {
+        "label": "Substantive Estimate",
+        "accuracy_low": "-15%",
+        "accuracy_high": "+30%",
+        "definition_low": 5,
+        "definition_high": 30,
+        "methodology": (
+            "Based on schematic design with elemental unit rates and outline specification. Comparable to AACE Class 3."
+        ),
+    },
+    "B": {
+        "label": "Detailed Estimate",
+        "accuracy_low": "-10%",
+        "accuracy_high": "+15%",
+        "definition_low": 30,
+        "definition_high": 70,
+        "methodology": (
+            "Based on developed design with detailed quantity takeoff and trade-level pricing. "
+            "Comparable to AACE Class 2."
+        ),
+    },
+    "A": {
+        "label": "Pre-tender Estimate",
+        "accuracy_low": "-5%",
+        "accuracy_high": "+10%",
+        "definition_low": 65,
+        "definition_high": 100,
+        "methodology": (
+            "Based on complete or near-complete tender documentation with firm subcontractor and supplier pricing. "
+            "Comparable to AACE Class 1."
+        ),
+    },
+}
+
+# ── Classification system registry ───────────────────────────────────────────
+# Maps a system key to (classes_dict, determiner_function). Country packs
+# register their own system here so the service resolves the right table
+# at runtime from the project's country_code.
+
+_ClassesTable = dict[int, dict[str, str | int]] | dict[str, dict[str, str | int]]
+_Determiner = Callable[..., int | str]
+
+ESTIMATE_CLASSIFICATION_SYSTEMS: dict[str, tuple[_ClassesTable, _Determiner]] = {}
+
 
 def _determine_aace_class(
     total_positions: int,
@@ -1204,22 +1265,61 @@ def _determine_aace_class(
     return 1
 
 
+def _determine_ca_class(
+    total_positions: int,
+    rate_pct: float,
+    resource_pct: float,
+) -> str:
+    """Determine Canadian CCA estimate class (D/C/B/A) from completeness.
+
+    Mirrors the AACE thresholds mapped onto the four-letter Canadian scale.
+    """
+    if total_positions < 10 or rate_pct < 30:
+        return "D"
+    if total_positions < 50 or rate_pct < 70:
+        return "C"
+    if total_positions < 100 or resource_pct < 85:
+        return "B"
+    return "A"
+
+
+# Register both systems after the functions are defined.
+ESTIMATE_CLASSIFICATION_SYSTEMS["aace"] = (_AACE_CLASSES, _determine_aace_class)
+ESTIMATE_CLASSIFICATION_SYSTEMS["ca_cca"] = (_CA_CCA_CLASSES, _determine_ca_class)
+
+# Country code to classification system. Extend this mapping when a new
+# jurisdiction ships its own estimate class taxonomy.
+_COUNTRY_CLASSIFICATION_SYSTEM: dict[str, str] = {
+    "CA": "ca_cca",
+}
+
+
+def _resolve_classification_system(country_code: str | None) -> str:
+    """Return the classification system key for a country, defaulting to AACE."""
+    if country_code:
+        return _COUNTRY_CLASSIFICATION_SYSTEM.get(country_code.strip().upper(), "aace")
+    return "aace"
+
+
 def _build_classification(
     total_positions: int,
     positions_with_rates: int,
     positions_with_resources: int,
     positions_with_classification: int,
+    system: str = "aace",
 ) -> EstimateClassificationResponse:
     """Build an EstimateClassificationResponse from raw metric counts."""
     rate_pct = (positions_with_rates / total_positions * 100) if total_positions > 0 else 0.0
     resource_pct = (positions_with_resources / total_positions * 100) if total_positions > 0 else 0.0
     classification_pct = (positions_with_classification / total_positions * 100) if total_positions > 0 else 0.0
 
-    est_class = _determine_aace_class(total_positions, rate_pct, resource_pct)
-    class_info = _AACE_CLASSES[est_class]
+    classes_table, determiner = ESTIMATE_CLASSIFICATION_SYSTEMS.get(system, ESTIMATE_CLASSIFICATION_SYSTEMS["aace"])
+    est_class = determiner(total_positions, rate_pct, resource_pct)
+    class_info = classes_table[est_class]  # type: ignore[index]
 
     return EstimateClassificationResponse(
         estimate_class=est_class,
+        classification_system=system,
         class_label=str(class_info["label"]),
         accuracy_low=str(class_info["accuracy_low"]),
         accuracy_high=str(class_info["accuracy_high"]),
@@ -8029,10 +8129,14 @@ class BOQService:
         ]
         return ActivityLogList(items=items, total=total, offset=offset, limit=limit)
 
-    # ── AACE Estimate Classification ─────────────────────────────────────
+    # ── Estimate Classification ─────────────────────────────────────────
 
     async def get_estimate_classification(self, boq_id: uuid.UUID) -> EstimateClassificationResponse:
-        """Determine AACE 18R-97 estimate class for a BOQ.
+        """Determine the estimate class for a BOQ.
+
+        The classification system is resolved from the project's country_code:
+        Canadian projects use the CCA letter classes (D/C/B/A), everything
+        else defaults to AACE 18R-97 (integer classes 5-1).
 
         Auto-detects class based on:
         - Number of line-item positions (excluding section headers)
@@ -8047,6 +8151,12 @@ class BOQService:
             HTTPException 404 if BOQ not found.
         """
         await self.get_boq(boq_id)
+
+        # Resolve classification system from the project's country.
+        project = await self._project_for_boq(boq_id)
+        country_code = getattr(project, "country_code", None) if project else None
+        system = _resolve_classification_system(country_code)
+
         all_positions = await self.position_repo.list_all_for_boq(boq_id)
 
         # Filter out section headers - only count real line items
@@ -8054,7 +8164,7 @@ class BOQService:
         total_positions = len(items)
 
         if total_positions == 0:
-            return _build_classification(0, 0, 0, 0)
+            return _build_classification(0, 0, 0, 0, system=system)
 
         # Count positions with non-zero unit rates
         positions_with_rates = sum(1 for p in items if _str_to_float(p.unit_rate) > 0)
@@ -8074,6 +8184,7 @@ class BOQService:
             positions_with_rates,
             positions_with_resources,
             positions_with_classification,
+            system=system,
         )
 
     # ── Snapshot operations ────────────────────────────────────────────────

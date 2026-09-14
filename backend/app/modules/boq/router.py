@@ -8867,7 +8867,7 @@ async def get_sensitivity(
 @router.get(
     "/boqs/{boq_id}/classification/",
     response_model=EstimateClassificationResponse,
-    summary="Get AACE estimate classification",
+    summary="Get estimate classification",
     dependencies=[Depends(RequirePermission("boq.read"))],
 )
 async def get_estimate_classification(
@@ -8877,14 +8877,15 @@ async def get_estimate_classification(
     session: SessionDep,
     service: BOQService = Depends(_get_service),
 ) -> EstimateClassificationResponse:
-    """Get the AACE 18R-97 estimate classification for a BOQ.
+    """Get the estimate classification for a BOQ.
 
-    Auto-detects the estimate class (1-5) based on the number of positions,
-    rate completeness, resource completeness, and classification coverage.
+    The classification system is resolved from the project's jurisdiction:
+    AACE 18R-97 (classes 1-5) by default, Canadian CCA (classes D/C/B/A)
+    for Canadian projects, extensible to other systems via pack registration.
 
     Returns:
-        EstimateClassificationResponse with class, accuracy range, definition
-        level, methodology description, and underlying metrics.
+        EstimateClassificationResponse with class, system, accuracy range,
+        definition level, methodology description, and underlying metrics.
     """
     await _verify_boq_owner(session, boq_id, _user_id, payload)
     return await service.get_estimate_classification(boq_id)
