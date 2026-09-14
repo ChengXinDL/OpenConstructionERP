@@ -378,7 +378,10 @@ class CertificateCreate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     subcontractor_id: UUID
-    cert_type: str = Field(..., pattern=r"^(insurance|license|iso|safety|bond)$")
+    cert_type: str = Field(
+        ...,
+        pattern=r"^(insurance|license|iso|safety|bond|wsl_clearance|wsib_clearance|wcb_clearance|attestation_revenu_quebec)$",
+    )
     issued_by: str | None = Field(default=None, max_length=255)
     issue_date: date | None = None
     valid_until: date | None = None
@@ -412,7 +415,10 @@ class CertificateUpdate(BaseModel):
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    cert_type: str | None = Field(default=None, pattern=r"^(insurance|license|iso|safety|bond)$")
+    cert_type: str | None = Field(
+        default=None,
+        pattern=r"^(insurance|license|iso|safety|bond|wsl_clearance|wsib_clearance|wcb_clearance|attestation_revenu_quebec)$",
+    )
     issued_by: str | None = Field(default=None, max_length=255)
     issue_date: date | None = None
     valid_until: date | None = None

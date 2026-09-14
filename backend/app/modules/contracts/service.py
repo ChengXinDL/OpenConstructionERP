@@ -4191,7 +4191,7 @@ def validate_lien_waiver_payload(payload: dict[str, Any]) -> tuple[bool, list[st
     return len(errors) == 0, errors
 
 
-# ── Contract clause templates (FIDIC / JCT / AIA) ────────────────────────
+# ── Contract clause templates (FIDIC / JCT / AIA / CCDC) ────────────────
 
 
 CONTRACT_CLAUSE_TEMPLATES: dict[str, dict[str, Any]] = {
@@ -4326,6 +4326,21 @@ CONTRACT_CLAUSE_TEMPLATES: dict[str, dict[str, Any]] = {
             "8": "Schedule / Delay",
             "6": "Changes",
             "12": "Dispute Resolution",
+        },
+        "retention_release_event": "substantial_completion",
+    },
+    "ccdc_2_2020": {
+        "name": "CCDC 2-2020 - Stipulated Price Contract",
+        "family": "ccdc",
+        "key_clauses": {
+            "GC 5.3": "Progress Payment",
+            "GC 5.7": "Final Payment",
+            "GC 6.1": "Owner's Right to Make Changes",
+            "GC 6.3": "Change Order",
+            "GC 6.5": "Delay in Performance",
+            "GC 6.6": "Claims for a Change in Contract Price",
+            "GC 7.1": "Owner's Right to Perform, Correct or Terminate",
+            "GC 12.1": "Dispute Resolution",
         },
         "retention_release_event": "substantial_completion",
     },

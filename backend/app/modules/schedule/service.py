@@ -23,6 +23,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import noload
 
+from app.core.calendar import _holidays_cn
 from app.core.cpm import readable_exception_dates, readable_work_days
 from app.core.events import event_bus
 from app.core.json_merge import merge_metadata
@@ -301,8 +302,8 @@ def _calc_duration_from_resources(
 
 # ── Regional work calendar configuration ─────────────────────────────────
 # Each entry defines hours_per_day, work_days (weekday indices) and label.
-# There are no holidays here and never have been: compute_duration counts
-# every non-weekend day as a working day, for every region in this table.
+# An entry may carry a ``holidays`` callable (year -> set[date]).
+# compute_duration skips those dates in addition to weekends.
 # weekday(): Monday=0, Tuesday=1, ... Saturday=5, Sunday=6
 #
 # WHAT THIS TABLE IS. The week the planner schedules against, which is not the
@@ -440,14 +441,15 @@ WORK_CALENDARS: dict[str, dict] = {
     # been invented for it. core.calendar._WORKING_WEEK carries Monday-Friday for
     # CN, also uncited, so the two are not evidence for one another.
     #
-    # China's holidays are modelled, but not here: see core.calendar._holidays_cn,
-    # which cites the State Council national holiday measures. That function also
-    # documents the annual arrangement that turns particular weekends into working
-    # days, which neither this table nor the seeded calendar can express.
+    # China's holidays come from core.calendar._holidays_cn, which cites the
+    # State Council national holiday measures. That function also documents the
+    # annual arrangement that turns particular weekends into working days, which
+    # neither this table nor the seeded calendar can express.
     "CHINA": {
         "hours_per_day": 8,
         "work_days": {0, 1, 2, 3, 4, 5},  # Mon-Sat (common in construction)
         "label": "China (Mon-Sat, 8h)",
+        "holidays": _holidays_cn,  # year -> set[date]; Spring Festival et al.
     },
     # 11. India - HI_MUMBAI
     #
@@ -639,8 +641,10 @@ def compute_duration(start_date: str, end_date: str, region: str | None = None) 
     Monday-to-Friday week and is the right answer only when there is no project
     to ask, which is why no caller in the product passes it any more.
 
-    Holidays are not counted here and never have been: every day of the working
-    week between the two dates is a working day.
+    When the resolved calendar carries a ``holidays`` callable (year ->
+    set[date]), those dates are skipped even if they fall on a working weekday.
+    Currently only CHINA carries one (Spring Festival, Qingming, Dragon Boat,
+    Mid-Autumn and the fixed Gregorian holidays).
 
     Args:
         start_date: ISO date string (e.g. "2026-04-01").
@@ -666,10 +670,17 @@ def compute_duration(start_date: str, end_date: str, region: str | None = None) 
     cal = get_work_calendar(region)
     work_days_set = cal["work_days"]
 
+    # Collect holiday dates when the calendar provides a holidays callable.
+    holiday_func = cal.get("holidays")
+    holiday_dates: set[date] = set()
+    if holiday_func is not None:
+        for y in range(start.year, end.year + 1):
+            holiday_dates.update(holiday_func(y))
+
     working_days = 0
     current = start
     while current <= end:
-        if current.weekday() in work_days_set:
+        if current.weekday() in work_days_set and current not in holiday_dates:
             working_days += 1
         current += timedelta(days=1)
 
