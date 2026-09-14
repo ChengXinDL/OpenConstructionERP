@@ -1017,16 +1017,6 @@ based on publicly available information. OpenConstructionERP is an
 independent project and is not affiliated with, endorsed by, or sponsored
 by any third-party trademark owners. Full attributions in [NOTICE](NOTICE).
 
-## Export control
-
-OpenConstructionERP is open-source software, available worldwide. It uses
-only standard cryptography for sign-in (bcrypt password hashing and signed
-JSON Web Tokens) and no bulk data encryption, so it needs no special export
-licence. As with any software, it may not be exported to or used in
-comprehensively sanctioned destinations or by sanctioned parties, and you
-remain responsible for the export and sanctions laws that apply to you. See
-[NOTICE](NOTICE) for details.
-
 ## License
 
 **AGPL-3.0** - see [LICENSE](LICENSE). Third-party attributions in
